@@ -1,7 +1,7 @@
 # Oasis Agent: Robinhood Chain Uni v4 Research and Execution Design
 
-**Date:** 2026-09-03
-**Status:** Draft for user review
+**Date:** 2026-09-02
+**Status:** Approved and implemented in milestones
 **Scope:** Robinhood Chain / Uniswap v4 pool and hook analysis, LP farming research, arbitrage simulation, and guarded execution
 
 ## 1. Purpose and success criteria

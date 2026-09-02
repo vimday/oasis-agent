@@ -553,8 +553,8 @@ git commit -m "feat: add reproducible research cli"
 ## Task 12: Final Verification and Documentation Commit
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-09-03-robinhood-v4-research-execution-design.md` status from `Draft for user review` to `Approved and implemented in milestones` only after all tests pass.
-- Create: `docs/verification/2026-09-03-initial-verification.md`
+- Modify: `docs/superpowers/specs/2026-09-02-robinhood-v4-research-execution-design.md` status from `Draft for user review` to `Approved and implemented in milestones` only after all tests pass.
+- Create: `docs/verification/2026-09-02-initial-verification.md`
 
 **Interfaces:**
 - Verification record contains exact commands, versions, commit hashes, fixture hashes, and pass/fail output summaries.
@@ -586,7 +586,7 @@ Write exact package/tool versions, test count, coverage, report hash, and any bl
 - [ ] **Step 4: Update design status and commit verification.**
 
 ```bash
-git add docs/superpowers/specs/2026-09-03-robinhood-v4-research-execution-design.md docs/verification
+git add docs/superpowers/specs/2026-09-02-robinhood-v4-research-execution-design.md docs/verification
 git commit -m "docs: record initial verification evidence"
 ```
 
