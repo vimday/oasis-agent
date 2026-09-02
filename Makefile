@@ -1,18 +1,19 @@
-.PHONY: test lint format typecheck check report
+.PHONY: install test lint format typecheck check report
 PYTHON ?= python3
+RUNNER ?= $(PYTHON)
 
 install:
-	$(PYTHON) -m pip install -e .
+	$(PYTHON) -m pip install -e '.[dev]'
 
 test:
-	$(PYTHON) -m pytest
+	$(RUNNER) -m pytest
 
 lint:
-	$(PYTHON) -m compileall -q src tests
-	@if command -v ruff >/dev/null 2>&1; then ruff check src tests; else echo 'ruff not installed; compile check passed'; fi
+	$(PYTHON) -m compileall -q src tests scripts
+	@if command -v ruff >/dev/null 2>&1; then ruff check src tests scripts; else echo 'ruff not installed; compile check passed'; fi
 
 format:
-	@if command -v ruff >/dev/null 2>&1; then ruff format src tests; else echo 'ruff not installed'; fi
+	@if command -v ruff >/dev/null 2>&1; then ruff format src tests scripts; else echo 'ruff not installed'; fi
 
 typecheck:
 	@if command -v mypy >/dev/null 2>&1; then mypy src; else echo 'mypy not installed; typecheck skipped'; fi
@@ -20,4 +21,4 @@ typecheck:
 check: lint typecheck test
 
 report:
-	$(PYTHON) scripts/analyze_benchmark.py --fixture --output reports/benchmark-hook-analysis.md
+	PYTHONPATH=src $(PYTHON) scripts/analyze_benchmark.py --fixture --output reports/benchmark-hook-analysis.md
