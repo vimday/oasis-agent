@@ -1,0 +1,29 @@
+{
+  "manifest_created_at": "2026-09-06T03:17:39.091027+00:00",
+  "files": {
+    "audited-runtime-requirements.txt": {
+      "sha256": "efb022b7f103ed1d941bbf0fb80adcfe279bc36aa59edaef2da2f6332ce34dac",
+      "bytes": 724
+    },
+    "bandit.json": {
+      "sha256": "ada897dae12be9315ad8ce7cefba4228e0e97fe5057512de18a645c8fd714518",
+      "bytes": 41865
+    },
+    "coverage.txt": {
+      "sha256": "6a84a89d324b3843d5ac339d9ba2afc3ccd8a161223327869b59df23bb167866",
+      "bytes": 5337
+    },
+    "dependency-audit.json": {
+      "sha256": "0f517f42e3b6940cf4bff614efe82ad8e2af39e153551dce2b8ec7330a148cdc",
+      "bytes": 42476
+    },
+    "make-check.txt": {
+      "sha256": "2f4c601c50e1f13b701b1e7d5dc75effd6c28b7e8985a6186537388fcdda428b",
+      "bytes": 42142
+    },
+    "slither.json": {
+      "sha256": "a4d215e312b6b03d5c2949c34bda5ed9e06c0d27030c02d363cbc380489fc4bf",
+      "bytes": 88870
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "source": "base-sepolia-public",
+  "manifest_created_at": "2026-09-06T02:41:59.656088+00:00",
+  "retrieval_time_status": "original_run_did_not_capture_wallclock_use_file_mtime_as_approximation",
+  "files": {
+    "summary.json": {
+      "sha256": "70dc407d2c653988e3d3b47799e781904c6838ef7905a9385de83a4bd07a6416",
+      "bytes": 980,
+      "file_mtime_utc": "2026-09-06T02:36:20.847393+00:00"
+    },
+    "discovery.json": {
+      "sha256": "2f1353a4b3f1ea7dfe6a2a45fb41d65f4531949d74e2721f3d824424aee56042",
+      "bytes": 229348,
+      "file_mtime_utc": "2026-09-06T02:36:20.845831+00:00"
+    }
+  }
+}
