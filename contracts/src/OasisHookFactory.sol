@@ -29,6 +29,9 @@ contract OasisHookFactory {
         address initialOwner,
         address guardian
     ) public pure returns (bytes32) {
+        // Computes the CREATE2 init code hash from the hook creation bytecode; the
+        // "many digits" finding is a keccak digest comparison, not a numeric literal.
+        // slither-disable-next-line too-many-digits
         return keccak256(
             bytes.concat(
                 type(OasisDynamicFeeHook).creationCode,

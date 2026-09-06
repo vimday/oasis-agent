@@ -67,8 +67,13 @@ contract OasisDynamicFeeHook is IHooks, Ownable2Step {
     event RiskPauseSet(bool paused, address indexed actor);
     event FeeConfigSet(bytes32 indexed poolId, uint64 indexed ruleVersion, FeeConfig config);
 
+    // Immutable constants use SCREAMING_SNAKE (idiomatic Solidity); slither's mixedCase
+    // preference does not apply to immutable constants.
+    // slither-disable-next-line naming-convention
     IPoolManager public immutable POOL_MANAGER;
+    // slither-disable-next-line naming-convention
     IOasisPositionManager public immutable POSITION_MANAGER;
+    // slither-disable-next-line naming-convention
     address public immutable INITIALIZER;
 
     address public guardian;
@@ -362,13 +367,20 @@ contract OasisDynamicFeeHook is IHooks, Ownable2Step {
         if (poolId != boundPoolId) revert PoolBindingImmutable(boundPoolId, poolId);
     }
 
+    // signextend/slt in memory-safe inline assembly avoid overflow-prone Solidity
+    // sign/absolute idioms for packed tick math; both are single-instruction and
+    // covered by boundary tests (INT24_MIN/MAX).
+    // slither-disable-next-line assembly
     function _packedInt24(uint256 value, uint256 shift) private pure returns (int24 result) {
+        // slither-disable-next-line assembly
         assembly ("memory-safe") {
             result := signextend(2, shr(shift, value))
         }
     }
 
+    // slither-disable-next-line assembly
     function _absolute(int256 value) private pure returns (uint256 result) {
+        // slither-disable-next-line assembly
         assembly ("memory-safe") {
             switch slt(value, 0)
             case 0 { result := value }

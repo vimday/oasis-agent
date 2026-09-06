@@ -90,8 +90,13 @@ contract OasisPositionExecutor is Ownable2Step {
     event PausedSet(bool paused, address indexed actor);
     event GuardianSet(address indexed oldGuardian, address indexed newGuardian);
 
+    // Immutable constants use SCREAMING_SNAKE (idiomatic Solidity); slither's mixedCase
+    // preference does not apply to immutable constants.
+    // slither-disable-next-line naming-convention
     IPoolManager public immutable POOL_MANAGER;
+    // slither-disable-next-line naming-convention
     PositionManager public immutable POSITION_MANAGER;
+    // slither-disable-next-line naming-convention
     uint256 public immutable MAX_LIQUIDITY;
 
     address public guardian;
@@ -147,15 +152,21 @@ contract OasisPositionExecutor is Ownable2Step {
         return keccak256(abi.encode(block.chainid, address(this), intent));
     }
 
+    // The execute flow carries 13 decision branches (mode/range/pool/nonce/deadline guards).
+    // Each branch is a single bounded check with a revert; this is deliberately linear rather
+    // than split across helpers so the whole intent is reviewed in one place.
+    // slither-disable-next-line cyclomatic-complexity
     function execute(Intent calldata intent) external onlyOwner {
         if (paused) revert ExecutorPaused();
         if (intent.nonce <= lastNonce) revert StaleNonce(intent.nonce, lastNonce);
         // The canonical v4-periphery deadline check (PositionManager.checkDeadline); a 60-second
         // rebalance deadline window is immune to the bounded timestamp manipulation validators can
         // apply, and the whole intent is owner-signed, so this is expiry enforcement, not an oracle.
-        // slither-disable-next-line timestamp
-        // forge-lint: disable-next-line(block-timestamp)
+        // forge-lint: disable-start(block-timestamp)
+        // slither-disable-start timestamp
         if (block.timestamp > intent.deadline) revert DeadlinePassed(intent.deadline);
+        // slither-disable-end timestamp
+        // forge-lint: disable-end(block-timestamp)
 
         bytes32 poolId = PoolId.unwrap(intent.poolKey.toId());
         if (boundPoolId == bytes32(0)) {
@@ -179,9 +190,11 @@ contract OasisPositionExecutor is Ownable2Step {
         // pool identity is validated via the returned PoolKey above, and the position's recorded
         // tick range is irrelevant to both flows (RECENTER mints the signed new range; REMOVE
         // always burns the full position).
-        // slither-disable-next-line unused-return
-        // forge-lint: disable-next-line(unused-return)
+        // forge-lint: disable-start(unused-return)
+        // slither-disable-start unused-return
         (PoolKey memory recordedKey,) = POSITION_MANAGER.getPoolAndPositionInfo(intent.oldTokenId);
+        // slither-disable-end unused-return
+        // forge-lint: disable-end(unused-return)
         if (PoolId.unwrap(recordedKey.toId()) != poolId) {
             revert PositionPoolMismatch(intent.oldTokenId);
         }
