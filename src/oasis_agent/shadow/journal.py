@@ -11,6 +11,7 @@ import json
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
+from typing import cast
 
 from ..models.chain import BlockSnapshot
 from ..models.common import EvidenceRef, canonical_json
@@ -30,6 +31,9 @@ class ShadowJournal:
         self.db = sqlite3.connect(path)
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS observations (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+        )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS decisions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
         )
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS policy (id INTEGER PRIMARY KEY CHECK(id=1), chain INTEGER NOT NULL, age INTEGER NOT NULL)"
@@ -113,12 +117,13 @@ class ShadowJournal:
                 "strategy_qualification": "unresolved",
             }
             payload = canonical_json(result)
+            digest = hashlib.sha256(payload).hexdigest()
             self.db.execute(
                 "INSERT INTO observations VALUES (?, ?, ?)",
-                (result["seq"], payload, hashlib.sha256(payload).hexdigest()),
+                (result["seq"], payload, digest),
             )
             self.db.commit()
-            return result
+            return result | {"digest": digest}
         except (ValueError, TypeError, KeyError, sqlite3.Error):
             self.db.rollback()
             raise
@@ -143,12 +148,76 @@ class ShadowJournal:
                 "strategy_qualification": "unresolved",
             }
             payload = canonical_json(result)
+            digest = hashlib.sha256(payload).hexdigest()
             self.db.execute(
                 "INSERT INTO observations VALUES (?, ?, ?)",
-                (result["seq"], payload, hashlib.sha256(payload).hexdigest()),
+                (result["seq"], payload, digest),
             )
             self.db.commit()
-            return result
+            return result | {"digest": digest}
+        except (ValueError, TypeError, KeyError, sqlite3.Error):
+            self.db.rollback()
+            raise
+
+    def _last_decision(self) -> dict[str, object] | None:
+        previous = "0" * 64
+        last = None
+        for seq, payload, digest in self.db.execute(
+            "SELECT seq, payload, digest FROM decisions ORDER BY seq"
+        ):
+            data = json.loads(payload)
+            if (
+                data["seq"] != seq
+                or data["previous"] != previous
+                or hashlib.sha256(payload).hexdigest() != digest
+            ):
+                raise ValueError("shadow decision chain corrupted")
+            previous = digest
+            last = data | {"digest": digest}
+        return last
+
+    def decision_records(self) -> tuple[dict[str, object], ...]:
+        """Every decision record in chain order; raises on any tampering."""
+        records = []
+        previous = "0" * 64
+        for seq, payload, digest in self.db.execute(
+            "SELECT seq, payload, digest FROM decisions ORDER BY seq"
+        ):
+            data = json.loads(payload)
+            if (
+                data["seq"] != seq
+                or data["previous"] != previous
+                or hashlib.sha256(payload).hexdigest() != digest
+            ):
+                raise ValueError("shadow decision chain corrupted")
+            previous = digest
+            records.append(data | {"digest": digest})
+        return tuple(records)
+
+    def record_decision(self, payload: dict[str, object]) -> dict[str, object]:
+        """Append one hash-linked LP decision record.
+
+        The journal owns the chain position (``seq``/``previous``); callers
+        supply the decision content only. ``previous`` is the digest of the
+        prior decision record, so a forged or replayed decision cannot extend
+        the audit trail undetected. Health context is linked by the caller
+        through ``health_digest`` in the payload.
+        """
+        if payload.get("schema") != "oasis.shadow-lp-decision.v1":
+            raise ValueError("decision payload schema required")
+        if "seq" in payload or "previous" in payload:
+            raise ValueError("decision chain position is journal-owned")
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            last = self._last_decision()
+            seq = 1 if last is None else int(str(last["seq"])) + 1
+            previous = "0" * 64 if last is None else last["digest"]
+            record = {"seq": seq, "previous": previous, **payload}
+            raw = canonical_json(record)
+            digest = hashlib.sha256(raw).hexdigest()
+            self.db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (seq, raw, digest))
+            self.db.commit()
+            return cast(dict[str, object], json.loads(raw)) | {"digest": digest}
         except (ValueError, TypeError, KeyError, sqlite3.Error):
             self.db.rollback()
             raise
