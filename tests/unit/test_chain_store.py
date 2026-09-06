@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from dataclasses import replace
+from pathlib import Path
+
+from oasis_agent.evidence.chain_store import CanonicalChainStore
+from oasis_agent.models.chain import BlockSnapshot, LogRecord
+from oasis_agent.models.common import BlockRef
+from oasis_agent.rpc.collector import BlockRangeDataset
+
+
+class ChainStoreTests(unittest.TestCase):
+    @staticmethod
+    def block(number: int, value: str, parent: str) -> BlockSnapshot:
+        return BlockSnapshot(BlockRef(4663, number, "0x" + value * 64, 1_000 + number), parent)
+
+    @staticmethod
+    def log(block: BlockSnapshot, value: str, index: int = 0) -> LogRecord:
+        return LogRecord(
+            "0x" + "11" * 20,
+            ("0x" + "22" * 32,),
+            "0x",
+            block.ref.number,
+            "0x" + value * 64,
+            index,
+            block.ref.block_hash,
+            0,
+        )
+
+    def initial(self) -> tuple[BlockSnapshot, BlockSnapshot, BlockSnapshot]:
+        b10 = self.block(10, "a", "0x" + "9" * 64)
+        b11 = self.block(11, "b", b10.ref.block_hash)
+        b12 = self.block(12, "c", b11.ref.block_hash)
+        return b10, b11, b12
+
+    def test_appends_and_atomically_rolls_back_all_streams_on_reorg(self) -> None:
+        b10, b11, b12 = self.initial()
+        b13 = self.block(13, "d", b12.ref.block_hash)
+        alt12 = self.block(12, "e", b11.ref.block_hash)
+        alt13 = self.block(13, "f", alt12.ref.block_hash)
+        with tempfile.TemporaryDirectory() as directory:
+            store = CanonicalChainStore(Path(directory) / "chain.db")
+            first = store.apply(
+                "pool-a",
+                BlockRangeDataset("provider-a", (b10, b11, b12), (self.log(b12, "1"),)),
+            )
+            self.assertEqual(first.inserted_blocks, 3)
+            appended = store.apply(
+                "pool-b",
+                BlockRangeDataset("provider-a", (b12, b13), (self.log(b13, "2"),)),
+            )
+            self.assertEqual(appended.canonical_tip.number, 13)
+
+            reorged = store.apply(
+                "pool-a",
+                BlockRangeDataset(
+                    "provider-a",
+                    (b11, alt12, alt13),
+                    (self.log(alt13, "3"),),
+                ),
+            )
+            self.assertEqual(reorged.reorg_from, 12)
+            self.assertEqual(reorged.removed_blocks, 2)
+            self.assertEqual(
+                tuple(block.ref.block_hash for block in store.blocks(4663)),
+                (
+                    b10.ref.block_hash,
+                    b11.ref.block_hash,
+                    alt12.ref.block_hash,
+                    alt13.ref.block_hash,
+                ),
+            )
+            self.assertEqual(store.logs("pool-b", 4663), ())
+            self.assertEqual(store.logs("pool-a", 4663)[0].block_hash, alt13.ref.block_hash)
+            store.close()
+
+    def test_requires_common_ancestor_and_rejects_forward_gap(self) -> None:
+        b10, b11, b12 = self.initial()
+        alt12 = self.block(12, "e", b11.ref.block_hash)
+        b14 = self.block(14, "f", b12.ref.block_hash)
+        with tempfile.TemporaryDirectory() as directory:
+            store = CanonicalChainStore(Path(directory) / "chain.db")
+            store.apply("pool-a", BlockRangeDataset("provider-a", (b10, b11, b12), ()))
+            with self.assertRaisesRegex(ValueError, "common ancestor"):
+                store.apply("pool-a", BlockRangeDataset("provider-a", (alt12,), ()))
+            with self.assertRaisesRegex(ValueError, "gap"):
+                store.apply("pool-a", BlockRangeDataset("provider-a", (b14,), ()))
+            store.close()
+
+    def test_is_idempotent_for_same_range_and_stream(self) -> None:
+        b10, b11, b12 = self.initial()
+        dataset = BlockRangeDataset("provider-a", (b10, b11, b12), (self.log(b12, "1"),))
+        with tempfile.TemporaryDirectory() as directory:
+            store = CanonicalChainStore(Path(directory) / "chain.db")
+            store.apply("pool-a", dataset)
+            result = store.apply("pool-a", dataset)
+            self.assertEqual(result.inserted_blocks, 0)
+            self.assertIsNone(result.reorg_from)
+            self.assertEqual(store.logs("pool-a", 4663), dataset.logs)
+            store.close()
+
+    def test_narrower_query_cannot_erase_a_streams_retained_events(self) -> None:
+        blocks = self.initial()
+        dataset = BlockRangeDataset("provider-a", blocks, (self.log(blocks[-1], "1"),))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "chain.db"
+            store = CanonicalChainStore(path)
+            store.apply("pool-a", dataset)
+            store.close()
+            store = CanonicalChainStore(path)
+            narrower = replace(dataset, logs=(), topics=("0x" + "99" * 32,))
+            with self.assertRaisesRegex(ValueError, "scope"):
+                store.apply("pool-a", narrower)
+            self.assertEqual(store.logs("pool-a", 4663), dataset.logs)
+            store.close()
+
+    def test_same_block_hash_cannot_silently_replace_timestamp(self) -> None:
+        blocks = self.initial()
+        dataset = BlockRangeDataset("provider-a", blocks, ())
+        with tempfile.TemporaryDirectory() as directory:
+            store = CanonicalChainStore(Path(directory) / "chain.db")
+            store.apply("pool-a", dataset)
+            changed = replace(blocks[-1], ref=replace(blocks[-1].ref, timestamp=2_000))
+            with self.assertRaisesRegex(ValueError, "header"):
+                store.apply("pool-a", replace(dataset, blocks=(*blocks[:-1], changed)))
+            self.assertEqual(store.blocks(4663), blocks)
+            store.close()
+
+
+if __name__ == "__main__":
+    unittest.main()

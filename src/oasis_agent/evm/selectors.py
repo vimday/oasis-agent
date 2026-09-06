@@ -20,9 +20,9 @@ def extract_push4_selectors(bytecode: bytes) -> tuple[SelectorObservation, ...]:
         if 0x60 <= opcode <= 0x7F:
             size = opcode - 0x5F
             if opcode == 0x63 and i + 4 <= len(bytecode):
-                result.append(SelectorObservation("0x" + bytecode[i:i + 4].hex(), offset, None))
+                result.append(SelectorObservation("0x" + bytecode[i : i + 4].hex(), offset, None))
             i += size
         elif opcode == 0x63 and i + 4 <= len(bytecode):
-            result.append(SelectorObservation("0x" + bytecode[i:i + 4].hex(), offset, None))
+            result.append(SelectorObservation("0x" + bytecode[i : i + 4].hex(), offset, None))
             i += 4
     return tuple(result)

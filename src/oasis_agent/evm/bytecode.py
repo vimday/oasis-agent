@@ -3,8 +3,6 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
-from ..models.evm import FeatureSummary
-
 
 @dataclass(frozen=True, slots=True)
 class MetadataResult:
@@ -25,15 +23,21 @@ def extract_cbor_metadata(bytecode: bytes) -> MetadataResult:
     ipfs = None
     bzz = None
     solc = None
-    marker = b"\x69ipfsX\x22\x12\x20"
+    marker = b"ipfs"
     index = raw.find(marker)
-    if index >= 0 and index + len(marker) + 32 <= len(raw):
-        digest = raw[index + len(marker): index + len(marker) + 32]
-        ipfs = _cid_v0(b"\x12\x20" + digest)
-    solc_marker = b"solcC\x00\x08"
+    if index >= 0:
+        value_start = index + len(marker)
+        if (
+            value_start + 2 + 2 + 32 <= len(raw)
+            and raw[value_start : value_start + 2] == b"X\x22"
+            and raw[value_start + 2 : value_start + 4] == b"\x12\x20"
+        ):
+            digest = raw[value_start + 4 : value_start + 36]
+            ipfs = _cid_v0(b"\x12\x20" + digest)
+    solc_marker = b"solcC"
     index = raw.find(solc_marker)
-    if index >= 0 and index + 5 <= len(raw):
-        solc = f"0.{raw[index + 3]}.{raw[index + 4]}"
+    if index >= 0 and index + len(solc_marker) + 3 <= len(raw):
+        solc = f"{raw[index + 5]}.{raw[index + 6]}.{raw[index + 7]}"
     return MetadataResult(ipfs, bzz, solc, raw)
 
 
