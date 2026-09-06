@@ -114,7 +114,7 @@ class JsonRpcTransport:
                         RpcExchange(method, request_id, payload, raw_response, attempt + 1)
                     )
                 decoded = json.loads(raw_response)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, OSError):
                 last_error = RpcError("RPC transport failure (details redacted)")
                 if attempt + 1 < attempts:
                     self._sleep(attempt, deadline)

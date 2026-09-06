@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -175,14 +176,35 @@ def main() -> None:
             timeout=900,
             check=False,
         )
-    manifest.pop("wire")
-    manifest["exit_code"] = result.returncode
-    manifest["preflight_sha256"] = (
-        __import__("hashlib").sha256((args.output / "preflight.json").read_bytes()).hexdigest()
+    # Code hashes are shared by many blocks; they do not uniquely identify state.
+    # Re-read the exact requested height after execution to catch a changed pin.
+    postflight = rpc.get_block_snapshot(args.block)
+    stable_pin = postflight == header
+    (args.output / "postflight.json").write_bytes(
+        canonical_json(
+            {
+                "header": asdict(postflight),
+                "matches_preflight": stable_pin,
+                "wire": [
+                    {
+                        "method": x.method,
+                        "request": x.request_payload.hex(),
+                        "response": x.response_payload.hex(),
+                    }
+                    for x in recorder.exchanges
+                ],
+            }
+        )
     )
+    manifest.pop("wire")
+    manifest["postflight_matches"] = stable_pin
+    manifest["exit_code"] = result.returncode if stable_pin else 1
+    manifest["preflight_sha256"] = hashlib.sha256(
+        (args.output / "preflight.json").read_bytes()
+    ).hexdigest()
     (args.output / "result.json").write_bytes(canonical_json(manifest))
     print(f"Local fork exit {result.returncode}; evidence: {args.output}")
-    raise SystemExit(result.returncode)
+    raise SystemExit(manifest["exit_code"])
 
 
 if __name__ == "__main__":
