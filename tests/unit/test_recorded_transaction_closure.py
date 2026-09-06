@@ -6,6 +6,11 @@ from pathlib import Path
 
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.batch_settlement import reconcile_batch_settlement
+from oasis_agent.farming.price_evidence import (
+    UsdFeedPolicy,
+    replay_price_evidence,
+    value_cost_in_quote,
+)
 from oasis_agent.farming.transaction_costs import replay_transaction_cost
 from oasis_agent.farming.transaction_payments import replay_transaction_payments
 from oasis_agent.models.common import BlockRef, EvidenceRef
@@ -65,4 +70,57 @@ def test_real_op_transaction_cost_includes_l1_not_da_footprint_twice(tmp_path):
     assert cost.l1_native == 7643809493
     assert cost.operator_native == cost.blob_native == 0
     assert cost.total_native == 20092985809493
+    store.close()
+
+
+def test_real_pinned_usd_feeds_value_native_cost_in_quote_units(tmp_path):
+    core = load_core(ROOT / "reports/evidence/base-sepolia-2026-09-06-recorded/resumed-http1")
+    source = BASE / "base-price"
+    shutil.copyfile(source / "evidence.db", tmp_path / "price.db")
+    store = EvidenceStore(tmp_path / "price.db")
+    summary = json.loads((source / "summary.json").read_text())
+    captures = {}
+    for name in ("native", "quote"):
+        feed = summary["feeds"][name]
+        policy = UsdFeedPolicy(
+            core.header.ref.chain_id,
+            feed["address"],
+            feed["base_token"],
+            feed["description"],
+            feed["runtime_keccak"],
+            86_400,
+        )
+        captures[name] = replay_price_evidence(
+            store,
+            ref(feed["evidence"]),
+            header=core.header,
+            policy=policy,
+        )
+    assert captures["native"].reconstruct() == (
+        summary["feeds"]["native"]["answer"],
+        summary["feeds"]["native"]["decimals"],
+    )
+    assert captures["quote"].reconstruct() == (
+        summary["feeds"]["quote"]["answer"],
+        summary["feeds"]["quote"]["decimals"],
+    )
+    shutil.copyfile(BASE / "base-cost-retry/evidence.db", tmp_path / "cost.db")
+    cost_store = EvidenceStore(tmp_path / "cost.db")
+    cost = replay_transaction_cost(
+        cost_store,
+        ref(json.loads((BASE / "base-cost-retry/summary.json").read_text())["evidence"]),
+        header=core.header,
+        transaction_hash=core.entry.transaction_hash,
+    )
+    cost_store.close()
+    valuation = value_cost_in_quote(
+        cost,
+        captures["native"],
+        captures["quote"],
+        quote_token=summary["feeds"]["quote"]["base_token"],
+        quote_decimals=6,
+    )
+    assert valuation.value_quote_units == summary["valuation"]["value_quote_units"] == 49843
+    assert valuation.usd_nominal == summary["valuation"]["usd_nominal_indicative"] == 49838
+    assert valuation.total_native == 20092985809493
     store.close()

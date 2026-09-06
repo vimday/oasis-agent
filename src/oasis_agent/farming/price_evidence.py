@@ -6,16 +6,18 @@ Never assume a stablecoin equals USD. Native/quote conversion requires both feed
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import cast
 
 from eth_hash.auto import keccak
 
-from ..evidence.rpc_validation import decode_exchange, rpc_quantity
+from ..evidence.rpc_validation import decode_exchange, restore_exchanges, rpc_quantity
+from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
 from ..models.common import (
     ZERO_ADDRESS,
     BlockRef,
+    EvidenceRef,
     canonical_json,
     normalize_address,
     normalize_hash32,
@@ -147,6 +149,18 @@ class UsdPriceCapture:
             raise ValueError("invalid, stale, future or incomplete oracle round")
         return a, decimals
 
+    @property
+    def payload(self) -> bytes:
+        return canonical_json(
+            {
+                "schema": "oasis.price-feed.v1",
+                "block": asdict(self.header.ref),
+                "policy": asdict(self.policy),
+                "answer_decimals": list(self.reconstruct()),
+                "source": self.source,
+            }
+        )
+
 
 def value_native_cost(
     cost: TransactionCostCapture,
@@ -169,3 +183,144 @@ def value_native_cost(
     numerator: int = amount * native * 10 ** (qd + quote_decimals)
     denominator: int = 10 ** (18 + nd) * quote
     return (numerator + denominator - 1) // denominator
+
+
+@dataclass(frozen=True, slots=True)
+class CostValuation:
+    chain_id: int
+    transaction_hash: str
+    total_native: int
+    native_answer: int
+    native_decimals: int
+    quote_token: str
+    quote_decimals: int
+    quote_answer: int
+    quote_feed_decimals: int
+    value_quote_units: int
+
+    @property
+    def usd_nominal(self) -> int:
+        """Indicative USD total: quote units scaled by the observed quote/USD feed.
+
+        This is not a peg assumption; it uses the pinned quote feed answer. The
+        figure is a valuation reference, never settlement evidence.
+        """
+        num: int = self.value_quote_units * self.quote_answer
+        den: int = 10**self.quote_feed_decimals
+        return (num + den - 1) // den
+
+
+def value_cost_in_quote(
+    cost: TransactionCostCapture,
+    native_usd: UsdPriceCapture,
+    quote_usd: UsdPriceCapture,
+    *,
+    quote_token: str,
+    quote_decimals: int,
+) -> CostValuation:
+    b = cost.header.ref
+    native, nd = native_usd.reconstruct()
+    quote, qd = quote_usd.reconstruct()
+    total = cost.reconstruct().total_native
+    value = value_native_cost(
+        cost, native_usd, quote_usd, quote_token=quote_token, quote_decimals=quote_decimals
+    )
+    return CostValuation(
+        b.chain_id,
+        cost.transaction_hash,
+        total,
+        native,
+        nd,
+        normalize_address(quote_token),
+        quote_decimals,
+        quote,
+        qd,
+        value,
+    )
+
+
+def persist_price_evidence(store: EvidenceStore, capture: UsdPriceCapture) -> EvidenceRef:
+    p = capture.policy
+    payload = canonical_json(
+        {
+            "schema": "oasis.price-feed.v1",
+            "block": asdict(capture.header.ref),
+            "policy": {
+                "chain_id": p.chain_id,
+                "address": p.address,
+                "base_token": p.base_token,
+                "description": p.description,
+                "runtime_keccak": p.runtime_keccak,
+                "max_age_seconds": p.max_age_seconds,
+            },
+            "answer_decimals": capture.reconstruct(),
+            "source": capture.source,
+        }
+    )
+
+    def envelope(response: bool) -> dict[str, object]:
+        return {
+            "encoding": "hex_exact_bytes",
+            "exchanges": [
+                {
+                    "method": x.method,
+                    "request_id": x.request_id,
+                    "attempt": x.attempt,
+                    "payload": (x.response_payload if response else x.request_payload).hex(),
+                }
+                for x in capture.exchanges
+            ],
+        }
+
+    return store.put(
+        "price_feed",
+        payload,
+        capture.header.ref,
+        capture.source,
+        request=envelope(False),
+        raw_response=envelope(True),
+        interpretation={"scope": "single_usd_feed_observation", "execution_eligible": False},
+    )
+
+
+def replay_price_evidence(
+    store: EvidenceStore, evidence: EvidenceRef, *, header: BlockSnapshot, policy: UsdFeedPolicy
+) -> UsdPriceCapture:
+    if evidence.kind != "price_feed" or evidence.block != header.ref:
+        raise ValueError("price evidence scope mismatch")
+    record = store.get_record(evidence)
+    if record.request_payload is None:
+        raise ValueError("price evidence missing wire requests")
+    capture = UsdPriceCapture(
+        header,
+        policy,
+        evidence.source,
+        restore_exchanges(record.request_payload, record.raw_response_payload),
+    )
+    if capture.payload != record.payload:
+        raise ValueError("price interpretation differs from raw reconstruction")
+    return capture
+
+
+def persist_cost_valuation(
+    store: EvidenceStore, valuation: CostValuation, *, block: BlockRef, source: str
+) -> EvidenceRef:
+    payload = canonical_json(
+        {
+            "schema": "oasis.cost-valuation.v1",
+            "valuation": asdict(valuation),
+            "source": source,
+            "execution_eligible": False,
+            "peg_assumption": False,
+        }
+    )
+    return store.put(
+        "cost_valuation",
+        payload,
+        block,
+        source,
+        interpretation={
+            "scope": "transaction_native_cost_in_quote_units",
+            "execution_eligible": False,
+        },
+    )
