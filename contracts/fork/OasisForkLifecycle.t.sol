@@ -39,20 +39,34 @@ contract OasisForkLifecycleTest is Test {
         uint256 forkId = vm.createSelectFork(vm.envString("OASIS_FORK_RPC"), height);
         assertEq(vm.activeFork(), forkId);
         assertEq(block.chainid, vm.envUint("OASIS_FORK_CHAIN_ID"));
-        // The L2 height anchor is the retained parent hash: a header fetch that
-        // non-archive nodes serve too, and it pins the exact L2 block. The EVM
-        // blockhash cheatcode cannot return the current block, so the parent is
-        // checked here as the independent pin.
-        assertEq(blockhash(height - 1), vm.envBytes32("OASIS_FORK_PARENT_HASH"));
         // Foundry 1.8.1 reports the L1 origin block number as the fork-head
         // block number on chains whose RPC block JSON carries l1BlockNumber
         // (observed on the Arbitrum-Nitro Robinhood endpoint). Preflight records
         // that value; the fork head must equal exactly what the endpoint exposes.
         uint256 l1 = vm.envOr("OASIS_FORK_L1_BLOCK", uint256(0));
         if (l1 == 0) {
+            // Standard chains: pin the requested height and retain the parent hash,
+            // a header fetch that non-archive nodes serve too, and it pins the
+            // exact block. The EVM blockhash cheatcode cannot return the current
+            // block, so the parent is checked here as the independent pin.
             assertEq(vm.getBlockNumber(), height);
+            assertEq(blockhash(height - 1), vm.envBytes32("OASIS_FORK_PARENT_HASH"));
         } else {
+            // On this L2 (Arbitrum-Nitro compatible) the fork head EVM block
+            // number is the L1 origin number, so the blockhash opcode cannot
+            // reach the L2 parent hash: blockhash(L2height - 1) falls below the
+            // 256-block window relative to the L1 number and returns zero. Probe
+            // evidence (ProbeFork.t.sol) also shows in-window blockhash values
+            // are derived from Foundry's own header encoding and are not
+            // independently reproducible from the node's hash field, so they
+            // cannot serve as a pin. Pin the fork head with the exposed L1
+            // number, the L2 head timestamp retained from preflight, and the
+            // state-level codehash assertions below. The in-window blockhash
+            // check is a node-health check only: it fails if the endpoint stops
+            // serving the header window the fork depends on.
             assertEq(vm.getBlockNumber(), l1);
+            assertEq(block.timestamp, vm.envUint("OASIS_FORK_TIMESTAMP"));
+            assertTrue(blockhash(l1 - 1) != bytes32(0));
         }
         manager = IPoolManager(vm.envAddress("OASIS_FORK_POOL_MANAGER"));
         positions = PositionManager(payable(vm.envAddress("OASIS_FORK_POSITION_MANAGER")));

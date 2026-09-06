@@ -84,13 +84,21 @@ def main() -> None:
     header = rpc.get_block_snapshot(args.block)
     # Some L2 node implementations (Arbitrum-Nitro/reth) include l1BlockNumber in
     # the block JSON. Foundry 1.8.1 uses that value as the fork-head block number,
-    # so record it here and pass it to the test as the expected fork head.
+    # so record it here and pass it to the test as the expected fork head. The L2
+    # head timestamp is the L2-valid height anchor: on this L2 the EVM blockhash
+    # opcode is relative to the L1 number, so it cannot reach the L2 parent hash.
     l1_block = 0
+    fork_timestamp = None
     raw_block = rpc.transport.request("eth_getBlockByNumber", [hex(args.block), False])
     if isinstance(raw_block, Mapping):
         raw_l1 = raw_block.get("l1BlockNumber")
         if raw_l1 is not None:
             l1_block = int(str(raw_l1), 16)
+            raw_ts = raw_block.get("timestamp")
+            if raw_ts is not None:
+                fork_timestamp = int(str(raw_ts), 16)
+    if l1_block and fork_timestamp is None:
+        raise ValueError("L2 preflight pinning data unavailable (head timestamp)")
     targets = {"POOL_MANAGER": manager, "POSITION_MANAGER": positions, "PERMIT2": PERMIT2}
     env = os.environ.copy()
     env.update(
@@ -100,6 +108,7 @@ def main() -> None:
         OASIS_FORK_CHAIN_ID=str(chain),
         OASIS_FORK_PARENT_HASH=header.parent_hash,
         OASIS_FORK_L1_BLOCK=str(l1_block),
+        OASIS_FORK_TIMESTAMP=str(fork_timestamp or 0),
     )
     contracts = {}
     for role, address in targets.items():
@@ -136,6 +145,7 @@ def main() -> None:
         "schema": "oasis.local-fork.v1",
         "header": asdict(header),
         "l1_block_number": l1_block if l1_block else None,
+        "fork_timestamp": fork_timestamp if fork_timestamp is not None else None,
         "forge_state_probe": state_probe,
         "source": args.network + "-public",
         "retrieved_at": datetime.now(UTC).isoformat(),
