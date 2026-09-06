@@ -1,0 +1,37 @@
+{
+  "manifest_created_at": "2026-09-06T03:17:39.096007+00:00",
+  "files": {
+    "discovery-wire.jsonl": {
+      "sha256": "5d1b4d469e0d3092205216327d0d8c13d027ecc4f94a32eb7bf0bca87ad6be86",
+      "bytes": 304382
+    },
+    "discovery.json": {
+      "sha256": "a4cdf1eb9033338688477d4268bd49a740810e7e9ae6b60cdba223ec57ce38df",
+      "bytes": 301799
+    },
+    "resumed-http1/evidence.db": {
+      "sha256": "ad0ddc078030ca16a0d0d61a9483e267c67c64c801d6b52fa9572a10560bf8f6",
+      "bytes": 536576
+    },
+    "resumed-http1/settlement-wire.jsonl": {
+      "sha256": "b13d700553490bbca0670bcb5321bad01c01774638f4d7d3d9189b1ad2d24e51",
+      "bytes": 499135
+    },
+    "resumed-http1/snapshot-evidence.json": {
+      "sha256": "a1a504587784e13a22764d0344faca56d31eeddf818c6cb58dbb92b79337fc4a",
+      "bytes": 618
+    },
+    "resumed-http1/snapshot-wire.jsonl": {
+      "sha256": "9e985970b4ae693346ba180235c6c8f1a7563ac8a633965280738c1c619ca1bf",
+      "bytes": 20073
+    },
+    "resumed-http1/summary.json": {
+      "sha256": "94126a54f909a2d7d2d6dedd8bc9a14258c1bc374236bc8a51444cd7f272ba42",
+      "bytes": 3255
+    },
+    "snapshot-wire.jsonl": {
+      "sha256": "821c4a014841202b8a32d94e871bba07130696a4319382e700ac8de7f9079a0e",
+      "bytes": 9669
+    }
+  }
+}
