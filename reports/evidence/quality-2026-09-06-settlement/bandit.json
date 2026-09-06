@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2026-09-06T03:14:51Z",
+  "generated_at": "2026-09-06T05:58:40Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 21,
+      "CONFIDENCE.HIGH": 23,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
-      "SEVERITY.LOW": 20,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.LOW": 23,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 7858,
+      "loc": 8378,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -51,6 +51,19 @@
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 208,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "scripts/run_pinned_fork.py": {
+      "CONFIDENCE.HIGH": 3,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 3,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 129,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -457,6 +470,19 @@
       "nosec": 0,
       "skipped_tests": 0
     },
+    "src/oasis_agent/farming/owner_payments.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 0,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 342,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
     "src/oasis_agent/farming/position_capture.py": {
       "CONFIDENCE.HIGH": 1,
       "CONFIDENCE.LOW": 0,
@@ -531,7 +557,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 114,
+      "loc": 154,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -770,15 +796,15 @@
       "skipped_tests": 0
     },
     "src/oasis_agent/rpc/transport.py": {
-      "CONFIDENCE.HIGH": 2,
+      "CONFIDENCE.HIGH": 1,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 1,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 120,
+      "loc": 129,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -913,445 +939,5 @@
       "skipped_tests": 0
     }
   },
-  "results": [
-    {
-      "code": "5 import json\n6 import subprocess\n7 from dataclasses import asdict\n",
-      "col_offset": 0,
-      "end_col_offset": 17,
-      "filename": "scripts/probe_v4_testnet.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Consider possible security implications associated with the subprocess module.",
-      "line_number": 6,
-      "line_range": [
-        6
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess",
-      "test_id": "B404",
-      "test_name": "blacklist"
-    },
-    {
-      "code": "44     def post(self, payload: bytes) -> bytes:\n45         return subprocess.run(\n46             [\n47                 \"/usr/bin/curl\",\n48                 \"--http1.1\",\n49                 \"--fail\",\n50                 \"--silent\",\n51                 \"--show-error\",\n52                 \"--max-time\",\n53                 \"20\",\n54                 URL,\n55                 \"-H\",\n56                 \"Content-Type: application/json\",\n57                 \"--data-binary\",\n58                 \"@-\",\n59             ],\n60             input=payload,\n61             capture_output=True,\n62             check=True,\n63             timeout=25,\n64         ).stdout\n65 \n",
-      "col_offset": 15,
-      "end_col_offset": 9,
-      "filename": "scripts/probe_v4_testnet.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 78,
-        "link": "https://cwe.mitre.org/data/definitions/78.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "subprocess call - check for execution of untrusted input.",
-      "line_number": 45,
-      "line_range": [
-        45,
-        46,
-        47,
-        48,
-        49,
-        50,
-        51,
-        52,
-        53,
-        54,
-        55,
-        56,
-        57,
-        58,
-        59,
-        60,
-        61,
-        62,
-        63,
-        64
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html",
-      "test_id": "B603",
-      "test_name": "subprocess_without_shell_equals_true"
-    },
-    {
-      "code": "137                 ).fetchone()\n138                 assert row is not None\n139                 removed_blocks = int(row[0])\n",
-      "col_offset": 16,
-      "end_col_offset": 38,
-      "filename": "src/oasis_agent/evidence/chain_store.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 138,
-      "line_range": [
-        138
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "181             for log in dataset.logs:\n182                 assert log.block_hash is not None\n183                 assert log.transaction_index is not None\n",
-      "col_offset": 16,
-      "end_col_offset": 49,
-      "filename": "src/oasis_agent/evidence/chain_store.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 182,
-      "line_range": [
-        182
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "182                 assert log.block_hash is not None\n183                 assert log.transaction_index is not None\n184                 self._connection.execute(\n",
-      "col_offset": 16,
-      "end_col_offset": 56,
-      "filename": "src/oasis_agent/evidence/chain_store.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 183,
-      "line_range": [
-        183
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "207         tip = self.tip(chain_id)\n208         assert tip is not None\n209         return ChainApplyResult(\n",
-      "col_offset": 8,
-      "end_col_offset": 30,
-      "filename": "src/oasis_agent/evidence/chain_store.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 208,
-      "line_range": [
-        208
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "89     requests, responses = request[\"exchanges\"], response[\"exchanges\"]\n90     assert isinstance(requests, list) and isinstance(responses, list)\n91     if not requests or len(requests) != len(responses):\n",
-      "col_offset": 4,
-      "end_col_offset": 69,
-      "filename": "src/oasis_agent/evidence/rpc_validation.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 90,
-      "line_range": [
-        90
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "184         amount1 = item.entry.owner_amount1\n185         assert amount0 is not None\n186         assert amount1 is not None\n",
-      "col_offset": 8,
-      "end_col_offset": 34,
-      "filename": "src/oasis_agent/farming/accounting_replay.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 185,
-      "line_range": [
-        185
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "185         assert amount0 is not None\n186         assert amount1 is not None\n187         quote_value = value_in_currency1(amount0, amount1, item.valuation.price_x192)\n",
-      "col_offset": 8,
-      "end_col_offset": 34,
-      "filename": "src/oasis_agent/farming/accounting_replay.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 186,
-      "line_range": [
-        186
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "90                 call, pin = params\n91                 assert isinstance(call, dict)\n92                 if set(call) != {\"to\", \"data\"}:\n",
-      "col_offset": 16,
-      "end_col_offset": 45,
-      "filename": "src/oasis_agent/farming/position_capture.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 91,
-      "line_range": [
-        91
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "266             raise ValueError(\"core event conflicts with the target NFT pool/range\")\n267         assert log.transaction_index is not None\n268         entries.append(\n",
-      "col_offset": 8,
-      "end_col_offset": 48,
-      "filename": "src/oasis_agent/farming/position_dataset.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 267,
-      "line_range": [
-        267
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "306         if entry.settlement_resolved:\n307             assert entry.owner_amount0 is not None\n308             assert entry.owner_amount1 is not None\n",
-      "col_offset": 12,
-      "end_col_offset": 50,
-      "filename": "src/oasis_agent/farming/position_ledger.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 307,
-      "line_range": [
-        307
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "307             assert entry.owner_amount0 is not None\n308             assert entry.owner_amount1 is not None\n309             amount0 += entry.owner_amount0\n",
-      "col_offset": 12,
-      "end_col_offset": 50,
-      "filename": "src/oasis_agent/farming/position_ledger.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 308,
-      "line_range": [
-        308
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "120             validate_lp_fee(state.previous_fee)\n121             assert state.previous_fee_timestamp is not None\n122             elapsed = min(\n",
-      "col_offset": 12,
-      "end_col_offset": 59,
-      "filename": "src/oasis_agent/farming/strategy.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 121,
-      "line_range": [
-        121
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "28             raise ValueError(\"block range parent hash mismatch\")\n29         assert current.ref.timestamp is not None\n30         assert previous.ref.timestamp is not None\n",
-      "col_offset": 8,
-      "end_col_offset": 48,
-      "filename": "src/oasis_agent/rpc/collector.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 29,
-      "line_range": [
-        29
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "29         assert current.ref.timestamp is not None\n30         assert previous.ref.timestamp is not None\n31         if current.ref.timestamp < previous.ref.timestamp:\n",
-      "col_offset": 8,
-      "end_col_offset": 49,
-      "filename": "src/oasis_agent/rpc/collector.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 30,
-      "line_range": [
-        30
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "39         )\n40         with urllib.request.urlopen(request, timeout=self.timeout) as response:\n41             return cast(bytes, response.read())\n",
-      "col_offset": 13,
-      "end_col_offset": 66,
-      "filename": "src/oasis_agent/rpc/transport.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 22,
-        "link": "https://cwe.mitre.org/data/definitions/22.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected.",
-      "line_number": 40,
-      "line_range": [
-        40
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen",
-      "test_id": "B310",
-      "test_name": "blacklist"
-    },
-    {
-      "code": "131         if self._jitter_seconds:\n132             delay += random.uniform(0, self._jitter_seconds)\n133         remaining = deadline - time.monotonic()\n",
-      "col_offset": 21,
-      "end_col_offset": 60,
-      "filename": "src/oasis_agent/rpc/transport.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 330,
-        "link": "https://cwe.mitre.org/data/definitions/330.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Standard pseudo-random generators are not suitable for security/cryptographic purposes.",
-      "line_number": 132,
-      "line_range": [
-        132
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b311-random",
-      "test_id": "B311",
-      "test_name": "blacklist"
-    },
-    {
-      "code": "217             raise ValueError(\"block parent hash does not match prior snapshot\")\n218         assert current.ref.timestamp is not None\n219         assert previous.ref.timestamp is not None\n",
-      "col_offset": 8,
-      "end_col_offset": 48,
-      "filename": "src/oasis_agent/uniswap_v4/replay.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 218,
-      "line_range": [
-        218
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "218         assert current.ref.timestamp is not None\n219         assert previous.ref.timestamp is not None\n220         if current.ref.timestamp < previous.ref.timestamp:\n",
-      "col_offset": 8,
-      "end_col_offset": 49,
-      "filename": "src/oasis_agent/uniswap_v4/replay.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 219,
-      "line_range": [
-        219
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    },
-    {
-      "code": "308     observation = event.observation\n309     assert observation.fee is not None\n310     no_fill = observation.amount0 == 0 and observation.amount1 == 0\n",
-      "col_offset": 4,
-      "end_col_offset": 38,
-      "filename": "src/oasis_agent/uniswap_v4/replay.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 703,
-        "link": "https://cwe.mitre.org/data/definitions/703.html"
-      },
-      "issue_severity": "LOW",
-      "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.",
-      "line_number": 309,
-      "line_range": [
-        309
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b101_assert_used.html",
-      "test_id": "B101",
-      "test_name": "assert_used"
-    }
-  ]
+  "results": []
 }
