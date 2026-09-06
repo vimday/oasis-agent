@@ -82,9 +82,15 @@ autonomous trader. Its current verified boundary is:
 - `src/oasis_agent/rpc` and `evidence` provide block-pinned acquisition and provenance primitives;
 - `evm`, `uniswap_v4`, and `farming` provide preliminary decoding, replay, position-accounting,
   counterfactual, and flow-attribution components;
-- `execution` and `risk` now contain unit-tested LP planning modules (band-table fee strategy,
-  rebalance state machine, range/inventory controller, canary sizing and failure matrix), but
-  they are not yet wired into a live or shadow flow, so `arbitrage` remains scaffolding;
+- `execution`, `risk`, and `shadow` now contain unit-tested LP planning and observation-only
+  decision modules (band-table fee strategy, rebalance state machine, range/inventory
+  controller, canary sizing and failure matrix, hash-linked shadow LP decision runner with
+  `execution_eligible` always False); they are wired into a shadow decision-journaling flow
+  but not into any live or canary execution, so `arbitrage` remains scaffolding;
+- `farming` attribution now includes uniquely attributed multi-position owner cash
+  (`batch_owner_cash_payload`, fails closed on shared tokens/third parties/native currency)
+  and native owner payment attribution with gas reconciliation (`native_payments.py`,
+  chain-specific L1 gas policies), both unit-tested;
 - CLI fixture commands are not evidence of a working backtester, simulator, or executor;
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a
