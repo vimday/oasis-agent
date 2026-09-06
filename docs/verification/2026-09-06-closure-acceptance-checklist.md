@@ -64,6 +64,6 @@ git diff --check
 | 独立安全审计 | 未委托 | 第三节复核人签署结论 |
 | 逐仓位 owner 现金归属 | 未解析 | 6 NFT 核心结算已对账，但 owner 现金分配仍 `unresolved`；不得把整笔净额分给任意 NFT |
 | 动态手续费超额收益 | 未证明 | 样本外被动 LP/静态费基准、路由弹性、全成本后净收益 |
-| 真实 Permit2 完整生命周期 | 未验证 | 现为 transfer-only mock；需真实 Permit2 与恶意代币/重入/回调战役 |
+| 真实 Permit2 完整生命周期 | 未验证（happy-path 已 fork 验证） | `OasisForkLifecycle.t.sol` 已用真实链上 Permit2（`OASIS_FORK_PERMIT2` + codehash 断言）走 `permit2.transferFrom` 结算完成 mint→swap→collect→revoke→unwind；仍缺恶意代币/重入/回调战役与多账户并发 |
 
 短时健康观察、合成用例与单提供者测试网证据均**不替代**上述验收。任何报告不得把本轮结果描述为上线收益或已审计系统。

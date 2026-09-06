@@ -82,11 +82,14 @@ autonomous trader. Its current verified boundary is:
 - `src/oasis_agent/rpc` and `evidence` provide block-pinned acquisition and provenance primitives;
 - `evm`, `uniswap_v4`, and `farming` provide preliminary decoding, replay, position-accounting,
   counterfactual, and flow-attribution components;
-- `arbitrage`, `risk`, and `execution` remain incomplete research scaffolding;
+- `execution` and `risk` now contain unit-tested LP planning modules (band-table fee strategy,
+  rebalance state machine, range/inventory controller, canary sizing and failure matrix), but
+  they are not yet wired into a live or shadow flow, so `arbitrage` remains scaffolding;
 - CLI fixture commands are not evidence of a working backtester, simulator, or executor;
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
-  owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, and
-  canonical-core local integration tests;
+  owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a
+  bounded atomic RECENTER/REMOVE position executor with nonce/deadline/pool-binding guards, and
+  canonical-core local integration tests for both;
 - official v4-periphery PositionManager first mint/revocation/removal is exercised locally using a
   transfer-only Permit2 mock; this does not validate real Permit2 or the full NFT lifecycle;
 - a retained single-provider Base Sepolia snapshot/receipt/trace sample supports per-NFT core-delta

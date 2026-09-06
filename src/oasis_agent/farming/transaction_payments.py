@@ -3,6 +3,17 @@
 Receipt cashflows are reconciled to full-block balance and supply changes. They
 are not silently assigned to NFTs: inter-position netting has no unique physical
 payment allocation. Token semantics and independent finality remain research gates.
+
+Scope and fail-closed boundaries:
+
+- Only standard ERC-20 Transfer events (exactly three topics) scope tokens and
+  accounts. A non-standard Transfer on the same token in the same block
+  (topic0 == Transfer but topic count != 3) fails the whole reconstruction
+  instead of being silently dropped; malformed or exotic token behavior must
+  never produce a partial ledger.
+- Reconciliation verifies both the per-account block balance delta and the
+  total supply delta, so refunds and burns must agree with on-chain state
+  changes in full-base-unit precision.
 """
 
 from __future__ import annotations
