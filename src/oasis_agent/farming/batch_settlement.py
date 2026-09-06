@@ -22,6 +22,7 @@ from .position_ledger import PositionLedgerEntry
 from .position_settlement import (
     MODIFY_SELECTOR,
     MODIFY_TYPES,
+    PositionCoreSettlement,
     PositionSettlementCapture,
     _mapping,
     _text,
@@ -185,17 +186,17 @@ def resolve_batch_owner_cash(
         for currency in (capture.pool_key.currency0, capture.pool_key.currency1):
             currency_positions[currency] = currency_positions.get(currency, 0) + 1
     claim: dict[str, int] = {}
-    settlements: list[PositionSettlementCapture] = []
+    settlements: list[tuple[PositionSettlementCapture, PositionCoreSettlement]] = []
     for capture in captures:
-        result = capture.reconstruct()
-        if result.caller_delta is None:
+        core = capture.reconstruct()
+        if core.caller_delta is None:
             raise ValueError("batch needs complete core return data")
         for currency, amount in (
-            (capture.pool_key.currency0, result.caller_delta.amount0),
-            (capture.pool_key.currency1, result.caller_delta.amount1),
+            (capture.pool_key.currency0, core.caller_delta.amount0),
+            (capture.pool_key.currency1, core.caller_delta.amount1),
         ):
             claim[currency] = claim.get(currency, 0) + amount
-        settlements.append((capture, result))
+        settlements.append((capture, core))
     owner_flows = {x.token: x.net for x in cashflows if x.account == owner}
     if claim.keys() != owner_flows.keys():
         raise ValueError("owner flow scope differs from position claim scope")
@@ -209,6 +210,9 @@ def resolve_batch_owner_cash(
                 raise UnsupportedBatchAllocation(
                     "shared token pair between positions cannot be physically attributed"
                 )
+        if settlement.caller_delta is None:
+            raise ValueError("batch needs complete core return data")
+        caller_delta = settlement.caller_delta
         fees = settlement.fees_accrued
         result.append(
             BatchOwnerCash(
@@ -217,8 +221,8 @@ def resolve_batch_owner_cash(
                 capture.entry.log_index,
                 capture.pool_key.currency0,
                 capture.pool_key.currency1,
-                settlement.caller_delta.amount0,
-                settlement.caller_delta.amount1,
+                caller_delta.amount0,
+                caller_delta.amount1,
                 fees.amount0 if fees is not None else 0,
                 fees.amount1 if fees is not None else 0,
             )
@@ -226,9 +230,7 @@ def resolve_batch_owner_cash(
     return tuple(result)
 
 
-def batch_owner_cash_payload(
-    payments: TransactionPaymentCapture, owner: str
-) -> bytes:
+def batch_owner_cash_payload(payments: TransactionPaymentCapture, owner: str) -> bytes:
     """Evidence payload for a uniquely attributed batch owner cash allocation."""
     allocations = resolve_batch_owner_cash(payments, owner)
     return canonical_json(

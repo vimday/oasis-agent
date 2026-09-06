@@ -106,7 +106,8 @@ def second_position(core, *, key, salt, params, amounts, paid):
                         ],
                     )
                 ).hex(),
-                "output": "0x" + b"".join(x.to_bytes(16, "big", signed=True) for x in amounts).hex(),
+                "output": "0x"
+                + b"".join(x.to_bytes(16, "big", signed=True) for x in amounts).hex(),
                 "calls": [],
             }
         )
@@ -123,7 +124,8 @@ def second_position(core, *, key, salt, params, amounts, paid):
                 ],
                 data="0x"
                 + b"".join(
-                    x.to_bytes(32, "big", signed=True) for x in (params[0], params[1], params[2], salt)
+                    x.to_bytes(32, "big", signed=True)
+                    for x in (params[0], params[1], params[2], salt)
                 ).hex(),
                 logIndex=hex(3),
             )
@@ -162,7 +164,12 @@ def test_two_pool_batch_attributes_each_position_physically():
     payments = payment_fixture()
     key_b = PoolKey("0x" + "88" * 20, "0x" + "99" * 20, 3000, 60, ZERO_ADDRESS)
     core = second_position(
-        payments.core, key=key_b, salt=8, params=(-60, 60, 10), amounts=(-30, -40, 5, 6), paid=(30, 40)
+        payments.core,
+        key=key_b,
+        salt=8,
+        params=(-60, 60, 10),
+        amounts=(-30, -40, 5, 6),
+        paid=(30, 40),
     )
     allocations = resolve_batch_owner_cash(rebuild_payments(payments, core), OWNER)
     assert len(allocations) == 2
