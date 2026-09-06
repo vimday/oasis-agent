@@ -1,0 +1,48 @@
+schema_version = 1
+retrieved_at = "2026-09-04"
+purpose = "research_reference_only"
+
+[v4_core]
+repository = "https://github.com/Uniswap/v4-core"
+commit = "46c6834698c48bc4a463a86d8420f4eb1d7f3b75"
+status = "commit_pinned_upstream_semantics"
+
+[v4_periphery]
+repository = "https://github.com/Uniswap/v4-periphery"
+commit = "dce236d4e2057422d0791d9a973a58765eb46f65"
+status = "commit_pinned_upstream_semantics"
+
+[robinhood_deployment_identity]
+chain_id = 4663
+pool_manager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+observed_position_manager = "0x58daec3116aae6d93017baaea7749052e8a04fa7"
+state_view = "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b"
+quoter = "0x8dc178efb8111bb0973dd9d722ebeff267c98f94"
+universal_router = "0x8876789976decbfcbbbe364623c63652db8c0904"
+address_source = "https://developers.uniswap.org/docs/protocols/v4/deployments"
+address_mapping_status = "confirmed_official_current_mapping"
+pool_manager_upstream_match = "unresolved"
+position_manager_upstream_match = "unresolved"
+state_view_upstream_match = "unresolved"
+
+[single_provider_reconnaissance]
+status = "observed_not_production_evidence"
+provider = "https://rpc.mainnet.chain.robinhood.com"
+block_number = 53907118
+block_hash = "0x6ac41f945c1a6ccf4595a37a4cb077ea9a31ad50f683a8a2197ab20b129baad9"
+timestamp_utc = "2026-09-04T02:24:26+00:00"
+eip_1898_require_canonical = true
+position_manager_pool_manager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+state_view_pool_manager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+pool_manager_runtime_bytes = 24009
+pool_manager_runtime_keccak = "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626"
+position_manager_runtime_bytes = 23877
+position_manager_runtime_keccak = "0xc873e135dc9aaec88489cfbad146b4cb49d6a32e0d80326377784b7ba17670b2"
+state_view_runtime_bytes = 3531
+state_view_runtime_keccak = "0x7d9c591e0956fd89d98feb4ffcfe8bf1f7a62bd485edd979fa21d104b49878a6"
+
+[promotion_guard]
+allow_deployment = false
+allow_signing = false
+allow_broadcast = false
+note = "Upstream commits are not proof of deployed bytecode identity. Resolve addresses, constructor immutables, runtime code hashes, compiler settings, and fork behavior first."
