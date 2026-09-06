@@ -37,6 +37,9 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 class _UrlLibPoster:
     def __init__(self, url: str, timeout: float) -> None:
         parsed = urllib.parse.urlsplit(url)
+        # nosec B310
+        # scheme is allowlisted to http/https and redirects are forbidden by
+        # _NoRedirect, so file:/ and custom schemes cannot be opened.
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             raise ValueError("RPC requires an HTTP(S) endpoint")
         self.url = url
@@ -111,7 +114,7 @@ class JsonRpcTransport:
                         RpcExchange(method, request_id, payload, raw_response, attempt + 1)
                     )
                 decoded = json.loads(raw_response)
-            except Exception:
+            except (ValueError, TypeError):
                 last_error = RpcError("RPC transport failure (details redacted)")
                 if attempt + 1 < attempts:
                     self._sleep(attempt, deadline)
