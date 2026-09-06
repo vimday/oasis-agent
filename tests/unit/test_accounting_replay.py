@@ -100,11 +100,14 @@ class PositionAccountingReplayTests(unittest.TestCase):
 
     def test_complete_replay_outputs_components_and_cash_flow_pnl(self) -> None:
         entry = self.entry(True)
+        opening = self.snapshot(self.b0, 100)
+        closing = self.snapshot(self.b2, 120)
         ledger = build_position_token_ledger(
-            self.snapshot(self.b0, 100),
-            self.snapshot(self.b2, 120),
+            opening,
+            closing,
             (entry,),
             canonical_blocks=self.canonical_blocks,
+            ownership_replay=replay_position_ownership(opening, closing, ()),
         )
         report = replay_position_accounting(
             ledger,
@@ -196,6 +199,60 @@ class PositionAccountingReplayTests(unittest.TestCase):
             beneficial_owner_continuity_evidence=continuity,
         )
         self.assertEqual(resolved.status, AccountingReplayStatus.COMPLETE)
+
+    def test_round_trip_owner_transfer_does_not_prove_beneficial_continuity(self) -> None:
+        opening = self.snapshot(self.b0, 100)
+        closing = self.snapshot(self.b2, 100)
+        other = "0x" + "99" * 20
+        outgoing = PositionTransferEvent(
+            self.b1, "0x" + "88" * 32, 1, 2, self.manager, self.owner, other, 7
+        )
+        incoming = replace(outgoing, log_index=3, from_owner=other, to_owner=self.owner)
+        ownership = replay_position_ownership(opening, closing, (outgoing, incoming))
+        ledger = build_position_token_ledger(
+            opening,
+            closing,
+            (),
+            canonical_blocks=self.canonical_blocks,
+            ownership_replay=ownership,
+        )
+        result = replay_position_accounting(
+            ledger, self.valuation(self.b0), self.valuation(self.b2), ()
+        )
+        self.assertEqual(result.status, AccountingReplayStatus.UNRESOLVED_OWNERSHIP)
+        self.assertIsNone(result.net_pnl1)
+
+    def test_missing_ownership_replay_cannot_prove_continuity(self) -> None:
+        ledger = build_position_token_ledger(
+            self.snapshot(self.b0, 100),
+            self.snapshot(self.b2, 100),
+            (),
+            canonical_blocks=self.canonical_blocks,
+        )
+        result = replay_position_accounting(
+            ledger, self.valuation(self.b0), self.valuation(self.b2), ()
+        )
+        self.assertEqual(result.status, AccountingReplayStatus.UNRESOLVED_OWNERSHIP)
+        self.assertIsNone(result.net_pnl1)
+
+    def test_self_transfer_does_not_require_beneficial_owner_attestation(self) -> None:
+        opening = self.snapshot(self.b0, 100)
+        closing = self.snapshot(self.b2, 100)
+        transfer = PositionTransferEvent(
+            self.b1, "0x" + "88" * 32, 1, 2, self.manager, self.owner, self.owner, 7
+        )
+        ledger = build_position_token_ledger(
+            opening,
+            closing,
+            (),
+            canonical_blocks=self.canonical_blocks,
+            ownership_replay=replay_position_ownership(opening, closing, (transfer,)),
+        )
+        result = replay_position_accounting(
+            ledger, self.valuation(self.b0), self.valuation(self.b2), ()
+        )
+        self.assertEqual(result.status, AccountingReplayStatus.COMPLETE)
+        self.assertEqual(result.net_pnl1, 0)
 
 
 if __name__ == "__main__":

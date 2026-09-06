@@ -125,6 +125,33 @@ def test_builds_ledger_from_raw_core_and_nft_events_without_mirror(tmp_path: Pat
     assert result.ledger.cumulative_owner_amount1 is None
 
 
+@pytest.mark.parametrize("token_id", [7, 8])
+def test_complete_nft_stream_accepts_target_and_other_self_transfers(
+    tmp_path: Path, token_id: int
+) -> None:
+    opening, closing, core, nft = scenario()
+    transfer = nft.logs[0]
+    self_transfer = replace(
+        transfer,
+        topics=(
+            TRANSFER_TOPIC,
+            address_topic(OWNER),
+            address_topic(OWNER),
+            "0x" + token_id.to_bytes(32, "big").hex(),
+        ),
+    )
+    result = run_replay(
+        tmp_path,
+        opening,
+        replace(closing, nft_owner=OWNER),
+        core,
+        replace(nft, logs=(self_transfer,)),
+    )
+    assert result.ledger.ownership_replay.final_owner == OWNER
+    assert len(result.ledger.ownership_replay.transfers) == (1 if token_id == 7 else 0)
+    assert result.ledger.cumulative_owner_amount0 is None
+
+
 def test_missing_liquidity_or_transfer_events_cannot_close_ledger(tmp_path: Path) -> None:
     opening, closing, core, nft = scenario()
     with pytest.raises(ValueError, match="closing snapshot"):

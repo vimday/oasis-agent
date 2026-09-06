@@ -110,6 +110,43 @@ class PositionLedgerTests(unittest.TestCase):
             (ledger.cumulative_owner_amount0, ledger.cumulative_owner_amount1), (-50, -80)
         )
 
+    def test_ownership_replay_must_match_canonical_lineage_and_recomputed_state(self) -> None:
+        closing = replace(self.closing, nft_owner="0x" + "99" * 20)
+        transfer = PositionTransferEvent(
+            self.event_block,
+            "0x" + "88" * 32,
+            1,
+            3,
+            self.manager,
+            self.owner,
+            closing.nft_owner,
+            7,
+        )
+        ownership = replay_position_ownership(self.opening, closing, (transfer,))
+        invalid_replays = (
+            replace(
+                ownership,
+                transfers=(
+                    replace(transfer, block=replace(self.event_block, block_hash="0x" + "ff" * 32)),
+                ),
+            ),
+            replace(
+                ownership,
+                transfers=(replace(transfer, block=replace(self.event_block, timestamp=2_000)),),
+            ),
+            replace(ownership, transfers=()),
+            replace(ownership, final_owner=self.owner),
+        )
+        for invalid in invalid_replays:
+            with self.subTest(replay=invalid), self.assertRaises(ValueError):
+                build_position_token_ledger(
+                    self.opening,
+                    closing,
+                    (self.entry(),),
+                    canonical_blocks=self.canonical_blocks,
+                    ownership_replay=invalid,
+                )
+
     def test_unresolved_settlement_never_emits_partial_totals(self) -> None:
         ledger = build_position_token_ledger(
             self.opening,

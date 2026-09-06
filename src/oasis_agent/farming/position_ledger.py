@@ -6,7 +6,7 @@ from enum import Enum
 from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, normalize_hash32
 from ..models.v4 import ModifyLiquidityObservation
-from .position_ownership import PositionOwnershipReplay
+from .position_ownership import PositionOwnershipReplay, replay_position_ownership
 from .positions import UINT128_MAX, PositionSnapshot
 
 
@@ -265,6 +265,14 @@ def build_position_token_ledger(
             raise ValueError("NFT owner changed without an ownership replay")
     elif ownership_replay.opening != opening or ownership_replay.closing != closing:
         raise ValueError("ownership replay does not match the ledger snapshots")
+    else:
+        canonical_refs = {block.ref.number: block.ref for block in canonical_blocks}
+        for transfer in ownership_replay.transfers:
+            if canonical_refs.get(transfer.block.number) != transfer.block:
+                raise ValueError("ownership transfer does not match canonical lineage")
+        recomputed = replay_position_ownership(opening, closing, ownership_replay.transfers)
+        if recomputed != ownership_replay:
+            raise ValueError("ownership replay does not match recomputed state")
     positions = tuple(entry.position for entry in entries)
     if positions != tuple(sorted(positions)) or len(set(positions)) != len(positions):
         raise ValueError("position ledger entries must be in strict event order")
