@@ -24,6 +24,7 @@ dev = [
     "coverage>=7.16",
     "bandit>=1.9.4",
     "pip-audit>=2.10.1",
+    "slither-analyzer>=0.10",
     "setuptools>=82",
     "wheel>=0.46",
 ]
