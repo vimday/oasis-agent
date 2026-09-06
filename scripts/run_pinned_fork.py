@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
+from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
 
@@ -33,25 +35,28 @@ PERMIT2 = "0x000000000022d473030f116ddee9f6b43ac78ba3"
 
 
 class PublicPoster:
-    def __init__(self, url: str):
+    def __init__(self, url: str, user_agent: str | None = None):
         self.url = url
+        self.user_agent = user_agent
 
     def post(self, payload: bytes) -> bytes:
+        command = [
+            "/usr/bin/curl",
+            "--http1.1",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "20",
+            self.url,
+            "-H",
+            "Content-Type: application/json",
+        ]
+        if self.user_agent is not None:
+            command += ["-A", self.user_agent]
+        command += ["--data-binary", "@-"]
         return subprocess.run(
-            [
-                "/usr/bin/curl",
-                "--http1.1",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "20",
-                self.url,
-                "-H",
-                "Content-Type: application/json",
-                "--data-binary",
-                "@-",
-            ],
+            command,
             input=payload,
             capture_output=True,
             check=True,
@@ -77,6 +82,15 @@ def main() -> None:
         expected_chain_id=chain,
     )
     header = rpc.get_block_snapshot(args.block)
+    # Some L2 node implementations (Arbitrum-Nitro/reth) include l1BlockNumber in
+    # the block JSON. Foundry 1.8.1 uses that value as the fork-head block number,
+    # so record it here and pass it to the test as the expected fork head.
+    l1_block = 0
+    raw_block = rpc.transport.request("eth_getBlockByNumber", [hex(args.block), False])
+    if isinstance(raw_block, Mapping):
+        raw_l1 = raw_block.get("l1BlockNumber")
+        if raw_l1 is not None:
+            l1_block = int(str(raw_l1), 16)
     targets = {"POOL_MANAGER": manager, "POSITION_MANAGER": positions, "PERMIT2": PERMIT2}
     env = os.environ.copy()
     env.update(
@@ -85,6 +99,7 @@ def main() -> None:
         OASIS_FORK_BLOCK=str(args.block),
         OASIS_FORK_CHAIN_ID=str(chain),
         OASIS_FORK_PARENT_HASH=header.parent_hash,
+        OASIS_FORK_L1_BLOCK=str(l1_block),
     )
     contracts = {}
     for role, address in targets.items():
@@ -97,9 +112,31 @@ def main() -> None:
         env["OASIS_FORK_" + role + "_HASH"] = digest
     if rpc.get_block_snapshot(args.block) != header:
         raise ValueError("fork preflight block changed")
+    # Mirror the state-access path Foundry uses so a non-archive public endpoint
+    # is diagnosed here instead of surfacing as an opaque forge failure. The
+    # probe uses the same User-Agent as forge (foundry/<version>) because the
+    # endpoint routes backends by UA.
+    probe_poster = PublicPoster(url, user_agent="foundry/1.8.1")
+    probe_payload = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": "eth_getCode", "params": [manager, hex(args.block)]}
+    ).encode()
+    state_probe: dict[str, object] = {"available": False, "error": None}
+    try:
+        parsed = json.loads(probe_poster.post(probe_payload))
+        code = parsed.get("result") if isinstance(parsed, Mapping) else None
+        state_probe["available"] = isinstance(code, str) and code not in {"", "0x"}
+        if not state_probe["available"]:
+            error = parsed.get("error") if isinstance(parsed, Mapping) else parsed
+            state_probe["error"] = (
+                str(error.get("message", error)) if isinstance(error, Mapping) else str(error)
+            )
+    except (ValueError, TypeError, OSError) as exc:
+        state_probe["error"] = str(exc)
     manifest = {
         "schema": "oasis.local-fork.v1",
         "header": asdict(header),
+        "l1_block_number": l1_block if l1_block else None,
+        "forge_state_probe": state_probe,
         "source": args.network + "-public",
         "retrieved_at": datetime.now(UTC).isoformat(),
         "contracts": contracts,

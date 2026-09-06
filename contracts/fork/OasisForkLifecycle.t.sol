@@ -39,10 +39,21 @@ contract OasisForkLifecycleTest is Test {
         uint256 forkId = vm.createSelectFork(vm.envString("OASIS_FORK_RPC"), height);
         assertEq(vm.activeFork(), forkId);
         assertEq(block.chainid, vm.envUint("OASIS_FORK_CHAIN_ID"));
-        assertEq(vm.getBlockNumber(), height);
-        // The block itself is verified by the external RPC evidence packet; EVM blockhash
-        // cannot return its current block. Check the retained parent here as an extra anchor.
+        // The L2 height anchor is the retained parent hash: a header fetch that
+        // non-archive nodes serve too, and it pins the exact L2 block. The EVM
+        // blockhash cheatcode cannot return the current block, so the parent is
+        // checked here as the independent pin.
         assertEq(blockhash(height - 1), vm.envBytes32("OASIS_FORK_PARENT_HASH"));
+        // Foundry 1.8.1 reports the L1 origin block number as the fork-head
+        // block number on chains whose RPC block JSON carries l1BlockNumber
+        // (observed on the Arbitrum-Nitro Robinhood endpoint). Preflight records
+        // that value; the fork head must equal exactly what the endpoint exposes.
+        uint256 l1 = vm.envOr("OASIS_FORK_L1_BLOCK", uint256(0));
+        if (l1 == 0) {
+            assertEq(vm.getBlockNumber(), height);
+        } else {
+            assertEq(vm.getBlockNumber(), l1);
+        }
         manager = IPoolManager(vm.envAddress("OASIS_FORK_POOL_MANAGER"));
         positions = PositionManager(payable(vm.envAddress("OASIS_FORK_POSITION_MANAGER")));
         permit2 = IAllowanceTransfer(vm.envAddress("OASIS_FORK_PERMIT2"));
