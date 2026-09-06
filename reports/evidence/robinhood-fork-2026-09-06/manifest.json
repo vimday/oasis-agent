@@ -1,0 +1,26 @@
+{
+ "source": "robinhood-public",
+ "manifest_created_at": "2026-09-06T07:06:14.470835+00:00",
+ "files": {
+  "preflight.json": {
+   "sha256": "5fc6348076750791cd6fa0323fa029382344ba9ee03ac93bf4493ab3c6a2b5e2",
+   "bytes": 248435,
+   "file_mtime_utc": "2026-09-06T07:05:26.884084+00:00"
+  },
+  "result.json": {
+   "sha256": "a137049080c6a2d81b3bf455df856782f595ea768c29a539d7dd797cd6d79c13",
+   "bytes": 1132,
+   "file_mtime_utc": "2026-09-06T07:05:44.912241+00:00"
+  },
+  "forge.log": {
+   "sha256": "18bff0b4f726b2f8d5464e128c8ec4c7fae8dc59de98f59380d35bfa7ad171d0",
+   "bytes": 1432,
+   "file_mtime_utc": "2026-09-06T07:05:44.849418+00:00"
+  },
+  "summary.json": {
+   "sha256": "998abd63b21e16548f1a2467a86cfca64ceae4150df64a36350f20c709927751",
+   "bytes": 1410,
+   "file_mtime_utc": "2026-09-06T07:06:14.470775+00:00"
+  }
+ }
+}

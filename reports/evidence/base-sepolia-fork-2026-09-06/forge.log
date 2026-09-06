@@ -1,0 +1,8 @@
+No files changed, compilation skipped
+[2m2026-09-06T07:06:56.733822Z[0m [33m WARN[0m [2mfoundry_fork_db::cache[0m[2m:[0m Failed to read cache file [3merr[0m[2m=[0mOs { code: 2, kind: NotFound, message: "No such file or directory" } [3mpath[0m[2m=[0m"/Users/metaverse/.foundry/cache/rpc/base-sepolia/46455055"
+
+Ran 1 test for fork/OasisForkLifecycle.t.sol:OasisForkLifecycleTest
+[PASS] test_mintSwapCollectRevokeUnwindRealPermit2() (gas: 1893278)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 13.41s (6.14s CPU time)
+
+Ran 1 test suite in 13.42s (13.41s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

@@ -1,0 +1,23 @@
+[2m2026-09-06T07:05:27.170559Z[0m [33m WARN[0m [1mget_sources_to_compile[0m[2m:[0m[1mcompile[0m[2m:[0m[1mcompile_project[0m[2m:[0m[1mcompile[0m[2m:[0m[1mDynamicTestLinkingPreprocessor::preprocess[0m[2m:[0m [2mfoundry_common::preprocessor[0m[2m:[0m failed preprocessing [3merr[0m[2m=[0msolar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:86:7
+   │
+86 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+[2m2026-09-06T07:05:27.745794Z[0m [33m WARN[0m [1mcompile[0m[2m:[0m[1mcompile_project[0m[2m:[0m[1mcompile[0m[2m:[0m[1mDynamicTestLinkingPreprocessor::preprocess[0m[2m:[0m [2mfoundry_common::preprocessor[0m[2m:[0m failed preprocessing [3merr[0m[2m=[0msolar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:86:7
+   │
+86 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 1.85s
+Compiler run successful!
+
+Ran 1 test for fork/OasisForkLifecycle.t.sol:OasisForkLifecycleTest
+[PASS] test_mintSwapCollectRevokeUnwindRealPermit2() (gas: 1893314)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 15.21s (7.24s CPU time)
+
+Ran 1 test suite in 15.22s (15.21s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
