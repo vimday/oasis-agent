@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from ..models.v4 import BalanceDelta
 from ..errors import FeeEncodingError
+from ..models.v4 import BalanceDelta
 
 
 def decode_balance_delta(value: bytes) -> BalanceDelta:
