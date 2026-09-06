@@ -1,0 +1,214 @@
+# Oasis Agent Long-Term Profit Roadmap
+
+**Status:** Directional roadmap; Phase 1 remains the only implementation priority  
+**Updated:** 2026-09-04
+
+## 1. Portfolio thesis
+
+Oasis Agent should become a portfolio of independently measurable edges on one shared safety and
+execution platform. It must not depend on one token, pool, chain, exchange, market regime, or model.
+The long-run objective is durable compounded net asset value, not maximum trade count or displayed
+APR.
+
+Strategy priority follows four rules:
+
+1. prefer atomic or naturally hedged payoffs over exposed multi-leg execution;
+2. prefer edges explained by market structure over pure price prediction;
+3. reuse verified data, ledger, risk, signer, and reconciliation infrastructure;
+4. fund a strategy only when its marginal portfolio return exceeds its new tail and operational risk.
+
+Every strategy begins in research, graduates through shadow and isolated canary, and can return to
+zero allocation when capacity, competition, or regime changes remove the edge.
+
+## 2. Ordered strategy program
+
+| Stage | Strategy family | Candidate edge | Main reason for order |
+|---|---|---|---|
+| 1 | Robinhood v4 automated LP | Dynamic fee, range, routing, and reliable automation | Current target; builds the core chain ledger and risk loop |
+| 2 | Same-chain atomic arbitrage | Price inconsistency across pools/routes after all costs | Atomic settlement bounds leg risk and reuses v4 state |
+| 3 | Crypto spot-perp/perp-perp basis | Funding, basis convergence, maker spread | Market-structure edge, but introduces venue and liquidation risk |
+| 4 | On-chain inventory-aware market making | Quote spread plus rebates/fees net of adverse selection | Reuses fee/toxicity and execution models across venues |
+| 5 | Equity/perp/tokenized-equity arbitrage | Session, oracle, basis, funding, and conversion dislocations | Valuable but non-atomic, regulated, calendar-sensitive, and capital intensive |
+| 6 | Short-horizon meme trading | Attention/liquidity/flow regime signals | Highest contract, gap, manipulation, and model-decay risk |
+| 7 | Cross-strategy allocator | Diversification and scarce-capital allocation | Useful only after multiple strategies have honest live distributions |
+
+Cross-chain arbitrage is not an early target. Bridge latency, finality, message failure, fragmented
+inventory, and correlated bridge risk often dominate an apparent price gap. Begin with inventory
+already isolated on each chain and never make a bridge completion part of an atomic-profit claim.
+
+## 3. Stage 1 — Robinhood v4 automated LP
+
+The detailed normative plan is
+[`ROBINHOOD_V4_AUTOLP_BLUEPRINT.md`](ROBINHOOD_V4_AUTOLP_BLUEPRINT.md). Its reusable outputs are more
+valuable than a single pool:
+
+- exact EVM/v4 event and state reconstruction;
+- per-token double-entry accounting and markout/LVR attribution;
+- executable quote and route comparison;
+- toxicity, volatility, inventory, and fee-elasticity features;
+- deterministic capital/risk policy and external signer boundary;
+- idempotent transaction lifecycle, finality, and reorg handling;
+- shadow/canary promotion, evidence manifests, and incident response.
+
+The benchmark PONS/USDG pool is not automatically the production pool. Pair selection must account
+for token authority, reference-price quality, organic route demand, competing depth, exit liquidity,
+and whether outside liquidity is permitted.
+
+## 4. Stage 2 — same-chain atomic arbitrage
+
+Research price inconsistencies among v2/v3/v4 pools, hook pools, aggregators, and liquid staking or
+wrapper conversions on the same chain. Profit is evaluated from executable state:
+
+```text
+worst_case_net = guaranteed_outputs
+               - guaranteed_inputs
+               - pool/protocol/hook fees
+               - L2 execution and L1 calldata gas
+               - builder/relay/payment cost
+               - state-drift and revert buffer
+```
+
+Requirements:
+
+- all legs settle atomically or the opportunity is classified as inventory-backed, not atomic;
+- route targets, callback callers, tokens, code hashes, approvals, and loan sources are allowlisted;
+- the exact transaction is simulated at a pinned head and expires quickly;
+- reserve and transfer-tax tokens are rejected unless exact behavior is modeled;
+- private submission is treated as an assumption, not a privacy or inclusion guarantee;
+- failed/reverted transaction cost and competition-induced inclusion probability enter expected PnL;
+- no sandwiching, deceptive flow, oracle manipulation, griefing, or fake volume.
+
+Start with two-pool cycles and a small token universe. Add graph search only after the exact reference
+implementation and pruning rules are tested against false-positive/revert rates.
+
+## 5. Stage 3 — perp and basis arbitrage
+
+Candidate modes:
+
+- spot-perp cash-and-carry or reverse cash-and-carry;
+- perp-perp funding and mark divergence across decentralized venues;
+- dated future versus perp basis when a liquid expiry venue exists;
+- maker on one venue with a taker or inventory hedge on another;
+- delta-neutral LP inventory hedging, only when hedge cost improves total LP tail-adjusted return.
+
+The edge is not the displayed funding rate. Model executable spread, funding timing/caps, maker fill
+probability, taker fees, borrow, collateral yield, margin, liquidation, oracle/mark divergence, API
+failure, withdrawal delay, and the cost of a partial hedge.
+
+Every non-atomic trade is a hedge-group saga. Only confirmed fills create hedge demand; unknown order
+state blocks new risk; unhedged notional multiplied by time has a hard budget. Position truth comes
+from independent account reconciliation, not repeated hedges against one possibly stale endpoint.
+
+Promotion begins with one pair, two venues, isolated margin, no cross-collateral assumption, and a
+pre-funded unwind path on both venues. See
+[`PERP_CROSS_MARKET_ARBITRAGE.md`](PERP_CROSS_MARKET_ARBITRAGE.md).
+
+## 6. Stage 4 — inventory-aware on-chain market making
+
+Generalize the v4 fee/range controller into a venue-independent quote engine:
+
+```text
+reservation_price = robust_fair_value - inventory_skew - risk_buffer
+half_spread       = fees + volatility + toxicity + latency + hedge_cost + profit_margin
+```
+
+Quote sizes and spreads respond to depth, inventory, fill probability, markout, and hedge capacity.
+The engine must distinguish price alpha from spread capture and rebates. It cancels or widens when
+reference state, inventory, hedge venue, sequencer, or account state is stale.
+
+The research question is whether active quoting improves on passive LP after gas, selection, failed
+cancels, hedge slippage, and operational burden. The system must never spoof, layer, wash trade, or
+create misleading liquidity.
+
+## 7. Stage 5 — equity–crypto cross-market arbitrage
+
+Research only after the multi-venue state machine has survived crypto canaries. Candidate relationships
+include U.S. equity or future versus a tokenized-equity/perpetual product, and related basket/ETF
+dislocations.
+
+Economic equivalence must be proven rather than inferred from a ticker. Normalize legal/economic
+rights, multiplier, currency, dividend and corporate-action treatment, oracle/index construction,
+trading hours, settlement, redemption, borrow/locate, margin, funding, expiry, and issuer/custody risk.
+
+The major edge windows may occur exactly when a hedge is unavailable: equity close, halt, limit state,
+borrow recall, venue maintenance, oracle freeze, or crypto weekend. Entry therefore requires a stressed
+unhedged-loss bound and pre-funded exit on each side. A large apparent spread with a closed or
+non-executable hedge leg is exposure, not arbitrage.
+
+The supplied practitioner report is incorporated as a failure lesson: stale position data can cause
+repeated over-hedging. The permanent control is idempotent fill-ledger reconciliation and an
+unhedged-notional-time budget, not a faster polling loop.
+
+## 8. Stage 6 — bounded meme trading
+
+This is last because apparent alpha is entangled with contract control, thin exit liquidity,
+adversarial order flow, gaps, social manipulation, and extremely short half-life.
+
+Allowable research signals include verified liquidity/holder changes, executable order flow, price
+impact, route quality, contract events, and public attention measures with point-in-time timestamps.
+No strategy may trade on fabricated promotion, coordinated pumps, private victim targeting, or market
+manipulation.
+
+Before any position:
+
+- simulate both buy and sell with the exact token and route;
+- inspect proxy/admin, mint, freeze, blacklist, tax, pause, callback, and liquidity-removal powers;
+- cap exposure by independently executable exit depth and stress token value to zero;
+- use exact approvals, short deadlines, maximum slippage/impact, and isolated capital;
+- define time stop, liquidity stop, authority-change stop, loss stop, and signer kill switch;
+- attribute PnL after failed transactions, MEV, tax, price impact, and unsold residual inventory.
+
+Prediction models remain proposal generators. They cannot change limits, choose arbitrary contracts,
+or bypass deterministic sellability and execution policy.
+
+## 9. Stage 7 — portfolio allocator
+
+Capital allocation is a constrained optimization over honest live distributions:
+
+```text
+maximize expected compounded net return
+subject to drawdown, expected shortfall, liquidity, capacity, concentration,
+          operational, venue, chain, oracle, bridge, signer, and model-risk limits
+```
+
+Allocation uses marginal contribution, not standalone Sharpe or APR. Correlate strategies by common
+token, stablecoin, issuer, chain, sequencer, PoolManager/hook, oracle, bridge, venue, custodian,
+collateral, and failure mode. LP unwind ETH, perp margin reserve, and incident cash remain segregated.
+
+Scale-up is slow and reversible; scale-down is fast and automatic. A strategy receives zero capital
+when its lower-bound edge is negative, evidence is stale, reliability budget is exhausted, or its risk
+duplicates a better strategy.
+
+## 10. Shared research and production standards
+
+All stages use the same promotion doctrine:
+
+```text
+idea -> falsifiable experiment -> historical replay -> adversarial simulator/fork
+     -> live shadow -> isolated canary -> bounded production -> gradual scaling
+```
+
+Every report includes:
+
+- exact economic hypothesis and invalidating observations;
+- point-in-time dataset/code/config hashes and untouched evaluation window;
+- executable rather than midpoint prices;
+- all protocol, venue, gas, funding, borrow, hedge, impact, failure, and opportunity costs;
+- confidence interval, sample size, drawdown, tail loss, turnover, capacity, and regime dependence;
+- complete PnL attribution and unexplained residual;
+- security, legal/venue-rule, model, and operational assumptions;
+- halt/unwind test evidence and a named capital owner for the decision.
+
+The two practitioner threads supplied by the project owner are captured as hypotheses and incident
+lessons: finite LP fee windows, directional/single-sided LP, range-exit and rebalance costs, direct
+data/latency, maker/hedge thresholds, and stale-state over-hedging. Their headline returns and fixed
+rules are not treated as evidence. Official protocol/venue documentation, pinned chain state, and our
+own adversarial tests control production decisions.
+
+## 11. Near-term focus rule
+
+Until the Robinhood v4 system completes exact replay, attribution, fork, shadow, routing, and canary
+gates, later strategies may receive only lightweight research notes and shared-interface design. They
+must not pull engineering effort into separate live executors. Phase 1 should leave behind reusable
+primitives, not a one-off bot, but shipping those primitives safely comes before expanding scope.
+
