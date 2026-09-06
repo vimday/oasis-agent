@@ -10,4 +10,11 @@ venv/
 .env.*
 *.key
 *.pem
+.claude/settings.local.json
+CLAUDE.local.md
 reports/generated/
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/node_modules/
+.claude/worktrees/
