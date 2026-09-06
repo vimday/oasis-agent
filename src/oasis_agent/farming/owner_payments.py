@@ -34,6 +34,8 @@ class UnsupportedOwnerPayment(ValueError):
 
 def _abi(types: list[str], value: str) -> tuple[object, ...]:
     raw = bytes.fromhex(value.removeprefix("0x"))
+    if raw.hex() != value.removeprefix("0x").lower():
+        raise ValueError("noncanonical payment hex encoding")
     decoded = decode(types, raw)
     if encode(types, decoded) != raw:
         raise ValueError("noncanonical payment ABI")

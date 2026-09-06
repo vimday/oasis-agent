@@ -142,3 +142,35 @@ def test_token_false_return_rejected():
     )
     with pytest.raises(ValueError, match="return true"):
         resolve_exclusive_owner_payment(replace(capture, core=core))
+
+
+def test_pipeline_uses_owner_at_action_and_rejects_duplicate_payment(tmp_path):
+    from oasis_agent.evidence.ingestion import persist_and_verify_block_range
+    from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
+    from tests.rpc_evidence_helpers import range_exchanges
+    from tests.unit.test_position_capture import snapshot_capture
+    from tests.unit.test_position_dataset import scenario
+
+    store = EvidenceStore(tmp_path / "pipeline.db")
+    _, _, core, nft = scenario()
+    verified = [
+        persist_and_verify_block_range(store, d, range_exchanges(d), research_single_provider=True)
+        for d in (core, nft)
+    ]
+    kwargs = {
+        "opening": snapshot_capture(),
+        "closing": snapshot_capture(closing=True),
+        "pool_manager": CORE,
+        "core": verified[0],
+        "ownership": verified[1],
+    }
+    payment = fixture()
+    report = replay_captured_position_datasets(store, **kwargs, payments=(payment,))
+    assert report.position.ledger.settlement_complete
+    assert report.position.ledger.cumulative_owner_amount0 == -100
+    assert report.position.ledger.cumulative_owner_amount1 == -200
+    # NFT moves after modification. Endpoint ownership must not rewrite the payer.
+    assert report.position.ledger.closing.nft_owner != payment.owner
+    with pytest.raises(ValueError, match="uniquely"):
+        replay_captured_position_datasets(store, **kwargs, payments=(payment, payment))
+    store.close()
