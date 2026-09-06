@@ -1,0 +1,22 @@
+
+Detector: assembly
+OasisDynamicFeeHook._packedInt24(uint256,uint256) (src/OasisDynamicFeeHook.sol#365-369) uses assembly
+	- INLINE ASM (src/OasisDynamicFeeHook.sol#366-368)
+OasisDynamicFeeHook._absolute(int256) (src/OasisDynamicFeeHook.sol#371-377) uses assembly
+	- INLINE ASM (src/OasisDynamicFeeHook.sol#372-376)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#assembly-usage
+
+Detector: naming-convention
+Variable OasisDynamicFeeHook.POOL_MANAGER (src/OasisDynamicFeeHook.sol#70) is not in mixedCase
+Variable OasisDynamicFeeHook.POSITION_MANAGER (src/OasisDynamicFeeHook.sol#71) is not in mixedCase
+Variable OasisDynamicFeeHook.INITIALIZER (src/OasisDynamicFeeHook.sol#72) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+
+Detector: too-many-digits
+OasisHookFactory.initCodeHash(IPoolManager,IOasisPositionManager,address,address,address) (src/OasisHookFactory.sol#25-38) uses literals with too many digits:
+	- keccak256(bytes)(bytes.concat(type()(OasisDynamicFeeHook).creationCode,abi.encode(poolManager,positionManager,initializer,initialOwner,guardian))) (src/OasisHookFactory.sol#32-37)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#too-many-digits
+contracts analyzed (22 contracts with 102 detectors), 6 result(s) found
+'forge clean' running (wd: /Users/metaverse/funspace/oasis-agent/contracts)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /Users/metaverse/funspace/oasis-agent/contracts)

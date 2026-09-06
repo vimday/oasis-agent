@@ -1,0 +1,34 @@
+2026-09-06T10:28:02.142005Z  WARN foundry_common::preprocessor: failed preprocessing err=solar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:86:7
+   │
+86 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+2026-09-06T10:28:02.734178Z  WARN foundry_common::preprocessor: failed preprocessing err=solar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:86:7
+   │
+86 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+Compiling 108 files with Solc 0.8.26
+Solc 0.8.26 finished in 1.96s
+Compiler run successful!
+2026-09-06T10:28:06.590890Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/metaverse/.foundry/cache/rpc/robinhood/55903961"
+2026-09-06T10:28:21.789318Z ERROR sharedbackend: Failed to send/recv `block_hash` err=failed to get block hash for 25917686: failed to get chain ID; MPP HTTP request to https://rpc.mainnet.chain.robinhood.com/ failed: HTTP request failed: error sending request: error sending request: client error (SendRequest): connection error: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof number=25917686
+
+Ran 1 test for fork/OasisForkLifecycle.t.sol:OasisForkLifecycleTest
+[FAIL: EVM error; database error: failed to get block hash for 25917686: failed to get chain ID; MPP HTTP request to https://rpc.mainnet.chain.robinhood.com/ failed: HTTP request failed: error sending request: error sending request: client error (SendRequest): connection error: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof] setUp() (gas: 0)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 17.52s (0.00ns CPU time)
+
+Ran 1 test suite in 17.53s (17.52s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in fork/OasisForkLifecycle.t.sol:OasisForkLifecycleTest
+[FAIL: EVM error; database error: failed to get block hash for 25917686: failed to get chain ID; MPP HTTP request to https://rpc.mainnet.chain.robinhood.com/ failed: HTTP request failed: error sending request: error sending request: client error (SendRequest): connection error: peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof] setUp() (gas: 0)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+
+Tip: Run `forge test --rerun` to retry only the 1 failed test
+Tip: Run `forge test --debug --match-test <TEST_NAME>` to inspect one failing test in the debugger
