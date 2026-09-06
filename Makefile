@@ -39,3 +39,7 @@ report:
 security-check:
 	$(PYTHON) -m pip_audit --require-hashes -r requirements-dev.lock
 	$(PYTHON) -m bandit -r src scripts -ll
+	$(PYTHON) -m scripts.check_secrets
+
+contract-security-check:
+	cd contracts && VIRTUAL_ENV="$(abspath .venv)" ../.venv/bin/slither . --filter-paths node_modules --exclude-dependencies --fail-low

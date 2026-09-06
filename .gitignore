@@ -18,3 +18,6 @@ contracts/out/
 contracts/broadcast/
 contracts/node_modules/
 .claude/worktrees/
+
+.coverage
+htmlcov/
