@@ -28,6 +28,8 @@ def calculate_lp_net_yield(
         + costs.rebalancing_cost
         + costs.adverse_selection_cost
         + costs.inventory_risk_cost
+        + costs.failed_tx_cost
+        + costs.opportunity_cost
     )
     net_pnl = gross_fees - impermanent_loss - total_costs
     return LpPerformance(

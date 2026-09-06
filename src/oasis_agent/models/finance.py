@@ -24,10 +24,18 @@ def _nonnegative_decimal(value: Decimal, name: str) -> Decimal:
 
 @dataclass(frozen=True, slots=True)
 class CostModel:
+    """All costs are required, nonnegative, and valued in one report currency.
+
+    Missing costs must never silently default to zero: fail-closed accounting
+    means the caller supplies every term explicitly.
+    """
+
     gas_cost: Decimal
     rebalancing_cost: Decimal
     adverse_selection_cost: Decimal
     inventory_risk_cost: Decimal
+    failed_tx_cost: Decimal
+    opportunity_cost: Decimal
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -35,6 +43,8 @@ class CostModel:
             ("rebalancing_cost", self.rebalancing_cost),
             ("adverse_selection_cost", self.adverse_selection_cost),
             ("inventory_risk_cost", self.inventory_risk_cost),
+            ("failed_tx_cost", self.failed_tx_cost),
+            ("opportunity_cost", self.opportunity_cost),
         ):
             _nonnegative_decimal(value, name)
 
