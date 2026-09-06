@@ -1,0 +1,21 @@
+{
+  "name": "@oasis-agent/phase1-hook",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Guarded Robinhood Chain Uniswap v4 LP hook research contracts",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "forge build",
+    "fmt:check": "forge fmt --check",
+    "lint": "forge lint",
+    "test": "forge test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "5.4.0",
+    "@uniswap/v4-core": "1.0.2",
+    "@uniswap/v4-periphery": "1.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

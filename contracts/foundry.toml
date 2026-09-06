@@ -1,0 +1,36 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+cbor_metadata = false
+deny = "warnings"
+
+[profile.ci.fuzz]
+runs = 10000
+max_test_rejects = 100000
+
+[profile.ci.invariant]
+runs = 512
+depth = 128
+fail_on_revert = true
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = true
+int_types = "long"
+quote_style = "double"
+
+[lint]
+lint_on_build = true
+
+# Explicit network gate: never silently run or skip remote forks in the local suite.
+[profile.fork]
+test = "fork"
