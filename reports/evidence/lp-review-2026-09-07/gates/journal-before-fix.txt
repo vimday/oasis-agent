@@ -1,0 +1,51 @@
+..............F.F                                                        [100%]
+=================================== FAILURES ===================================
+_____________________ test_decision_halt_survives_restart ______________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-126/test_decision_halt_survives_re0')
+
+    def test_decision_halt_survives_restart(tmp_path):
+        b1, b2 = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b1, evidence=evidence(tmp_path, b1), state=pool_state(oracle_timestamp=0),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=100,
+        )
+        assert result.decision == "halt"
+        r.journal.close()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b2, evidence=evidence(tmp_path, b2),
+            state=pool_state(observed_at_timestamp=101),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=101,
+        )
+>       assert result.decision == "halt"
+E       AssertionError: assert 'hold' == 'halt'
+E         
+E         - halt
+E         + hold
+
+tests/unit/test_shadow_lp_runner.py:405: AssertionError
+_______ test_journal_rejects_forged_health_link_or_execution_eligibility _______
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-126/test_journal_rejects_forged_he0')
+
+    def test_journal_rejects_forged_health_link_or_execution_eligibility(tmp_path):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        r.decide(
+            header=b, evidence=evidence(tmp_path, b), state=pool_state(),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=100,
+        )
+        payload = {key: value for key, value in r.journal.decision_records()[0].items()
+                   if key not in ("seq", "previous", "digest")}
+        for changes in ({"health_digest": "f" * 64}, {"execution_eligible": True},
+                        {"block": None}, {"strategy_qualification": "qualified"}):
+>           with pytest.raises(ValueError):
+E           Failed: DID NOT RAISE ValueError
+
+tests/unit/test_shadow_lp_runner.py:432: Failed
+=========================== short test summary info ============================
+FAILED tests/unit/test_shadow_lp_runner.py::test_decision_halt_survives_restart
+FAILED tests/unit/test_shadow_lp_runner.py::test_journal_rejects_forged_health_link_or_execution_eligibility
+2 failed, 15 passed in 0.38s

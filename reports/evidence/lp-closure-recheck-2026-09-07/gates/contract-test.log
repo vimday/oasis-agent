@@ -1,0 +1,73 @@
+No files changed, compilation skipped
+
+Ran 8 tests for test/OasisRealPermit2Lifecycle.t.sol:OasisRealPermit2LifecycleTest
+[PASS] test_expiredPermit2AllowanceRejectsMintAtomically() (gas: 451714)
+[PASS] test_insufficientPermit2AllowanceRejectsMintAtomically() (gas: 489511)
+[PASS] test_mintSwapCollectRevokeUnwindRealPermit2() (gas: 1907500)
+[PASS] test_pauseAndRevokedAllowancesStillPermitFullExit() (gas: 881214)
+[PASS] test_revokedPermit2AllowanceRejectsMintAtomically() (gas: 522968)
+[PASS] test_tokenLyingAboutSettlementRejectsMintAtomically() (gas: 538196)
+[PASS] test_tokenReturningFalseRejectsMintAtomically() (gas: 453171)
+[PASS] test_transferredNftCannotUsePreviousOwnersWhitelistButCanExit() (gas: 1175013)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 14.84ms (16.48ms CPU time)
+
+Ran 1 test for test/OasisPositionManagerIntegration.t.sol:OasisPositionManagerIntegrationTest
+[PASS] test_realPositionManagerEnforcesFirstMintAndAllowsRevokedOwnerToRemove() (gas: 908759)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 36.27ms (578.67µs CPU time)
+
+Ran 14 tests for test/OasisPositionExecutor.t.sol:OasisPositionExecutorTest
+[PASS] test_guardianCanPauseButOnlyOwnerResumes() (gas: 148912)
+[PASS] test_guardianCannotAddAuthority() (gas: 38457)
+[PASS] test_recenterBurnsOldMintsNewAndTakesSurplus() (gas: 627228)
+[PASS] test_recenter_failsClosedWhenNewRangeExceedsProceeds() (gas: 463085)
+[PASS] test_removeBurnsAndTakesAllProceeds() (gas: 351315)
+[PASS] test_revert_deadlinePassed() (gas: 50275)
+[PASS] test_revert_invalidRange() (gas: 90536)
+[PASS] test_revert_nonOwnerCannotExecute() (gas: 45307)
+[PASS] test_revert_notOwnerPosition() (gas: 423547)
+[PASS] test_revert_poolBindingIsImmutable() (gas: 323099)
+[PASS] test_revert_recenterRejectsZeroLiquidity() (gas: 89850)
+[PASS] test_revert_removeRejectsNonzeroLiquidity() (gas: 89540)
+[PASS] test_revert_staleNonce() (gas: 310656)
+[PASS] test_revert_swapLegUnsupported() (gas: 72919)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 40.00ms (2.21ms CPU time)
+
+Ran 16 tests for test/OasisDynamicFeeHook.t.sol:OasisDynamicFeeHookTest
+[PASS] testFuzz_feeClassificationIsBounded(int256) (runs: 10000, μ: 38137, ~: 38118)
+[PASS] testFuzz_feeIsMonotoneByTradeMagnitude(uint128,uint128) (runs: 10000, μ: 65299, ~: 65300)
+[PASS] test_addRequiresCanonicalPositionManagerAndExactPositionBinding() (gas: 392438)
+[PASS] test_beforeSwapOverridesBothExactInputAndExactOutput() (gas: 60646)
+[PASS] test_callbacksRejectDirectCallers() (gas: 16485)
+[PASS] test_feeBandsAreDeterministicAndBounded() (gas: 80825)
+[PASS] test_feeConfigRequiresOwnerIncreasingVersionAndHardCap() (gas: 193266)
+[PASS] test_feeThresholdsUseTheSpecifiedTokenBaseUnits() (gas: 162527)
+[PASS] test_firstConfigurationPermanentlyBindsOnePool() (gas: 63367)
+[PASS] test_guardianCanOnlyReduceAuthority() (gas: 139493)
+[PASS] test_onlyInitializerCanInitializeConfiguredDynamicPool() (gas: 37961)
+[PASS] test_pauseStopsAddsButKeepsBaseFeeSwapPath() (gas: 268285)
+[PASS] test_permissionMaskIsMinimalAndRemovalIsNotHooked() (gas: 15818)
+[PASS] test_previewRejectsForeignOrStaticPoolKeys() (gas: 32235)
+[PASS] test_realPoolManagerDispatchesHookAndEmitsOverriddenFee() (gas: 54239383)
+[PASS] test_whitelistedNftOwnerCanAddAndOtherOwnerCannot() (gas: 305643)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 163.81ms (352.97ms CPU time)
+
+Ran 1 test for test/OasisDynamicFeeHookInvariant.t.sol:OasisDynamicFeeHookInvariantTest
+[PASS]
+OasisDynamicFeeHookInvariantTest invariants:
+[PASS] invariant_configAndEveryQuotedFeeRemainBounded
+[PASS] invariant_hookAuthoritySurfaceRemainsMinimal
+ OasisDynamicFeeHookInvariantTest invariants (runs: 512, calls: 65536, reverts: 0)
+
+╭-----------------------+--------------+-------+---------+----------╮
+| Contract              | Selector     | Calls | Reverts | Discards |
++===================================================================+
+| HookGovernanceHandler | reconfigure  | 21692 | 0       | 0        |
+|-----------------------+--------------+-------+---------+----------|
+| HookGovernanceHandler | setPaused    | 22139 | 0       | 0        |
+|-----------------------+--------------+-------+---------+----------|
+| HookGovernanceHandler | setWhitelist | 21705 | 0       | 0        |
+╰-----------------------+--------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 14.91s (14.89s CPU time)
+
+Ran 5 test suites in 14.92s (15.16s CPU time): 40 tests passed, 0 failed, 0 skipped (40 total tests)

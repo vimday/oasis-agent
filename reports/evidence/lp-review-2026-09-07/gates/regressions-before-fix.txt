@@ -1,0 +1,178 @@
+.........FFFFF.............FFF...............F                           [100%]
+=================================== FAILURES ===================================
+___________________ test_missing_gate_cannot_select_recenter ___________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-125/test_missing_gate_cannot_selec0')
+
+    def test_missing_gate_cannot_select_recenter(tmp_path):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b, evidence=evidence(tmp_path, b),
+            state=pool_state(observed_at_timestamp=100, oracle_timestamp=95),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True,
+            now=100, candidates=recenter_candidates(),
+        )
+>       assert result.decision == "hold"
+E       AssertionError: assert 'recenter' == 'hold'
+E         
+E         - hold
+E         + recenter
+
+tests/unit/test_shadow_lp_runner.py:354: AssertionError
+____________________ test_state_time_must_match_header[99] _____________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-125/test_state_time_must_match_hea0')
+timestamp = 99
+
+    @pytest.mark.parametrize("timestamp", [99, 101, 1000])
+    def test_state_time_must_match_header(tmp_path, timestamp):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b, evidence=evidence(tmp_path, b),
+            state=pool_state(observed_at_timestamp=timestamp, oracle_timestamp=timestamp),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=100,
+        )
+>       assert result.decision == "halt"
+E       AssertionError: assert 'hold' == 'halt'
+E         
+E         - halt
+E         + hold
+
+tests/unit/test_shadow_lp_runner.py:369: AssertionError
+____________________ test_state_time_must_match_header[101] ____________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-125/test_state_time_must_match_hea1')
+timestamp = 101
+
+    @pytest.mark.parametrize("timestamp", [99, 101, 1000])
+    def test_state_time_must_match_header(tmp_path, timestamp):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b, evidence=evidence(tmp_path, b),
+            state=pool_state(observed_at_timestamp=timestamp, oracle_timestamp=timestamp),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=100,
+        )
+>       assert result.decision == "halt"
+E       AssertionError: assert 'hold' == 'halt'
+E         
+E         - halt
+E         + hold
+
+tests/unit/test_shadow_lp_runner.py:369: AssertionError
+___________________ test_state_time_must_match_header[1000] ____________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-125/test_state_time_must_match_hea2')
+timestamp = 1000
+
+    @pytest.mark.parametrize("timestamp", [99, 101, 1000])
+    def test_state_time_must_match_header(tmp_path, timestamp):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b, evidence=evidence(tmp_path, b),
+            state=pool_state(observed_at_timestamp=timestamp, oracle_timestamp=timestamp),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=100,
+        )
+>       assert result.decision == "halt"
+E       AssertionError: assert 'hold' == 'halt'
+E         
+E         - halt
+E         + hold
+
+tests/unit/test_shadow_lp_runner.py:369: AssertionError
+_______________ test_expired_quote_cannot_be_a_healthy_decision ________________
+
+tmp_path = PosixPath('/private/var/folders/jb/5zyvsvtn29l64vq8pp7_j46c0000gn/T/pytest-of-metaverse/pytest-125/test_expired_quote_cannot_be_a0')
+
+    def test_expired_quote_cannot_be_a_healthy_decision(tmp_path):
+        b, _ = blocks()
+        r = runner(tmp_path)
+        result = r.decide(
+            header=b, evidence=evidence(tmp_path, b),
+            state=pool_state(observed_at_timestamp=100, oracle_timestamp=95),
+            direction=SwapDirection.ZERO_FOR_ONE, amount_specified=100, exact_input=True, now=110,
+        )
+>       assert result.decision == "halt"
+E       AssertionError: assert 'hold' == 'halt'
+E         
+E         - halt
+E         + hold
+
+tests/unit/test_shadow_lp_runner.py:382: AssertionError
+_____________ test_submitted_consumption_survives_halt_and_expiry ______________
+
+    def test_submitted_consumption_survives_halt_and_expiry():
+        for terminal in (LpState.HALTED, LpState.EXPIRED):
+            ledger = LpExecutionLedger()
+            intent = make_intent()
+            machine = ledger.create(intent)
+            machine.propose()
+            machine.reserve()
+            machine.pin_simulated(True)
+            machine.policy_approve(True)
+            machine.sign()
+            machine.submit("0x" + "99" * 32)
+            machine.transition(terminal)
+>           assert machine.consumed
+E           assert False
+E            +  where False = <oasis_agent.execution.lp_state_machine.LpExecutionStateMachine object at 0x120cdcc50>.consumed
+
+tests/unit/test_lp_state_machine.py:180: AssertionError
+__________ test_rejected_submit_does_not_mutate_transaction_identity ___________
+
+    def test_rejected_submit_does_not_mutate_transaction_identity():
+        machine = LpExecutionStateMachine(make_intent())
+        with unittest.TestCase().assertRaises(ExecutionBlockedError):
+            machine.submit("0x" + "99" * 32)
+>       assert machine.transaction_hash is None
+E       AssertionError: assert '0x9999999999999999999999999999999999999999999999999999999999999999' is None
+E        +  where '0x9999999999999999999999999999999999999999999999999999999999999999' = <oasis_agent.execution.lp_state_machine.LpExecutionStateMachine object at 0x120cde750>.transaction_hash
+
+tests/unit/test_lp_state_machine.py:190: AssertionError
+__________________________ test_canonical_tick_bounds __________________________
+
+    def test_canonical_tick_bounds():
+        for bounds in ((-887273, 0, 1), (0, 887273, 1), (0, 32768, 32768)):
+>           with unittest.TestCase().assertRaises(ValueError):
+
+tests/unit/test_lp_state_machine.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:263: in __exit__
+    self._raiseFailure("{} not raised".format(exc_name))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.case._AssertRaisesContext object at 0x120cdfa70>
+standardMsg = 'ValueError not raised'
+
+    def _raiseFailure(self, standardMsg):
+        msg = self.test_case._formatMessage(self.msg, standardMsg)
+>       raise self.test_case.failureException(msg)
+E       AssertionError: ValueError not raised
+
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:200: AssertionError
+_______________ test_duplicate_native_settle_frames_fail_closed ________________
+
+    def test_duplicate_native_settle_frames_fail_closed():
+        from oasis_agent.farming.native_payments import _native_value_frames
+    
+        settle = {"type": "CALL", "from": POSM, "to": CORE, "value": "0x64"}
+        root = {"type": "CALL", "from": OWNER, "to": POSM, "value": "0x64",
+                "calls": [settle, dict(settle)]}
+>       with pytest.raises(UnsupportedOwnerPayment, match="duplicate"):
+E       Failed: DID NOT RAISE UnsupportedOwnerPayment
+
+tests/unit/test_native_payments.py:535: Failed
+=========================== short test summary info ============================
+FAILED tests/unit/test_shadow_lp_runner.py::test_missing_gate_cannot_select_recenter
+FAILED tests/unit/test_shadow_lp_runner.py::test_state_time_must_match_header[99]
+FAILED tests/unit/test_shadow_lp_runner.py::test_state_time_must_match_header[101]
+FAILED tests/unit/test_shadow_lp_runner.py::test_state_time_must_match_header[1000]
+FAILED tests/unit/test_shadow_lp_runner.py::test_expired_quote_cannot_be_a_healthy_decision
+FAILED tests/unit/test_lp_state_machine.py::test_submitted_consumption_survives_halt_and_expiry
+FAILED tests/unit/test_lp_state_machine.py::test_rejected_submit_does_not_mutate_transaction_identity
+FAILED tests/unit/test_lp_state_machine.py::test_canonical_tick_bounds - Asse...
+FAILED tests/unit/test_native_payments.py::test_duplicate_native_settle_frames_fail_closed
+9 failed, 37 passed in 0.51s

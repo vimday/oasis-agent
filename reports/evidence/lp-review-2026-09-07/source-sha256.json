@@ -1,0 +1,13 @@
+{
+  "src/oasis_agent/execution/lp_state_machine.py": "4665c71cfabf8434914cd1550acc047a246cb9761932939a3b66b463494f390f",
+  "src/oasis_agent/farming/native_payments.py": "f682be2b312f9228ffd8db34a1411bdff48b24a8b456a86df99b30d3c1884da1",
+  "src/oasis_agent/models/finance.py": "7bb1359baf04c7ad2a5dc6ad500fc742fa69108961e33941f307985b572658a1",
+  "src/oasis_agent/shadow/journal.py": "62400d748657a884df188444077de6d5a337e5a178d010e7876a05bac2267afc",
+  "src/oasis_agent/shadow/lp_runner.py": "c3e465b5543a6699dd63112529f62d0e46d30de8419151216c25fdb8c5ac0161",
+  "tests/unit/test_lp_state_machine.py": "48607ede2300b49ae08dbacc5de3c0f872d0818d5ddfe9cfdf1334d0118bb41f",
+  "tests/unit/test_native_payments.py": "75e007377b3f8c59171d2be095b8f848fb5e037a55f3a9512fa92c23ef356d54",
+  "tests/unit/test_shadow_lp_runner.py": "af154aca3d6ed8ccc1cd1e1031de0b7c0e13885f7d37043d3cbd037285419830",
+  "tests/unit/test_evidence_package.py": "953ed1fde8894ebc14e23f840a98cf523c12383ead97bbda978384c74567cd10",
+  "docs/verification/2026-09-07-lp-review-and-repairs.md": "fdeddb83949ef32f0d18d715fec0be23f1ddb33bd5cfb26f5a97f91e795f2841",
+  "contracts/package-lock.json": "bd0641dd287e1c3a8df68741c823eb87ba8ce1b9e7ad799c7f73aff5c64015e6"
+}

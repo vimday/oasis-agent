@@ -1,0 +1,1 @@
+{"audit_digest": "cba46b4931d1281926ef185132acbf457b07e03472b1061f5ef72f26f94bc9ef", "chain_id": 31337, "conservation_checks": 8, "economic_profitability": "unresolved", "execution_eligible": false, "gas_wei": 22004840130081568, "pool_id": "0x666433bdb1854ebe9d2e79b798bbd4647fe1e1cdbd297bbc4102cceef048fb0f", "swaps": 4, "transactions": 35, "trust": "single_provider_research"}

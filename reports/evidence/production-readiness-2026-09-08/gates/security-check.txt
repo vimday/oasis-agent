@@ -1,0 +1,14 @@
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/python -m pip_audit --require-hashes -r requirements-dev.lock
+No known vulnerabilities found
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/python -m bandit -r src scripts -ll
+Test results:
+        No issues identified.
+Total issues (by severity):
+        Undefined: 0
+        Low: 35
+        Medium: 0
+        High: 0
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/python -m scripts.check_secrets
+Secret gate passed: no unreviewed candidates in code/config/test scope; no credential verification requests

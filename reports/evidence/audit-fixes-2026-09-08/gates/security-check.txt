@@ -1,0 +1,56 @@
+.venv/bin/python -m pip_audit --require-hashes -r requirements-dev.lock
+No known vulnerabilities found
+.venv/bin/python -m bandit -r src scripts -ll
+[main]	INFO	profile include tests: None
+[main]	INFO	profile exclude tests: None
+[main]	INFO	cli include tests: None
+[main]	INFO	cli exclude tests: None
+[main]	INFO	running on Python 3.12.4
+[manager]	WARNING	Test in comment: the is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: SET is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: identifiers is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: are is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: allowlisted is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: and is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: the is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: only is not a test name or id, ignoring
+[tester]	WARNING	nosec encountered (B608), but no failed test on file src/oasis_agent/server/audit.py:185
+[manager]	WARNING	Test in comment: fixed is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: allowlisted is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: columns is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: and is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: fragments is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: allowlisted is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: columns is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: key is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: bound is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: as is not a test name or id, ignoring
+[manager]	WARNING	Test in comment: parameter is not a test name or id, ignoring
+[tester]	WARNING	nosec encountered (B608), but no failed test on file src/oasis_agent/server/databases.py:391
+[tester]	WARNING	nosec encountered (B608), but no failed test on file src/oasis_agent/server/databases.py:393
+[tester]	WARNING	nosec encountered (B608), but no failed test on file src/oasis_agent/server/databases.py:406
+Working... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+Run started:2026-09-07 17:53:13.420122+00:00
+
+Test results:
+	No issues identified.
+
+Code scanned:
+	Total lines of code: 18089
+	Total lines skipped (#nosec): 0
+	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 4
+
+Run metrics:
+	Total issues (by severity):
+		Undefined: 0
+		Low: 33
+		Medium: 0
+		High: 0
+	Total issues (by confidence):
+		Undefined: 0
+		Low: 0
+		Medium: 3
+		High: 30
+Files skipped (0):
+.venv/bin/python -m scripts.check_secrets
+Secret gate passed: no unreviewed candidates in code/config/test scope; no credential verification requests

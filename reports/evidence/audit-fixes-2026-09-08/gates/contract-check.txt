@@ -1,0 +1,3306 @@
+cd contracts && forge fmt --check
+cd contracts && forge build
+[2m2026-09-07T17:53:14.712591Z[0m [33m WARN[0m [1mcompile[0m[2m:[0m[1mcompile_project[0m[2m:[0m[1mcompile[0m[2m:[0m[1mDynamicTestLinkingPreprocessor::preprocess[0m[2m:[0m [2mfoundry_common::preprocessor[0m[2m:[0m failed preprocessing [3merr[0m[2m=[0msolar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:91:7
+   │
+91 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+
+error: expected base class or modifier, found abstract contract
+    ╭▸ src/OasisPositionExecutor.sol:115:7
+    │
+115 │     ) Ownable(initialOwner_) {
+    ╰╴      ━━━━━━━
+Compiling 135 files with Solc 0.8.26
+Solc 0.8.26 finished in 4.98s
+Compiler run successful!
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:38:28
+   │
+38 │     uint8 public immutable decimals;
+   │                            ━━━━━━━━ help: consider using: `DECIMALS`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[custom-errors]: prefer using custom errors on revert and require calls
+    ╭▸ src/OasisPositionExecutor.sol:298:9
+    │
+298 │         require(action <= type(uint8).max, "ACTION_OVERFLOW");
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/custom-errors
+
+note[low-level-calls]: Low-level calls should be avoided
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:92:26
+   │
+92 │             (bool ok,) = reentrancyTarget.call(reentrancyCalldata);
+   │                          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/low-level-calls
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutor.t.sol:31:10
+   │
+31 │ contract MockPermit2Transfer {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ src/OasisDynamicFeeHook.sol:376:9
+    │
+376 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutor.t.sol:40:10
+   │
+40 │ contract OasisPositionExecutorTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:34:10
+   │
+34 │ contract OasisExecutorRealPermit2IntegrationTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ src/OasisDynamicFeeHook.sol:384:9
+    │
+384 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:416:11
+    │
+416 │ interface IERC20Approval {
+    │           ━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:35:10
+   │
+35 │ contract MaliciousToken is IERC20Minimal {
+   │          ━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:124:10
+    │
+124 │ contract OasisPositionExecutorAdversarialTest is Test {
+    │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:84:45
+   │
+84 │         bytes[] memory params = new bytes[](3);
+   │                                             ━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:435:11
+    │
+435 │ interface IERC20Approval {
+    │           ━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:86:35
+   │
+86 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+   │                                   ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:86:48
+   │
+86 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+   │                                                ━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:90:48
+   │
+90 │         positions.modifyLiquidities(abi.encode(hex"021212", params), block.timestamp + 1);
+   │                                                ━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:107:17
+    │
+107 │         _change(hex"01", LIQUIDITY);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:122:17
+    │
+122 │         _change(hex"01", LIQUIDITY); // former owner has no authority
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/shared/OasisLifecycleBase.sol:91:21
+   │
+91 │             address(0x3000)
+   │                     ━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:131:45
+    │
+131 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:114:21
+    │
+114 │             address(0x3000)
+    │                     ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:34
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                  ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:43
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                           ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:53
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:62
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                                              ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:56:35
+   │
+56 │             poolManager, permit2, 100_000, IPositionDescriptor(address(0)), IWETH9(address(0))
+   │                                   ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:86:26
+   │
+86 │             tickSpacing: 60,
+   │                          ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:68
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:73
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                         ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:78
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:138:35
+    │
+138 │         require(block.timestamp + 1 days <= type(uint48).max, "EXPIRY_OVERFLOW");
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:165:45
+    │
+165 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:167:35
+    │
+167 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+    │                                   ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:141:50
+    │
+141 │         uint48 expiry = uint48(block.timestamp + 1 days);
+    │                                                  ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:167:48
+    │
+167 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+    │                                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:172:48
+    │
+172 │         positions.modifyLiquidities(abi.encode(hex"021212", params), block.timestamp + 1);
+    │                                                ━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:159:45
+    │
+159 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:173:29
+    │
+173 │         _swap(true, -int256(10 ** 12));
+    │                             ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:173:35
+    │
+173 │         _swap(true, -int256(10 ** 12));
+    │                                   ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:174:30
+    │
+174 │         _swap(false, -int256(10 ** 12));
+    │                              ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:174:36
+    │
+174 │         _swap(false, -int256(10 ** 12));
+    │                                    ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:175:28
+    │
+175 │         _swap(true, int256(10 ** 10));
+    │                            ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:175:34
+    │
+175 │         _swap(true, int256(10 ** 10));
+    │                                  ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:176:29
+    │
+176 │         _swap(false, int256(10 ** 10));
+    │                             ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:176:35
+    │
+176 │         _swap(false, int256(10 ** 10));
+    │                                   ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:179:17
+    │
+179 │         _change(hex"01", 0);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:200:17
+    │
+200 │         _change(hex"01", LIQUIDITY);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:214:45
+    │
+214 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:216:44
+    │
+216 │         if (keccak256(action) == keccak256(hex"01")) {
+    │                                            ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:124:59
+    │
+124 │         assertEq(positionManager.getPositionLiquidity(2), 0.1 ether);
+    │                                                           ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:68
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:73
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                         ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:78
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:204:81
+    │
+204 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 2 ether));
+    │                                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:204:86
+    │
+204 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 2 ether));
+    │                                                                                      ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:375:49
+    │
+375 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:406:37
+    │
+406 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:407:35
+    │
+407 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:408:37
+    │
+408 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:409:35
+    │
+409 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[asm-keccak256]: use of inefficient hashing mechanism; consider using inline assembly
+   ╭▸ src/OasisHookFactory.sol:35:16
+   │
+35 │           return keccak256(
+   │ ┏━━━━━━━━━━━━━━━━┛
+36 │ ┃             bytes.concat(
+37 │ ┃                 type(OasisDynamicFeeHook).creationCode,
+38 │ ┃                 abi.encode(poolManager, positionManager, initializer, initialOwner, guardian)
+39 │ ┃             )
+40 │ ┃         );
+   │ ┗━━━━━━━━━┛
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/asm-keccak256
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisPositionExecutor.t.sol:66:13
+   │
+66 │             100_000,
+   │             ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:145:49
+    │
+145 │         assertEq(positionManager.nextTokenId(), 3);
+    │                                                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:179:68
+    │
+179 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 1_000 ether)
+    │                                                                    ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:30:42
+   │
+30 │     OasisDynamicFeeHook public immutable hook;
+   │                                          ━━━━ help: consider using: `HOOK`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:179:74
+    │
+179 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 1_000 ether)
+    │                                                                          ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:227:32
+    │
+227 │         otherKey.tickSpacing = 120;
+    │                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:292:81
+    │
+292 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 0));
+    │                                                                                 ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:292:87
+    │
+292 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 0));
+    │                                                                                       ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:367:45
+    │
+367 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:389:49
+    │
+389 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:420:37
+    │
+420 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:421:35
+    │
+421 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:422:37
+    │
+422 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:423:35
+    │
+423 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[asm-keccak256]: use of inefficient hashing mechanism; consider using inline assembly
+    ╭▸ src/OasisPositionExecutor.sol:152:16
+    │
+152 │         return keccak256(abi.encode(block.chainid, address(this), intent));
+    │                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/asm-keccak256
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:19:10
+   │
+19 │ contract HookInvariantPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:29:10
+   │
+29 │ contract HookGovernanceHandler {
+   │          ━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:114:10
+    │
+114 │ contract OasisDynamicFeeHookInvariantTest is Test {
+    │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[cyclomatic-complexity]: this function has a cyclomatic complexity above 11; consider splitting it into smaller functions
+    ╭▸ src/OasisPositionExecutor.sol:159:5
+    │
+159 │     function execute(Intent calldata intent) external onlyOwner {
+    │     ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/cyclomatic-complexity
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:48:57
+   │
+48 │         uint128 medium0 = _boundedThreshold(seed >> 72, 1e24) + 1;
+   │                                                         ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:49:66
+   │
+49 │         uint128 high0 = medium0 + _boundedThreshold(seed >> 120, 1e24) + 1;
+   │                                                                  ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:50:58
+   │
+50 │         uint128 medium1 = _boundedThreshold(seed >> 168, 1e24) + 1;
+   │                                                          ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:148:35
+    │
+148 │             poolManager, permit2, 100_000, IPositionDescriptor(address(0)), IWETH9(address(0))
+    │                                   ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:179:26
+    │
+179 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:198:68
+    │
+198 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether);
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:198:78
+    │
+198 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether);
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:212:29
+    │
+212 │         _expectInvalidRange(120, -120);
+    │                             ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:214:35
+    │
+214 │         _expectInvalidRange(-130, 120);
+    │                                   ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:221:89
+    │
+221 │             new OasisPositionExecutor(poolManager, positionManager, LP_OWNER, GUARDIAN, 1_000);
+    │                                                                                         ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:225:75
+    │
+225 │                 OasisPositionExecutor.LiquidityAboveMax.selector, uint256(1_001), uint256(1_000)
+    │                                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:225:91
+    │
+225 │                 OasisPositionExecutor.LiquidityAboveMax.selector, uint256(1_001), uint256(1_000)
+    │                                                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:80
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:85
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                     ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:89
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                         ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:325:82
+    │
+325 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, lower, upper, 0.1 ether)
+    │                                                                                  ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:44:35
+   │
+44 │     IPoolManager public immutable manager;
+   │                                   ━━━━━━━ help: consider using: `MANAGER`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:394:49
+    │
+394 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:425:37
+    │
+425 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:426:35
+    │
+426 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:427:37
+    │
+427 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:428:35
+    │
+428 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:241:37
+    │
+241 │             mediumAmount0Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:242:35
+    │
+242 │             highAmount0Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:243:37
+    │
+243 │             mediumAmount1Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:244:35
+    │
+244 │             highAmount1Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:32:10
+   │
+32 │ contract MockPermit2Transfer {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:43:10
+   │
+43 │ contract DirectCoreRouter is IUnlockCallback {
+   │          ━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:69:10
+   │
+69 │ contract OasisPositionManagerIntegrationTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/shared/OasisLifecycleBase.sol:119:15
+    │
+119 │           key = PoolKey(
+    │ ┏━━━━━━━━━━━━━━━┛
+120 │ ┃             Currency.wrap(address(token0)),
+121 │ ┃             Currency.wrap(address(token1)),
+122 │ ┃             LPFeeLibrary.DYNAMIC_FEE_FLAG,
+123 │ ┃             60,
+124 │ ┃             IHooks(address(hook))
+125 │ ┃         );
+    │ ┗━━━━━━━━━┛ help: consider using named fields: `PoolKey({ currency0: Currency.wrap(address(token0)), currency1: Currency.wrap(address(token1)), fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: 60, hooks: IHooks(address(hook)) })`
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:92:13
+   │
+92 │             100_000,
+   │             ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:222:29
+    │
+222 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:244:29
+    │
+244 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:262:29
+    │
+262 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:280:17
+    │
+280 │         address[3] memory forbidden =
+    │                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:312:45
+    │
+312 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:334:45
+    │
+334 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:347:45
+    │
+347 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:360:49
+    │
+360 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:391:37
+    │
+391 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:392:35
+    │
+392 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:393:37
+    │
+393 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:394:35
+    │
+394 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:60:35
+   │
+60 │     IPoolManager public immutable manager;
+   │                                   ━━━━━━━ help: consider using: `MANAGER`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:61:42
+   │
+61 │     OasisDynamicFeeHook public immutable hook;
+   │                                          ━━━━ help: consider using: `HOOK`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[interface-naming]: interface names should be prefixed with 'I'
+   ╭▸ test/OasisDynamicFeeHook.t.sol:29:11
+   │
+29 │ interface Vm {
+   │           ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/interface-naming
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:496:9
+    │
+496 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[unused-import]: unused imports should be removed
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:17:5
+   │
+17 │     BeforeSwapDeltaLibrary
+   │     ━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/unused-import
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:30:10
+   │
+30 │ contract AdversarialPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:59:10
+   │
+59 │ contract HookAdversarialRouter is IUnlockCallback {
+   │          ━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:95:10
+   │
+95 │ contract OasisDynamicFeeHookAdversarialTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ test/OasisDynamicFeeHook.t.sol:458:9
+    │
+458 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:29:11
+   │
+29 │ interface Vm {
+   │           ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:36:10
+   │
+36 │ contract MockPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:63:10
+   │
+63 │ contract OasisDynamicFeeHookTest {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:136:46
+    │
+136 │             currency1: Currency.wrap(address(0x20)),
+    │                                              ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:138:26
+    │
+138 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:162:76
+    │
+162 │         positionManager.setPosition(TOKEN_ID, LP_OWNER, key, _positionInfo(-120, 120));
+    │                                                                            ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:162:82
+    │
+162 │         positionManager.setPosition(TOKEN_ID, LP_OWNER, key, _positionInfo(-120, 120));
+    │                                                                                  ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:169:59
+    │
+169 │                 address(positionManager), key, _addParams(-120, 120), payloads[i]
+    │                                                           ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:169:65
+    │
+169 │                 address(positionManager), key, _addParams(-120, 120), payloads[i]
+    │                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:175:73
+    │
+175 │         positionManager.setPosition(TOKEN_ID, OTHER, key, _positionInfo(-120, 120));
+    │                                                                         ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:175:79
+    │
+175 │         positionManager.setPosition(TOKEN_ID, OTHER, key, _positionInfo(-120, 120));
+    │                                                                               ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:106:46
+    │
+106 │             currency1: Currency.wrap(address(0x20)),
+    │                                              ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:184:75
+    │
+184 │         hook.beforeAddLiquidity(address(positionManager), key, _addParams(-120, 120), payloads[2]);
+    │                                                                           ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:108:26
+    │
+108 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:142:47
+    │
+142 │             hook.beforeSwap(OTHER, key, _swap(-10_000), "");
+    │                                               ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:184:81
+    │
+184 │         hook.beforeAddLiquidity(address(positionManager), key, _addParams(-120, 120), payloads[2]);
+    │                                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:227:23
+    │
+227 │         bad = _config(3);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:231:23
+    │
+231 │         bad = _config(4);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:235:23
+    │
+235 │         bad = _config(5);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:145:47
+    │
+145 │             hook.beforeSwap(OTHER, key, _swap(10_000), "");
+    │                                               ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:162:47
+    │
+162 │         require(_preview(_swapDirection(true, -10_000)) == HIGH_FEE);
+    │                                               ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:163:47
+    │
+163 │         require(_preview(_swapDirection(true, 10_000)) == BASE_FEE);
+    │                                               ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:165:48
+    │
+165 │         require(_preview(_swapDirection(false, -10_000)) == BASE_FEE);
+    │                                                ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:166:48
+    │
+166 │         require(_preview(_swapDirection(false, 10_000)) == HIGH_FEE);
+    │                                                ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:188:26
+    │
+188 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/shared/OasisLifecycleBase.sol:231:17
+    │
+231 │ ┏                 SwapParams(
+232 │ ┃                     zeroForOne,
+233 │ ┃                     amount,
+234 │ ┃                     zeroForOne
+235 │ ┃                         ? uint160(4295128740)
+236 │ ┃                         : uint160(1461446703485210103287273052203988822378723970341)
+237 │ ┃                 ),
+    │ ┗━━━━━━━━━━━━━━━━━┛
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+help: consider using named fields
+    ╭╴
+231 ±                 SwapParams({ zeroForOne: zeroForOne, amountSpecified: amount, sqrtPriceLimitX96: zeroForOne
+232 +                         ? uint160(4295128740)
+233 ±                         : uint160(1461446703485210103287273052203988822378723970341) }),
+    ╰╴
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:275:52
+    │
+275 │         otherKey.currency1 = Currency.wrap(address(0x30));
+    │                                                    ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:342:53
+    │
+342 │         otherPool.currency1 = Currency.wrap(address(0x30));
+    │                                                     ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:363:26
+    │
+363 │             magnitude >= 10_000 ? HIGH_FEE : magnitude >= 1_000 ? MEDIUM_FEE : BASE_FEE;
+    │                          ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:363:59
+    │
+363 │             magnitude >= 10_000 ? HIGH_FEE : magnitude >= 1_000 ? MEDIUM_FEE : BASE_FEE;
+    │                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:42
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                          ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:58
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:73
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                                         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:469:37
+    │
+469 │             mediumAmount0Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:470:35
+    │
+470 │             highAmount0Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:471:37
+    │
+471 │             mediumAmount1Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:472:35
+    │
+472 │             highAmount1Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:247:23
+    │
+247 │         bad = _config(8);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:305:84
+    │
+305 │             address(positionManager), key, _addParams(extremeLower, extremeUpper - 60), bytes("")
+    │                                                                                    ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:312:42
+    │
+312 │         TestERC20 tokenA = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:313:42
+    │
+313 │         TestERC20 tokenB = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:314:42
+    │
+314 │         TestERC20 tokenC = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:315:42
+    │
+315 │         TestERC20 tokenD = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:336:66
+    │
+336 │             currency2, currency3, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, IHooks(address(realHook))
+    │                                                                  ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:340:17
+    │
+340 │         PoolKey[3] memory keys;
+    │                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:344:18
+    │
+344 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:345:26
+    │
+345 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:351:18
+    │
+351 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:372:42
+    │
+372 │         TestERC20 tokenA = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:373:42
+    │
+373 │         TestERC20 tokenB = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:385:18
+    │
+385 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:386:26
+    │
+386 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:404:18
+    │
+404 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:417:18
+    │
+417 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:418:26
+    │
+418 │             tickSpacing: 32_768,
+    │                          ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:422:85
+    │
+422 │             abi.encodeWithSelector(IPoolManager.TickSpacingTooLarge.selector, int24(32_768))
+    │                                                                                     ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:438:42
+    │
+438 │             if (logs[i].topics.length != 4 || logs[i].topics[0] != signature) continue;
+    │                                          ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:470:32
+    │
+470 │         payloads = new bytes[](5);
+    │                                ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:28
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                            ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:42
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                          ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:58
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:73
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                                         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:335:37
+    │
+335 │           PoolKey memory dynamicKey = PoolKey(
+    │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+336 │ ┃             currency2, currency3, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, IHooks(address(realHook))
+337 │ ┃         );
+    │ ┗━━━━━━━━━┛ help: consider using named fields: `PoolKey({ currency0: currency2, currency1: currency3, fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: 60, hooks: IHooks(address(realHook)) })`
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+
+cd contracts && FOUNDRY_PROFILE=ci forge test
+No files changed, compilation skipped
+
+Ran 6 tests for test/OasisExecutorRealPermit2Integration.t.sol:OasisExecutorRealPermit2IntegrationTest
+[PASS] test_deadlineExpiredFailsClosedThroughRealPermit2() (gas: 170640)
+[PASS] test_pausedHookAllowsExecutorFullUnwindThroughRealPermit2() (gas: 603009)
+[PASS] test_recenterDownSettlesThroughRealPermit2WithoutExternalPull() (gas: 759988)
+[PASS] test_recenterThenRemoveAcrossGenerationsThroughRealPermit2() (gas: 876536)
+[PASS] test_recenterUpFailsClosedAtomicallyThroughRealPermit2() (gas: 639431)
+[PASS] test_staleNonceReplayFailsClosedThroughRealPermit2() (gas: 335578)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 21.58ms (3.99ms CPU time)
+
+Ran 5 tests for test/OasisPositionExecutorAdversarial.t.sol:OasisPositionExecutorAdversarialTest
+[PASS] test_recenterRejectsBoundaryTickViolations() (gas: 405148)
+[PASS] test_recenterSucceedsWithNonEmptyHookData() (gas: 561160)
+[PASS] test_reentrantTokenCannotTriggerSecondExecution() (gas: 845305)
+[PASS] test_removeWithOutboundFeeTokenCompletesWithExactDeltas() (gas: 483686)
+[PASS] test_removeWithTransferRevertingTokenFailsClosedAtomically() (gas: 546451)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 21.95ms (5.07ms CPU time)
+
+Ran 8 tests for test/OasisRealPermit2Lifecycle.t.sol:OasisRealPermit2LifecycleTest
+[PASS] test_expiredPermit2AllowanceRejectsMintAtomically() (gas: 467993)
+[PASS] test_insufficientPermit2AllowanceRejectsMintAtomically() (gas: 489883)
+[PASS] test_mintSwapCollectRevokeUnwindRealPermit2() (gas: 1908849)
+[PASS] test_pauseAndRevokedAllowancesStillPermitFullExit() (gas: 881213)
+[PASS] test_revokedPermit2AllowanceRejectsMintAtomically() (gas: 523339)
+[PASS] test_tokenLyingAboutSettlementRejectsMintAtomically() (gas: 538478)
+[PASS] test_tokenReturningFalseRejectsMintAtomically() (gas: 453541)
+[PASS] test_transferredNftCannotUsePreviousOwnersWhitelistButCanExit() (gas: 1179110)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 21.66ms (13.95ms CPU time)
+
+Ran 14 tests for test/OasisPositionExecutor.t.sol:OasisPositionExecutorTest
+[PASS] test_guardianCanPauseButOnlyOwnerResumes() (gas: 148912)
+[PASS] test_guardianCannotAddAuthority() (gas: 38457)
+[PASS] test_recenterBurnsOldMintsNewAndTakesSurplus() (gas: 627228)
+[PASS] test_recenter_failsClosedWhenNewRangeExceedsProceeds() (gas: 463085)
+[PASS] test_removeBurnsAndTakesAllProceeds() (gas: 351315)
+[PASS] test_revert_deadlinePassed() (gas: 50275)
+[PASS] test_revert_invalidRange() (gas: 90536)
+[PASS] test_revert_nonOwnerCannotExecute() (gas: 45307)
+[PASS] test_revert_notOwnerPosition() (gas: 423547)
+[PASS] test_revert_poolBindingIsImmutable() (gas: 323099)
+[PASS] test_revert_recenterRejectsZeroLiquidity() (gas: 89850)
+[PASS] test_revert_removeRejectsNonzeroLiquidity() (gas: 89540)
+[PASS] test_revert_staleNonce() (gas: 310656)
+[PASS] test_revert_swapLegUnsupported() (gas: 72919)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 51.72ms (2.18ms CPU time)
+
+Ran 10 tests for test/OasisPositionManagerIntegration.t.sol:OasisPositionManagerIntegrationTest
+[PASS] test_alternateRecipientMintRespectsWhitelist() (gas: 563930)
+[PASS] test_directCoreModifyLiquidityRejected() (gas: 506729)
+[PASS] test_invalidPositionSaltRejectedOnHookCallback() (gas: 28657)
+[PASS] test_laterIncreaseByApprovedExecutorSucceeds() (gas: 819847)
+[PASS] test_nftTransferMovesWhitelistGateToNewOwner() (gas: 1053847)
+[PASS] test_realPositionManagerEnforcesFirstMintAndAllowsRevokedOwnerToRemove() (gas: 909329)
+[PASS] test_whitelistGovernanceRejectsForbiddenAccounts() (gas: 89274)
+[PASS] test_whitelistGovernanceRejectsNoStateChange() (gas: 133789)
+[PASS] test_whitelistGovernanceRejectsZeroAddress() (gas: 57591)
+[PASS] test_wrongSenderRejectedOnHookCallback() (gas: 26569)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 65.53ms (2.31ms CPU time)
+
+Ran 16 tests for test/OasisDynamicFeeHook.t.sol:OasisDynamicFeeHookTest
+[PASS] testFuzz_feeClassificationIsBounded(int256) (runs: 10000, μ: 38137, ~: 38118)
+[PASS] testFuzz_feeIsMonotoneByTradeMagnitude(uint128,uint128) (runs: 10000, μ: 65299, ~: 65284)
+[PASS] test_addRequiresCanonicalPositionManagerAndExactPositionBinding() (gas: 392438)
+[PASS] test_beforeSwapOverridesBothExactInputAndExactOutput() (gas: 60646)
+[PASS] test_callbacksRejectDirectCallers() (gas: 16485)
+[PASS] test_feeBandsAreDeterministicAndBounded() (gas: 80825)
+[PASS] test_feeConfigRequiresOwnerIncreasingVersionAndHardCap() (gas: 193266)
+[PASS] test_feeThresholdsUseTheSpecifiedTokenBaseUnits() (gas: 162527)
+[PASS] test_firstConfigurationPermanentlyBindsOnePool() (gas: 63367)
+[PASS] test_guardianCanOnlyReduceAuthority() (gas: 139493)
+[PASS] test_onlyInitializerCanInitializeConfiguredDynamicPool() (gas: 37961)
+[PASS] test_pauseStopsAddsButKeepsBaseFeeSwapPath() (gas: 268285)
+[PASS] test_permissionMaskIsMinimalAndRemovalIsNotHooked() (gas: 15818)
+[PASS] test_previewRejectsForeignOrStaticPoolKeys() (gas: 32235)
+[PASS] test_realPoolManagerDispatchesHookAndEmitsOverriddenFee() (gas: 54239383)
+[PASS] test_whitelistedNftOwnerCanAddAndOtherOwnerCannot() (gas: 305643)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 185.74ms (354.16ms CPU time)
+
+Ran 8 tests for test/OasisDynamicFeeHookAdversarial.t.sol:OasisDynamicFeeHookAdversarialTest
+[PASS] test_addFlowAcceptsExtremeAlignedTicksAndRejectsMismatch() (gas: 278952)
+[PASS] test_feeClassificationHitsExactThresholdBoundaries() (gas: 340232)
+[PASS] test_feeConfigRejectsEveryExactBoundaryViolation() (gas: 354987)
+[PASS] test_malformedAndNonEmptyHookDataIsInertForAdds() (gas: 491666)
+[PASS] test_malformedAndNonEmptyHookDataIsInertForSwaps() (gas: 163026)
+[PASS] test_nonCanonicalKeysRejectedByPinnedRuntime() (gas: 5376757)
+[PASS] test_poolIdDifferentialAgainstCanonicalRuntime() (gas: 30539478)
+[PASS] test_reentrancySurfaceIsClosedDuringUnlockWindow() (gas: 52701004)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 185.75ms (61.45ms CPU time)
+
+Ran 1 test for test/OasisDynamicFeeHookInvariant.t.sol:OasisDynamicFeeHookInvariantTest
+[PASS]
+OasisDynamicFeeHookInvariantTest invariants:
+[PASS] invariant_configAndEveryQuotedFeeRemainBounded
+[PASS] invariant_hookAuthoritySurfaceRemainsMinimal
+ OasisDynamicFeeHookInvariantTest invariants (runs: 512, calls: 65536, reverts: 0)
+
+╭-----------------------+--------------+-------+---------+----------╮
+| Contract              | Selector     | Calls | Reverts | Discards |
++===================================================================+
+| HookGovernanceHandler | reconfigure  | 21759 | 0       | 0        |
+|-----------------------+--------------+-------+---------+----------|
+| HookGovernanceHandler | setPaused    | 22066 | 0       | 0        |
+|-----------------------+--------------+-------+---------+----------|
+| HookGovernanceHandler | setWhitelist | 21711 | 0       | 0        |
+╰-----------------------+--------------+-------+---------+----------╯
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 14.05s (14.02s CPU time)
+
+Ran 8 test suites in 14.06s (14.60s CPU time): 68 tests passed, 0 failed, 0 skipped (68 total tests)
+cd contracts && forge lint
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:38:28
+   │
+38 │     uint8 public immutable decimals;
+   │                            ━━━━━━━━ help: consider using: `DECIMALS`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:44:35
+   │
+44 │     IPoolManager public immutable manager;
+   │                                   ━━━━━━━ help: consider using: `MANAGER`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[custom-errors]: prefer using custom errors on revert and require calls
+    ╭▸ src/OasisPositionExecutor.sol:298:9
+    │
+298 │         require(action <= type(uint8).max, "ACTION_OVERFLOW");
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/custom-errors
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutor.t.sol:31:10
+   │
+31 │ contract MockPermit2Transfer {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[low-level-calls]: Low-level calls should be avoided
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:92:26
+   │
+92 │             (bool ok,) = reentrancyTarget.call(reentrancyCalldata);
+   │                          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/low-level-calls
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:84:45
+   │
+84 │         bytes[] memory params = new bytes[](3);
+   │                                             ━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:86:35
+   │
+86 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+   │                                   ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:34:10
+   │
+34 │ contract OasisExecutorRealPermit2IntegrationTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:416:11
+    │
+416 │ interface IERC20Approval {
+    │           ━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:32:10
+   │
+32 │ contract MockPermit2Transfer {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:43:10
+   │
+43 │ contract DirectCoreRouter is IUnlockCallback {
+   │          ━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:69:10
+   │
+69 │ contract OasisPositionManagerIntegrationTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutorAdversarial.t.sol:35:10
+   │
+35 │ contract MaliciousToken is IERC20Minimal {
+   │          ━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:86:48
+   │
+86 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+   │                                                ━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisRealPermit2Lifecycle.t.sol:90:48
+   │
+90 │         positions.modifyLiquidities(abi.encode(hex"021212", params), block.timestamp + 1);
+   │                                                ━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:107:17
+    │
+107 │         _change(hex"01", LIQUIDITY);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:122:17
+    │
+122 │         _change(hex"01", LIQUIDITY); // former owner has no authority
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:131:45
+    │
+131 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:165:45
+    │
+165 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:167:35
+    │
+167 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+    │                                   ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:167:48
+    │
+167 │             abi.encode(key, int24(-120), int24(120), LIQUIDITY, CAPITAL, CAPITAL, OWNER, bytes(""));
+    │                                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisRealPermit2Lifecycle.t.sol:172:48
+    │
+172 │         positions.modifyLiquidities(abi.encode(hex"021212", params), block.timestamp + 1);
+    │                                                ━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:56:35
+   │
+56 │             poolManager, permit2, 100_000, IPositionDescriptor(address(0)), IWETH9(address(0))
+   │                                   ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:86:26
+   │
+86 │             tickSpacing: 60,
+   │                          ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:68
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:73
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                         ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisPositionExecutor.t.sol:40:10
+   │
+40 │ contract OasisPositionExecutorTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:124:10
+    │
+124 │ contract OasisPositionExecutorAdversarialTest is Test {
+    │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:435:11
+    │
+435 │ interface IERC20Approval {
+    │           ━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ src/OasisDynamicFeeHook.sol:376:9
+    │
+376 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ src/OasisDynamicFeeHook.sol:384:9
+    │
+384 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/shared/OasisLifecycleBase.sol:91:21
+   │
+91 │             address(0x3000)
+   │                     ━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:114:21
+    │
+114 │             address(0x3000)
+    │                     ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:34
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                  ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:43
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                           ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:53
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:129:62
+    │
+129 │                 500, 2000, 5000, 1 ether, 10 ether, 1 ether, 10 ether, 1, true
+    │                                                              ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:138:35
+    │
+138 │         require(block.timestamp + 1 days <= type(uint48).max, "EXPIRY_OVERFLOW");
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:141:50
+    │
+141 │         uint48 expiry = uint48(block.timestamp + 1 days);
+    │                                                  ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:118:78
+    │
+118 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:124:59
+    │
+124 │         assertEq(positionManager.getPositionLiquidity(2), 0.1 ether);
+    │                                                           ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:68
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:73
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                         ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:156:78
+    │
+156 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether)
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:204:81
+    │
+204 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 2 ether));
+    │                                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:204:86
+    │
+204 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 2 ether));
+    │                                                                                      ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:375:49
+    │
+375 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:406:37
+    │
+406 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:407:35
+    │
+407 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:408:37
+    │
+408 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisExecutorRealPermit2Integration.t.sol:409:35
+    │
+409 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisPositionManagerIntegration.t.sol:92:13
+   │
+92 │             100_000,
+   │             ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:222:29
+    │
+222 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:244:29
+    │
+244 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:262:29
+    │
+262 │             liquidityDelta: 0.5 ether,
+    │                             ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:280:17
+    │
+280 │         address[3] memory forbidden =
+    │                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:312:45
+    │
+312 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:334:45
+    │
+334 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:347:45
+    │
+347 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:360:49
+    │
+360 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:391:37
+    │
+391 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:392:35
+    │
+392 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:393:37
+    │
+393 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionManagerIntegration.t.sol:394:35
+    │
+394 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:159:45
+    │
+159 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:173:29
+    │
+173 │         _swap(true, -int256(10 ** 12));
+    │                             ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:173:35
+    │
+173 │         _swap(true, -int256(10 ** 12));
+    │                                   ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:174:30
+    │
+174 │         _swap(false, -int256(10 ** 12));
+    │                              ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:174:36
+    │
+174 │         _swap(false, -int256(10 ** 12));
+    │                                    ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:175:28
+    │
+175 │         _swap(true, int256(10 ** 10));
+    │                            ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:175:34
+    │
+175 │         _swap(true, int256(10 ** 10));
+    │                                  ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:176:29
+    │
+176 │         _swap(false, int256(10 ** 10));
+    │                             ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:176:35
+    │
+176 │         _swap(false, int256(10 ** 10));
+    │                                   ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:179:17
+    │
+179 │         _change(hex"01", 0);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:200:17
+    │
+200 │         _change(hex"01", LIQUIDITY);
+    │                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:214:45
+    │
+214 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/shared/OasisLifecycleBase.sol:216:44
+    │
+216 │         if (keccak256(action) == keccak256(hex"01")) {
+    │                                            ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[asm-keccak256]: use of inefficient hashing mechanism; consider using inline assembly
+    ╭▸ src/OasisPositionExecutor.sol:152:16
+    │
+152 │         return keccak256(abi.encode(block.chainid, address(this), intent));
+    │                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/asm-keccak256
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisPositionExecutor.t.sol:66:13
+   │
+66 │             100_000,
+   │             ━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:145:49
+    │
+145 │         assertEq(positionManager.nextTokenId(), 3);
+    │                                                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:179:68
+    │
+179 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 1_000 ether)
+    │                                                                    ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:179:74
+    │
+179 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 1_000 ether)
+    │                                                                          ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:227:32
+    │
+227 │         otherKey.tickSpacing = 120;
+    │                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:292:81
+    │
+292 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 0));
+    │                                                                                 ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:292:87
+    │
+292 │         executor.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -120, 120, 0));
+    │                                                                                       ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:367:45
+    │
+367 │         bytes[] memory params = new bytes[](3);
+    │                                             ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[cyclomatic-complexity]: this function has a cyclomatic complexity above 11; consider splitting it into smaller functions
+    ╭▸ src/OasisPositionExecutor.sol:159:5
+    │
+159 │     function execute(Intent calldata intent) external onlyOwner {
+    │     ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/cyclomatic-complexity
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:389:49
+    │
+389 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:420:37
+    │
+420 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:421:35
+    │
+421 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:422:37
+    │
+422 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutor.t.sol:423:35
+    │
+423 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:30:42
+   │
+30 │     OasisDynamicFeeHook public immutable hook;
+   │                                          ━━━━ help: consider using: `HOOK`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:19:10
+   │
+19 │ contract HookInvariantPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:29:10
+   │
+29 │ contract HookGovernanceHandler {
+   │          ━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:114:10
+    │
+114 │ contract OasisDynamicFeeHookInvariantTest is Test {
+    │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:148:35
+    │
+148 │             poolManager, permit2, 100_000, IPositionDescriptor(address(0)), IWETH9(address(0))
+    │                                   ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:179:26
+    │
+179 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:198:68
+    │
+198 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether);
+    │                                                                    ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:198:78
+    │
+198 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 180, 0.1 ether);
+    │                                                                              ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:212:29
+    │
+212 │         _expectInvalidRange(120, -120);
+    │                             ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:214:35
+    │
+214 │         _expectInvalidRange(-130, 120);
+    │                                   ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:221:89
+    │
+221 │             new OasisPositionExecutor(poolManager, positionManager, LP_OWNER, GUARDIAN, 1_000);
+    │                                                                                         ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:225:75
+    │
+225 │                 OasisPositionExecutor.LiquidityAboveMax.selector, uint256(1_001), uint256(1_000)
+    │                                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:225:91
+    │
+225 │                 OasisPositionExecutor.LiquidityAboveMax.selector, uint256(1_001), uint256(1_000)
+    │                                                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:80
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:85
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                     ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:228:89
+    │
+228 │         bounded.execute(_intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, -60, 60, 1_001));
+    │                                                                                         ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:325:82
+    │
+325 │             _intent(OasisPositionExecutor.Mode.RECENTER, 1, NONCE, lower, upper, 0.1 ether)
+    │                                                                                  ━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:394:49
+    │
+394 │         for (uint256 candidate = 0; candidate < 100_000; ++candidate) {
+    │                                                 ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:425:37
+    │
+425 │             mediumAmount0Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:426:35
+    │
+426 │             highAmount0Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:427:37
+    │
+427 │             mediumAmount1Threshold: 1 ether,
+    │                                     ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisPositionExecutorAdversarial.t.sol:428:35
+    │
+428 │             highAmount1Threshold: 10 ether,
+    │                                   ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:48:57
+   │
+48 │         uint128 medium0 = _boundedThreshold(seed >> 72, 1e24) + 1;
+   │                                                         ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:49:66
+   │
+49 │         uint128 high0 = medium0 + _boundedThreshold(seed >> 120, 1e24) + 1;
+   │                                                                  ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+   ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:50:58
+   │
+50 │         uint128 medium1 = _boundedThreshold(seed >> 168, 1e24) + 1;
+   │                                                          ━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[interface-naming]: interface names should be prefixed with 'I'
+   ╭▸ test/OasisDynamicFeeHook.t.sol:29:11
+   │
+29 │ interface Vm {
+   │           ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/interface-naming
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:241:37
+    │
+241 │             mediumAmount0Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:242:35
+    │
+242 │             highAmount0Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:243:37
+    │
+243 │             mediumAmount1Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookInvariant.t.sol:244:35
+    │
+244 │             highAmount1Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ test/OasisDynamicFeeHook.t.sol:458:9
+    │
+458 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/shared/OasisLifecycleBase.sol:119:15
+    │
+119 │           key = PoolKey(
+    │ ┏━━━━━━━━━━━━━━━┛
+120 │ ┃             Currency.wrap(address(token0)),
+121 │ ┃             Currency.wrap(address(token1)),
+122 │ ┃             LPFeeLibrary.DYNAMIC_FEE_FLAG,
+123 │ ┃             60,
+124 │ ┃             IHooks(address(hook))
+125 │ ┃         );
+    │ ┗━━━━━━━━━┛ help: consider using named fields: `PoolKey({ currency0: Currency.wrap(address(token0)), currency1: Currency.wrap(address(token1)), fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: 60, hooks: IHooks(address(hook)) })`
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:29:11
+   │
+29 │ interface Vm {
+   │           ━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:36:10
+   │
+36 │ contract MockPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHook.t.sol:63:10
+   │
+63 │ contract OasisDynamicFeeHookTest {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:106:46
+    │
+106 │             currency1: Currency.wrap(address(0x20)),
+    │                                              ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:108:26
+    │
+108 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:142:47
+    │
+142 │             hook.beforeSwap(OTHER, key, _swap(-10_000), "");
+    │                                               ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:145:47
+    │
+145 │             hook.beforeSwap(OTHER, key, _swap(10_000), "");
+    │                                               ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:162:47
+    │
+162 │         require(_preview(_swapDirection(true, -10_000)) == HIGH_FEE);
+    │                                               ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:163:47
+    │
+163 │         require(_preview(_swapDirection(true, 10_000)) == BASE_FEE);
+    │                                               ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:165:48
+    │
+165 │         require(_preview(_swapDirection(false, -10_000)) == BASE_FEE);
+    │                                                ━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[asm-keccak256]: use of inefficient hashing mechanism; consider using inline assembly
+   ╭▸ src/OasisHookFactory.sol:35:16
+   │
+35 │           return keccak256(
+   │ ┏━━━━━━━━━━━━━━━━┛
+36 │ ┃             bytes.concat(
+37 │ ┃                 type(OasisDynamicFeeHook).creationCode,
+38 │ ┃                 abi.encode(poolManager, positionManager, initializer, initialOwner, guardian)
+39 │ ┃             )
+40 │ ┃         );
+   │ ┗━━━━━━━━━┛
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/asm-keccak256
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:166:48
+    │
+166 │         require(_preview(_swapDirection(false, 10_000)) == HIGH_FEE);
+    │                                                ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:188:26
+    │
+188 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:275:52
+    │
+275 │         otherKey.currency1 = Currency.wrap(address(0x30));
+    │                                                    ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:342:53
+    │
+342 │         otherPool.currency1 = Currency.wrap(address(0x30));
+    │                                                     ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:363:26
+    │
+363 │             magnitude >= 10_000 ? HIGH_FEE : magnitude >= 1_000 ? MEDIUM_FEE : BASE_FEE;
+    │                          ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:363:59
+    │
+363 │             magnitude >= 10_000 ? HIGH_FEE : magnitude >= 1_000 ? MEDIUM_FEE : BASE_FEE;
+    │                                                           ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:42
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                          ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:58
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:459:73
+    │
+459 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                                         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:469:37
+    │
+469 │             mediumAmount0Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:470:35
+    │
+470 │             highAmount0Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:471:37
+    │
+471 │             mediumAmount1Threshold: 1_000,
+    │                                     ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHook.t.sol:472:35
+    │
+472 │             highAmount1Threshold: 10_000,
+    │                                   ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:60:35
+   │
+60 │     IPoolManager public immutable manager;
+   │                                   ━━━━━━━ help: consider using: `MANAGER`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[screaming-snake-case-immutable]: immutables should use SCREAMING_SNAKE_CASE
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:61:42
+   │
+61 │     OasisDynamicFeeHook public immutable hook;
+   │                                          ━━━━ help: consider using: `HOOK`
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/screaming-snake-case-immutable
+
+note[inline-assembly]: inline assembly (declared memory-safe); review business logic and side effects
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:496:9
+    │
+496 │         assembly ("memory-safe") {
+    │         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/inline-assembly
+
+note[unused-import]: unused imports should be removed
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:17:5
+   │
+17 │     BeforeSwapDeltaLibrary
+   │     ━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/unused-import
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:30:10
+   │
+30 │ contract AdversarialPositionManager is IOasisPositionManager {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:59:10
+   │
+59 │ contract HookAdversarialRouter is IUnlockCallback {
+   │          ━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[multi-contract-file]: prefer having only one contract, interface or library per file
+   ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:95:10
+   │
+95 │ contract OasisDynamicFeeHookAdversarialTest is Test {
+   │          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/multi-contract-file
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/shared/OasisLifecycleBase.sol:231:17
+    │
+231 │ ┏                 SwapParams(
+232 │ ┃                     zeroForOne,
+233 │ ┃                     amount,
+234 │ ┃                     zeroForOne
+235 │ ┃                         ? uint160(4295128740)
+236 │ ┃                         : uint160(1461446703485210103287273052203988822378723970341)
+237 │ ┃                 ),
+    │ ┗━━━━━━━━━━━━━━━━━┛
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+help: consider using named fields
+    ╭╴
+231 ±                 SwapParams({ zeroForOne: zeroForOne, amountSpecified: amount, sqrtPriceLimitX96: zeroForOne
+232 +                         ? uint160(4295128740)
+233 ±                         : uint160(1461446703485210103287273052203988822378723970341) }),
+    ╰╴
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:136:46
+    │
+136 │             currency1: Currency.wrap(address(0x20)),
+    │                                              ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:138:26
+    │
+138 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:162:76
+    │
+162 │         positionManager.setPosition(TOKEN_ID, LP_OWNER, key, _positionInfo(-120, 120));
+    │                                                                            ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:162:82
+    │
+162 │         positionManager.setPosition(TOKEN_ID, LP_OWNER, key, _positionInfo(-120, 120));
+    │                                                                                  ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:169:59
+    │
+169 │                 address(positionManager), key, _addParams(-120, 120), payloads[i]
+    │                                                           ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:169:65
+    │
+169 │                 address(positionManager), key, _addParams(-120, 120), payloads[i]
+    │                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:175:73
+    │
+175 │         positionManager.setPosition(TOKEN_ID, OTHER, key, _positionInfo(-120, 120));
+    │                                                                         ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:175:79
+    │
+175 │         positionManager.setPosition(TOKEN_ID, OTHER, key, _positionInfo(-120, 120));
+    │                                                                               ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:184:75
+    │
+184 │         hook.beforeAddLiquidity(address(positionManager), key, _addParams(-120, 120), payloads[2]);
+    │                                                                           ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:184:81
+    │
+184 │         hook.beforeAddLiquidity(address(positionManager), key, _addParams(-120, 120), payloads[2]);
+    │                                                                                 ━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:227:23
+    │
+227 │         bad = _config(3);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:231:23
+    │
+231 │         bad = _config(4);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:235:23
+    │
+235 │         bad = _config(5);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:247:23
+    │
+247 │         bad = _config(8);
+    │                       ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:305:84
+    │
+305 │             address(positionManager), key, _addParams(extremeLower, extremeUpper - 60), bytes("")
+    │                                                                                    ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:312:42
+    │
+312 │         TestERC20 tokenA = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:313:42
+    │
+313 │         TestERC20 tokenB = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:314:42
+    │
+314 │         TestERC20 tokenC = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:315:42
+    │
+315 │         TestERC20 tokenD = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:336:66
+    │
+336 │             currency2, currency3, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, IHooks(address(realHook))
+    │                                                                  ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:340:17
+    │
+340 │         PoolKey[3] memory keys;
+    │                 ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:344:18
+    │
+344 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:345:26
+    │
+345 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:351:18
+    │
+351 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:372:42
+    │
+372 │         TestERC20 tokenA = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:373:42
+    │
+373 │         TestERC20 tokenB = new TestERC20(1e36);
+    │                                          ━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:385:18
+    │
+385 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:386:26
+    │
+386 │             tickSpacing: 60,
+    │                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:404:18
+    │
+404 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:417:18
+    │
+417 │             fee: 3_000,
+    │                  ━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:418:26
+    │
+418 │             tickSpacing: 32_768,
+    │                          ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:422:85
+    │
+422 │             abi.encodeWithSelector(IPoolManager.TickSpacingTooLarge.selector, int24(32_768))
+    │                                                                                     ━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:438:42
+    │
+438 │             if (logs[i].topics.length != 4 || logs[i].topics[0] != signature) continue;
+    │                                          ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:470:32
+    │
+470 │         payloads = new bytes[](5);
+    │                                ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:28
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                            ━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:42
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                          ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:58
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                          ━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[literal-instead-of-constant]: this literal appears multiple times in the contract; declare a named constant for it
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:497:73
+    │
+497 │             info := or(shl(8, and(lower, 0xffffff)), shl(32, and(upper, 0xffffff)))
+    │                                                                         ━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/literal-instead-of-constant
+
+note[named-struct-fields]: prefer initializing structs with named fields
+    ╭▸ test/OasisDynamicFeeHookAdversarial.t.sol:335:37
+    │
+335 │           PoolKey memory dynamicKey = PoolKey(
+    │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+336 │ ┃             currency2, currency3, LPFeeLibrary.DYNAMIC_FEE_FLAG, 60, IHooks(address(realHook))
+337 │ ┃         );
+    │ ┗━━━━━━━━━┛ help: consider using named fields: `PoolKey({ currency0: currency2, currency1: currency3, fee: LPFeeLibrary.DYNAMIC_FEE_FLAG, tickSpacing: 60, hooks: IHooks(address(realHook)) })`
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/named-struct-fields
+

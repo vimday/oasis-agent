@@ -1,0 +1,29 @@
+................FF                                                       [100%]
+=================================== FAILURES ===================================
+_________________ test_native_blob_gas_is_not_silently_omitted _________________
+
+    def test_native_blob_gas_is_not_silently_omitted():
+        from oasis_agent.farming.native_payments import _gas_debit
+    
+        receipt = {"type": "0x3", "gasUsed": "0x64", "effectiveGasPrice": "0x2",
+                   "blobGasUsed": hex(131072), "blobGasPrice": "0x3"}
+>       assert _gas_debit(receipt, 1) == 200 + 131072 * 3
+E       AssertionError: assert 200 == (200 + (131072 * 3))
+E        +  where 200 = <function _gas_debit at 0x107753100>({'type': '0x3', 'gasUsed': '0x64', 'effectiveGasPrice': '0x2', 'blobGasUsed': '0x20000', ...}, 1)
+
+tests/unit/test_native_payments.py:549: AssertionError
+________________ test_op_native_requires_operator_fee_evidence _________________
+
+    def test_op_native_requires_operator_fee_evidence():
+        from oasis_agent.farming.native_payments import _gas_debit
+    
+        receipt = {"type": "0x2", "gasUsed": "0x64", "effectiveGasPrice": "0x2",
+                   "l1Fee": "0x32"}
+>       with pytest.raises(ValueError, match="operator"):
+E       Failed: DID NOT RAISE ValueError
+
+tests/unit/test_native_payments.py:557: Failed
+=========================== short test summary info ============================
+FAILED tests/unit/test_native_payments.py::test_native_blob_gas_is_not_silently_omitted
+FAILED tests/unit/test_native_payments.py::test_op_native_requires_operator_fee_evidence
+2 failed, 16 passed in 0.34s

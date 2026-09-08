@@ -1,0 +1,9 @@
+{
+  "src/oasis_agent/execution/lp_journal.py": "6cd45d50a750986b6545e35c15eaddce833f0f664932908aa1363cf26400d526",
+  "src/oasis_agent/execution/lp_state_machine.py": "c3bfb3c1bdb967ba326a96bfb9bf0c3ffe60b8787e7a98a43c7bcfcf167b15b1",
+  "src/oasis_agent/farming/strategy.py": "77325c070bc9c9737f9a668a3331bcd7e4565b23dc4010ef512beb2921f4339e",
+  "src/oasis_agent/farming/counterfactual.py": "1d2794b87968defadb7196aadb21c380475546fea37640da3951a3cc73bd2d01",
+  "src/oasis_agent/farming/metrics.py": "fb6cd0c2e7a7aac6394104ac04c7abaf91c125c06414cc558954740fab51bd3c",
+  "src/oasis_agent/models/finance.py": "eb45eafef6c20442bc02157014f26ed4feb4bea25e9afc67816fd31661901ea1",
+  "contracts/test/OasisRealPermit2Lifecycle.t.sol": "adb1fcd0403dac7d5c298f3a00177af1635fb6b34a7b522825544a01116d325d"
+}

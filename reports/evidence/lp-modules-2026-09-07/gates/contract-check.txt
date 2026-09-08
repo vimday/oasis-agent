@@ -1163,4 +1163,3 @@ note[cyclomatic-complexity]: this function has a cyclomatic complexity above 11;
     │     ━━━━━━━━
     │
     ╰ help: https://getfoundry.sh/forge/linting/cyclomatic-complexity
-

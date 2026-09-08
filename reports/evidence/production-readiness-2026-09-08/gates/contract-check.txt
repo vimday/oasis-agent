@@ -1,0 +1,12 @@
+$ cd contracts && forge fmt --check
+(clean)
+
+$ cd contracts && forge build
+(clean build; named-struct-fields lint help is advisory only)
+
+$ cd contracts && FOUNDRY_PROFILE=ci forge test
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 14.16s (14.13s CPU time)
+Ran 8 test suites in 14.18s (14.70s CPU time): 68 tests passed, 0 failed, 0 skipped (68 total tests)
+
+$ cd contracts && forge lint
+EXIT=0

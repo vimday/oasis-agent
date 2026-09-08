@@ -1,0 +1,56 @@
+................FF                                                       [100%]
+=================================== FAILURES ===================================
+____________ test_intent_rejects_malformed_hashes_and_evm_overflow _____________
+
+    def test_intent_rejects_malformed_hashes_and_evm_overflow():
+        cases = (
+            {"pool_id": "not-a-hash"}, {"state_hash": "0x01"}, {"config_hash": "0x01"},
+            {"code_hashes": ("0x01",)}, {"max_fee_pips": 1_000_001},
+            {"amount0_exact": 1 << 256}, {"nonce": 1 << 256},
+            {"new_range": TickRange(-120, 120, 30)},
+        )
+        for case in cases:
+>           with unittest.TestCase().assertRaises(ValueError):
+
+tests/unit/test_lp_state_machine.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:263: in __exit__
+    self._raiseFailure("{} not raised".format(exc_name))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.case._AssertRaisesContext object at 0x107c53ce0>
+standardMsg = 'ValueError not raised'
+
+    def _raiseFailure(self, standardMsg):
+        msg = self.test_case._formatMessage(self.msg, standardMsg)
+>       raise self.test_case.failureException(msg)
+E       AssertionError: ValueError not raised
+
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:200: AssertionError
+______________ test_boolean_policy_flags_cannot_be_truthy_strings ______________
+
+    def test_boolean_policy_flags_cannot_be_truthy_strings():
+        machine = LpExecutionStateMachine(make_intent())
+        machine.propose()
+        machine.reserve()
+>       with unittest.TestCase().assertRaises(TypeError):
+
+tests/unit/test_lp_state_machine.py:216: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:263: in __exit__
+    self._raiseFailure("{} not raised".format(exc_name))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <unittest.case._AssertRaisesContext object at 0x107c53530>
+standardMsg = 'TypeError not raised'
+
+    def _raiseFailure(self, standardMsg):
+        msg = self.test_case._formatMessage(self.msg, standardMsg)
+>       raise self.test_case.failureException(msg)
+E       AssertionError: TypeError not raised
+
+/Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/unittest/case.py:200: AssertionError
+=========================== short test summary info ============================
+FAILED tests/unit/test_lp_state_machine.py::test_intent_rejects_malformed_hashes_and_evm_overflow
+FAILED tests/unit/test_lp_state_machine.py::test_boolean_policy_flags_cannot_be_truthy_strings
+2 failed, 16 passed in 0.28s

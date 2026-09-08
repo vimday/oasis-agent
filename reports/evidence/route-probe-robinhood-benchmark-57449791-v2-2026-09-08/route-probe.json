@@ -1,0 +1,502 @@
+{
+  "all_quotes_ok": false,
+  "block": {
+    "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+    "chain_id": 4663,
+    "number": 57449791,
+    "timestamp": 1788846228
+  },
+  "canonical_quotes": [
+    {
+      "amount": 1000000000000000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 10000000000000000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 100000000000000000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 1000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 10000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 100000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_input",
+      "status": "error"
+    },
+    {
+      "amount": 1000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    },
+    {
+      "amount": 10000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    },
+    {
+      "amount": 100000000,
+      "direction": "zero_for_one",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    },
+    {
+      "amount": 1000000000000000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    },
+    {
+      "amount": 10000000000000000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    },
+    {
+      "amount": 100000000000000000000,
+      "direction": "one_for_zero",
+      "error": "RPC quote failed (details redacted)",
+      "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "kind": "exact_output",
+      "status": "error"
+    }
+  ],
+  "contracts": {
+    "pool_manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "quoter": "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
+    "universal_router": "0x8876789976decbfcbbbe364623c63652db8c0904"
+  },
+  "evidence": [
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "1451e8bba076eaed5a40c895e0f8641c0d4c5b2ad568ca06abf1622de8eb2c0a",
+      "interpretation_hash": "93c3dd744f4cd726dda8071b49d072ad032cedeaa7e2db3bd7a4999f62d148f5",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "93ccd2aa0e97e66027c160ef8581c98c842e2e64f3d571110681d9bfacb70ef6",
+      "request_hash": "0e5141bf21db57b7a060f800fa37b1c30438dd7e85b67239184c290aea82dfcd",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "b7ace4d2204c8b4229637e3d3a3704c4ca18180bba92dd49c50fca2fd65beb2c",
+      "interpretation_hash": "1e10d666b5c5862d7f47a885e690eb910c3df67758f476b85a61d3a106a65c04",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "5f7ff0444035e9a4a4c235daf8b7ccf71b6bdb3e546189a4b2355fbbd5003901",
+      "request_hash": "5c8d741547929f65e6361e0cf232d88124da115f8f24272d8997e3c0bf8b4d02",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "bc586ee1577d507baee76fd18fe3ba6b2dc5a93fef70b4e7dba06b4efab40e87",
+      "interpretation_hash": "b36613bb86f3884af2e08bc8cd0102afad983c014e4bb4e2a6c48eef6ae424ad",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "8d474e82f951781240b78c10129abbfe9c7f182b5554a0079f5675180f603443",
+      "request_hash": "c16d4e81785951d68de26f4c4e825b5a2f19d9e98b3380b9c8d234e910023afb",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "ae1926e45c077d82a13c6549cf1cc4628b30477507be83509480e58b66c73f72",
+      "interpretation_hash": "475ad8aba73e33f431297a4057ecc78003f591932da0aa8144390560efd335b5",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "421a09042e273b27fddfed4d9594d1d000f0133ee9d2e66c9492904d840a8034",
+      "request_hash": "c890c07a6b053b8f845e9af4779f3353caabe4eb9cf45cca16cc91bdd8667f44",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "52a8d3b4c02744663988a7e38511886167b120a094ee6c7a8874ff247d64f2d8",
+      "interpretation_hash": "d638cd77f0f3795aab2b0d4a77f32925c268e3a0f35b8b2f0f0cd960306ab877",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "8d60b7d0f8190a8accba2090a30eaf50c0f7aa5706737f23322281530c288ca3",
+      "request_hash": "d67308ccc297bc817840b81fd1edbc20a816a73b45baa1f676359691f5707186",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "3ef0d36f5484a4db0a3dd125776d7c976a55a5e34672f71c68c10b36b62e25d0",
+      "interpretation_hash": "a206505fe95245138888cbd6ce8d71458625ade3de91e6b357099d203f933f06",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "cc9d98bdd5919f0c9a51da547ea96fdfe6790f071f3e1a621bb4a091af3283d6",
+      "request_hash": "70e7bf08d3fd238db0a130597869af67b75abd27bb89252ac6e90061144c902b",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "5c3ea4ab5d3d7934d69f5b689ac3c19faf698e5b23dc2bf386528078638ce2a7",
+      "interpretation_hash": "c09d04dc2b3a1d0821132439a4ee7046673fa4f76a14707eb50fa601adb57c13",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "ed24b7fa6d74289a9484725ba660c65c58ef4ba8b759a68437401176041f72aa",
+      "request_hash": "0cf6f5598616cf9e2623cca62fb6a341d41342b2840f2e818ed77c376ba69319",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "4a6dabaab65cc08484e4c4ae3073d8f55af35257568dd9ca3bbe38457c492cef",
+      "interpretation_hash": "ef11eb55f1143b666996999ebd47fa8498e2fc7fb6d265abee6c17dc1db58bf8",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "25167f8c64c05f87b14d471683b72be9020e6fdc1867c52cf285fa7b86f48efb",
+      "request_hash": "8991f7b27175b412f637dbc85aebdd54f34287d4cb5fc04742ac45f076da11d2",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "9820cba1c75955f6808a8e6adf3297f53e44ba847ba4f13c560c251f798fa1e7",
+      "interpretation_hash": "1c4f805765b060267c03a8a421ead89366df4936825c0e2ee89bc0425eaf6f18",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "a5f2fd985c2a0641a4756753e00a5de6b35139fbe1814040bc7a57816afeec4b",
+      "request_hash": "03f03c71798f40c8c66de5e3f28e7b45116aa8339f224cd5b9e338d5712e3b81",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "b34aab4a7ad2e8811f620e54a1a982094fe6babf2f1b9149966f622e0ee92e2e",
+      "interpretation_hash": "6448703e3d8de701bfafba931e51d2409112439e400cefeadd3a7ce17de717bf",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "399eec419db62ce41b34ec0ebbc7699b54b2e3e4b8d7344f5a8cbb09f39b5a02",
+      "request_hash": "51827687e725aac60ba4ff9f02702ab26607d3288fb279eb4759693bcc60cca8",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "cb425e2d1786330897735f338ae24620557bc59c7a651660b12d52e292d7b3a9",
+      "interpretation_hash": "ce3592967fe0c7ca2c0e93db08f0bfa7dca4a4b175fb3b2b0491d05a4ce26a38",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "4c12533dc7624fb260ce4d10f46ddb7b703baaf363eca298d22430cead75bf24",
+      "request_hash": "87c56497d67d2c28c6698381e8914c34b05444bfbb9d7818375706a8966e10bd",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "54685c5acb719ebd7a8a14195e16c5b0f3f6f4e3b52f0ee4331da153ac731e12",
+      "interpretation_hash": "6cb32d4c59208fca17e1a0319cf4c965361fbe0beb9e2526d844207a82f4924c",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "cbedac186140e1a6a44c6f2d0b683622781db56024664ebb393d906ca8dfc413",
+      "request_hash": "713fa30acef34b190b13632cbdd65b06157514db3d1457fad32150c4f9d5519b",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "0a87bcda4e8167e82cb83e0a7ce46afb9eade0a862a8fa26c8da1599cb314b0b",
+      "interpretation_hash": "c2ef4b761a62a62eb1fac7258ec3d14414bb0a4ecdf3a08e23dc9715df898a9c",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "70d39bb1155af81c381e442b1c18b158c97fcd538047767cb3e06a923dc94c62",
+      "request_hash": "7d989b2d447da7cc95a1302c34ecdf5039287295c7aec3b6f6514a08014655a2",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "9bfd4f8a9c0601ef74b1dd6aa001491928fc4d3c5dd2d67058c440348445b2cc",
+      "interpretation_hash": "1fb36e15441830a03e7732c86a22acbd5cf85abaf3fc48682431cbb33252bead",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "cfc329aea5a33f6e20338b834025fb5939afe1ebb853719be753af67ed080b0d",
+      "request_hash": "c98ee4ab17f20152c08eb7be45e2812bd29deb2adeba2510815cfb965e7ed383",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "7a36132355b6642857a3c48f14c146a8109bf8b8fe3936f7412ae85bb60ec267",
+      "interpretation_hash": "9086e175b67101fac55a8bf297a9696ac7269e963329907be7b448f5b37b5e04",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "47a049f9a6733c0d4ef822abf8370d98ec08168ce8f85924148fc799283c6d60",
+      "request_hash": "7ba74bdf295a2d8ec9a48f04597f2fa36d730b5ac3f243c0c8d2ea2a96e10c55",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    },
+    {
+      "block": {
+        "block_hash": "0x029a227a6545fe272ae8180a2093dacebfa18bc826a120b447d93733ac0a20e3",
+        "chain_id": 4663,
+        "number": 57449791,
+        "timestamp": 1788846228
+      },
+      "content_hash": "30fe256d047e26db61625d0d23f37f6cddfd6cf97afba5412a763be39dc068fd",
+      "interpretation_hash": "941bd02d77253c1208153ca967132e3a6e7831e49ed392aa26afa6c8ee9704b4",
+      "kind": "v4_route_probe",
+      "raw_response_hash": "2d2d37741ae0f3b727f1c3194021fb11ad808b9b17f69b4c875d1f8002a354c1",
+      "request_hash": "9d44a261d0d971a923aeb481ecde90a2275f79bf0953f6f0c891cd157fa44d4c",
+      "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+      "schema_version": 1,
+      "source": "provider-a"
+    }
+  ],
+  "execution_eligible": false,
+  "expected_hashes_complete": false,
+  "expected_hashes_match": false,
+  "identities_verified": false,
+  "limitations": [
+    "Direct V4Quoter success does not prove Universal Router or UI route selection.",
+    "Quoted depth is not settled depth and does not prove organic order flow.",
+    "A separate broadcast canary and receipt-level reconciliation are required."
+  ],
+  "pool_key": {
+    "currency0": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+    "currency1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "fee": 8388608,
+    "hooks": "0x1191ac2561817686efe4296b37ba5a5419eaa880",
+    "tick_spacing": 60
+  },
+  "provider_count": 1,
+  "providers": {
+    "provider-a": {
+      "quoter_pool_manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+      "quotes": [
+        {
+          "amount": 1000000000000000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 10000000000000000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 100000000000000000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 1000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 10000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 100000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_input",
+          "status": "error"
+        },
+        {
+          "amount": 1000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        },
+        {
+          "amount": 10000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        },
+        {
+          "amount": 100000000,
+          "direction": "zero_for_one",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        },
+        {
+          "amount": 1000000000000000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        },
+        {
+          "amount": 10000000000000000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        },
+        {
+          "amount": 100000000000000000000,
+          "direction": "one_for_zero",
+          "error": "RPC quote failed (details redacted)",
+          "hook_data_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "kind": "exact_output",
+          "status": "error"
+        }
+      ],
+      "runtime_hashes": {
+        "pool_manager": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+        "quoter": "0xd707b1da8cb165e5ea35a3b4450d971eb562ec171e23492aa117036b78a868f6",
+        "universal_router": "0x2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+      },
+      "url_env": "ROBINHOOD_RPC_A"
+    }
+  },
+  "quoter_binding_verified": true,
+  "quotes_agree": false,
+  "retrieved_at": "2026-09-08T05:44:55.253281+00:00",
+  "route_probe_verified": false,
+  "runtime_hashes_match": true,
+  "schema": "oasis.route-probe.v1"
+}

@@ -1,0 +1,26 @@
+.venv/bin/python -m compileall -q src tests scripts
+.venv/bin/python -m ruff check src tests scripts
+All checks passed!
+.venv/bin/python -m ruff format --check src tests scripts
+210 files already formatted
+.venv/bin/python -m mypy src
+Success: no issues found in 105 source files
+.venv/bin/python -m pytest
+..................................................................... [  8%]
+................................................ [ 14%]
+...................................................................................................................... [ 30%]
+.......................................................... [ 37%]
+........................................................................ [ 46%]
+........................................................................ [ 55%]
+............................................................... [ 63%]
+.......................................................... [ 71%]
+............................................................... [ 79%]
+........................................................................ [ 88%]
+.........................................................................................                                               [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6
+  /Users/metaverse/funspace/oasis-agent/.venv/lib/python3.12/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
+    warnings.warn(  # deprecated in 14.0 - 2024-11-09
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+782 passed, 1 warning, 108 subtests passed in 17.71s

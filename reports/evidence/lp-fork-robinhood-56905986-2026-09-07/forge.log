@@ -1,0 +1,24 @@
+2026-09-07T14:29:51.562923Z  WARN foundry_common::preprocessor: failed preprocessing err=solar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:91:7
+   │
+91 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+2026-09-07T14:29:52.168507Z  WARN foundry_common::preprocessor: failed preprocessing err=solar reported errors:
+
+error: expected base class or modifier, found abstract contract
+   ╭▸ src/OasisDynamicFeeHook.sol:91:7
+   │
+91 │     ) Ownable(initialOwner_) {
+   ╰╴      ━━━━━━━
+Compiling 110 files with Solc 0.8.26
+Solc 0.8.26 finished in 2.16s
+Compiler run successful!
+2026-09-07T14:29:56.739240Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/metaverse/.foundry/cache/rpc/robinhood/56905986"
+
+Ran 1 test for fork/OasisForkLifecycle.t.sol:OasisForkLifecycleTest
+[PASS] test_mintSwapCollectRevokeUnwindRealPermit2() (gas: 1893303)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 15.89s (7.06s CPU time)
+
+Ran 1 test suite in 15.91s (15.89s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

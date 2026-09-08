@@ -1,0 +1,16 @@
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/ruff check src tests scripts
+All checks passed!
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/ruff format --check src tests scripts
+204 files already formatted
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/mypy src
+Success: no issues found in 102 source files
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/python -m pytest
+744 passed, 1 warning, 108 subtests passed in 17.62s
+
+$ env -u PYTHONHOME -u PYTHONPATH .venv/bin/python scripts/run_deploy_checklist.py --help
+usage: run_deploy_checklist.py [-h] --network {base-sepolia,robinhood,robinhood-testnet}
+                               --block BLOCK [--identity-config IDENTITY_CONFIG] --output OUTPUT
+(help exits 0; observe-only tool, never signs/broadcasts)

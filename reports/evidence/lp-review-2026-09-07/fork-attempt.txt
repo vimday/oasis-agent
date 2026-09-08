@@ -1,0 +1,7 @@
+Command: PYTHONPATH=src .venv/bin/python scripts/run_pinned_fork.py --network robinhood --block 55903961 --output /tmp/oasis-review-robinhood-fork
+Exit code: 1
+Public source: https://rpc.mainnet.chain.robinhood.com
+Failure during eth_getCode preflight: RpcError: metadata is not found, 55903964
+No preflight.json or result.json was produced; no new fork validation is claimed.
+Follow-up public eth_blockNumber query failed with curl exit 35 (TLS).
+No signing, broadcast or account funding was performed.

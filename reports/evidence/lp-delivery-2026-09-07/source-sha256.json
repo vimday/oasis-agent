@@ -1,0 +1,20 @@
+{
+  "AGENTS.md": "4a24a2bc47bcc1a1e108615dfcd53b497cf56fea86044334623d2d2597fe9f3d",
+  "src/oasis_agent/execution/lp_journal.py": "ffc7841db01a440a637d54c8f4e0b547c8ce0d647737e048793331422e686bbe",
+  "src/oasis_agent/execution/lp_state_machine.py": "4665c71cfabf8434914cd1550acc047a246cb9761932939a3b66b463494f390f",
+  "src/oasis_agent/shadow/service.py": "ad7510b94cce7b38ea0162ee4bc7d8a815c03e1b897617ef30a42bbacec9f84e",
+  "src/oasis_agent/shadow/lp_runner.py": "c3e465b5543a6699dd63112529f62d0e46d30de8419151216c25fdb8c5ac0161",
+  "src/oasis_agent/shadow/journal.py": "62400d748657a884df188444077de6d5a337e5a178d010e7876a05bac2267afc",
+  "src/oasis_agent/models/finance.py": "7bb1359baf04c7ad2a5dc6ad500fc742fa69108961e33941f307985b572658a1",
+  "src/oasis_agent/farming/native_payments.py": "f682be2b312f9228ffd8db34a1411bdff48b24a8b456a86df99b30d3c1884da1",
+  "src/oasis_agent/farming/transaction_costs.py": "4d63ccdfe6f8bbbf1e58a629b793256c7b118078ebf9eff26f26fa15d1ff91e4",
+  "scripts/testnet_lp_e2e.py": "98fe2e7e144dafd63eec8e24fe42141db35ebbadaa0ca65127af2ed806565988",
+  "scripts/run_lp_shadow.py": "fb6bba45d5276647ce23fe90e280a9115d7add3c2a69d7ed32a78511cdb41f60",
+  "scripts/verify_lp_e2e.py": "2c676675de5ed5941d97e4e264df312e0b8d69785e16e5054eabda4971b268e6",
+  "contracts/fork/OasisForkLifecycle.t.sol": "9264c88dcdf6a7a05987f7881dbb3fd9102435282f62b3e54a31f44cc9264f39",
+  "contracts/test/shared/OasisLifecycleBase.sol": "bfe45afcf8da1746630af28b9cf6218d2af4df411b263653eca658c2d1d2f97c",
+  "contracts/test/OasisRealPermit2Lifecycle.t.sol": "36ca316b5d80c9ca0d1c139d5d18901153601ebb11ce7e1bf67a759c83411dcf",
+  "contracts/package-lock.json": "bd0641dd287e1c3a8df68741c823eb87ba8ce1b9e7ad799c7f73aff5c64015e6",
+  "docs/runbooks/LP_TESTNET_E2E.md": "7f190873793438c563af55bea3dd9db5c9fc1064a0608e6677b37cc4628ca36b",
+  "docs/verification/2026-09-07-real-lp-e2e-delivery.md": "3b5d1673bb05d27b9d27fe5e491bb2895b8bbc20975d2025d398b55149beeb6a"
+}

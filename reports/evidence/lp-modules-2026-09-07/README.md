@@ -1,7 +1,7 @@
 # 独立审计证据包：LP 模块 / 归属 / shadow 决策日志
 
 日期：2026-09-07（Asia/Shanghai）
-Git 基线：`afd39df`（HEAD，见下）。本目录为**实现侧**自查证据，供第三节指定复核人独立复现；
+Git 代码基线：`afd39df`；本证据包由提交 `90e19d2` 归档（见下）。本目录为**实现侧**自查证据，供第三节指定复核人独立复现；
 本包任何内容都不构成独立验收、上线收益或已审计声明。
 
 ## 复现步骤
@@ -37,4 +37,4 @@ make contract-security-check      # 预期：slither 0 result
 
 ## 文件清单与 SHA256
 
-见 `MANIFEST.sha256`（含本目录全部文件；复核后建议将复核报告与本清单一并不可变归档）。
+见 `MANIFEST.sha256`（清单明确覆盖本目录除 `MANIFEST.sha256` 自身以外的全部文件；manifest 自身不在清单内，应由外部 commit/tree digest 或独立归档摘要校验）。

@@ -1,0 +1,5 @@
+cd contracts && VIRTUAL_ENV="/Users/metaverse/funspace/oasis-agent/.venv" ../.venv/bin/slither . --filter-paths node_modules --exclude-dependencies --fail-low
+'forge clean' running (wd: /Users/metaverse/funspace/oasis-agent/contracts)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /Users/metaverse/funspace/oasis-agent/contracts)
+INFO:Slither:. analyzed (80 contracts with 102 detectors), 0 result(s) found
