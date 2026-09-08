@@ -475,6 +475,15 @@ def _decode_slot0(value: object) -> dict[str, int]:
     }
 
 
+def _all_provider_values_agree(values: Mapping[str, object], provider_count: int) -> bool:
+    """Return true only for complete, multi-provider canonical consensus."""
+    return (
+        len(values) == provider_count
+        and len(values) >= 2
+        and len({canonical_json(value) for value in values.values()}) == 1
+    )
+
+
 def _write_manifest(directory: Path) -> None:
     lines = []
     for path in sorted(directory.iterdir()):
@@ -1141,9 +1150,7 @@ def main() -> None:
                     name="pool_id_and_initialization",
                     status=(
                         CheckStatus.PASS
-                        if len(initialized) == len(providers)
-                        and len(initialized) >= 2
-                        and len(set(initialized.values())) == 1
+                        if _all_provider_values_agree(initialized, len(providers))
                         else CheckStatus.UNKNOWN
                     ),
                     evidence=tuple(pool_evidence),

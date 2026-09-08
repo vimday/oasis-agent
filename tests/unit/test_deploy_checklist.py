@@ -23,6 +23,7 @@ from scripts.run_deploy_checklist import (
     IdentityConfig,
     PublicPoster,
     RpcEndpoint,
+    _all_provider_values_agree,
     _decode_address,
     _decode_bool,
     _decode_hook_fee,
@@ -151,6 +152,22 @@ class DeployCheckValidationTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "ABI length"):
             _decode_slot0("0x" + encode(["uint160"], [2**96]).hex())
+
+    def test_mapping_values_support_multi_provider_consensus(self) -> None:
+        slot0 = {"sqrt_price_x96": 2**96, "tick": -1, "protocol_fee": 0, "lp_fee": 3_000}
+        self.assertTrue(
+            _all_provider_values_agree(
+                {"provider-a": slot0, "provider-b": dict(slot0)},
+                2,
+            )
+        )
+        self.assertFalse(
+            _all_provider_values_agree(
+                {"provider-a": slot0, "provider-b": {**slot0, "tick": 0}},
+                2,
+            )
+        )
+        self.assertFalse(_all_provider_values_agree({"provider-a": slot0}, 2))
 
     def test_contract_state_results_require_canonical_abi(self) -> None:
         address = "0x" + "12" * 20

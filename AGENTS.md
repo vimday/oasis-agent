@@ -126,13 +126,14 @@ autonomous trader. Its current verified boundary is:
 - a Robinhood mainnet state fork pinned at block 56,905,986 completed the synthetic-token canonical
   PoolManager/PositionManager/Permit2 lifecycle locally with no broadcast; this proves compatibility
   with those pinned runtimes, not access to or economics of the observed benchmark pool;
-- a single-provider Robinhood mainnet identity sample at block 57,426,748 matched the pinned core
-  runtime hashes and found the PONS/USDG benchmark at tick 887271 near the maximum price boundary;
-  it fails the required two-provider gate and does not support a routing or economic viability claim;
+- a two-provider Robinhood mainnet identity sample at block 57,634,560 matched the pinned core/token
+  runtime hashes and the complete PONS/USDG PoolId/slot0 state; project hook/executor roles remain
+  unconfigured, so the full deployment checklist remains ineligible for execution;
 - strict v4 single-pool quote ABI helpers and `scripts/run_v4_route_probe.py` can collect a pinned,
   two-provider, bidirectional exact-input/output size grid while pinning Quoter/Universal Router/
-  PoolManager runtimes and the Quoter binding; the probe is observe-only and has not yet been run
-  against a production target pool or shown that a standard router selects that pool;
+  PoolManager runtimes and the Quoter binding; a real two-provider PONS/USDG run agreed on all
+  identities and all 12 quote failures at the maximum price boundary, so that benchmark is not a
+  viable production target and no standard-router selection has been established;
 - a retained single-provider Base Sepolia snapshot/receipt/trace sample supports per-NFT core-delta
   reconstruction, but does not establish owner cash settlement, net PnL, or deployment approval;
 - there is no complete adversarial Robinhood fork/security campaign, target-specific release review,
