@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Oasis Agent · Observation Console</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128;
+    --ink: #e6edf3; --muted: #8b949e; --rule: #30363d;
+    --accent: #4fd1c5; --accent2: #e3b341; --red: #ff7b72; --green: #3fb950;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  header {
+    padding: 14px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule); background: var(--bg2);
+    position: sticky; top: 0; z-index: 20;
+  }
+  header h1 { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+  header h1 span { color: var(--accent); }
+  .badge { font: 600 11px var(--mono); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--rule); }
+  .b-green { color: var(--green); border-color: var(--green); background: rgba(63,185,80,.08); }
+  .b-amber { color: var(--accent2); border-color: var(--accent2); background: rgba(227,179,65,.08); }
+  .b-red   { color: var(--red); border-color: var(--red); background: rgba(255,123,114,.08); }
+  .b-gray  { color: var(--muted); }
+  #statusbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .spacer { flex: 1; }
+  nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav button {
+    background: transparent; color: var(--muted); border: 1px solid transparent;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  nav button.active { color: var(--ink); border-color: var(--rule); background: var(--bg3); }
+  nav button:hover { color: var(--ink); }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  section.card {
+    background: var(--bg2); border: 1px solid var(--rule); border-radius: 8px;
+    padding: 16px 18px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .card h2 .hint { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .grid { display: grid; gap: 12px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 900px) { .g2, .g4 { grid-template-columns: 1fr; } }
+  .stat { background: var(--bg3); border: 1px solid var(--rule); border-radius: 8px; padding: 12px; }
+  .stat .num { font: 700 22px var(--mono); color: var(--accent); word-break: break-all; }
+  .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .stat.danger .num { color: var(--red); }
+  .stat.warn .num { color: var(--accent2); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--muted); font-weight: 600; padding: 7px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; font: 12px var(--mono); }
+  tbody tr:hover { background: rgba(79,209,197,.04); }
+  .table-wrap { overflow-x: auto; }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+  .ok { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--accent2); }
+  button.action {
+    background: var(--bg3); color: var(--ink); border: 1px solid var(--rule);
+    padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  button.action:disabled { opacity: .45; cursor: not-allowed; }
+  button.action.primary { border-color: var(--accent); color: var(--accent); }
+  input[type=text], input[type=password], select {
+    background: var(--bg3); color: var(--ink); border: 1px solid var(--rule);
+    padding: 7px 10px; border-radius: 6px; font: 12px var(--mono); width: 100%;
+  }
+  select { width: auto; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .row label { font-size: 12px; color: var(--muted); }
+  .alert-item { padding: 9px 12px; border-radius: 6px; border: 1px solid var(--rule); margin-bottom: 8px; font-size: 13px; }
+  .alert-item.critical { border-color: var(--red); color: var(--red); background: rgba(255,123,114,.05); }
+  .alert-item.warning { border-color: var(--accent2); color: var(--accent2); background: rgba(227,179,65,.05); }
+  .gate-card { background: var(--bg3); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; }
+  .gate-card.pass { border-color: var(--green); }
+  .gate-card.fail { border-color: var(--red); }
+  .gate-card .gname { font: 700 12px var(--mono); }
+  .gate-card .gstatus { float: right; font: 600 11px var(--mono); }
+  .gate-card .gdetail { font-size: 11.5px; color: var(--muted); margin-top: 4px; word-break: break-all; }
+  canvas { width: 100%; height: 220px; display: block; }
+  .toast {
+    position: fixed; right: 20px; bottom: 20px; background: var(--bg3); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); padding: 10px 16px; border-radius: 6px; font-size: 13px;
+    z-index: 50; display: none; max-width: 420px;
+  }
+  .toast.error { border-left-color: var(--red); }
+  .toast.show { display: block; }
+  .digest { color: var(--accent); word-break: break-all; }
+  details { margin: 4px 0; }
+  summary { cursor: pointer; color: var(--accent); font-size: 12.5px; }
+  pre.raw { background: var(--bg3); border: 1px solid var(--rule); border-radius: 6px; padding: 10px; font: 11.5px var(--mono); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .empty { color: var(--muted); font-size: 12.5px; padding: 14px 0; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Oasis Agent <span>Observation Console</span></h1>
+  <div id="statusbar" role="status" aria-live="polite">
+    <span class="badge b-gray" id="st-chain">chains –</span>
+    <span class="badge b-gray" id="st-stage">stage –</span>
+    <span class="badge b-gray" id="st-eligible">eligible –</span>
+    <span class="badge b-gray" id="st-halt">halt –</span>
+    <span class="badge b-gray" id="st-decisions">decisions –</span>
+    <span class="badge b-gray" id="st-ws">ws –</span>
+  </div>
+  <div class="spacer"></div>
+  <nav role="tablist" aria-label="控制台分区">
+    <button role="tab" id="tab-btn-overview" aria-controls="tab-overview" aria-selected="true" data-tab="overview" class="active">总览</button>
+    <button role="tab" id="tab-btn-decisions" aria-controls="tab-decisions" aria-selected="false" data-tab="decisions">决策链</button>
+    <button role="tab" id="tab-btn-evidence" aria-controls="tab-evidence" aria-selected="false" data-tab="evidence">证据</button>
+    <button role="tab" id="tab-btn-execution" aria-controls="tab-execution" aria-selected="false" data-tab="execution">执行</button>
+    <button role="tab" id="tab-btn-ops" aria-controls="tab-ops" aria-selected="false" data-tab="ops">运行与操作</button>
+    <button role="tab" id="tab-btn-gates" aria-controls="tab-gates" aria-selected="false" data-tab="gates">门禁审批</button>
+    <button role="tab" id="tab-btn-chains" aria-controls="tab-chains" aria-selected="false" data-tab="chains">多链与警报</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ OVERVIEW ============ -->
+  <div id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="tab active">
+    <section class="card">
+      <h2>系统状态 <span class="hint">/api/v1/status</span></h2>
+      <div class="grid g4" id="ov-stats"></div>
+      <div class="row" style="margin-top:14px">
+        <label for="ops-token">操作 Token（仅用于操作端点，存于会话内存）</label>
+        <input type="password" id="ops-token" autocomplete="off" aria-label="操作 Token" placeholder="OASIS_SERVER_OPS_TOKEN 的值（可选，不落盘）" style="max-width:360px">
+      </div>
+    </section>
+    <section class="card">
+      <h2>发布门禁 WP0–WP8 <span class="hint">/api/v1/readiness</span></h2>
+      <div id="gates-grid" class="grid g4"></div>
+    </section>
+    <section class="card">
+      <h2>最新决策</h2>
+      <div id="latest-decision"></div>
+    </section>
+  </div>
+
+  <!-- ============ DECISIONS ============ -->
+  <div id="tab-decisions" role="tabpanel" aria-labelledby="tab-btn-decisions" class="tab">
+    <section class="card">
+      <h2>Fee 报价趋势 <span class="hint">effective / min / max（pips）</span></h2>
+      <canvas id="fee-chart" aria-label="Fee 报价趋势图" role="img"></canvas>
+    </section>
+    <section class="card">
+      <h2>决策链 <span class="hint">oasis.shadow-lp-decision.v1 · 哈希链已校验</span></h2>
+      <div class="row">
+        <label for="decision-filter">过滤决策类型</label>
+        <select id="decision-filter" aria-label="过滤决策类型">
+          <option value="">全部</option>
+          <option>hold</option><option>halt</option><option>recenter</option>
+          <option>remove</option><option>reduce</option><option>unwind</option>
+        </select>
+        <button type="button" class="action" data-action="refresh-decisions">刷新</button>
+      </div>
+      <div class="table-wrap"><table id="decisions-table" aria-label="决策链记录"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ EVIDENCE ============ -->
+  <div id="tab-evidence" role="tabpanel" aria-labelledby="tab-btn-evidence" class="tab">
+    <section class="card">
+      <h2>证据库 <span class="hint">/api/v1/evidence · content_hash 已校验</span></h2>
+      <form class="row" data-action="query-evidence" role="search">
+        <label for="ev-kind">kind</label><input type="text" id="ev-kind" style="max-width:180px" aria-label="证据 kind" placeholder="如 swap-observation">
+        <label for="ev-chain">chain_id</label><input type="text" id="ev-chain" style="max-width:120px" aria-label="证据 chain_id" placeholder="46630">
+        <label for="ev-source">source</label><input type="text" id="ev-source" style="max-width:200px" aria-label="证据 source" placeholder="如 robinhood-testnet-public">
+        <button type="submit" class="action">查询</button>
+      </form>
+      <div class="table-wrap"><table id="evidence-table" aria-label="证据记录"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ EXECUTION ============ -->
+  <div id="tab-execution" role="tabpanel" aria-labelledby="tab-btn-execution" class="tab">
+    <section class="card">
+      <h2>执行日志 <span class="hint">/api/v1/journal/lp · 事件链已校验</span></h2>
+      <div class="grid g4" id="ex-stats"></div>
+      <div class="table-wrap" style="margin-top:12px"><table id="execution-table" aria-label="执行事件"></table></div>
+    </section>
+    <section class="card">
+      <h2>HALT 恢复证明 <span class="hint">/api/v1/p2/halt-proofs</span></h2>
+      <div class="table-wrap"><table id="halt-table" aria-label="HALT 恢复证明"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ OPS ============ -->
+  <div id="tab-ops" role="tabpanel" aria-labelledby="tab-btn-ops" class="tab">
+    <section class="card">
+      <h2>触发 Shadow 观测运行 <span class="hint">POST /api/v1/runs/shadow · 需 token</span></h2>
+      <div class="row">
+        <button type="button" class="action primary" data-action="trigger-run">触发一次观测运行</button>
+        <span class="muted">运行作为隔离子进程执行，输出尾部（脱敏）写入审计库</span>
+      </div>
+      <div class="table-wrap"><table id="runs-table" aria-label="观测运行记录"></table></div>
+    </section>
+    <section class="card">
+      <h2>操作审计 <span class="hint">/api/v1/ops</span></h2>
+      <div class="table-wrap"><table id="ops-table" aria-label="操作审计记录"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ GATES ============ -->
+  <div id="tab-gates" role="tabpanel" aria-labelledby="tab-btn-gates" class="tab">
+    <section class="card">
+      <h2>门禁审批流 <span class="hint">双人复核：请求人 ≠ 确认人</span></h2>
+      <form class="row" data-action="request-approval">
+        <label for="approval-gate">门禁</label>
+        <select id="approval-gate" aria-label="选择门禁">
+          <option value="wp0_correctness">wp0_correctness</option>
+          <option value="wp1_pool_access">wp1_pool_access</option>
+          <option value="wp2_replay_accounting">wp2_replay_accounting</option>
+          <option value="wp3_research">wp3_research</option>
+          <option value="wp4_hook_executor">wp4_hook_executor</option>
+          <option value="wp5_adversarial">wp5_adversarial</option>
+          <option value="wp6_shadow_routing">wp6_shadow_routing</option>
+          <option value="wp7_canary">wp7_canary</option>
+          <option value="wp8_production">wp8_production</option>
+        </select>
+        <label for="approval-reason" class="visually-hidden">审批理由</label>
+        <input type="text" id="approval-reason" aria-label="审批理由" placeholder="审批理由（1-500 字符）" style="max-width:360px">
+        <button type="submit" class="action">请求审批</button>
+      </form>
+      <div class="table-wrap"><table id="approvals-table" aria-label="门禁审批记录"></table></div>
+    </section>
+  </div>
+
+  <!-- ============ CHAINS ============ -->
+  <div id="tab-chains" role="tabpanel" aria-labelledby="tab-btn-chains" class="tab">
+    <section class="card">
+      <h2>多链注册表 <span class="hint">/api/v1/chains · 只读 RPC</span></h2>
+      <div class="table-wrap"><table id="chains-table" aria-label="多链注册表"></table></div>
+    </section>
+    <section class="card">
+      <h2>警报 <span class="hint">/api/v1/alerts</span></h2>
+      <div id="alerts-list" aria-live="polite"></div>
+    </section>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* =====================================================================
+ * Oasis Agent · Observation Console
+ *
+ * A single-file, zero-dependency dashboard built on a small layered core:
+ *
+ *   utilities -> formatters -> api client -> renderers
+ *              -> view registry -> navigation
+ *              -> websocket / polling -> action & form registries
+ *
+ * Extensibility contract: adding a console section means (1) adding the tab
+ * markup and (2) registering a view (plus any actions/forms). The core never
+ * changes. Every dynamic value is escaped before entering the DOM; only
+ * whitelisted helpers may emit markup.
+ * ===================================================================== */
+
+/* ---------- constants ---------- */
+const FETCH_TIMEOUT_MS = 15000;
+const POLL_SECONDS = 30;
+const WS_RECONNECT_SECONDS = 5000;
+const RETRY_BASE_MS = 400;
+const RETRY_MAX_MS = 3200;
+const RETRY_ATTEMPTS = 2;
+const TOKEN_STORAGE_KEY = "oasis_ops_token";
+const CHART_MAX_POINTS = 80;
+
+/* ---------- tiny DOM / string helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+function esc(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
+}
+
+function short(value, n) {
+  const s = String(value == null ? "" : value);
+  return s.length > n ? s.slice(0, n) + "…" : s;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/* Debounce a function; only the trailing invocation runs. */
+function debounce(fn, waitMs) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { timer = null; fn(...args); }, waitMs);
+  };
+}
+
+/* ---------- Intl formatters (locale-aware, cached) ---------- */
+const dateTimeFmt = new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "medium" });
+const numberFmt = new Intl.NumberFormat("zh-CN");
+
+function fmtTime(value) {
+  const ts = Date.parse(String(value == null ? "" : value));
+  return Number.isNaN(ts) ? "–" : dateTimeFmt.format(new Date(ts));
+}
+
+function fmtInt(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? numberFmt.format(n) : String(value == null ? "–" : value);
+}
+
+/* ---------- app state (single mutable holder) ---------- */
+const state = {
+  token: sessionStorage.getItem(TOKEN_STORAGE_KEY) || "",
+  chartItems: [],
+  ws: null,
+  pollTimer: null,
+  chartPending: false,
+};
+
+/* ---------- toast ---------- */
+function toast(message, error) {
+  const node = $("toast");
+  node.textContent = message;
+  node.className = "toast show" + (error ? " error" : "");
+  clearTimeout(node._t);
+  node._t = setTimeout(() => { node.className = "toast"; }, 4200);
+}
+
+/* ---------- api client (bounded retry with exponential backoff) ---------- */
+async function api(path, opts = {}, attempt = 0) {
+  const method = opts.method || "GET";
+  // Reads are idempotent and may be retried; writes never are, so a
+  // duplicate trigger/approval cannot be issued by the retry loop.
+  const retryable = method === "GET" && attempt < RETRY_ATTEMPTS;
+  const headers = { "Accept": "application/json" };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (state.token) headers["Authorization"] = "Bearer " + state.token;
+  let res;
+  try {
+    res = await fetch(path, { ...opts, headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  } catch (err) {
+    if (retryable) {
+      await sleep(Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS));
+      return api(path, opts, attempt + 1);
+    }
+    toast(err && err.name === "TimeoutError" ? "请求超时" : "网络错误", true);
+    throw err;
+  }
+  if (res.status === 401) { toast("未授权：请检查操作 Token", true); throw new Error("unauthorized"); }
+  if (res.status >= 500 && retryable) {
+    await sleep(Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_MAX_MS));
+    return api(path, opts, attempt + 1);
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    toast("请求失败: " + (body.detail || res.status), true);
+    throw new Error("http " + res.status);
+  }
+  return res.json();
+}
+
+const apiGet = (path) => api(path);
+const apiPost = (path, body = {}) => api(path, { method: "POST", body: JSON.stringify(body) });
+
+/* ---------- status badges ---------- */
+const BADGE_MAP = {
+  pass: ["b-green", "通过"], fail: ["b-red", "未过"], unresolved: ["b-amber", "未决"],
+  HOLD: ["b-green", "HOLD"], HALT: ["b-red", "HALT"], hold: ["b-green", "hold"], halt: ["b-red", "halt"],
+  running: ["b-amber", "运行中"], succeeded: ["b-green", "成功"], failed: ["b-red", "失败"], queued: ["b-gray", "排队"],
+  pending: ["b-amber", "待确认"], approved: ["b-green", "已确认"],
+};
+
+function badgeHtml(status) {
+  const [cls, label] = BADGE_MAP[status] || ["b-gray", status];
+  return `<span class="badge ${cls}">${esc(label)}</span>`;
+}
+
+function setBadge(node, text, tone) {
+  node.textContent = text;
+  node.className = "badge " + tone;
+}
+
+/* ---------- renderers (DocumentFragment batching) ---------- */
+
+/* Rebuild a table from column labels and pre-escaped cell markup. Cells may
+ * contain trusted markup (badges/digests/actions); everything dynamic has
+ * already passed through esc(). A single fragment is appended once so the
+ * browser performs one layout pass. */
+function renderTable(id, columns, rows, emptyText) {
+  const table = $(id);
+  const fragment = document.createDocumentFragment();
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const label of columns) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = label;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  fragment.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  if (rows.length === 0) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = columns.length;
+    td.className = "empty";
+    td.textContent = emptyText;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } else {
+    for (const cells of rows) {
+      const tr = document.createElement("tr");
+      for (const cell of cells) {
+        const td = document.createElement("td");
+        td.innerHTML = cell;
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+  fragment.appendChild(tbody);
+  table.replaceChildren(fragment);
+}
+
+/* Rebuild a stats grid from plain-text card descriptors (never markup). */
+function renderStats(id, cards) {
+  const grid = $(id);
+  const fragment = document.createDocumentFragment();
+  for (const card of cards) {
+    const stat = document.createElement("div");
+    stat.className = "stat" + (card.tone ? " " + card.tone : "");
+    const num = document.createElement("div");
+    num.className = "num";
+    num.textContent = String(card.value == null ? "–" : card.value);
+    const label = document.createElement("div");
+    label.className = "lbl";
+    label.textContent = card.label;
+    stat.append(num, label);
+    fragment.appendChild(stat);
+  }
+  grid.replaceChildren(fragment);
+}
+
+/* ---------- view registry ---------- */
+const views = new Map();
+
+/* Register a console section. ``poll`` opts the view into the global
+ * visibility-aware refresh loop; non-polling views reload on tab switch
+ * and through their own actions/websocket events. */
+function registerView(name, load, poll = false) {
+  views.set(name, { load, poll });
+}
+
+function currentTab() {
+  const active = document.querySelector("nav button[data-tab].active");
+  return active ? active.dataset.tab : "overview";
+}
+
+/* ---------- domain loaders ---------- */
+async function loadStatus() {
+  try {
+    const st = await apiGet("/api/v1/status");
+    setBadge($("st-stage"), "stage " + (st.stage || "–"),
+      st.stage === "bounded_production" ? "b-green" : st.stage ? "b-amber" : "b-gray");
+    setBadge($("st-eligible"), "eligible " + (st.execution_eligible === true ? "TRUE" : "false"),
+      st.execution_eligible === true ? "b-green" : "b-gray");
+    setBadge($("st-halt"), "halt " + (st.halt_latched ? "LATCHED" : "clear"),
+      st.halt_latched ? "b-red" : "b-green");
+    $("st-decisions").textContent = "decisions " + fmtInt(st.decision_count ?? 0);
+    renderStats("ov-stats", [
+      { label: "发布阶段", value: st.stage || "–", tone: st.stage === "bounded_production" ? "" : "warn" },
+      { label: "execution_eligible", value: st.execution_eligible === true ? "TRUE" : "false", tone: st.execution_eligible === true ? "" : "warn" },
+      { label: "决策 / 健康记录", value: fmtInt(st.decision_count ?? 0) + " / " + fmtInt(st.health_count ?? 0) },
+      { label: "HALT 锁存", value: st.halt_latched ? "已锁存" : "无", tone: st.halt_latched ? "danger" : "" },
+    ]);
+    const ld = $("latest-decision");
+    if (st.latest_decision) {
+      const d = st.latest_decision;
+      ld.innerHTML = `<div class="row">${badgeHtml(d.decision)}<span class="mono muted">seq ${esc(d.seq)} · ${esc(fmtTime(d.observed_at))}</span><span class="digest mono">${esc(d.digest)}</span></div>` +
+        `<pre class="raw">${esc(JSON.stringify(d, null, 2))}</pre>`;
+    } else {
+      ld.innerHTML = `<div class="empty">尚无决策记录</div>`;
+    }
+  } catch { /* toast already shown */ }
+}
+
+async function loadGates() {
+  const grid = $("gates-grid");
+  try {
+    const r = await apiGet("/api/v1/readiness");
+    grid.innerHTML = r.gates.map((g) => {
+      const cls = g.status === "pass" ? "pass" : g.status === "fail" ? "fail" : "";
+      const findings = (g.findings || []).length ? g.findings.join("; ") : (g.status === "pass" ? "证据就绪" : "");
+      return `<div class="gate-card ${cls}">
+        <span class="gname">${esc(g.gate)}</span>
+        <span class="gstatus">${badgeHtml(g.status)}</span>
+        <div class="gdetail">expires ${esc(g.expires_at)}${g.independent_reviewer ? " · 独立审查 " + esc(g.independent_reviewer) : ""}</div>
+        <div class="gdetail">${esc(findings)}</div>
+        <div class="gdetail digest">${esc(g.evidence && g.evidence.length ? g.evidence.map((e) => e.content_hash).join(" ") : "")}</div>
+      </div>`;
+    }).join("");
+  } catch { grid.innerHTML = `<div class="empty">门禁清单不可用</div>`; }
+}
+
+/* fee chart */
+function drawFeeChart(items) {
+  const canvas = $("fee-chart");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.round(220 * dpr);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, 220);
+  const W = rect.width, H = 220, padL = 44, padR = 12, padT = 12, padB = 24;
+  const series = items.map((d) => {
+    const q = d.fee_quote || {};
+    return { seq: d.seq, eff: q.effective_fee_pips, min: q.min_fee_pips, max: q.max_fee_pips, ts: d.observed_at };
+  }).slice(-CHART_MAX_POINTS);
+  if (!series.length) { ctx.fillStyle = "#8b949e"; ctx.font = "12px monospace"; ctx.fillText("无决策数据", padL, H / 2); return; }
+  const all = series.flatMap((s) => [s.eff, s.min, s.max]).filter((v) => v != null);
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const span = Math.max(hi - lo, 1);
+  const X = (i) => padL + (i / Math.max(series.length - 1, 1)) * (W - padL - padR);
+  const Y = (v) => padT + (1 - (v - lo) / span) * (H - padT - padB);
+  ctx.strokeStyle = "#30363d"; ctx.beginPath();
+  for (let g = 0; g <= 4; g++) { const y = padT + (g / 4) * (H - padT - padB); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); }
+  ctx.stroke();
+  const drawSeries = (key, color, dash) => {
+    ctx.strokeStyle = color; ctx.setLineDash(dash || []); ctx.beginPath();
+    series.forEach((s, i) => { const v = s[key]; if (v == null) return; const x = X(i), y = Y(v); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  drawSeries("eff", "#4fd1c5", []);
+  drawSeries("min", "#8b949e", [4, 4]);
+  drawSeries("max", "#e3b341", [4, 4]);
+  ctx.fillStyle = "#8b949e"; ctx.font = "10px monospace";
+  ctx.fillText(hi.toFixed(1), 4, padT + 8); ctx.fillText(lo.toFixed(1), 4, H - padB);
+  ctx.fillStyle = "#4fd1c5"; ctx.fillText("effective", W - 92, 12);
+  ctx.fillStyle = "#8b949e"; ctx.fillText("min", W - 92, 26);
+  ctx.fillStyle = "#e3b341"; ctx.fillText("max", W - 92, 40);
+}
+
+function scheduleChartRedraw() {
+  if (state.chartPending) return;
+  state.chartPending = true;
+  requestAnimationFrame(() => { state.chartPending = false; drawFeeChart(state.chartItems); });
+}
+
+if (typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(scheduleChartRedraw).observe($("fee-chart"));
+}
+
+async function loadDecisions() {
+  const filter = $("decision-filter").value;
+  const query = filter ? "&decision=" + encodeURIComponent(filter) : "";
+  try {
+    const r = await apiGet("/api/v1/decisions?limit=200&offset=0" + query);
+    state.chartItems = r.items;
+    drawFeeChart(state.chartItems);
+    const rows = r.items.map((d) => {
+      const q = d.fee_quote || {};
+      const range = d.range_action || {};
+      return [
+        esc(d.seq),
+        badgeHtml(d.decision),
+        esc(q.effective_fee_pips ?? "–") + " / " + esc(q.min_fee_pips ?? "–") + " / " + esc(q.max_fee_pips ?? "–"),
+        esc(range.action || "–") + (range.target_lower_tick != null ? " [" + esc(range.target_lower_tick) + "," + esc(range.target_upper_tick) + "]" : ""),
+        `<span class="digest" title="${esc(d.digest)}">${esc(short(d.digest, 18))}</span>`,
+      ];
+    });
+    renderTable("decisions-table", ["seq", "决策", "fee eff/min/max", "区间动作", "digest"], rows, "无记录");
+  } catch { /* toast */ }
+}
+
+async function loadEvidence() {
+  const p = new URLSearchParams();
+  if ($("ev-kind").value.trim()) p.set("kind", $("ev-kind").value.trim());
+  if ($("ev-chain").value.trim()) p.set("chain_id", $("ev-chain").value.trim());
+  if ($("ev-source").value.trim()) p.set("source", $("ev-source").value.trim());
+  p.set("limit", "100"); p.set("offset", "0");
+  try {
+    const r = await apiGet("/api/v1/evidence?" + p.toString());
+    const rows = r.items.map((e) => [
+      esc(e.kind),
+      esc(e.chain_id ?? "–"),
+      esc(e.block ? e.block.number : "–"),
+      esc(short(e.source, 28)),
+      esc(fmtTime(e.retrieved_at)),
+      `<span class="digest" title="${esc(e.content_hash)}">${esc(short(e.content_hash, 18))}</span>`,
+    ]);
+    renderTable("evidence-table", ["kind", "chain", "block", "source", "retrieved", "content_hash"], rows, "无记录");
+  } catch { /* toast */ }
+}
+
+async function loadExecution() {
+  try {
+    const r = await apiGet("/api/v1/journal/lp");
+    renderStats("ex-stats", [
+      { label: "事件总数", value: fmtInt(r.total_events) },
+      { label: "意图数", value: fmtInt(r.intent_count) },
+      { label: "未关闭意图", value: fmtInt(r.open_intents), tone: r.open_intents > 0 ? "warn" : "" },
+      { label: "policy_hash", value: short(r.policy_hash, 14) },
+    ]);
+    const rows = (r.latest ? [r.latest] : []).map((e) => [
+      esc(e.seq),
+      badgeHtml(e.state),
+      esc(short(e.intent_hash, 20)),
+      esc(e.nonce),
+      `<span class="digest">${esc(short(e.transaction_hash || "–", 20))}</span>`,
+    ]);
+    renderTable("execution-table", ["seq", "state", "intent_hash", "nonce", "tx_hash"], rows, "无执行事件");
+  } catch { /* toast */ }
+}
+
+async function loadHaltProofs() {
+  try {
+    const r = await apiGet("/api/v1/p2/halt-proofs");
+    const rows = r.items.map((p) => {
+      const rc = p.recovery || {};
+      return [
+        esc(short(p.intent_hash, 20)),
+        badgeHtml(p.state),
+        esc(short(rc.recovery_transaction_hash || "–", 20)),
+        rc.closes_exposure ? '<span class="ok">已关闭敞口</span>' : '<span class="bad">未关闭</span>',
+        esc(rc.finalized_block ? rc.finalized_block.number : "–"),
+      ];
+    });
+    renderTable("halt-table", ["intent", "state", "recovery tx", "敞口", "final block"], rows, "无恢复证明");
+  } catch { /* toast */ }
+}
+
+async function triggerRun() {
+  try {
+    const r = await apiPost("/api/v1/runs/shadow");
+    toast("运行已排队: " + r.run_id);
+    loadRuns();
+  } catch { /* toast */ }
+}
+
+async function loadRuns() {
+  try {
+    const r = await apiGet("/api/v1/runs?limit=20");
+    const rows = r.items.map((x) => [
+      `<span class="digest">${esc(short(x.run_id, 12))}</span>`,
+      badgeHtml(x.status),
+      esc(short(x.command_digest, 18)),
+      esc(x.exit_code ?? "–"),
+      esc(fmtTime(x.finished_at || x.created_at)),
+    ]);
+    renderTable("runs-table", ["run_id", "状态", "command_digest", "exit", "时间"], rows, "无运行记录");
+  } catch { /* toast */ }
+}
+
+async function loadOps() {
+  try {
+    const r = await apiGet("/api/v1/ops?limit=50");
+    const rows = r.items.map((o) => [
+      esc(o.seq),
+      esc(o.action),
+      esc(o.actor),
+      badgeHtml(o.result),
+      esc(short(o.detail, 40)),
+      esc(fmtTime(o.ts)),
+    ]);
+    renderTable("ops-table", ["seq", "action", "actor", "result", "detail", "ts"], rows, "无操作记录");
+  } catch { /* toast */ }
+}
+
+async function requestApproval() {
+  const gate = $("approval-gate").value;
+  const reason = $("approval-reason").value.trim();
+  if (!reason) { toast("请填写审批理由"); return; }
+  try {
+    await apiPost(`/api/v1/p2/gates/${encodeURIComponent(gate)}/approval?reason=${encodeURIComponent(reason)}`);
+    toast("审批请求已记录");
+    $("approval-reason").value = "";
+    loadApprovals();
+  } catch { /* toast */ }
+}
+
+async function confirmApproval(gate, id) {
+  try {
+    await apiPost(`/api/v1/p2/gates/${encodeURIComponent(gate)}/approval/${id}/confirm`);
+    toast("已由第二操作者确认");
+    loadApprovals();
+  } catch { /* toast */ }
+}
+
+async function loadApprovals() {
+  try {
+    const r = await apiGet("/api/v1/p2/gates");
+    const rows = r.items.map((a) => [
+      esc(a.gate),
+      badgeHtml(a.status),
+      esc(a.requested_by),
+      esc(short(a.requested_reason, 30)),
+      esc(a.confirmed_by || "–"),
+      a.status === "pending"
+        ? `<button type="button" class="action" data-action="confirm-approval" data-gate="${esc(a.gate)}" data-id="${a.id}">确认</button>`
+        : "–",
+    ]);
+    renderTable("approvals-table", ["gate", "状态", "请求人", "理由", "确认人", ""], rows, "无审批记录");
+  } catch { /* toast */ }
+}
+
+async function loadChains() {
+  try {
+    const r = await apiGet("/api/v1/chains");
+    const rows = r.items.map((c) => [
+      esc(c.chain_id),
+      esc(c.name),
+      c.rpc_configured ? '<span class="ok">已配置</span>' : '<span class="warn">未配置</span>',
+      `<span class="digest">${esc(short(c.pool_manager || "–", 22))}</span>`,
+    ]);
+    renderTable("chains-table", ["chain_id", "name", "RPC", "pool_manager"], rows, "未配置链");
+    $("st-chain").textContent = "chains " + fmtInt(r.items.length);
+  } catch { /* toast */ }
+}
+
+async function loadAlerts() {
+  try {
+    const r = await apiGet("/api/v1/alerts");
+    $("alerts-list").innerHTML = r.items.length
+      ? r.items.map((a) => `<div class="alert-item ${esc(a.level)}">[${esc(a.level)}] ${esc(a.rule)} — ${esc(a.message)}</div>`).join("")
+      : `<div class="empty">无警报</div>`;
+  } catch { /* toast */ }
+}
+
+/* ---------- view wiring (the only place that maps tabs to loaders) ---------- */
+registerView("overview", async () => { await Promise.all([loadStatus(), loadGates()]); }, true);
+registerView("decisions", loadDecisions);
+registerView("evidence", loadEvidence);
+registerView("execution", async () => { await Promise.all([loadExecution(), loadHaltProofs()]); });
+registerView("ops", async () => { await Promise.all([loadRuns(), loadOps()]); });
+registerView("gates", loadApprovals);
+registerView("chains", async () => { await Promise.all([loadChains(), loadAlerts()]); }, true);
+
+/* ---------- navigation ---------- */
+function switchTab(name) {
+  document.querySelectorAll("nav button[data-tab]").forEach((btn) => {
+    const isActive = btn.dataset.tab === name;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
+  document.querySelectorAll(".tab").forEach((panel) => {
+    panel.classList.toggle("active", panel.id === "tab-" + name);
+  });
+  const view = views.get(name);
+  if (view) view.load();
+}
+
+document.querySelectorAll("nav button[data-tab]").forEach((btn) => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+/* ---------- websocket ---------- */
+function setWsBadge(text, tone) {
+  setBadge($("st-ws"), text, tone);
+}
+
+function connectWs() {
+  if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/api/v1/stream`);
+  state.ws = ws;
+  ws.onopen = () => setWsBadge("ws live", "b-green");
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "decisions" && msg.items && msg.items.length) {
+        toast("新决策流: " + msg.items.length + " 条");
+        loadStatus();
+        const view = views.get("decisions");
+        if (view) view.load();
+      }
+    } catch { /* ignore malformed frames */ }
+  };
+  ws.onclose = () => {
+    setWsBadge("ws reconnecting", "b-amber");
+    setTimeout(connectWs, WS_RECONNECT_SECONDS);
+  };
+  ws.onerror = () => ws.close();
+}
+
+/* ---------- polling (visibility-aware) ---------- */
+function tick() {
+  if (document.hidden) return;
+  loadStatus();
+  const view = views.get(currentTab());
+  if (view && view.poll) view.load();
+}
+
+function startPolling() {
+  stopPolling();
+  state.pollTimer = setInterval(tick, POLL_SECONDS * 1000);
+}
+
+function stopPolling() {
+  if (state.pollTimer !== null) { clearInterval(state.pollTimer); state.pollTimer = null; }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopPolling();
+  else startPolling();
+});
+
+/* ---------- delegated action registry ---------- */
+const actions = new Map();
+
+function registerAction(name, handler) {
+  actions.set(name, handler);
+}
+
+registerAction("refresh-decisions", () => { loadDecisions(); });
+registerAction("trigger-run", () => { triggerRun(); });
+registerAction("confirm-approval", (el) => { confirmApproval(el.dataset.gate, Number(el.dataset.id)); });
+
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-action]");
+  if (!trigger) return;
+  const handler = actions.get(trigger.dataset.action);
+  if (handler) handler(trigger, event);
+});
+
+/* ---------- delegated form registry ---------- */
+const forms = new Map();
+
+function registerForm(name, handler) {
+  forms.set(name, handler);
+}
+
+registerForm("query-evidence", loadEvidence);
+registerForm("request-approval", requestApproval);
+
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("form[data-action]");
+  if (!form) return;
+  event.preventDefault();
+  const handler = forms.get(form.dataset.action);
+  if (handler) handler(form, event);
+});
+
+/* ---------- token (debounced, memory-only until committed to session) ---------- */
+const syncToken = debounce((value) => {
+  state.token = value;
+  if (value) sessionStorage.setItem(TOKEN_STORAGE_KEY, value);
+  else sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+}, 200);
+
+const tokenInput = $("ops-token");
+tokenInput.value = state.token;
+tokenInput.addEventListener("input", (event) => syncToken(event.target.value));
+
+/* decision filter: reload automatically with debounce */
+$("decision-filter").addEventListener("change", debounce(() => { loadDecisions(); }, 250));
+
+/* ---------- boot ---------- */
+function boot() {
+  // Every navigation button must have a registered view; a console section
+  // that is rendered but not wired fails loudly at startup instead of
+  // silently showing stale data.
+  for (const btn of document.querySelectorAll("nav button[data-tab]")) {
+    if (!views.has(btn.dataset.tab)) throw new Error("missing view for tab: " + btn.dataset.tab);
+  }
+  for (const view of views.values()) view.load();
+  connectWs();
+  startPolling();
+}
+
+boot();
+})();
+</script>
+</body>
+</html>

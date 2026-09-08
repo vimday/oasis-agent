@@ -1,0 +1,52 @@
+# Oasis Agent observation server configuration (example).
+#
+# Copy to configs/server.toml (never commit it) and adjust paths before use.
+# The parser is strict: unknown keys, embedded credentials, secret values and
+# malformed types are rejected instead of silently ignored. Operation tokens
+# are NEVER accepted in this file; they are read from the environment variable
+# named by `ops_token_env` at request time so they can be rotated without a
+# restart.
+
+host = "127.0.0.1"
+port = 8666
+max_rows_per_page = 100
+
+# Operation endpoints (trigger a shadow run, gate approvals) require a bearer
+# token from this environment variable. When `ops_token_required = true` the
+# server refuses to start without the variable; when false the endpoints fail
+# closed with 503 until a token is configured.
+ops_token_env = "OASIS_SERVER_OPS_TOKEN"
+ops_token_required = true
+
+# Alert tuning: maximum age of the latest shadow health observation before a
+# critical `feed_stale` alert fires, and how far ahead of a gate evidence
+# expiry a warning alert is emitted.
+alert_feed_max_age_seconds = 3600
+alert_gate_warn_hours = 24
+
+[databases]
+# Every journal is opened strictly read-only (mode=ro + PRAGMA query_only) and
+# hash-linked chains are re-validated on every read. Omit a source to serve
+# it as "unconfigured"; providing a path that does not exist fails startup.
+shadow = "data/shadow.db"
+evidence = "data/evidence.db"
+execution = "data/execution.db"
+ops = "data/server_ops.db"
+readiness_manifest = "data/readiness-manifest.json"
+
+# Optional: trigger observation runs from the dashboard as an isolated
+# subprocess. The command runs with the configuration file's directory as the
+# working directory; output tails are journaled with secrets redacted.
+# [shadow_runner]
+# command = [".venv/bin/python", "scripts/run_lp_shadow.py", "--policy", "configs/policy.toml", "--out-dir", "data/shadow-out"]
+# timeout_seconds = 900
+# max_concurrent = 1
+
+# Optional P3 multi-chain read-only registry. Only whitelisted non-mutating
+# JSON-RPC methods are ever called; the server never submits transactions.
+# [[chains]]
+# chain_id = 46630
+# name = "Robinhood Testnet"
+# rpc_url = "https://rpc.testnet.chain.robinhood.com"
+# pool_manager = "0x..."
+# cache_seconds = 15

@@ -9,6 +9,9 @@ dependencies = [
     "web3>=7.16,<8",
     # Security floors also protect installs that bypass the hashed lockfile.
     "aiohttp>=3.14.3,<4",
+    # Local observation API server (P0-P3 dashboard backend).
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
     "idna>=3.15,<4",
     "requests>=2.34.2,<3",
     "urllib3>=2.7.0,<3",
@@ -40,6 +43,13 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # starlette's TestClient still routes through httpx; the httpx2 migration
+    # warning is noise for these tests.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+    # starlette 1.x internal anyio alias deprecation.
+    "ignore:The anyio.abc.BlockingPortal alias is deprecated",
+]
 
 [tool.ruff]
 line-length = 100
