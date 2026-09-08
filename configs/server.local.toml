@@ -29,3 +29,12 @@ ops = "data/server_ops.db"
 # evidence = "data/evidence.db"
 # execution = "data/execution.db"
 # readiness_manifest = "data/readiness-manifest.json"
+
+[[chains]]
+chain_id = 4663
+name = "Robinhood Chain"
+# The local .env currently points this at Robinhood's public endpoint. Replace
+# only the environment value when moving to Alchemy or another provider.
+rpc_url_env = "ROBINHOOD_RPC_URL"
+pool_manager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+cache_seconds = 15

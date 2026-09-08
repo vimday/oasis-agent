@@ -126,7 +126,11 @@ class ReadOnlyRpcClient:
             client = httpx.AsyncClient(timeout=_RPC_TIMEOUT_SECONDS, transport=self._transport)
             self._client = client
         try:
-            response = await client.post(self._chain.rpc_url, content=payload)
+            response = await client.post(
+                self._chain.rpc_url,
+                content=payload,
+                headers={"accept": "application/json", "content-type": "application/json"},
+            )
         except (httpx.HTTPError, OSError) as exc:
             raise RpcUnavailableError(f"RPC transport failure: {exc}") from exc
         latency = int((time.monotonic() - started) * 1000)

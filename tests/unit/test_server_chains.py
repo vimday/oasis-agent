@@ -23,6 +23,8 @@ def chain(*, rpc_url="https://rpc.example/v1", cache_seconds=15):
 
 
 def ok_handler(request: httpx.Request) -> httpx.Response:
+    assert request.headers["content-type"] == "application/json"
+    assert request.headers["accept"] == "application/json"
     body = json.loads(request.content)
     method = body["method"]
     if method == "eth_chainId":

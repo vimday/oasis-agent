@@ -175,6 +175,11 @@ over HTTP:
   subprocesses; output tails are redacted and truncated in the journal.
 - The optional `[[chains]]` registry supports only whitelisted non-mutating JSON-RPC methods; the
   server never submits transactions.
+- `configs/server.local.toml` registers Robinhood mainnet through `ROBINHOOD_RPC_URL`; changing the
+  environment value is sufficient to replace the public endpoint with Alchemy or another provider.
+  The dashboard exposes only the RPC origin and strips path/query material that may contain keys.
+- JSON-RPC requests explicitly send `Content-Type: application/json`; Robinhood's public endpoint
+  rejects otherwise valid request bodies without it.
 
 ## 7. Known boundaries
 
