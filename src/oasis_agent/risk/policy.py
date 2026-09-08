@@ -28,6 +28,8 @@ class RiskLimits:
             raise TypeError("current_block must be an integer")
         if self.current_block < 0:
             raise ValueError("current_block must be nonnegative")
+        if self.min_worst_case_profit < 0:
+            raise ValueError("min_worst_case_profit must be nonnegative")
         if self.max_capital < 0:
             raise ValueError("max_capital must be nonnegative")
         if not Decimal(0) <= self.min_confidence <= Decimal(1):

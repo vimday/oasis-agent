@@ -21,6 +21,13 @@ def reconcile_swap(components: AccountingComponents) -> ReconciliationResult:
 def calculate_lp_net_yield(
     capital: Decimal, gross_fees: Decimal, impermanent_loss: Decimal, costs: CostModel
 ) -> LpPerformance:
+    for name, value in (
+        ("capital", capital),
+        ("gross_fees", gross_fees),
+        ("impermanent_loss", impermanent_loss),
+    ):
+        if not isinstance(value, Decimal) or not value.is_finite() or value < 0:
+            raise ValueError(f"{name} must be a finite nonnegative Decimal")
     if capital <= 0:
         raise ValueError("capital must be positive")
     total_costs = (

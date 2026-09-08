@@ -2,6 +2,23 @@
 
 A healthy observation only yields HOLD. Strategy qualification is separate and
 cannot be inferred from a short health run or caller-supplied readiness flags.
+
+HALT latch and reset
+--------------------
+A HALT health decision latches for the life of this journal file: every later
+observation and decision appends ``halt_latched``/``decision_halt_latched``
+reasons and can never become HOLD again in the same file. There is no in-place
+reset. The only recovery path is operator journal rotation:
+
+1. Preserve the halted journal file verbatim (append-only, hash-linked audit
+   trail; never delete or edit it).
+2. Start a fresh journal at a new path with a new observation window. A fresh
+   journal has an empty chain, so the latch is absent by construction.
+3. Because the consumer pins code/config identity (``lp_policy`` in
+   ``LpShadowService``), the fresh window must pass the same reviewed-policy
+   fingerprint check before any evaluation restarts.
+
+Rotation is a manual, reviewed operation; no code path clears a latch in place.
 """
 
 from __future__ import annotations
@@ -160,24 +177,37 @@ class ShadowJournal:
             raise
 
     def _last_decision(self) -> dict[str, object] | None:
-        previous = "0" * 64
-        last = None
-        for seq, payload, digest in self.db.execute(
-            "SELECT seq, payload, digest FROM decisions ORDER BY seq"
+        records = self.decision_records()
+        return records[-1] if records else None
+
+    def _validate_decision(self, data: dict[str, object]) -> None:
+        if (
+            data.get("schema") != "oasis.shadow-lp-decision.v1"
+            or data.get("execution_eligible") is not False
+            or data.get("strategy_qualification") != "unresolved"
         ):
-            data = json.loads(payload)
-            if (
-                data["seq"] != seq
-                or data["previous"] != previous
-                or hashlib.sha256(payload).hexdigest() != digest
-            ):
-                raise ValueError("shadow decision chain corrupted")
-            previous = digest
-            last = data | {"digest": digest}
-        return last
+            raise ValueError("shadow decision must remain observation-only")
+        if data.get("decision") not in {"hold", "halt", "recenter", "remove", "reduce", "unwind"}:
+            raise ValueError("unknown shadow decision")
+        digest = data.get("health_digest")
+        if not isinstance(digest, str):
+            raise TypeError("decision needs a health observation digest")
+        row = self.db.execute(
+            "SELECT payload FROM observations WHERE digest=?", (digest,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("decision health observation missing")
+        health = json.loads(row[0])
+        if any(data.get(key) != health[key] for key in ("block", "observed_at", "evidence")):
+            raise ValueError("decision and health snapshot disagree")
+        if data.get("health") != health["decision"]:
+            raise ValueError("decision health status mismatch")
+        if health["decision"] == "HALT" and data["decision"] != "halt":
+            raise ValueError("halted health cannot authorize a decision")
 
     def decision_records(self) -> tuple[dict[str, object], ...]:
-        """Every decision record in chain order; raises on any tampering."""
+        """Validate both chains and their links; external anchors detect truncation."""
+        self._last()
         records = []
         previous = "0" * 64
         for seq, payload, digest in self.db.execute(
@@ -190,6 +220,7 @@ class ShadowJournal:
                 or hashlib.sha256(payload).hexdigest() != digest
             ):
                 raise ValueError("shadow decision chain corrupted")
+            self._validate_decision(data)
             previous = digest
             records.append(data | {"digest": digest})
         return tuple(records)
@@ -210,6 +241,9 @@ class ShadowJournal:
         self.db.execute("BEGIN IMMEDIATE")
         try:
             last = self._last_decision()
+            self._validate_decision(payload)
+            if last and last["decision"] == "halt" and payload["decision"] != "halt":
+                raise ValueError("shadow decision halt is latched")
             seq = 1 if last is None else int(str(last["seq"])) + 1
             previous = "0" * 64 if last is None else last["digest"]
             record = {"seq": seq, "previous": previous, **payload}

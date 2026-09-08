@@ -34,7 +34,7 @@ from ..uniswap_v4.events import MODIFY_LIQUIDITY_TOPIC
 from .owner_payments import MODIFY, TRANSFER, UnsupportedOwnerPayment, _abi, _log, _transfer
 from .position_ledger import PositionLedgerEntry, SettlementAttribution
 from .position_settlement import PositionSettlementCapture, _mapping, _text
-from .transaction_costs import FAMILIES
+from .transaction_costs import FAMILIES, OP_ORACLE, OP_SELECTOR
 
 # Native decimals are 18 on every explicitly supported family (ethereum, op,
 # nitro). Unknown chains fail closed at construction before any attribution.
@@ -94,11 +94,26 @@ def native_balance_requests(
             ],
         )
     )
+    if FAMILIES.get(block.chain_id) == "op":
+        receipt = _mapping(decode_exchange(core.exchanges[2])[1]["result"])
+        gas = rpc_quantity(receipt.get("gasUsed"))
+        result.extend(
+            [
+                ("eth_getCode", [OP_ORACLE, current]),
+                (
+                    "eth_call",
+                    [
+                        {"to": OP_ORACLE, "data": OP_SELECTOR + encode(["uint256"], [gas]).hex()},
+                        current,
+                    ],
+                ),
+            ]
+        )
     result.append(("eth_getBlockByNumber", [hex(block.number), False]))
     return result
 
 
-def _gas_debit(receipt: dict[str, object], chain_id: int) -> int:
+def _gas_debit(receipt: dict[str, object], chain_id: int, operator_fee: int | None = None) -> int:
     """Native gas actually debited from the transaction sender's balance."""
     family = FAMILIES.get(chain_id)
     if family is None:
@@ -108,9 +123,25 @@ def _gas_debit(receipt: dict[str, object], chain_id: int) -> int:
     if gas >= 1 << 64 or price >= 1 << 256:
         raise ValueError("gas/price width overflow")
     debit = gas * price
+    tx_type = rpc_quantity(receipt.get("type"))
+    if tx_type not in (0, 1, 2, 3, 4) or (family != "ethereum" and tx_type == 3):
+        raise ValueError("unsupported deposit/system/blob transaction")
     if family == "op":
-        # OP Stack charges L1 data fees on top of the L2 execution fee.
+        if type(operator_fee) is not int or not 0 <= operator_fee < 1 << 256:
+            raise ValueError("pinned operator fee evidence required")
         debit += rpc_quantity(receipt.get("l1Fee"))
+        debit += operator_fee
+    elif family == "ethereum" and tx_type == 3:
+        blob_gas = rpc_quantity(receipt.get("blobGasUsed"))
+        blob_price = rpc_quantity(receipt.get("blobGasPrice"))
+        if blob_gas == 0 or blob_gas % 131072 or blob_price == 0:
+            raise ValueError("invalid Ethereum blob gas/price")
+        debit += blob_gas * blob_price
+    elif family == "nitro":
+        if rpc_quantity(receipt.get("gasUsedForL1")) > gas:
+            raise ValueError("L1 gas exceeds total Nitro gas")
+    if debit >= 1 << 256:
+        raise ValueError("total transaction cost overflows uint256")
     return debit
 
 
@@ -142,6 +173,8 @@ def _native_value_frames(
                 raise UnsupportedOwnerPayment("duplicate root native payment")
             settle_in = value
         elif sender == posm and recipient == manager:
+            if settle_seen:
+                raise UnsupportedOwnerPayment("duplicate native settle frame")
             if settle_in == 0 or value != settle_in:
                 raise UnsupportedOwnerPayment("native settle frame must match the root payment")
             settle_seen = True
@@ -253,7 +286,7 @@ class NativeOwnerPaymentCapture:
                 after = cast(int, _abi(["uint256"], _text(results[offset + 4]))[0])
                 amounts.append(TokenAmount(token, decimals, after - before))
                 offset += 5
-        raw_logs = results[-2]
+        raw_logs = results[offset]
         if not isinstance(raw_logs, list):
             raise TypeError("complete block Transfer logs required")
         logs = tuple(_log(x) for x in raw_logs)
@@ -304,7 +337,15 @@ class NativeOwnerPaymentCapture:
         settle_in, take_out = _native_value_frames(
             root, self.owner, core.pool_manager, core.entry.observation.sender
         )
-        gas = _gas_debit(receipt, block.chain_id)
+        operator_fee = None
+        if FAMILIES.get(block.chain_id) == "op":
+            code = _text(results[offset + 1])
+            if not code.startswith("0x") or not bytes.fromhex(code[2:]):
+                raise ValueError("operator oracle code missing")
+            operator_fee = cast(int, _abi(["uint256"], _text(results[offset + 2]))[0])
+        if normalize_address(_text(receipt.get("from"))) != self.owner:
+            raise UnsupportedOwnerPayment("native gas payer must be the owner")
+        gas = _gas_debit(receipt, block.chain_id, operator_fee)
         native_amount = cast(int, native_delta)
         if native_amount + gas != take_out - settle_in:
             raise ValueError("owner native balance/gas/core residual")

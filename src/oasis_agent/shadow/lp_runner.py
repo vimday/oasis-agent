@@ -12,6 +12,16 @@ every record.
 Decisions are chained to the health observation that preceded them through
 ``health_digest`` and hash-linked among themselves, so the shadow trail is
 append-only and tamper-evident even across restarts.
+
+HALT latch and reset
+--------------------
+A ``halt`` decision record latches the decision chain: the runner appends
+``decision_halt_latched`` for every later cycle, and ``record_decision``
+rejects any non-halt payload while a halt record is last. The latch lives in
+the journal file, so the only recovery is operator journal rotation described
+in ``shadow/journal.py``: preserve the halted file verbatim, open a fresh
+journal at a new path, and restart the observation window under the same
+reviewed policy fingerprint. No code path clears the latch in place.
 """
 
 from __future__ import annotations
@@ -45,12 +55,13 @@ DECISION_SCHEMA = "oasis.shadow-lp-decision.v1"
 def _decimal_str(value: Decimal) -> str:
     """Canonical fixed-point string: strip Decimal arithmetic scale.
 
-    Decimal multiplication keeps trailing zeros (``200.0000``), which would
-    otherwise leak calculation scale into the serialized audit record and make
-    semantically identical decisions hash differently. ``normalize`` removes
-    the scale; ``format(..., "f")`` keeps the fixed-point notation.
+    Remove scale without Decimal.normalize(), which rounds using the ambient
+    precision context. Audit serialization must preserve every supplied digit.
     """
-    return format(value.normalize(), "f")
+    result = format(value, "f")
+    if "." in result:
+        result = result.rstrip("0").rstrip(".")
+    return "0" if value.is_zero() else result
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +215,7 @@ class LpShadowRunner:
             raise ValueError("shadow decision needs raw block-pinned evidence")
         health = self.journal.observe(header, evidence, now=now)
         health_digest = str(health["digest"])
+        previous = self.journal.decision_records()
         if health["decision"] != "HOLD":
             return self._halt(
                 header,
@@ -213,10 +225,22 @@ class LpShadowRunner:
                 tuple(str(x) for x in cast(Sequence[object], health["reasons"])),
                 "HALT",
             )
+        if previous and previous[-1]["decision"] == "halt":
+            return self._halt(
+                header, evidence, now, health_digest, ("decision_halt_latched",), "HOLD"
+            )
         try:
+            if state.block != header.ref or state.observed_at_timestamp != header.ref.timestamp:
+                return self._halt(
+                    header, evidence, now, health_digest, ("state_snapshot_mismatch",), "HOLD"
+                )
             fee_quote = self.strategy.quote(
                 state, direction, amount_specified, exact_input, benign_flow
             )
+            if now > fee_quote.valid_until_timestamp:
+                return self._halt(
+                    header, evidence, now, health_digest, ("fee_quote_expired",), "HOLD"
+                )
         except (ValueError, TypeError):
             return self._halt(
                 header, evidence, now, health_digest, ("strategy_evaluation_failed",), "HOLD"
@@ -231,6 +255,9 @@ class LpShadowRunner:
                 )
         rebalance_allowed: bool | None = None
         rebalance_reasons: tuple[str, ...] = ()
+        if range_action is not None and range_action.action_type is not LpActionType.HOLD:
+            rebalance_allowed = False
+            rebalance_reasons = ("rebalance_gate_missing",)
         if gate_input is not None:
             try:
                 gate = rebalance_gate(gate_input)
@@ -251,7 +278,7 @@ class LpShadowRunner:
         if (
             range_action is not None
             and range_action.action_type is not LpActionType.HOLD
-            and rebalance_allowed is not False
+            and rebalance_allowed is True
         ):
             decision_value = range_action.action_type.value
         else:

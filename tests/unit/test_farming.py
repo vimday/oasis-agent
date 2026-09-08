@@ -3,7 +3,13 @@ from decimal import Decimal
 
 from oasis_agent.errors import AccountingError
 from oasis_agent.farming.metrics import calculate_lp_net_yield, reconcile_swap
-from oasis_agent.models.finance import AccountingComponents, AssetPair, CostModel, TokenAmount
+from oasis_agent.models.finance import (
+    AccountingComponents,
+    AssetPair,
+    CostModel,
+    LpPerformance,
+    TokenAmount,
+)
 
 TOKEN0 = "0x" + "1" * 40
 TOKEN1 = "0x" + "2" * 40
@@ -116,6 +122,35 @@ class FarmingTests(unittest.TestCase):
         )
         self.assertEqual(without.net_pnl - with_extra.net_pnl, Decimal(10))
 
+    def test_lp_performance_rejects_inconsistent_net_pnl_and_yield(self) -> None:
+        with self.assertRaisesRegex(ValueError, "net_pnl is inconsistent"):
+            LpPerformance(
+                capital=Decimal(1000),
+                gross_fees=Decimal(100),
+                impermanent_loss=Decimal(25),
+                costs=Decimal(35),
+                net_pnl=Decimal(41),  # should be 100 - 25 - 35 = 40
+                net_yield=Decimal("0.04"),
+            )
+        with self.assertRaisesRegex(ValueError, "net_yield is inconsistent"):
+            LpPerformance(
+                capital=Decimal(1000),
+                gross_fees=Decimal(100),
+                impermanent_loss=Decimal(25),
+                costs=Decimal(35),
+                net_pnl=Decimal(40),
+                net_yield=Decimal("0.05"),
+            )
+        with self.assertRaisesRegex(ValueError, "nonnegative"):
+            LpPerformance(
+                capital=Decimal(1000),
+                gross_fees=Decimal(-1),
+                impermanent_loss=Decimal(25),
+                costs=Decimal(35),
+                net_pnl=Decimal(40),
+                net_yield=Decimal("0.04"),
+            )
+
     def test_cost_model_rejects_missing_or_negative_costs(self) -> None:
         for kwargs in (
             {"opportunity_cost": Decimal(-1)},
@@ -140,3 +175,20 @@ class FarmingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_lp_reporting_rejects_invalid_amounts_and_decimals():
+    costs = CostModel(*(Decimal(0) for _ in range(6)))
+    for field in ("capital", "gross_fees", "impermanent_loss"):
+        for value in (Decimal("Infinity"), Decimal("NaN"), Decimal(-1), True, 1.0):
+            args = {
+                "capital": Decimal(100),
+                "gross_fees": Decimal(1),
+                "impermanent_loss": Decimal(0),
+            }
+            args[field] = value
+            with unittest.TestCase().assertRaises(ValueError):
+                calculate_lp_net_yield(**args, costs=costs)
+    for decimals in (True, 6.0, Decimal(6)):
+        with unittest.TestCase().assertRaises(ValueError):
+            TokenAmount(TOKEN0, decimals, 1)

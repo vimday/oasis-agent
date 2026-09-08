@@ -106,6 +106,8 @@ def native_capture_fixture(
         "status": "0x1",
         "from": OWNER,
         "to": POSM,
+        "type": "0x2",
+        "gasUsedForL1": "0x0",
         "gasUsed": "0x64",
         "effectiveGasPrice": "0x2",
         "logs": [
@@ -170,6 +172,7 @@ def native_fixture(
     native=(1000, -300),
     l1_fee=None,
     trace_hook=None,
+    operator_fee=0,
 ):
     """Full native owner payment capture: owner pays ETH and ERC-20 debit.
 
@@ -339,7 +342,10 @@ def native_fixture(
                 "0x" + encode(["uint256"], [1000]).hex(),
                 "0x" + encode(["uint256"], [1000 + amounts[1]]).hex(),
             ]
-    results += [erc_logs, hdr]
+    results.append(erc_logs)
+    if chain_id in (8453, 84532):
+        results += ["0x6000", "0x" + encode(["uint256"], [operator_fee]).hex()]
+    results.append(hdr)
     exchanges = tuple(
         RpcExchange(
             method,
@@ -349,7 +355,7 @@ def native_fixture(
             1,
         )
         for i, ((method, params), result) in enumerate(
-            zip(native_balance_requests(core, OWNER), results), 1
+            zip(native_balance_requests(core, OWNER), results, strict=True), 1
         )
     )
     return NativeOwnerPaymentCapture(core, OWNER, core.source, exchanges)
@@ -524,3 +530,61 @@ def test_erc20_false_return_rejected():
     )
     with pytest.raises(ValueError, match="return true"):
         resolve_exclusive_native_payment(replace(capture, core=core))
+
+
+def test_duplicate_native_settle_frames_fail_closed():
+    from oasis_agent.farming.native_payments import _native_value_frames
+
+    settle = {"type": "CALL", "from": POSM, "to": CORE, "value": "0x64"}
+    root = {
+        "type": "CALL",
+        "from": OWNER,
+        "to": POSM,
+        "value": "0x64",
+        "calls": [settle, dict(settle)],
+    }
+    with pytest.raises(UnsupportedOwnerPayment, match="duplicate"):
+        _native_value_frames(root, OWNER, CORE, POSM)
+
+
+def test_native_blob_gas_is_not_silently_omitted():
+    from oasis_agent.farming.native_payments import _gas_debit
+
+    receipt = {
+        "type": "0x3",
+        "gasUsed": "0x64",
+        "effectiveGasPrice": "0x2",
+        "blobGasUsed": hex(131072),
+        "blobGasPrice": "0x3",
+    }
+    assert _gas_debit(receipt, 1) == 200 + 131072 * 3
+
+
+def test_op_native_requires_operator_fee_evidence():
+    from oasis_agent.farming.native_payments import _gas_debit
+
+    receipt = {"type": "0x2", "gasUsed": "0x64", "effectiveGasPrice": "0x2", "l1Fee": "0x32"}
+    with pytest.raises(ValueError, match="operator"):
+        _gas_debit(receipt, 8453)
+
+
+def test_op_operator_fee_reconciles_owner_cash():
+    capture = native_fixture(chain_id=8453, native=(1000, -367), l1_fee=50, operator_fee=17)
+    amounts = resolve_exclusive_native_payment(capture)
+    assert (amounts.amount0, amounts.amount1) == (-100, -200)
+
+
+def test_missing_operator_oracle_runtime_rejected():
+    capture = native_fixture(chain_id=8453, native=(1000, -367), l1_fee=50, operator_fee=17)
+    exchanges = list(capture.exchanges)
+    raw = json.loads(exchanges[-3].response_payload)
+    raw["result"] = "0x"
+    exchanges[-3] = replace(exchanges[-3], response_payload=canonical_json(raw))
+    with pytest.raises(ValueError, match="oracle code missing"):
+        replace(capture, exchanges=tuple(exchanges))
+
+
+def test_robinhood_testnet_uses_explicit_nitro_cost_policy():
+    capture = native_fixture(chain_id=46630, amounts=(-100, -200, 0, 0), native=(1000, -300))
+    amounts = resolve_exclusive_native_payment(capture)
+    assert (amounts.amount0, amounts.amount1) == (-100, -200)

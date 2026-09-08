@@ -75,3 +75,24 @@ def test_acquisition_failure_before_first_header_latches(tmp_path):
     b = BlockSnapshot(BlockRef(1, 10, "0x" + "11" * 32, 100), "0x" + "00" * 32)
     assert j.observe(b, evidence(tmp_path, b), now=101)["decision"] == "HALT"
     j.close()
+
+
+def test_halt_reset_is_operator_journal_rotation_only(tmp_path):
+    b = BlockSnapshot(BlockRef(1, 10, "0x" + "11" * 32, 100), "0x" + "00" * 32)
+    halted = ShadowJournal(tmp_path / "halted.db", chain_id=1, max_age_seconds=10)
+    assert halted.observe(b, evidence(tmp_path, b), now=111)["decision"] == "HALT"
+    halted.close()
+
+    # The same file stays latched: there is no in-place reset path.
+    reopened = ShadowJournal(tmp_path / "halted.db", chain_id=1, max_age_seconds=10)
+    c = BlockSnapshot(BlockRef(1, 11, "0x" + "22" * 32, 112), b.ref.block_hash)
+    result = reopened.observe(c, evidence(tmp_path, c), now=112)
+    assert result["decision"] == "HALT"
+    assert "halt_latched" in result["reasons"]
+    reopened.close()
+
+    # The documented recovery is operator rotation to a fresh journal file;
+    # a fresh empty chain carries no latch by construction.
+    fresh = ShadowJournal(tmp_path / "fresh.db", chain_id=1, max_age_seconds=10)
+    assert fresh.observe(c, evidence(tmp_path, c), now=112)["decision"] == "HOLD"
+    fresh.close()

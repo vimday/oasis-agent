@@ -5,6 +5,7 @@ from oasis_agent.execution.lp_state_machine import (
     LpExecutionLedger,
     LpExecutionStateMachine,
     LpIntent,
+    LpIntentMode,
     LpState,
     TickRange,
 )
@@ -16,12 +17,17 @@ def make_intent(**overrides: object) -> LpIntent:
         "chain_id": 4663,
         "pool_id": "0x" + "ab" * 32,
         "position_token_id": 7,
+        "mode": LpIntentMode.RECENTER,
+        "target": "0x" + "44" * 20,
+        "calldata_hash": "0x" + "56" * 32,
         "old_range": TickRange(-120, 120, 60),
         "new_range": TickRange(-180, 60, 60),
-        "amount0_exact": 1_000_000,
-        "amount1_exact": 2_000_000,
-        "max_swap_input": 500_000,
-        "min_swap_output": 100_000,
+        "liquidity": 100_000,
+        "amount0_min": 100_000,
+        "amount1_min": 200_000,
+        "amount0_max": 1_000_000,
+        "amount1_max": 2_000_000,
+        "max_swap_input": 0,
         "max_fee_pips": 50_000,
         "max_gas_units": 3_000_000,
         "nonce": 3,
@@ -163,3 +169,64 @@ class LpExecutionLedgerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_submitted_consumption_survives_halt_and_expiry():
+    for terminal in (LpState.HALTED, LpState.EXPIRED):
+        ledger = LpExecutionLedger()
+        intent = make_intent()
+        machine = ledger.create(intent)
+        machine.propose()
+        machine.reserve()
+        machine.pin_simulated(True)
+        machine.policy_approve(True)
+        machine.sign()
+        machine.submit("0x" + "99" * 32)
+        machine.transition(terminal)
+        assert machine.consumed
+        assert ledger.is_consumed(intent.intent_hash)
+        with unittest.TestCase().assertRaises(ExecutionBlockedError):
+            ledger.create(intent)
+
+
+def test_rejected_submit_does_not_mutate_transaction_identity():
+    machine = LpExecutionStateMachine(make_intent())
+    with unittest.TestCase().assertRaises(ExecutionBlockedError):
+        machine.submit("0x" + "99" * 32)
+    assert machine.transaction_hash is None
+    assert machine.state is LpState.OBSERVED
+
+
+def test_canonical_tick_bounds():
+    for bounds in ((-887273, 0, 1), (0, 887273, 1), (0, 32768, 32768)):
+        with unittest.TestCase().assertRaises(ValueError):
+            TickRange(*bounds)
+
+
+def test_intent_rejects_malformed_hashes_and_evm_overflow():
+    cases = (
+        {"pool_id": "not-a-hash"},
+        {"state_hash": "0x01"},
+        {"config_hash": "0x01"},
+        {"code_hashes": ("0x01",)},
+        {"max_fee_pips": 1_000_001},
+        {"amount0_max": 1 << 128},
+        {"nonce": 1 << 256},
+        {"new_range": TickRange(-120, 120, 30)},
+    )
+    for case in cases:
+        with unittest.TestCase().assertRaises(ValueError):
+            make_intent(**case)
+
+
+def test_boolean_policy_flags_cannot_be_truthy_strings():
+    machine = LpExecutionStateMachine(make_intent())
+    machine.propose()
+    machine.reserve()
+    with unittest.TestCase().assertRaises(TypeError):
+        machine.pin_simulated("false")
+    assert machine.state is LpState.RESERVED
+    machine.pin_simulated(True)
+    with unittest.TestCase().assertRaises(TypeError):
+        machine.policy_approve("false")
+    assert machine.state is LpState.PINNED_SIMULATED

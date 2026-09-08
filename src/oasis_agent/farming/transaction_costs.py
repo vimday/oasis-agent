@@ -34,6 +34,7 @@ FAMILIES = {
     8453: "op",
     84532: "op",
     4663: "nitro",
+    46630: "nitro",  # Robinhood testnet; retained E2E receipts include gasUsedForL1.
     42161: "nitro",
 }
 OP_SELECTOR = "0x" + keccak(b"getOperatorFee(uint256)")[:4].hex()

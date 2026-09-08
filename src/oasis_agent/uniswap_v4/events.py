@@ -57,18 +57,16 @@ def decode_pool_initialized(log: LogRecord) -> PoolInitialized:
     if len(words) != 5:
         raise ValueError("Initialize requires five data words")
     fee, tick_spacing, hooks, sqrt_price, tick = words
-    if (
-        fee > 0xFFFFFF
-        or hooks > 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        or sqrt_price > (1 << 160) - 1
-    ):
+    if fee > 0xFFFFFF or hooks > (1 << 160) - 1 or sqrt_price > (1 << 160) - 1:
         raise ValueError("Initialize contains an out-of-range field")
     key = PoolKey(
         _topic_address(log.topics[2]),
         _topic_address(log.topics[3]),
         fee,
         _signed(tick_spacing, 24),
-        "0x" + f"{hooks:064x}"[-40:],
+        # hooks was range-checked to 160 bits, so the high 12 bytes are zero
+        # and a fixed-width 20-byte rendering cannot drop or invent bytes.
+        "0x" + f"{hooks:040x}",
     )
     return PoolInitialized(
         _topic_id(log.topics[1]), key, sqrt_price, _signed(tick, 24), log.block_number

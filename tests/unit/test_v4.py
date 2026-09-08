@@ -22,6 +22,17 @@ class V4PrimitiveTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             PoolKey("0x" + "0" * 40, "0x" + "1" * 40, 0x1000000, 60, "0x" + "2" * 40)
 
+    def test_pool_key_rejects_non_canonical_fee(self) -> None:
+        for fee in (1_000_001, 0x400000, 0xC00000, 0xFFFFFF):
+            with self.subTest(fee=fee), self.assertRaises(ValueError):
+                PoolKey("0x" + "0" * 40, "0x" + "1" * 40, fee, 60, "0x" + "2" * 40)
+
+    def test_pool_key_accepts_static_max_and_dynamic_flag_fees(self) -> None:
+        for fee in (1_000_000, 0x800000):
+            with self.subTest(fee=fee):
+                key = PoolKey("0x" + "0" * 40, "0x" + "1" * 40, fee, 60, "0x" + "2" * 40)
+                self.assertEqual(key.fee, fee)
+
     def test_pool_key_rejects_protocol_invalid_tick_spacing(self) -> None:
         for spacing in (-1, 0, 32_768):
             with self.subTest(spacing=spacing), self.assertRaisesRegex(ValueError, "tick_spacing"):

@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 
-from oasis_agent.farming.strategy import Band, BandTableFeeStrategy
+from oasis_agent.farming.strategy import Band, BandTableFeeStrategy, OnchainAmountBandFeePolicy
 from oasis_agent.models.finance import PoolState
 from oasis_agent.models.v4 import SwapDirection
 
@@ -159,5 +159,57 @@ class BandTableFeeStrategyTests(unittest.TestCase):
         self.assertTrue(first.state_hash)
 
 
+class OnchainAmountBandFeePolicyTests(unittest.TestCase):
+    @staticmethod
+    def policy() -> OnchainAmountBandFeePolicy:
+        return OnchainAmountBandFeePolicy(500, 2_000, 5_000, 1_000, 10_000, 10, 100, 1)
+
+    def test_matches_solidity_token_and_exact_mode_selection(self) -> None:
+        policy = self.policy()
+        self.assertEqual(policy.quote(SwapDirection.ZERO_FOR_ONE, -999, exact_input=True), 500)
+        self.assertEqual(policy.quote(SwapDirection.ZERO_FOR_ONE, -1_000, exact_input=True), 2_000)
+        self.assertEqual(policy.quote(SwapDirection.ZERO_FOR_ONE, -10_000, exact_input=True), 5_000)
+        self.assertEqual(policy.quote(SwapDirection.ZERO_FOR_ONE, 99, exact_input=False), 2_000)
+        self.assertEqual(policy.quote(SwapDirection.ONE_FOR_ZERO, -99, exact_input=True), 2_000)
+        self.assertEqual(policy.quote(SwapDirection.ONE_FOR_ZERO, 999, exact_input=False), 500)
+        self.assertEqual(
+            policy.quote(SwapDirection.ONE_FOR_ZERO, -(1 << 255), exact_input=True), 5_000
+        )
+        self.assertEqual(
+            policy.quote(SwapDirection.ZERO_FOR_ONE, -10_000, exact_input=True, risk_paused=True),
+            500,
+        )
+
+    def test_rejects_values_solidity_configure_pool_rejects(self) -> None:
+        with self.assertRaisesRegex(ValueError, "monotone"):
+            OnchainAmountBandFeePolicy(2_000, 500, 5_000, 1, 2, 1, 2, 1)
+        with self.assertRaisesRegex(ValueError, "between"):
+            OnchainAmountBandFeePolicy(500, 2_000, 100_001, 1, 2, 1, 2, 1)
+        with self.assertRaisesRegex(ValueError, "token0"):
+            OnchainAmountBandFeePolicy(500, 2_000, 5_000, 2, 2, 1, 2, 1)
+        with self.assertRaisesRegex(ValueError, "rule_version"):
+            OnchainAmountBandFeePolicy(500, 2_000, 5_000, 1, 2, 1, 2, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_quote_rejects_ambiguous_flags_and_non_evm_amounts():
+    strategy = BandTableFeeStrategyTests.strategy(benign_flow_discount=100)
+    state = BandTableFeeStrategyTests.state()
+    for kwargs in (
+        {"exact_input": "false"},
+        {"benign_flow": "false"},
+        {"direction": "zero_for_one"},
+        {"amount_specified": 1 << 255},
+        {"amount_specified": -(1 << 255) - 1},
+    ):
+        args = {
+            "direction": SwapDirection.ZERO_FOR_ONE,
+            "amount_specified": 100,
+            "exact_input": True,
+        }
+        args.update(kwargs)
+        with unittest.TestCase().assertRaises((TypeError, ValueError)):
+            strategy.quote(state, **args)

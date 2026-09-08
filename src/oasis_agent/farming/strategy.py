@@ -22,6 +22,66 @@ class FeeQuote:
 
 
 @dataclass(frozen=True, slots=True)
+class OnchainAmountBandFeePolicy:
+    """Exact Python mirror of ``OasisDynamicFeeHook.previewFee`` fee selection."""
+
+    base_fee: int
+    medium_fee: int
+    high_fee: int
+    medium_amount0_threshold: int
+    high_amount0_threshold: int
+    medium_amount1_threshold: int
+    high_amount1_threshold: int
+    rule_version: int
+
+    def __post_init__(self) -> None:
+        for name in ("base_fee", "medium_fee", "high_fee"):
+            value = getattr(self, name)
+            if type(value) is not int or not 0 <= value <= 100_000:
+                raise ValueError(f"{name} must be an integer between 0 and 100000")
+        if not self.base_fee <= self.medium_fee <= self.high_fee:
+            raise ValueError("on-chain fee bands must be monotone")
+        for token in ("0", "1"):
+            medium = getattr(self, f"medium_amount{token}_threshold")
+            high = getattr(self, f"high_amount{token}_threshold")
+            if type(medium) is not int or type(high) is not int or not 0 < medium < high < 1 << 128:
+                raise ValueError(f"token{token} thresholds must be ordered positive uint128 values")
+        if type(self.rule_version) is not int or not 0 < self.rule_version < 1 << 64:
+            raise ValueError("rule_version must be a positive uint64")
+
+    def quote(
+        self,
+        direction: SwapDirection,
+        amount_specified: int,
+        *,
+        exact_input: bool,
+        risk_paused: bool = False,
+    ) -> int:
+        if not isinstance(direction, SwapDirection):
+            raise TypeError("typed swap direction required")
+        if type(exact_input) is not bool or type(risk_paused) is not bool:
+            raise TypeError("exact_input and risk_paused must be booleans")
+        if (
+            type(amount_specified) is not int
+            or amount_specified == 0
+            or not -(1 << 255) <= amount_specified < 1 << 255
+        ):
+            raise ValueError("amount_specified must be a nonzero int256")
+        if risk_paused:
+            return self.base_fee
+        specified_currency0 = (direction is SwapDirection.ZERO_FOR_ONE) == exact_input
+        token = "0" if specified_currency0 else "1"
+        medium = getattr(self, f"medium_amount{token}_threshold")
+        high = getattr(self, f"high_amount{token}_threshold")
+        magnitude = abs(amount_specified)
+        if magnitude >= high:
+            return self.high_fee
+        if magnitude >= medium:
+            return self.medium_fee
+        return self.base_fee
+
+
+@dataclass(frozen=True, slots=True)
 class TransparentFeeStrategy:
     min_fee: int
     max_fee: int
@@ -97,6 +157,8 @@ class TransparentFeeStrategy:
             raise ValueError("previous fee timestamp is invalid")
 
     def quote(self, state: PoolState, direction: SwapDirection) -> FeeQuote:
+        if not isinstance(direction, SwapDirection):
+            raise TypeError("typed swap direction required")
         self._validate_state(state)
         oracle_age = state.observed_at_timestamp - state.oracle_timestamp
         if oracle_age > self.max_oracle_age_seconds:
@@ -221,8 +283,17 @@ def _validate_band_table(bands: tuple[Band, ...], name: str, term_cap: int) -> N
         previous_premium = band.premium
 
 
-def _to_bps(value: Decimal) -> int:
-    """Convert a finite nonnegative decimal fraction to integer basis points."""
+def _to_fee_pips(value: Decimal) -> int:
+    """Convert a finite nonnegative decimal fraction to fee pips (x10_000).
+
+    The strategy is internally consistent: every volatility/toxicity/inventory
+    score is a unitless fraction (0..1), and 1% maps to 10_000 fee pips (one
+    pip is 0.0001%). Band ``upper_bound``/``premium`` values use this same pip
+    scale, so a band premium of 50 means 0.005%. This is deliberately NOT the
+    broker convention of basis points: a true bps value (1 bps = 0.01%) would
+    be 100x too small here. Upstream callers must feed fractions and pips, not
+    bps integers, or fees will be off by a factor of 100.
+    """
     if not isinstance(value, Decimal) or not value.is_finite() or value < 0:
         raise ValueError("band input must be a finite nonnegative Decimal")
     return int(value * Decimal(10_000))
@@ -311,6 +382,10 @@ class BandTableFeeStrategy:
         exact_input: bool,
         benign_flow: bool = False,
     ) -> FeeQuote:
+        if not isinstance(direction, SwapDirection):
+            raise TypeError("typed swap direction required")
+        if type(exact_input) is not bool or type(benign_flow) is not bool:
+            raise TypeError("swap mode and benign-flow flags must be booleans")
         TransparentFeeStrategy._validate_state(state)
         oracle_age = state.observed_at_timestamp - state.oracle_timestamp
         if oracle_age > self.max_oracle_age_seconds:
@@ -319,6 +394,8 @@ class BandTableFeeStrategy:
             raise ValueError("oracle state deviates beyond the configured guard")
         if isinstance(amount_specified, bool) or not isinstance(amount_specified, int):
             raise TypeError("amount_specified must be an integer base-unit amount")
+        if not -(1 << 255) <= amount_specified < 1 << 255:
+            raise ValueError("amount_specified must fit int256")
         if amount_specified == 0:
             raise ValueError("amount_specified must be nonzero")
 
@@ -329,8 +406,8 @@ class BandTableFeeStrategy:
         impact_premium = _band_premium(
             self.impact_bands0 if specified_currency0 else self.impact_bands1, magnitude
         )
-        volatility_premium = _band_premium(self.volatility_bands, _to_bps(state.volatility))
-        toxicity_premium = _band_premium(self.toxicity_bands, _to_bps(state.adverse_selection))
+        volatility_premium = _band_premium(self.volatility_bands, _to_fee_pips(state.volatility))
+        toxicity_premium = _band_premium(self.toxicity_bands, _to_fee_pips(state.adverse_selection))
 
         inventory = state.inventory_imbalance
         # I > 0 means excess token0; zeroForOne sends token0 into the pool and worsens
@@ -339,7 +416,7 @@ class BandTableFeeStrategy:
             direction is SwapDirection.ONE_FOR_ZERO and inventory < 0
         )
         inventory_premium = (
-            _band_premium(self.inventory_bands, _to_bps(abs(inventory))) if worsening else 0
+            _band_premium(self.inventory_bands, _to_fee_pips(abs(inventory))) if worsening else 0
         )
         discount = self.benign_flow_discount if benign_flow else 0
 

@@ -33,6 +33,8 @@ class CounterfactualRun:
     rebalance_cost1: int
     adverse_selection_cost1: int
     other_cost1: int
+    failed_tx_cost1: int
+    opportunity_cost1: int
     hold_net_pnl1: int
     flow_response_model: str
     evidence: tuple[EvidenceRef, ...]
@@ -73,6 +75,8 @@ class CounterfactualRun:
             "rebalance_cost1",
             "adverse_selection_cost1",
             "other_cost1",
+            "failed_tx_cost1",
+            "opportunity_cost1",
         ):
             if getattr(self, name) < 0:
                 raise ValueError(f"{name} must be nonnegative")
@@ -95,6 +99,8 @@ class CounterfactualRun:
             - self.rebalance_cost1
             - self.adverse_selection_cost1
             - self.other_cost1
+            - self.failed_tx_cost1
+            - self.opportunity_cost1
         )
 
     @property
@@ -132,6 +138,7 @@ def compare_lp_factorial(runs: tuple[CounterfactualRun, ...]) -> FactorialLpComp
             "dataset_hash",
             "engine_version",
             "initial_capital1",
+            "hold_net_pnl1",
             "flow_response_model",
         ):
             if getattr(run, name) != getattr(first, name):

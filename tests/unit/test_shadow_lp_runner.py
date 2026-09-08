@@ -56,8 +56,9 @@ def pool_state(**kwargs):
         "inventory_imbalance": Decimal("0.02"),
         "adverse_selection": Decimal("0.01"),
         "rebalance_incentive": Decimal("0.005"),
-        "observed_at_timestamp": 1_000,
-        "oracle_timestamp": 995,
+        "observed_at_timestamp": 100,
+        "oracle_timestamp": 95,
+        "block": blocks()[0].ref,
     }
     values.update(kwargs)
     return PoolState(**values)
@@ -259,7 +260,7 @@ def test_halt_latches_future_decisions(tmp_path):
 def test_strategy_failure_halts_without_retaining_error_text(tmp_path):
     b, _ = blocks()
     r = runner(tmp_path)
-    stale = pool_state(oracle_timestamp=900)  # 100s old, beyond max_oracle_age_seconds
+    stale = pool_state(oracle_timestamp=0)  # 100s old, beyond max_oracle_age_seconds
     decision = r.decide(
         header=b,
         evidence=evidence(tmp_path, b),
@@ -287,7 +288,7 @@ def test_decisions_chain_and_detect_tampering(tmp_path):
         r.decide(
             header=b,
             evidence=evidence(tmp_path, b),
-            state=pool_state(),
+            state=pool_state(observed_at_timestamp=b.ref.timestamp, block=b.ref),
             direction=SwapDirection.ZERO_FOR_ONE,
             amount_specified=100_000,
             exact_input=True,
@@ -297,7 +298,10 @@ def test_decisions_chain_and_detect_tampering(tmp_path):
     assert len(records) == 2
     assert records[0]["previous"] == "0" * 64
     assert records[1]["previous"] == records[0]["digest"]
-    assert records[0]["health_digest"] == journal._last()["digest"] if False else True
+    health_digests = [
+        row[0] for row in journal.db.execute("SELECT digest FROM observations ORDER BY seq")
+    ]
+    assert [record["health_digest"] for record in records] == health_digests
     # Every decision references the health observation that preceded it.
     observations = journal._last()
     assert observations["digest"] == records[1]["health_digest"]
@@ -336,7 +340,173 @@ def test_record_decision_validates_schema_and_chain_position(tmp_path):
         journal.record_decision(
             {"schema": "oasis.shadow-lp-decision.v1", "seq": 9, "previous": "0" * 64}
         )
-    record = journal.record_decision({"schema": "oasis.shadow-lp-decision.v1", "decision": "halt"})
-    assert record["seq"] == 1
-    assert record["previous"] == "0" * 64
+    with pytest.raises(ValueError, match="observation-only"):
+        journal.record_decision({"schema": "oasis.shadow-lp-decision.v1", "decision": "halt"})
+    assert journal.decision_records() == ()
     journal.close()
+
+
+def test_missing_gate_cannot_select_recenter(tmp_path):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(observed_at_timestamp=100, oracle_timestamp=95),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+        candidates=recenter_candidates(),
+    )
+    assert result.decision == "hold"
+    assert result.rebalance_allowed is False
+    assert result.rebalance_reasons == ("rebalance_gate_missing",)
+    r.journal.close()
+
+
+@pytest.mark.parametrize("timestamp", [99, 101, 1000])
+def test_state_time_must_match_header(tmp_path, timestamp):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(observed_at_timestamp=timestamp, oracle_timestamp=timestamp),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+    )
+    assert result.decision == "halt"
+    assert result.reasons == ("state_snapshot_mismatch",)
+    r.journal.close()
+
+
+def test_expired_quote_cannot_be_a_healthy_decision(tmp_path):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(observed_at_timestamp=100, oracle_timestamp=95),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=110,
+    )
+    assert result.decision == "halt"
+    assert result.reasons == ("fee_quote_expired",)
+    r.journal.close()
+
+
+def test_decision_halt_survives_restart(tmp_path):
+    b1, b2 = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b1,
+        evidence=evidence(tmp_path, b1),
+        state=pool_state(oracle_timestamp=0),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+    )
+    assert result.decision == "halt"
+    r.journal.close()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b2,
+        evidence=evidence(tmp_path, b2),
+        state=pool_state(observed_at_timestamp=101, block=b2.ref),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=101,
+    )
+    assert result.decision == "halt"
+    assert "decision_halt_latched" in result.reasons
+    r.journal.close()
+
+
+def test_decimal_serialization_preserves_precision_and_signed_zero():
+    from decimal import localcontext
+
+    from oasis_agent.shadow.lp_runner import _decimal_str
+
+    value = Decimal("123456789012345678901234567890.123456789000")
+    with localcontext() as context:
+        context.prec = 6
+        assert _decimal_str(value) == "123456789012345678901234567890.123456789"
+        assert _decimal_str(Decimal("-0.000")) == "0"
+
+
+def test_journal_rejects_forged_health_link_or_execution_eligibility(tmp_path):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+    )
+    payload = {
+        key: value
+        for key, value in r.journal.decision_records()[0].items()
+        if key not in ("seq", "previous", "digest")
+    }
+    for changes in (
+        {"health_digest": "f" * 64},
+        {"execution_eligible": True},
+        {"block": None},
+        {"strategy_qualification": "qualified"},
+    ):
+        with pytest.raises(ValueError):
+            r.journal.record_decision(payload | changes)
+    assert len(r.journal.decision_records()) == 1
+    r.journal.close()
+
+
+def test_unpinned_state_cannot_use_header_evidence_as_its_own_provenance(tmp_path):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(block=None),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+    )
+    assert result.decision == "halt"
+    assert result.reasons == ("state_snapshot_mismatch",)
+    r.journal.close()
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"chain_id": 2},
+        {"number": 11},
+        {"block_hash": "0x" + "33" * 32},
+    ],
+)
+def test_state_block_identity_cannot_be_substituted(tmp_path, changes):
+    b, _ = blocks()
+    r = runner(tmp_path)
+    result = r.decide(
+        header=b,
+        evidence=evidence(tmp_path, b),
+        state=pool_state(block=replace(b.ref, **changes)),
+        direction=SwapDirection.ZERO_FOR_ONE,
+        amount_specified=100,
+        exact_input=True,
+        now=100,
+    )
+    assert result.decision == "halt"
+    assert result.reasons == ("state_snapshot_mismatch",)
+    r.journal.close()

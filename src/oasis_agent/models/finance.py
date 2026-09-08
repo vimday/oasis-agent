@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from .common import normalize_address, normalize_hash32
+from .common import BlockRef, normalize_address, normalize_hash32
 
 FEATURE_SCALE = 10**18
 MAX_FEATURE = FEATURE_SCALE
@@ -58,6 +58,31 @@ class LpPerformance:
     net_pnl: Decimal
     net_yield: Decimal
 
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("capital", self.capital),
+            ("gross_fees", self.gross_fees),
+            ("impermanent_loss", self.impermanent_loss),
+            ("costs", self.costs),
+            ("net_pnl", self.net_pnl),
+            ("net_yield", self.net_yield),
+        ):
+            _finite_decimal(value, name)
+        if self.capital <= 0:
+            raise ValueError("capital must be positive")
+        for name, value in (
+            ("gross_fees", self.gross_fees),
+            ("impermanent_loss", self.impermanent_loss),
+            ("costs", self.costs),
+        ):
+            if value < 0:
+                raise ValueError(f"{name} must be nonnegative")
+        expected = self.gross_fees - self.impermanent_loss - self.costs
+        if self.net_pnl != expected:
+            raise ValueError("net_pnl is inconsistent with income and costs")
+        if self.net_yield != expected / self.capital:
+            raise ValueError("net_yield is inconsistent with net_pnl and capital")
+
 
 @dataclass(frozen=True, slots=True)
 class TokenAmount:
@@ -67,7 +92,7 @@ class TokenAmount:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "token", normalize_address(self.token))
-        if not 0 <= self.decimals <= 255:
+        if type(self.decimals) is not int or not 0 <= self.decimals <= 255:
             raise ValueError("token decimals must fit uint8")
         if isinstance(self.amount, bool) or not isinstance(self.amount, int):
             raise TypeError("token amount must be an integer base-unit amount")
@@ -266,3 +291,6 @@ class PoolState:
     oracle_deviation: Decimal = Decimal(0)
     previous_fee: int | None = None
     previous_fee_timestamp: int | None = None
+    # Offline fee fixtures may omit provenance; shadow evaluation requires a
+    # complete block identity matching its independently observed header.
+    block: BlockRef | None = None

@@ -5,6 +5,10 @@ from enum import Enum
 
 from .common import normalize_address, normalize_hash32
 
+DYNAMIC_FEE_FLAG = 0x800000
+OVERRIDE_FEE_FLAG = 0x400000
+MAX_STATIC_LP_FEE = 1_000_000
+
 
 @dataclass(frozen=True, slots=True)
 class PoolKey:
@@ -20,8 +24,11 @@ class PoolKey:
         object.__setattr__(self, "hooks", normalize_address(self.hooks))
         if self.currency0 >= self.currency1:
             raise ValueError("PoolKey requires canonical currency order")
-        if not 0 <= self.fee <= 0xFFFFFF:
-            raise ValueError("fee must fit uint24")
+        # v4 wire format fits fee in uint24, but the protocol-valid set is a
+        # static fee at most MAX_STATIC_LP_FEE or exactly the dynamic fee flag;
+        # values in between (and any other flag combination) are non-canonical.
+        if not 0 <= self.fee <= MAX_STATIC_LP_FEE and self.fee != DYNAMIC_FEE_FLAG:
+            raise ValueError("fee must be at most 1000000 or exactly the dynamic fee flag")
         if not 1 <= self.tick_spacing <= 32_767:
             raise ValueError("tick_spacing must be between 1 and 32767")
 
@@ -87,7 +94,3 @@ class ModifyLiquidityObservation:
             raise ValueError("liquidity_delta must fit int256")
         if self.block_number < 0:
             raise ValueError("block_number must be nonnegative")
-
-
-DYNAMIC_FEE_FLAG = 0x800000
-OVERRIDE_FEE_FLAG = 0x400000

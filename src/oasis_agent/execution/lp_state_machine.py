@@ -22,7 +22,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 from ..errors import ExecutionBlockedError
-from ..models.common import canonical_json, sha256_hex
+from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
+from ..uniswap_v4.liquidity_math import MAX_TICK, MIN_TICK
 
 
 class LpState(str, Enum):
@@ -42,13 +43,18 @@ class LpState(str, Enum):
     HALTED = "halted"
 
 
+class LpIntentMode(str, Enum):
+    RECENTER = "recenter"
+    REMOVE = "remove"
+
+
 VALID_TRANSITIONS: dict[LpState, frozenset[LpState]] = {
     LpState.OBSERVED: frozenset({LpState.PROPOSED, LpState.EXPIRED}),
     LpState.PROPOSED: frozenset({LpState.RESERVED, LpState.EXPIRED}),
     LpState.RESERVED: frozenset({LpState.PINNED_SIMULATED, LpState.EXPIRED, LpState.HALTED}),
     LpState.PINNED_SIMULATED: frozenset({LpState.POLICY_APPROVED, LpState.EXPIRED, LpState.HALTED}),
-    LpState.POLICY_APPROVED: frozenset({LpState.SIGNED, LpState.EXPIRED}),
-    LpState.SIGNED: frozenset({LpState.SUBMITTED, LpState.EXPIRED}),
+    LpState.POLICY_APPROVED: frozenset({LpState.SIGNED, LpState.EXPIRED, LpState.HALTED}),
+    LpState.SIGNED: frozenset({LpState.SUBMITTED, LpState.EXPIRED, LpState.HALTED}),
     LpState.SUBMITTED: frozenset({LpState.SOFT_CONFIRMED, LpState.HALTED, LpState.EXPIRED}),
     LpState.SOFT_CONFIRMED: frozenset({LpState.RECONCILING, LpState.HALTED}),
     LpState.RECONCILING: frozenset({LpState.L1_POSTED, LpState.FINALIZED, LpState.HALTED}),
@@ -78,6 +84,10 @@ class TickRange:
                 raise TypeError(f"{name} must be an integer")
         if self.tick_spacing <= 0:
             raise ValueError("tick_spacing must be positive")
+        if self.tick_spacing > 32767:
+            raise ValueError("tick_spacing exceeds canonical v4 maximum")
+        if self.tick_lower < MIN_TICK or self.tick_upper > MAX_TICK:
+            raise ValueError("range exceeds canonical v4 tick bounds")
         if self.tick_lower >= self.tick_upper:
             raise ValueError("tick_lower must be below tick_upper")
         if self.tick_lower % self.tick_spacing != 0 or self.tick_upper % self.tick_spacing != 0:
@@ -92,12 +102,17 @@ class LpIntent:
     chain_id: int
     pool_id: str
     position_token_id: int
+    mode: LpIntentMode
+    target: str
+    calldata_hash: str
     old_range: TickRange
     new_range: TickRange
-    amount0_exact: int
-    amount1_exact: int
+    liquidity: int
+    amount0_min: int
+    amount1_min: int
+    amount0_max: int
+    amount1_max: int
     max_swap_input: int
-    min_swap_output: int
     max_fee_pips: int
     max_gas_units: int
     nonce: int
@@ -116,13 +131,25 @@ class LpIntent:
             raise ValueError("state_hash and config_hash are required")
         if not self.code_hashes or any(not h for h in self.code_hashes):
             raise ValueError("code_hashes must be a nonempty tuple of nonempty hashes")
+        if not isinstance(self.mode, LpIntentMode):
+            raise TypeError("mode must be an LpIntentMode")
+        object.__setattr__(self, "target", normalize_address(self.target))
+        if int(self.target, 16) == 0:
+            raise ValueError("intent target must be nonzero")
+        for name in ("pool_id", "calldata_hash", "state_hash", "config_hash"):
+            object.__setattr__(self, name, normalize_hash32(getattr(self, name), name))
+        object.__setattr__(
+            self, "code_hashes", tuple(normalize_hash32(value) for value in self.code_hashes)
+        )
         for name, value in (
             ("chain_id", self.chain_id),
             ("position_token_id", self.position_token_id),
-            ("amount0_exact", self.amount0_exact),
-            ("amount1_exact", self.amount1_exact),
+            ("liquidity", self.liquidity),
+            ("amount0_min", self.amount0_min),
+            ("amount1_min", self.amount1_min),
+            ("amount0_max", self.amount0_max),
+            ("amount1_max", self.amount1_max),
             ("max_swap_input", self.max_swap_input),
-            ("min_swap_output", self.min_swap_output),
             ("max_fee_pips", self.max_fee_pips),
             ("max_gas_units", self.max_gas_units),
             ("nonce", self.nonce),
@@ -131,22 +158,43 @@ class LpIntent:
         ):
             if isinstance(value, bool) or not isinstance(value, int):
                 raise TypeError(f"{name} must be an integer")
+            if value >= 1 << 256:
+                raise ValueError(f"{name} exceeds uint256")
         if self.chain_id <= 0 or self.position_token_id <= 0:
             raise ValueError("chain_id and position_token_id must be positive")
         if (
-            self.amount0_exact < 0
-            or self.amount1_exact < 0
+            self.liquidity < 0
+            or self.amount0_min < 0
+            or self.amount1_min < 0
+            or self.amount0_max < 0
+            or self.amount1_max < 0
             or self.max_swap_input < 0
-            or self.min_swap_output < 0
             or self.max_fee_pips < 0
             or self.max_gas_units < 0
             or self.nonce < 0
         ):
             raise ValueError("amount, bound, and nonce fields must be nonnegative")
+        if self.nonce >= 1 << 64 or self.deadline_timestamp >= 1 << 64:
+            raise ValueError("executor nonce and deadline must fit uint64")
+        if any(
+            value >= 1 << 128
+            for value in (self.amount0_min, self.amount1_min, self.amount0_max, self.amount1_max)
+        ):
+            raise ValueError("token settlement bounds must fit uint128")
+        if self.amount0_min > self.amount0_max or self.amount1_min > self.amount1_max:
+            raise ValueError("minimum token amounts cannot exceed maximums")
+        if self.mode is LpIntentMode.REMOVE and self.liquidity != 0:
+            raise ValueError("remove intent liquidity must be zero")
+        if self.mode is LpIntentMode.RECENTER and self.liquidity == 0:
+            raise ValueError("recenter intent liquidity must be positive")
         if self.state_block <= 0 or self.deadline_timestamp <= 0:
             raise ValueError("state_block and deadline_timestamp must be positive")
         if not isinstance(self.old_range, TickRange) or not isinstance(self.new_range, TickRange):
             raise TypeError("ranges must be TickRange instances")
+        if self.old_range.tick_spacing != self.new_range.tick_spacing:
+            raise ValueError("rebalance cannot change pool tick spacing")
+        if self.max_fee_pips > 1_000_000:
+            raise ValueError("max_fee_pips exceeds canonical LP fee maximum")
 
     @property
     def intent_hash(self) -> str:
@@ -157,6 +205,9 @@ class LpIntent:
                     "chain_id": self.chain_id,
                     "pool_id": self.pool_id,
                     "position_token_id": self.position_token_id,
+                    "mode": self.mode.value,
+                    "target": self.target,
+                    "calldata_hash": self.calldata_hash,
                     "old_range": (
                         self.old_range.tick_lower,
                         self.old_range.tick_upper,
@@ -167,10 +218,12 @@ class LpIntent:
                         self.new_range.tick_upper,
                         self.new_range.tick_spacing,
                     ),
-                    "amount0_exact": self.amount0_exact,
-                    "amount1_exact": self.amount1_exact,
+                    "liquidity": self.liquidity,
+                    "amount0_min": self.amount0_min,
+                    "amount1_min": self.amount1_min,
+                    "amount0_max": self.amount0_max,
+                    "amount1_max": self.amount1_max,
                     "max_swap_input": self.max_swap_input,
-                    "min_swap_output": self.min_swap_output,
                     "max_fee_pips": self.max_fee_pips,
                     "max_gas_units": self.max_gas_units,
                     "nonce": self.nonce,
@@ -191,7 +244,11 @@ class StateTransition:
 
 
 class LpExecutionStateMachine:
-    """One intent, one lifecycle. Transitions are validated against the blueprint map."""
+    """In-memory lifecycle model, not a signer or evidence-based authorization gate.
+
+    Transition ordering does not attest simulation, policy, finality, or unwind.
+    A live adapter must independently verify those facts and persist recovery state.
+    """
 
     def __init__(self, intent: LpIntent) -> None:
         self.intent = intent
@@ -205,15 +262,8 @@ class LpExecutionStateMachine:
 
     @property
     def consumed(self) -> bool:
-        """True once an economic rebalance has been (or will be) broadcast."""
-        return self.state in {
-            LpState.SUBMITTED,
-            LpState.SOFT_CONFIRMED,
-            LpState.RECONCILING,
-            LpState.L1_POSTED,
-            LpState.FINALIZED,
-            LpState.CLOSED,
-        }
+        """Latch that this lifecycle entered SUBMITTED, even after halt/expiry."""
+        return any(item.state is LpState.SUBMITTED for item in self._history)
 
     def transition(self, target: LpState, note: str = "") -> LpState:
         if target not in VALID_TRANSITIONS[self.state]:
@@ -231,11 +281,15 @@ class LpExecutionStateMachine:
         return self.transition(LpState.RESERVED, note)
 
     def pin_simulated(self, ok: bool, note: str = "") -> LpState:
+        if type(ok) is not bool:
+            raise TypeError("simulation result must be a bool")
         if not ok:
             return self.transition(LpState.HALTED, note or "pinned simulation failed")
         return self.transition(LpState.PINNED_SIMULATED, note)
 
     def policy_approve(self, allowed: bool, note: str = "") -> LpState:
+        if type(allowed) is not bool:
+            raise TypeError("policy result must be a bool")
         if not allowed:
             return self.transition(LpState.HALTED, note or "risk policy denied intent")
         return self.transition(LpState.POLICY_APPROVED, note)
@@ -246,8 +300,10 @@ class LpExecutionStateMachine:
     def submit(self, transaction_hash: str, note: str = "") -> LpState:
         if not transaction_hash:
             raise ValueError("transaction hash is required")
+        transaction_hash = normalize_hash32(transaction_hash, "transaction hash")
+        result = self.transition(LpState.SUBMITTED, note)
         self.transaction_hash = transaction_hash
-        return self.transition(LpState.SUBMITTED, note)
+        return result
 
     def soft_confirm(self, note: str = "") -> LpState:
         return self.transition(LpState.SOFT_CONFIRMED, note)
@@ -272,11 +328,12 @@ class LpExecutionStateMachine:
 
 
 class LpExecutionLedger:
-    """Registry preventing a consumed intent from creating a second economic rebalance.
+    """In-process registry rejecting reuse of an identical submitted intent hash.
 
-    A failed submission reverts at the chain level, so the same intent (same
-    nonce) may be retried while unconsumed. Once submitted or later, retries
-    must carry a fresh nonce and therefore a fresh intent hash.
+    This is not durable account/nonce reservation: changing intent_id or
+    restarting creates a different registry entry. Never use this model alone
+    to authorize retries. An unknown submission must first be reconciled with
+    the original account, nonce and transaction; timeout does not prove revert.
     """
 
     def __init__(self) -> None:
@@ -304,6 +361,7 @@ __all__ = [
     "LpExecutionLedger",
     "LpExecutionStateMachine",
     "LpIntent",
+    "LpIntentMode",
     "LpState",
     "StateTransition",
     "TickRange",

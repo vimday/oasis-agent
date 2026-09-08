@@ -101,6 +101,10 @@ class ArbitrageRiskTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "nonnegative"):
             RiskLimits(Decimal(1), 10, Decimal(-1))
 
+    def test_risk_limits_reject_negative_worst_case_profit(self) -> None:
+        with self.assertRaisesRegex(ValueError, "min_worst_case_profit"):
+            RiskLimits(Decimal(-1), 10, Decimal(100))
+
 
 if __name__ == "__main__":
     unittest.main()
