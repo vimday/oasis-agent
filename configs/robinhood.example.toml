@@ -1,5 +1,7 @@
 chain_id = 4663
-rpc_url = "https://rpc.mainnet.chain.robinhood.com"
+# Set ROBINHOOD_RPC_URL to the public endpoint now; replace the environment
+# value with an Alchemy or other managed endpoint without changing this file.
+rpc_url_env = "ROBINHOOD_RPC_URL"
 pool_manager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
 
 [execution]

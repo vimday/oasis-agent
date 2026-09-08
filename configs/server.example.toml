@@ -47,6 +47,6 @@ readiness_manifest = "data/readiness-manifest.json"
 # [[chains]]
 # chain_id = 46630
 # name = "Robinhood Testnet"
-# rpc_url = "https://rpc.testnet.chain.robinhood.com"
+# rpc_url_env = "ROBINHOOD_RPC_URL"
 # pool_manager = "0x..."
 # cache_seconds = 15

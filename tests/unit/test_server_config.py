@@ -111,6 +111,33 @@ def test_embedded_credentials_in_rpc_url_rejected(tmp_path):
         load_server_config(path)
 
 
+def test_chain_rpc_url_resolves_from_environment(tmp_path):
+    path = write_config(
+        tmp_path,
+        "[[chains]]\nchain_id = 4663\nname = 'Robinhood'\nrpc_url_env = 'ROBINHOOD_RPC_URL'\n",
+    )
+    config = load_server_config(
+        path, environ={"ROBINHOOD_RPC_URL": "https://rpc.mainnet.chain.robinhood.com"}
+    )
+    assert config.chains[0].rpc_url == "https://rpc.mainnet.chain.robinhood.com"
+
+
+def test_chain_rpc_url_env_fails_closed_when_ambiguous_or_missing(tmp_path):
+    path = write_config(
+        tmp_path,
+        "[[chains]]\nchain_id = 4663\nname = 'Robinhood'\n"
+        "rpc_url = 'https://rpc.example'\nrpc_url_env = 'ROBINHOOD_RPC_URL'\n",
+    )
+    with pytest.raises(ConfigurationError, match="either rpc_url or rpc_url_env"):
+        load_server_config(path, environ={"ROBINHOOD_RPC_URL": "https://rpc.example"})
+    path = write_config(
+        tmp_path,
+        "[[chains]]\nchain_id = 4663\nname = 'Robinhood'\nrpc_url_env = 'ROBINHOOD_RPC_URL'\n",
+    )
+    with pytest.raises(ConfigurationError, match="environment variable is missing"):
+        load_server_config(path, environ={})
+
+
 def test_missing_journal_path_fails_closed(tmp_path):
     path = write_config(tmp_path, '[databases]\nshadow = "does-not-exist.db"\n')
     with pytest.raises(ConfigurationError, match="does not exist"):

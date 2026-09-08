@@ -10,6 +10,7 @@ request time so it can be rotated without a restart.
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -130,7 +131,9 @@ _ROOT_KEYS = frozenset(
 )
 _DATABASE_KEYS = frozenset({"shadow", "evidence", "execution", "ops", "readiness_manifest"})
 _RUNNER_KEYS = frozenset({"command", "timeout_seconds", "max_concurrent"})
-_CHAIN_KEYS = frozenset({"chain_id", "name", "rpc_url", "pool_manager", "cache_seconds"})
+_CHAIN_KEYS = frozenset(
+    {"chain_id", "name", "rpc_url", "rpc_url_env", "pool_manager", "cache_seconds"}
+)
 
 
 def load_server_config(path: Path | None, environ: Mapping[str, str] | None = None) -> ServerConfig:
@@ -237,7 +240,24 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
         chain_name = item.get("name")
         if not isinstance(chain_name, str) or not chain_name.strip():
             raise ConfigurationError(f"chains[{index}].name must be a non-empty string")
-        rpc_url = item.get("rpc_url", "")
+        rpc_url_value = item.get("rpc_url")
+        rpc_url_env = item.get("rpc_url_env")
+        if rpc_url_value is not None and rpc_url_env is not None:
+            raise ConfigurationError(
+                f"chains[{index}] must use either rpc_url or rpc_url_env, not both"
+            )
+        if rpc_url_env is not None:
+            if not isinstance(rpc_url_env, str) or not re.fullmatch(
+                r"[A-Z][A-Z0-9_]{0,127}", rpc_url_env
+            ):
+                raise ConfigurationError(
+                    f"chains[{index}].rpc_url_env must name an environment variable"
+                )
+            rpc_url = env.get(rpc_url_env, "")
+            if not rpc_url:
+                raise ConfigurationError(f"RPC URL environment variable is missing: {rpc_url_env}")
+        else:
+            rpc_url = "" if rpc_url_value is None else rpc_url_value
         if not isinstance(rpc_url, str):
             raise ConfigurationError(f"chains[{index}].rpc_url must be a string")
         if rpc_url:

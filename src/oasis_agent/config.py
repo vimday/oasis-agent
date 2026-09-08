@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -58,8 +59,8 @@ def _nonnegative_decimal(value: object, name: str) -> Decimal:
     return parsed
 
 
-_ROOT_KEYS = frozenset({"chain", "execution", "chain_id", "rpc_url", "pool_manager"})
-_CHAIN_KEYS = frozenset({"chain_id", "rpc_url", "pool_manager"})
+_ROOT_KEYS = frozenset({"chain", "execution", "chain_id", "rpc_url", "rpc_url_env", "pool_manager"})
+_CHAIN_KEYS = frozenset({"chain_id", "rpc_url", "rpc_url_env", "pool_manager"})
 _EXECUTION_KEYS = frozenset({"mode", "max_capital", "max_gas", "allow_broadcast"})
 
 
@@ -96,10 +97,27 @@ def load_config(path: Path, environ: Mapping[str, str] | None = None) -> AppConf
     chain_raw = (
         nested_chain
         if isinstance(nested_chain, dict)
-        else {key: raw[key] for key in ("chain_id", "rpc_url", "pool_manager") if key in raw}
+        else {
+            key: raw[key]
+            for key in ("chain_id", "rpc_url", "rpc_url_env", "pool_manager")
+            if key in raw
+        }
     )
     _reject_unknown_keys(chain_raw, _CHAIN_KEYS, "chain")
-    rpc_url = chain_raw.get("rpc_url", env.get("OASIS_RPC_URL", ""))
+    rpc_url_value = chain_raw.get("rpc_url")
+    rpc_url_env = chain_raw.get("rpc_url_env")
+    if rpc_url_value is not None and rpc_url_env is not None:
+        raise ConfigurationError("use either rpc_url or rpc_url_env, not both")
+    if rpc_url_env is not None:
+        if not isinstance(rpc_url_env, str) or not re.fullmatch(
+            r"[A-Z][A-Z0-9_]{0,127}", rpc_url_env
+        ):
+            raise ConfigurationError("rpc_url_env must name an environment variable")
+        rpc_url = env.get(rpc_url_env, "")
+        if not rpc_url:
+            raise ConfigurationError(f"RPC URL environment variable is missing: {rpc_url_env}")
+    else:
+        rpc_url = rpc_url_value if rpc_url_value is not None else env.get("OASIS_RPC_URL", "")
     pool_manager = chain_raw.get("pool_manager", env.get("OASIS_POOL_MANAGER", ""))
     if not isinstance(rpc_url, str):
         raise ConfigurationError("rpc_url must be a string")

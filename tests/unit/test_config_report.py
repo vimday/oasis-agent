@@ -114,6 +114,41 @@ class ConfigAndReportTests(unittest.TestCase):
             with self.assertRaisesRegex(ConfigurationError, "rpc_url must be a string"):
                 load_config(path, {})
 
+    def test_config_resolves_rpc_url_from_named_environment_variable(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "config.toml"
+            path.write_text(
+                '[chain]\nchain_id = 4663\nrpc_url_env = "ROBINHOOD_RPC_URL"\n'
+                'pool_manager = "0x1111111111111111111111111111111111111111"',
+                encoding="utf-8",
+            )
+            config = load_config(
+                path, {"ROBINHOOD_RPC_URL": "https://rpc.mainnet.chain.robinhood.com"}
+            )
+            self.assertEqual(
+                config.chain.rpc_url,
+                "https://rpc.mainnet.chain.robinhood.com",
+            )
+
+    def test_config_rejects_ambiguous_or_missing_rpc_environment(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "config.toml"
+            path.write_text(
+                '[chain]\nchain_id = 4663\nrpc_url = "https://rpc.example"\n'
+                'rpc_url_env = "ROBINHOOD_RPC_URL"\n'
+                'pool_manager = "0x1111111111111111111111111111111111111111"',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ConfigurationError, "either rpc_url or rpc_url_env"):
+                load_config(path, {"ROBINHOOD_RPC_URL": "https://rpc.example"})
+            path.write_text(
+                '[chain]\nchain_id = 4663\nrpc_url_env = "ROBINHOOD_RPC_URL"\n'
+                'pool_manager = "0x1111111111111111111111111111111111111111"',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ConfigurationError, "environment variable is missing"):
+                load_config(path, {})
+
     def test_config_rejects_placeholder_endpoint_without_fixture_opt_in(self) -> None:
         with TemporaryDirectory() as directory:
             path = Path(directory) / "config.toml"
