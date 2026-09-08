@@ -21,3 +21,6 @@ contracts/node_modules/
 
 .coverage
 htmlcov/
+.DS_Store
+.trae-html-share-packages/
+oasis-server-frontend-research/

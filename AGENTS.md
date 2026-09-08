@@ -86,7 +86,25 @@ autonomous trader. Its current verified boundary is:
   decision modules (band-table fee strategy, rebalance state machine, range/inventory
   controller, canary sizing and failure matrix, hash-linked shadow LP decision runner with
   `execution_eligible` always False); they are wired into a shadow decision-journaling flow
-  but not into any live or canary execution, so `arbitrage` remains scaffolding;
+  but not into any live strategy or canary execution, so `arbitrage` remains scaffolding;
+- `shadow/service.py` and `scripts/run_lp_shadow.py` consume retained, block-bound LP input
+  evidence with code/config locking across restarts; an upstream live feature/reconciliation
+  producer and a sustained strategy observation window remain required;
+- `src/oasis_agent/server` and `scripts/run_server.py` provide a read-only FastAPI observation
+  server and single-file dashboard (health/status/observations/decisions/evidence/readiness/
+  execution-journal/chains/alerts endpoints, a WebSocket decision stream, and token-authorized
+  shadow-run triggers and two-person gate approvals) that re-validates hash-linked chains on
+  every read and never imports signing or broadcast capability; it is wired to no live strategy
+  and `execution_eligible`/`lp_readiness` gates remain closed;
+- `execution/lp_journal.py` provides SQLite account/nonce reservation, competing-writer guards,
+  hash-linked transitions, restart recovery, and evidence-gated full-unwind closure from HALT;
+  `execution/lp_signer_policy.py` independently decodes bounded executor calldata and checks chain,
+  account, nonce, code, simulation, risk, capital, gas, and deadline bindings, but exposes no key,
+  signing, or broadcast capability and is not yet an isolated production signer service;
+- `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
+  purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
+  agreement, and precommitted rejection thresholds; it still needs a production target dataset and
+  untouched out-of-sample economic result;
 - `farming` attribution now includes uniquely attributed multi-position owner cash
   (`batch_owner_cash_payload`, fails closed on shared tokens/third parties/native currency)
   and native owner payment attribution with gas reconciliation (`native_payments.py`,
@@ -95,13 +113,30 @@ autonomous trader. Its current verified boundary is:
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a
   bounded atomic RECENTER/REMOVE position executor with nonce/deadline/pool-binding guards, and
-  canonical-core local integration tests for both;
-- official v4-periphery PositionManager first mint/revocation/removal is exercised locally using a
-  transfer-only Permit2 mock; this does not validate real Permit2 or the full NFT lifecycle;
+  canonical-core local integration tests for both; external-signer deployment, pool configuration,
+  bounded first-canary mint, exact Permit2 approval cleanup, and emergency authority-revocation
+  scripts are present but have not been broadcast to mainnet;
+- official v4-periphery PositionManager mint/bidirectional exact-input/output swaps/collect/revoke/
+  unwind also run locally against the pinned upstream Permit2 runtime; allowance expiry, revocation,
+  and insufficient allowance have atomic rollback tests; this is not a complete adversarial campaign;
+- an isolated, user-authorized Robinhood testnet run (chain 46630) completed 35 signed transactions
+  across newly deployed test contracts and tokens, including mint, four swap modes, collect,
+  executor recenter/remove and allowance cleanup, with receipt replay and per-token/gas reconciliation;
+  this proves that test lifecycle, not continuous automation, production custody or profitability;
+- a Robinhood mainnet state fork pinned at block 56,905,986 completed the synthetic-token canonical
+  PoolManager/PositionManager/Permit2 lifecycle locally with no broadcast; this proves compatibility
+  with those pinned runtimes, not access to or economics of the observed benchmark pool;
+- a single-provider Robinhood mainnet identity sample at block 57,426,748 matched the pinned core
+  runtime hashes and found the PONS/USDG benchmark at tick 887271 near the maximum price boundary;
+  it fails the required two-provider gate and does not support a routing or economic viability claim;
+- strict v4 single-pool quote ABI helpers and `scripts/run_v4_route_probe.py` can collect a pinned,
+  two-provider, bidirectional exact-input/output size grid while pinning Quoter/Universal Router/
+  PoolManager runtimes and the Quoter binding; the probe is observe-only and has not yet been run
+  against a production target pool or shown that a standard router selects that pool;
 - a retained single-provider Base Sepolia snapshot/receipt/trace sample supports per-NFT core-delta
   reconstruction, but does not establish owner cash settlement, net PnL, or deployment approval;
-- there is no verified Robinhood fork lifecycle, complete security campaign, independent audit,
-  shadow runner, or production release approval yet.
+- there is no complete adversarial Robinhood fork/security campaign, target-specific release review,
+  sustained strategy-shadow acceptance, or production release approval yet.
 
 Never erase this distinction in documentation or completion claims. Update this section only when
 the replacement capability is implemented and verified.
