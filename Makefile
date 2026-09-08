@@ -1,4 +1,4 @@
-.PHONY: install contract-install test lint format typecheck python-check contract-check check report
+.PHONY: install contract-install test lint format typecheck python-check contract-check check report run-server
 PYTHON ?= .venv/bin/python
 RUNNER ?= $(PYTHON)
 
@@ -35,6 +35,10 @@ check: python-check contract-check
 
 report:
 	PYTHONPATH=src $(PYTHON) scripts/analyze_benchmark.py --fixture --output reports/benchmark-hook-analysis.md
+
+run-server:
+	mkdir -p data
+	if [ -f .env ]; then set -a; . ./.env; set +a; fi; $(PYTHON) scripts/run_server.py --config configs/server.local.toml
 
 security-check:
 	$(PYTHON) -m pip_audit --require-hashes -r requirements-dev.lock

@@ -1,0 +1,31 @@
+# Oasis Agent observation server configuration (local, SQLite-only).
+#
+# Committed by design: it contains no secrets and no real journal paths.
+# `make run-server` uses this file to serve the dashboard on localhost with
+# SQLite journals. Omitted evidence/shadow/execution sources are served as
+# "unconfigured" (fail closed); point them at real journals when available.
+#
+# Operation tokens are NEVER stored here; see `ops_token_env`.
+
+host = "127.0.0.1"
+port = 8666
+max_rows_per_page = 100
+
+# Local development: operations endpoints (trigger shadow run, gate approvals)
+# fail closed with 503 until OASIS_SERVER_OPS_TOKEN is set in the environment.
+ops_token_env = "OASIS_SERVER_OPS_TOKEN"
+ops_token_required = false
+
+alert_feed_max_age_seconds = 3600
+alert_gate_warn_hours = 24
+
+[databases]
+# ops is the server-owned append-only operations journal; `make run-server`
+# creates data/ before starting so this path always exists.
+ops = "data/server_ops.db"
+
+# Optional when real journals exist; uncomment and point at them.
+# shadow = "data/shadow.db"
+# evidence = "data/evidence.db"
+# execution = "data/execution.db"
+# readiness_manifest = "data/readiness-manifest.json"
