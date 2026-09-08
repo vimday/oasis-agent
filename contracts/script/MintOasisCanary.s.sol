@@ -81,7 +81,7 @@ contract MintOasisCanary is Script {
         uint256 balance0Before = _token0Balance(config, native0);
         uint256 balance1Before = config.token1.balanceOf(config.lpOwner);
         _requireFundingAndZeroAllowances(config, native0, balance0Before, balance1Before);
-        _mintAndCleanUp(config, key, tokenId, native0);
+        _mintAndCleanUp(config, key, native0);
 
         uint256 balance0After = _token0Balance(config, native0);
         uint256 balance1After = config.token1.balanceOf(config.lpOwner);
@@ -96,12 +96,7 @@ contract MintOasisCanary is Script {
         _verifyPostconditions(config, tokenId, positionManagerNativeBalanceBefore);
     }
 
-    function _mintAndCleanUp(
-        CanaryConfig memory config,
-        PoolKey memory key,
-        uint256 tokenId,
-        bool native0
-    ) private {
+    function _mintAndCleanUp(CanaryConfig memory config, PoolKey memory key, bool native0) private {
         vm.startBroadcast(config.lpOwner);
         if (!native0) {
             config.token0.forceApprove(address(config.permit2), config.amount0Max);
