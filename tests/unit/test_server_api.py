@@ -1,19 +1,19 @@
 """End-to-end API tests for the observation server (P0-P3)."""
 
-from __future__ import annotations
-
 import json
 import pathlib
 import re
+import time
 from dataclasses import replace
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+import oasis_agent.server as package
 from oasis_agent.errors import ConfigurationError
 from oasis_agent.server.app import create_app
-from oasis_agent.server.config import ServerChainConfig
+from oasis_agent.server.config import ServerChainConfig, ServerShadowRunnerConfig
 from oasis_agent.server.databases import ReadOnlyDatabases
 
 from .server_helpers import build_shadow_db, make_server_config
@@ -29,6 +29,28 @@ def client_for(tmp_path, *, config=None, environ=None, **config_overrides):
         object.__setattr__(config, name, value)
     environ = {"OASIS_SERVER_OPS_TOKEN": TOKEN} if environ is None else environ
     return TestClient(create_app(config, environ=environ))
+
+
+def test_readiness_unconfigured_fails_closed_with_code(tmp_path):
+    config = make_server_config(tmp_path)
+    object.__setattr__(config, "databases", replace(config.databases, readiness_manifest=None))
+    with client_for(tmp_path, config=config) as client:
+        response = client.get("/api/v1/readiness")
+        assert response.status_code == 503
+        body = response.json()
+        assert body["code"] == "unconfigured"
+        assert body["detail"] == "readiness manifest is not configured"
+
+
+def test_readiness_corrupt_fails_closed_with_code(tmp_path):
+    config = make_server_config(tmp_path)
+    corrupt = tmp_path / "readiness-corrupt.json"
+    corrupt.write_text("{not valid json", encoding="utf-8")
+    object.__setattr__(config, "databases", replace(config.databases, readiness_manifest=corrupt))
+    with client_for(tmp_path, config=config) as client:
+        response = client.get("/api/v1/readiness")
+        assert response.status_code == 503
+        assert response.json()["code"] == "corrupt"
 
 
 def test_health_reports_all_sources_verified(tmp_path):
@@ -158,8 +180,6 @@ def test_ops_required_without_token_fails_closed_at_startup(tmp_path):
 
 
 def test_trigger_shadow_run_and_journal(tmp_path):
-    from oasis_agent.server.config import ServerShadowRunnerConfig
-
     config = make_server_config(tmp_path)
     object.__setattr__(
         config,
@@ -179,8 +199,6 @@ def test_trigger_shadow_run_and_journal(tmp_path):
             detail = client.get(f"/api/v1/runs/{run_id}").json()
             if detail["status"] in {"succeeded", "failed"}:
                 break
-            import time
-
             time.sleep(0.1)
         assert detail["status"] == "succeeded"
         assert detail["exit_code"] == 0
@@ -357,8 +375,6 @@ def test_websocket_stream_pushes_new_decisions(tmp_path):
 
 
 def test_server_package_never_imports_broadcast_capability():
-    import oasis_agent.server as package
-
     root = pathlib.Path(package.__file__).parent
     forbidden = ("web3", "eth_account", "lp_signer", "broadcast", "sign")
     for path in sorted(root.rglob("*.py")):
@@ -372,8 +388,6 @@ def test_server_package_never_imports_broadcast_capability():
 
 
 def _dashboard_html() -> str:
-    import oasis_agent.server as package
-
     root = pathlib.Path(package.__file__).parent
     return (root / "static" / "index.html").read_text(encoding="utf-8")
 

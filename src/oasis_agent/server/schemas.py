@@ -10,8 +10,6 @@ is the extensibility contract for adding new endpoints: model derived
 envelopes, pass canonical records through untouched.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -92,6 +90,7 @@ class ChainItem(BaseModel):
     chain_id: int
     name: str
     rpc_configured: bool
+    rpc_origin: str
     pool_manager: str
 
 

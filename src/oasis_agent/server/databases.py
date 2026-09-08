@@ -16,8 +16,6 @@ re-validation and fails closed on any inconsistency. The memo lives on the
 single-threaded event loop, so it needs no lock.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import sqlite3
@@ -72,7 +70,16 @@ _EVIDENCE_COLUMNS = (
 
 
 class ReadOnlyError(Exception):
-    """A data source is corrupt, missing or otherwise unusable; fail closed."""
+    """A data source is corrupt, missing or otherwise unusable; fail closed.
+
+    ``code`` is a stable machine-readable classification (``unconfigured`` vs
+    ``corrupt``) so the API handlers and the dashboard can render distinct
+    states without string-matching error messages.
+    """
+
+    def __init__(self, message: str, *, code: str = "corrupt") -> None:
+        super().__init__(message)
+        self.code = code
 
 
 @dataclass(frozen=True, slots=True)
@@ -313,7 +320,7 @@ class ReadOnlyDatabases:
 
     def _require(self, connection: sqlite3.Connection | None, name: str) -> sqlite3.Connection:
         if connection is None:
-            raise ReadOnlyError(f"{name} database is not configured")
+            raise ReadOnlyError(f"{name} database is not configured", code="unconfigured")
         return connection
 
     # ----- Validated snapshot (memoized hash-chain validation) -----
@@ -441,7 +448,7 @@ class ReadOnlyDatabases:
     def readiness(self) -> LpReleaseAssessment:
         manifest = self._config.databases.readiness_manifest
         if manifest is None:
-            raise ReadOnlyError("readiness manifest is not configured")
+            raise ReadOnlyError("readiness manifest is not configured", code="unconfigured")
         try:
             raw = manifest.read_bytes()
         except OSError as exc:

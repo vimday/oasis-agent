@@ -1,7 +1,5 @@
 """Read-only JSON-RPC client and chain registry (P3)."""
 
-from __future__ import annotations
-
 import json
 
 import httpx
@@ -13,6 +11,7 @@ from oasis_agent.server.chains import (
     RpcProtocolError,
     RpcUnavailableError,
     decode_rpc_quantity,
+    rpc_origin,
 )
 from oasis_agent.server.config import ServerChainConfig
 
@@ -120,11 +119,20 @@ async def test_malformed_response_raises_protocol_error():
         await client.close()
 
 
+def test_rpc_origin_masks_path_query_and_credentials():
+    assert rpc_origin("https://rpc.example/v1?key=secret") == "https://rpc.example"
+    assert rpc_origin("https://rpc.example:8545/path") == "https://rpc.example:8545"
+    assert rpc_origin("http://127.0.0.1:8545") == "http://127.0.0.1:8545"
+    assert rpc_origin("http://[::1]:8545/private") == "http://[::1]:8545"
+    assert rpc_origin("") == ""
+
+
 def test_registry_summary_and_missing_chain():
     registry = ChainRegistry((ServerChainConfig(46630, "Testnet", rpc_url="https://rpc.example"),))
     summary = registry.summary()
     assert summary[0]["chain_id"] == 46630
     assert summary[0]["rpc_configured"] is True
+    assert summary[0]["rpc_origin"] == "https://rpc.example"
     assert summary[0]["pool_manager"] == ""
     with pytest.raises(RpcUnavailableError, match="not configured"):
         registry.client(1)

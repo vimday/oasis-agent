@@ -20,8 +20,6 @@ exception handlers instead of per-route try/except blocks; only route-local
 decisions (404, 422, 401, 409) raise :class:`HTTPException` directly.
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import os
@@ -186,7 +184,7 @@ def create_app(
                 config.shadow_runner,
                 journal,
                 cwd=_resolve_runner_cwd(config_path),
-                loop_factory=lambda: asyncio.get_running_loop(),
+                loop_factory=asyncio.get_running_loop,
             )
         app.state.config = config
         app.state.databases = databases
@@ -266,7 +264,7 @@ def create_app(
 
     @application.exception_handler(ReadOnlyError)
     async def readonly_error_handler(_request: Request, exc: ReadOnlyError) -> Response:
-        return JSONResponse(status_code=503, content={"detail": str(exc)})
+        return JSONResponse(status_code=503, content={"detail": str(exc), "code": exc.code})
 
     @application.exception_handler(RpcUnavailableError)
     async def rpc_unavailable_handler(_request: Request, exc: RpcUnavailableError) -> Response:

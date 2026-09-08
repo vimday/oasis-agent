@@ -102,6 +102,11 @@
   summary { cursor: pointer; color: var(--accent); font-size: 12.5px; }
   pre.raw { background: var(--bg3); border: 1px solid var(--rule); border-radius: 6px; padding: 10px; font: 11.5px var(--mono); overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
   .empty { color: var(--muted); font-size: 12.5px; padding: 14px 0; }
+  code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  .note-list { list-style: none; display: grid; gap: 7px; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+  .note-list li { padding-left: 12px; position: relative; }
+  .note-list li::before { content: "·"; position: absolute; left: 0; color: var(--accent); }
+  .note-list b { color: var(--ink); font-weight: 600; }
   .visually-hidden {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -245,8 +250,21 @@
   <!-- ============ CHAINS ============ -->
   <div id="tab-chains" role="tabpanel" aria-labelledby="tab-btn-chains" class="tab">
     <section class="card">
+      <h2>连接与配置 <span class="hint">只读展示 · 运行时不可修改</span></h2>
+      <ul class="note-list">
+        <li><b>私钥 / 助记词永不进入本控制台或服务器进程。</b>签名与广播由外部隔离签名者完成（docs/security/CUSTODY_AND_AGENT_KEY_MODEL.md），本服务器不导入任何签名能力。</li>
+        <li>链与 RPC 端点在本地 <code>configs/server.local.toml</code>（<code>rpc_url</code> 或 <code>rpc_url_env</code>）与 <code>.env</code> 中声明，启动时严格校验、缺失即 fail-closed，注册表只读。</li>
+        <li>修改方式：编辑上述本地配置文件后重启（<code>make run-server</code>）。控制台仅做只读展示与探测。</li>
+      </ul>
+    </section>
+    <section class="card">
       <h2>多链注册表 <span class="hint">/api/v1/chains · 只读 RPC</span></h2>
+      <div class="row">
+        <button type="button" class="action" data-action="probe-all-chains">全部探测</button>
+        <span class="muted">对已配置链执行只读 chainId / 区块高度 / 示例余额探测</span>
+      </div>
       <div class="table-wrap"><table id="chains-table" aria-label="多链注册表"></table></div>
+      <div class="grid g4" id="chain-probes" style="margin-top:12px"></div>
     </section>
     <section class="card">
       <h2>警报 <span class="hint">/api/v1/alerts</span></h2>
@@ -330,6 +348,7 @@ function fmtInt(value) {
 const state = {
   token: sessionStorage.getItem(TOKEN_STORAGE_KEY) || "",
   chartItems: [],
+  chainProbes: new Map(),
   ws: null,
   pollTimer: null,
   chartPending: false,
@@ -345,6 +364,15 @@ function toast(message, error) {
 }
 
 /* ---------- api client (bounded retry with exponential backoff) ---------- */
+class ApiError extends Error {
+  constructor(status, detail, code) {
+    super("http " + status);
+    this.status = status;
+    this.detail = detail;
+    this.code = code;
+  }
+}
+
 async function api(path, opts = {}, attempt = 0) {
   const method = opts.method || "GET";
   // Reads are idempotent and may be retried; writes never are, so a
@@ -371,8 +399,9 @@ async function api(path, opts = {}, attempt = 0) {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    toast("请求失败: " + (body.detail || res.status), true);
-    throw new Error("http " + res.status);
+    const detail = typeof body.detail === "string" ? body.detail : res.status;
+    toast("请求失败: " + detail, true);
+    throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : "", typeof body.code === "string" ? body.code : "");
   }
   return res.json();
 }
@@ -518,7 +547,15 @@ async function loadGates() {
         <div class="gdetail digest">${esc(g.evidence && g.evidence.length ? g.evidence.map((e) => e.content_hash).join(" ") : "")}</div>
       </div>`;
     }).join("");
-  } catch { grid.innerHTML = `<div class="empty">门禁清单不可用</div>`; }
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "unconfigured") {
+      grid.innerHTML = `<div class="empty">门禁清单未配置（configs/server.local.toml → databases.readiness_manifest）</div>`;
+    } else if (err instanceof ApiError && err.code === "corrupt") {
+      grid.innerHTML = `<div class="empty">门禁清单校验失败，已 fail-closed（请检查 readiness 证据文件）</div>`;
+    } else {
+      grid.innerHTML = `<div class="empty">门禁清单不可用</div>`;
+    }
+  }
 }
 
 /* fee chart */
@@ -730,12 +767,77 @@ async function loadChains() {
     const rows = r.items.map((c) => [
       esc(c.chain_id),
       esc(c.name),
+      esc(c.rpc_origin || "–"),
       c.rpc_configured ? '<span class="ok">已配置</span>' : '<span class="warn">未配置</span>',
       `<span class="digest">${esc(short(c.pool_manager || "–", 22))}</span>`,
+      `<button type="button" class="action" data-action="probe-chain" data-chain-id="${esc(c.chain_id)}" ${c.rpc_configured ? "" : "disabled"}>探测</button>`,
     ]);
-    renderTable("chains-table", ["chain_id", "name", "RPC", "pool_manager"], rows, "未配置链");
+    renderTable("chains-table", ["chain_id", "name", "RPC origin", "RPC", "pool_manager", ""], rows, "未配置链");
     $("st-chain").textContent = "chains " + fmtInt(r.items.length);
   } catch { /* toast */ }
+}
+
+async function probeChain(chainId) {
+  const key = String(chainId);
+  const label = "chain " + chainId;
+  try {
+    const s = await apiGet(`/api/v1/chains/${chainId}/chain`);
+    const matched = s.rpc_chain_id === Number(chainId)
+      ? '<span class="ok">chainId 匹配</span>'
+      : `<span class="bad">chainId 不匹配: ${esc(s.rpc_chain_id)}</span>`;
+    state.chainProbes.set(key, {
+      label,
+      value: "block " + fmtInt(s.block_number),
+      extra: matched + " · balance " + esc(fmtInt(s.sample_balance_wei)) + " wei",
+    });
+  } catch (err) {
+    state.chainProbes.set(key, {
+      label,
+      value: "探测失败",
+      tone: "danger",
+      extra: err instanceof ApiError && err.detail ? esc(err.detail) : "",
+    });
+  }
+  renderChainProbes();
+}
+
+async function probeAllChains() {
+  const r = await apiGet("/api/v1/chains");
+  for (const c of r.items) {
+    if (!c.rpc_configured) continue;
+    await probeChain(c.chain_id);
+  }
+}
+
+function renderChainProbes() {
+  const grid = $("chain-probes");
+  const fragment = document.createDocumentFragment();
+  if (state.chainProbes.size === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "尚未探测";
+    fragment.appendChild(empty);
+  } else {
+    for (const p of state.chainProbes.values()) {
+      const stat = document.createElement("div");
+      stat.className = "stat" + (p.tone ? " " + p.tone : "");
+      const num = document.createElement("div");
+      num.className = "num";
+      num.textContent = String(p.value);
+      const label = document.createElement("div");
+      label.className = "lbl";
+      label.textContent = p.label;
+      stat.append(num, label);
+      if (p.extra) {
+        const extra = document.createElement("div");
+        extra.className = "gdetail";
+        extra.innerHTML = p.extra;
+        stat.appendChild(extra);
+      }
+      fragment.appendChild(stat);
+    }
+  }
+  grid.replaceChildren(fragment);
 }
 
 async function loadAlerts() {
@@ -835,6 +937,8 @@ function registerAction(name, handler) {
 registerAction("refresh-decisions", () => { loadDecisions(); });
 registerAction("trigger-run", () => { triggerRun(); });
 registerAction("confirm-approval", (el) => { confirmApproval(el.dataset.gate, Number(el.dataset.id)); });
+registerAction("probe-chain", (el) => { probeChain(Number(el.dataset.chainId)); });
+registerAction("probe-all-chains", () => { probeAllChains(); });
 
 document.addEventListener("click", (event) => {
   const trigger = event.target.closest("[data-action]");

@@ -6,12 +6,11 @@ module. Chains without a configured RPC endpoint are reported as disabled
 rather than probed.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import re
 import time
+import urllib.parse
 from dataclasses import dataclass
 from typing import TypedDict
 
@@ -53,6 +52,27 @@ def decode_rpc_quantity(value: object, name: str) -> int:
     return int(value, 16)
 
 
+def rpc_origin(url: str) -> str:
+    """Mask an RPC endpoint down to ``scheme://host[:port]``.
+
+    Paths and query strings may carry API keys or other material and are never
+    surfaced to the dashboard; credentials in userinfo are already rejected by
+    the strict configuration parser.
+    """
+    if not url:
+        return ""
+    parsed = urllib.parse.urlsplit(url)
+    host = parsed.hostname
+    if not host:
+        return ""
+    display_host = f"[{host}]" if ":" in host else host
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    return f"{parsed.scheme}://{display_host}" + (f":{port}" if port is not None else "")
+
+
 @dataclass(frozen=True, slots=True)
 class RpcResult:
     result: object
@@ -64,6 +84,7 @@ class ChainSummary(TypedDict):
     chain_id: int
     name: str
     rpc_configured: bool
+    rpc_origin: str
     pool_manager: str
 
 
@@ -153,6 +174,7 @@ class ChainRegistry:
                 chain_id=chain.chain_id,
                 name=chain.name,
                 rpc_configured=bool(chain.rpc_url.strip()),
+                rpc_origin=rpc_origin(chain.rpc_url),
                 pool_manager=chain.pool_manager,
             )
             for chain in self._chains.values()
