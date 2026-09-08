@@ -303,6 +303,70 @@ contract OasisPositionManagerIntegrationTest is Test {
         hook.setWhitelist(LP_OWNER, false);
     }
 
+    function test_nativeCanaryMintSweepsExcessEthAndMintsToWhitelistedOwner() public {
+        TestERC20 nativePairToken = new TestERC20(type(uint128).max);
+        OasisHookFactory nativeFactory = new OasisHookFactory();
+        bytes32 nativeCodeHash = nativeFactory.initCodeHash(
+            poolManager,
+            IOasisPositionManager(address(positionManager)),
+            address(this),
+            address(this),
+            GUARDIAN
+        );
+        OasisDynamicFeeHook nativeHook = nativeFactory.deploy(
+            _mineSalt(nativeFactory, nativeCodeHash),
+            poolManager,
+            IOasisPositionManager(address(positionManager)),
+            address(this),
+            address(this),
+            GUARDIAN
+        );
+        PoolKey memory nativeKey = PoolKey({
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(address(nativePairToken)),
+            fee: LPFeeLibrary.DYNAMIC_FEE_FLAG,
+            tickSpacing: 60,
+            hooks: IHooks(address(nativeHook))
+        });
+        nativeHook.configurePool(nativeKey, _config());
+        assertEq(poolManager.initialize(nativeKey, uint160(1 << 96)), 0);
+        nativeHook.setWhitelist(LP_OWNER, true);
+
+        uint128 maxAmount = 1 ether;
+        assertTrue(nativePairToken.transfer(LP_OWNER, maxAmount));
+        vm.deal(LP_OWNER, 2 ether);
+        vm.prank(LP_OWNER);
+        assertTrue(nativePairToken.approve(address(permit2), maxAmount));
+
+        uint256 tokenIdBefore = positionManager.nextTokenId();
+        uint256 nativeBefore = LP_OWNER.balance;
+        uint256 tokenBefore = nativePairToken.balanceOf(LP_OWNER);
+        uint256 managerNativeBefore = address(positionManager).balance;
+        bytes[] memory params = new bytes[](4);
+        params[0] = abi.encode(
+            nativeKey, TICK_LOWER, TICK_UPPER, LIQUIDITY, maxAmount, maxAmount, LP_OWNER, bytes("")
+        );
+        params[1] = abi.encode(nativeKey.currency0);
+        params[2] = abi.encode(nativeKey.currency1);
+        params[3] = abi.encode(nativeKey.currency0, LP_OWNER);
+
+        vm.prank(LP_OWNER);
+        // The recipient is the locally deployed canonical PositionManager and value is capped.
+        // forge-lint: disable-start(arbitrary-send-eth)
+        positionManager.modifyLiquidities{ value: maxAmount }(
+            abi.encode(hex"02121214", params), block.timestamp + 1
+        );
+        // forge-lint: disable-end(arbitrary-send-eth)
+
+        assertEq(positionManager.ownerOf(tokenIdBefore), LP_OWNER);
+        assertEq(positionManager.getPositionLiquidity(tokenIdBefore), LIQUIDITY);
+        assertGt(nativeBefore - LP_OWNER.balance, 0);
+        assertLt(nativeBefore - LP_OWNER.balance, maxAmount);
+        assertGt(tokenBefore - nativePairToken.balanceOf(LP_OWNER), 0);
+        assertLt(tokenBefore - nativePairToken.balanceOf(LP_OWNER), maxAmount);
+        assertEq(address(positionManager).balance, managerNativeBefore);
+    }
+
     function _mintPlan(address owner) private view returns (bytes memory) {
         bytes memory actions = abi.encodePacked(
             _action(Actions.MINT_POSITION),

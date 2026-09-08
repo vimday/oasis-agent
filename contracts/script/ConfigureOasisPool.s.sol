@@ -75,7 +75,9 @@ contract ConfigureOasisPool is Script {
             address(deployment.poolManager).codehash != deployment.poolManagerHash
                 || address(deployment.positionManager).codehash != deployment.positionManagerHash
                 || address(deployment.hook).codehash != deployment.hookHash
-                || deployment.token0.codehash != deployment.token0Hash
+                || (deployment.token0 == address(0)
+                        ? deployment.token0Hash != bytes32(0)
+                        : deployment.token0.codehash != deployment.token0Hash)
                 || deployment.token1.codehash != deployment.token1Hash
         ) revert CodeHashMismatch();
 

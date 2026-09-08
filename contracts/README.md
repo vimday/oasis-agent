@@ -15,10 +15,11 @@ dependency.
 Builds use Foundry 1.8.1, Solidity 0.8.26, Cancun EVM semantics, optimizer runs 200, no upgradeable
 proxy, and deterministic metadata settings. `make contract-check` runs formatting, strict compilation,
 10,000-case fuzz tests under the CI profile, the complete contract suite, and Foundry lint. The current
-suite includes a real local canonical `PoolManager` callback/fee-override path and an official
-v4-periphery `PositionManager` first-mint/reject/revoke/remove lifecycle. That lifecycle isolates the
-hook boundary with a minimal Permit2 transfer mock; a real Permit2 campaign, Robinhood-pinned fork,
-external audit, and production approval are still absent.
+suite includes a real local canonical `PoolManager` callback/fee-override path, official
+v4-periphery `PositionManager` ERC-20 and native-currency lifecycles, real Permit2, bounded
+RECENTER/REMOVE across NFT generations, surplus-native sweeping, allowance/operator revocation, and
+paused-hook exit. Robinhood-pinned fork evidence exists separately; target-specific shadow/canary
+economics and production approval remain absent.
 
 No script in this directory broadcasts by default. Deployment, signing, and funding require a
 separate reviewed manifest and explicit operator authorization.

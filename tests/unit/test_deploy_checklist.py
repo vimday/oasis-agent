@@ -240,6 +240,7 @@ class IdentityConfigTests(unittest.TestCase):
             "token0": "0x" + "00" * 20,
             "token1": "0x" + "22" * 20,
             "expected_hashes": {"hook": "0x" + "33" * 32},
+            "rpc_primary": {"name": "provider-a", "url_env": "ROBINHOOD_RPC_A"},
             "rpc_extra": [{"name": "provider-b", "url_env": "ROBINHOOD_RPC_B"}],
         }
         with tempfile.TemporaryDirectory() as directory:
@@ -247,11 +248,19 @@ class IdentityConfigTests(unittest.TestCase):
             path.write_text(json.dumps(payload))
             self.assertNotIn("secret-value", path.read_text())
             config = load_identity_config(
-                path, {"ROBINHOOD_RPC_B": "https://provider.example/v2/secret-value"}
+                path,
+                {
+                    "ROBINHOOD_RPC_A": "https://primary.example/v2/secret-value-a",
+                    "ROBINHOOD_RPC_B": "https://provider.example/v2/secret-value-b",
+                },
             )
         self.assertEqual(
+            config.rpc_primary,
+            RpcEndpoint("provider-a", "https://primary.example/v2/secret-value-a"),
+        )
+        self.assertEqual(
             config.rpc_extra,
-            (RpcEndpoint("provider-b", "https://provider.example/v2/secret-value"),),
+            (RpcEndpoint("provider-b", "https://provider.example/v2/secret-value-b"),),
         )
 
     def test_rejects_inline_rpc_urls_and_missing_environment_variable(self) -> None:
@@ -263,6 +272,9 @@ class IdentityConfigTests(unittest.TestCase):
                 load_identity_config(path, {})
             path.write_text(json.dumps({"rpc_extra": [{"name": "provider-b", "url_env": "RPC_B"}]}))
             with self.assertRaisesRegex(ValueError, "environment variable is missing: RPC_B"):
+                load_identity_config(path, {})
+            path.write_text(json.dumps({"rpc_primary": {"name": "a", "url_env": "RPC_A"}}))
+            with self.assertRaisesRegex(ValueError, "environment variable is missing: RPC_A"):
                 load_identity_config(path, {})
 
     def test_config_requires_dynamic_fee_and_normalizes_expected_hashes(self) -> None:
@@ -277,6 +289,55 @@ class IdentityConfigTests(unittest.TestCase):
         role = "0x" + "11" * 20
         with self.assertRaisesRegex(ValueError, "must be separate"):
             IdentityConfig(governor=role, guardian=role)
+        with self.assertRaisesRegex(ValueError, "must be separate"):
+            IdentityConfig(deployer=role, lp_owner=role)
+        with self.assertRaisesRegex(ValueError, "initializer must equal the governor"):
+            IdentityConfig(initializer=role, governor="0x" + "22" * 20)
+
+    def test_config_resolves_role_addresses_from_named_environment(self) -> None:
+        payload = {
+            "address_env": {
+                "deployer": "OASIS_DEPLOYER",
+                "initializer": "OASIS_GOVERNOR",
+                "governor": "OASIS_GOVERNOR",
+                "guardian": "OASIS_GUARDIAN",
+                "lp_owner": "OASIS_LP_OWNER",
+            }
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "identity.json"
+            path.write_text(json.dumps(payload))
+            config = load_identity_config(
+                path,
+                {
+                    "OASIS_DEPLOYER": "0x" + "44" * 20,
+                    "OASIS_GOVERNOR": "0x" + "11" * 20,
+                    "OASIS_GUARDIAN": "0x" + "22" * 20,
+                    "OASIS_LP_OWNER": "0x" + "33" * 20,
+                },
+            )
+        self.assertEqual(config.deployer, "0x" + "44" * 20)
+        self.assertEqual(config.initializer, "0x" + "11" * 20)
+        self.assertEqual(config.governor, "0x" + "11" * 20)
+        self.assertEqual(config.guardian, "0x" + "22" * 20)
+        self.assertEqual(config.lp_owner, "0x" + "33" * 20)
+
+    def test_config_rejects_ambiguous_or_missing_role_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "identity.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "governor": "0x" + "11" * 20,
+                        "address_env": {"governor": "OASIS_GOVERNOR"},
+                    }
+                )
+            )
+            with self.assertRaisesRegex(ValueError, "both directly and through address_env"):
+                load_identity_config(path, {"OASIS_GOVERNOR": "0x" + "22" * 20})
+            path.write_text(json.dumps({"address_env": {"governor": "OASIS_GOVERNOR"}}))
+            with self.assertRaisesRegex(ValueError, "address environment variable is missing"):
+                load_identity_config(path, {})
 
     def test_rpc_transport_error_redacts_endpoint(self) -> None:
         endpoint = "https://provider.example/v2/sensitive-api-key"

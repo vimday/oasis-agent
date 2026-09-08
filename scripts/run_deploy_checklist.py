@@ -149,6 +149,7 @@ class IdentityConfig:
     executor: str = ""
     token0: str = ""
     token1: str = ""
+    deployer: str = ""
     initializer: str = ""
     governor: str = ""
     guardian: str = ""
@@ -160,6 +161,7 @@ class IdentityConfig:
     executor_bound_pool_id: str = "0x" + "00" * 32
     hook_fee: OnchainAmountBandFeePolicy | None = None
     expected_hashes: dict[str, str] = field(default_factory=dict)
+    rpc_primary: RpcEndpoint | None = None
     rpc_extra: tuple[RpcEndpoint, ...] = ()
 
     def __post_init__(self) -> None:
@@ -169,18 +171,30 @@ class IdentityConfig:
         )
         object.__setattr__(self, "token0", normalize_address(self.token0) if self.token0 else "")
         object.__setattr__(self, "token1", normalize_address(self.token1) if self.token1 else "")
-        for name in ("initializer", "governor", "guardian", "lp_owner"):
+        for name in ("deployer", "initializer", "governor", "guardian", "lp_owner"):
             value = getattr(self, name)
             object.__setattr__(self, name, normalize_address(value) if value else "")
-        for name in ("hook", "executor", "initializer", "governor", "guardian", "lp_owner"):
+        for name in (
+            "hook",
+            "executor",
+            "deployer",
+            "initializer",
+            "governor",
+            "guardian",
+            "lp_owner",
+        ):
             value = getattr(self, name)
             if value and int(value, 16) == 0:
                 raise ValueError(f"{name} must be nonzero when configured")
         configured_roles = tuple(
-            value for value in (self.governor, self.guardian, self.lp_owner) if value
+            value for value in (self.deployer, self.governor, self.guardian, self.lp_owner) if value
         )
         if len(configured_roles) != len(set(configured_roles)):
-            raise ValueError("governor, guardian, and LP owner must be separate addresses")
+            raise ValueError(
+                "deployer, governor, guardian, and LP owner must be separate addresses"
+            )
+        if self.initializer and self.governor and self.initializer != self.governor:
+            raise ValueError("initializer must equal the governor for the Phase-1 hook")
         if type(self.fee) is not int or self.fee != DYNAMIC_FEE_FLAG:
             raise ValueError("Oasis hook deployment requires the dynamic fee flag")
         if type(self.tick_spacing) is not int:
@@ -212,6 +226,8 @@ class IdentityConfig:
         object.__setattr__(self, "expected_hashes", normalized_expected)
         if not all(isinstance(item, RpcEndpoint) for item in self.rpc_extra):
             raise TypeError("rpc_extra must contain RpcEndpoint values")
+        if self.rpc_primary is not None and not isinstance(self.rpc_primary, RpcEndpoint):
+            raise TypeError("rpc_primary must be an RpcEndpoint")
 
 
 _IDENTITY_CONFIG_KEYS = frozenset(
@@ -220,6 +236,7 @@ _IDENTITY_CONFIG_KEYS = frozenset(
         "executor",
         "token0",
         "token1",
+        "deployer",
         "initializer",
         "governor",
         "guardian",
@@ -231,6 +248,8 @@ _IDENTITY_CONFIG_KEYS = frozenset(
         "executor_bound_pool_id",
         "hook_fee",
         "expected_hashes",
+        "address_env",
+        "rpc_primary",
         "rpc_extra",
     }
 )
@@ -244,6 +263,19 @@ _EXPECTED_HASH_ROLES = frozenset(
         "executor",
         "token0",
         "token1",
+    }
+)
+_ADDRESS_ROLES = frozenset(
+    {
+        "hook",
+        "executor",
+        "token0",
+        "token1",
+        "deployer",
+        "initializer",
+        "governor",
+        "guardian",
+        "lp_owner",
     }
 )
 _HOOK_FEE_KEYS = frozenset(
@@ -283,12 +315,34 @@ def load_identity_config(path: Path, environ: Mapping[str, str] | None = None) -
     unknown_hashes = set(expected) - _EXPECTED_HASH_ROLES
     if unknown_hashes:
         raise ValueError(f"unknown expected hash role(s): {sorted(unknown_hashes)}")
+    address_env = raw.get("address_env", {})
+    if not isinstance(address_env, Mapping):
+        raise TypeError("address_env must be an object")
+    unknown_address_roles = set(address_env) - _ADDRESS_ROLES
+    if unknown_address_roles:
+        raise ValueError(f"unknown address_env role(s): {sorted(unknown_address_roles)}")
+    resolved_environ = os.environ if environ is None else environ
+    resolved_addresses: dict[str, str] = {}
+    for role, variable in address_env.items():
+        if role in raw:
+            raise ValueError(f"{role} cannot be configured both directly and through address_env")
+        if not isinstance(variable, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", variable):
+            raise ValueError(f"address_env.{role} must name an environment variable")
+        value = resolved_environ.get(variable)
+        if not value:
+            raise ValueError(f"required address environment variable is missing: {variable}")
+        resolved_addresses[str(role)] = value
+    primary = raw.get("rpc_primary")
+    if primary is not None and (
+        not isinstance(primary, Mapping) or set(primary) != {"name", "url_env"}
+    ):
+        raise ValueError("rpc_primary must contain exactly name and url_env")
     extra = raw.get("rpc_extra", [])
     if not isinstance(extra, list):
         raise TypeError("rpc_extra must be a list of provider objects")
-    resolved_environ = os.environ if environ is None else environ
+    raw_endpoints = ([] if primary is None else [primary]) + extra
     endpoints: list[RpcEndpoint] = []
-    for index, item in enumerate(extra):
+    for index, item in enumerate(raw_endpoints):
         if not isinstance(item, Mapping) or set(item) != {"name", "url_env"}:
             raise ValueError("each rpc_extra entry must contain exactly name and url_env")
         name = item["name"]
@@ -296,7 +350,7 @@ def load_identity_config(path: Path, environ: Mapping[str, str] | None = None) -
         if not isinstance(name, str) or not isinstance(url_env, str):
             raise TypeError("RPC provider name and url_env must be strings")
         if not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", url_env):
-            raise ValueError(f"rpc_extra[{index}].url_env is invalid")
+            raise ValueError(f"RPC provider entry {index} url_env is invalid")
         url = resolved_environ.get(url_env)
         if not url:
             raise ValueError(f"required RPC endpoint environment variable is missing: {url_env}")
@@ -304,7 +358,7 @@ def load_identity_config(path: Path, environ: Mapping[str, str] | None = None) -
     names = [item.name for item in endpoints]
     urls = [item.url for item in endpoints]
     if len(names) != len(set(names)) or len(urls) != len(set(urls)):
-        raise ValueError("rpc_extra provider names and endpoints must be unique")
+        raise ValueError("RPC provider names and endpoints must be unique")
     fee = raw.get("fee", DYNAMIC_FEE_FLAG)
     tick_spacing = raw.get("tick_spacing", 60)
     if type(fee) is not int or type(tick_spacing) is not int:
@@ -318,14 +372,27 @@ def load_identity_config(path: Path, environ: Mapping[str, str] | None = None) -
         None if hook_fee_raw is None else OnchainAmountBandFeePolicy(**hook_fee_raw)  # type: ignore[arg-type]
     )
     return IdentityConfig(
-        hook=str(raw["hook"]) if "hook" in raw else "",
-        executor=str(raw["executor"]) if "executor" in raw else "",
-        token0=str(raw["token0"]) if "token0" in raw else "",
-        token1=str(raw["token1"]) if "token1" in raw else "",
-        initializer=str(raw["initializer"]) if "initializer" in raw else "",
-        governor=str(raw["governor"]) if "governor" in raw else "",
-        guardian=str(raw["guardian"]) if "guardian" in raw else "",
-        lp_owner=str(raw["lp_owner"]) if "lp_owner" in raw else "",
+        hook=resolved_addresses.get("hook", str(raw["hook"]) if "hook" in raw else ""),
+        executor=resolved_addresses.get(
+            "executor", str(raw["executor"]) if "executor" in raw else ""
+        ),
+        token0=resolved_addresses.get("token0", str(raw["token0"]) if "token0" in raw else ""),
+        token1=resolved_addresses.get("token1", str(raw["token1"]) if "token1" in raw else ""),
+        deployer=resolved_addresses.get(
+            "deployer", str(raw["deployer"]) if "deployer" in raw else ""
+        ),
+        initializer=resolved_addresses.get(
+            "initializer", str(raw["initializer"]) if "initializer" in raw else ""
+        ),
+        governor=resolved_addresses.get(
+            "governor", str(raw["governor"]) if "governor" in raw else ""
+        ),
+        guardian=resolved_addresses.get(
+            "guardian", str(raw["guardian"]) if "guardian" in raw else ""
+        ),
+        lp_owner=resolved_addresses.get(
+            "lp_owner", str(raw["lp_owner"]) if "lp_owner" in raw else ""
+        ),
         fee=fee,
         tick_spacing=tick_spacing,
         max_liquidity=raw.get("max_liquidity", 0),  # type: ignore[arg-type]
@@ -333,7 +400,8 @@ def load_identity_config(path: Path, environ: Mapping[str, str] | None = None) -
         executor_bound_pool_id=str(raw.get("executor_bound_pool_id", "0x" + "00" * 32)),
         hook_fee=hook_fee,
         expected_hashes={str(k): normalize_hash32(v) for k, v in expected.items()},
-        rpc_extra=tuple(endpoints),
+        rpc_primary=None if primary is None else endpoints[0],
+        rpc_extra=tuple(endpoints if primary is None else endpoints[1:]),
     )
 
 
@@ -515,7 +583,8 @@ def main() -> None:
     state_view = spec.state_view
     if not pool_manager or not position_manager or not state_view:
         parser.error("core deployment addresses are not known for this network")
-    endpoints = spec.rpcs + identity.rpc_extra
+    primary_endpoints = spec.rpcs if identity.rpc_primary is None else (identity.rpc_primary,)
+    endpoints = primary_endpoints + identity.rpc_extra
     if not endpoints:
         parser.error("at least one RPC provider is required")
     provider_names = [item.name for item in endpoints]
@@ -834,6 +903,7 @@ def main() -> None:
                 identity.hook,
                 identity.token0,
                 identity.token1,
+                identity.deployer,
                 identity.initializer,
                 identity.governor,
                 identity.guardian,

@@ -1,0 +1,36 @@
+{
+  "chain_id": 4663,
+  "max_age_seconds": 10,
+  "strategy": {
+    "min_fee": 100,
+    "max_fee": 10000,
+    "base_fee": 500,
+    "volatility_bands": [
+      {"upper_bound": 100, "premium": 100},
+      {"upper_bound": 1000, "premium": 400}
+    ],
+    "impact_bands0": [
+      {"upper_bound": 100000000000000, "premium": 200},
+      {"upper_bound": 1000000000000000, "premium": 800}
+    ],
+    "impact_bands1": [
+      {"upper_bound": 1000000000000000000000, "premium": 200},
+      {"upper_bound": 10000000000000000000000, "premium": 800}
+    ],
+    "toxicity_bands": [
+      {"upper_bound": 100, "premium": 100},
+      {"upper_bound": 500, "premium": 300}
+    ],
+    "inventory_bands": [
+      {"upper_bound": 100, "premium": 100},
+      {"upper_bound": 500, "premium": 500}
+    ]
+  },
+  "min_benefit": "0",
+  "canary_limits": {
+    "approved_experiment_loss": "0.0000001",
+    "portfolio_nav": "0.005153577969653555",
+    "exit_depth_two_sided": "0.001",
+    "reserve_requirement": "0.005"
+  }
+}

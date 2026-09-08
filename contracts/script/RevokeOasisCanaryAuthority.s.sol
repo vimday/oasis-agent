@@ -8,8 +8,10 @@ import { PositionManager } from "@uniswap/v4-periphery/src/PositionManager.sol";
 import { IAllowanceTransfer } from "permit2/src/interfaces/IAllowanceTransfer.sol";
 
 /// @notice Emergency cleanup for partial canary setup or operator-requested authority removal.
-/// @dev Revokes both ERC-20/Permit2 allowance layers. When tokenId is nonzero it also revokes
-///      the single-token PositionManager approval. This script never reads a private key.
+/// @dev Revokes each applicable ERC-20/Permit2 allowance layer. Native token0 requires no
+///      allowance. It always revokes the bounded executor's PositionManager operator approval;
+///      when tokenId is nonzero it also clears any legacy single-token approval. This script
+///      never reads a private key.
 contract RevokeOasisCanaryAuthority is Script {
     using SafeERC20 for IERC20;
 
@@ -24,6 +26,7 @@ contract RevokeOasisCanaryAuthority is Script {
         address lpOwner;
         PositionManager positionManager;
         IAllowanceTransfer permit2;
+        address executor;
         IERC20 token0;
         IERC20 token1;
         uint256 tokenId;
@@ -36,8 +39,8 @@ contract RevokeOasisCanaryAuthority is Script {
         if (block.chainid != config.chainId) revert WrongChain(block.chainid, config.chainId);
         if (
             config.lpOwner == address(0) || address(config.positionManager) == address(0)
-                || address(config.permit2) == address(0) || address(config.token0) == address(0)
-                || address(config.token0) >= address(config.token1)
+                || address(config.permit2) == address(0) || address(config.token1) == address(0)
+                || config.executor == address(0) || address(config.token0) >= address(config.token1)
         ) revert InvalidConfiguration();
         if (
             address(config.positionManager).codehash != config.positionManagerHash
@@ -50,28 +53,42 @@ contract RevokeOasisCanaryAuthority is Script {
         {
             revert PositionNotOwned();
         }
-        (,, uint48 nonce0Before) = config.permit2
-            .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        bool native0 = address(config.token0) == address(0);
+        uint48 nonce0Before = 0;
+        if (!native0) {
+            (,, nonce0Before) = config.permit2
+                .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        }
         (,, uint48 nonce1Before) = config.permit2
             .allowance(config.lpOwner, address(config.token1), address(config.positionManager));
 
         vm.startBroadcast(config.lpOwner);
-        config.permit2.approve(address(config.token0), address(config.positionManager), 0, 0);
+        if (!native0) {
+            config.permit2.approve(address(config.token0), address(config.positionManager), 0, 0);
+        }
         config.permit2.approve(address(config.token1), address(config.positionManager), 0, 0);
-        config.token0.forceApprove(address(config.permit2), 0);
+        if (!native0) config.token0.forceApprove(address(config.permit2), 0);
         config.token1.forceApprove(address(config.permit2), 0);
+        config.positionManager.setApprovalForAll(config.executor, false);
         if (config.tokenId != 0) config.positionManager.approve(address(0), config.tokenId);
         vm.stopBroadcast();
 
-        (uint160 amount0, uint48 expiry0, uint48 nonce0After) = config.permit2
-            .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        uint160 amount0 = 0;
+        uint48 expiry0 = 0;
+        uint48 nonce0After = 0;
+        if (!native0) {
+            (amount0, expiry0, nonce0After) = config.permit2
+                .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        }
         (uint160 amount1, uint48 expiry1, uint48 nonce1After) = config.permit2
             .allowance(config.lpOwner, address(config.token1), address(config.positionManager));
         if (
             amount0 != 0 || amount1 != 0 || expiry0 != 0 || expiry1 != 0
                 || nonce0After != nonce0Before || nonce1After != nonce1Before
-                || config.token0.allowance(config.lpOwner, address(config.permit2)) != 0
+                || (!native0
+                    && config.token0.allowance(config.lpOwner, address(config.permit2)) != 0)
                 || config.token1.allowance(config.lpOwner, address(config.permit2)) != 0
+                || config.positionManager.isApprovedForAll(config.lpOwner, config.executor)
                 || (config.tokenId != 0
                     && config.positionManager.getApproved(config.tokenId) != address(0))
         ) revert PostconditionFailed();
@@ -83,6 +100,7 @@ contract RevokeOasisCanaryAuthority is Script {
             lpOwner: vm.envAddress("OASIS_LP_OWNER"),
             positionManager: PositionManager(payable(vm.envAddress("OASIS_POSITION_MANAGER"))),
             permit2: IAllowanceTransfer(vm.envAddress("OASIS_PERMIT2")),
+            executor: vm.envAddress("OASIS_EXECUTOR"),
             token0: IERC20(vm.envAddress("OASIS_TOKEN0")),
             token1: IERC20(vm.envAddress("OASIS_TOKEN1")),
             tokenId: vm.envUint("OASIS_TOKEN_ID"),

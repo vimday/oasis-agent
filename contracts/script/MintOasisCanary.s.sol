@@ -19,10 +19,11 @@ import { IAllowanceTransfer } from "permit2/src/interfaces/IAllowanceTransfer.so
 import { OasisDynamicFeeHook } from "../src/OasisDynamicFeeHook.sol";
 import { OasisPositionExecutor } from "../src/OasisPositionExecutor.sol";
 
-/// @notice Creates the first bounded ERC-20/ERC-20 LP canary with an external signer.
+/// @notice Creates the first bounded native/ERC-20 or ERC-20/ERC-20 LP canary.
 /// @dev The script never reads a private key. It refuses existing token/Permit2 allowances,
-///      grants only the configured maxima with a short expiry, mints the position, revokes
-///      both allowance layers, then grants this NFT alone to the bounded Oasis executor.
+///      grants only the configured maxima with a short expiry, sweeps surplus native currency,
+///      revokes both token allowance layers, then grants the bounded executor a revocable
+///      PositionManager operator approval so successive recentered NFTs remain manageable.
 contract MintOasisCanary is Script {
     using PoolIdLibrary for PoolKey;
     using SafeERC20 for IERC20;
@@ -58,6 +59,7 @@ contract MintOasisCanary is Script {
         uint256 liquidity;
         uint128 amount0Max;
         uint128 amount1Max;
+        uint256 nativeGasReserve;
         uint48 permitExpiry;
         uint256 deadline;
         bytes32 poolManagerHash;
@@ -73,32 +75,45 @@ contract MintOasisCanary is Script {
     function run() external returns (uint256 tokenId, uint256 spent0, uint256 spent1) {
         CanaryConfig memory config = _loadConfig();
         PoolKey memory key = _validate(config);
+        bool native0 = address(config.token0) == address(0);
+        uint256 positionManagerNativeBalanceBefore = address(config.positionManager).balance;
         tokenId = config.positionManager.nextTokenId();
-        uint256 balance0Before = config.token0.balanceOf(config.lpOwner);
+        uint256 balance0Before = _token0Balance(config, native0);
         uint256 balance1Before = config.token1.balanceOf(config.lpOwner);
-        if (balance0Before < config.amount0Max || balance1Before < config.amount1Max) {
-            revert InsufficientBalance();
-        }
-        if (
-            config.token0.allowance(config.lpOwner, address(config.permit2)) != 0
-                || config.token1.allowance(config.lpOwner, address(config.permit2)) != 0
-        ) revert UnsafeExistingAllowance();
-        (uint160 permitAmount0,,) = config.permit2
-            .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
-        (uint160 permitAmount1,,) = config.permit2
-            .allowance(config.lpOwner, address(config.token1), address(config.positionManager));
-        if (permitAmount0 != 0 || permitAmount1 != 0) revert UnsafeExistingAllowance();
+        _requireFundingAndZeroAllowances(config, native0, balance0Before, balance1Before);
+        _mintAndCleanUp(config, key, tokenId, native0);
 
+        uint256 balance0After = _token0Balance(config, native0);
+        uint256 balance1After = config.token1.balanceOf(config.lpOwner);
+        if (balance0After > balance0Before || balance1After > balance1Before) {
+            revert UnexpectedBalanceChange();
+        }
+        spent0 = balance0Before - balance0After;
+        spent1 = balance1Before - balance1After;
+        if (spent0 > config.amount0Max || spent1 > config.amount1Max) {
+            revert UnexpectedBalanceChange();
+        }
+        _verifyPostconditions(config, tokenId, positionManagerNativeBalanceBefore);
+    }
+
+    function _mintAndCleanUp(
+        CanaryConfig memory config,
+        PoolKey memory key,
+        uint256 tokenId,
+        bool native0
+    ) private {
         vm.startBroadcast(config.lpOwner);
-        config.token0.forceApprove(address(config.permit2), config.amount0Max);
+        if (!native0) {
+            config.token0.forceApprove(address(config.permit2), config.amount0Max);
+            config.permit2
+                .approve(
+                    address(config.token0),
+                    address(config.positionManager),
+                    uint160(config.amount0Max),
+                    config.permitExpiry
+                );
+        }
         config.token1.forceApprove(address(config.permit2), config.amount1Max);
-        config.permit2
-            .approve(
-                address(config.token0),
-                address(config.positionManager),
-                uint160(config.amount0Max),
-                config.permitExpiry
-            );
         config.permit2
             .approve(
                 address(config.token1),
@@ -106,7 +121,7 @@ contract MintOasisCanary is Script {
                 uint160(config.amount1Max),
                 config.permitExpiry
             );
-        bytes[] memory params = new bytes[](3);
+        bytes[] memory params = new bytes[](native0 ? 4 : 3);
         params[0] = abi.encode(
             key,
             config.tickLower,
@@ -119,22 +134,62 @@ contract MintOasisCanary is Script {
         );
         params[1] = abi.encode(key.currency0);
         params[2] = abi.encode(key.currency1);
-        config.positionManager.modifyLiquidities(abi.encode(hex"021212", params), config.deadline);
-        config.permit2.approve(address(config.token0), address(config.positionManager), 0, 0);
-        config.permit2.approve(address(config.token1), address(config.positionManager), 0, 0);
-        config.token0.forceApprove(address(config.permit2), 0);
-        config.token1.forceApprove(address(config.permit2), 0);
-        config.positionManager.approve(address(config.executor), tokenId);
-        vm.stopBroadcast();
-
-        uint256 balance0After = config.token0.balanceOf(config.lpOwner);
-        uint256 balance1After = config.token1.balanceOf(config.lpOwner);
-        if (balance0After > balance0Before || balance1After > balance1Before) {
-            revert UnexpectedBalanceChange();
+        bytes memory actions = hex"021212";
+        if (native0) {
+            // CLOSE_CURRENCY settles only the required native delta. SWEEP returns all excess
+            // msg.value to the LP owner so PositionManager cannot retain canary capital.
+            actions = hex"02121214";
+            params[3] = abi.encode(key.currency0, config.lpOwner);
         }
-        spent0 = balance0Before - balance0After;
-        spent1 = balance1Before - balance1After;
-        _verifyPostconditions(config, tokenId);
+        // The recipient is a pinned PositionManager runtime and the value is bounded by amount0Max.
+        // forge-lint: disable-start(arbitrary-send-eth)
+        config.positionManager.modifyLiquidities{ value: native0 ? config.amount0Max : 0 }(
+            abi.encode(actions, params), config.deadline
+        );
+        // forge-lint: disable-end(arbitrary-send-eth)
+        if (!native0) {
+            config.permit2.approve(address(config.token0), address(config.positionManager), 0, 0);
+        }
+        config.permit2.approve(address(config.token1), address(config.positionManager), 0, 0);
+        if (!native0) config.token0.forceApprove(address(config.permit2), 0);
+        config.token1.forceApprove(address(config.permit2), 0);
+        config.positionManager.setApprovalForAll(address(config.executor), true);
+        vm.stopBroadcast();
+    }
+
+    function _requireFundingAndZeroAllowances(
+        CanaryConfig memory config,
+        bool native0,
+        uint256 balance0,
+        uint256 balance1
+    ) private view {
+        if (
+            (native0
+                        ? balance0 < uint256(config.amount0Max) + config.nativeGasReserve
+                        : balance0 < config.amount0Max) || balance1 < config.amount1Max
+        ) revert InsufficientBalance();
+        if (config.token1.allowance(config.lpOwner, address(config.permit2)) != 0) {
+            revert UnsafeExistingAllowance();
+        }
+        uint160 permitAmount0 = 0;
+        if (!native0) {
+            if (config.token0.allowance(config.lpOwner, address(config.permit2)) != 0) {
+                revert UnsafeExistingAllowance();
+            }
+            (permitAmount0,,) = config.permit2
+                .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        }
+        (uint160 permitAmount1,,) = config.permit2
+            .allowance(config.lpOwner, address(config.token1), address(config.positionManager));
+        if (permitAmount0 != 0 || permitAmount1 != 0) revert UnsafeExistingAllowance();
+    }
+
+    function _token0Balance(CanaryConfig memory config, bool native0)
+        private
+        view
+        returns (uint256)
+    {
+        return native0 ? config.lpOwner.balance : config.token0.balanceOf(config.lpOwner);
     }
 
     function _validate(CanaryConfig memory config) private view returns (PoolKey memory key) {
@@ -145,7 +200,7 @@ contract MintOasisCanary is Script {
                 || address(config.positionManager) == address(0)
                 || address(config.stateView) == address(0) || address(config.permit2) == address(0)
                 || address(config.hook) == address(0) || address(config.executor) == address(0)
-                || address(config.token0) == address(0)
+                || address(config.token1) == address(0)
                 || address(config.token0) >= address(config.token1) || config.tickSpacing <= 0
                 || config.governor == config.guardian || config.governor == config.lpOwner
                 || config.guardian == config.lpOwner || config.liquidity == 0
@@ -154,6 +209,8 @@ contract MintOasisCanary is Script {
                 || config.tickUpper > TickMath.MAX_TICK
                 || config.tickLower % config.tickSpacing != 0
                 || config.tickUpper % config.tickSpacing != 0
+                || (address(config.token0) == address(0) && config.nativeGasReserve == 0)
+                || (address(config.token0) != address(0) && config.nativeGasReserve != 0)
                 // A short explicit deadline bounds a canary transaction. Small validator timestamp
                 // movement cannot bypass the capital caps, pool binding, or owner signature.
                 // forge-lint: disable-next-line(block-timestamp)
@@ -168,7 +225,9 @@ contract MintOasisCanary is Script {
                 || address(config.permit2).codehash != config.permit2Hash
                 || address(config.hook).codehash != config.hookHash
                 || address(config.executor).codehash != config.executorHash
-                || address(config.token0).codehash != config.token0Hash
+                || (address(config.token0) == address(0)
+                        ? config.token0Hash != bytes32(0)
+                        : address(config.token0).codehash != config.token0Hash)
                 || address(config.token1).codehash != config.token1Hash
         ) revert CodeHashMismatch();
         if (
@@ -203,18 +262,35 @@ contract MintOasisCanary is Script {
         ) revert PoolUnavailable();
     }
 
-    function _verifyPostconditions(CanaryConfig memory config, uint256 tokenId) private view {
-        (uint160 amount0, uint48 expiry0,) = config.permit2
-            .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+    function _verifyPostconditions(
+        CanaryConfig memory config,
+        uint256 tokenId,
+        uint256 positionManagerNativeBalanceBefore
+    ) private view {
+        bool native0 = address(config.token0) == address(0);
+        uint160 amount0 = 0;
+        uint48 expiry0 = 0;
+        if (!native0) {
+            (amount0, expiry0,) = config.permit2
+                .allowance(config.lpOwner, address(config.token0), address(config.positionManager));
+        }
         (uint160 amount1, uint48 expiry1,) = config.permit2
             .allowance(config.lpOwner, address(config.token1), address(config.positionManager));
+        // Equality with the pre-call balance is the invariant that proves SWEEP retained no ETH.
+        // forge-lint: disable-start(incorrect-strict-equality)
+        bool nativeBalanceChanged = native0
+            && address(config.positionManager).balance != positionManagerNativeBalanceBefore;
+        // forge-lint: disable-end(incorrect-strict-equality)
         if (
             config.positionManager.ownerOf(tokenId) != config.lpOwner
                 || config.positionManager.getPositionLiquidity(tokenId) != config.liquidity
-                || config.positionManager.getApproved(tokenId) != address(config.executor)
-                || amount0 != 0 || amount1 != 0 || expiry0 != 0 || expiry1 != 0
-                || config.token0.allowance(config.lpOwner, address(config.permit2)) != 0
+                || !config.positionManager
+                    .isApprovedForAll(config.lpOwner, address(config.executor)) || amount0 != 0
+                || amount1 != 0 || expiry0 != 0 || expiry1 != 0
+                || (!native0
+                    && config.token0.allowance(config.lpOwner, address(config.permit2)) != 0)
                 || config.token1.allowance(config.lpOwner, address(config.permit2)) != 0
+                || nativeBalanceChanged
         ) revert PostconditionFailed();
     }
 
@@ -238,6 +314,7 @@ contract MintOasisCanary is Script {
             liquidity: vm.envUint("OASIS_LIQUIDITY"),
             amount0Max: vm.envUint("OASIS_AMOUNT0_MAX").toUint128(),
             amount1Max: vm.envUint("OASIS_AMOUNT1_MAX").toUint128(),
+            nativeGasReserve: vm.envOr("OASIS_NATIVE_GAS_RESERVE", uint256(0)),
             permitExpiry: vm.envUint("OASIS_PERMIT_EXPIRY").toUint48(),
             deadline: vm.envUint("OASIS_DEADLINE"),
             poolManagerHash: vm.envBytes32("OASIS_POOL_MANAGER_HASH"),

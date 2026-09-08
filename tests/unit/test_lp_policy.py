@@ -1,5 +1,7 @@
+import json
 import unittest
 from decimal import Decimal
+from pathlib import Path
 
 from oasis_agent.risk.lp_policy import (
     BASIS_POINT,
@@ -71,6 +73,21 @@ class CanarySizingTests(unittest.TestCase):
     def test_cap_validates_its_own_minimum(self) -> None:
         with self.assertRaisesRegex(ValueError, "minimum"):
             CanaryCap(Decimal(1), Decimal(2), Decimal(3), Decimal(4), Decimal(9))
+
+    def test_robinhood_stockhooks_example_has_a_dust_sized_fail_closed_cap(self) -> None:
+        config_path = (
+            Path(__file__).parents[2]
+            / "configs"
+            / "lp-shadow.robinhood-stockhooks-eth.example.json"
+        )
+        raw = json.loads(config_path.read_text())
+        limits = CanaryRiskLimits(
+            **{name: Decimal(value) for name, value in raw["canary_limits"].items()}
+        )
+        cap = canary_cap(limits)
+        self.assertEqual(raw["chain_id"], 4663)
+        self.assertEqual(cap.cap, Decimal("0.0000001"))
+        self.assertEqual(cap.exit_depth_cap, Decimal("0.0000001"))
 
 
 class FailureMatrixTests(unittest.TestCase):
