@@ -1,0 +1,37 @@
+{
+  "schema": "oasis.route-probe.config.v1",
+  "chain_id": 4663,
+  "providers": [
+    {"name": "provider-a", "url_env": "ROBINHOOD_RPC_A"},
+    {"name": "provider-b", "url_env": "ROBINHOOD_RPC_B"}
+  ],
+  "pool_manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+  "quoter": "0x8dc178efb8111bb0973dd9d722ebeff267c98f94",
+  "universal_router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+  "pool_key": {
+    "currency0": "0x39dbed3a2bd333467115de45665cc57f813c4571",
+    "currency1": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "fee": 8388608,
+    "tick_spacing": 60,
+    "hooks": "0x1191ac2561817686efe4296b37ba5a5419eaa880"
+  },
+  "probes": [
+    {"kind": "exact_input", "direction": "zero_for_one", "amount": 1000000000000000000},
+    {"kind": "exact_input", "direction": "zero_for_one", "amount": 10000000000000000000},
+    {"kind": "exact_input", "direction": "zero_for_one", "amount": 100000000000000000000},
+    {"kind": "exact_input", "direction": "one_for_zero", "amount": 1000000},
+    {"kind": "exact_input", "direction": "one_for_zero", "amount": 10000000},
+    {"kind": "exact_input", "direction": "one_for_zero", "amount": 100000000},
+    {"kind": "exact_output", "direction": "zero_for_one", "amount": 1000000},
+    {"kind": "exact_output", "direction": "zero_for_one", "amount": 10000000},
+    {"kind": "exact_output", "direction": "zero_for_one", "amount": 100000000},
+    {"kind": "exact_output", "direction": "one_for_zero", "amount": 1000000000000000000},
+    {"kind": "exact_output", "direction": "one_for_zero", "amount": 10000000000000000000},
+    {"kind": "exact_output", "direction": "one_for_zero", "amount": 100000000000000000000}
+  ],
+  "expected_hashes": {
+    "pool_manager": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+    "quoter": "0xd707b1da8cb165e5ea35a3b4450d971eb562ec171e23492aa117036b78a868f6",
+    "universal_router": "0x2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+  }
+}

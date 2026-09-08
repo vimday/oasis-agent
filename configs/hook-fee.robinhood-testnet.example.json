@@ -1,0 +1,10 @@
+{
+  "base_fee": 500,
+  "medium_fee": 2000,
+  "high_fee": 5000,
+  "medium_amount0_threshold": 1000000000000000000,
+  "high_amount0_threshold": 10000000000000000000,
+  "medium_amount1_threshold": 1000000000000000000,
+  "high_amount1_threshold": 10000000000000000000,
+  "rule_version": 1
+}

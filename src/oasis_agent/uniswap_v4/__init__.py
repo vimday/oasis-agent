@@ -28,6 +28,15 @@ from .liquidity_math import (
     sqrt_price_at_tick,
 )
 from .pool_id import pool_id_from_key
+from .quotes import (
+    QuoteDirection,
+    QuoteKind,
+    QuotePoolKey,
+    SinglePoolQuote,
+    SinglePoolQuoteRequest,
+    decode_single_pool_quote,
+    encode_single_pool_quote,
+)
 from .reconciliation import (
     PoolCheckpoint,
     PoolCheckpointReconciliation,
@@ -67,7 +76,12 @@ __all__ = [
     "PoolCheckpointReconciliation",
     "PoolInitializationEvent",
     "PoolReplayState",
+    "QuoteDirection",
+    "QuoteKind",
+    "QuotePoolKey",
     "RpcV4StateSource",
+    "SinglePoolQuote",
+    "SinglePoolQuoteRequest",
     "Slot0State",
     "StateCallRpc",
     "SwapReplayEvent",
@@ -85,7 +99,9 @@ __all__ = [
     "decode_modify_position",
     "decode_pool_dataset",
     "decode_pool_initialized",
+    "decode_single_pool_quote",
     "decode_swap",
+    "encode_single_pool_quote",
     "fee_fraction",
     "pool_id_from_key",
     "protocol_fee_for_direction",
