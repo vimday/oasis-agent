@@ -78,7 +78,26 @@ whitelist storage. This strongly indicates a beneficial LP-NFT-owner whitelist. 
 add/remove-liquidity lifecycle proves every relevant branch, the exact semantics remain inferred and
 this pool is observe-only.
 
-### 2.2 The strategic consequence
+### 2.2 Bidirectionally quotable STOCKHOOKS/ETH benchmark
+
+Position `2071232` in the Uniswap application resolves to the hookless v4 PoolId
+`0xaa82ac6c0cca2c126161a16b1bff0d820eb4cb81701df81258633b9fe57536d6`: native ETH /
+`0xf16d26703d6d9b2b9bf10b6d5af6594598ec1a68` (`STOCKHOOKS`, 18 decimals), static fee
+`100000` pips (10%), tick spacing `1000`, hooks zero. At block `57,747,350`, hash
+`0xcb76ba53e335991f0fdc80bd51004968178eb799ef6aad60053083a451c22aed`, two independent
+public RPCs agreed on the pinned core identities and every result in a 12-case direct Quoter grid.
+Exact-input and exact-output calls succeeded in both directions at three sizes; the middle-size
+relative impacts were approximately 1.389% for ETH exact-input, 2.047% for STOCKHOOKS exact-input,
+2.336% for STOCKHOOKS exact-output, and 1.572% for ETH exact-output.
+
+This confirms a live bidirectional direct-quote benchmark and rejects the earlier PONS/USDG pool as
+the only candidate. It does not prove Universal Router selection, organic volume, token safety,
+settlement, or profitability. Because the pool is hookless, Oasis cannot attach its hook to this
+PoolId. An Oasis ETH/STOCKHOOKS pool is a distinct market and must independently earn router flow.
+The retained evidence is
+`reports/evidence/route-probe-robinhood-stockhooks-eth-57747350-v3-2026-09-08/`.
+
+### 2.3 The strategic consequence
 
 A v4 hook is bound into a pool's `PoolKey` at initialization. We cannot attach our hook to the
 existing benchmark pool or replace its fee logic. There are only three legitimate paths:
@@ -91,7 +110,7 @@ The default plan is path 2. A new pool does not earn fees merely because its hoo
 win executable order flow from routers while offering enough depth and price quality. Routing is
 therefore a Phase 1 product requirement, not a later marketing task.
 
-### 2.3 Chain-specific constraints
+### 2.4 Chain-specific constraints
 
 - Production uses two authenticated providers plus an archive source; Robinhood's public RPC is
   rate-limited and explicitly unsuitable for production.
@@ -535,6 +554,13 @@ of:
 These are conservative initial ceilings, not evidence the trade is safe. PONS exposure is stressed to
 zero and USDG is separately stressed for depeg/freeze/issuer risk.
 
+For the currently authorized account snapshot (`0.005153577969653555 ETH`) and the confirmed
+`0.001 ETH` two-sided quote scale, the checked-in STOCKHOOKS/ETH shadow example computes a cap of
+`0.0000001 ETH`: the 1-basis-point exit-depth ceiling binds. This is suitable for shadow policy
+verification but too small to justify a mainnet LP mint after gas and minimum useful liquidity. A
+larger canary therefore remains blocked until an isolated LP owner is funded within an approved
+budget and the Oasis pool itself proves sufficient two-sided exit depth.
+
 ### 9.2 Failure matrix
 
 | Trigger | Automatic response |
@@ -658,8 +684,9 @@ includes declining bad liquidity opportunities quickly and preserving capital fo
 5. Measure effective fee by swap direction, size, volatility, markout, and routing context.
 6. Build static-fee/fixed-range controls before optimizing any policy.
 7. Implement the discrete bounded dynamic-fee simulator and fee-elasticity scenarios.
-8. Select the production pair using token safety, reference price, route demand, and exit depth; do not
-   assume PONS/USDG wins.
+8. Treat hookless STOCKHOOKS/ETH as the current route/depth benchmark; complete token safety,
+   standard-router selection, and independent route evidence for the distinct Oasis-hook pool before
+   selecting it for production.
 9. Extend the implemented Solidity invariants and official PositionManager lifecycle into pinned
    Robinhood fork, malicious-token, Permit2, reentry, and emergency-path campaigns.
 10. Complete fork, shadow, routing, and canary gates in order; never deploy from a backtest alone.

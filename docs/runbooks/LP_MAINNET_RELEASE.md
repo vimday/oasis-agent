@@ -1,7 +1,8 @@
 # LP 主网上线运行手册
 
 **适用范围：** Robinhood Chain（chain ID `4663`）上的项目自有资金、最小额度 canary。
-**当前状态：** 发布工具链与双公共 RPC 预检已具备；生产目标池、托管 RPC、角色地址、风险预算和持续经济证据未齐，禁止广播。
+**当前状态：** 发布工具链、双公共 RPC 预检、可配置 RPC/角色模板和 ETH/STOCKHOOKS 双向报价
+基准已具备；项目 hook 池的部署身份、标准路由、独立角色地址和持续经济证据未齐，禁止广播。
 
 本手册把部署、配置、首次建仓、自动再平衡、撤权和退出拆成可核验步骤。每一步先在固定区块
 fork 上运行同一脚本，审阅交易计划和 gas，再由外部硬件/远程签名器广播。生产脚本不读取
@@ -12,7 +13,8 @@ fork 上运行同一脚本，审阅交易计划和 gas，再由外部硬件/远�
 开始广播前必须锁定：
 
 - 两个不同运营方的 Robinhood 主网 RPC；配置只保存 `url_env` 名称，不保存 URL/凭据；
-- ERC-20/ERC-20 目标币对、token0/token1 顺序、初始价格、tick spacing、路由和退出深度证据；
+- native/ERC-20 或 ERC-20/ERC-20 目标币对、token0/token1 顺序、初始价格、tick spacing、
+  路由和退出深度证据；
 - 相互独立的 deployer、governor、guardian、LP owner 地址；LP owner 同时是 bounded executor owner；
 - 每笔、每仓位、每日损失、gas、滑点、库存和回撤上限；canary 观察窗口及终止条件；
 - PoolManager、PositionManager、StateView、Permit2、hook、executor 和两个 token 的预期 runtime keccak；
@@ -41,12 +43,28 @@ UniversalRouter 0x8876789976decbfcbbbe364623c63652db8c0904
 可用；这只说明协议支持，不能代替目标池被实际选路的证据。参考：
 [UniswapX on Robinhood Chain](https://developers.uniswap.org/docs/changelog/completed-notifications/uniswapx-live-on-robinhood-chain)。
 
-用 `configs/identity.robinhood-benchmark.example.json` 作为字段示例，另建不提交的发布配置。第二
-RPC 只写环境变量名，例如：
+公共 RPC 可用于预检，端点始终由环境变量解析，前端或部署环境只需替换变量值即可切换 Alchemy。
+主配置、服务配置、身份清单和路由探针分别使用 `rpc_url_env`、`rpc_primary.url_env` 或
+`providers[].url_env`，不把 URL 或凭据写进 Git。以
+`configs/identity.robinhood-stockhooks-eth.example.json` 为正式角色模板：
 
 ```json
+"address_env": {
+  "hook": "OASIS_HOOK",
+  "executor": "OASIS_EXECUTOR",
+  "deployer": "OASIS_DEPLOYER",
+  "initializer": "OASIS_GOVERNOR",
+  "governor": "OASIS_GOVERNOR",
+  "guardian": "OASIS_GUARDIAN",
+  "lp_owner": "OASIS_LP_OWNER"
+},
+"rpc_primary": {"name": "provider-a", "url_env": "ROBINHOOD_RPC_A"},
 "rpc_extra": [{"name": "provider-b", "url_env": "ROBINHOOD_RPC_B"}]
 ```
+
+加载器要求 deployer、governor、guardian、LP owner 四个地址互不相同，initializer 必须等于
+Phase-1 governor；缺少变量、重复角色、零地址或同一字段同时直写和引用环境变量都会失败关闭。
+模板中的 `max_liquidity`、hook/executor 地址与 hash 必须在演练和部署后替换，模板本身不会放行。
 
 部署后运行：
 
@@ -108,16 +126,16 @@ forge script script/ConfigureOasisPool.s.sol:ConfigureOasisPool \
 
 ## 5. 最小 canary 建仓
 
-`MintOasisCanary.s.sol` 只支持明确选择的 ERC-20/ERC-20 池。它要求当前 tick 位于预设范围内，检查
-全部 runtime/codehash/角色/绑定/暂停状态，拒绝任何已有 ERC-20 或 Permit2 allowance，验证余额和
-executor 流动性硬上限。成功路径：
+`MintOasisCanary.s.sol` 支持 native/ERC-20 与 ERC-20/ERC-20 池。它要求当前 tick 位于预设范围内，
+检查全部 runtime/codehash/角色/绑定/暂停状态，拒绝任何已有 ERC-20 或 Permit2 allowance，验证
+余额、原生 gas reserve 和 executor 流动性硬上限。成功路径：
 
-1. ERC-20→Permit2 授权精确到 `amount0Max/amount1Max`；
+1. 每个 ERC-20→Permit2 授权精确到对应 `amountMax`；原生 ETH 不创建 token allowance；
 2. Permit2→PositionManager 授权同样有界且短时失效；
-3. mint 指定 liquidity/range 的一个 NFT；
+3. mint 指定 liquidity/range 的一个 NFT，原生池把多余 `msg.value` sweep 回 LP owner；
 4. 立即把两层 token allowance 清零；
-5. 只把该 NFT 授权给 bounded executor；
-6. 验证 owner、liquidity、NFT approval 和零 token allowance。
+5. 给受限 executor 可撤销的 PositionManager operator 权限，使 RECENTER 后的新 NFT 能继续自动管理；
+6. 验证 owner、liquidity、operator authority、零 token allowance 和 PositionManager 未新增 ETH 余额。
 
 ```bash
 cd contracts
@@ -126,14 +144,17 @@ forge script script/MintOasisCanary.s.sol:MintOasisCanary \
   --sender "$OASIS_LP_OWNER"
 ```
 
-任何部分失败都先运行 `RevokeOasisCanaryAuthority.s.sol`。`OASIS_TOKEN_ID=0` 只撤两层 token
-allowance；填写真实 token ID 时还会撤销 executor 的 NFT 权限。撤权后再调查失败原因。
+原生池必须设置非零 `OASIS_NATIVE_GAS_RESERVE`，且 `OASIS_TOKEN0_HASH` 为零；ERC-20/ERC-20 池
+的 reserve 必须为零。任何部分失败都先运行 `RevokeOasisCanaryAuthority.s.sol`，该脚本会撤销
+所有适用的 token/Permit2 allowance 和 executor operator 权限；填写真实 `OASIS_TOKEN_ID` 时还会
+清理遗留的单 NFT 授权。撤权后再调查失败原因。
 
 ## 6. 双向报价和标准路由验证
 
 部署并完成最小流动性配置后，先用 `run_v4_route_probe.py` 取得直接 Quoter 证据。复制
-`configs/route-probe.robinhood-benchmark.example.json` 为不提交的目标池配置，替换 PoolKey、金额
-网格，并填入三个 runtime 的预期 hash。每个 exact-input/exact-output × 两个方向组合至少三个金额：
+`configs/route-probe.robinhood-stockhooks-eth.example.json` 已固化已确认基准 PoolKey、金额网格和
+三个 runtime hash。项目 hook 池部署后复制它并替换 PoolKey；每个 exact-input/exact-output × 两个
+方向组合至少三个金额：
 
 ```bash
 PYTHONPATH=src .venv/bin/python scripts/run_v4_route_probe.py \
@@ -145,20 +166,25 @@ PYTHONPATH=src .venv/bin/python scripts/run_v4_route_probe.py \
 所有报价一致性，并计算相对最小档的整数 ppm 价格影响；RPC URL 仅从 `url_env` 读取。它始终输出
 `execution_eligible: false`。`route_probe_verified: true` 只证明该固定区块的直接 Quoter 网格。
 
+已确认的 hookless ETH/STOCKHOOKS 基准在区块 `57,747,350` 通过全部 12 个双向直接报价，证据见
+`reports/evidence/route-probe-robinhood-stockhooks-eth-57747350-v3-2026-09-08/`。该结果不能授权
+Oasis hook 池，因为 hook 地址改变 PoolKey/PoolId；新池必须重新取得相同门禁和标准路由选择证据。
+
 随后必须通过 Universal Router、Uniswap API 或应用实际取得目标池被选中的双向报价，记录所选
 route/split、calldata、deadline、gas、价格影响和失败原因。canary 再比较 quote 与 receipt 的实际
 settlement。任何方向不可达、Quoter/Router 结果不一致或 route 不选择目标池，都阻止建仓。
 
 ## 7. 自动再平衡、暂停和退出
 
-首次 canary 的 NFT 由 `OasisPositionExecutor` 管理。每次 RECENTER/REMOVE 都必须通过无密钥
+首次 canary 的 NFT 及 RECENTER 产生的后续 NFT 由 `OasisPositionExecutor` 通过可撤销 operator
+权限管理。每次 RECENTER/REMOVE 都必须通过无密钥
 `lp_signer_policy.py` 的 chain、合约哈希、PoolKey、nonce、deadline、模拟、风险、gas 和资本上限
 检查，再由外部 sidecar/HSM 签名。executor 只允许 owner 调用；guardian 只能暂停；RECENTER
 不能投入超过刚移除仓位的资产；REMOVE 在 hook 暂停、LP 白名单撤销和 token allowance 为零时仍
 可把资产直接返还 LP owner。
 
 退出完成后必须核对 NFT liquidity、owner 两个 token 余额、PoolManager 余额变化、receipt/log、
-实际 gas 和会计残差。随后撤销 NFT 及 Permit2/ERC-20 权限。任一数据过期、RPC 不一致、codehash/
+实际 gas 和会计残差。随后撤销 executor operator、遗留单 NFT 及 Permit2/ERC-20 权限。任一数据过期、RPC 不一致、codehash/
 角色变化、模拟与收据不一致、非零不可解释残差或风险限额突破，都触发 HALT。
 
 ## 8. 发布证据包

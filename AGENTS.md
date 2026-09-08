@@ -114,7 +114,8 @@ autonomous trader. Its current verified boundary is:
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a
   bounded atomic RECENTER/REMOVE position executor with nonce/deadline/pool-binding guards, and
   canonical-core local integration tests for both; external-signer deployment, pool configuration,
-  bounded first-canary mint, exact Permit2 approval cleanup, and emergency authority-revocation
+  bounded native/ERC-20 or ERC-20/ERC-20 first-canary mint, exact Permit2 approval cleanup,
+  persistent revocable bounded-executor NFT operator authority, and emergency authority-revocation
   scripts are present but have not been broadcast to mainnet;
 - official v4-periphery PositionManager mint/bidirectional exact-input/output swaps/collect/revoke/
   unwind also run locally against the pinned upstream Permit2 runtime; allowance expiry, revocation,
@@ -134,6 +135,11 @@ autonomous trader. Its current verified boundary is:
   PoolManager runtimes and the Quoter binding; a real two-provider PONS/USDG run agreed on all
   identities and all 12 quote failures at the maximum price boundary, so that benchmark is not a
   viable production target and no standard-router selection has been established;
+- the hookless native ETH/STOCKHOOKS pool from Uniswap position `2071232` was reconstructed as PoolId
+  `0xaa82ac6c0cca2c126161a16b1bff0d820eb4cb81701df81258633b9fe57536d6`; at block
+  `57,747,350`, two public providers agreed on pinned identities and all 12 exact-input/output quotes
+  in both directions succeeded. This establishes a direct-quote benchmark, not routing or economics
+  for the distinct pool that an Oasis hook would create;
 - a retained single-provider Base Sepolia snapshot/receipt/trace sample supports per-NFT core-delta
   reconstruction, but does not establish owner cash settlement, net PnL, or deployment approval;
 - there is no complete adversarial Robinhood fork/security campaign, target-specific release review,
