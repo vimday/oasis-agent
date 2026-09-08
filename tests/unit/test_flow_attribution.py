@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from oasis_agent.farming import (
@@ -325,11 +323,13 @@ class FlowAttributionTests(unittest.TestCase):
 
         text = render_pool_flow_forensic_markdown(report)
         self.assertNotIn(
-            "Every modeled flow classification, amount, and cost is bound to block-pinned evidence.",
+            "Every modeled flow classification, amount, and cost is bound to "
+            "block-pinned evidence.",
             text,
         )
         self.assertIn(
-            "Every modeled flow amount and cost is bound to block-pinned evidence; unknown classifications remain unresolved.",
+            "Every modeled flow amount and cost is bound to block-pinned "
+            "evidence; unknown classifications remain unresolved.",
             text,
         )
         self.assertIn("Fixture-only", text)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from ..models.common import (
@@ -145,36 +143,42 @@ def build_pool_flow_forensic_report(
     claims = [
         PoolFlowClaim(
             EvidenceLevel.CONFIRMED,
-            "The displayed totals are deterministic integer arithmetic over the supplied fixture inputs.",
+            "The displayed totals are deterministic integer arithmetic over "
+            "the supplied fixture inputs.",
         ),
         PoolFlowClaim(
             EvidenceLevel.INFERRED,
-            "Affiliated labels are evidence-backed inputs, not independent proof of common beneficial ownership.",
+            "Affiliated labels are evidence-backed inputs, not independent "
+            "proof of common beneficial ownership.",
         ),
         PoolFlowClaim(
             EvidenceLevel.UNRESOLVED,
-            "Unknown or non-confirmed external flow does not establish unrelated market demand or fee alpha.",
+            "Unknown or non-confirmed external flow does not establish "
+            "unrelated market demand or fee alpha.",
         ),
     ]
     if all_flows_confirmed:
         claims.append(
             PoolFlowClaim(
                 EvidenceLevel.CONFIRMED,
-                "Every modeled flow classification, amount, and cost is bound to block-pinned evidence.",
+                "Every modeled flow classification, amount, and cost is "
+                "bound to block-pinned evidence.",
             )
         )
     elif all_inputs_pinned:
         claims.append(
             PoolFlowClaim(
                 EvidenceLevel.CONFIRMED,
-                "Every modeled flow amount and cost is bound to block-pinned evidence; unknown classifications remain unresolved.",
+                "Every modeled flow amount and cost is bound to block-pinned "
+                "evidence; unknown classifications remain unresolved.",
             )
         )
     else:
         claims.append(
             PoolFlowClaim(
                 EvidenceLevel.UNRESOLVED,
-                "Some modeled amounts lack block-pinned evidence and remain unresolved fixture inputs.",
+                "Some modeled amounts lack block-pinned evidence and remain "
+                "unresolved fixture inputs.",
             )
         )
     return PoolFlowForensicReport(context, analysis, evidence, tuple(claims))
@@ -191,7 +195,10 @@ def render_pool_flow_forensic_markdown(
     lines = [
         title,
         "",
-        "> **Fixture-only research report.** It is not live-chain evidence, a backtest, or a production decision.",
+        (
+            "> **Fixture-only research report.** It is not live-chain evidence, "
+            "a backtest, or a production decision."
+        ),
         "",
         "## Snapshot identity",
         "",
@@ -220,7 +227,10 @@ def render_pool_flow_forensic_markdown(
         f"- Net modeled LP PnL: `{analysis.net_lp_pnl1} {unit}`",
         f"- Unresolved flow count: `{analysis.unresolved_flow_count}`",
         f"- Confirmed flow count: `{analysis.confirmed_flow_count}`",
-        f"- All flows economically evidenced: `{str(analysis.all_flows_economically_evidenced).lower()}`",
+        (
+            f"- All flows economically evidenced: "
+            f"`{str(analysis.all_flows_economically_evidenced).lower()}`"
+        ),
         "",
         "## Evidence-qualified claims",
         "",
@@ -255,7 +265,10 @@ def render_pool_flow_forensic_markdown(
         "## Safety interpretation",
         "",
         "- Gross fees are not treated as proof of unrelated external demand.",
-        "- Self-classified flow remains economically charged for modeled trading, gas, and adverse-selection costs.",
+        (
+            "- Self-classified flow remains economically charged for modeled "
+            "trading, gas, and adverse-selection costs."
+        ),
         "- Unknown flow remains unresolved and cannot support a profitability or deployment claim.",
         "",
     ]

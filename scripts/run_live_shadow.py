@@ -6,8 +6,6 @@ never broadcasts, never produces an execution-eligible decision. Research
 single-provider: full decision features require a second agreeing provider.
 """
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json

@@ -1,7 +1,5 @@
 """Operation authorization for the observation server."""
 
-from __future__ import annotations
-
 import pytest
 
 from oasis_agent.errors import ConfigurationError

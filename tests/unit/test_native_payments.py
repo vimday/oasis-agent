@@ -12,11 +12,13 @@ from oasis_agent.farming.native_payments import (
     NATIVE_DECIMALS,
     NativeOwnerPaymentCapture,
     UnsupportedOwnerPayment,
+    _gas_debit,
+    _native_value_frames,
     native_balance_requests,
     persist_native_owner_payment,
     resolve_exclusive_native_payment,
 )
-from oasis_agent.farming.owner_payments import MODIFY, TRANSFER
+from oasis_agent.farming.owner_payments import MODIFY, TRANSFER, balance_requests
 from oasis_agent.farming.position_ledger import PositionLedgerEntry
 from oasis_agent.farming.position_settlement import (
     MODIFY_SELECTOR,
@@ -403,8 +405,6 @@ def test_weth_pool_stays_on_erc20_attribution_path():
     # A WETH pool (WETH is a plain ERC-20, no address(0) currency) is out of
     # scope for the native module and stays on the ERC-20 Transfer path, which
     # does not special-case WETH.
-    from oasis_agent.farming.owner_payments import balance_requests
-
     weth = "0x4200000000000000000000000000000000000006"
     core = native_capture_fixture(currency0="0x" + "05" * 20, currency1=weth)
     with pytest.raises(UnsupportedOwnerPayment, match="exactly one native"):
@@ -533,8 +533,6 @@ def test_erc20_false_return_rejected():
 
 
 def test_duplicate_native_settle_frames_fail_closed():
-    from oasis_agent.farming.native_payments import _native_value_frames
-
     settle = {"type": "CALL", "from": POSM, "to": CORE, "value": "0x64"}
     root = {
         "type": "CALL",
@@ -548,8 +546,6 @@ def test_duplicate_native_settle_frames_fail_closed():
 
 
 def test_native_blob_gas_is_not_silently_omitted():
-    from oasis_agent.farming.native_payments import _gas_debit
-
     receipt = {
         "type": "0x3",
         "gasUsed": "0x64",
@@ -561,8 +557,6 @@ def test_native_blob_gas_is_not_silently_omitted():
 
 
 def test_op_native_requires_operator_fee_evidence():
-    from oasis_agent.farming.native_payments import _gas_debit
-
     receipt = {"type": "0x2", "gasUsed": "0x64", "effectiveGasPrice": "0x2", "l1Fee": "0x32"}
     with pytest.raises(ValueError, match="operator"):
         _gas_debit(receipt, 8453)

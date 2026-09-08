@@ -1,7 +1,5 @@
 """Offline independent replay of retained LP lifecycle receipts and audit links."""
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json

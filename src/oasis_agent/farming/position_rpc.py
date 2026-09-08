@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Protocol, cast
 
 from eth_abi.abi import decode, encode

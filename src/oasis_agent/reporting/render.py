@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
 from typing import Any
@@ -152,11 +150,13 @@ def benchmark_payload() -> dict[str, Any]:
             },
             {
                 "level": "inferred",
-                "text": "Bytecode contains a fee override path and likely dynamic fee configuration.",
+                "text": "Bytecode contains a fee override path and likely "
+                "dynamic fee configuration.",
             },
             {
                 "level": "unresolved",
-                "text": "The exact fee-selection algorithm requires pinned fork execution or verified source.",
+                "text": "The exact fee-selection algorithm requires pinned "
+                "fork execution or verified source.",
             },
         ],
         "limitations": [
@@ -174,7 +174,10 @@ def render_markdown(payload: dict[str, Any]) -> str:
     lines = [
         f"# {payload['title']}",
         "",
-        "> **Fixture-only research report.** This is not live-chain evidence, a backtest, or a production-readiness decision.",
+        (
+            "> **Fixture-only research report.** This is not live-chain evidence, "
+            "a backtest, or a production-readiness decision."
+        ),
         "",
         "## Provenance",
         "",

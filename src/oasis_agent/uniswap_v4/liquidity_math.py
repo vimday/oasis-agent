@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 MIN_TICK = -887_272
 MAX_TICK = 887_272
 MIN_SQRT_PRICE = 4_295_128_739

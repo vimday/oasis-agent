@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 from dataclasses import replace
 
@@ -424,7 +422,7 @@ class PositionLedgerTests(unittest.TestCase):
         # Create block before opening
         extra_before = BlockRef(4663, 9, "0x" + "99" * 32, 999)
         extra_snapshot = BlockSnapshot(extra_before, "0x" + "88" * 32)
-        oversized_blocks = (extra_snapshot,) + self.canonical_blocks
+        oversized_blocks = (extra_snapshot, *self.canonical_blocks)
 
         with self.assertRaisesRegex(ValueError, "first canonical block must be|opening.block"):
             build_position_token_ledger(
@@ -439,7 +437,7 @@ class PositionLedgerTests(unittest.TestCase):
         # Create block after closing
         extra_after = BlockRef(4663, 13, "0x" + "dd" * 32, 1_003)
         extra_snapshot = BlockSnapshot(extra_after, self.canonical_blocks[-1].ref.block_hash)
-        oversized_blocks = self.canonical_blocks + (extra_snapshot,)
+        oversized_blocks = (*self.canonical_blocks, extra_snapshot)
 
         with self.assertRaisesRegex(ValueError, "last canonical block must be|closing.block"):
             build_position_token_ledger(

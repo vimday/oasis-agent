@@ -1,7 +1,5 @@
 """Unit tests for the live shadow observation producer (WP6)."""
 
-from __future__ import annotations
-
 import json
 from decimal import Decimal
 

@@ -13,8 +13,6 @@ response models; journal-record endpoints are intentionally unmodeled so the
 canonical records pass through field-for-field.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import logging

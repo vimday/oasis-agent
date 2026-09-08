@@ -16,14 +16,12 @@ Scope and fail-closed boundaries:
   changes in full-base-unit precision.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from typing import cast
 
 from eth_abi.abi import encode
 
-from ..evidence.rpc_validation import decode_exchange, rpc_quantity
+from ..evidence.rpc_validation import decode_exchange, restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
 from ..models.common import ZERO_ADDRESS, BlockRef, EvidenceRef, canonical_json
@@ -168,7 +166,7 @@ class TransactionPaymentCapture:
         block_net = {(t, a): 0 for t in tokens for a in accounts}
         paid = dict(block_net)
         received = dict(block_net)
-        supply = {t: 0 for t in tokens}
+        supply = dict.fromkeys(tokens, 0)
         for log in logs:
             if (log.block_number, log.block_hash) != (
                 b.number,
@@ -278,8 +276,6 @@ def persist_transaction_payments(
 def replay_transaction_payments(
     store: EvidenceStore, evidence: EvidenceRef, core: PositionSettlementCapture
 ) -> TransactionPaymentCapture:
-    from ..evidence.rpc_validation import restore_exchanges
-
     if (
         evidence.kind != "transaction_payments"
         or evidence.block != core.header.ref

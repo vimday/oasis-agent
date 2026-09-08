@@ -1,7 +1,5 @@
 """Read-only all-participant balances for the retained Base Sepolia transaction."""
 
-from __future__ import annotations
-
 import argparse
 import json
 from dataclasses import asdict
@@ -80,7 +78,7 @@ def main() -> None:
         )
         if len(prefix) > len(specs):
             raise ValueError("resume prefix exceeds expected capture")
-        for x, (method, params) in zip(prefix, specs):
+        for x, (method, params) in zip(prefix, specs, strict=False):
             request = json.loads(x.request_payload)
             response = json.loads(x.response_payload)
             if x.method != method or request["params"] != params or "error" in response:

@@ -16,8 +16,6 @@ increase/decrease followed by two CLOSE_CURRENCY actions, no WRAP/UNWRAP, no
 third-party ETH flows, no excess ``msg.value``. Anything else fails closed.
 """
 
-from __future__ import annotations
-
 from collections import Counter
 from dataclasses import asdict, dataclass, replace
 from typing import cast
@@ -33,7 +31,12 @@ from ..rpc.transport import RpcExchange
 from ..uniswap_v4.events import MODIFY_LIQUIDITY_TOPIC
 from .owner_payments import MODIFY, TRANSFER, UnsupportedOwnerPayment, _abi, _log, _transfer
 from .position_ledger import PositionLedgerEntry, SettlementAttribution
-from .position_settlement import PositionSettlementCapture, _mapping, _text
+from .position_settlement import (
+    PositionSettlementCapture,
+    _mapping,
+    _text,
+    persist_position_settlement_evidence,
+)
 from .transaction_costs import FAMILIES, OP_ORACLE, OP_SELECTOR
 
 # Native decimals are 18 on every explicitly supported family (ethereum, op,
@@ -61,25 +64,23 @@ def native_balance_requests(
     ]
     for token in currencies:
         if token == ZERO_ADDRESS:
-            for pin in (previous, current):
-                result.append(("eth_getBalance", [owner, pin]))
+            result.extend(("eth_getBalance", [owner, pin]) for pin in (previous, current))
         else:
-            for pin in (previous, current):
-                result.append(("eth_getCode", [token, pin]))
+            result.extend(("eth_getCode", [token, pin]) for pin in (previous, current))
             result.append(("eth_call", [{"to": token, "data": "0x313ce567"}, current]))
-            for pin in (previous, current):
-                result.append(
-                    (
-                        "eth_call",
-                        [
-                            {
-                                "to": token,
-                                "data": "0x70a08231" + encode(["address"], [owner]).hex(),
-                            },
-                            pin,
-                        ],
-                    )
+            result.extend(
+                (
+                    "eth_call",
+                    [
+                        {
+                            "to": token,
+                            "data": "0x70a08231" + encode(["address"], [owner]).hex(),
+                        },
+                        pin,
+                    ],
                 )
+                for pin in (previous, current)
+            )
     erc20 = next(token for token in currencies if token != ZERO_ADDRESS)
     result.append(
         (
@@ -309,7 +310,7 @@ class NativeOwnerPaymentCapture:
             if _mapping(x).get("address") in currencies and _log(x).topics[:1] == (TRANSFER,)
         )
         owner_logs = []
-        sums = {token: 0 for token in currencies}
+        sums = dict.fromkeys(currencies, 0)
         for log in logs:
             if log.address not in currencies or (log.block_number, log.block_hash) != (
                 block.number,
@@ -441,7 +442,6 @@ def persist_native_owner_payment(
     store: EvidenceStore, capture: NativeOwnerPaymentCapture
 ) -> PositionLedgerEntry:
     amounts = resolve_exclusive_native_payment(capture)
-    from .position_settlement import persist_position_settlement_evidence
 
     core_ref = persist_position_settlement_evidence(store, capture.core)
 

@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 from eth_abi.abi import encode
 
+from oasis_agent.evidence.ingestion import persist_and_verify_block_range
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.owner_payments import (
     MODIFY,
@@ -16,9 +17,12 @@ from oasis_agent.farming.owner_payments import (
     persist_owner_payment,
     resolve_exclusive_owner_payment,
 )
+from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.transport import RpcExchange
-from tests.unit.test_position_dataset import CORE, OWNER, POSM
+from tests.rpc_evidence_helpers import range_exchanges
+from tests.unit.test_position_capture import snapshot_capture
+from tests.unit.test_position_dataset import CORE, OWNER, POSM, scenario
 from tests.unit.test_position_settlement import capture_fixture, mutate
 
 
@@ -41,7 +45,7 @@ def fixture():
         ).hex()
     )
     logs = []
-    for i, (token, amount) in enumerate(zip(tokens, [100, 200]), 1):
+    for i, (token, amount) in enumerate(zip(tokens, [100, 200], strict=False), 1):
         log = dict(json.loads(core.exchanges[2].response_payload)["result"]["logs"][0])
         log.update(
             address=token,
@@ -59,7 +63,7 @@ def fixture():
     def trace(r):
         root = r["result"]
         root["input"] = data
-        for token, amount in zip(tokens, [100, 200]):
+        for token, amount in zip(tokens, [100, 200], strict=False):
             root["calls"].append(
                 {
                     "type": "CALL",
@@ -98,7 +102,7 @@ def fixture():
             1,
         )
         for i, ((method, params), result) in enumerate(
-            zip(balance_requests(core, OWNER), results), 1
+            zip(balance_requests(core, OWNER), results, strict=False), 1
         )
     )
     return OwnerBalanceCapture(core, OWNER, core.source, exchanges)
@@ -145,12 +149,6 @@ def test_token_false_return_rejected():
 
 
 def test_pipeline_uses_owner_at_action_and_rejects_duplicate_payment(tmp_path):
-    from oasis_agent.evidence.ingestion import persist_and_verify_block_range
-    from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
-    from tests.rpc_evidence_helpers import range_exchanges
-    from tests.unit.test_position_capture import snapshot_capture
-    from tests.unit.test_position_dataset import scenario
-
     store = EvidenceStore(tmp_path / "pipeline.db")
     _, _, core, nft = scenario()
     verified = [

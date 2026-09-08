@@ -1,16 +1,14 @@
-from __future__ import annotations
-
 import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Final
 
 ZERO_ADDRESS: Final[str] = "0x" + "0" * 40
 
 
-class EvidenceLevel(str, Enum):
+class EvidenceLevel(StrEnum):
     CONFIRMED = "confirmed"
     INFERRED = "inferred"
     UNRESOLVED = "unresolved"

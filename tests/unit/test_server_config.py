@@ -1,7 +1,5 @@
 """Strict TOML parsing for the observation server configuration."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import pytest
@@ -155,7 +153,7 @@ def test_duplicate_chain_ids_rejected(tmp_path):
 
 def test_port_bounds_enforced(tmp_path):
     path = write_config(tmp_path, "port = 70000\n")
-    with pytest.raises(ConfigurationError, match="within 1..65535"):
+    with pytest.raises(ConfigurationError, match=r"within 1..65535"):
         load_server_config(path)
 
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import tempfile
 import unittest
@@ -154,7 +152,7 @@ class DeploymentIdentityTests(unittest.TestCase):
                 pool_key=pool_key(),
                 targets=incomplete,
             )
-        duplicate = targets() + (ContractTarget("hook", ADDRESSES["hook"]),)
+        duplicate = (*targets(), ContractTarget("hook", ADDRESSES["hook"]))
         with self.assertRaisesRegex(ValueError, "unique roles"):
             collect_v4_deployment_identity(
                 FakeIdentityRpc(),

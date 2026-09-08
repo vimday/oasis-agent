@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Run an evidence-bound LP factorial backtest from a locked JSON input."""
 
-from __future__ import annotations
-
 import argparse
 import json
 from dataclasses import asdict, fields

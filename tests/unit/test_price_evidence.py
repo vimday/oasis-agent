@@ -5,10 +5,14 @@ import pytest
 from eth_abi.abi import encode
 from eth_hash.auto import keccak
 
+from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.price_evidence import (
     CostValuation,
     UsdFeedPolicy,
     UsdPriceCapture,
+    persist_cost_valuation,
+    persist_price_evidence,
+    replay_price_evidence,
     selector,
     value_cost_in_quote,
     value_native_cost,
@@ -96,12 +100,6 @@ def test_feed_identity_and_wrong_snapshot_rejected():
 
 
 def test_price_persistence_reconstructs_wire_and_rejects_forged_answer(tmp_path):
-    from oasis_agent.evidence.store import EvidenceStore
-    from oasis_agent.farming.price_evidence import (
-        persist_price_evidence,
-        replay_price_evidence,
-    )
-
     c = cost_fixture()
     p = price(c, QUOTE, 10**8)
     store = EvidenceStore(tmp_path / "price.db")
@@ -142,9 +140,6 @@ def test_cost_valuation_is_quote_units_and_usd_uses_feed_not_peg():
 
 
 def test_valuation_persistence_records_quote_units(tmp_path):
-    from oasis_agent.evidence.store import EvidenceStore
-    from oasis_agent.farming.price_evidence import persist_cost_valuation
-
     c = cost_fixture()
     native = price(c, ZERO_ADDRESS, 2000 * 10**8)
     quote = price(c, QUOTE, 10**8)

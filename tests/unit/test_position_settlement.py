@@ -6,16 +6,24 @@ from dataclasses import replace
 import pytest
 from eth_abi.abi import encode
 
+from oasis_agent.evidence.ingestion import persist_and_verify_block_range
+from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
+from oasis_agent.evidence.rpc_validation import restore_exchanges
+from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.position_ledger import PositionLedgerEntry
+from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
 from oasis_agent.farming.position_settlement import (
     MODIFY_SELECTOR,
     MODIFY_TYPES,
     PositionSettlementCapture,
+    collect_position_settlement,
     persist_position_settlement_evidence,
 )
 from oasis_agent.models.common import canonical_json
-from oasis_agent.rpc.transport import RpcExchange
+from oasis_agent.rpc.transport import JsonRpcTransport, RpcExchange
 from oasis_agent.uniswap_v4.events import decode_modify_liquidity
+from tests.rpc_evidence_helpers import range_exchanges
+from tests.unit.test_position_capture import snapshot_capture
 from tests.unit.test_position_dataset import CORE, OWNER, POSM, scenario
 
 
@@ -270,9 +278,6 @@ def test_trace_unavailable_stays_unresolved():
 
 
 def test_persistence_reconstructs_raw_evidence(tmp_path):
-    from oasis_agent.evidence.rpc_validation import restore_exchanges
-    from oasis_agent.evidence.store import EvidenceStore
-
     capture = capture_fixture()
     store = EvidenceStore(tmp_path / "evidence.db")
     try:
@@ -289,10 +294,6 @@ def test_persistence_reconstructs_raw_evidence(tmp_path):
 
 
 def test_collector_records_exact_session():
-    from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
-    from oasis_agent.farming.position_settlement import collect_position_settlement
-    from oasis_agent.rpc.transport import JsonRpcTransport
-
     fixture = capture_fixture()
 
     class Poster:
@@ -314,12 +315,6 @@ def test_collector_records_exact_session():
 
 
 def test_pipeline_retains_core_deltas_without_resolving_owner(tmp_path):
-    from oasis_agent.evidence.ingestion import persist_and_verify_block_range
-    from oasis_agent.evidence.store import EvidenceStore
-    from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
-    from tests.rpc_evidence_helpers import range_exchanges
-    from tests.unit.test_position_capture import snapshot_capture
-
     store = EvidenceStore(tmp_path / "pipeline.db")
     try:
         _, _, core, nft = scenario()

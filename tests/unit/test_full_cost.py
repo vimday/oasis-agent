@@ -85,7 +85,7 @@ def test_extra_costs_debit_exactly_once_and_embedded_losses_are_diagnostic(tmp_p
 def test_cost_double_count_and_currency_mismatch_rejected(tmp_path):
     replay, costs, blocks = fixture(tmp_path)
     with pytest.raises(ValueError):
-        reconcile_full_cost(replay, costs + (costs[0],), quote_decimals=18, canonical_blocks=blocks)
+        reconcile_full_cost(replay, (*costs, costs[0]), quote_decimals=18, canonical_blocks=blocks)
     with pytest.raises(ValueError):
         reconcile_full_cost(replay, costs, quote_decimals=6, canonical_blocks=blocks)
     with pytest.raises(ValueError):
@@ -104,7 +104,7 @@ def test_wrong_block_hash_and_reused_expense_evidence_fail(tmp_path):
     with pytest.raises(ValueError, match="provenance"):
         reconcile_full_cost(
             replay,
-            (replace(costs[0], evidence=(wrong,)),) + costs[1:],
+            (replace(costs[0], evidence=(wrong,)), *costs[1:]),
             quote_decimals=18,
             canonical_blocks=blocks,
         )
@@ -112,5 +112,5 @@ def test_wrong_block_hash_and_reused_expense_evidence_fail(tmp_path):
     second = replace(costs[1], treatment=CostTreatment.EXTRA, amount=1, evidence=first.evidence)
     with pytest.raises(ValueError, match="more than once"):
         reconcile_full_cost(
-            replay, (first, second) + costs[2:], quote_decimals=18, canonical_blocks=blocks
+            replay, (first, second, *costs[2:]), quote_decimals=18, canonical_blocks=blocks
         )

@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from .common import normalize_address, normalize_hash32
 
@@ -48,7 +46,7 @@ class BalanceDelta:
     amount1: int
 
 
-class SwapDirection(str, Enum):
+class SwapDirection(StrEnum):
     ZERO_FOR_ONE = "zero_for_one"
     ONE_FOR_ZERO = "one_for_zero"
 

@@ -1,7 +1,5 @@
 """Build a position event ledger from retained core and ERC-721 datasets."""
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 
@@ -20,7 +18,7 @@ def _validate_sha256_hex_digest(value: str, name: str) -> None:
     """Validate that a value is exactly 64 ASCII hex digits [0-9a-fA-F]{64}.
 
     Strictly validates using ASCII-only character matching, rejecting:
-    - Non-ASCII Unicode digits (e.g., Eastern Arabic ٠-٩)
+    - Non-ASCII Unicode digits (e.g., Eastern Arabic U+0660-U+0669)
     - Non-hex characters (g, z, spaces, etc.)
     - Wrong length (63 chars, 65 chars, etc.)
     """

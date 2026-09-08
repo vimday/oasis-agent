@@ -8,8 +8,6 @@ The resulting cost valuation is expressed in quote-token base units without any
 stablecoin peg assumption.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 from dataclasses import asdict
@@ -121,13 +119,13 @@ def main() -> None:
     captures: dict[str, UsdPriceCapture] = {}
     refs: dict[str, object] = {}
     try:
-        for name, policy in FEEDS.items():
+        for name, feed in FEEDS.items():
             recorder = ProbeRecorder(args.output, f"price-{name}")
             rpc = JsonRpcTransport(URL, http=PublicTestnetPoster(), recorder=recorder, retries=0)
             pin = {"blockHash": cost.header.ref.block_hash, "requireCanonical": True}
             rpc.request("eth_chainId", [])
             rpc.request("eth_getBlockByNumber", [hex(cost.header.ref.number), False])
-            code = rpc.request("eth_getCode", [policy.address, pin])
+            code = rpc.request("eth_getCode", [feed.address, pin])
             if (
                 not isinstance(code, str)
                 or not code.startswith("0x")
@@ -135,12 +133,12 @@ def main() -> None:
             ):
                 raise ValueError("feed runtime code missing at pinned block")
             policy = UsdFeedPolicy(
-                policy.chain_id,
-                policy.address,
-                policy.base_token,
-                policy.description,
+                feed.chain_id,
+                feed.address,
+                feed.base_token,
+                feed.description,
                 "0x" + keccak(bytes.fromhex(code[2:])).hex(),
-                policy.max_age_seconds,
+                feed.max_age_seconds,
             )
             for selector in SELECTORS.values():
                 rpc.request(

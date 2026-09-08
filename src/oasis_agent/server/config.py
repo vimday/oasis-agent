@@ -7,8 +7,6 @@ referenced by environment variable name only, and the variable is read at
 request time so it can be rotated without a restart.
 """
 
-from __future__ import annotations
-
 import os
 import re
 import tomllib

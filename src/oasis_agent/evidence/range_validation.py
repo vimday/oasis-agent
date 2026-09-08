@@ -1,7 +1,5 @@
 """Bind a bounded block/log dataset to its retained RPC exchange contents."""
 
-from __future__ import annotations
-
 from ..models.chain import LogRecord
 from ..models.common import normalize_address, normalize_hash32, normalize_hex
 from ..rpc.collector import BlockRangeDataset

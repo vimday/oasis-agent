@@ -2,7 +2,7 @@
 
 import json
 from dataclasses import replace
-from decimal import Decimal
+from decimal import Decimal, localcontext
 
 import pytest
 
@@ -20,7 +20,7 @@ from oasis_agent.models.finance import PoolState
 from oasis_agent.models.v4 import SwapDirection
 from oasis_agent.risk.lp_policy import CanaryRiskLimits
 from oasis_agent.shadow.journal import ShadowJournal
-from oasis_agent.shadow.lp_runner import LpShadowRunner
+from oasis_agent.shadow.lp_runner import LpShadowRunner, _decimal_str
 
 
 def evidence(tmp_path, block):
@@ -430,10 +430,6 @@ def test_decision_halt_survives_restart(tmp_path):
 
 
 def test_decimal_serialization_preserves_precision_and_signed_zero():
-    from decimal import localcontext
-
-    from oasis_agent.shadow.lp_runner import _decimal_str
-
     value = Decimal("123456789012345678901234567890.123456789000")
     with localcontext() as context:
         context.prec = 6

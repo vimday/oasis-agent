@@ -7,8 +7,6 @@ keeps the API process free of broadcasting and signing paths while still
 exposing run lifecycle to the dashboard.
 """
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass

@@ -1,7 +1,5 @@
 """Synthetic wire-format envelopes for offline evidence-boundary tests."""
 
-from __future__ import annotations
-
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.collector import BlockRangeDataset
 from oasis_agent.rpc.transport import RpcExchange

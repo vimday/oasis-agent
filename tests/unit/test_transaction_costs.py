@@ -4,7 +4,14 @@ from dataclasses import replace
 import pytest
 from eth_abi.abi import encode
 
-from oasis_agent.farming.transaction_costs import OP_ORACLE, OP_SELECTOR, TransactionCostCapture
+from oasis_agent.evidence.store import EvidenceStore
+from oasis_agent.farming.transaction_costs import (
+    OP_ORACLE,
+    OP_SELECTOR,
+    TransactionCostCapture,
+    persist_transaction_cost,
+    replay_transaction_cost,
+)
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.transport import RpcExchange
 from tests.unit.test_position_settlement import capture_fixture
@@ -94,12 +101,6 @@ def test_unsupported_chain_never_defaults_to_eth():
 
 
 def test_cost_persistence_reconstructs_wire_and_rejects_forged_total(tmp_path):
-    from oasis_agent.evidence.store import EvidenceStore
-    from oasis_agent.farming.transaction_costs import (
-        persist_transaction_cost,
-        replay_transaction_cost,
-    )
-
     c = fixture(84532)
     store = EvidenceStore(tmp_path / "cost.db")
     ref = persist_transaction_cost(store, c)

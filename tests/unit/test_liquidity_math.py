@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from oasis_agent.uniswap_v4.liquidity_math import (

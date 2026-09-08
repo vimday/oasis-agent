@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import sqlite3
 from dataclasses import dataclass
@@ -93,7 +91,8 @@ class CanonicalChainStore:
                     raise ValueError("appended dataset does not connect to canonical tip")
             else:
                 anchor = self._connection.execute(
-                    "SELECT block_hash FROM canonical_blocks WHERE chain_id = ? AND block_number = ?",
+                    "SELECT block_hash FROM canonical_blocks "
+                    "WHERE chain_id = ? AND block_number = ?",
                     (chain_id, first.ref.number),
                 ).fetchone()
                 if anchor is None or str(anchor[0]) != first.ref.block_hash:
@@ -125,14 +124,16 @@ class CanonicalChainStore:
                         "legacy stream scope is unknown; rebuild under a new stream ID"
                     )
                 self._connection.execute(
-                    "INSERT INTO canonical_streams (chain_id, stream_id, scope_json) VALUES (?, ?, ?)",
+                    "INSERT INTO canonical_streams (chain_id, stream_id, scope_json) "
+                    "VALUES (?, ?, ?)",
                     (chain_id, stream_id, scope),
                 )
             elif existing_scope[0] != scope:
                 raise ValueError("canonical stream query scope changed")
             if reorg_from is not None:
                 row = self._connection.execute(
-                    "SELECT COUNT(*) FROM canonical_blocks WHERE chain_id = ? AND block_number >= ?",
+                    "SELECT COUNT(*) FROM canonical_blocks "
+                    "WHERE chain_id = ? AND block_number >= ?",
                     (chain_id, reorg_from),
                 ).fetchone()
                 assert row is not None

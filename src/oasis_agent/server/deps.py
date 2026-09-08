@@ -9,8 +9,6 @@ code. It is assembled per request from the lifespan-owned singletons, so the
 dependency itself is stateless and cheap.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Annotated
 

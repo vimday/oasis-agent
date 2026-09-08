@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import BlockRef, EvidenceRef
 from .inventory import PositionInventory, position_inventory
@@ -10,7 +8,7 @@ from .position_ledger import PositionLedgerEntry, PositionTokenLedger
 Q192 = 1 << 192
 
 
-class AccountingReplayStatus(str, Enum):
+class AccountingReplayStatus(StrEnum):
     COMPLETE = "complete"
     UNRESOLVED_SETTLEMENT = "unresolved_settlement"
     UNRESOLVED_OWNERSHIP = "unresolved_ownership"

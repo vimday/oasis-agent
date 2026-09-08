@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from oasis_agent.models.chain import BlockSnapshot

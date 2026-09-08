@@ -4,8 +4,6 @@ Feed identity is a supplied research policy, not an independent certification.
 Never assume a stablecoin equals USD. Native/quote conversion requires both feeds.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from typing import cast
 

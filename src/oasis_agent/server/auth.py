@@ -10,8 +10,6 @@ derives a distinct actor identity. If no token is configured at startup and
 operation endpoints fail closed with 503 until a token is present.
 """
 
-from __future__ import annotations
-
 import hmac
 from collections.abc import Mapping
 

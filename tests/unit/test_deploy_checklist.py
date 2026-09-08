@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 import subprocess
 import tempfile
@@ -356,7 +354,7 @@ class DeploymentChecklistTests(unittest.TestCase):
             DeploymentChecklist(checks=passing_checks()[:-1])
         with self.assertRaisesRegex(ValueError, "exactly the canonical checks"):
             DeploymentChecklist(checks=(*passing_checks(), check("invented_check")))
-        duplicate = passing_checks() + (check("chain_id"),)
+        duplicate = (*passing_checks(), check("chain_id"))
         with self.assertRaisesRegex(ValueError, "exactly the canonical checks"):
             DeploymentChecklist(checks=duplicate)
 

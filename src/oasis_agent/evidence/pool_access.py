@@ -1,20 +1,18 @@
 """Evidence-backed v4 pool access and routing decision."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import EvidenceRef
 
 
-class CheckStatus(str, Enum):
+class CheckStatus(StrEnum):
     PASS = "pass"
     FAIL = "fail"
     UNKNOWN = "unknown"
 
 
-class PoolAccessDecision(str, Enum):
+class PoolAccessDecision(StrEnum):
     ACCESSIBLE = "accessible"
     PERMISSIONED = "permissioned"
     UNRESOLVED = "unresolved"

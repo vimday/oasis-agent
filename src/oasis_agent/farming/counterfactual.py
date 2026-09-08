@@ -1,17 +1,15 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import BlockRef, EvidenceRef
 
 
-class FeePolicyKind(str, Enum):
+class FeePolicyKind(StrEnum):
     STATIC = "static"
     DYNAMIC = "dynamic"
 
 
-class RangePolicyKind(str, Enum):
+class RangePolicyKind(StrEnum):
     FIXED = "fixed"
     ACTIVE = "active"
 

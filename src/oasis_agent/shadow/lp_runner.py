@@ -24,8 +24,6 @@ journal at a new path, and restart the observation window under the same
 reviewed policy fingerprint. No code path clears the latch in place.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from decimal import Decimal

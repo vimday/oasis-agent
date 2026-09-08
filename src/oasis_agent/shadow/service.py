@@ -5,15 +5,13 @@ route depth or settlement. Every feature and candidate must match retained
 input evidence. No signing interface exists in this service.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 from dataclasses import asdict, dataclass, fields, is_dataclass
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 
 from ..evidence.store import EvidenceStore
 from ..execution.lp_state_machine import TickRange
@@ -107,7 +105,7 @@ class LpCycle:
         )
 
     @classmethod
-    def from_json(cls, raw: bytes) -> LpCycle:
+    def from_json(cls, raw: bytes) -> Self:
         data = json.loads(raw, object_pairs_hook=_unique_object)
         if not isinstance(data, dict):
             raise TypeError("shadow cycle must be an object")
@@ -204,7 +202,8 @@ class LpShadowService:
             )
         )
         journal.db.execute(
-            "CREATE TABLE IF NOT EXISTS lp_policy (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS lp_policy "
+            "(id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
         )
         with journal.db:
             journal.db.execute("INSERT OR IGNORE INTO lp_policy VALUES (1, ?)", (policy,))

@@ -7,8 +7,6 @@ outside this repository; even then the sidecar only ever hands the exact
 EIP-1559 digest to the provider and verifies the recovered signer.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path

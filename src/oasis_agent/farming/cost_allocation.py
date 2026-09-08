@@ -4,8 +4,6 @@ The actual payer remains on the transaction receipt. Allocation cannot establish
 beneficial ownership, reimbursements, or which NFT physically paid shared gas.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 

@@ -1,5 +1,10 @@
 """WP7: isolated signer sidecar fails closed with no key provider."""
 
+import json
+import sqlite3
+import subprocess
+import sys
+import threading
 from dataclasses import replace
 from pathlib import Path
 
@@ -181,8 +186,6 @@ ACCOUNT = account_for(KEY)
 
 
 def _events(db_path: Path) -> list[tuple]:
-    import sqlite3
-
     connection = sqlite3.connect(db_path)
     try:
         return connection.execute("SELECT seq, payload, digest FROM events ORDER BY seq").fetchall()
@@ -294,8 +297,6 @@ def test_stale_or_replayed_account_nonce_is_denied(tmp_path):
 
 
 def test_concurrent_handles_never_double_sign_the_same_nonce(tmp_path):
-    import threading
-
     sidecar = make_sidecar(tmp_path, ACCOUNT, provider=FixtureKeyProvider(KEY))
     request = make_request(ACCOUNT)  # every worker offers the same account nonce
     outcomes: list = []
@@ -327,8 +328,6 @@ def test_concurrent_handles_never_double_sign_the_same_nonce(tmp_path):
 
 
 def test_two_sidecar_instances_reserve_before_calling_provider(tmp_path):
-    import threading
-
     started = threading.Event()
     release = threading.Event()
     first_outcome = []
@@ -426,8 +425,6 @@ def test_journal_binds_policy_and_config(tmp_path):
 
 
 def test_journal_detects_audit_chain_tampering(tmp_path):
-    import sqlite3
-
     sidecar = make_sidecar(tmp_path, ACCOUNT, provider=FixtureKeyProvider(KEY))
     with sidecar:
         sidecar.handle(make_request(ACCOUNT))
@@ -489,9 +486,6 @@ def test_signed_transaction_rejects_out_of_range_signature():
 
 
 def test_cli_demonstrates_default_deny_without_provider(tmp_path):
-    import subprocess
-    import sys
-
     request = make_request(ACCOUNT)
     config = LpSidecarConfig(
         policy=make_policy(ACCOUNT),
@@ -520,7 +514,6 @@ def test_cli_demonstrates_default_deny_without_provider(tmp_path):
         command, cwd=root, capture_output=True, text=True, timeout=20, check=False
     )
     assert result.returncode == 0, result.stderr
-    import json
 
     decision = json.loads(out_path.read_text())
     assert decision["outcome"] == "denied"

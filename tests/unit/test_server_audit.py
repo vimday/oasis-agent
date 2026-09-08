@@ -1,7 +1,5 @@
 """Append-only operations journal: audit records, run lifecycle, approvals."""
 
-from __future__ import annotations
-
 import pytest
 
 from oasis_agent.server.audit import ServerOpsJournal

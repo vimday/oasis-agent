@@ -201,7 +201,8 @@ class ConfigAndReportTests(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "Interpretation hash: `6666666666666666666666666666666666666666666666666666666666666666`",
+            "Interpretation hash: "
+            "`6666666666666666666666666666666666666666666666666666666666666666`",
             text,
         )
         self.assertIn("Unknown flow remains unresolved", text)

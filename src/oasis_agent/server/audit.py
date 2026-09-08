@@ -7,8 +7,6 @@ with a digest of its parameters; raw output tails are truncated and
 redacted so credentials cannot leak into the audit trail.
 """
 
-from __future__ import annotations
-
 import re
 import sqlite3
 import uuid
@@ -246,7 +244,15 @@ class ServerOpsJournal:
                 "started_at": str(started_at) if started_at is not None else None,
                 "finished_at": str(finished_at) if finished_at is not None else None,
             }
-            for run_id, created_at, command_digest, status, exit_code, started_at, finished_at in rows
+            for (
+                run_id,
+                created_at,
+                command_digest,
+                status,
+                exit_code,
+                started_at,
+                finished_at,
+            ) in rows
         )
 
     def request_approval(self, *, gate: str, actor: str, reason: str) -> dict[str, object]:
@@ -321,5 +327,14 @@ class ServerOpsJournal:
                 "confirmed_by": str(confirmed_by) if confirmed_by is not None else None,
                 "confirmed_at": str(confirmed_at) if confirmed_at is not None else None,
             }
-            for approval_id, gate_value, status, requested_by, requested_at, requested_reason, confirmed_by, confirmed_at in rows
+            for (
+                approval_id,
+                gate_value,
+                status,
+                requested_by,
+                requested_at,
+                requested_reason,
+                confirmed_by,
+                confirmed_at,
+            ) in rows
         )

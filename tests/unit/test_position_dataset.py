@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import replace
 from pathlib import Path
 
@@ -12,9 +10,9 @@ from oasis_agent.farming.position_dataset import replay_position_datasets
 from oasis_agent.farming.position_ownership import TRANSFER_TOPIC
 from oasis_agent.farming.positions import PositionSnapshot, position_id
 from oasis_agent.models.chain import BlockSnapshot, LogRecord
-from oasis_agent.models.common import BlockRef
+from oasis_agent.models.common import BlockRef, EvidenceRef
 from oasis_agent.models.v4 import DYNAMIC_FEE_FLAG, PoolKey
-from oasis_agent.rpc.collector import BlockRangeDataset
+from oasis_agent.rpc.collector import BlockRangeDataset, ProviderAgreement
 from oasis_agent.uniswap_v4.events import MODIFY_LIQUIDITY_TOPIC
 from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
 from tests.rpc_evidence_helpers import range_exchanges
@@ -255,7 +253,7 @@ def test_rejects_closing_block_evidence_from_another_scope(tmp_path: Path) -> No
         object.__setattr__(altered, "agreement", verified_nft.agreement)
         object.__setattr__(altered, "peer_evidence", verified_nft.peer_evidence)
 
-        with pytest.raises(ValueError, match="evidence|dataset"):
+        with pytest.raises(ValueError, match=r"evidence|dataset"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=verified_core, ownership=altered
             )
@@ -285,7 +283,7 @@ def test_rejects_forged_quorum_trust_without_peer_evidence(tmp_path: Path) -> No
         object.__setattr__(forged, "agreement", None)  # No agreement
         object.__setattr__(forged, "peer_evidence", ())  # No peer evidence
 
-        with pytest.raises(ValueError, match="provider-quorum|agreement|peer"):
+        with pytest.raises(ValueError, match=r"provider-quorum|agreement|peer"):
             replay_position_datasets(
                 opening,
                 closing,
@@ -310,9 +308,6 @@ def test_rejects_agreement_from_another_dataset(tmp_path: Path) -> None:
         )
 
         # Create a forged agreement with different chain_id
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
-
         wrong_agreement = ProviderAgreement(
             chain_id=4664,  # Different chain
             start_block=core.start_block,
@@ -340,7 +335,7 @@ def test_rejects_agreement_from_another_dataset(tmp_path: Path) -> None:
         object.__setattr__(forged, "agreement", wrong_agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="agreement|chain_id"):
+        with pytest.raises(ValueError, match=r"agreement|chain_id"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -366,8 +361,6 @@ def test_rejects_peer_evidence_from_another_source(tmp_path: Path) -> None:
         )
 
         # Create a forged peer evidence with a source NOT in agreement.sources
-        from oasis_agent.models.common import EvidenceRef
-
         wrong_peer = EvidenceRef(
             "canonical_block_range",
             verified_core.evidence.content_hash,  # Correct content_hash
@@ -378,8 +371,6 @@ def test_rejects_peer_evidence_from_another_source(tmp_path: Path) -> None:
             raw_response_hash="b" * 64,
             interpretation_hash="c" * 64,
         )
-
-        from oasis_agent.rpc.collector import ProviderAgreement
 
         # Agreement only includes rpc-a and rpc-b
         agreement = ProviderAgreement(
@@ -418,9 +409,6 @@ def test_rejects_omitted_provider_from_quorum_sources(tmp_path: Path) -> None:
         )
 
         # Create agreement that claims 3 sources but we only have 2
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
-
         # Agreement claims rpc-a, rpc-b, rpc-c as sources
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
@@ -449,7 +437,7 @@ def test_rejects_omitted_provider_from_quorum_sources(tmp_path: Path) -> None:
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer_b,))  # only peer from rpc-b
 
-        with pytest.raises(ValueError, match="source set|expected"):
+        with pytest.raises(ValueError, match=r"source set|expected"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -470,9 +458,6 @@ def test_rejects_malformed_primary_evidence(tmp_path: Path) -> None:
         )
 
         # Create agreement with valid sources
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
-
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
             start_block=core.start_block,
@@ -512,7 +497,7 @@ def test_rejects_malformed_primary_evidence(tmp_path: Path) -> None:
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="primary evidence|v2 schema"):
+        with pytest.raises(ValueError, match=r"primary evidence|v2 schema"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -533,9 +518,6 @@ def test_rejects_primary_evidence_with_missing_hashes(tmp_path: Path) -> None:
         )
 
         # Create agreement with valid sources
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
-
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
             start_block=core.start_block,
@@ -575,7 +557,7 @@ def test_rejects_primary_evidence_with_missing_hashes(tmp_path: Path) -> None:
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="primary evidence|complete request"):
+        with pytest.raises(ValueError, match=r"primary evidence|complete request"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -598,9 +580,6 @@ def test_rejects_primary_evidence_with_malformed_hash_length(tmp_path: Path) -> 
             )
             for dataset in (core, nft)
         )
-
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
 
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
@@ -642,7 +621,7 @@ def test_rejects_primary_evidence_with_malformed_hash_length(tmp_path: Path) -> 
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="request_hash|64-char"):
+        with pytest.raises(ValueError, match=r"request_hash|64-char"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -665,9 +644,6 @@ def test_rejects_primary_evidence_with_malformed_hex_digest(tmp_path: Path) -> N
             )
             for dataset in (core, nft)
         )
-
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
 
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
@@ -711,7 +687,7 @@ def test_rejects_primary_evidence_with_malformed_hex_digest(tmp_path: Path) -> N
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="raw_response_hash|valid hex"):
+        with pytest.raises(ValueError, match=r"raw_response_hash|valid hex"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -734,9 +710,6 @@ def test_rejects_peer_evidence_with_malformed_hash_length(tmp_path: Path) -> Non
             )
             for dataset in (core, nft)
         )
-
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
 
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
@@ -766,7 +739,7 @@ def test_rejects_peer_evidence_with_malformed_hash_length(tmp_path: Path) -> Non
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (wrong_peer,))
 
-        with pytest.raises(ValueError, match="interpretation_hash|64-char"):
+        with pytest.raises(ValueError, match=r"interpretation_hash|64-char"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -777,9 +750,10 @@ def test_rejects_peer_evidence_with_malformed_hash_length(tmp_path: Path) -> Non
 def test_rejects_primary_evidence_with_unicode_hex_digits(tmp_path: Path) -> None:
     """Ensure primary evidence with non-ASCII Unicode digits is rejected at replay boundary.
 
-    Tests ASCII-only hex validation by attempting to use Eastern Arabic digits (٠-٩)
-    which are valid Unicode digit characters but must be rejected at replay boundary.
-    Uses object.__new__ to bypass EvidenceRef construction-time validation.
+    Tests ASCII-only hex validation by attempting to use Eastern Arabic digits
+    (U+0660-U+0669) which are valid Unicode digit characters but must be rejected
+    at replay boundary. Uses object.__new__ to bypass EvidenceRef construction-time
+    validation.
     """
     opening, closing, core, nft = scenario()
     store = EvidenceStore(tmp_path / "evidence.db")
@@ -790,9 +764,6 @@ def test_rejects_primary_evidence_with_unicode_hex_digits(tmp_path: Path) -> Non
             )
             for dataset in (core, nft)
         )
-
-        from oasis_agent.models.common import EvidenceRef
-        from oasis_agent.rpc.collector import ProviderAgreement
 
         agreement = ProviderAgreement(
             chain_id=core.chain_id,
@@ -814,9 +785,11 @@ def test_rejects_primary_evidence_with_unicode_hex_digits(tmp_path: Path) -> Non
             interpretation_hash="c" * 64,
         )
 
-        # Create forged primary evidence with Eastern Arabic digits (٠-٩) instead of ASCII
-        # The string "٠١٢٣٤٥٦٧٨٩" * 6 + "٠١" is 64 Unicode digits but not ASCII hex
-        unicode_hex_string = "٠١٢٣٤٥٦٧٨٩" * 6 + "٠١"  # 64 Eastern Arabic digits
+        # Create forged primary evidence with Eastern Arabic digits
+        # (U+0660-U+0669) instead of ASCII hex. Six full digit runs plus two
+        # digits is 64 Unicode digits, none of which is ASCII hex.
+        arabic_digits = "".join(chr(0x0660 + i) for i in range(10))
+        unicode_hex_string = arabic_digits * 6 + arabic_digits[:2]  # 64 Eastern Arabic digits
         wrong_primary = object.__new__(EvidenceRef)
         object.__setattr__(wrong_primary, "kind", "canonical_block_range")
         object.__setattr__(wrong_primary, "content_hash", verified_core.evidence.content_hash)
@@ -835,7 +808,7 @@ def test_rejects_primary_evidence_with_unicode_hex_digits(tmp_path: Path) -> Non
         object.__setattr__(forged, "agreement", agreement)
         object.__setattr__(forged, "peer_evidence", (peer,))
 
-        with pytest.raises(ValueError, match="request_hash|ASCII hex"):
+        with pytest.raises(ValueError, match=r"request_hash|ASCII hex"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged, ownership=verified_nft
             )
@@ -849,9 +822,6 @@ def test_accepts_valid_provider_quorum_evidence(tmp_path: Path) -> None:
     Tests that valid evidence with correct chain_id, content_hash, sources, and
     schema binds correctly at replay boundary, proving positive acceptance path.
     """
-    from oasis_agent.models.common import EvidenceRef
-    from oasis_agent.rpc.collector import ProviderAgreement
-
     opening, closing, core, nft = scenario()
     store = EvidenceStore(tmp_path / "evidence.db")
     try:
@@ -935,9 +905,6 @@ def test_rejects_provider_agreement_with_duplicate_sources(tmp_path: Path) -> No
     Tests that forged duplicate provider sources are rejected at replay boundary
     even if the actual peer evidence tuple comparison might pass.
     """
-    from oasis_agent.models.common import EvidenceRef
-    from oasis_agent.rpc.collector import ProviderAgreement
-
     opening, closing, core, nft = scenario()
     store = EvidenceStore(tmp_path / "evidence.db")
     try:
@@ -948,7 +915,8 @@ def test_rejects_provider_agreement_with_duplicate_sources(tmp_path: Path) -> No
             for dataset in (core, nft)
         )
 
-        # Create forged agreement with duplicate sources using object.__new__ to bypass construction-time validation
+        # Create forged agreement with duplicate sources using object.__new__
+        # to bypass construction-time validation
         forged_agreement = object.__new__(ProviderAgreement)
         object.__setattr__(forged_agreement, "chain_id", verified_core.dataset.chain_id)
         object.__setattr__(forged_agreement, "start_block", verified_core.dataset.start_block)
@@ -979,7 +947,7 @@ def test_rejects_provider_agreement_with_duplicate_sources(tmp_path: Path) -> No
         object.__setattr__(forged_core, "peer_evidence", (peer,))
 
         # Should reject forged duplicate sources at replay boundary
-        with pytest.raises(ValueError, match="sources must be unique|duplicate"):
+        with pytest.raises(ValueError, match=r"sources must be unique|duplicate"):
             replay_position_datasets(
                 opening, closing, pool_manager=CORE, core=forged_core, ownership=verified_nft
             )

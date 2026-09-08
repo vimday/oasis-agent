@@ -15,8 +15,6 @@ payload ("no blind signing"). The assembled signed transaction is returned to
 the operator/broadcaster, never broadcast by this module.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import sqlite3
@@ -201,7 +199,7 @@ def signed_transaction_bytes(request: LpSidecarRequest, *, r: int, s: int, y_par
         raise ValueError("high-s signatures are rejected (EIP-2)")
     if y_parity not in (0, 1):
         raise ValueError("y_parity must be 0 or 1")
-    fields = _eip1559_fields(request) + [y_parity, r, s]
+    fields = [*_eip1559_fields(request), y_parity, r, s]
     return b"\x02" + bytes(rlp_encode(fields))
 
 
@@ -268,10 +266,12 @@ class LpSignerSidecarJournal:
         try:
             self.db.execute("PRAGMA synchronous=FULL")
             self.db.execute(
-                "CREATE TABLE IF NOT EXISTS policy (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS policy "
+                "(id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
             )
             self.db.execute(
-                "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS events "
+                "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
             )
             self.db.execute(
                 "CREATE TABLE IF NOT EXISTS nonce_reservations ("

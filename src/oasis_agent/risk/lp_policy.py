@@ -11,18 +11,16 @@ Unknown triggers are never silently defaulted: the operator must extend the
 matrix consciously (fail closed). Emergency responses may reduce exposure only.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 BASIS_POINT = Decimal("0.0001")
 CANARY_NAV_FRACTION = BASIS_POINT * Decimal(5)
 CANARY_DEPTH_FRACTION = BASIS_POINT
 
 
-class FailureResponse(str, Enum):
+class FailureResponse(StrEnum):
     NO_NEW_EXPOSURE_RECONCILE = "no_new_exposure_reconcile"
     HALT_SUBMISSIONS_PRESERVE_GAS = "halt_submissions_preserve_gas"
     CONSERVATIVE_FEE_FALLBACK = "conservative_fee_fallback"

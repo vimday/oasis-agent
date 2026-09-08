@@ -55,6 +55,31 @@ filterwarnings = [
 line-length = 100
 target-version = "py312"
 
+[tool.ruff.lint]
+# Expanded Python 3.12 rule set. Every rule below must stay green
+# on `ruff check`; removing a rule requires a justification in the commit.
+select = [
+    "E",      # pycodestyle errors (incl. E501 line length)
+    "F",      # pyflakes
+    "W",      # pycodestyle warnings
+    "I",      # isort
+    "UP",     # pyupgrade (incl. StrEnum, UP042)
+    "B",      # flake8-bugbear (incl. B905 zip strict)
+    "SIM",    # flake8-simplify
+    "C4",     # flake8-comprehensions
+    "PLC",    # pylint convention (incl. PLC0415 import at top-level)
+    "PLE",    # pylint errors
+    "PLW",    # pylint warnings (incl. PLW0108 needless lambda)
+    "PERF",   # performance lints (incl. PERF401 list.extend)
+    "RUF",    # ruff-specific (incl. RUF005 unpacking, RUF002 ambiguous chars)
+    "ASYNC",  # flake8-async
+    "FA",     # flake8-future-annotations
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "FURB",   # refurb-style modernization
+    "BLE",    # flake8-blind-except
+]
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

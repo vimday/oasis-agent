@@ -16,8 +16,6 @@ RPC I/O lives in ``scripts/run_deploy_checklist.py``; this module is pure and
 deterministic.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 from ..evidence.pool_access import CheckStatus

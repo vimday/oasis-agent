@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from oasis_agent.farming.position_events import correlate_position_modification

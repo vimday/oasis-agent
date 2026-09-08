@@ -8,8 +8,6 @@ only as digests so the audit trail cannot leak secrets. The actor is derived
 from the token hash so a two-person approval requires two distinct tokens.
 """
 
-from __future__ import annotations
-
 from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Query

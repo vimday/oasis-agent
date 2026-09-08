@@ -101,14 +101,24 @@ class FailureMatrixTests(unittest.TestCase):
     def test_classify_matches_normalized_triggers(self) -> None:
         cases = {
             "rpc/feed stale, gap, or disagreement": FailureResponse.NO_NEW_EXPOSURE_RECONCILE,
-            "sequencer outage or abnormal finality lag": FailureResponse.HALT_SUBMISSIONS_PRESERVE_GAS,
+            "sequencer outage or abnormal finality lag": (
+                FailureResponse.HALT_SUBMISSIONS_PRESERVE_GAS
+            ),
             "reference price stale/manipulable": FailureResponse.CONSERVATIVE_FEE_FALLBACK,
             "quote/settlement mismatch or hook revert": FailureResponse.DISABLE_ROUTE_AND_RULE,
-            "position/balance/allowance/nonce mismatch": FailureResponse.HALT_EXECUTOR_NO_COMPENSATING_TRADE,
-            "token bytecode/admin/transfer behavior changes": FailureResponse.REJECT_TOKEN_PREPARE_REMOVAL,
-            "hook/poolmanager/router/quoter code hash changes": FailureResponse.FAIL_CLOSED_NEW_AUDIT,
+            "position/balance/allowance/nonce mismatch": (
+                FailureResponse.HALT_EXECUTOR_NO_COMPENSATING_TRADE
+            ),
+            "token bytecode/admin/transfer behavior changes": (
+                FailureResponse.REJECT_TOKEN_PREPARE_REMOVAL
+            ),
+            "hook/poolmanager/router/quoter code hash changes": (
+                FailureResponse.FAIL_CLOSED_NEW_AUDIT
+            ),
             "range exit during toxic/jump regime": FailureResponse.NO_REFLEXIVE_RECENTER_EVALUATE,
-            "daily loss, drawdown, residual, or gas budget breach": FailureResponse.INDEPENDENT_KILL_SWITCH,
+            "daily loss, drawdown, residual, or gas budget breach": (
+                FailureResponse.INDEPENDENT_KILL_SWITCH
+            ),
             "governance/security incident": FailureResponse.FREEZE_PARAMETER_CHANGES,
         }
         for trigger, expected in cases.items():

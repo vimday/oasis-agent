@@ -21,8 +21,6 @@ reset. The only recovery path is operator journal rotation:
 Rotation is a manual, reviewed operation; no code path clears a latch in place.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import sqlite3
@@ -47,13 +45,16 @@ class ShadowJournal:
         self.max_age_seconds = max_age_seconds
         self.db = sqlite3.connect(path)
         self.db.execute(
-            "CREATE TABLE IF NOT EXISTS observations (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS observations "
+            "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
         )
         self.db.execute(
-            "CREATE TABLE IF NOT EXISTS decisions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS decisions "
+            "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
         )
         self.db.execute(
-            "CREATE TABLE IF NOT EXISTS policy (id INTEGER PRIMARY KEY CHECK(id=1), chain INTEGER NOT NULL, age INTEGER NOT NULL)"
+            "CREATE TABLE IF NOT EXISTS policy "
+            "(id INTEGER PRIMARY KEY CHECK(id=1), chain INTEGER NOT NULL, age INTEGER NOT NULL)"
         )
         with self.db:
             self.db.execute(

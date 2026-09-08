@@ -1,7 +1,6 @@
 """Read-only Base Sepolia probe with retained wire evidence; no signing capability."""
 
-from __future__ import annotations
-
+import argparse
 import json
 import subprocess
 from dataclasses import asdict
@@ -104,8 +103,6 @@ def session(output: Path, name: str, *, retries: int = 0):
 
 
 def main() -> None:
-    import argparse
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--lookback", type=int, default=2000)

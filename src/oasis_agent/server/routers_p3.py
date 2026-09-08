@@ -7,8 +7,6 @@ translated to 503/502 by the centralized exception handlers. Alerts are
 evaluated on demand from verified data only.
 """
 
-from __future__ import annotations
-
 import asyncio
 
 from fastapi import APIRouter, HTTPException

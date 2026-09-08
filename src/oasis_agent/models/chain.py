@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from .common import BlockRef, normalize_address, normalize_hash32, normalize_hex

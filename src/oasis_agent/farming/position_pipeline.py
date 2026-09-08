@@ -1,7 +1,5 @@
 """Join raw snapshot captures with the complete pool/NFT event replay."""
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass, replace
 
 from ..evidence.ingestion import IngestionTrust, VerifiedBlockRange

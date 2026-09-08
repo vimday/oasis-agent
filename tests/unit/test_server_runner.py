@@ -1,7 +1,5 @@
 """Background shadow-run coordinator: lifecycle, failure, concurrency."""
 
-from __future__ import annotations
-
 import asyncio
 import sys
 from dataclasses import replace

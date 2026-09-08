@@ -7,8 +7,6 @@ unique: each currency must belong to exactly one pool in the batch and every
 non-zero transaction participant must be the owner or the PoolManager.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass, replace
 from typing import cast
 

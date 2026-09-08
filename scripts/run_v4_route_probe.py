@@ -7,8 +7,6 @@ named environment variables and are never written to the output.  This command i
 observe-only: its report always sets ``execution_eligible`` to false.
 """
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -352,10 +350,11 @@ def _required_int(row: dict[str, object], name: str) -> int:
 
 
 def _write_manifest(directory: Path) -> None:
-    lines = []
-    for path in sorted(directory.iterdir()):
-        if path.is_file() and path.name != "MANIFEST.sha256":
-            lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
+    lines = [
+        f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}"
+        for path in sorted(directory.iterdir())
+        if path.is_file() and path.name != "MANIFEST.sha256"
+    ]
     (directory / "MANIFEST.sha256").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -491,14 +490,13 @@ def run(config: ProbeConfig, block_number: int, output: Path) -> dict[str, objec
             and expected_match
             and bindings == {config.pool_manager}
         )
-        quote_sets: list[set[tuple[object, ...]]] = []
-        for index in range(len(config.probes)):
-            quote_sets.append(
-                {
-                    tuple(sorted(_quote_rows(report)[index].items()))
-                    for report in provider_reports.values()
-                }
-            )
+        quote_sets = [
+            {
+                tuple(sorted(_quote_rows(report)[index].items()))
+                for report in provider_reports.values()
+            }
+            for index in range(len(config.probes))
+        ]
         quotes_agree = len(provider_reports) >= 2 and all(len(values) == 1 for values in quote_sets)
         all_quotes_ok = all(
             _quote_rows(report)[index].get("status") == "ok"

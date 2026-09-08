@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, normalize_hash32
@@ -10,7 +8,7 @@ from .position_ownership import PositionOwnershipReplay, replay_position_ownersh
 from .positions import UINT128_MAX, PositionSnapshot
 
 
-class SettlementAttribution(str, Enum):
+class SettlementAttribution(StrEnum):
     POSITION_TRACE = "position_trace"
     EXCLUSIVE_TRANSACTION = "exclusive_transaction"
 
@@ -56,7 +54,8 @@ class PositionLedgerEntry:
         else:
             if self.settlement_attribution is None or self.settlement_evidence is None:
                 raise ValueError("resolved settlement requires attribution and evidence")
-            # Verify settlement evidence is pinned to the exact block by chain ID, hash, number, and timestamp
+            # Verify settlement evidence is pinned to the exact block by chain
+            # ID, hash, number, and timestamp
             evidence_block = self.settlement_evidence.block
             if evidence_block is None:
                 raise ValueError("settlement evidence block cannot be None")
@@ -236,7 +235,8 @@ def _validate_complete_canonical_lineage(
                     f"previous block_hash={prev_snapshot.ref.block_hash}"
                 )
 
-    # Validate all entry blocks match canonical snapshots by height (will be checked per-entry in loop)
+    # Validate all entry blocks match canonical snapshots by height
+    # (will be checked per-entry in loop)
     for entry in entries:
         entry_height = entry.block.number
         # Entry height check happens in the main loop after opening/closing validation

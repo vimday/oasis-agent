@@ -5,8 +5,6 @@ block Transfer logs and successful token calls. Unsupported netting stays closed
 to promotion. This is not token-code attestation or independent RPC finality.
 """
 
-from __future__ import annotations
-
 from collections import Counter
 from dataclasses import asdict, dataclass, replace
 from typing import cast
@@ -22,7 +20,12 @@ from ..models.finance import AssetPair, TokenAmount
 from ..rpc.transport import RpcExchange
 from ..uniswap_v4.events import MODIFY_LIQUIDITY_TOPIC
 from .position_ledger import PositionLedgerEntry, SettlementAttribution
-from .position_settlement import PositionSettlementCapture, _mapping, _text
+from .position_settlement import (
+    PositionSettlementCapture,
+    _mapping,
+    _text,
+    persist_position_settlement_evidence,
+)
 
 TRANSFER = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
 MODIFY = keccak(b"modifyLiquidities(bytes,uint256)")[:4]
@@ -82,16 +85,15 @@ def balance_requests(core: PositionSettlementCapture, owner: str) -> list[tuple[
         ("eth_getBlockByNumber", [hex(block.number), False]),
     ]
     for token in (core.pool_key.currency0, core.pool_key.currency1):
-        for pin in (previous, current):
-            result.append(("eth_getCode", [token, pin]))
+        result.extend(("eth_getCode", [token, pin]) for pin in (previous, current))
         result.append(("eth_call", [{"to": token, "data": "0x313ce567"}, current]))
-        for pin in (previous, current):
-            result.append(
-                (
-                    "eth_call",
-                    [{"to": token, "data": "0x70a08231" + encode(["address"], [owner]).hex()}, pin],
-                )
+        result.extend(
+            (
+                "eth_call",
+                [{"to": token, "data": "0x70a08231" + encode(["address"], [owner]).hex()}, pin],
             )
+            for pin in (previous, current)
+        )
     result.append(
         (
             "eth_getLogs",
@@ -211,7 +213,7 @@ class OwnerBalanceCapture:
             if _mapping(x).get("address") in currencies and _log(x).topics[:1] == (TRANSFER,)
         )
         owner_logs = []
-        sums = {token: 0 for token in currencies}
+        sums = dict.fromkeys(currencies, 0)
         for log in logs:
             if log.address not in currencies or (log.block_number, log.block_hash) != (
                 block.number,
@@ -317,7 +319,6 @@ def persist_owner_payment(
     store: EvidenceStore, capture: OwnerBalanceCapture
 ) -> PositionLedgerEntry:
     amounts = resolve_exclusive_owner_payment(capture)
-    from .position_settlement import persist_position_settlement_evidence
 
     core_ref = persist_position_settlement_evidence(store, capture.core)
 

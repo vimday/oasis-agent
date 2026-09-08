@@ -1,20 +1,18 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 from .common import EvidenceLevel
 
 
-class ExecutionMode(str, Enum):
+class ExecutionMode(StrEnum):
     OBSERVE = "observe"
     SIMULATE = "simulate"
     APPROVE = "approve"
     EXECUTE = "execute"
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

@@ -5,16 +5,15 @@ caller is PositionManager, not the NFT owner. Never promote these amounts into
 owner_amount or net PnL without a separate payment/recipient reconciliation.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from typing import cast
 
 from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
 
+from ..errors import RpcError
 from ..evidence.rpc_capture import BoundedExchangeRecorder
-from ..evidence.rpc_validation import decode_exchange, rpc_quantity
+from ..evidence.rpc_validation import decode_exchange, restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot, LogRecord
 from ..models.common import EvidenceRef, canonical_json, normalize_address, normalize_hex
@@ -22,6 +21,7 @@ from ..models.v4 import BalanceDelta, PoolKey
 from ..rpc.transport import JsonRpcTransport, RpcExchange
 from ..uniswap_v4.delta import decode_balance_delta
 from ..uniswap_v4.events import MODIFY_LIQUIDITY_TOPIC, decode_modify_liquidity
+from ..uniswap_v4.pool_id import pool_id_from_key
 from .position_ledger import PositionLedgerEntry
 
 MODIFY_TYPES = ["(address,address,uint24,int24,address)", "(int24,int24,int256,bytes32)", "bytes"]
@@ -95,8 +95,6 @@ class PositionSettlementCapture:
         self.reconstruct()
 
     def reconstruct(self) -> PositionCoreSettlement:
-        from ..uniswap_v4.pool_id import pool_id_from_key
-
         entry, block = self.entry, self.header.ref
         if block != entry.block or entry.settlement_resolved:
             raise ValueError("capture requires the exact unresolved ledger entry block")
@@ -322,8 +320,6 @@ def collect_position_settlement(
     entry: PositionLedgerEntry,
 ) -> PositionSettlementCapture:
     """Read through a fresh transport configured with this recorder, without signing."""
-    from ..errors import RpcError
-
     if recorder.exchanges:
         raise ValueError("settlement collection requires a fresh recorded session")
     manager = normalize_address(pool_manager)
@@ -387,8 +383,6 @@ def replay_position_settlement_evidence(
     entry: PositionLedgerEntry,
 ) -> PositionSettlementCapture:
     """Revalidate retained wire bytes against an explicitly supplied event scope."""
-    from ..evidence.rpc_validation import restore_exchanges
-
     if (
         evidence.kind != "position_core_settlement"
         or evidence.schema_version != 1

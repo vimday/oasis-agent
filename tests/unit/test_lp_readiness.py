@@ -1,4 +1,8 @@
+import json
+import subprocess
+import sys
 from dataclasses import asdict, replace
+from pathlib import Path
 
 import pytest
 
@@ -125,8 +129,6 @@ def test_pass_requires_agreeing_dual_provider_evidence():
 
 
 def _manifest(gates) -> bytes:
-    import json
-
     return json.dumps(
         {
             "gates": [
@@ -145,11 +147,6 @@ def _manifest(gates) -> bytes:
 
 
 def test_parse_assessment_round_trip_and_machine_evaluator_cli(tmp_path):
-    import json
-    import subprocess
-    import sys
-    from pathlib import Path
-
     gates = [result(gate) for gate in LpGate]
     parsed = parse_assessment(_manifest(gates), as_of="2026-09-07T00:00:00+00:00")
     assert parsed.stage is ReleaseStage.BOUNDED_PRODUCTION
@@ -200,8 +197,6 @@ def test_parse_assessment_round_trip_and_machine_evaluator_cli(tmp_path):
     ],
 )
 def test_parse_assessment_fails_closed(mutate, match):
-    import json
-
     gates = [result(gate) for gate in LpGate]
     raw = json.loads(_manifest(gates))
     if mutate == "duplicate":

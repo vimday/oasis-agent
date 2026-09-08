@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import EvidenceRef
 from ..rpc.collector import BlockRangeDataset, ProviderAgreement, require_provider_agreement
@@ -12,7 +10,7 @@ from .rpc_capture import persist_block_range_evidence
 from .store import EvidenceStore
 
 
-class IngestionTrust(str, Enum):
+class IngestionTrust(StrEnum):
     PROVIDER_QUORUM = "provider_quorum"
     SINGLE_PROVIDER_RESEARCH = "single_provider_research"
 

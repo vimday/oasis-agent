@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from oasis_agent.farming.inventory import position_inventory

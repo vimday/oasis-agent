@@ -1,7 +1,5 @@
 """Verify public chain/runtime pins, then execute a strictly local Foundry fork."""
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -9,6 +7,7 @@ import os
 import subprocess
 from collections.abc import Mapping
 from dataclasses import asdict
+from datetime import UTC, datetime
 from pathlib import Path
 
 from eth_hash.auto import keccak
@@ -66,8 +65,6 @@ class PublicPoster:
 
 
 def main() -> None:
-    from datetime import UTC, datetime
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--network", choices=NETWORKS, required=True)
     parser.add_argument("--block", type=int, required=True)
@@ -145,7 +142,7 @@ def main() -> None:
     manifest = {
         "schema": "oasis.local-fork.v1",
         "header": asdict(header),
-        "l1_block_number": l1_block if l1_block else None,
+        "l1_block_number": l1_block or None,
         "fork_timestamp": fork_timestamp if fork_timestamp is not None else None,
         "forge_state_probe": state_probe,
         "source": args.network + "-public",

@@ -11,8 +11,6 @@ Usage:
         --config configs/server.toml
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path

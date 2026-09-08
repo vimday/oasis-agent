@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import unittest
 
 from eth_abi.abi import encode

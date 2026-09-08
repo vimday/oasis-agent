@@ -8,8 +8,6 @@ explicit token configured through the environment and are journaled in a
 separate append-only operations database.
 """
 
-from __future__ import annotations
-
 __all__ = ["__version__"]
 
 __version__ = "0.1.0"

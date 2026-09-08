@@ -17,8 +17,6 @@ Usage:
         --output reports/deploy-check-2026-09-08
 """
 
-from __future__ import annotations
-
 import argparse
 import hashlib
 import json
@@ -652,7 +650,7 @@ def main() -> None:
 
         # --- chain id ----------------------------------------------------
         chain_refs: list[EvidenceRef] = []
-        for source, rpc, recorder in providers:
+        for source, _rpc, recorder in providers:
             exchange = chain_exchanges[source]
             chain_refs.append(
                 persist(
@@ -817,7 +815,10 @@ def main() -> None:
                 and observed_bits == {EXPECTED_HOOK_PERMISSION_BITS}
             ):
                 hook_status = CheckStatus.PASS
-                permission_detail = f"permission bits {hex(EXPECTED_HOOK_PERMISSION_BITS)} match REQUIRED_HOOK_FLAGS"
+                permission_detail = (
+                    f"permission bits {hex(EXPECTED_HOOK_PERMISSION_BITS)} "
+                    "match REQUIRED_HOOK_FLAGS"
+                )
             elif observed:
                 hook_status = CheckStatus.UNKNOWN
                 permission_detail = (
@@ -1244,7 +1245,7 @@ def main() -> None:
 
         # --- provider diversity ------------------------------------------
         sources: set[str] = set()
-        for check in contract_checks + [token0_check, token1_check, pool_check]:
+        for check in [*contract_checks, token0_check, token1_check, pool_check]:
             sources.update(reference.source for reference in check.evidence)
         diversity_check = DeployCheck(
             name="provider_diversity",

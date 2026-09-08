@@ -1,5 +1,7 @@
 """Crash/restart and competing-writer safety for LP account/nonce reservations."""
 
+import hashlib
+import json
 from dataclasses import replace
 
 import pytest
@@ -11,7 +13,7 @@ from oasis_agent.execution.lp_journal import (
     recovery_evidence_hash,
 )
 from oasis_agent.execution.lp_state_machine import LpState
-from oasis_agent.models.common import BlockRef, EvidenceRef
+from oasis_agent.models.common import BlockRef, EvidenceRef, canonical_json
 from tests.unit.test_lp_state_machine import make_intent
 
 ACCOUNT = "0x" + "45" * 20
@@ -190,11 +192,6 @@ def test_signed_transaction_can_halt_without_releasing_nonce(tmp_path):
 
 @pytest.mark.parametrize("corruption", ["schema", "intent", "evidence", "transaction"])
 def test_semantically_invalid_rehashed_reservation_rejected(tmp_path, corruption):
-    import hashlib
-    import json
-
-    from oasis_agent.models.common import canonical_json
-
     with journal(tmp_path / "execution.db") as db:
         record = db.reserve(make_intent())
         data = json.loads(db.db.execute("SELECT payload FROM events").fetchone()[0])

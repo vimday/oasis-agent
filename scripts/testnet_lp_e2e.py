@@ -5,8 +5,6 @@ assets; native transaction value is always zero. The testnet wallet is read
 inside this process only. No raw signing material or signed payload is logged.
 """
 
-from __future__ import annotations
-
 import argparse
 import fcntl
 import hashlib
@@ -284,7 +282,8 @@ class Lifecycle:
         # Exact precompiled runtime from the pinned upstream local-test helper.
         helper = (
             ROOT
-            / "contracts/node_modules/@uniswap/v4-periphery/lib/permit2/test/utils/DeployPermit2.sol"
+            / "contracts/node_modules/@uniswap/v4-periphery/lib/permit2/test/utils"
+            / "DeployPermit2.sol"
         )
         runtime = bytes.fromhex(re.findall(r'hex"([0-9a-fA-F]+)"', helper.read_text())[0])
         # PUSH2 len; PUSH2 offset=15; PUSH1 0; CODECOPY; PUSH2 len; PUSH1 0; RETURN.
@@ -519,7 +518,8 @@ def main() -> None:
         print("LP E2E halted; inspect public journal; exception details suppressed")
         raise SystemExit(1) from None
     print(
-        f"LP E2E passed on chain {runner.chain}; gas spent {runner.spent} wei; evidence {args.output}"
+        f"LP E2E passed on chain {runner.chain}; gas spent {runner.spent} wei; "
+        f"evidence {args.output}"
     )
 
 

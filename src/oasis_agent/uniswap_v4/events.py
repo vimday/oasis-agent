@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from eth_hash.auto import keccak
 
 from ..models.chain import LogRecord

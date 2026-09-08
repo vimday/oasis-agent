@@ -7,8 +7,6 @@ simulation has been proven. External anchoring is needed to detect truncation
 or replacement of the whole database.
 """
 
-from __future__ import annotations
-
 import hashlib
 import json
 import sqlite3
@@ -166,10 +164,12 @@ class LpExecutionJournal:
         try:
             self.db.execute("PRAGMA synchronous=FULL")
             self.db.execute(
-                "CREATE TABLE IF NOT EXISTS policy (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS policy "
+                "(id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
             )
             self.db.execute(
-                "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS events "
+                "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
             )
             with self.db:
                 self.db.execute("INSERT OR IGNORE INTO policy VALUES (1, ?)", (self.policy,))

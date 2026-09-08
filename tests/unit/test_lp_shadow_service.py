@@ -1,6 +1,10 @@
 import json
+import subprocess
+import sys
+import time
 from dataclasses import asdict, replace
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -76,7 +80,7 @@ def test_evidence_to_decision_round_trip(tmp_path):
 def test_modified_features_cannot_reuse_evidence(tmp_path):
     store, journal, service, cycle = setup(tmp_path)
     changed = replace(cycle, amount_specified=101)
-    with pytest.raises(ValueError, match="binding|validation"):
+    with pytest.raises(ValueError, match=r"binding|validation"):
         service.consume(changed, now=100)
     assert journal._last()["decision"] == "HALT"
     assert service.consume(cycle, now=100).decision == "halt"
@@ -116,11 +120,6 @@ def test_duplicate_cycle_and_policy_keys_fail_closed():
 
 
 def test_cli_runs_evidence_consumer_and_blocks_changed_policy(tmp_path):
-    import subprocess
-    import sys
-    import time
-    from pathlib import Path
-
     store, journal, _, cycle = setup(tmp_path)
     timestamp = int(time.time())
     block = replace(cycle.header.ref, timestamp=timestamp)

@@ -1,7 +1,5 @@
 """Evidence-bound position snapshots; no signing or economic promotion authority."""
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from typing import Protocol
 

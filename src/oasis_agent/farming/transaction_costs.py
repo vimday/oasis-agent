@@ -4,15 +4,13 @@ Ethereum blob gas is additional; OP DA footprint is not Ethereum blob gas.
 Nitro L1 gas is already included in gasUsed. Unknown chains fail closed.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from typing import cast
 
 from eth_abi.abi import encode
 from eth_hash.auto import keccak
 
-from ..evidence.rpc_validation import decode_exchange, rpc_quantity
+from ..evidence.rpc_validation import decode_exchange, restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
 from ..models.common import (
@@ -216,8 +214,6 @@ def persist_transaction_cost(store: EvidenceStore, capture: TransactionCostCaptu
 def replay_transaction_cost(
     store: EvidenceStore, evidence: EvidenceRef, *, header: BlockSnapshot, transaction_hash: str
 ) -> TransactionCostCapture:
-    from ..evidence.rpc_validation import restore_exchanges
-
     if evidence.kind != "transaction_cost" or evidence.block != header.ref:
         raise ValueError("cost evidence scope mismatch")
     record = store.get_record(evidence)

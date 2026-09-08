@@ -1,11 +1,9 @@
 """Machine-readable, fail-closed Phase-1 LP release assessment."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
 
@@ -29,7 +27,7 @@ def _strict_load(payload: bytes) -> dict[str, object]:
     return data
 
 
-class LpGate(str, Enum):
+class LpGate(StrEnum):
     WP0_CORRECTNESS = "wp0_correctness"
     WP1_POOL_ACCESS = "wp1_pool_access"
     WP2_REPLAY_ACCOUNTING = "wp2_replay_accounting"
@@ -41,13 +39,13 @@ class LpGate(str, Enum):
     WP8_PRODUCTION = "wp8_production"
 
 
-class GateStatus(str, Enum):
+class GateStatus(StrEnum):
     PASS = "pass"
     FAIL = "fail"
     UNRESOLVED = "unresolved"
 
 
-class ReleaseStage(str, Enum):
+class ReleaseStage(StrEnum):
     REJECT = "reject"
     RESEARCH = "research"
     SHADOW = "shadow"
@@ -189,7 +187,8 @@ def parse_assessment(payload: bytes, *, as_of: str | None = None) -> LpReleaseAs
         expected = {"gate", "status", "evidence", "findings", "expires_at", "independent_reviewer"}
         if set(raw) != expected:
             raise ValueError(
-                "gate result requires exactly gate, status, evidence, findings, expires_at, independent_reviewer"
+                "gate result requires exactly gate, status, evidence, findings, "
+                "expires_at, independent_reviewer"
             )
         gate = LpGate(raw["gate"])
         status = GateStatus(raw["status"])

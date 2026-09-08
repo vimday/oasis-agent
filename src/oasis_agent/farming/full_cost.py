@@ -5,10 +5,8 @@ owner cash flows are disclosures, not a second debit. Evidence here is required
 but remains research evidence; this module cannot attest independent pricing.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from ..models.chain import BlockSnapshot
 from ..models.common import EvidenceRef, normalize_address
@@ -16,7 +14,7 @@ from .accounting_replay import PositionAccountingReplay
 from .position_ledger import build_position_token_ledger
 
 
-class CostCategory(str, Enum):
+class CostCategory(StrEnum):
     GAS = "gas"
     FAILED_EXECUTION = "failed_execution"
     REBALANCE = "rebalance"
@@ -29,7 +27,7 @@ class CostCategory(str, Enum):
     INVENTORY_RISK = "inventory_risk"
 
 
-class CostTreatment(str, Enum):
+class CostTreatment(StrEnum):
     EXTRA = "additional_debit"
     EMBEDDED = "already_in_nav_or_cashflow"
     NOT_APPLICABLE = "not_applicable"

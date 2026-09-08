@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..models.common import (
     BlockRef,
@@ -12,13 +10,13 @@ from ..models.common import (
 )
 
 
-class FlowClassification(str, Enum):
+class FlowClassification(StrEnum):
     EXTERNAL = "external"
     AFFILIATED = "affiliated"
     UNKNOWN = "unknown"
 
 
-class FlowEvidenceClaim(str, Enum):
+class FlowEvidenceClaim(StrEnum):
     CLASSIFICATION = "classification"
     AMOUNTS = "amounts"
     COSTS = "costs"

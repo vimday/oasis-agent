@@ -6,8 +6,6 @@ file with ``mode=ro``. Records are written through ``canonical_json`` so the
 server's canonical-JSON and hash-chain validation passes.
 """
 
-from __future__ import annotations
-
 import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -32,10 +30,12 @@ def build_shadow_db(path: Path, *, health_count: int = 1, decision_count: int = 
     db.execute("DROP TABLE IF EXISTS observations")
     db.execute("DROP TABLE IF EXISTS decisions")
     db.execute(
-        "CREATE TABLE observations (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+        "CREATE TABLE observations "
+        "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
     )
     db.execute(
-        "CREATE TABLE decisions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+        "CREATE TABLE decisions "
+        "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
     )
     health_digests: list[str] = []
     previous = ZERO_HASH

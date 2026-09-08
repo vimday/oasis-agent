@@ -5,10 +5,8 @@ canonical ``IV4Quoter`` single-pool calls and reject non-canonical return data s
 the acquisition layer can compare the same economic fact across providers.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
@@ -22,12 +20,12 @@ INT24_MIN = -(1 << 23)
 INT24_MAX = (1 << 23) - 1
 
 
-class QuoteKind(str, Enum):
+class QuoteKind(StrEnum):
     EXACT_INPUT = "exact_input"
     EXACT_OUTPUT = "exact_output"
 
 
-class QuoteDirection(str, Enum):
+class QuoteDirection(StrEnum):
     ZERO_FOR_ONE = "zero_for_one"
     ONE_FOR_ZERO = "one_for_zero"
 

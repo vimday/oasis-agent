@@ -2,7 +2,7 @@
 
 import pytest
 
-from scripts.testnet_lp_e2e import TESTNET, read_test_key, validate_transaction
+from scripts.testnet_lp_e2e import TESTNET, read_test_key, retained_budget, validate_transaction
 
 
 def transaction(**changes):
@@ -44,8 +44,6 @@ def test_dotenv_is_not_executed_or_interpolated(tmp_path):
 
 
 def test_interrupted_budget_append_cannot_reset_spending():
-    from scripts.testnet_lp_e2e import retained_budget
-
     assert retained_budget("", 100) == 0
     assert retained_budget('{"reserved_wei":40}\n{"reserved_wei":60}\n', 100) == 60
     for raw in (

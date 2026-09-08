@@ -1,7 +1,5 @@
 """Produce deterministic LP shadow features from agreed block-pinned inputs."""
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from decimal import Decimal, localcontext
 from itertools import pairwise

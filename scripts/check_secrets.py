@@ -1,7 +1,5 @@
 """Fail CI on new secret candidates; retain only reviewed non-secret fingerprints."""
 
-from __future__ import annotations
-
 import json
 import subprocess
 import sys
@@ -64,7 +62,8 @@ def main() -> None:
     if findings:
         raise SystemExit(1)
     print(
-        "Secret gate passed: no unreviewed candidates in code/config/test scope; no credential verification requests"
+        "Secret gate passed: no unreviewed candidates in code/config/test scope; "
+        "no credential verification requests"
     )
 
 

@@ -1,7 +1,5 @@
 """Alert evaluation over verified data sources (P3)."""
 
-from __future__ import annotations
-
 import hashlib
 import json
 import sqlite3

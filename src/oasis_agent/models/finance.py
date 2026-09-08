@@ -1,7 +1,6 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Self, final
 
 from .common import BlockRef, normalize_address, normalize_hash32
 
@@ -98,6 +97,7 @@ class TokenAmount:
             raise TypeError("token amount must be an integer base-unit amount")
 
 
+@final
 @dataclass(frozen=True, slots=True)
 class AssetPair:
     token0: TokenAmount
@@ -117,14 +117,14 @@ class AssetPair:
     def amount1(self) -> int:
         return self.token1.amount
 
-    def __add__(self, other: AssetPair) -> AssetPair:
+    def __add__(self, other: Self) -> Self:
         self._check_compatible(other)
         return AssetPair(
             TokenAmount(self.token0.token, self.token0.decimals, self.amount0 + other.amount0),
             TokenAmount(self.token1.token, self.token1.decimals, self.amount1 + other.amount1),
         )
 
-    def _check_compatible(self, other: AssetPair) -> None:
+    def _check_compatible(self, other: Self) -> None:
         if (self.token0.token, self.token1.token) != (other.token0.token, other.token1.token):
             raise ValueError("asset pairs use different token ordering")
         if (self.token0.decimals, self.token1.decimals) != (
@@ -133,7 +133,7 @@ class AssetPair:
         ):
             raise ValueError("asset pairs use different decimals")
 
-    def zero(self) -> AssetPair:
+    def zero(self) -> Self:
         return AssetPair(
             TokenAmount(self.token0.token, self.token0.decimals, 0),
             TokenAmount(self.token1.token, self.token1.decimals, 0),

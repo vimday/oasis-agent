@@ -7,8 +7,6 @@ fresh, complete, independently reviewed evidence can yield
 ``execution_eligible: true``, and any malformed or missing input fails closed.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path

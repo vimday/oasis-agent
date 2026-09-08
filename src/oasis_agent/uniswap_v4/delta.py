@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from ..errors import FeeEncodingError
 from ..models.v4 import BalanceDelta
 

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from ..uniswap_v4.liquidity_math import amounts_for_liquidity, sqrt_price_at_tick

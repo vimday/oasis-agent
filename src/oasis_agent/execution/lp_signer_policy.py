@@ -5,8 +5,6 @@ can call it before exposing its own capability. The strategy cannot override a
 denial or widen this frozen policy.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass, field
 
 from eth_abi.abi import decode, encode
@@ -25,7 +23,10 @@ from ..models.v4 import PoolKey
 from ..uniswap_v4.pool_id import pool_id_from_key
 from .lp_state_machine import LpIntent, LpIntentMode
 
-EXECUTE_TYPE = "(uint64,uint64,uint8,(address,address,uint24,int24,address),uint256,int24,int24,uint256,uint128,uint128,uint128,uint128,uint256,bytes)"
+EXECUTE_TYPE = (
+    "(uint64,uint64,uint8,(address,address,uint24,int24,address),uint256,"
+    "int24,int24,uint256,uint128,uint128,uint128,uint128,uint256,bytes)"
+)
 EXECUTE_SELECTOR = keccak(f"execute({EXECUTE_TYPE})".encode())[:4]
 
 

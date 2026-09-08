@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from ..errors import ExecutionBlockedError
 from ..models.execution import ArbitrageOpportunity, ExecutionMode, ExecutionRecord
 

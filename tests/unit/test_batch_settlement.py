@@ -130,7 +130,9 @@ def second_position(core, *, key, salt, params, amounts, paid):
                 logIndex=hex(3),
             )
         )
-        for i, (token, amount) in enumerate(zip((key.currency0, key.currency1), paid), 4):
+        for i, (token, amount) in enumerate(
+            zip((key.currency0, key.currency1), paid, strict=False), 4
+        ):
             r["result"]["logs"].append(
                 dict(
                     template,

@@ -5,8 +5,6 @@ never signs. Input producers must acquire genuine features and reconciliation;
 providing a JSON file does not prove their economic correctness.
 """
 
-from __future__ import annotations
-
 import argparse
 import time
 from pathlib import Path

@@ -1,7 +1,5 @@
 """Synthetic full-wire fixtures, never evidence of live chain profitability."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -10,17 +8,21 @@ import pytest
 from eth_abi.abi import encode
 from eth_hash.auto import keccak
 
+from oasis_agent.evidence.ingestion import IngestionTrust, persist_and_verify_block_range
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
+from oasis_agent.evidence.rpc_validation import restore_exchanges
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.position_capture import (
     PositionSnapshotCapture,
     collect_position_snapshot,
     persist_position_snapshot_evidence,
 )
+from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.client import RpcClient
 from oasis_agent.rpc.transport import JsonRpcTransport
-from tests.unit.test_position_dataset import scenario
+from tests.rpc_evidence_helpers import range_exchanges
+from tests.unit.test_position_dataset import CORE, scenario
 
 VIEW = "0x" + "99" * 20
 
@@ -204,11 +206,6 @@ def test_collector_rejects_block_reorg() -> None:
 
 
 def test_snapshot_and_event_evidence_feed_one_position_replay(tmp_path: Path) -> None:
-    from oasis_agent.evidence.ingestion import IngestionTrust, persist_and_verify_block_range
-    from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
-    from tests.rpc_evidence_helpers import range_exchanges
-    from tests.unit.test_position_dataset import CORE
-
     store = EvidenceStore(tmp_path / "pipeline.db")
     try:
         _, _, core, nft = scenario()
@@ -249,11 +246,6 @@ def test_snapshot_and_event_evidence_feed_one_position_replay(tmp_path: Path) ->
 
 
 def test_pipeline_rejects_fabricated_stored_event_envelopes(tmp_path: Path) -> None:
-    from oasis_agent.evidence.ingestion import persist_and_verify_block_range
-    from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
-    from tests.rpc_evidence_helpers import range_exchanges
-    from tests.unit.test_position_dataset import CORE
-
     store = EvidenceStore(tmp_path / "bad-pipeline.db")
     try:
         _, _, core, nft = scenario()
@@ -289,8 +281,6 @@ def test_pipeline_rejects_fabricated_stored_event_envelopes(tmp_path: Path) -> N
 
 @pytest.mark.parametrize("mutation", ["length", "metadata", "boolean_id", "hex", "duplicate_json"])
 def test_restored_envelopes_are_strict(tmp_path: Path, mutation: str) -> None:
-    from oasis_agent.evidence.rpc_validation import restore_exchanges
-
     store = EvidenceStore(tmp_path / "restore.db")
     try:
         capture = snapshot_capture()

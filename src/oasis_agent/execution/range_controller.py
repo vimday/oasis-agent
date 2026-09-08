@@ -18,23 +18,21 @@ cooldown/daily limits, state freshness, circuit breakers, post-action limits,
 and a successful pinned simulation.
 """
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 
 from .lp_state_machine import TickRange
 
 
-class TranchePurpose(str, Enum):
+class TranchePurpose(StrEnum):
     CORE_MARKET_MAKING = "core_market_making"
     OUTER_INVENTORY = "outer_inventory"
     IDLE_RESERVE = "idle_reserve"
 
 
-class LpActionType(str, Enum):
+class LpActionType(StrEnum):
     HOLD = "hold"
     REMOVE = "remove"
     RECENTER = "recenter"

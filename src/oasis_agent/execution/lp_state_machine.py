@@ -16,17 +16,15 @@ cannot create a second economic rebalance: once an intent hash has been
 consumed (submitted or later), recreating it requires a fresh nonce.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from ..errors import ExecutionBlockedError
 from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
 from ..uniswap_v4.liquidity_math import MAX_TICK, MIN_TICK
 
 
-class LpState(str, Enum):
+class LpState(StrEnum):
     OBSERVED = "observed"
     PROPOSED = "proposed"
     RESERVED = "reserved"
@@ -43,7 +41,7 @@ class LpState(str, Enum):
     HALTED = "halted"
 
 
-class LpIntentMode(str, Enum):
+class LpIntentMode(StrEnum):
     RECENTER = "recenter"
     REMOVE = "remove"
 

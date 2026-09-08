@@ -1,7 +1,5 @@
 """Bounded public-chain shadow health run; always HOLD/HALT, never trade."""
 
-from __future__ import annotations
-
 import argparse
 import subprocess
 import time

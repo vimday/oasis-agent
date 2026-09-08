@@ -1,7 +1,5 @@
 """Read-only cost evidence for a previously retained Base Sepolia transaction."""
 
-from __future__ import annotations
-
 import argparse
 import json
 from dataclasses import asdict

@@ -6,8 +6,6 @@ missing cash flows, prices, routing, or costs. Incomplete evidence and any
 unexplained residual fail closed. Results never authorize execution.
 """
 
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass, field
 
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
