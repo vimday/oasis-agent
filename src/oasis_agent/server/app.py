@@ -42,6 +42,7 @@ from .auth import OpsAuthorizer, OpsDisabledError
 from .chains import ChainRegistry, RpcProtocolError, RpcUnavailableError
 from .config import ServerConfig
 from .databases import ReadOnlyDatabases, ReadOnlyError
+from .routers_launch import router as launch_router
 from .routers_observe import router as observe_router
 from .routers_ops import router as ops_router
 from .routers_p3 import router as p3_router
@@ -67,7 +68,7 @@ _NO_ETAG_PATHS = _DOCS_PATHS | {"/"}
 # then multi-chain/alerts (P3). Adding a router here is the only registration
 # change needed to extend the API; its routes must use the ``/api/v1`` prefix
 # and the :class:`AppState` dependency for consistency.
-_ROUTERS = (observe_router, ops_router, p3_router)
+_ROUTERS = (observe_router, ops_router, p3_router, launch_router)
 
 _REQUEST_ID_HEX_LENGTH = 12
 _ACCESS_LOG_FORMAT = "request id=%s method=%s path=%s status=%d duration_ms=%d"

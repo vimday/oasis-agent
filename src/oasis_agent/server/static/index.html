@@ -134,11 +134,24 @@
     <button role="tab" id="tab-btn-ops" aria-controls="tab-ops" aria-selected="false" data-tab="ops">运行与操作</button>
     <button role="tab" id="tab-btn-gates" aria-controls="tab-gates" aria-selected="false" data-tab="gates">门禁审批</button>
     <button role="tab" id="tab-btn-chains" aria-controls="tab-chains" aria-selected="false" data-tab="chains">多链与警报</button>
+    <button role="tab" id="tab-btn-launch" aria-controls="tab-launch" aria-selected="false" data-tab="launch">Launch 观测</button>
   </nav>
 </header>
 
 <main>
   <!-- ============ OVERVIEW ============ -->
+  <div id="tab-launch" role="tabpanel" aria-labelledby="tab-btn-launch" class="tab">
+    <div class="panel"><h2>Launch · 仅观察 / 影子</h2>
+      <p>执行始终关闭。导入记录不代表链上已核实；实时 watcher、池适配与连续模拟尚未接入。</p>
+      <div id="launch-status" role="status"></div>
+      <h3>目标与控制面</h3><div class="table-wrap"><table id="launch-targets" aria-label="Launch targets"></table></div>
+      <h3>候选池 · G1–G11</h3><div class="table-wrap"><table id="launch-candidates" aria-label="Launch candidates"></table></div>
+      <h3>报价与 FDV（整数分数，USD micros）</h3><div class="table-wrap"><table id="launch-quotes" aria-label="Launch quotes"></table></div>
+      <h3>影子决策</h3><div class="table-wrap"><table id="launch-decisions" aria-label="Launch decisions"></table></div>
+      <h3>预授权状态</h3><div class="table-wrap"><table id="launch-approvals" aria-label="Launch approvals"></table></div>
+    </div>
+  </div>
+
   <div id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="tab active">
     <section class="card">
       <h2>系统状态 <span class="hint">/api/v1/status</span></h2>
@@ -850,6 +863,29 @@ async function loadAlerts() {
 }
 
 /* ---------- view wiring (the only place that maps tabs to loaders) ---------- */
+async function loadLaunch() {
+  const sections = ["targets", "candidates", "quotes", "decisions", "approvals"];
+  try {
+    const results = await Promise.all(sections.map(s => apiGet("/api/v1/launch/" + s)));
+    renderTable("launch-targets", ["目标", "CA", "链", "控制面", "Watcher", "停止"],
+      results[0].items.map(t => [esc(t.symbol), esc(t.target_ca), esc(t.chain_id), esc(t.control_status), esc(t.watcher_status), esc(t.stand_down)]), "未注册");
+    renderTable("launch-candidates", ["池", "token0 / token1", "流动性", "G1–G11"],
+      results[1].items.map(c => [esc(c.pool), esc(c.token0 + " / " + c.token1), esc(c.tradable),
+        esc(Object.entries(c.gates).map(([k,v]) => k + ": " + (v.passed ? "通过" : v.reasons.join(", "))).join(" · "))]), "尚无候选证据");
+    renderTable("launch-quotes", ["来源", "支出 USD micros", "ETH wei", "收到 base units", "FDV USD micros（分数）", "严格低于上限"],
+      results[2].items.map(q => [esc(q.source), esc(q.spend_usd_micros), esc(q.native_wei), esc(q.received_base_units),
+        esc(q.fdv_usd_micros_numerator + " / " + q.fdv_denominator), esc(q.fdv_below_cap)]), "尚无报价证据");
+    renderTable("launch-decisions", ["seq", "决定", "停止原因", "digest"],
+      results[3].items.map(d => [esc(d.seq), esc(d.decision), esc(d.stand_down_reasons.join(", ")), esc(d.digest)]), "尚无影子决策");
+    renderTable("launch-approvals", ["目标", "授权状态", "原因"],
+      results[4].items.map(a => [esc(a.target_ca), esc(a.status), esc(a.reason)]), "未验证授权");
+    $("launch-status").textContent = "状态: " + results[0].status + " · execution_eligible = false";
+  } catch {
+    sections.forEach(s => { $("launch-" + s).textContent = "数据不可用"; });
+    $("launch-status").textContent = "读取失败，停止展示旧数据";
+  }
+}
+registerView("launch", loadLaunch, true);
 registerView("overview", async () => { await Promise.all([loadStatus(), loadGates()]); }, true);
 registerView("decisions", loadDecisions);
 registerView("evidence", loadEvidence);

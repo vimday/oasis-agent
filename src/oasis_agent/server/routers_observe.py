@@ -26,6 +26,7 @@ from . import __version__
 from .chains import RpcProtocolError, decode_rpc_quantity
 from .databases import Page, ReadOnlyError
 from .deps import State
+from .routers_launch import launch_data
 from .schemas import (
     DATA_SCHEMAS,
     ENVELOPE_SCHEMAS,
@@ -179,10 +180,15 @@ async def decisions(
     limit: int = Query(default=50),
     offset: int = Query(default=0),
     decision: str | None = Query(default=None),
+    strategy: str = Query(default="lp", pattern="^(lp|launch)$"),
 ) -> dict[str, object]:
     limit = _require_limit(limit, state.config.max_rows_per_page)
     offset = _require_offset(offset, state.config.max_rows_per_page)
-    chain = state.databases.decision_chain()
+    chain = (
+        tuple(launch_data(state.config.databases.launch)[1])
+        if strategy == "launch"
+        else state.databases.decision_chain()
+    )
     if decision is not None:
         chain = tuple(item for item in chain if item.get("decision") == decision)
     page = _page(chain, offset, limit)
@@ -306,6 +312,7 @@ async def stream(websocket: WebSocket) -> None:
     await websocket.accept()
     state = websocket.app.state
     last_decision_seq = 0
+    last_launch_seq = 0
     sent_any = False
     last_heartbeat = 0.0
     try:
@@ -330,6 +337,17 @@ async def stream(websocket: WebSocket) -> None:
                 sent_any = True
                 last_heartbeat = now
                 await websocket.send_json({"type": "heartbeat", "seq": latest_seq})
+            if state.config.databases.launch is not None:
+                try:
+                    _, launch_records = launch_data(state.config.databases.launch)
+                except HTTPException:
+                    await websocket.send_json({"type": "launch_error", "status": "unavailable"})
+                    await websocket.close(code=1011)
+                    return
+                fresh = [item for item in launch_records if item["seq"] > last_launch_seq]
+                if fresh:
+                    last_launch_seq = fresh[-1]["seq"]
+                    await websocket.send_json({"type": "launch_decisions", "items": fresh})
             await asyncio.sleep(_WS_POLL_SECONDS)
     except WebSocketDisconnect:
         return

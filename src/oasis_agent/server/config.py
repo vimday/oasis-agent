@@ -21,6 +21,7 @@ from ..errors import ConfigurationError
 @dataclass(frozen=True, slots=True)
 class ServerDatabaseConfig:
     shadow: Path | None = None
+    launch: Path | None = None
     evidence: Path | None = None
     execution: Path | None = None
     ops: Path = Path("data/server_ops.db")
@@ -127,7 +128,9 @@ _ROOT_KEYS = frozenset(
         "chains",
     }
 )
-_DATABASE_KEYS = frozenset({"shadow", "evidence", "execution", "ops", "readiness_manifest"})
+_DATABASE_KEYS = frozenset(
+    {"shadow", "launch", "evidence", "execution", "ops", "readiness_manifest"}
+)
 _RUNNER_KEYS = frozenset({"command", "timeout_seconds", "max_concurrent"})
 _CHAIN_KEYS = frozenset(
     {"chain_id", "name", "rpc_url", "rpc_url_env", "pool_manager", "cache_seconds"}
@@ -177,6 +180,7 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
     _reject_unknown_keys(databases_raw, _DATABASE_KEYS, "databases")
     databases = ServerDatabaseConfig(
         shadow=_strict_path(databases_raw.get("shadow"), "databases.shadow"),
+        launch=_strict_path(databases_raw.get("launch"), "databases.launch"),
         evidence=_strict_path(databases_raw.get("evidence"), "databases.evidence"),
         execution=_strict_path(databases_raw.get("execution"), "databases.execution"),
         ops=Path(
@@ -188,6 +192,7 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
     )
     for name, value in (
         ("databases.shadow", databases.shadow),
+        ("databases.launch", databases.launch),
         ("databases.evidence", databases.evidence),
         ("databases.execution", databases.execution),
         ("databases.readiness_manifest", databases.readiness_manifest),

@@ -1,11 +1,14 @@
 import json
 import random
+import ssl
 import time
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol, cast
+
+import certifi
 
 from ..errors import RpcError
 
@@ -32,6 +35,15 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         raise RpcError("RPC redirects are forbidden")
 
 
+# Some public RPC endpoints (e.g. mainnet.base.org) reject the default
+# "Python-urllib" User-Agent with HTTP 403. A neutral browser-like header is
+# required for those providers to serve reads at all.
+_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
+)
+
+
 class _UrlLibPoster:
     def __init__(self, url: str, timeout: float) -> None:
         parsed = urllib.parse.urlsplit(url)
@@ -42,14 +54,21 @@ class _UrlLibPoster:
             raise ValueError("RPC requires an HTTP(S) endpoint")
         self.url = url
         self.timeout = timeout
+        # Python.org builds do not always ship a system CA store; certifi's
+        # Mozilla bundle keeps TLS verification deterministic across machines.
+        self._opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
+            _NoRedirect(),
+        )
 
     def post(self, payload: bytes) -> bytes:
         request = urllib.request.Request(
-            self.url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+            self.url,
+            data=payload,
+            headers={"Content-Type": "application/json", "User-Agent": _USER_AGENT},
+            method="POST",
         )
-        with urllib.request.build_opener(_NoRedirect()).open(
-            request, timeout=self.timeout
-        ) as response:
+        with self._opener.open(request, timeout=self.timeout) as response:
             return cast(bytes, response.read())
 
 

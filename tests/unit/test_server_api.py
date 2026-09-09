@@ -435,7 +435,16 @@ def test_dashboard_views_match_tabs():
     # The extensibility contract: every navigation button is wired to a
     # registered view and no view is registered without a tab.
     assert tabs == views
-    assert len(tabs) == 7
+    assert tabs == {
+        "overview",
+        "decisions",
+        "evidence",
+        "execution",
+        "ops",
+        "gates",
+        "chains",
+        "launch",
+    }
 
 
 def test_dashboard_core_capabilities_present():
