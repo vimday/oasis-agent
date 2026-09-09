@@ -1,0 +1,71 @@
+{
+  "schema": "oasis.launch-preapproval-manifest.v1",
+  "chain_id": 8453,
+  "pinned_block": 51048769,
+  "pinned_block_hash": "0xb98e99afbfb45a4a87ec5a80d0fc5a2463ecdbe4ba27d485a3bfe80573571efa",
+  "retrieved_at_utc": "2026-09-09T00:00:00Z",
+  "wallet": "0xE653dF20A8c525eDF381942fFC47704B7bDFe97d",
+  "wallet_balance_wei": "220000000000000000",
+  "nonce_plan": [0, 1, 2],
+  "status": "prepared_not_broadcast",
+  "broadcast_policy": "requires_explicit_user_approval",
+  "token": {
+    "address": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+    "symbol": "LAPTOP",
+    "decimals": 18,
+    "total_supply_base_units": "1000000000000000000000000000",
+    "reference_supply_tokens": 1000000000
+  },
+  "allowance_policy": {
+    "per_venue_base_units": "250000000000000000000000",
+    "per_venue_tokens": 250000,
+    "implied_min_entry_fdv_usd": 1000000,
+    "note": "bound covers a full 500 USD position at any entry FDV >= 1M USD, and covers both the 10x-profit half-sell and a full stop-loss exit; adjust before broadcast if a different floor is desired"
+  },
+  "permit2": {
+    "address": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    "expiration_ts": 1791478885,
+    "expiration_note": "block-1788886885 + 30 days"
+  },
+  "transactions": [
+    {
+      "seq": 1,
+      "purpose": "LAPTOP ERC-20 allowance to Permit2 (required for Universal Router pull)",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "value_wei": 0,
+      "data": "0x095ea7b3000000000000000000000000000000000022d473030f116ddee9f6b43ac78ba30000000000000000000000000000000000000000000034f086f3b33b68400000",
+      "decoded": "approve(0x000000000022D473030F116dDEE9F6B43aC78BA3, 250000000000000000000000)",
+      "gas_estimate": 46758
+    },
+    {
+      "seq": 2,
+      "purpose": "Permit2 time-boxed allowance to Uniswap Universal Router",
+      "to": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "value_wei": 0,
+      "data": "0x87517c45000000000000000000000000b095274743941e953c746f9c228da9c18bb6ec290000000000000000000000003fc91a3afd70395cd496c647d5a6cc9d4b2b7fad0000000000000000000000000000000000000000000034f086f3b33b68400000000000000000000000000000000000000000000000000000000000006ac7cc65",
+      "decoded": "approve(0xb095274743941e953c746f9c228da9c18bb6ec29, 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD, 250000000000000000000000, 1791478885)",
+      "gas_estimate": 48035
+    },
+    {
+      "seq": 3,
+      "purpose": "LAPTOP ERC-20 allowance to Aerodrome Router",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "value_wei": 0,
+      "data": "0x095ea7b3000000000000000000000000cf77a3ba9a5ca399b7c97c74d54e5b1beb874e430000000000000000000000000000000000000000000034f086f3b33b68400000",
+      "decoded": "approve(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43, 250000000000000000000000)",
+      "gas_estimate": 46818
+    }
+  ],
+  "total_gas_estimate": 141611,
+  "venues": {
+    "uniswap_universal_router": "0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD",
+    "aerodrome_router": "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43"
+  },
+  "unresolved_before_broadcast": [
+    "bytecode pinning of Permit2 / Universal Router / Aerodrome Router at broadcast block",
+    "nonce re-check at broadcast block",
+    "LAPTOP pool venue (Uniswap vs Aerodrome) is not yet observable; both venues pre-authorized to cover either launch",
+    "approval tx ordering vs other pending txs from this wallet"
+  ],
+  "exit_strategy_recorded": "sell 50% of position at >=10x entry profit; FDV cap (200M USD) applies to buy side only"
+}

@@ -1,0 +1,60 @@
+{
+  "schema": "oasis.launch-preapproval-broadcast-record.v1",
+  "user_authorization": "explicit user confirmation to broadcast the three approval transactions",
+  "amendment": "reports/evidence/2026-09-09-launch-preapproval/amendment-max-allowance.json",
+  "broadcast_at_utc": "2026-09-08T17:44:52Z",
+  "chain": {
+    "chain_id": 8453,
+    "lock_block_primary": 51050061,
+    "lock_block_alchemy": 51050061
+  },
+  "wallet": {
+    "address": "0xE653dF20A8c525eDF381942fFC47704B7bDFe97d",
+    "balance_eth_before": 0.22
+  },
+  "gas": {
+    "gas_price_gwei_before": 0.006,
+    "gas_used_total": 141180
+  },
+  "transactions": [
+    {
+      "seq": 1,
+      "nonce": 0,
+      "purpose": "LAPTOP ERC-20 allowance to Permit2 (required for Universal Router pull)",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "tx_hash": "0x63fd921714cf3277b2a06fde4c31b12d72ce8bf2573b81f89e65aa2b4a268407",
+      "block": 51050064,
+      "status": 1,
+      "gas_used": 46663
+    },
+    {
+      "seq": 2,
+      "nonce": 1,
+      "purpose": "Permit2 time-boxed allowance to Uniswap Universal Router",
+      "to": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "data": "0x87517c45000000000000000000000000b095274743941e953c746f9c228da9c18bb6ec290000000000000000000000003fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000006ac7cc65",
+      "tx_hash": "0x861dcd84a7512740104f0caae41f66d9e35fef81389154aaf060d6b5d08ee166",
+      "block": 51050064,
+      "status": 1,
+      "gas_used": 47794
+    },
+    {
+      "seq": 3,
+      "nonce": 2,
+      "purpose": "LAPTOP ERC-20 allowance to Aerodrome Router",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000cF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "tx_hash": "0xc64f97a18e538c34801c2d2234298f059213cea6e9b7a83db45d1a0a6eb7080a",
+      "block": 51050065,
+      "status": 1,
+      "gas_used": 46723
+    }
+  ],
+  "allowance_verification": {
+    "LAPTOP.allowance(wallet, Permit2)": 115792089237316195423570985008687907853269984665640564039457584007913129639935,
+    "Permit2.allowance(wallet, LAPTOP, UniRouter)": 19595533242629369747791401605606558418088927130474056037003719605365707440267995136330167869414936445357286797456774127976920669725824593903054923801409551843918751251145229978257673865479810548980776960,
+    "LAPTOP.allowance(wallet, AeroRouter)": 115792089237316195423570985008687907853269984665640564039457584007913129639935
+  },
+  "status": "broadcast_confirmed"
+}

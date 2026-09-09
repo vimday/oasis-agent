@@ -1,0 +1,67 @@
+{
+  "schema": "oasis.launch-preapproval-verification.v1",
+  "verified_at_utc": "2026-09-09T00:00:00Z",
+  "supplements": "reports/evidence/2026-09-09-launch-preapproval/manifest.json",
+  "chain": {
+    "chain_id": 8453,
+    "block": 51049557,
+    "block_agreement": "primary==alchemy"
+  },
+  "wallet": {
+    "address": "0xE653dF20A8c525eDF381942fFC47704B7bDFe97d",
+    "derived_from_env_private_key": true,
+    "balance_wei": "220000000000000000",
+    "balance_eth": 0.22,
+    "balance_agreement": "primary==alchemy",
+    "nonce": 0,
+    "nonce_matches_manifest_plan": true
+  },
+  "contract_presence": {
+    "laptop_0xb095274743941e953c746f9c228da9c18bb6ec29": {
+      "code_bytes": 12802,
+      "decimals": 18,
+      "total_supply_base_units": "1000000000000000000000000000",
+      "symbol_contains": "LAPTOP",
+      "matches_manifest": true
+    },
+    "permit2_0x000000000022D473030F116dDEE9F6B43aC78BA3": {
+      "code_bytes": 9152,
+      "runtime_keccak": "0xa67739abc3ede9dbdc0491636c67d6a14ac07fab9030c3f509b1eb7b11dff8ed",
+      "canonical_permits": true
+    },
+    "uniswap_universal_router_0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD": {
+      "code_bytes": 17958,
+      "runtime_keccak": "0x22012aadd3eee0619c2f965721019fa66ae1b6218556ef7f985f842a9b72c899",
+      "matches_standard_base_deployment": true
+    },
+    "aerodrome_router_0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43": {
+      "code_bytes": 23581,
+      "runtime_keccak": "0x8efb4345abb93beb898eb5674f03118003594d744fcb9eb0f261cf942b609146",
+      "matches_known_aerodrome_router": true
+    }
+  },
+  "allowances_current": {
+    "LAPTOP.allowance(wallet, Permit2)": 0,
+    "LAPTOP.allowance(wallet, UniRouter)": 0,
+    "LAPTOP.allowance(wallet, AeroRouter)": 0,
+    "Permit2.allowance(wallet, LAPTOP, UniRouter)": 0
+  },
+  "gas_reestimate_block_51049557": {
+    "tx1_approve_permit2": {"primary": 46758, "alchemy": 46758},
+    "tx2_permit2_approve_unirouter": {"primary": 48035, "alchemy": 48035},
+    "tx3_approve_aerodrome": {"primary": "transient ssl error", "alchemy": 46818},
+    "gas_price_gwei": 0.006,
+    "total_estimated_cost_eth": "negligible (< 0.00001)"
+  },
+  "venue_authority": {
+    "uniswap_universal_router": "canonical Base deployment (same address across EVM chains)",
+    "aerodrome_router": "Aerodrome is Base's dominant DEX (~60%+ volume share)",
+    "both_venues_preauthorized": true
+  },
+  "findings": {
+    "allowance_covers_half_sell": "250000 LAPTOP per venue covers selling 50% of a full 500 USD position at entry FDV >= 1M USD",
+    "manifest_note_overstates": "manifest note claims full stop-loss exit coverage; 250000 covers half-sell only, a full exit of a 500k-token position would need 500000",
+    "sub_1m_fdv_gap": "entries below 1M USD FDV can exceed the 250000 allowance on the sell side, requiring a fresh approval at sell time",
+    "execution_status": "approvals prepared, not broadcast; no execution path exists in code (execution_eligible always False)"
+  }
+}

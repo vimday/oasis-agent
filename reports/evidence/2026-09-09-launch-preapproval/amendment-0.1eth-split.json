@@ -1,0 +1,53 @@
+{
+  "schema": "oasis.launch-preapproval-amendment.v1",
+  "supersedes_allowance_policy_of": "reports/evidence/2026-09-09-launch-preapproval/manifest.json",
+  "created_at_utc": "2026-09-08T17:31:16.142400+00:00",
+  "strategy": "buy in 2 tranches of 0.1 ETH each (0.2 ETH total)",
+  "sell_half_authority_wei": "100000000000000000",
+  "sell_half_authority_note": "50% of total position at >=10x entry profit; authority equals 0.1 ETH worth of LAPTOP",
+  "allowance_policy": {
+    "per_venue_base_units": "500000000000000000000000",
+    "per_venue_tokens": 500000,
+    "coverage": "half-sell of a 0.2 ETH position at entry FDV >= 1M USD with ETH up to ~5000 USD",
+    "not_covering": "full-position exit or sub-660k-USD entry FDV; those paths need a fresh approval at sell time"
+  },
+  "transactions": [
+    {
+      "seq": 1,
+      "purpose": "LAPTOP ERC-20 allowance to Permit2 (required for Universal Router pull)",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA30000000000000000000000000000000000000000000069e10de76676d0800000",
+      "decoded": "approve(0x000000000022D473030F116dDEE9F6B43aC78BA3, 500000000000000000000000)",
+      "gas_estimate": {
+        "primary": 46758,
+        "alchemy": 46758
+      }
+    },
+    {
+      "seq": 2,
+      "purpose": "Permit2 time-boxed allowance to Uniswap Universal Router",
+      "to": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "data": "0x87517c45000000000000000000000000b095274743941e953c746f9c228da9c18bb6ec290000000000000000000000003fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD0000000000000000000000000000000000000000000069e10de76676d0800000000000000000000000000000000000000000000000000000000000006ac7cc65",
+      "decoded": "approve(0xb095274743941e953c746f9c228da9c18bb6ec29, 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD, 500000000000000000000000, 1791478885)",
+      "gas_estimate": {
+        "primary": 48035,
+        "alchemy": 48035
+      }
+    },
+    {
+      "seq": 3,
+      "purpose": "LAPTOP ERC-20 allowance to Aerodrome Router",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000cF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E430000000000000000000000000000000000000000000069e10de76676d0800000",
+      "decoded": "approve(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43, 500000000000000000000000)",
+      "gas_estimate": {
+        "primary": 46818,
+        "alchemy": 46818
+      }
+    }
+  ],
+  "status": "prepared_not_broadcast",
+  "broadcast_policy": "requires_explicit_user_approval",
+  "gas_price_gwei": 0.006,
+  "block_at_estimate": 51049709
+}

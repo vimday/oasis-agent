@@ -1,0 +1,55 @@
+{
+  "schema": "oasis.launch-preapproval-amendment.v2",
+  "supersedes": "reports/evidence/2026-09-09-launch-preapproval/amendment-0.1eth-split.json",
+  "created_at_utc": "2026-09-08T17:41:35.138477+00:00",
+  "owner_decision": "no position cap drives the allowance; authorize all LAPTOP held or later acquired (max uint256)",
+  "allowance_policy": {
+    "mechanism": "max_uint256 for ERC-20 approvals; max_uint160 for Permit2 (uint160 amount type)",
+    "per_venue_base_units": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    "permit2_base_units": "1461501637330902918203684832716283019655932542975",
+    "per_venue_tokens": "unbounded (all current and future LAPTOP)",
+    "expiry": "Permit2 layer only (1791478885); ERC-20 approvals have no native expiry",
+    "revocable": "yes, via approve(spender, 0) at any time"
+  },
+  "threat_note": "max allowance means a compromised or exploited router can move ALL wallet LAPTOP, including tokens acquired later. Mitigations: Permit2 expiry, revocation capability, router address pinning, and this audit record. This overrides the earlier bounded-allowance policy.",
+  "transactions": [
+    {
+      "seq": 1,
+      "purpose": "LAPTOP ERC-20 allowance to Permit2 (required for Universal Router pull)",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000000000000022D473030F116dDEE9F6B43aC78BA3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "decoded": "approve(0x000000000022D473030F116dDEE9F6B43aC78BA3, max_uint256)",
+      "gas_estimate": {
+        "primary": 47046,
+        "alchemy": 47046
+      }
+    },
+    {
+      "seq": 2,
+      "purpose": "Permit2 time-boxed allowance to Uniswap Universal Router",
+      "to": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      "data": "0x87517c45000000000000000000000000b095274743941e953c746f9c228da9c18bb6ec290000000000000000000000003fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000006ac7cc65",
+      "decoded": "approve(0xb095274743941e953c746f9c228da9c18bb6ec29, 0x3fC91A3afd70395Cd496C647d5a6CC9D4B2b7FAD, max_uint160, 1791478885)",
+      "gas_estimate": {
+        "primary": 48180,
+        "alchemy": 48180
+      }
+    },
+    {
+      "seq": 3,
+      "purpose": "LAPTOP ERC-20 allowance to Aerodrome Router",
+      "to": "0xb095274743941e953c746f9c228da9c18bb6ec29",
+      "data": "0x095ea7b3000000000000000000000000cF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "decoded": "approve(0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43, max_uint256)",
+      "gas_estimate": {
+        "primary": 47106,
+        "alchemy": 47106
+      }
+    }
+  ],
+  "status": "prepared_not_broadcast",
+  "broadcast_policy": "requires_explicit_user_approval",
+  "gas_price_gwei": 0.006,
+  "block_at_estimate": 51049982,
+  "wallet_nonce": 0
+}
