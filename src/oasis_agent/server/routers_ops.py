@@ -82,6 +82,27 @@ async def list_runs(
     }
 
 
+@router.post("/runs/{run_id}/stop")
+async def stop_run(state: State, run_id: str, authorization: Bearer = None) -> dict[str, object]:
+    actor = _actor_from_token(authorization, state)
+    if state.runner is None:
+        raise HTTPException(status_code=503, detail="shadow runner is not configured")
+    if state.journal.get_run(run_id) is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    try:
+        run = state.runner.stop(run_id)
+    except RunRejected as exc:
+        raise HTTPException(status_code=409, detail=exc.reason) from exc
+    state.journal.record(
+        action="stop_shadow_run",
+        actor=actor,
+        params={"run_id": run_id},
+        result="accepted",
+        detail="observation process stop requested",
+    )
+    return {"schema": "oasis.server.run.v1", "run_id": run_id, "status": run.status}
+
+
 @router.get("/runs/{run_id}")
 async def run_detail(state: State, run_id: str) -> dict[str, object]:
     run = state.journal.get_run(run_id)

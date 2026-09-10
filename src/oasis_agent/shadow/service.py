@@ -143,6 +143,12 @@ def parse_policy(raw: bytes) -> dict[str, Any]:
     values: dict[str, Any] = json.loads(raw, object_pairs_hook=_unique_object)
     if not isinstance(values, dict):
         raise TypeError("shadow policy must be an object")
+    expected = {"chain_id", "max_age_seconds", "strategy", "min_benefit", "canary_limits"}
+    if set(values) != expected:
+        raise ValueError("shadow policy requires exactly the declared policy fields")
+    for name in ("chain_id", "max_age_seconds"):
+        if type(values[name]) is not int or not 0 < values[name] < 2**256:
+            raise ValueError("positive bounded chain and age limits required")
     serializable(values)
     strategy = values.pop("strategy")
     for name in (

@@ -1,5 +1,6 @@
 """Read-only JSON-RPC client and chain registry (P3)."""
 
+import asyncio
 import json
 
 import httpx
@@ -147,3 +148,56 @@ async def test_registry_caches_clients_per_chain():
     second = registry.client(46630)
     assert first is second
     await registry.close()
+
+
+@pytest.mark.anyio
+async def test_concurrent_identical_polls_share_one_rpc_request():
+    calls = 0
+
+    async def handler(request):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.01)
+        return ok_handler(request)
+
+    client = ReadOnlyRpcClient(chain(), transport=transport(handler))
+    try:
+        results = await asyncio.gather(*(client.call("eth_chainId", []) for _ in range(20)))
+        assert calls == 1
+        assert all(result.result == "0x4663" for result in results)
+    finally:
+        await client.close()
+
+
+@pytest.mark.anyio
+async def test_provider_errors_do_not_disclose_rpc_credentials():
+    def handler(request):
+        return httpx.Response(
+            200,
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "error": {"message": "https://rpc.test/private-value", "code": -32000},
+            },
+        )
+
+    client = ReadOnlyRpcClient(chain(), transport=transport(handler))
+    try:
+        with pytest.raises(RpcProtocolError) as error:
+            await client.call("eth_chainId", [])
+        assert "private-value" not in str(error.value)
+    finally:
+        await client.close()
+
+
+@pytest.mark.anyio
+async def test_http_error_cannot_be_cached_as_success():
+    def handler(request):
+        return httpx.Response(503, json={"jsonrpc": "2.0", "id": 1, "result": "0x1"})
+
+    client = ReadOnlyRpcClient(chain(), transport=transport(handler))
+    try:
+        with pytest.raises(RpcUnavailableError):
+            await client.call("eth_chainId", [])
+    finally:
+        await client.close()

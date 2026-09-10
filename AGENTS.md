@@ -93,7 +93,9 @@ autonomous trader. Its current verified boundary is:
 - `src/oasis_agent/server` and `scripts/run_server.py` provide a read-only FastAPI observation
   server and single-file dashboard (health/status/observations/decisions/evidence/readiness/
   execution-journal/chains/alerts endpoints, a WebSocket decision stream, and token-authorized
-  shadow-run triggers and two-person gate approvals) that re-validates hash-linked chains on
+  shadow-run triggers and two-person gate approvals), plus versioned LP shadow / Launch observe
+  campaigns with session RPC profiles, isolated retained inputs, idempotent start, process-group
+  stop and restart recovery. It re-validates hash-linked chains on
   every read and never imports signing or broadcast capability; it is wired to no live strategy
   and `execution_eligible`/`lp_readiness` gates remain closed;
 - `execution/lp_journal.py` provides SQLite account/nonce reservation, competing-writer guards,

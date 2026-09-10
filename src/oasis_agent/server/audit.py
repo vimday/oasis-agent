@@ -36,6 +36,8 @@ class OpsRun:
 
 
 def _redact(text: str) -> str:
+    text = re.sub(r"(?i)https?://[^\s<>\"']+", "[RPC URL redacted]", text)
+    text = re.sub(r"(?i)\b(?:0x)?[0-9a-f]{64,}\b", "[hex material redacted]", text)
     redacted = re.sub(r"(?i)(token|secret|key|password)(\s*[=:]\s*)(\S+)", r"\1\2***", text)
     redacted = re.sub(r"(?i)(Bearer\s+)[A-Za-z0-9._~+/=-]+", r"\1***", redacted)
     return redacted[-_DETAIL_LIMIT:] if len(redacted) > _DETAIL_LIMIT else redacted
@@ -186,6 +188,12 @@ class ServerOpsJournal:
 
     def mark_started(self, run_id: str) -> None:
         self._update_run(run_id, status="running", started_at=self._now())
+
+    def mark_stopping(self, run_id: str) -> None:
+        self._update_run(run_id, status="stopping")
+
+    def mark_stopped(self, run_id: str) -> None:
+        self._update_run(run_id, status="stopped", exit_code=-1, finished_at=self._now())
 
     def mark_finished(self, run_id: str, *, exit_code: int, stdout: str, stderr: str) -> None:
         self._update_run(

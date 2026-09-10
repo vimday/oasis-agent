@@ -45,6 +45,13 @@ class ServerChainConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class ServerCampaignInput:
+    name: str
+    input: Path
+    evidence: Path
+
+
+@dataclass(frozen=True, slots=True)
 class ServerConfig:
     host: str
     port: int
@@ -56,6 +63,8 @@ class ServerConfig:
     databases: ServerDatabaseConfig
     shadow_runner: ServerShadowRunnerConfig | None
     chains: tuple[ServerChainConfig, ...]
+    campaign_inputs: tuple[ServerCampaignInput, ...] = ()
+    campaign_rpc_envs: tuple[str, ...] = ("BASE_RPC_PRIMARY", "BASE_RPC_SECONDARY")
 
 
 def _secret_keys(value: object, prefix: str = "") -> list[str]:
@@ -126,6 +135,8 @@ _ROOT_KEYS = frozenset(
         "databases",
         "shadow_runner",
         "chains",
+        "campaign_inputs",
+        "campaign_rpc_envs",
     }
 )
 _DATABASE_KEYS = frozenset(
@@ -285,6 +296,36 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
     if len({chain.chain_id for chain in chains}) != len(chains):
         raise ConfigurationError("duplicate chain_id in chains")
 
+    inputs_raw = raw.get("campaign_inputs", [])
+    if not isinstance(inputs_raw, list):
+        raise ConfigurationError("campaign_inputs must be a list")
+    inputs: list[ServerCampaignInput] = []
+    for item in inputs_raw:
+        if not isinstance(item, dict) or set(item) != {"name", "input", "evidence"}:
+            raise ConfigurationError("campaign input requires name, input and evidence")
+        name = item["name"]
+        if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", name):
+            raise ConfigurationError("invalid campaign input name")
+        paths = []
+        for field in ("input", "evidence"):
+            path_value = _strict_path(item[field], field)
+            if path_value is None or not path_value.is_file():
+                raise ConfigurationError("campaign input files must exist")
+            paths.append(path_value.resolve())
+        inputs.append(ServerCampaignInput(name, paths[0], paths[1]))
+    if len({item.name for item in inputs}) != len(inputs):
+        raise ConfigurationError("duplicate campaign input name")
+    rpc_envs = raw.get("campaign_rpc_envs", ["BASE_RPC_PRIMARY", "BASE_RPC_SECONDARY"])
+    if (
+        not isinstance(rpc_envs, list)
+        or any(
+            not isinstance(name, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", name)
+            for name in rpc_envs
+        )
+        or len(set(rpc_envs)) != len(rpc_envs)
+    ):
+        raise ConfigurationError("unique campaign RPC environment names required")
+
     return ServerConfig(
         host=host,
         port=port,
@@ -296,4 +337,6 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
         databases=databases,
         shadow_runner=runner,
         chains=tuple(chains),
+        campaign_inputs=tuple(inputs),
+        campaign_rpc_envs=tuple(rpc_envs),
     )

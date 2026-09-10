@@ -1,0 +1,22 @@
+{
+  "amount_in_wei": 100000000000000000,
+  "block": 51087820,
+  "block_hash": "0xb54d73c5f0d0b6e01d0bf586a735e40bde9cc383cb1ece76ebff9923d1d8fc6f",
+  "broadcast": false,
+  "chain_id": 8453,
+  "method": "eth_call",
+  "pool": "0x7ed7bfbcc7167fcb87f43ca730548dd52547e774",
+  "recorded_at": 1788965878,
+  "results": [
+    {
+      "elapsed_ms": 366,
+      "error": "execution_reverted code=3 revert=SPL",
+      "provider": "primary"
+    },
+    {
+      "elapsed_ms": 500,
+      "error": "execution_reverted code=3 revert=SPL",
+      "provider": "secondary"
+    }
+  ]
+}

@@ -15,6 +15,8 @@ integration tests must not be interpreted as Robinhood fork validation or live p
 
 ## Start here
 
+- [LP / Launch dashboard controls](docs/operations/LP_LAUNCH_CONTROLS.md): versioned configuration, RPC profiles, isolated observation runs and stop/recovery behavior.
+
 - [Multi-chain LP and settlement evidence](docs/architecture/MULTICHAIN_LP_EVIDENCE.md): network
   boundaries, receipt/trace adapter, testnet probe and remaining owner-settlement work.
 

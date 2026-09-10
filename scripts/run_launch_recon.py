@@ -19,14 +19,11 @@ def main() -> None:
     parser.add_argument("--report", type=Path, required=True)
     args = parser.parse_args()
     urls = (
-        os.environ.get("BASE_RPC_PRIMARY") or os.environ.get("BASE_ALCHEMY_RPC_URL") or "",
-        os.environ.get("BASE_RPC_SECONDARY") or os.environ.get("BASE_RPC_URL") or "",
+        os.environ.get("BASE_RPC_PRIMARY") or "",
+        os.environ.get("BASE_RPC_SECONDARY") or "",
     )
     if not all(urls) or urls[0] == urls[1]:
-        parser.error(
-            "two distinct endpoints required: BASE_RPC_PRIMARY/BASE_ALCHEMY_RPC_URL and "
-            "BASE_RPC_SECONDARY/BASE_RPC_URL"
-        )
+        parser.error("two distinct endpoints required: BASE_RPC_PRIMARY and BASE_RPC_SECONDARY")
     recorders = (BoundedExchangeRecorder(), BoundedExchangeRecorder())
     transports = tuple(
         JsonRpcTransport(url, timeout=10, retries=0, recorder=recorder)

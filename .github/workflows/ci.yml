@@ -30,8 +30,12 @@ jobs:
           cache-dependency-path: requirements-dev.lock
       - name: Install Python dependencies
         run: make install
+      - name: Set up Node.js for dashboard syntax validation
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.2.0
+        with:
+          node-version: "22.14.0"
       - name: Run Python gate
-        run: make python-check security-check
+        run: make python-check frontend-check security-check
 
   contracts:
     name: Solidity hook

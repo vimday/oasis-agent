@@ -115,3 +115,61 @@ def test_spawn_failure_is_journaled_as_failed(tmp_path):
     finally:
         coord.close()
         loop.close()
+
+
+def test_stop_queued_run_never_spawns_and_is_idempotent(tmp_path):
+    marker = tmp_path / "spawned"
+    coord, journal, loop = coordinator(
+        tmp_path, command=(sys.executable, "-c", f"open({str(marker)!r}, 'w').close()")
+    )
+    try:
+        run = coord.trigger()
+        assert coord.stop(run.run_id).status == "stopping"
+        coord.stop(run.run_id)
+        run_loop(loop, 0.1)
+        assert not marker.exists()
+        assert journal.get_run(run.run_id).status == "stopped"
+        assert coord.stop(run.run_id).status == "stopped"
+    finally:
+        loop.run_until_complete(coord.aclose())
+        loop.close()
+        journal.close()
+
+
+def test_shutdown_reaps_running_process_before_journal_close(tmp_path):
+    coord, journal, loop = coordinator(
+        tmp_path, command=(sys.executable, "-c", "import time; time.sleep(30)")
+    )
+    try:
+        run = coord.trigger()
+        run_loop(loop, 0.1)
+        loop.run_until_complete(coord.aclose())
+        assert journal.get_run(run.run_id).status == "stopped"
+        assert not asyncio.all_tasks(loop)
+        with pytest.raises(RunRejected, match="closed"):
+            coord.trigger()
+    finally:
+        loop.close()
+        journal.close()
+
+
+def test_output_retention_is_bounded_and_secret_free(tmp_path):
+    coord, journal, loop = coordinator(
+        tmp_path,
+        command=(
+            sys.executable,
+            "-c",
+            "print('x' * 2000000); print('https://rpc.test/private-value')",
+        ),
+    )
+    try:
+        run = coord.trigger()
+        run_loop(loop, 1)
+        recorded = journal.get_run(run.run_id)
+        assert recorded.status == "succeeded"
+        assert len(recorded.stdout_tail) <= 2000
+        assert "private-value" not in recorded.stdout_tail
+    finally:
+        loop.run_until_complete(coord.aclose())
+        loop.close()
+        journal.close()

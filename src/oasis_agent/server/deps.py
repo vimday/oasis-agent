@@ -16,6 +16,7 @@ from fastapi import Depends, Request
 
 from .audit import ServerOpsJournal
 from .auth import OpsAuthorizer
+from .campaigns import CampaignManager
 from .chains import ChainRegistry
 from .config import ServerConfig
 from .databases import ReadOnlyDatabases
@@ -32,6 +33,7 @@ class AppState:
     authorizer: OpsAuthorizer
     registry: ChainRegistry
     runner: ShadowRunCoordinator | None
+    campaigns: CampaignManager | None = None
 
 
 def get_state(request: Request) -> AppState:
@@ -44,6 +46,7 @@ def get_state(request: Request) -> AppState:
         authorizer=state.authorizer,
         registry=state.registry,
         runner=state.runner,
+        campaigns=state.campaigns,
     )
 
 

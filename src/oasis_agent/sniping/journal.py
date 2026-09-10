@@ -19,6 +19,10 @@ class ExecutionJournal:
     def __init__(self, path: Path, policy: dict[str, Any]):
         self.path = Path(path)
         self.policy = canonical_json(policy)
+        self.policy_digest = sha256_hex(self.policy)
+        self._verified_head: tuple[int, str] | None = None
+        self._verified_version = -1
+        self._verified_changes = -1
         self.db = sqlite3.connect(self.path)
         self.db.execute("PRAGMA synchronous=FULL")
         self.db.execute(
@@ -75,22 +79,48 @@ class ExecutionJournal:
             raise ValueError("kind must be a non-empty string, payload an object")
         self.db.execute("BEGIN IMMEDIATE")
         try:
-            records = self._verify()
+            # The reserved write lock prevents another writer committing between
+            # this version check and our append. Compare data_version only on
+            # this same connection; own writes are tracked by total_changes.
+            version = int(self.db.execute("PRAGMA data_version").fetchone()[0])
+            if self.db.execute("SELECT payload FROM execution_policy WHERE id=1").fetchone() != (
+                self.policy,
+            ):
+                raise ValueError("execution policy changed")
+            if (
+                self._verified_head is None
+                or version != self._verified_version
+                or self.db.total_changes != self._verified_changes
+            ):
+                records = self._verify()
+                self._verified_head = (len(records), records[-1]["digest"] if records else "0" * 64)
+            seq, previous = self._verified_head
             record = payload | {
                 "kind": kind,
-                "seq": len(records) + 1,
-                "previous": records[-1]["digest"] if records else "0" * 64,
+                "seq": seq + 1,
+                "previous": previous,
                 "policy_digest": self.policy_digest,
             }
             raw = canonical_json(record)
             digest = sha256_hex(raw)
+            changes_before_insert = self.db.total_changes
             self.db.execute(
                 "INSERT INTO execution_events VALUES (?, ?, ?, ?)",
                 (record["seq"], kind, raw, digest),
             )
+            if self.db.total_changes - changes_before_insert != 1:
+                # Unexpected SQL triggers must not turn our own append into an
+                # unverified rewrite of historical records.
+                raise ValueError("unexpected additional journal writes")
             self.db.commit()
+            self._verified_head = (seq + 1, digest)
+            # Keep the pre-commit version: a writer committing immediately after
+            # us must invalidate this head on the next append.
+            self._verified_version = version
+            self._verified_changes = self.db.total_changes
             return record | {"digest": digest}
         except (ValueError, TypeError, KeyError, sqlite3.Error):
+            self._verified_head = None
             self.db.rollback()
             raise
 

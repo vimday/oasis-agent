@@ -1,0 +1,127 @@
+{
+  "block": 51086865,
+  "chain_id": 8453,
+  "control_target": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+  "execution_eligible": false,
+  "results": [
+    {
+      "factory": "0x420dd381b31aef6683db6b902084cb0ffece40da",
+      "pool": "0xcdac0d6c6c59727a65f871236188350531885c43",
+      "quote_buy_usdc_base": 249584,
+      "sources": {
+        "primary": {
+          "buy_statuses": [
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "received_usdc_base": 249584,
+          "roundtrip_statuses": [
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "usdc_balance_restored": true
+        },
+        "secondary": {
+          "error_type": "RpcError"
+        }
+      },
+      "venue": "aerodrome"
+    },
+    {
+      "factory": "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a",
+      "pool": "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+      "quote_buy_usdc_base": 249700,
+      "sources": {
+        "primary": {
+          "buy_statuses": [
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "received_usdc_base": 249700,
+          "roundtrip_statuses": [
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "usdc_balance_restored": true
+        },
+        "secondary": {
+          "error_type": "RpcError"
+        }
+      },
+      "venue": "slipstream"
+    },
+    {
+      "factory": "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef",
+      "pool": "0x4e392fbfe4d0557c82d2f97f02ec39daa31516dd",
+      "quote_buy_usdc_base": 249711,
+      "sources": {
+        "primary": {
+          "buy_statuses": [
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "received_usdc_base": 249711,
+          "roundtrip_statuses": [
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "usdc_balance_restored": true
+        },
+        "secondary": {
+          "error_type": "RpcError"
+        }
+      },
+      "venue": "slipstream"
+    },
+    {
+      "factory": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+      "pool": "0x96d4b53a38337a5733179751781178a2613306063c511b78cd02684739288c0a",
+      "quote_buy_usdc_base": 249700,
+      "sources": {
+        "primary": {
+          "buy_statuses": [
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "received_usdc_base": 249700,
+          "roundtrip_statuses": [
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1",
+            "0x1"
+          ],
+          "usdc_balance_restored": true
+        },
+        "secondary": {
+          "error_type": "RpcError"
+        }
+      },
+      "venue": "uniswap_v4"
+    }
+  ],
+  "retrieved_at": 1788963077,
+  "snapshot": {
+    "blockHash": "0x3f89b75c704b83ef86eae96d061a0923720122e16645a71ff48e825f6e5fc7c5",
+    "requireCanonical": true
+  },
+  "websocket": {
+    "connected": true,
+    "last_error_type": null,
+    "notifications": 374
+  }
+}

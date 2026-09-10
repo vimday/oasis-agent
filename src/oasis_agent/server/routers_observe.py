@@ -339,7 +339,9 @@ async def stream(websocket: WebSocket) -> None:
                 await websocket.send_json({"type": "heartbeat", "seq": latest_seq})
             if state.config.databases.launch is not None:
                 try:
-                    _, launch_records = launch_data(state.config.databases.launch)
+                    _, launch_records, _ = await asyncio.to_thread(
+                        launch_data, state.config.databases.launch
+                    )
                 except HTTPException:
                     await websocket.send_json({"type": "launch_error", "status": "unavailable"})
                     await websocket.close(code=1011)
@@ -347,7 +349,15 @@ async def stream(websocket: WebSocket) -> None:
                 fresh = [item for item in launch_records if item["seq"] > last_launch_seq]
                 if fresh:
                     last_launch_seq = fresh[-1]["seq"]
-                    await websocket.send_json({"type": "launch_decisions", "items": fresh})
+                    await websocket.send_json(
+                        {
+                            "type": "launch_decisions",
+                            "items": fresh[-50:],
+                            "last_seq": last_launch_seq,
+                            "total_new_records": len(fresh),
+                            "history_truncated": len(fresh) > 50,
+                        }
+                    )
             await asyncio.sleep(_WS_POLL_SECONDS)
     except WebSocketDisconnect:
         return

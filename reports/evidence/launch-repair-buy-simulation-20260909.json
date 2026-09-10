@@ -1,0 +1,38 @@
+{
+  "chain_id": 8453,
+  "block_number": 51064869,
+  "observed_at": 1788919394,
+  "signing": false,
+  "broadcast": false,
+  "sources": [
+    {
+      "source": "primary",
+      "quoter_factory": "0x00000000000000000000000033128a8fc17869897dce68ed026d694621f6fdfd",
+      "quoter_weth": "0x0000000000000000000000004200000000000000000000000000000000000006",
+      "buy_status": [
+        "0x0"
+      ],
+      "rpc_error_code": null,
+      "revert_selectors": [
+        "0x"
+      ],
+      "eth_usd_micros": 2498950000
+    },
+    {
+      "source": "secondary",
+      "quoter_factory": "0x00000000000000000000000033128a8fc17869897dce68ed026d694621f6fdfd",
+      "quoter_weth": "0x0000000000000000000000004200000000000000000000000000000000000006",
+      "buy_status": [
+        "0x0"
+      ],
+      "rpc_error_code": null,
+      "revert_selectors": [
+        "0x"
+      ],
+      "eth_usd_micros": 2498950000
+    }
+  ],
+  "block_hash": "0xb23a38e3103c8f8a906b2e83d573c98d83c00dbb124562d1ddc4dcde0390c206",
+  "evidence_scope": "Parsed diagnostic only; not complete raw RPC provenance or release proof",
+  "diagnostic_input_sha256": "e34b7ffdd17ed043fbd76a6e14a30e1baf4261f0d883449fd15bd52053bdb28e"
+}

@@ -11,6 +11,7 @@ import json
 import re
 import time
 import urllib.parse
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import TypedDict
 
@@ -95,8 +96,10 @@ class ReadOnlyRpcClient:
         self._chain = chain
         self._transport = transport
         self._client: httpx.AsyncClient | None = None
-        self._cache: dict[tuple[str, str], tuple[float, object]] = {}
-        self._lock = asyncio.Lock()
+        self._cache: OrderedDict[tuple[str, str], tuple[float, object]] = OrderedDict()
+        # Fixed-size lock striping coalesces identical polls without an unbounded
+        # per-key lock registry or serializing every independent RPC method.
+        self._locks = tuple(asyncio.Lock() for _ in range(64))
 
     @property
     def chain_id(self) -> int:
@@ -112,11 +115,19 @@ class ReadOnlyRpcClient:
         if not self.available:
             raise RpcUnavailableError(f"chain {self._chain.chain_id} has no RPC endpoint")
         cache_key = (method, json.dumps(params, sort_keys=True, separators=(",", ":")))
-        now = time.monotonic()
-        async with self._lock:
+        async with self._locks[hash(cache_key) % len(self._locks)]:
             hit = self._cache.get(cache_key)
-            if hit is not None and now - hit[0] < self._chain.cache_seconds:
+            if hit is not None and time.monotonic() - hit[0] < self._chain.cache_seconds:
+                self._cache.move_to_end(cache_key)
                 return RpcResult(hit[1], 0, cached=True)
+            result = await self._fetch(method, params)
+            self._cache[cache_key] = (time.monotonic(), result.result)
+            self._cache.move_to_end(cache_key)
+            while len(self._cache) > 256:
+                self._cache.popitem(last=False)
+            return result
+
+    async def _fetch(self, method: str, params: list[object]) -> RpcResult:
         payload = json.dumps(
             {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
         ).encode()
@@ -131,23 +142,27 @@ class ReadOnlyRpcClient:
                 content=payload,
                 headers={"accept": "application/json", "content-type": "application/json"},
             )
+            response.raise_for_status()
         except (httpx.HTTPError, OSError) as exc:
-            raise RpcUnavailableError(f"RPC transport failure: {exc}") from exc
+            raise RpcUnavailableError("RPC transport failure") from exc
         latency = int((time.monotonic() - started) * 1000)
         try:
             body = response.json()
         except (ValueError, UnicodeDecodeError) as exc:
             raise RpcProtocolError("RPC response is not JSON") from exc
-        if not isinstance(body, dict) or body.get("jsonrpc") != "2.0" or body.get("id") != 1:
+        if (
+            not isinstance(body, dict)
+            or body.get("jsonrpc") != "2.0"
+            or type(body.get("id")) is not int
+            or body.get("id") != 1
+        ):
             raise RpcProtocolError("RPC response envelope malformed")
         error = body.get("error")
         if error is not None:
-            raise RpcProtocolError(f"RPC error: {json.dumps(error, sort_keys=True)}")
+            raise RpcProtocolError("RPC error response; provider details redacted")
         if "result" not in body:
             raise RpcProtocolError("RPC response missing result")
         result = body["result"]
-        async with self._lock:
-            self._cache[cache_key] = (time.monotonic(), result)
         return RpcResult(result, latency)
 
     async def close(self) -> None:

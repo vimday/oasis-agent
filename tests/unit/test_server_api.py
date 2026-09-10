@@ -1,5 +1,6 @@
 """End-to-end API tests for the observation server (P0-P3)."""
 
+import ast
 import json
 import pathlib
 import re
@@ -378,13 +379,20 @@ def test_server_package_never_imports_broadcast_capability():
     root = pathlib.Path(package.__file__).parent
     forbidden = ("web3", "eth_account", "lp_signer", "broadcast", "sign")
     for path in sorted(root.rglob("*.py")):
-        imports = "\n".join(
-            line
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.startswith(("import ", "from "))
-        )
-        for token in forbidden:
-            assert token not in imports, f"{path.name} imports forbidden capability {token}"
+        # Inspect imports at every nesting level. Match identifiers rather than
+        # substrings: the stdlib signal module is process control, not signing.
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            names = [alias.name for alias in node.names]
+            if isinstance(node, ast.ImportFrom) and node.module:
+                names.append(node.module)
+            for name in names:
+                for part in name.split("."):
+                    for token in forbidden:
+                        assert not (part == token or part.startswith(token + "_")), (
+                            f"{path.name} imports forbidden capability {name}"
+                        )
 
 
 def _dashboard_html() -> str:

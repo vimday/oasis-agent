@@ -1,4 +1,4 @@
-.PHONY: install contract-install test lint format typecheck python-check contract-check check report run-server
+.PHONY: install contract-install test lint format typecheck python-check frontend-check contract-check check report run-server
 PYTHON ?= .venv/bin/python
 RUNNER ?= $(PYTHON)
 
@@ -31,7 +31,10 @@ contract-check:
 	cd contracts && FOUNDRY_PROFILE=ci forge test
 	cd contracts && forge lint
 
-check: python-check contract-check
+frontend-check:
+	$(PYTHON) -m scripts.check_dashboard
+
+check: python-check frontend-check contract-check
 
 report:
 	PYTHONPATH=src $(PYTHON) scripts/analyze_benchmark.py --fixture --output reports/benchmark-hook-analysis.md

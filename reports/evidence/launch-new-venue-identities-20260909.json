@@ -1,0 +1,85 @@
+{
+  "block": 51075535,
+  "chain_id": 8453,
+  "execution_eligible": false,
+  "identities": {
+    "0x0d5e0f971ed27fbff6c2837bf31316121532048d": {
+      "keccak": "0x9a5c0cdd56325bef0e48cdab071a4b6a7f877e1271c2e08510998d724a038bb3",
+      "size": 5820
+    },
+    "0x254cf9e1e6e233aa1ac962cb9b05b2cfeaae15b0": {
+      "keccak": "0xfb0ab713266d089d5b6ac48d50455c4fadc9cd49a1efcc83a091e7c2e48dad0e",
+      "size": 6934
+    },
+    "0x3d4c22254f86f64b7ec90ab8f7aec1fbfd271c6c": {
+      "keccak": "0xdc5386ee08f05c42a71fd24c42a7db805acd24c15f311b010666d061e7c65257",
+      "size": 6934
+    },
+    "0x420dd381b31aef6683db6b902084cb0ffece40da": {
+      "keccak": "0xe2a176e5d2bcfb214b784ec6d6733708a6376a464f203cc265c284c9f349fea3",
+      "size": 3516
+    },
+    "0x498581ff718922c3f8e6a244956af099b2652b2b": {
+      "keccak": "0x83b2af6e9f3158defc2811cbcb0db71ecf8b2ba2abea39c39e370ac5c6f43eb6",
+      "size": 24009
+    },
+    "0x514c8b5f54112481e28028f1166bd78501089259": {
+      "keccak": "0x4c4c43e0024343e65597f0f0a1b829aaf69e5a6c0a0148fb63d28ff5730be551",
+      "size": 6934
+    },
+    "0x5e7bb104d84c7cb9b682aac2f3d509f5f406809a": {
+      "keccak": "0x7340cf80843bd721bcaefbfc050e38304cb4174c239e6e914e3056f27f39b11c",
+      "size": 4958
+    },
+    "0x698cb2b6dd822994581fea6ea4fc755d1363a92f": {
+      "keccak": "0xfedc4e21e1097b0ec1b4f1aa901cf645c22f9e5d297727b0f37275ee1d083df4",
+      "size": 9908
+    },
+    "0x6ff5693b99212da76ad316178a184ab56d299b43": {
+      "keccak": "0x27713951fb0660a1422b710122022d90723d883dc7b72949be79cb2957d234e0",
+      "size": 19499
+    },
+    "0xa3c0c9b65bad0b08107aa264b0f3db444b867a71": {
+      "keccak": "0xbbd5859677ef5491143133e8ed2b8faa0272f6fc2cbae94c53e79cc8c0538545",
+      "size": 3531
+    },
+    "0xade65c38cd4849adba595a4323a8c7ddfe89716a": {
+      "keccak": "0x0e72100f63ce8e32c95370fa9636d38c8cf434a820f2a7a69985e50930d2cb85",
+      "size": 5235
+    },
+    "0xbe6d8f0d05cc4be24d5167a3ef062215be6d18a5": {
+      "keccak": "0x8ca2876cc2c509da1648ef2ad21a8849c261cf7316b675119b98ba298c8657e7",
+      "size": 9908
+    },
+    "0xcbbb8035cac7d4b3ca7abb74cf7bdf900215ce0d": {
+      "keccak": "0x116aef8b4b99ede08ea33d1e471630246b502205e94f52539125177a3dc3532c",
+      "size": 9908
+    },
+    "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43": {
+      "keccak": "0x8efb4345abb93beb898eb5674f03118003594d744fcb9eb0f261cf942b609146",
+      "size": 23581
+    },
+    "0xf8f2eb4940cfe7d13603dddd87f123820fc061ef": {
+      "keccak": "0x4961963494e47f363617ab9a0f3999a28b33c519e51392952db06350cce700bd",
+      "size": 5235
+    }
+  },
+  "retrieved_at": 1788940417,
+  "snapshot": {
+    "blockHash": "0x0b2517f9176229e32ae5d6706378c2c7c35e56f1edad7bb1b7b9060d18e88153",
+    "requireCanonical": true
+  },
+  "sources": [
+    "primary",
+    "secondary"
+  ],
+  "target_code_at_45264042": {
+    "keccak": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "size": 0
+  },
+  "target_code_at_45264043": {
+    "keccak": "0x8a2d305ee12ca30019da9355147a104c2ac1cc4db543815f7222e1e16f9972ad",
+    "size": 12802
+  },
+  "target_deployment_discovery_block": 45264043
+}

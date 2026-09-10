@@ -13,6 +13,7 @@
     --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
   body {
     background: var(--bg); color: var(--ink);
     font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
@@ -72,12 +73,14 @@
   button.action:hover { border-color: var(--accent); color: var(--accent); }
   button.action:disabled { opacity: .45; cursor: not-allowed; }
   button.action.primary { border-color: var(--accent); color: var(--accent); }
-  input[type=text], input[type=password], select {
+  input[type=text], input[type=password], select, textarea {
     background: var(--bg3); color: var(--ink); border: 1px solid var(--rule);
     padding: 7px 10px; border-radius: 6px; font: 12px var(--mono); width: 100%;
   }
-  select { width: auto; }
-  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  select { width: auto; max-width: 100%; }
+  textarea { display: block; resize: vertical; margin: 8px 0 12px; line-height: 1.6; }
+  .configuration-label { display: block; margin-top: 12px; color: var(--muted); }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
   .row label { font-size: 12px; color: var(--muted); }
   .alert-item { padding: 9px 12px; border-radius: 6px; border: 1px solid var(--rule); margin-bottom: 8px; font-size: 13px; }
@@ -141,13 +144,14 @@
 <main>
   <!-- ============ OVERVIEW ============ -->
   <div id="tab-launch" role="tabpanel" aria-labelledby="tab-btn-launch" class="tab">
-    <div class="panel"><h2>Launch · 仅观察 / 影子</h2>
-      <p>执行始终关闭。导入记录不代表链上已核实；实时 watcher、池适配与连续模拟尚未接入。</p>
+    <div class="panel"><h2 id="launch-title">Launch · 监控</h2>
+      <p id="launch-description">此页面只读。正在读取执行模式、日志活动与成交记录。</p>
       <div id="launch-status" role="status"></div>
-      <h3>目标与控制面</h3><div class="table-wrap"><table id="launch-targets" aria-label="Launch targets"></table></div>
-      <h3>候选池 · G1–G11</h3><div class="table-wrap"><table id="launch-candidates" aria-label="Launch candidates"></table></div>
-      <h3>报价与 FDV（整数分数，USD micros）</h3><div class="table-wrap"><table id="launch-quotes" aria-label="Launch quotes"></table></div>
-      <h3>影子决策</h3><div class="table-wrap"><table id="launch-decisions" aria-label="Launch decisions"></table></div>
+      <label><input type="checkbox" id="launch-legacy">显示旧版错误</label><p id="launch-cleanup"></p>
+      <p id="launch-refresh" aria-live="polite">正在连接监控数据…</p><button type="button" class="action" data-action="refresh-launch">立即刷新</button><h3>目标与控制面</h3><div class="table-wrap"><table id="launch-targets" aria-label="Launch targets"></table></div>
+      <h3>候选池 · G1–G11</h3><p class="muted">时间是该池最后一次尝试时间，不是页面刷新时间；长期未尝试的池不会伪装成最新。系统可能正在扫描其他池。</p><div class="table-wrap"><table id="launch-candidates" aria-label="Launch candidates"></table></div>
+      <h3>报价与 FDV（最近 100 条，整数分数，USD micros）</h3><div class="table-wrap"><table id="launch-quotes" aria-label="Launch quotes"></table></div>
+      <h3>事件与决策</h3><div class="table-wrap"><table id="launch-decisions" aria-label="Launch decisions"></table></div>
       <h3>预授权状态</h3><div class="table-wrap"><table id="launch-approvals" aria-label="Launch approvals"></table></div>
     </div>
   </div>
@@ -222,9 +226,66 @@
   <!-- ============ OPS ============ -->
   <div id="tab-ops" role="tabpanel" aria-labelledby="tab-btn-ops" class="tab">
     <section class="card">
-      <h2>触发 Shadow 观测运行 <span class="hint">POST /api/v1/runs/shadow · 需 token</span></h2>
+      <h2>独立任务管理 · LP / Launch</h2>
+      <p id="campaign-capabilities" role="status">正在读取运行管理能力…</p>
+      <div class="table-wrap"><table id="campaign-table" aria-label="独立策略任务"></table></div>
+      <div class="row" style="margin-top:16px">
+        <label for="campaign-name">任务 ID</label><input type="text" id="campaign-name" value="launch-observe" maxlength="64" style="max-width:240px">
+        <label for="campaign-kind">策略</label><select id="campaign-kind"><option value="launch">Launch 观察</option><option value="lp">LP Shadow</option></select>
+        <button type="button" class="action" data-action="campaign-template">载入策略示例</button>
+      </div>
+      <div class="row" id="campaign-launch-fields">
+        <label for="campaign-wallet">公开钱包地址</label><input type="text" id="campaign-wallet" autocomplete="off" placeholder="0x…（不接受私钥）" style="max-width:380px">
+        <label for="campaign-primary">主 RPC</label><select id="campaign-primary"></select>
+        <label for="campaign-secondary">复核 RPC</label><select id="campaign-secondary"></select>
+      </div>
+      <div class="row" id="campaign-lp-fields" hidden>
+        <label for="campaign-source">已注册证据输入</label><select id="campaign-source"></select>
+        <label for="campaign-cycles">最多周期</label><input type="text" id="campaign-cycles" value="100" inputmode="numeric" style="max-width:120px">
+      </div>
       <div class="row">
-        <button type="button" class="action primary" data-action="trigger-run">触发一次观测运行</button>
+        <label for="campaign-timeout">运行上限（秒）</label><input type="text" id="campaign-timeout" value="900" inputmode="numeric" style="max-width:120px">
+        <span id="campaign-revision">新任务，尚未保存</span>
+      </div>
+      <details><summary>Launch 发现选项</summary><div class="row">
+        <label for="campaign-discovery">多场所扫描起始区块（留空仅 v3）</label><input type="text" id="campaign-discovery" inputmode="numeric" style="max-width:180px">
+        <label><input type="checkbox" id="campaign-events">事件唤醒（RPC 支持时）</label>
+      </div></details>
+      <label class="configuration-label" for="campaign-policy">完整策略 JSON（Launch 的 target_ca 为代币合约；LP 池与代币由证据绑定）</label>
+      <textarea id="campaign-policy" rows="12" maxlength="65536" spellcheck="false"></textarea>
+      <div class="row">
+        <button type="button" class="action primary" data-action="campaign-save">校验并保存新版本</button>
+        <label for="campaign-apply-revision">应用 / 回滚到版本</label><input type="text" id="campaign-apply-revision" inputmode="numeric" style="max-width:80px">
+        <button type="button" class="action" data-action="campaign-apply">应用版本</button>
+        <button type="button" class="action primary" data-action="campaign-start">启动已应用版本</button>
+        <button type="button" class="action" data-action="campaign-stop">停止任务</button>
+      </div>
+      <p id="campaign-result" role="status">保存不改变运行中的配置；应用必须先停止任务。停止观测不执行链上平仓。</p>
+      <details><summary>当前任务输出与证据（最近 50 条）</summary><pre class="raw" id="campaign-output">尚未选择已保存任务</pre></details>
+      <details><summary>配置 RPC 端点</summary>
+        <p class="muted">环境变量端点可持续使用；此处录入的 URL 仅保存在当前服务内存，重启后须重新录入。更新端点影响下一次启动，运行中的任务保持原端点绑定。</p>
+        <div class="row"><label for="campaign-rpc-name">端点名称</label><input type="text" id="campaign-rpc-name" placeholder="primary" style="max-width:180px">
+        <label for="campaign-rpc-url">RPC URL</label><input type="password" id="campaign-rpc-url" autocomplete="off" placeholder="https://…" style="max-width:440px">
+        <button type="button" class="action" data-action="campaign-rpc-save">保存本次会话端点</button></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>配置文件导出（高级）</h2>
+      <p id="configuration-capabilities" role="status">正在读取后端能力…</p>
+      <p class="muted">编辑、服务端校验并导出配置。导出不会修改运行中的策略；重新启动前需绑定新配置与证据。RPC 仅填写环境变量名，完整端点在服务器配置。LP 的代币与池身份由输入证据绑定，不能用表单覆盖。</p>
+      <label for="configuration-kind">配置类型</label>
+      <select id="configuration-kind"><option value="launch">Launch 代币合约、精度与策略（Base）</option><option value="lp">LP Shadow 费率与风险策略</option><option value="rpc">链与 RPC 环境变量引用</option></select>
+      <button type="button" class="action" data-action="configuration-template">加载示例</button>
+      <label for="configuration-document" class="configuration-label">配置 JSON（金额保留整数字面量，估值 Decimal 使用字符串）</label>
+      <textarea id="configuration-document" rows="12" spellcheck="false" maxlength="65536"></textarea>
+      <div class="row"><button type="button" class="action primary" data-action="configuration-validate">校验并准备下载</button><button type="button" id="configuration-download" class="action" data-action="configuration-download" disabled>下载已校验配置</button></div>
+      <p id="configuration-result" role="status">尚未校验。示例不代表已部署配置或经济参数建议。</p>
+    </section>
+    <section class="card">
+      <h2>兼容入口：预配置观测命令 <span class="hint">POST /api/v1/runs/shadow · 需 token</span></h2>
+      <div class="row">
+        <button type="button" class="action primary" data-action="trigger-run" disabled>触发一次观测运行</button>
         <span class="muted">运行作为隔离子进程执行，输出尾部（脱敏）写入审计库</span>
       </div>
       <div class="table-wrap"><table id="runs-table" aria-label="观测运行记录"></table></div>
@@ -359,7 +420,7 @@ function fmtInt(value) {
 
 /* ---------- app state (single mutable holder) ---------- */
 const state = {
-  token: sessionStorage.getItem(TOKEN_STORAGE_KEY) || "",
+  token: "",
   chartItems: [],
   chainProbes: new Map(),
   ws: null,
@@ -393,7 +454,7 @@ async function api(path, opts = {}, attempt = 0) {
   const retryable = method === "GET" && attempt < RETRY_ATTEMPTS;
   const headers = { "Accept": "application/json" };
   if (opts.body !== undefined) headers["Content-Type"] = "application/json";
-  if (state.token) headers["Authorization"] = "Bearer " + state.token;
+  if (state.token && method !== "GET") headers["Authorization"] = "Bearer " + state.token;
   let res;
   try {
     res = await fetch(path, { ...opts, headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
@@ -427,6 +488,7 @@ const BADGE_MAP = {
   pass: ["b-green", "通过"], fail: ["b-red", "未过"], unresolved: ["b-amber", "未决"],
   HOLD: ["b-green", "HOLD"], HALT: ["b-red", "HALT"], hold: ["b-green", "hold"], halt: ["b-red", "halt"],
   running: ["b-amber", "运行中"], succeeded: ["b-green", "成功"], failed: ["b-red", "失败"], queued: ["b-gray", "排队"],
+  stopping: ["b-amber", "停止中"], stopped: ["b-gray", "已停止"],
   pending: ["b-amber", "待确认"], approved: ["b-green", "已确认"],
 };
 
@@ -700,12 +762,204 @@ async function loadHaltProofs() {
   } catch { /* toast */ }
 }
 
-async function triggerRun() {
+let runTriggerPending = false;
+async function triggerRun(button) {
+  if (button.disabled || runTriggerPending) return;
+  runTriggerPending = true;
+  button.disabled = true;
   try {
     const r = await apiPost("/api/v1/runs/shadow");
     toast("运行已排队: " + r.run_id);
     loadRuns();
   } catch { /* toast */ }
+  finally { runTriggerPending = false; await loadConfiguration(); }
+}
+
+async function stopRun(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const result = await apiPost(`/api/v1/runs/${encodeURIComponent(button.dataset.runId)}/stop`);
+    toast(result.status === "stopped" ? "观测进程已停止" : "停止请求已接受，等待进程退出");
+    await loadRuns();
+  } catch { button.disabled = false; }
+}
+
+let campaignHead = null;
+let campaignLoading = false;
+let campaignMutation = false;
+let campaignEditorDirty = false;
+
+function campaignKindChanged() {
+  const launch = $("campaign-kind").value === "launch";
+  $("campaign-launch-fields").hidden = !launch;
+  $("campaign-lp-fields").hidden = launch;
+}
+
+function updateCampaignOptions(id, items) {
+  const select = $(id);
+  const selected = select.value;
+  const markup = '<option value="">请选择</option>' + items.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+  if (select.innerHTML !== markup) {
+    select.innerHTML = markup;
+    select.value = items.includes(selected) ? selected : "";
+  }
+}
+
+async function loadCampaigns() {
+  if (campaignLoading) return;
+  campaignLoading = true;
+  try {
+    const data = await apiGet("/api/v1/campaigns");
+    $("campaign-capabilities").textContent = "可运行：LP Shadow / Launch Observe · 最多 " + data.max_active
+      + " 个并行任务 · 实盘阻断：独立签名服务及目标发布门禁未通过";
+    updateCampaignOptions("campaign-primary", data.rpc_profiles.map(x => x.name));
+    updateCampaignOptions("campaign-secondary", data.rpc_profiles.map(x => x.name));
+    updateCampaignOptions("campaign-source", data.input_sources);
+    renderTable("campaign-table", ["任务", "模式", "已保存", "已应用", "本次运行版本", "状态", "编辑"],
+      data.items.map(x => [esc(x.name), esc(x.mode), esc(x.desired_revision), esc(x.applied_revision ?? "–"),
+        esc(x.run?.revision ?? "–"), badgeHtml(x.status),
+        `<button class="action" type="button" data-action="campaign-select" data-name="${esc(x.name)}">查看 / 编辑</button>`]), "尚无独立任务");
+    if (campaignHead) {
+      const current = data.items.find(x => x.name === campaignHead.name);
+      if (current) {
+        // Polls update runtime truth, never the editor's optimistic revision.
+        campaignHead = {...campaignHead, applied_revision: current.applied_revision, status: current.status, run: current.run};
+        $("campaign-revision").textContent = "编辑基于 v" + campaignHead.desired_revision + " · 后端最新 v" + current.desired_revision
+          + " · 已应用 " + (current.applied_revision ?? "无") + " · " + current.status;
+      }
+    }
+  } catch { $("campaign-capabilities").textContent = "运行管理不可用，请检查服务状态"; }
+  finally { campaignLoading = false; }
+}
+
+async function selectCampaign(name) {
+  const head = await apiGet(`/api/v1/campaigns/${encodeURIComponent(name)}`);
+  const spec = JSON.parse(head.document); // policy itself remains an unparsed string.
+  campaignHead = head;
+  campaignEditorDirty = false;
+  $("campaign-name").value = head.name;
+  $("campaign-kind").value = spec.kind;
+  $("campaign-wallet").value = spec.wallet || "";
+  $("campaign-primary").value = spec.rpc_primary || "";
+  $("campaign-secondary").value = spec.rpc_secondary || "";
+  $("campaign-source").value = spec.input_source || "";
+  $("campaign-cycles").value = spec.cycles;
+  $("campaign-timeout").value = spec.timeout_seconds;
+  $("campaign-policy").value = spec.policy;
+  $("campaign-discovery").value = spec.discovery_from_block ?? "";
+  $("campaign-events").checked = spec.events;
+  $("campaign-apply-revision").value = head.desired_revision;
+  $("campaign-revision").textContent = "已保存 v" + head.desired_revision + " · 已应用 " + (head.applied_revision ?? "无") + " · " + head.status;
+  campaignKindChanged();
+  const snapshot = await apiGet(`/api/v1/campaigns/${encodeURIComponent(name)}/snapshot`);
+  $("campaign-output").textContent = "运行状态：" + head.status + "\n" + (head.run?.stdout_tail || "") + "\n"
+    + (head.run?.stderr_tail || "") + "\n" + snapshot.document;
+}
+
+function campaignInteger(id, min, max) {
+  const raw = $(id).value;
+  if (!/^[0-9]+$/.test(raw)) throw new Error("请输入整数：" + id);
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error("数值超出范围：" + id);
+  return value;
+}
+
+async function campaignAction(action) {
+  if (campaignMutation) return;
+  campaignMutation = true;
+  const name = $("campaign-name").value;
+  try {
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(name)) throw new Error("任务 ID 需为小写英文、数字、下划线或短横线，并以字母开头");
+    const base = `/api/v1/campaigns/${encodeURIComponent(name)}`;
+    if (action === "save") {
+      const kind = $("campaign-kind").value;
+      const spec = {kind, mode: kind === "launch" ? "observe" : "shadow", policy: $("campaign-policy").value,
+        timeout_seconds: campaignInteger("campaign-timeout", 10, 86400)};
+      if (kind === "launch") {
+        Object.assign(spec, {wallet: $("campaign-wallet").value.toLowerCase(), rpc_primary: $("campaign-primary").value,
+          rpc_secondary: $("campaign-secondary").value, events: $("campaign-events").checked});
+        if ($("campaign-discovery").value) spec.discovery_from_block = campaignInteger("campaign-discovery", 0, Number.MAX_SAFE_INTEGER);
+      } else Object.assign(spec, {input_source: $("campaign-source").value, cycles: campaignInteger("campaign-cycles", 1, 10000)});
+      await apiPost(base + "/configuration", {expected_revision: campaignHead?.name === name ? campaignHead.desired_revision : 0,
+        document: JSON.stringify(spec)});
+    } else {
+      if (!campaignHead || campaignHead.name !== name) throw new Error("请先保存或选择任务");
+      if (action !== "stop" && campaignEditorDirty) throw new Error("编辑内容尚未保存，请先保存新版本或重新载入任务");
+      if (action === "apply") await apiPost(base + "/apply", {expected_revision: campaignHead.desired_revision,
+        revision: campaignInteger("campaign-apply-revision", 1, campaignHead.desired_revision)});
+      if (action === "start") {
+        if (!campaignHead.applied_revision) throw new Error("请先应用一个已保存版本");
+        await apiPost(base + "/start", {revision: campaignHead.applied_revision, request_id: crypto.randomUUID().replaceAll("-", "")});
+      }
+      if (action === "stop") await apiPost(base + "/stop");
+    }
+    $("campaign-result").textContent = {save:"配置已保存，需应用后才用于启动", apply:"版本已应用，下次启动将使用该版本",
+      start:"启动已受理，请以任务状态及证据为准", stop:"停止请求已受理，等待进程退出"}[action];
+    await loadCampaigns();
+    await selectCampaign(name);
+  } catch (error) {
+    $("campaign-result").textContent = error.detail || error.message || "操作失败，请刷新状态";
+  } finally { campaignMutation = false; }
+}
+
+async function saveCampaignRpc() {
+  const name = $("campaign-rpc-name").value;
+  const url = $("campaign-rpc-url").value;
+  $("campaign-rpc-url").value = "";
+  try {
+    await apiPost(`/api/v1/campaigns/rpc/${encodeURIComponent(name)}`, {url});
+    await loadCampaigns();
+    $("campaign-result").textContent = "RPC 已保存到当前服务内存；已有运行保持原端点";
+  } catch { $("campaign-result").textContent = "RPC 未保存，请检查名称和 URL"; }
+}
+
+let configurationTemplates = {};
+let validatedConfiguration = null;
+async function loadConfiguration() {
+  const button = document.querySelector('[data-action="trigger-run"]');
+  try {
+    const info = await apiGet("/api/v1/configuration");
+    configurationTemplates = info.templates;
+    button.disabled = runTriggerPending || !info.shadow_start_available || !state.token;
+    $("configuration-capabilities").textContent = "兼容命令启停：" + (info.shadow_start_available ? "已配置，需操作 Token" : "未配置")
+      + " · 此高级入口仅校验/导出；任务配置请使用上方独立任务管理";
+  } catch {
+    button.disabled = true;
+    $("configuration-capabilities").textContent = "后端能力读取失败，启动不可用";
+  }
+}
+
+function invalidateConfiguration() {
+  validatedConfiguration = null;
+  $("configuration-download").disabled = true;
+  $("configuration-result").textContent = "配置已更改，需要重新校验";
+}
+
+async function validateConfiguration(button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  invalidateConfiguration();
+  const kind = $("configuration-kind").value;
+  const document = $("configuration-document").value;
+  try {
+    const result = await apiPost("/api/v1/configuration/validate", {kind, document});
+    if (kind !== $("configuration-kind").value || document !== $("configuration-document").value) return;
+    validatedConfiguration = result;
+    $("configuration-download").disabled = false;
+    $("configuration-result").textContent = "校验通过，尚未应用。配置摘要：" + result.digest;
+  } catch { $("configuration-result").textContent = "校验失败，不能下载已校验配置"; }
+  finally { button.disabled = false; }
+}
+
+function downloadConfiguration() {
+  if (!validatedConfiguration) return;
+  const url = URL.createObjectURL(new Blob([validatedConfiguration.document], {type: "text/plain;charset=utf-8"}));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = validatedConfiguration.filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function loadRuns() {
@@ -717,8 +971,10 @@ async function loadRuns() {
       esc(short(x.command_digest, 18)),
       esc(x.exit_code ?? "–"),
       esc(fmtTime(x.finished_at || x.created_at)),
+      ["queued", "running", "stopping"].includes(x.status)
+        ? `<button type="button" class="action" data-action="stop-run" data-run-id="${esc(x.run_id)}" ${x.status === "stopping" || !state.token ? "disabled" : ""}>停止观测</button>` : "–",
     ]);
-    renderTable("runs-table", ["run_id", "状态", "command_digest", "exit", "时间"], rows, "无运行记录");
+    renderTable("runs-table", ["run_id", "状态", "command_digest", "exit", "时间", "控制"], rows, "无运行记录");
   } catch { /* toast */ }
 }
 
@@ -863,26 +1119,86 @@ async function loadAlerts() {
 }
 
 /* ---------- view wiring (the only place that maps tabs to loaders) ---------- */
+function launchNewest(items, field = "observed_at") {
+  const timestamp = item => Number.isInteger(item[field]) && item[field] > 0 ? item[field] : -1;
+  return [...items].sort((a, b) => timestamp(b) - timestamp(a) || (b.seq || 0) - (a.seq || 0));
+}
+function launchTime(value) {
+  if (!Number.isInteger(value) || value <= 0) return "未记录时间";
+  return new Date(value * 1000).toLocaleString("zh-CN", {timeZone: "Asia/Shanghai", hour12: false}) + " UTC+8";
+}
+function launchReason(value) {
+  const raw = String(value || "原因未记录");
+  const labels = [
+    ["details redacted", "旧日志未保留节点原因，无法区分合约回退、参数错误或节点限制"],
+    ["revert=SPL", "池拒绝价格限制（SPL）；需核对当前价格边界与交易方向"],
+    ["execution_reverted", "合约调用回退；仅凭此错误不能确定是否缺少流动性"],
+    ["rate_limited", "RPC 请求被限流"], ["HTTP=429", "RPC 请求被限流"],
+    ["insufficient_funds", "节点报告余额不足"],
+    ["state_unavailable", "节点无法提供指定区块状态"],
+    ["unsupported_method", "节点不支持此 RPC 方法"],
+    ["invalid_params", "节点拒绝请求参数"],
+    ["timeout", "RPC 请求超时"], ["Timeout", "RPC 请求超时"],
+    ["fdv_at_or_above_cap", "FDV 达到或超过上限，跳过买入"],
+    ["node_rejected", "节点拒绝请求；已保留错误码，具体原因未识别"],
+  ];
+  const matched = labels.find(([code]) => raw.includes(code));
+  return matched ? matched[1] + "（" + raw + "）" : raw;
+}
+let launchLoading = false;
+let launchLastSuccess = 0;
 async function loadLaunch() {
+  if (launchLoading) return;
+  launchLoading = true;
   const sections = ["targets", "candidates", "quotes", "decisions", "approvals"];
   try {
-    const results = await Promise.all(sections.map(s => apiGet("/api/v1/launch/" + s)));
-    renderTable("launch-targets", ["目标", "CA", "链", "控制面", "Watcher", "停止"],
-      results[0].items.map(t => [esc(t.symbol), esc(t.target_ca), esc(t.chain_id), esc(t.control_status), esc(t.watcher_status), esc(t.stand_down)]), "未注册");
-    renderTable("launch-candidates", ["池", "token0 / token1", "流动性", "G1–G11"],
-      results[1].items.map(c => [esc(c.pool), esc(c.token0 + " / " + c.token1), esc(c.tradable),
-        esc(Object.entries(c.gates).map(([k,v]) => k + ": " + (v.passed ? "通过" : v.reasons.join(", "))).join(" · "))]), "尚无候选证据");
-    renderTable("launch-quotes", ["来源", "支出 USD micros", "ETH wei", "收到 base units", "FDV USD micros（分数）", "严格低于上限"],
-      results[2].items.map(q => [esc(q.source), esc(q.spend_usd_micros), esc(q.native_wei), esc(q.received_base_units),
+    const includeLegacy = $("launch-legacy").checked;
+    const response = await fetch("/api/v1/launch/dashboard?include_legacy=" + includeLegacy, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) throw new Error("Launch HTTP " + response.status);
+    const snapshot = await response.json();
+    const results = sections.map(section => snapshot.sections[section]);
+    $("launch-cleanup").textContent = "已隐藏旧版错误 " + snapshot.hidden_legacy_count + " 条；审计及仓位恢复记录保留。"
+      + (snapshot.last_legacy_error_at ? " 最后一次旧版错误：" + launchTime(snapshot.last_legacy_error_at) : "")
+      + (snapshot.last_legacy_error_at && Date.now()/1000 - snapshot.last_legacy_error_at < 120 ? " · ⚠ 旧格式仍在产生，隐藏不代表错误已解决" : "");
+    launchLastSuccess = Date.now();
+    renderTable("launch-targets", ["目标", "CA", "链", "最近日志时间", "日志状态", "停止"],
+      results[0].items.map(t => [esc(t.symbol), esc(t.target_ca), esc(t.chain_id), esc(launchTime(t.last_observed_at)), esc(t.watcher_status === "recent_journal_activity" ? "近 120 秒有活动" : "日志陈旧或缺失，运行状态未知"), esc(t.stand_down)]), "未注册");
+    renderTable("launch-candidates", ["池", "最近时间 ↓", "区块", "token0 / token1", "费率参数", "最近状态（非流动性证明）", "核验 / 失败原因"],
+      launchNewest(results[1].items, "last_observed_at").map(c => [esc(c.pool), esc(launchTime(c.last_observed_at) + (Number.isInteger(c.last_observed_at) ? " · " + Math.max(0, Math.floor(Date.now()/1000) - c.last_observed_at) + " 秒前" : "")), esc(c.snapshot ?? "未记录"), esc(c.token0 + " / " + c.token1), esc(c.fee ?? "未记录"), esc(c.tradable),
+        esc(Object.entries(c.gates).map(([k,v]) => k + ": " + (v.passed ? "通过" : v.reasons.map(launchReason).join(", "))).join(" · "))]), "尚无候选证据");
+    renderTable("launch-quotes", ["来源", "时间", "支出 USD micros", "ETH wei", "收到 base units", "FDV USD micros（分数）", "严格低于上限"],
+      launchNewest(results[2].items).slice(0, 100).map(q => [esc(q.source), esc(launchTime(q.observed_at)), esc(q.spend_usd_micros), esc(q.native_wei), esc(q.received_base_units),
         esc(q.fdv_usd_micros_numerator + " / " + q.fdv_denominator), esc(q.fdv_below_cap)]), "尚无报价证据");
-    renderTable("launch-decisions", ["seq", "决定", "停止原因", "digest"],
-      results[3].items.map(d => [esc(d.seq), esc(d.decision), esc(d.stand_down_reasons.join(", ")), esc(d.digest)]), "尚无影子决策");
+    renderTable("launch-decisions", ["seq", "时间 ↓", "区块", "事件", "原因", "digest"],
+      launchNewest(results[3].items).map(d => [esc(d.seq), esc(launchTime(d.observed_at)), esc(d.block ?? "未记录"), esc(d.decision), esc(d.stand_down_reasons.map(launchReason).join(", ")), esc(d.digest)]), "尚无影子决策");
     renderTable("launch-approvals", ["目标", "授权状态", "原因"],
       results[4].items.map(a => [esc(a.target_ca), esc(a.status), esc(a.reason)]), "未验证授权");
-    $("launch-status").textContent = "状态: " + results[0].status + " · execution_eligible = false";
+    const target = results[0].items[0] || {};
+    const isExecution = results[0].status === "execution_journal";
+    const modeText = {live: "实盘模式", observe: "观察模式", unknown: "模式未记录"}[target.execution_mode] || "影子记录";
+    $("launch-title").textContent = "Launch · " + (isExecution ? "执行监控" : "观察 / 影子");
+    $("launch-description").textContent = isExecution
+      ? "此页面只读，不控制交易开关。模式来自执行日志策略；日志活动不等于进程健康，也不证明满足买入条件。"
+      : "此页面只读。保留的影子或导入记录不代表链上已核实。";
+    $("launch-status").textContent = isExecution
+      ? modeText + " · 已记录买入 " + (target.buy_confirmed_count || 0) + " 笔 / 卖出 " + (target.sell_confirmed_count || 0)
+        + " 笔 · 最近事件: " + (target.last_event || "无") + " · 日志序号 " + (target.last_seq ?? "未知")
+        + " · 最近日志 " + launchTime(target.last_observed_at)
+        + " · " + (target.activity_age_seconds == null ? "时间未知" : target.activity_age_seconds < 0 ? "日志时间超前，请检查时钟" : target.activity_age_seconds + " 秒前")
+        + " · 页面读取 " + launchTime(target.server_time)
+        + (target.current_cycle == null ? "" : " · 扫描轮次 " + target.current_cycle + "，本轮记录跨度 " + target.cycle_record_span_seconds + " 秒")
+        + (target.cycle_record_span_seconds > 120 ? " · ⚠ 扫描轮次耗时过长，各池状态可能明显落后" : "")
+        + (target.watcher_status === "recent_journal_activity" ? " · 日志近期有活动，进程健康未独立验证" : " · ⚠ 日志超过 120 秒未更新或缺失，进程可能停止或卡住")
+      : "数据状态: " + results[0].status + " · 面板无签名或广播能力";
   } catch {
     sections.forEach(s => { $("launch-" + s).textContent = "数据不可用"; });
-    $("launch-status").textContent = "读取失败，停止展示旧数据";
+    $("launch-cleanup").textContent = "数据读取失败，隐藏数量不可用";
+    $("launch-status").textContent = "读取失败或超时，停止展示旧数据";
+  } finally {
+    launchLoading = false;
   }
 }
 registerView("launch", loadLaunch, true);
@@ -890,7 +1206,7 @@ registerView("overview", async () => { await Promise.all([loadStatus(), loadGate
 registerView("decisions", loadDecisions);
 registerView("evidence", loadEvidence);
 registerView("execution", async () => { await Promise.all([loadExecution(), loadHaltProofs()]); });
-registerView("ops", async () => { await Promise.all([loadRuns(), loadOps()]); });
+registerView("ops", async () => { await Promise.all([loadCampaigns(), loadConfiguration(), loadRuns(), loadOps()]); }, true);
 registerView("gates", loadApprovals);
 registerView("chains", async () => { await Promise.all([loadChains(), loadAlerts()]); }, true);
 
@@ -926,6 +1242,7 @@ function connectWs() {
   ws.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
+      if (msg.type === "launch_decisions" && currentTab() === "launch" && !document.hidden && Date.now() - launchLastSuccess >= 2000) loadLaunch();
       if (msg.type === "decisions" && msg.items && msg.items.length) {
         toast("新决策流: " + msg.items.length + " 条");
         loadStatus();
@@ -960,8 +1277,21 @@ function stopPolling() {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopPolling();
-  else startPolling();
+  else { tick(); startPolling(); }
 });
+
+setInterval(() => {
+  if (!document.hidden && currentTab() === "launch") {
+    loadLaunch();
+  }
+}, 3000);
+setInterval(() => {
+  const age = launchLastSuccess ? Math.floor((Date.now() - launchLastSuccess) / 1000) : null;
+  $("launch-refresh").textContent = "当前浏览器时间 " + launchTime(Math.floor(Date.now()/1000))
+    + " · 自动刷新 3 秒 · " + (launchLoading ? "正在读取" : "等待下次刷新")
+    + " · 上次页面成功读取 " + (age === null ? "尚无" : age + " 秒前")
+    + (age !== null && age > 15 ? " · ⚠ 页面数据已陈旧" : "");
+}, 1000);
 
 /* ---------- delegated action registry ---------- */
 const actions = new Map();
@@ -970,8 +1300,32 @@ function registerAction(name, handler) {
   actions.set(name, handler);
 }
 
+$("launch-legacy").addEventListener("change", () => { loadLaunch(); });
+registerAction("refresh-launch", () => { loadLaunch(); });
 registerAction("refresh-decisions", () => { loadDecisions(); });
-registerAction("trigger-run", () => { triggerRun(); });
+registerAction("trigger-run", (button) => { triggerRun(button); });
+registerAction("stop-run", (button) => { stopRun(button); });
+registerAction("configuration-template", () => {
+  $("configuration-document").value = configurationTemplates[$("configuration-kind").value] || "";
+  invalidateConfiguration();
+});
+registerAction("configuration-validate", (button) => { validateConfiguration(button); });
+registerAction("configuration-download", downloadConfiguration);
+registerAction("campaign-select", (button) => { selectCampaign(button.dataset.name).catch(() => {}); });
+registerAction("campaign-template", () => {
+  $("campaign-policy").value = configurationTemplates[$("campaign-kind").value] || "";
+  campaignEditorDirty = true;
+});
+for (const action of ["save", "apply", "start", "stop"]) registerAction("campaign-" + action, () => { campaignAction(action); });
+registerAction("campaign-rpc-save", saveCampaignRpc);
+$("campaign-kind").addEventListener("change", campaignKindChanged);
+for (const id of ["campaign-kind", "campaign-wallet", "campaign-primary", "campaign-secondary", "campaign-source", "campaign-cycles", "campaign-timeout", "campaign-policy", "campaign-discovery", "campaign-events"]) {
+  $(id).addEventListener("input", () => { campaignEditorDirty = true; });
+  $(id).addEventListener("change", () => { campaignEditorDirty = true; });
+}
+
+$("configuration-document").addEventListener("input", invalidateConfiguration);
+$("configuration-kind").addEventListener("change", invalidateConfiguration);
 registerAction("confirm-approval", (el) => { confirmApproval(el.dataset.gate, Number(el.dataset.id)); });
 registerAction("probe-chain", (el) => { probeChain(Number(el.dataset.chainId)); });
 registerAction("probe-all-chains", () => { probeAllChains(); });
@@ -1001,12 +1355,11 @@ document.addEventListener("submit", (event) => {
   if (handler) handler(form, event);
 });
 
-/* ---------- token (debounced, memory-only until committed to session) ---------- */
-const syncToken = debounce((value) => {
+/* ---------- token (memory only; remove legacy session persistence) ---------- */
+sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+const syncToken = (value) => {
   state.token = value;
-  if (value) sessionStorage.setItem(TOKEN_STORAGE_KEY, value);
-  else sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-}, 200);
+};
 
 const tokenInput = $("ops-token");
 tokenInput.value = state.token;
@@ -1023,7 +1376,10 @@ function boot() {
   for (const btn of document.querySelectorAll("nav button[data-tab]")) {
     if (!views.has(btn.dataset.tab)) throw new Error("missing view for tab: " + btn.dataset.tab);
   }
-  for (const view of views.values()) view.load();
+  const requestedTab = window.location.hash.slice(1);
+  const initialTab = views.has(requestedTab) ? requestedTab : "overview";
+  switchTab(initialTab);
+  if (initialTab !== "overview") loadStatus();
   connectWs();
   startPolling();
 }

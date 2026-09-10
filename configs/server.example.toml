@@ -4,12 +4,12 @@
 # The parser is strict: unknown keys, embedded credentials, secret values and
 # malformed types are rejected instead of silently ignored. Operation tokens
 # are NEVER accepted in this file; they are read from the environment variable
-# named by `ops_token_env` at request time so they can be rotated without a
-# restart.
+# named by `ops_token_env` at startup; restart the server after rotating it.
 
 host = "127.0.0.1"
 port = 8666
 max_rows_per_page = 100
+campaign_rpc_envs = ["BASE_RPC_PRIMARY", "BASE_RPC_SECONDARY"]
 
 # Operation endpoints (trigger a shadow run, gate approvals) require a bearer
 # token from this environment variable. When `ops_token_required = true` the
@@ -25,8 +25,9 @@ alert_feed_max_age_seconds = 3600
 alert_gate_warn_hours = 24
 
 [databases]
-# Every journal is opened strictly read-only (mode=ro + PRAGMA query_only) and
-# hash-linked chains are re-validated on every read. Omit a source to serve
+# Observation journals are opened read-only (mode=ro + PRAGMA query_only) and
+# hash-linked chains are re-validated on every read. The ops journal is writable.
+# Omit a source to serve
 # it as "unconfigured"; providing a path that does not exist fails startup.
 shadow = "data/shadow.db"
 evidence = "data/evidence.db"
@@ -38,7 +39,7 @@ readiness_manifest = "data/readiness-manifest.json"
 # subprocess. The command runs with the configuration file's directory as the
 # working directory; output tails are journaled with secrets redacted.
 # [shadow_runner]
-# command = [".venv/bin/python", "scripts/run_lp_shadow.py", "--policy", "configs/policy.toml", "--out-dir", "data/shadow-out"]
+# command = [".venv/bin/python", "scripts/run_lp_shadow.py", "--policy", "configs/lp-policy.json", "--input", "data/lp-input.jsonl", "--evidence", "data/evidence.db", "--journal", "data/lp-shadow.db", "--cycles", "100"]
 # timeout_seconds = 900
 # max_concurrent = 1
 
@@ -50,3 +51,11 @@ readiness_manifest = "data/readiness-manifest.json"
 # rpc_url_env = "ROBINHOOD_RPC_URL"
 # pool_manager = "0x..."
 # cache_seconds = 15
+
+# Optional: register LP inputs for the managed-campaign UI. Browser requests
+# select the name; they cannot supply arbitrary server filesystem paths.
+# Each start snapshots these files into its own retained run directory.
+# [[campaign_inputs]]
+# name = "lp-feed"
+# input = "data/lp-input.jsonl"
+# evidence = "data/evidence.db"

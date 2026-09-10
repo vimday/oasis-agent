@@ -30,6 +30,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
@@ -39,9 +40,12 @@ from ..models.common import sha256_hex
 from . import __version__
 from .audit import ServerOpsJournal
 from .auth import OpsAuthorizer, OpsDisabledError
+from .campaigns import CampaignError, CampaignIntegrityError, CampaignManager
 from .chains import ChainRegistry, RpcProtocolError, RpcUnavailableError
 from .config import ServerConfig
 from .databases import ReadOnlyDatabases, ReadOnlyError
+from .routers_campaigns import router as campaigns_router
+from .routers_configuration import router as configuration_router
 from .routers_launch import router as launch_router
 from .routers_observe import router as observe_router
 from .routers_ops import router as ops_router
@@ -68,7 +72,14 @@ _NO_ETAG_PATHS = _DOCS_PATHS | {"/"}
 # then multi-chain/alerts (P3). Adding a router here is the only registration
 # change needed to extend the API; its routes must use the ``/api/v1`` prefix
 # and the :class:`AppState` dependency for consistency.
-_ROUTERS = (observe_router, ops_router, p3_router, launch_router)
+_ROUTERS = (
+    observe_router,
+    ops_router,
+    p3_router,
+    launch_router,
+    configuration_router,
+    campaigns_router,
+)
 
 _REQUEST_ID_HEX_LENGTH = 12
 _ACCESS_LOG_FORMAT = "request id=%s method=%s path=%s status=%d duration_ms=%d"
@@ -164,12 +175,15 @@ def create_app(
 ) -> FastAPI:
     # Fall back to the real process environment when the caller did not inject
     # one, so the operations token and ops-database overrides work in production.
-    resolved_environ = dict(os.environ) if environ is None else dict(environ)
+    source_environ = os.environ if environ is None else environ
+    resolved_environ = {
+        name: source_environ[name]
+        for name in (config.ops_token_env, *config.campaign_rpc_envs)
+        if name in source_environ
+    }
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        databases = ReadOnlyDatabases(config)
-        journal = ServerOpsJournal(config.databases.ops)
         authorizer = OpsAuthorizer(
             config.ops_token_env, required=config.ops_token_required, environ=resolved_environ
         )
@@ -178,6 +192,8 @@ def create_app(
         # with 503 until a token is configured.
         if config.ops_token_required:
             authorizer.require_enabled()
+        databases = ReadOnlyDatabases(config)
+        journal = ServerOpsJournal(config.databases.ops)
         registry = ChainRegistry(config.chains)
         runner: ShadowRunCoordinator | None = None
         if config.shadow_runner is not None:
@@ -193,13 +209,19 @@ def create_app(
         app.state.authorizer = authorizer
         app.state.registry = registry
         app.state.runner = runner
+        campaigns: CampaignManager | None = None
         try:
+            campaigns = CampaignManager(config, journal, resolved_environ)
+            app.state.campaigns = campaigns
             yield
         finally:
+            if campaigns is not None:
+                await campaigns.aclose()
+            if runner is not None:
+                await runner.aclose()
+                runner.close()
             databases.close()
             journal.close()
-            if runner is not None:
-                runner.close()
             await registry.close()
 
     application = FastAPI(
@@ -211,6 +233,25 @@ def create_app(
         docs_url="/docs",
         redoc_url=None,
     )
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        # Framework errors normally include raw submitted inputs, which may
+        # contain ephemeral RPC credentials. Return no request values.
+        return JSONResponse(status_code=422, content={"detail": "invalid request fields or bounds"})
+
+    @application.exception_handler(CampaignError)
+    async def campaign_error(request: Request, exc: CampaignError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @application.exception_handler(CampaignIntegrityError)
+    async def campaign_integrity_error(
+        request: Request, exc: CampaignIntegrityError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503, content={"detail": "campaign data unavailable or corrupt"}
+        )
+
     for router in _ROUTERS:
         application.include_router(router)
 
