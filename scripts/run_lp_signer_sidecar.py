@@ -1,8 +1,9 @@
 """WP7 operator CLI for the isolated LP signer sidecar.
 
-This CLI intentionally has no key provider and can never produce a signature:
-it runs the static policy and fee caps, and journals a denial when the request
-is otherwise valid. Wiring an external key authority is an operator action
+This CLI intentionally has neither a key provider nor an independent account
+risk guard, so it can never produce a signature: it runs the static policy and
+fee caps and journals a denial recording both missing capabilities. Wiring an
+external key authority and a reconciled-account guard are operator actions
 outside this repository; even then the sidecar only ever hands the exact
 EIP-1559 digest to the provider and verifies the recovered signer.
 """

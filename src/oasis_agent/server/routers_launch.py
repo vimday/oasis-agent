@@ -10,7 +10,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..launch.models import Target
+from ..launch.models import Target, parse_target
 from ..models.common import canonical_json, sha256_hex
 from ..shadow.sniper_runner import read_records
 from .deps import State
@@ -102,7 +102,7 @@ def launch_data(path: Path | None) -> tuple[dict[str, Any], list[dict[str, Any]]
             db.execute("BEGIN")
             records = read_records(db)
             row = db.execute("SELECT payload FROM launch_policy WHERE id=1").fetchone()
-            target = Target.from_json(json.dumps(json.loads(row[0])["target"]))
+            target = parse_target(json.dumps(json.loads(row[0])["target"]))
             return target.model_dump(mode="json"), records, "shadow"
     except (sqlite3.Error, ValueError, KeyError, TypeError, UnicodeDecodeError) as exc:
         raise HTTPException(
@@ -386,6 +386,8 @@ async def candidates(state: State, snapshot: Snapshot) -> dict[str, Any]:
                 tradable="unverified",
                 digest=record["digest"],
             )
+            if "holders" in record:
+                items[observation["pool"]]["holders"] = record["holders"]
     return envelope(list(items.values()), configured=configured)
 
 

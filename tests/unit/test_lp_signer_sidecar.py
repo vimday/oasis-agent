@@ -13,6 +13,7 @@ from eth_hash.auto import keccak
 from eth_keys import keys
 from rlp import decode as rlp_decode
 
+from oasis_agent.execution.account_risk_guard import AccountRiskGuard
 from oasis_agent.execution.lp_signer_policy import (
     LpSignerPolicy,
     LpSigningRequest,
@@ -33,14 +34,29 @@ from oasis_agent.execution.lp_signer_sidecar import (
     signed_transaction_bytes,
     transaction_digest,
 )
+from oasis_agent.execution.lp_state_machine import RuntimePin, RuntimeRole
 from oasis_agent.models.common import BlockRef, EvidenceRef, normalize_address
 from oasis_agent.models.v4 import DYNAMIC_FEE_FLAG, PoolKey
+from oasis_agent.risk.account_risk import (
+    AccountFrame,
+    AssetBalance,
+    GlobalRiskJournal,
+    GlobalRiskPolicy,
+    PortfolioFrame,
+)
 from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
 from tests.unit.test_lp_signer_policy import make_calldata
 from tests.unit.test_lp_state_machine import make_intent
 
 EXECUTOR = "0x" + "44" * 20
-CODE_HASHES = ("0x" + "12" * 32, "0x" + "34" * 32)
+CODE_HASHES = ("0x" + "12" * 32, "0x" + "34" * 32, "0x" + "56" * 32)
+POSITION_MANAGER = "0x" + "55" * 20
+POOL_MANAGER = "0x" + "66" * 20
+RUNTIME_PINS = (
+    RuntimePin(RuntimeRole.EXECUTOR, EXECUTOR, CODE_HASHES[0]),
+    RuntimePin(RuntimeRole.POSITION_MANAGER, POSITION_MANAGER, CODE_HASHES[1]),
+    RuntimePin(RuntimeRole.POOL_MANAGER, POOL_MANAGER, CODE_HASHES[2]),
+)
 CONFIG_HASH = "0x" + "ef" * 32
 POOL_KEY = PoolKey("0x" + "11" * 20, "0x" + "22" * 20, DYNAMIC_FEE_FLAG, 60, "0x" + "33" * 20)
 MAX_FEE_CAP = 1_000_000_000
@@ -77,7 +93,7 @@ def make_request(account: str, *, nonce: int = 91) -> LpSidecarRequest:
         state_hash="0x" + "ab" * 32,
         deadline_timestamp=1_050,
         config_hash=CONFIG_HASH,
-        code_hashes=CODE_HASHES,
+        runtime_pins=RUNTIME_PINS,
     )
     calldata = make_calldata(intent)
     intent = replace(intent, calldata_hash=calldata_hash(calldata))
@@ -95,7 +111,7 @@ def make_request(account: str, *, nonce: int = 91) -> LpSidecarRequest:
         simulation_block=simulation,
         simulation_succeeded=True,
         simulation_calldata_hash=calldata_hash(calldata),
-        observed_code_hashes=CODE_HASHES,
+        observed_runtime_pins=RUNTIME_PINS,
         risk_approved=True,
         risk_decision_hash="0x" + "67" * 32,
         evidence=(),
@@ -158,7 +174,7 @@ def make_policy(account: str) -> LpSignerPolicy:
         EXECUTOR,
         intent.pool_id,
         CONFIG_HASH,
-        CODE_HASHES,
+        RUNTIME_PINS,
         1_000_000,
         2_000_000,
         3_000_000,
@@ -169,13 +185,16 @@ def make_policy(account: str) -> LpSignerPolicy:
     )
 
 
-def make_sidecar(tmp_path: Path, account: str, *, provider=None) -> LpSignerSidecar:
+def make_sidecar(
+    tmp_path: Path, account: str, *, provider=None, guard: bool = True
+) -> LpSignerSidecar:
     config = LpSidecarConfig(
         policy=make_policy(account),
         max_fee_per_gas=MAX_FEE_CAP,
         max_priority_fee_per_gas=PRIORITY_CAP,
         journal_path=tmp_path / "sidecar.db",
         provider=provider,
+        risk_guard=make_guard(tmp_path) if guard else None,
     )
     return LpSignerSidecar(config)
 
@@ -183,6 +202,57 @@ def make_sidecar(tmp_path: Path, account: str, *, provider=None) -> LpSignerSide
 KEY = bytes(range(1, 33))
 OTHER_KEY = bytes(range(33, 65))
 ACCOUNT = account_for(KEY)
+
+RISK_ASSET = "usd-cash"
+RISK_PER_ATTEMPT_USD_MICROS = 100_000_000
+RISK_POLICY = GlobalRiskPolicy(
+    inventory={f"4663:{ACCOUNT}": (RISK_ASSET,)},
+    total_capital_usd_micros=500_000_000,
+    daily_loss_usd_micros=200_000_000,
+    cumulative_loss_usd_micros=500_000_000,
+    max_age_seconds=600,
+    max_skew_seconds=60,
+)
+
+
+class FixtureAccountReader:
+    """Deterministic full-inventory reader; real readers stay operator-supplied."""
+
+    def reconcile_and_price(self, request: LpSidecarRequest) -> tuple[PortfolioFrame, int]:
+        signing = request.signing
+        block = signing.current_block
+        assert block.timestamp is not None
+        asset = AssetBalance(
+            asset_id=RISK_ASSET,
+            units=500_000_000,
+            decimals=6,
+            price_usd_micros_numerator=1_000_000,
+            price_denominator=1,
+            price_timestamp=block.timestamp,
+            role="cash",
+            evidence_hash="e" * 64,
+        )
+        frame = AccountFrame(
+            chain_id=signing.intent.chain_id,
+            account=signing.account,
+            block_number=block.number,
+            block_hash=block.block_hash,
+            timestamp=block.timestamp,
+            assets=(asset,),
+            movements={RISK_ASSET: 0},
+            external_flow_usd_micros=0,
+            inventory_evidence_hash="f" * 64,
+            unresolved_operations=0,
+        )
+        return PortfolioFrame(accounts=(frame,)), RISK_PER_ATTEMPT_USD_MICROS
+
+
+def make_guard(tmp_path: Path) -> AccountRiskGuard:
+    return AccountRiskGuard(
+        GlobalRiskJournal(tmp_path / "global-risk.db", RISK_POLICY),
+        FixtureAccountReader(),
+        clock=lambda: 1_010,
+    )
 
 
 def _events(db_path: Path) -> list[tuple]:
@@ -450,7 +520,9 @@ def test_signed_journal_restarts_with_the_same_policy(tmp_path):
 
 def test_json_round_trip_request_and_config(tmp_path):
     request = make_request(ACCOUNT)
-    decoded = sidecar_request_from_json(sidecar_request_to_json(request))
+    request_payload = sidecar_request_to_json(request)
+    assert json.loads(request_payload)["schema"] == "oasis.lp-signer-request.v2"
+    decoded = sidecar_request_from_json(request_payload)
     assert decoded == request
     assert decoded.signing.intent == request.signing.intent
     config = LpSidecarConfig(
@@ -459,9 +531,9 @@ def test_json_round_trip_request_and_config(tmp_path):
         max_priority_fee_per_gas=PRIORITY_CAP,
         journal_path=tmp_path / "sidecar.db",
     )
-    restored = sidecar_config_from_json(
-        sidecar_config_to_json(config), journal_path=tmp_path / "sidecar.db"
-    )
+    config_payload = sidecar_config_to_json(config)
+    assert json.loads(config_payload)["schema"] == "oasis.lp-signer-config.v2"
+    restored = sidecar_config_from_json(config_payload, journal_path=tmp_path / "sidecar.db")
     assert restored == config
 
 
@@ -519,3 +591,35 @@ def test_cli_demonstrates_default_deny_without_provider(tmp_path):
     assert decision["outcome"] == "denied"
     assert decision["raw_transaction_hex"] is None
     assert "no signing key provider is configured" in decision["reasons"]
+
+
+def test_running_signer_rechecks_audit_integrity_before_external_call(tmp_path):
+    class CountingProvider(FixtureKeyProvider):
+        calls = 0
+
+        def sign(self, digest):
+            self.calls += 1
+            return super().sign(digest)
+
+    provider = CountingProvider(KEY)
+    with make_sidecar(tmp_path, ACCOUNT, provider=provider) as sidecar:
+        assert sidecar.handle(make_request(ACCOUNT)).outcome == "signed"
+        connection = sqlite3.connect(tmp_path / "sidecar.db")
+        connection.execute("UPDATE events SET digest = ? WHERE seq = 1", ("0" * 64,))
+        connection.commit()
+        connection.close()
+        with pytest.raises(ValueError, match="audit chain corrupt"):
+            sidecar.handle(make_request(ACCOUNT, nonce=92))
+        assert provider.calls == 1
+
+
+def test_signature_parity_rejects_boolean():
+    with pytest.raises(ValueError, match="y_parity"):
+        signed_transaction_bytes(make_request(ACCOUNT), r=1, s=1, y_parity=True)
+
+
+def test_signed_decision_repr_does_not_expose_broadcastable_bytes(tmp_path):
+    with make_sidecar(tmp_path, ACCOUNT, provider=FixtureKeyProvider(KEY)) as sidecar:
+        decision = sidecar.handle(make_request(ACCOUNT))
+        assert decision.outcome == "signed"
+        assert decision.raw_transaction_hex not in repr(decision)

@@ -19,7 +19,7 @@ from .auth import OpsAuthorizer
 from .campaigns import CampaignManager
 from .chains import ChainRegistry
 from .config import ServerConfig
-from .databases import ReadOnlyDatabases
+from .read_worker import ReadWorker
 from .runner import ShadowRunCoordinator
 
 
@@ -28,7 +28,7 @@ class AppState:
     """Read-only view of the services owned by the application lifespan."""
 
     config: ServerConfig
-    databases: ReadOnlyDatabases
+    reader: ReadWorker
     journal: ServerOpsJournal
     authorizer: OpsAuthorizer
     registry: ChainRegistry
@@ -41,7 +41,7 @@ def get_state(request: Request) -> AppState:
     state = request.app.state
     return AppState(
         config=state.config,
-        databases=state.databases,
+        reader=state.reader,
         journal=state.journal,
         authorizer=state.authorizer,
         registry=state.registry,

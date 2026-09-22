@@ -27,9 +27,11 @@ def _now() -> str:
 
 
 def _parse_ts(value: object) -> datetime:
+    if type(value) is int:
+        return datetime.fromtimestamp(value, UTC)
     try:
         parsed = datetime.fromisoformat(str(value))
-    except ValueError as exc:
+    except (ValueError, OverflowError) as exc:
         raise ValueError("unparseable timestamp") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("timestamp must include a timezone")
@@ -42,7 +44,9 @@ _SOURCE_FAILURES = (ReadOnlyError, ValueError, OSError, TypeError)
 def evaluate_alerts(
     config: ServerConfig,
     databases: ReadOnlyDatabases,
-    journal: ServerOpsJournal,
+    journal: ServerOpsJournal | None = None,
+    *,
+    runs: tuple[dict[str, object], ...] | None = None,
 ) -> tuple[Alert, ...]:
     alerts: list[Alert] = []
     now = datetime.now(UTC)
@@ -127,8 +131,8 @@ def evaluate_alerts(
 
     # Failed operation runs (warning).
     try:
-        runs = journal.list_runs(limit=5)
-        failed = [run for run in runs if run["status"] == "failed"]
+        recent = runs if runs is not None else journal.list_runs(limit=5) if journal else ()
+        failed = [run for run in recent if run["status"] == "failed"]
         if failed:
             alerts.append(
                 Alert(

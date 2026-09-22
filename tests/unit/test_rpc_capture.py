@@ -4,6 +4,7 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
+from oasis_agent.evidence.ingestion import replay_block_range_evidence
 from oasis_agent.evidence.range_validation import validate_block_range_exchanges
 from oasis_agent.evidence.rpc_capture import (
     BoundedExchangeRecorder,
@@ -52,6 +53,7 @@ class RpcCaptureTests(unittest.TestCase):
             )
             record = store.get_record(reference)
             self.assertEqual(record.payload, self.dataset().payload)
+            self.assertEqual(replay_block_range_evidence(store, reference), self.dataset())
             assert record.raw_response_payload is not None
             raw = json.loads(record.raw_response_payload)
             self.assertEqual(

@@ -11,9 +11,10 @@ The state set is the canonical Phase-1 lifecycle:
 
 Intent identity includes chain, position, old/new ranges, exact amounts,
 maximum swap input, minimum output, fee/gas bounds, nonce, state block/hash,
-deadline, config hash, and code hashes. A ledger wrapper enforces that retries
-cannot create a second economic rebalance: once an intent hash has been
-consumed (submitted or later), recreating it requires a fresh nonce.
+deadline, config hash, and role-bound runtime addresses/code hashes. A ledger
+wrapper enforces that retries cannot create a second economic rebalance: once
+an intent hash has been consumed (submitted or later), recreating it requires a
+fresh nonce.
 """
 
 from dataclasses import dataclass
@@ -44,6 +45,27 @@ class LpState(StrEnum):
 class LpIntentMode(StrEnum):
     RECENTER = "recenter"
     REMOVE = "remove"
+
+
+class RuntimeRole(StrEnum):
+    EXECUTOR = "executor"
+    POSITION_MANAGER = "position_manager"
+    POOL_MANAGER = "pool_manager"
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimePin:
+    role: RuntimeRole
+    address: str
+    code_hash: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.role, RuntimeRole):
+            raise TypeError("runtime pin role must be a RuntimeRole")
+        object.__setattr__(self, "address", normalize_address(self.address))
+        object.__setattr__(self, "code_hash", normalize_hash32(self.code_hash, "code_hash"))
+        if int(self.address, 16) == 0:
+            raise ValueError("runtime pin address must be nonzero")
 
 
 VALID_TRANSITIONS: dict[LpState, frozenset[LpState]] = {
@@ -118,7 +140,7 @@ class LpIntent:
     state_hash: str
     deadline_timestamp: int
     config_hash: str
-    code_hashes: tuple[str, ...]
+    runtime_pins: tuple[RuntimePin, ...]
 
     def __post_init__(self) -> None:
         if not self.intent_id:
@@ -127,18 +149,31 @@ class LpIntent:
             raise ValueError("pool_id is required")
         if not self.state_hash or not self.config_hash:
             raise ValueError("state_hash and config_hash are required")
-        if not self.code_hashes or any(not h for h in self.code_hashes):
-            raise ValueError("code_hashes must be a nonempty tuple of nonempty hashes")
+        if not self.runtime_pins or any(
+            not isinstance(pin, RuntimePin) for pin in self.runtime_pins
+        ):
+            raise ValueError("runtime_pins must contain typed runtime identities")
+        pins_by_role = {pin.role: pin for pin in self.runtime_pins}
+        if (
+            set(pins_by_role) != set(RuntimeRole)
+            or len(pins_by_role) != len(self.runtime_pins)
+            or len({pin.address for pin in self.runtime_pins}) != len(self.runtime_pins)
+        ):
+            raise ValueError("runtime_pins require unique executor and manager identities")
+        object.__setattr__(
+            self,
+            "runtime_pins",
+            tuple(pins_by_role[role] for role in RuntimeRole),
+        )
         if not isinstance(self.mode, LpIntentMode):
             raise TypeError("mode must be an LpIntentMode")
         object.__setattr__(self, "target", normalize_address(self.target))
         if int(self.target, 16) == 0:
             raise ValueError("intent target must be nonzero")
+        if pins_by_role[RuntimeRole.EXECUTOR].address != self.target:
+            raise ValueError("executor runtime pin must match intent target")
         for name in ("pool_id", "calldata_hash", "state_hash", "config_hash"):
             object.__setattr__(self, name, normalize_hash32(getattr(self, name), name))
-        object.__setattr__(
-            self, "code_hashes", tuple(normalize_hash32(value) for value in self.code_hashes)
-        )
         for name, value in (
             ("chain_id", self.chain_id),
             ("position_token_id", self.position_token_id),
@@ -229,7 +264,9 @@ class LpIntent:
                     "state_hash": self.state_hash,
                     "deadline_timestamp": self.deadline_timestamp,
                     "config_hash": self.config_hash,
-                    "code_hashes": self.code_hashes,
+                    "runtime_pins": [
+                        (pin.role.value, pin.address, pin.code_hash) for pin in self.runtime_pins
+                    ],
                 }
             )
         )

@@ -62,6 +62,8 @@ def test_reservation_is_idempotent_and_survives_restart(tmp_path):
     intent = make_intent()
     with journal(path) as db:
         first = db.reserve(intent)
+        payload = json.loads(db.db.execute("SELECT payload FROM events").fetchone()[0])
+        assert payload["schema"] == "oasis.lp-execution-journal.v3"
         assert db.reserve(intent) == first
     with journal(path) as db:
         assert db.get(intent.intent_hash) == first

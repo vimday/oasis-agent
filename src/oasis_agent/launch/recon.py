@@ -8,13 +8,14 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 
 from eth_hash.auto import keccak
+from pydantic import TypeAdapter
 
 from ..evidence.rpc_capture import BoundedExchangeRecorder
 from ..evidence.store import EvidenceStore
 from ..models.common import BlockRef, EvidenceRef, canonical_json
 from ..rpc.client import RpcClient
 from ..rpc.transport import JsonRpcTransport, RpcExchange
-from .models import Target
+from .models import Source, Target, TargetPolicy
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,8 @@ class IdentitySample:
     decimals: int
     local_supply_base_units: int
     exchanges: tuple[RpcExchange, ...]
+    target_ca: str
+    reference_supply: int
 
 
 def _word(value: str) -> int:
@@ -40,15 +43,16 @@ def acquire_identity(
     *,
     source: str,
     block_number: int,
+    target: TargetPolicy | None = None,
 ) -> IdentitySample:
     """Caller must wire the recorder into this transport before construction."""
-    if source not in {"base_primary", "base_secondary"}:
-        raise ValueError("public provider alias required")
+    TypeAdapter(Source).validate_python(source, strict=True)
+    target = Target() if target is None else target
     if type(block_number) is not int or block_number < 0:
         raise ValueError("explicit block number required")
-    client = RpcClient(transport, expected_chain_id=8453)
+    client = RpcClient(transport, expected_chain_id=target.chain_id)
     block = client.get_block(block_number)
-    address = Target().target_ca
+    address = target.target_ca
     code = client.get_code(address, block)
     if code == "0x":
         raise ValueError("target runtime missing")
@@ -68,17 +72,19 @@ def acquire_identity(
         decimals,
         supply,
         recorder.exchanges,
+        target.target_ca,
+        target.reference_supply,
     )
 
 
 def retain_identity(store: EvidenceStore, sample: IdentitySample) -> EvidenceRef:
     fact = {
         "schema": "oasis.launch-token-identity.v1",
-        "target_ca": Target().target_ca,
+        "target_ca": sample.target_ca,
         "runtime_keccak256": sample.runtime_hash,
         "token_decimals": sample.decimals,
         "local_supply_base_units": str(sample.local_supply_base_units),
-        "reference_supply_tokens": 1_000_000_000,
+        "reference_supply_tokens": sample.reference_supply,
         "execution_eligible": False,
         "control_plane": "unresolved",
     }
@@ -105,6 +111,8 @@ def identity_report(
     agreement = (
         left.source != right.source
         and left.block == right.block
+        and left.target_ca == right.target_ca
+        and left.reference_supply == right.reference_supply
         and left.runtime_hash == right.runtime_hash
         and left.decimals == right.decimals
         and left.local_supply_base_units == right.local_supply_base_units

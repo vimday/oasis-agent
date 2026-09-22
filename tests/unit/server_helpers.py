@@ -192,7 +192,7 @@ def build_readiness_manifest(
     evidence: list[dict[str, object]] = []
     if status == "pass":
         content_hash = "c" * 64
-        block = {"chain_id": CHAIN_ID, "number": 101, "block_hash": BLOCK_HASH}
+        block = {"chain_id": CHAIN_ID, "number": 101, "block_hash": BLOCK_HASH, "timestamp": 1001}
         evidence = [
             {
                 "kind": "gate-evidence",

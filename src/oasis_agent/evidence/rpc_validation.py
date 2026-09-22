@@ -32,6 +32,11 @@ def _object(payload: bytes) -> dict[str, object]:
     return cast(dict[str, object], value)
 
 
+def strict_json_object(payload: bytes) -> dict[str, object]:
+    """Decode one hostile JSON object, rejecting duplicate/non-finite fields."""
+    return _object(payload)
+
+
 def rpc_quantity(value: object) -> int:
     if (
         not isinstance(value, str)
@@ -125,4 +130,4 @@ def restore_exchanges(request_payload: bytes, response_payload: bytes) -> tuple[
     return tuple(result)
 
 
-__all__ = ["decode_exchange", "restore_exchanges", "rpc_quantity"]
+__all__ = ["decode_exchange", "restore_exchanges", "rpc_quantity", "strict_json_object"]

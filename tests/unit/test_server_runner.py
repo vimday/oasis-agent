@@ -41,6 +41,34 @@ def test_trigger_queues_run_and_executes_success(tmp_path):
         loop.close()
 
 
+def test_default_child_environment_does_not_inherit_parent_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("OASIS_PRIVATE_KEY", "synthetic-parent-marker")
+    monkeypatch.setenv("OASIS_SERVER_OPS_TOKEN", "synthetic-ops-marker")
+    monkeypatch.setenv("ROBINHOOD_ALCHEMY_RPC_URL", "synthetic-paid-marker")
+    coord, journal, loop = coordinator(
+        tmp_path,
+        command=(
+            sys.executable,
+            "-c",
+            (
+                "import os; assert not any(k in os.environ for k in "
+                "('OASIS_PRIVATE_KEY', 'OASIS_SERVER_OPS_TOKEN', 'ROBINHOOD_ALCHEMY_RPC_URL')); "
+                "assert os.environ.get('PATH'); print('isolated')"
+            ),
+        ),
+    )
+    try:
+        run = coord.trigger()
+        loop.run_until_complete(coord._tasks[run.run_id])
+        recorded = journal.get_run(run.run_id)
+        assert recorded.status == "succeeded"
+        assert recorded.stdout_tail.strip() == "isolated"
+    finally:
+        loop.run_until_complete(coord.aclose())
+        loop.close()
+        journal.close()
+
+
 def test_nonzero_exit_is_recorded_as_failure(tmp_path):
     coord, journal, loop = coordinator(
         tmp_path, command=(sys.executable, "-c", "import sys; sys.exit(3)")

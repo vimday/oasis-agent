@@ -24,6 +24,8 @@ Rotation is a manual, reviewed operation; no code path clears a latch in place.
 import hashlib
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import cast
@@ -33,7 +35,7 @@ from ..models.common import EvidenceRef, canonical_json
 
 
 class ShadowJournal:
-    def __init__(self, path: Path, *, chain_id: int, max_age_seconds: int):
+    def __init__(self, path: Path, *, chain_id: int, max_age_seconds: int, read_only: bool = False):
         if (
             type(chain_id) is not int
             or chain_id <= 0
@@ -43,7 +45,24 @@ class ShadowJournal:
             raise ValueError("positive chain and age limits required")
         self.chain_id = chain_id
         self.max_age_seconds = max_age_seconds
-        self.db = sqlite3.connect(path)
+        self.db = (
+            sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+            if read_only
+            else sqlite3.connect(path)
+        )
+        self._cycle_digest: str | None = None
+        if read_only:
+            self.db.execute("PRAGMA query_only=ON")
+            try:
+                if self.db.execute("SELECT chain, age FROM policy").fetchall() != [
+                    (chain_id, max_age_seconds)
+                ]:
+                    raise ValueError("shadow reader policy mismatch")
+            except BaseException:
+                self.db.close()
+                raise
+            return
+        self.db.execute("PRAGMA synchronous=FULL")
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS observations "
             "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
@@ -68,6 +87,32 @@ class ShadowJournal:
 
     def close(self) -> None:
         self.db.close()
+
+    @contextmanager
+    def atomic(self, *, cycle_digest: str | None = None, write: bool = True) -> Iterator[None]:
+        """Nest operations using savepoints; only the outer cycle commits."""
+        nested = self.db.in_transaction
+        previous_cycle = self._cycle_digest
+        self.db.execute(
+            "SAVEPOINT shadow_operation" if nested else "BEGIN IMMEDIATE" if write else "BEGIN"
+        )
+        if cycle_digest is not None:
+            self._cycle_digest = cycle_digest
+        try:
+            yield
+            if nested:
+                self.db.execute("RELEASE SAVEPOINT shadow_operation")
+            else:
+                self.db.commit()
+        except BaseException:
+            if nested:
+                self.db.execute("ROLLBACK TO SAVEPOINT shadow_operation")
+                self.db.execute("RELEASE SAVEPOINT shadow_operation")
+            else:
+                self.db.rollback()
+            raise
+        finally:
+            self._cycle_digest = previous_cycle
 
     def _last(self) -> dict[str, object] | None:
         previous = "0" * 64
@@ -98,8 +143,7 @@ class ShadowJournal:
             or not evidence.interpretation_hash
         ):
             raise ValueError("shadow observation needs raw block-pinned evidence")
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
+        with self.atomic():
             last = self._last()
             reasons = []
             block = header.ref
@@ -140,18 +184,13 @@ class ShadowJournal:
                 "INSERT INTO observations VALUES (?, ?, ?)",
                 (result["seq"], payload, digest),
             )
-            self.db.commit()
             return result | {"digest": digest}
-        except (ValueError, TypeError, KeyError, sqlite3.Error):
-            self.db.rollback()
-            raise
 
     def fault(self, *, now: int) -> dict[str, object]:
         """Record acquisition failure without retaining exception text or secrets."""
         if type(now) is not int or now < 0:
             raise ValueError("integer observation time required")
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
+        with self.atomic():
             last = self._last()
             result = {
                 "schema": "oasis.shadow-health.v1",
@@ -171,11 +210,7 @@ class ShadowJournal:
                 "INSERT INTO observations VALUES (?, ?, ?)",
                 (result["seq"], payload, digest),
             )
-            self.db.commit()
             return result | {"digest": digest}
-        except (ValueError, TypeError, KeyError, sqlite3.Error):
-            self.db.rollback()
-            raise
 
     def _last_decision(self) -> dict[str, object] | None:
         records = self.decision_records()
@@ -239,8 +274,7 @@ class ShadowJournal:
             raise ValueError("decision payload schema required")
         if "seq" in payload or "previous" in payload:
             raise ValueError("decision chain position is journal-owned")
-        self.db.execute("BEGIN IMMEDIATE")
-        try:
+        with self.atomic():
             last = self._last_decision()
             self._validate_decision(payload)
             if last and last["decision"] == "halt" and payload["decision"] != "halt":
@@ -248,11 +282,9 @@ class ShadowJournal:
             seq = 1 if last is None else int(str(last["seq"])) + 1
             previous = "0" * 64 if last is None else last["digest"]
             record = {"seq": seq, "previous": previous, **payload}
+            if self._cycle_digest is not None:
+                record["cycle_digest"] = self._cycle_digest
             raw = canonical_json(record)
             digest = hashlib.sha256(raw).hexdigest()
             self.db.execute("INSERT INTO decisions VALUES (?, ?, ?)", (seq, raw, digest))
-            self.db.commit()
             return cast(dict[str, object], json.loads(raw)) | {"digest": digest}
-        except (ValueError, TypeError, KeyError, sqlite3.Error):
-            self.db.rollback()
-            raise

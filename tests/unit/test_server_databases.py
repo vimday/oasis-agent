@@ -1,12 +1,14 @@
 """Read-only journal access: hash-chain validation and fail-closed behavior."""
 
 import hashlib
+import json
 import sqlite3
 from dataclasses import replace
 
 import pytest
 
 from oasis_agent.models.common import canonical_json
+from oasis_agent.server import databases as database_module
 from oasis_agent.server.databases import ReadOnlyDatabases, ReadOnlyError
 
 from .server_helpers import (
@@ -150,6 +152,24 @@ def test_execution_journal_validates_chain_and_policy(tmp_path):
         db.close()
 
 
+def test_execution_journal_v3_validates_chain_and_policy(tmp_path):
+    config = make_server_config(tmp_path)
+    with sqlite3.connect(config.databases.execution) as connection:
+        event = json.loads(connection.execute("SELECT payload FROM events").fetchone()[0])
+        event["schema"] = "oasis.lp-execution-journal.v3"
+        payload = canonical_json(event)
+        connection.execute(
+            "UPDATE events SET payload=?, digest=?",
+            (payload, hashlib.sha256(payload).hexdigest()),
+        )
+    db = ReadOnlyDatabases(config)
+    try:
+        events, _ = db.execution_events()
+        assert events[0]["schema"] == "oasis.lp-execution-journal.v3"
+    finally:
+        db.close()
+
+
 def test_execution_sequence_gap_fails_closed(tmp_path):
     config = make_server_config(tmp_path)
     path = config.databases.execution
@@ -226,6 +246,37 @@ def test_readiness_reparses_when_manifest_replaced(tmp_path):
         db.close()
 
 
+def test_cached_gate_evidence_expires_without_manifest_change(tmp_path):
+    config = make_server_config(tmp_path)
+    build_readiness_manifest(
+        config.databases.readiness_manifest,
+        status="pass",
+        findings=(),
+        expires_at="2030-01-01T00:00:00+00:00",
+    )
+    db = ReadOnlyDatabases(config)
+    try:
+        before = db.readiness(as_of="2029-12-31T23:59:59+00:00")
+        assert before.execution_eligible is True
+        expired = db.readiness(as_of="2030-01-01T00:00:00+00:00")
+        assert expired.execution_eligible is False
+        assert expired.stage.value == "reject"
+        assert len(expired.blockers) == 9
+        assert expired.digest != before.digest
+    finally:
+        db.close()
+
+
+def test_readiness_health_validates_manifest_contents(tmp_path):
+    config = make_server_config(tmp_path)
+    config.databases.readiness_manifest.write_text("{}")
+    db = ReadOnlyDatabases(config)
+    try:
+        assert db.sources_status()["readiness"].integrity == "corrupt"
+    finally:
+        db.close()
+
+
 def test_sources_status_verified_when_healthy(tmp_path):
     db = databases(tmp_path)
     try:
@@ -235,5 +286,115 @@ def test_sources_status_verified_when_healthy(tmp_path):
         assert status["evidence"].available is True
         assert status["execution"].available is True
         assert status["readiness"].available is True
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("journal_mode", ["DELETE", "WAL"])
+@pytest.mark.parametrize("table", ["observations", "decisions", "events"])
+def test_warm_cache_rejects_payload_edit_without_tail_change(tmp_path, journal_mode, table):
+    config = make_server_config(tmp_path)
+    path = config.databases.execution if table == "events" else config.databases.shadow
+    with sqlite3.connect(path) as writer:
+        writer.execute(f"PRAGMA journal_mode={journal_mode}")
+    db = ReadOnlyDatabases(config)
+    try:
+        read = db.execution_events if table == "events" else db.decision_chain
+        read()
+        with sqlite3.connect(path) as writer:
+            writer.execute(f"UPDATE {table} SET payload = ? WHERE seq=1", (b"{}",))
+        with pytest.raises(ReadOnlyError):
+            read()
+        # A failed validation must never make the poisoned version cacheable.
+        with pytest.raises(ReadOnlyError):
+            read()
+    finally:
+        db.close()
+
+
+def test_warm_reads_do_not_scan_journals(tmp_path):
+    db = databases(tmp_path)
+    statements = []
+    try:
+        db.decision_chain()
+        db._shadow.set_trace_callback(statements.append)
+        db._execution.set_trace_callback(statements.append)
+        db.decision_chain()
+        assert not any("SELECT" in sql.upper() for sql in statements)
+    finally:
+        db.close()
+
+
+def test_validation_uses_one_wal_snapshot_and_next_read_sees_commit(tmp_path, monkeypatch):
+    config = make_server_config(tmp_path)
+    with sqlite3.connect(config.databases.shadow) as writer:
+        writer.execute("PRAGMA journal_mode=WAL")
+    original = database_module._validate_observation_chain
+
+    def validate_then_write(connection):
+        result = original(connection)
+        with sqlite3.connect(config.databases.shadow) as writer:
+            writer.execute("UPDATE decisions SET payload=? WHERE seq=1", (b"{}",))
+        return result
+
+    monkeypatch.setattr(database_module, "_validate_observation_chain", validate_then_write)
+    db = ReadOnlyDatabases(config)
+    try:
+        assert db.decision_chain()[0]["decision"] == "hold"
+        with pytest.raises(ReadOnlyError):
+            db.decision_chain()
+        assert not db._shadow.in_transaction
+        assert not db._execution.in_transaction
+    finally:
+        db.close()
+
+
+def test_warm_cache_detects_dropped_table(tmp_path):
+    config = make_server_config(tmp_path)
+    db = ReadOnlyDatabases(config)
+    try:
+        db.health_chain()
+        with sqlite3.connect(config.databases.shadow) as writer:
+            writer.execute("DROP TABLE decisions")
+        with pytest.raises(ReadOnlyError, match="unreadable"):
+            db.health_chain()
+    finally:
+        db.close()
+
+
+def test_execution_corruption_does_not_hide_verified_shadow_state(tmp_path):
+    config = make_server_config(tmp_path)
+    with sqlite3.connect(config.databases.execution) as writer:
+        writer.execute("UPDATE events SET payload=?", (b"{}",))
+    db = ReadOnlyDatabases(config)
+    try:
+        assert db.health_chain()[0]["decision"] == "HOLD"
+        statuses = db.sources_status()
+        assert statuses["shadow"].available
+        assert not statuses["execution"].available
+        with pytest.raises(ReadOnlyError):
+            db.execution_events()
+    finally:
+        db.close()
+
+
+def test_valid_hash_cannot_substitute_missing_health_link(tmp_path):
+    config = make_server_config(tmp_path)
+    db = ReadOnlyDatabases(config)
+    try:
+        record = dict(db.decision_chain()[0])
+        record.pop("digest")
+        record["health_digest"] = "f" * 64
+        payload = canonical_json(record)
+        with sqlite3.connect(config.databases.shadow) as writer:
+            writer.execute(
+                "UPDATE decisions SET payload=?, digest=?",
+                (
+                    payload,
+                    hashlib.sha256(payload).hexdigest(),
+                ),
+            )
+        with pytest.raises(ReadOnlyError, match="health evidence is missing"):
+            db.decision_chain()
     finally:
         db.close()

@@ -20,6 +20,7 @@ from ..farming.strategy import Band, BandTableFeeStrategy
 from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, canonical_json
 from ..models.finance import PoolState
+from ..models.position_scope import LpPositionScope
 from ..models.v4 import SwapDirection
 from ..risk.lp_policy import CanaryRiskLimits
 from .journal import ShadowJournal
@@ -86,12 +87,18 @@ class LpCycle:
     benign_flow: bool
     candidates: dict[LpActionType, tuple[MarginalValueInputs, TickRange]]
     gate_input: RebalanceGateInput | None
+    position_scope: LpPositionScope | None = None
+
+    def __post_init__(self) -> None:
+        if self.position_scope is not None and not isinstance(self.position_scope, LpPositionScope):
+            raise TypeError("typed LP position scope required")
 
     @property
     def input_payload(self) -> bytes:
         return canonical_json(
             serializable(
                 {
+                    **({"position_scope": self.position_scope} if self.position_scope else {}),
                     "header_evidence": self.header_evidence,
                     "state": self.state,
                     "direction": self.direction,
@@ -122,7 +129,9 @@ class LpCycle:
             for key, pair in raw_candidates.items()
         }
         gate = data.pop("gate_input")
+        scope = data.pop("position_scope", None)
         result = cls(
+            position_scope=None if scope is None else LpPositionScope(**scope),
             header=BlockSnapshot(ref=BlockRef(**header.pop("ref")), **header),
             header_evidence=_ref(data.pop("header_evidence")),
             input_evidence=_ref(data.pop("input_evidence")),
@@ -166,6 +175,13 @@ def parse_policy(raw: bytes) -> dict[str, Any]:
     return values
 
 
+@dataclass(frozen=True, slots=True)
+class LpConsumption:
+    duplicate: bool
+    record: dict[str, object]
+    halted: bool
+
+
 class LpShadowService:
     def __init__(
         self,
@@ -193,6 +209,7 @@ class LpShadowService:
                 "execution/lp_state_machine.py",
                 "risk/lp_policy.py",
                 "models/finance.py",
+                "models/position_scope.py",
                 "models/common.py",
             )
             for path in (package / relative,)
@@ -218,12 +235,48 @@ class LpShadowService:
             ):
                 raise ValueError("shadow code/config changed; start a new reviewed journal")
 
+    def consume_once(self, cycle: LpCycle, *, now: int) -> LpConsumption:
+        """Atomically consume an input once; a retry is historical, not authorization.
+
+        The canonical full cycle digest is part of the hash-linked decision.
+        No separate mutable cursor can mark an uncommitted decision consumed.
+        Latest HALT status is returned even when an older input is replayed.
+        """
+        if type(now) is not int or now < 0:
+            raise ValueError("integer observation time required")
+        digest = hashlib.sha256(canonical_json(serializable(cycle))).hexdigest()
+        try:
+            with self.journal.atomic(cycle_digest=digest):
+                records = self.journal.decision_records()
+                matches = [record for record in records if record.get("cycle_digest") == digest]
+                if len(matches) > 1:
+                    raise ValueError("duplicate retained cycle identity")
+                if matches:
+                    record = matches[0]
+                else:
+                    self.consume(cycle, now=now)
+                    record = self.journal.decision_records()[-1]
+                health = self.journal._last()
+                latest = self.journal._last_decision()
+                halted = bool(
+                    (health and health["decision"] == "HALT")
+                    or (latest and latest["decision"] == "halt")
+                )
+                return LpConsumption(bool(matches), record, halted)
+        except (ValueError, TypeError, KeyError):
+            self.journal.fault(now=now)
+            raise ValueError("LP cycle failed; halt retained") from None
+
     def consume(self, cycle: LpCycle, *, now: int) -> LpShadowDecision:
         try:
             header = self.store.get_record(cycle.header_evidence)
             inputs = self.store.get_record(cycle.input_evidence)
             if (
-                cycle.header_evidence.block != cycle.header.ref
+                (
+                    cycle.position_scope is not None
+                    and cycle.position_scope.chain_id != cycle.header.ref.chain_id
+                )
+                or cycle.header_evidence.block != cycle.header.ref
                 or cycle.input_evidence.block != cycle.header.ref
                 or header.payload != canonical_json(asdict(cycle.header))
                 or inputs.payload != cycle.input_payload

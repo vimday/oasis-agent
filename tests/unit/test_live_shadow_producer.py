@@ -170,8 +170,8 @@ def test_build_observation_quotes_both_modes() -> None:
     s1 = swap_log(
         101,
         zero_for_one=True,
-        amount0=1_000_000,
-        amount1=-999_000,
+        amount0=-1_000_000,
+        amount1=999_000,
         sqrt_price=2**96,
         liquidity=10**18,
         tick=-5,
@@ -180,9 +180,9 @@ def test_build_observation_quotes_both_modes() -> None:
     s2 = swap_log(
         102,
         zero_for_one=False,
-        amount0=-990_000,
-        amount1=1_000_000,
-        sqrt_price=int(1.01 * 2**96),
+        amount0=990_000,
+        amount1=-1_000_000,
+        sqrt_price=2**96 + 2**96 // 100,
         liquidity=10**18,
         tick=1,
         fee=500,
@@ -222,14 +222,14 @@ def test_build_observation_quotes_both_modes() -> None:
     assert first.quote_exact_input_fee_pips is not None
     assert first.deployed_hook_exact_input_fee_pips == 500
     assert first.deployed_hook_exact_output_fee_pips == 500
-    assert first.exact_fee_match is True
+    assert first.exact_fee_match is None  # event includes unresolved protocol fees
     assert first.transaction_hash.startswith("0x")
     assert second.direction == "one_for_zero"
     digest = report.digest
     assert len(digest) == 64
     payload = json.loads(report.payload)
     assert payload["execution_eligible"] is False
-    assert payload["schema"] == "oasis.lp-live-shadow-observation.v2"
+    assert payload["schema"] == "oasis.lp-live-shadow-observation.v3"
 
 
 def test_exact_output_quote_uses_output_delta_and_ambiguous_mode_stays_unknown() -> None:
@@ -237,8 +237,8 @@ def test_exact_output_quote_uses_output_delta_and_ambiguous_mode_stays_unknown()
     swap = swap_log(
         300,
         zero_for_one=True,
-        amount0=10_000,
-        amount1=-100,
+        amount0=-10_000,
+        amount1=100,
         sqrt_price=2**96,
         liquidity=10**18,
         tick=0,
@@ -275,8 +275,8 @@ def test_build_observation_rejects_foreign_pool_swap() -> None:
     foreign = swap_log(
         201,
         zero_for_one=True,
-        amount0=1,
-        amount1=-1,
+        amount0=-1,
+        amount1=1,
         sqrt_price=2**96,
         liquidity=1,
         tick=0,
@@ -418,3 +418,9 @@ def test_open_observation_rpc_wires_poster_and_chain_guard() -> None:
             recorder=BoundedExchangeRecorder(max_exchanges=10, max_bytes=1_000_000),
             poster=FakePoster(),  # type: ignore[arg-type]
         )
+
+
+def test_native_hookless_pool_is_representable():
+    zero = "0x" + "0" * 40
+    key = ObservedPoolKey(CHAIN, zero, TOKEN1, zero, POOL_ID)
+    assert key.token0 == zero and key.hook == zero

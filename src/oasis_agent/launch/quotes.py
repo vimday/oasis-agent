@@ -6,10 +6,10 @@ only for FDV and impact checks, never a fixed denomination.
 """
 
 from .entry_price import below_fdv
-from .models import Observation, Target
+from .models import Observation, TargetPolicy
 
 
-def matrix_reasons(observations: tuple[Observation, ...], target: Target) -> list[str]:
+def matrix_reasons(observations: tuple[Observation, ...], target: TargetPolicy) -> list[str]:
     reasons: list[str] = []
     if len(observations) != 2 or len({o.source for o in observations}) != 2:
         return ["two_distinct_sources_required"]
@@ -48,6 +48,8 @@ def matrix_reasons(observations: tuple[Observation, ...], target: Target) -> lis
                 spend_usd_micros=q.spend_usd_micros,
                 received_base_units=q.received_base_units,
                 token_decimals=observation.token_decimals,
+                max_fdv_usd_micros=target.max_fdv_usd_micros,
+                reference_supply=target.reference_supply,
             )
             for q in matrix
         ):

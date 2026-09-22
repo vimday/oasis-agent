@@ -1,0 +1,10 @@
+# Launch live observation server (untracked local config).
+# Serves the read-only dashboard bound to localhost with the live launch
+# execution journal wired to the launch tab. No secrets are stored here.
+host = "127.0.0.1"
+port = 8769
+ops_token_required = false
+
+[databases]
+ops = "data/launch-ui-ops.db"
+launch = "data/launch-execution-live.db"

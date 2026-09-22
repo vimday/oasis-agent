@@ -136,7 +136,7 @@ async def list_ops(
 
 @router.get("/p2/halt-proofs")
 async def halt_proofs(state: State) -> dict[str, object]:
-    events, _ = state.databases.execution_events()
+    events, _ = await state.reader.run(lambda databases: databases.execution_events())
     proofs: list[dict[str, object]] = []
     for event in events:
         recovery = event.get("recovery")

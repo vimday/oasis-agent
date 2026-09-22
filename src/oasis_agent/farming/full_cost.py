@@ -10,7 +10,7 @@ from enum import StrEnum
 
 from ..models.chain import BlockSnapshot
 from ..models.common import EvidenceRef, normalize_address
-from .accounting_replay import PositionAccountingReplay
+from .accounting_replay import PositionAccountingReplay, replay_position_accounting
 from .position_ledger import build_position_token_ledger
 
 
@@ -97,6 +97,18 @@ def reconcile_full_cost(
     )
     if rebuilt != ledger:
         raise ValueError("accounting ledger changed during cost reconciliation")
+    inputs = replay.inputs
+    recomputed = replay_position_accounting(
+        rebuilt,
+        inputs.opening,
+        inputs.closing,
+        inputs.entries,
+        external_cost1=replay.external_cost1,
+        external_cost_evidence=inputs.external_cost_evidence,
+        beneficial_owner_continuity_evidence=inputs.beneficial_owner_continuity_evidence,
+    )
+    if recomputed != replay:
+        raise ValueError("accounting replay differs from retained valuation inputs")
     blocks = {item.ref.number: item.ref for item in canonical_blocks}
     opening, closing = replay.ledger.opening.block, replay.ledger.closing.block
     token = replay.ledger.opening.pool_key.currency1

@@ -212,7 +212,7 @@ This map describes the repository as currently structured. `Partial` does not au
 | Transparent fee proposal | `src/oasis_agent/farming/strategy.py` | Research only | canonical fee bounds, manipulation model, fee/flow response, OOS proof |
 | Opportunity risk filter | `src/oasis_agent/risk/policy.py` | Research only | hierarchical limits, independent state, reservations, kill integration |
 | Execution lifecycle | `src/oasis_agent/execution/state_machine.py` | Guard stub | simulation, intent binding, signer policy, broadcast/finality/reconciliation |
-| Solidity hook | `contracts/src/{OasisDynamicFeeHook,OasisHookFactory}.sol`, canonical-core swap test, official v4-periphery PositionManager lifecycle, fuzz and stateful invariants | Partial | pinned Robinhood fork, real Permit2/malicious-token/reentry campaign, Slither/symbolic review, independent audit |
+| Solidity hook | `contracts/src/{OasisDynamicFeeHook,OasisHookFactory}.sol`, canonical-core swap test, official v4-periphery PositionManager lifecycle, fuzz and stateful invariants | Partial | pinned Robinhood fork, real Permit2/malicious-token/reentry campaign, Slither/symbolic review; external audit waived by owner on 2026-09-15 |
 | Independent signer/monitor | none | Missing | isolated service/policy, inventory, drills, evidence |
 | CI/release provenance | `.github/workflows/ci.yml`, locked npm graph, full-SHA actions | Partial | protected required checks, Python dependency lock, coverage/secret/dependency scans, artifact/SBOM provenance |
 

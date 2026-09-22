@@ -173,8 +173,10 @@ mandatory, and the additional risk must be compared with redeploying a new pool/
   Echidna, dependency and secret scans, bytecode/source comparison, and gas snapshots;
 - two independent reviewers for capital-critical arithmetic, access control, callback surface, and
   deployment manifest;
-- an external audit before material third-party or treasury capital, followed by regression tests for
-  every accepted finding. An audit is evidence, not a warranty.
+- regression tests for every accepted finding. By project-owner instruction on 2026-09-15, an
+  external/independent security audit is not a required release gate. Do not label this waiver as
+  an audit pass. Internal engineering review, executable security checks, bounded capital,
+  target-specific evidence, and operator promotion approval remain required.
 
 ## 9. Economic validation
 

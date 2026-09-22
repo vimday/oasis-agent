@@ -41,7 +41,7 @@ report:
 
 run-server:
 	mkdir -p data
-	if [ -f .env ]; then set -a; . ./.env; set +a; fi; $(PYTHON) scripts/run_server.py --config configs/server.local.toml
+	$(PYTHON) scripts/run_server.py --config configs/server.local.toml
 
 security-check:
 	$(PYTHON) -m pip_audit --require-hashes -r requirements-dev.lock

@@ -74,6 +74,14 @@ reviewable changes. Say "unknown" when evidence is insufficient.
 8. **Never promise profit.** Optimize a falsifiable objective and report uncertainty, drawdown,
    tail loss, sample size, and conditions under which the edge disappears.
 
+## Project-owner release policy update (2026-09-15)
+
+An external/independent security audit is not required by the project owner. This supersedes
+older external-audit prerequisites; it is not an audit pass. Internal code review, executable
+security validation, raw evidence checks, capital/loss limits and operator release approval remain
+required. The existing `independent_reviewer` field is engineering/promotion review metadata,
+not proof of an external audit, and must never contain a fabricated reviewer.
+
 ## Current repository reality
 
 The repository is a research and guarded-execution foundation, not a production v4 hook or
@@ -87,30 +95,121 @@ autonomous trader. Its current verified boundary is:
   controller, canary sizing and failure matrix, hash-linked shadow LP decision runner with
   `execution_eligible` always False); they are wired into a shadow decision-journaling flow
   but not into any live strategy or canary execution, so `arbitrage` remains scaffolding;
-- `shadow/service.py` and `scripts/run_lp_shadow.py` consume retained, block-bound LP input
-  evidence with code/config locking across restarts; an upstream live feature/reconciliation
+- `farming/position_quorum.py` reconstructs two agreeing raw-RPC position snapshots; scoped LP
+  cycles can be combined with explicit bounds by `execution/lp_preparation.py` into canonical
+  RECENTER/REMOVE simulation-only calldata. `execution/lp_simulation.py` adds two-source hash-pinned
+  eth_call with intent-derived, role-bound runtime pins and retained v3 envelope/deployment-bound
+  evidence; signing and release authority remain absent from this preparation flow.
+- Launch retained-input diagnostics and token reconnaissance accept explicit v2 multi-chain target
+  policies and v3 holder-risk inputs, with raw two-provider holder capture/replay. The historical
+  execution monitor remains Base-specific and retains a separate raw-key live path, not the unified
+  production custody model. This is not multi-chain live trading.
+- `shadow/service.py` and `scripts/run_lp_shadow.py` support atomic, idempotent cycle consumption and
+  optional bounded JSONL following, with partial-line waits, truncation/rotation checks and idle HALT.
+  They consume retained, block-bound LP input evidence with code/config locking across restarts; an upstream live feature/reconciliation
   producer and a sustained strategy observation window remain required;
+- Bounded pool-state observation now has persistent RPC budgets, raw two-provider market-window
+  replay, mature/deferred sample handling, and hash-linked checkpoint recovery (at most 1000 windows).
+  This is not a complete unattended backfill/reconciliation service or a sustained acceptance result;
 - `src/oasis_agent/server` and `scripts/run_server.py` provide a read-only FastAPI observation
-  server and single-file dashboard (health/status/observations/decisions/evidence/readiness/
+  server and modular dashboard (health/status/observations/decisions/evidence/readiness/
   execution-journal/chains/alerts endpoints, a WebSocket decision stream, and token-authorized
   shadow-run triggers and two-person gate approvals), plus versioned LP shadow / Launch observe
   campaigns with session RPC profiles, isolated retained inputs, idempotent start, process-group
-  stop and restart recovery. It re-validates hash-linked chains on
-  every read and never imports signing or broadcast capability; it is wired to no live strategy
+  stop and restart recovery. It checks SQLite data versions on every journal read and fully
+  revalidates changed hash-linked chains in read transactions, and never imports signing or
+  broadcast capability; it is wired to no live strategy
   and `execution_eligible`/`lp_readiness` gates remain closed;
 - `execution/lp_journal.py` provides SQLite account/nonce reservation, competing-writer guards,
   hash-linked transitions, restart recovery, and evidence-gated full-unwind closure from HALT;
   `execution/lp_signer_policy.py` independently decodes bounded executor calldata and checks chain,
   account, nonce, code, simulation, risk, capital, gas, and deadline bindings, but exposes no key,
   signing, or broadcast capability and is not yet an isolated production signer service;
+- `execution/lp_signer_sidecar.py` adds durable nonce reservation, external-provider signature
+  verification, and an optional independent account-risk admission boundary: when a guard is
+  configured it must reserve reconciled capital before any provider call, an attempt that produces
+  no transaction releases its reservation, and a successful signature keeps it until an independent
+  reconciliation releases it. `socket_key_provider.py` implements a bounded local Unix-socket digest
+  adapter. It is not a key daemon, and the default CLI configures neither a production provider nor a
+  risk guard, so it always denies. Default shadow children receive a minimal environment, which is
+  not OS-level isolation from wallet files;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
   agreement, and precommitted rejection thresholds; it still needs a production target dataset and
-  untouched out-of-sample economic result;
+  untouched out-of-sample economic result. Its v2 protocol also requires per-fold excess return
+  over hold/R00/R01/R10 and strict calibration/evaluation block separation;
 - `farming` attribution now includes uniquely attributed multi-position owner cash
   (`batch_owner_cash_payload`, fails closed on shared tokens/third parties/native currency)
   and native owner payment attribution with gas reconciliation (`native_payments.py`,
   chain-specific L1 gas policies), both unit-tested;
+- `farming/owner_quorum.py` verifies native/ERC-20 owner cash from raw two-provider snapshots,
+  with token identity binding; this does not establish complete account NAV or sustained net PnL;
+- `farming/cash_window.py` reconstructs a whole position window from two-source retained raw
+  snapshots, complete core/NFT event ranges and every modification payment, deriving the owner
+  at each action. It rejects gaps at successive boundaries and never claims full-account NAV,
+  valuation, all gas costs, finality or live eligibility;
+- `risk/canary_instructions.py` parses owner USD limits exactly and checks explicit capital/loss
+  inputs; the owner confirmed a dedicated wallet and USD 200 daily / USD 500 cumulative loss caps.
+  The owner subsequently approved USD 500 total capital. `risk/capital_journal.py` now persists
+  an account/policy-bound loss latch across restarts and days, with idempotent observations and
+  hash-linked history checks. Independent NAV valuation and signer/broadcast integration remain
+  unconnected; this is not yet a deployed production kill switch;
+- `risk/capital_reservations.py` supports shared cross-chain USD reservations with serialized
+  writers, idempotency, retained pending commitments and explicit settlement release. Base and
+  Robinhood share the owner-approved USD 500 total; per-chain losses are reconciled by the global
+  ledger below, which is not yet wired to this component. Neither legacy execution nor signer is
+  wired to this component;
+- `risk/account_risk.py` is a single cross-chain reconciled-account ledger: one append-only,
+  hash-linked SQLite state carrying each account's NAV, per-asset movement reconciliation,
+  external-flow explanation, conservative gross loss (a gain in one account never offsets a loss
+  in another), day/cumulative loss latch, and capital ceiling over deployed investment plus pending
+  commitments. It timestamps by a trusted integer clock, requires an exact-midnight reconciliation
+  across day boundaries, and latches the halt without weakening. `execution/account_risk_guard.py`
+  binds it to the signer as an admission boundary over an injected `AccountRiskReader`; no reader
+  implementation is loaded by default, so the guard fails closed until an operator supplies one that
+  replays full inventory and raw proofs. Unit-tested; independent NAV valuation and production
+  signer/broadcast integration remain unconnected, so this is not a deployed production kill switch;
+- Native wallet balances now support bounded two-provider capture and offline raw-RPC replay;
+  real Base and Robinhood pinned samples agree. A same-block Base ETH/USD reference also replays
+  from two providers with explicit integer valuation rounding. This is native-only historical
+  reference valuation, not complete NAV, independent economic price consensus, or live risk approval;
+- Base public dRPC/Alchemy samples now agree on six v4/token runtimes and three ETH/USDC
+  pool states at block 51,410,447; the hookless fee=500 pool passed all 12 two-source direct
+  quotes. A separate CLI observer sample at block 51,410,550 passed raw state replay. This
+  establishes a Base quote benchmark, not Oasis-hook routing, profitability or execution authority;
+- Base mainnet block 51,410,447 now passed the local canonical protocol lifecycle with synthetic
+  tokens: mint, four swap modes, collect, revoked-whitelist exit and Permit2 cleanup, with
+  pre/postflight block identity checks. This is local fork compatibility, not funded trading
+  of the benchmark pool or an economic acceptance result;
+- Base block 51,410,447 also passed a local real ETH/USDC hookless-pool lifecycle: mint,
+  four exact swap modes, collection/removal, per-currency cash conservation, approval cleanup
+  and missing-allowance atomic rollback. Artificial fork balances and generated flow do not
+  establish organic LP returns, Universal Router selection or funded production execution;
+- `launch/scoring.py` and `trend_import.py` provide GMGN/OKX retained-rank imports and a
+  deterministic, fail-closed research score combining supplied holder, contract, depth and valuation
+  assessments, with net-exit and LP-counterfactual proposals. CLI, API and console share the same
+  score and retain `execution_eligible=False`; inputs are explicitly normalized imports, not raw
+  attestations. `launch/holder_scoring.py` now binds two-source retained holder replay to the same
+  token/runtime/decimals/block/time, derives holder metrics and fails closed on unresolved common
+  control; its CLI retains the proof-binding hash. It is not a live holder indexer or contract scanner.
+  Bounded authenticated provider capture exists separately (see below); automatic chain-contract
+  enrichment, persistent position reconciliation, out-of-sample profitability and trading integration
+  remain unimplemented;
+- `launch/discovery.py`, `discovery_import.py` and `batch_scoring.py` provide bounded multi-token
+  discovery, rank/time/provenance binding and shared batch research scoring without a fixed token.
+  The shared batch API and console expose missing evidence, exclusion counts and independent
+  held-position exit proposals; imported acquisition failures remain distinct from empty markets.
+  These are user-triggered retained-input evaluations, not live feed polling. Public profile and OKX
+  unauthenticated access tests returned HTTP 403 locally. `scripts/capture_token_research.py` now
+  captures authenticated five-minute GMGN/OKX rankings on Base/Robinhood and bounded enrichment
+  with response hashes, source-specific claims, unknown fields, failure records and offline replay.
+  A Base run passed all nine requests, including GMGN security/pool/20-holder and OKX advanced
+  risk/100-holder/cluster data. Version-two normalization now preserves holder share units and GMGN boolean aliases,
+  rejecting duplicate holder rows and marking conflicting/invalid aliases unknown. Complete v1
+  archives still replay; replay checks scope, selection, units and provider halt order. A fresh
+  September 22 Base run captured all four OKX routes including 100 holders; GMGN CLI failed
+  and its subsequent requests were halted. Provider claims are not chain attestations. Robinhood OKX cluster capture failed with HTTP 400. FOMO is authorization-required;
+  sustained discovery, complete enrichment and execution remain unverified or unimplemented.
 - CLI fixture commands are not evidence of a working backtester, simulator, or executor;
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a

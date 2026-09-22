@@ -128,6 +128,25 @@ def test_pass_requires_agreeing_dual_provider_evidence():
     assert result(LpGate.WP0_CORRECTNESS).status is GateStatus.PASS
 
 
+@pytest.mark.parametrize("mismatch", ["missing", "height", "hash", "chain", "timestamp"])
+def test_release_quorum_requires_identical_timestamped_blocks(mismatch):
+    first, second = dual()
+    block = second.block
+    assert block is not None
+    if mismatch == "missing":
+        block = None
+    elif mismatch == "height":
+        block = replace(block, number=block.number + 1)
+    elif mismatch == "hash":
+        block = replace(block, block_hash="0x" + "ef" * 32)
+    elif mismatch == "chain":
+        block = replace(block, chain_id=1)
+    else:
+        block = replace(block, timestamp=None)
+    with pytest.raises(ValueError, match="same timestamped block"):
+        replace(result(LpGate.WP0_CORRECTNESS), evidence=(first, replace(second, block=block)))
+
+
 def _manifest(gates) -> bytes:
     return json.dumps(
         {

@@ -21,7 +21,7 @@ from ..models.common import (
 )
 from ..models.v4 import PoolKey
 from ..uniswap_v4.pool_id import pool_id_from_key
-from .lp_state_machine import LpIntent, LpIntentMode
+from .lp_state_machine import LpIntent, LpIntentMode, RuntimePin, RuntimeRole
 
 EXECUTE_TYPE = (
     "(uint64,uint64,uint8,(address,address,uint24,int24,address),uint256,"
@@ -37,7 +37,7 @@ class LpSignerPolicy:
     executor: str
     pool_id: str
     config_hash: str
-    code_hashes: tuple[str, ...]
+    runtime_pins: tuple[RuntimePin, ...]
     max_liquidity: int
     max_amount0: int
     max_amount1: int
@@ -56,11 +56,20 @@ class LpSignerPolicy:
             object.__setattr__(self, name, address)
         for name in ("pool_id", "config_hash"):
             object.__setattr__(self, name, normalize_hash32(getattr(self, name)))
-        if not self.code_hashes:
-            raise ValueError("signer policy requires code hashes")
-        object.__setattr__(
-            self, "code_hashes", tuple(normalize_hash32(value) for value in self.code_hashes)
-        )
+        if not self.runtime_pins or any(
+            not isinstance(pin, RuntimePin) for pin in self.runtime_pins
+        ):
+            raise ValueError("signer policy requires typed runtime pins")
+        pins_by_role = {pin.role: pin for pin in self.runtime_pins}
+        if (
+            set(pins_by_role) != set(RuntimeRole)
+            or len(pins_by_role) != len(self.runtime_pins)
+            or len({pin.address for pin in self.runtime_pins}) != len(self.runtime_pins)
+        ):
+            raise ValueError("signer policy requires unique executor and manager runtime pins")
+        object.__setattr__(self, "runtime_pins", tuple(pins_by_role[role] for role in RuntimeRole))
+        if pins_by_role[RuntimeRole.EXECUTOR].address != self.executor:
+            raise ValueError("executor runtime pin must match signer target")
         for name in (
             "max_liquidity",
             "max_amount0",
@@ -93,7 +102,7 @@ class LpSigningRequest:
     simulation_block: BlockRef
     simulation_succeeded: bool
     simulation_calldata_hash: str
-    observed_code_hashes: tuple[str, ...]
+    observed_runtime_pins: tuple[RuntimePin, ...]
     risk_approved: bool
     risk_decision_hash: str
     evidence: tuple[EvidenceRef, ...]
@@ -118,11 +127,25 @@ class LpSigningRequest:
             self, "simulation_calldata_hash", normalize_hash32(self.simulation_calldata_hash)
         )
         object.__setattr__(self, "risk_decision_hash", normalize_hash32(self.risk_decision_hash))
+        if not self.observed_runtime_pins or any(
+            not isinstance(pin, RuntimePin) for pin in self.observed_runtime_pins
+        ):
+            raise ValueError("observed runtime pins must be typed and nonempty")
+        pins_by_role = {pin.role: pin for pin in self.observed_runtime_pins}
+        if (
+            set(pins_by_role) != set(RuntimeRole)
+            or len(pins_by_role) != len(self.observed_runtime_pins)
+            or len({pin.address for pin in self.observed_runtime_pins})
+            != len(self.observed_runtime_pins)
+        ):
+            raise ValueError("observed runtime pins require unique executor and manager identities")
         object.__setattr__(
             self,
-            "observed_code_hashes",
-            tuple(normalize_hash32(value) for value in self.observed_code_hashes),
+            "observed_runtime_pins",
+            tuple(pins_by_role[role] for role in RuntimeRole),
         )
+        if pins_by_role[RuntimeRole.EXECUTOR].address != self.target:
+            raise ValueError("observed executor runtime pin must match transaction target")
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,17 +165,44 @@ def calldata_hash(calldata: bytes) -> str:
     return "0x" + keccak(calldata).hex()
 
 
+def simulation_payload(
+    *,
+    block: BlockRef,
+    account: str,
+    target: str,
+    value: int,
+    gas_limit: int,
+    calldata_digest: str,
+    succeeded: bool,
+    runtime_pins: tuple[RuntimePin, ...],
+) -> bytes:
+    """Version 3 binds the complete call envelope and role-bound runtimes."""
+    return canonical_json(
+        {
+            "schema": "oasis.lp-pinned-simulation.v3",
+            "block": asdict(block),
+            "account": account,
+            "target": target,
+            "value": value,
+            "gas_limit": gas_limit,
+            "calldata_hash": calldata_digest,
+            "succeeded": succeeded,
+            "runtime_pins": [asdict(pin) for pin in runtime_pins],
+        }
+    )
+
+
 def simulation_evidence_hash(request: LpSigningRequest) -> str:
-    """Hash the exact state and transaction result providers must agree on."""
     return sha256_hex(
-        canonical_json(
-            {
-                "schema": "oasis.lp-pinned-simulation.v1",
-                "block": asdict(request.simulation_block),
-                "calldata_hash": request.simulation_calldata_hash,
-                "succeeded": request.simulation_succeeded,
-                "code_hashes": request.observed_code_hashes,
-            }
+        simulation_payload(
+            block=request.simulation_block,
+            account=request.account,
+            target=request.target,
+            value=request.value,
+            gas_limit=request.gas_limit,
+            calldata_digest=request.simulation_calldata_hash,
+            succeeded=request.simulation_succeeded,
+            runtime_pins=request.observed_runtime_pins,
         )
     )
 
@@ -162,13 +212,13 @@ def preflight_evidence_hash(request: LpSigningRequest) -> str:
     return sha256_hex(
         canonical_json(
             {
-                "schema": "oasis.lp-execution-preflight.v1",
+                "schema": "oasis.lp-execution-preflight.v2",
                 "block": asdict(request.current_block),
                 "account": request.account,
                 "account_nonce": request.account_nonce,
                 "executor": request.target,
                 "executor_last_nonce": request.executor_last_nonce,
-                "code_hashes": request.observed_code_hashes,
+                "runtime_pins": [asdict(pin) for pin in request.observed_runtime_pins],
             }
         )
     )
@@ -189,10 +239,10 @@ def authorize_lp_signing(policy: LpSignerPolicy, request: LpSigningRequest) -> L
     if intent.config_hash != policy.config_hash:
         reasons.append("intent config is not the frozen signer policy")
     if (
-        intent.code_hashes != policy.code_hashes
-        or request.observed_code_hashes != policy.code_hashes
+        intent.runtime_pins != policy.runtime_pins
+        or request.observed_runtime_pins != policy.runtime_pins
     ):
-        reasons.append("runtime code hashes do not match policy")
+        reasons.append("runtime address and code hash pins do not match policy")
     if actual_calldata_hash != intent.calldata_hash:
         reasons.append("calldata does not match intent")
     if request.simulation_calldata_hash != actual_calldata_hash:
@@ -347,6 +397,9 @@ def authorize_lp_signing(policy: LpSignerPolicy, request: LpSigningRequest) -> L
             "target": request.target,
             "account": request.account,
             "account_nonce": request.account_nonce,
+            "value": request.value,
+            "gas_limit": request.gas_limit,
+            "simulation_evidence_hash": expected_simulation_hash,
             "executor_nonce": intent.nonce,
             "executor_last_nonce": request.executor_last_nonce,
         }

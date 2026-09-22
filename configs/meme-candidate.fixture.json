@@ -1,0 +1,54 @@
+{
+  "schema_version": "oasis.candidate.v1",
+  "chain_id": 8453,
+  "token": "0x1212121212121212121212121212121212121212",
+  "evaluated_at": 1000,
+  "trends": [
+    {
+      "provider": "gmgn",
+      "chain_id": 8453,
+      "token": "0x1212121212121212121212121212121212121212",
+      "rank": 1,
+      "window_seconds": 300,
+      "observed_at": 990,
+      "retrieved_at": 995,
+      "raw_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "provider": "okx",
+      "chain_id": 8453,
+      "token": "0x1212121212121212121212121212121212121212",
+      "rank": 1,
+      "window_seconds": 300,
+      "observed_at": 990,
+      "retrieved_at": 995,
+      "raw_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "chain": {
+    "chain_id": 8453,
+    "token": "0x1212121212121212121212121212121212121212",
+    "block_number": 10,
+    "block_hash": "0xabababababababababababababababababababababababababababababababab",
+    "observed_at": 990,
+    "evidence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "holder_coverage": "pass",
+    "holder_count": 1000,
+    "holder_top10_bps": 1000,
+    "common_control_bps": 500,
+    "contract_analysis": "pass",
+    "sell_simulation": "pass",
+    "mint_or_freeze_authority": "pass",
+    "liquidity_exit": "pass",
+    "quote_impact_bps": 20,
+    "round_trip_cost_bps": 100,
+    "executable_depth_usd_micros": 500000000,
+    "liquidity_usd_micros": 100000000000,
+    "fdv_usd_micros": 500000000000,
+    "unique_buyers": 200,
+    "unique_sellers": 50,
+    "wash_trading": "pass",
+    "common_control_analysis": "pass"
+  },
+  "position": null
+}

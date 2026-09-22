@@ -114,3 +114,39 @@ def test_wrong_block_hash_and_reused_expense_evidence_fail(tmp_path):
         reconcile_full_cost(
             replay, (first, second, *costs[2:]), quote_decimals=18, canonical_blocks=blocks
         )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("net_pnl1", 10**30),
+        ("opening_value1", 10**30),
+        ("closing_value1", 10**30),
+        ("cumulative_flow_value1", 10**30),
+    ],
+)
+def test_cost_reconciliation_rejects_modified_accounting_totals(tmp_path, field, value):
+    replay, costs, blocks = fixture(tmp_path)
+    with pytest.raises(ValueError, match="accounting replay"):
+        reconcile_full_cost(
+            replace(replay, **{field: value}), costs, quote_decimals=18, canonical_blocks=blocks
+        )
+
+
+def test_coordinated_pnl_and_flow_forgery_cannot_pass_arithmetic_identity(tmp_path):
+    replay, costs, blocks = fixture(tmp_path)
+    forged = replace(
+        replay,
+        flows=tuple(replace(flow, quote1_value=flow.quote1_value + 99) for flow in replay.flows),
+        cumulative_flow_value1=replay.cumulative_flow_value1 + 99,
+        net_pnl1=replay.net_pnl1 + 99,
+    )
+    with pytest.raises(ValueError, match="accounting replay"):
+        reconcile_full_cost(forged, costs, quote_decimals=18, canonical_blocks=blocks)
+
+
+def test_changed_inventory_must_be_rebuilt_from_position_snapshot(tmp_path):
+    replay, costs, blocks = fixture(tmp_path)
+    forged = replace(replay, opening_inventory=replace(replay.opening_inventory, total0=10**30))
+    with pytest.raises(ValueError, match="accounting replay"):
+        reconcile_full_cost(forged, costs, quote_decimals=18, canonical_blocks=blocks)

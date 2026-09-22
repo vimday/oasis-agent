@@ -3,7 +3,12 @@
 from dataclasses import asdict, dataclass
 from typing import Protocol
 
-from ..evidence.rpc_validation import decode_exchange, rpc_quantity
+from ..evidence.rpc_validation import (
+    decode_exchange,
+    restore_exchanges,
+    rpc_quantity,
+    strict_json_object,
+)
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, canonical_json, normalize_address, normalize_hex
@@ -211,9 +216,81 @@ def persist_position_snapshot_evidence(
     )
 
 
+def _payload_object(value: object, name: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise TypeError(f"{name} must be an object")
+    return value
+
+
+def _payload_int(value: object, name: str) -> int:
+    if type(value) is not int:
+        raise TypeError(f"{name} must be an integer")
+    return value
+
+
+def _payload_str(value: object, name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    return value
+
+
+def replay_position_snapshot_evidence(
+    store: EvidenceStore, reference: EvidenceRef
+) -> PositionSnapshotCapture:
+    if reference.kind != "position_snapshot" or reference.schema_version != 1:
+        raise ValueError("position evidence kind or schema is unsupported")
+    record = store.get_record(reference)
+    if record.request_payload is None:
+        raise ValueError("position request evidence is missing")
+    payload = strict_json_object(record.payload)
+    if set(payload) != {"schema", "header", "state_view", "snapshot"}:
+        raise ValueError("position payload has invalid fields")
+    if payload["schema"] != "oasis.position-snapshot.v1":
+        raise ValueError("position payload schema is unsupported")
+    header_value = _payload_object(payload["header"], "header")
+    if set(header_value) != {"ref", "parent_hash"}:
+        raise ValueError("position header has invalid fields")
+    ref_value = _payload_object(header_value["ref"], "block reference")
+    if set(ref_value) != {"chain_id", "number", "block_hash", "timestamp"}:
+        raise ValueError("position block reference has invalid fields")
+    header = BlockSnapshot(
+        BlockRef(
+            _payload_int(ref_value["chain_id"], "chain id"),
+            _payload_int(ref_value["number"], "block number"),
+            _payload_str(ref_value["block_hash"], "block hash"),
+            _payload_int(ref_value["timestamp"], "block timestamp"),
+        ),
+        _payload_str(header_value["parent_hash"], "parent hash"),
+    )
+    snapshot_value = _payload_object(payload["snapshot"], "snapshot")
+    manager = _payload_str(snapshot_value.get("position_manager"), "position manager")
+    token_id = _payload_int(snapshot_value.get("token_id"), "token id")
+    exchanges = restore_exchanges(record.request_payload, record.raw_response_payload)
+    rpc = _CapturedCalls(header, exchanges)
+    snapshot = read_position_snapshot(
+        manager,
+        token_id,
+        header.ref,
+        RpcPositionStateSource(rpc, manager, _payload_str(payload["state_view"], "state view")),
+    )
+    if rpc.calls:
+        raise ValueError("position capture contains unrelated successful calls")
+    capture = PositionSnapshotCapture(
+        reference.source,
+        header,
+        _payload_str(payload["state_view"], "state view"),
+        snapshot,
+        exchanges,
+    )
+    if capture.payload != record.payload or capture.snapshot.block != reference.block:
+        raise ValueError("position interpretation differs from raw reconstruction")
+    return capture
+
+
 __all__ = [
     "PositionSnapshotCapture",
     "PositionSnapshotRpc",
     "collect_position_snapshot",
     "persist_position_snapshot_evidence",
+    "replay_position_snapshot_evidence",
 ]

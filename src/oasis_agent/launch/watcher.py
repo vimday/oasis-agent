@@ -8,11 +8,11 @@ the same transaction from overwriting each other.
 from collections import OrderedDict
 from typing import Literal
 
-from .models import Address, Hash, Observation, Source, StrictModel, UInt
+from .models import Address, Hash, Observation, Positive, Source, StrictModel, UInt
 
 
 class PoolEvent(StrictModel):
-    chain_id: Literal[8453]
+    chain_id: Positive
     source: Source
     factory: Address
     pool: Address

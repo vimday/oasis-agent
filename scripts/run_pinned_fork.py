@@ -18,6 +18,12 @@ from oasis_agent.rpc.client import RpcClient
 from oasis_agent.rpc.transport import JsonRpcTransport
 
 NETWORKS = {
+    "base": (
+        8453,
+        "https://base.drpc.org",
+        "0x498581ff718922c3f8e6a244956af099b2652b2b",
+        "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
+    ),
     "base-sepolia": (
         84532,
         "https://sepolia.base.org",
@@ -68,8 +74,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--network", choices=NETWORKS, required=True)
     parser.add_argument("--block", type=int, required=True)
+    parser.add_argument("--suite", choices=("lifecycle", "base-pool"), default="lifecycle")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.suite == "base-pool" and args.network != "base":
+        parser.error("base-pool suite requires Base mainnet")
     if args.block <= 0 or args.output.exists():
         parser.error("positive explicit block and new output directory required")
     args.output.mkdir(parents=True)
@@ -98,7 +107,7 @@ def main() -> None:
     if l1_block and fork_timestamp is None:
         raise ValueError("L2 preflight pinning data unavailable (head timestamp)")
     targets = {"POOL_MANAGER": manager, "POSITION_MANAGER": positions, "PERMIT2": PERMIT2}
-    env = os.environ.copy()
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "LANG") if key in os.environ}
     env.update(
         FOUNDRY_PROFILE="fork",
         OASIS_FORK_RPC=url,
@@ -162,7 +171,9 @@ def main() -> None:
         ],
     }
     (args.output / "preflight.json").write_bytes(canonical_json(manifest))
-    command = ["forge", "test", "--match-contract", "OasisForkLifecycleTest", "-vv"]
+    contract = "OasisBasePoolForkTest" if args.suite == "base-pool" else "OasisForkLifecycleTest"
+    manifest["suite"] = args.suite
+    command = ["forge", "test", "--match-contract", contract, "-vv"]
     with (args.output / "forge.log").open("wb") as log:
         result = subprocess.run(
             command,

@@ -1,0 +1,7 @@
+{
+  "schema": "oasis.canary-public-wallet.v1",
+  "account": "0xe653df20a8c525edf381942ffc47704b7bdfe97d",
+  "chain_ids": [8453, 4663],
+  "owner_confirmed_dedicated": true,
+  "execution_enabled": false
+}

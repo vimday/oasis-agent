@@ -73,7 +73,11 @@ class ShadowRunCoordinator:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._loop_factory = loop_factory
         self._closed = False
-        self._environ = None if environ is None else dict(environ)
+        # Never implicitly pass server credentials or wallet material to a child.
+        # Campaigns supply their own narrowly scoped RPC environment explicitly.
+        self._environ = (
+            {"PATH": os.defpath, "PYTHONUNBUFFERED": "1"} if environ is None else dict(environ)
+        )
         self._pass_fds = pass_fds
 
     def _event_loop(self) -> asyncio.AbstractEventLoop:

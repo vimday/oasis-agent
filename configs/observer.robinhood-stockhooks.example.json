@@ -1,0 +1,13 @@
+{
+  "chain_id": 4663,
+  "pool_id": "0xaa82ac6c0cca2c126161a16b1bff0d820eb4cb81701df81258633b9fe57536d6",
+  "state_view": "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b",
+  "pool_manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+  "state_view_runtime_keccak": "0x7d9c591e0956fd89d98feb4ffcfe8bf1f7a62bd485edd979fa21d104b49878a6",
+  "pool_manager_runtime_keccak": "0xbd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+  "public_request_cap": 18,
+  "paid_request_cap": 7,
+  "public_interval_ms": 1000,
+  "paid_interval_ms": 3000,
+  "max_age_seconds": 120
+}

@@ -207,6 +207,12 @@ sink. The sweep cannot be redirected by the agent or hook governor.
   target transaction is allowed.
 - Production keys have documented creation, backup, rotation, revocation, and compromise procedures.
 - Logs record request/decision/signature hashes and rejection reasons, never secret material.
+- The signer may be fronted by an independent reconciled-account risk guard that must durably
+  reserve capital, after full-account reconciliation and cross-chain loss/capital-ceiling checks,
+  before any key authority is called. An attempt that produces no transaction releases its
+  reservation; a successful signature keeps it until an independent reconciliation releases it.
+  No guard reader implementation is loaded by default, so this boundary fails closed until an
+  operator supplies one that replays complete inventory and raw proofs.
 
 For an early EOA canary, “agent owns the key” is still implemented through an isolated signer process.
 If that isolation is unavailable, autonomous execution remains disabled; putting a raw key directly

@@ -57,6 +57,35 @@ class UsdFeedPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class UsdPriceObservation:
+    answer: int
+    decimals: int
+    round_id: int
+    started_at: int
+    updated_at: int
+    answered_in_round: int
+
+    def __post_init__(self) -> None:
+        for name in (
+            "answer",
+            "decimals",
+            "round_id",
+            "started_at",
+            "updated_at",
+            "answered_in_round",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int:
+                raise TypeError(f"{name} must be an integer")
+        if self.answer <= 0 or not 0 <= self.decimals <= 255:
+            raise ValueError("positive answer and uint8 decimals required")
+        if self.round_id <= 0 or self.answered_in_round < self.round_id:
+            raise ValueError("complete oracle round identity required")
+        if not 0 < self.started_at <= self.updated_at:
+            raise ValueError("valid oracle round timing required")
+
+
+@dataclass(frozen=True, slots=True)
 class UsdPriceCapture:
     header: BlockSnapshot
     policy: UsdFeedPolicy
@@ -70,6 +99,10 @@ class UsdPriceCapture:
         self.reconstruct()
 
     def reconstruct(self) -> tuple[int, int]:
+        observation = self.reconstruct_observation()
+        return observation.answer, observation.decimals
+
+    def reconstruct_observation(self) -> UsdPriceObservation:
         p = self.policy
         b = self.header.ref
         if p.chain_id != b.chain_id:
@@ -145,7 +178,7 @@ class UsdPriceCapture:
             or not 0 <= b.timestamp - u <= p.max_age_seconds
         ):
             raise ValueError("invalid, stale, future or incomplete oracle round")
-        return a, decimals
+        return UsdPriceObservation(a, decimals, r, s, u, ar)
 
     @property
     def payload(self) -> bytes:
@@ -297,6 +330,79 @@ def replay_price_evidence(
     )
     if capture.payload != record.payload:
         raise ValueError("price interpretation differs from raw reconstruction")
+    return capture
+
+
+def _price_wire_envelope(capture: UsdPriceCapture, *, response: bool) -> dict[str, object]:
+    return {
+        "encoding": "hex_exact_bytes",
+        "exchanges": [
+            {
+                "method": item.method,
+                "request_id": item.request_id,
+                "attempt": item.attempt,
+                "payload": (item.response_payload if response else item.request_payload).hex(),
+            }
+            for item in capture.exchanges
+        ],
+    }
+
+
+def _price_observation_payload(capture: UsdPriceCapture) -> bytes:
+    return canonical_json(
+        {
+            "schema": "oasis.price-feed-observation.v2",
+            "block": asdict(capture.header.ref),
+            "policy": asdict(capture.policy),
+            "observation": asdict(capture.reconstruct_observation()),
+            "source": capture.source,
+        }
+    )
+
+
+def persist_price_observation_evidence(
+    store: EvidenceStore, capture: UsdPriceCapture
+) -> EvidenceRef:
+    return store.put(
+        "price_feed_observation",
+        _price_observation_payload(capture),
+        capture.header.ref,
+        capture.source,
+        request=_price_wire_envelope(capture, response=False),
+        raw_response=_price_wire_envelope(capture, response=True),
+        interpretation={
+            "schema": "oasis.price-feed-observation.v2",
+            "validation": "raw_rpc_reconstruction",
+            "execution_eligible": False,
+        },
+        schema_version=2,
+    )
+
+
+def replay_price_observation_evidence(
+    store: EvidenceStore,
+    evidence: EvidenceRef,
+    *,
+    header: BlockSnapshot,
+    policy: UsdFeedPolicy,
+) -> UsdPriceCapture:
+    if (
+        evidence.kind != "price_feed_observation"
+        or evidence.schema_version != 2
+        or evidence.block != header.ref
+    ):
+        raise ValueError("price observation evidence scope mismatch")
+    record = store.get_record(evidence)
+    if record.request_payload is None:
+        raise ValueError("price observation evidence missing wire requests")
+    capture = UsdPriceCapture(
+        header,
+        policy,
+        evidence.source,
+        restore_exchanges(record.request_payload, record.raw_response_payload),
+    )
+    if _price_observation_payload(capture) != record.payload:
+        raise ValueError("price observation interpretation differs from raw reconstruction")
     return capture
 
 

@@ -7,6 +7,8 @@ from oasis_agent.execution.lp_state_machine import (
     LpIntent,
     LpIntentMode,
     LpState,
+    RuntimePin,
+    RuntimeRole,
     TickRange,
 )
 
@@ -35,7 +37,11 @@ def make_intent(**overrides: object) -> LpIntent:
         "state_hash": "0x" + "cd" * 32,
         "deadline_timestamp": 1_800_000_000,
         "config_hash": "0x" + "ef" * 32,
-        "code_hashes": ("0x" + "12" * 32, "0x" + "34" * 32),
+        "runtime_pins": (
+            RuntimePin(RuntimeRole.EXECUTOR, "0x" + "44" * 20, "0x" + "12" * 32),
+            RuntimePin(RuntimeRole.POSITION_MANAGER, "0x" + "55" * 20, "0x" + "34" * 32),
+            RuntimePin(RuntimeRole.POOL_MANAGER, "0x" + "66" * 20, "0x" + "56" * 32),
+        ),
     }
     base.update(overrides)
     return LpIntent(**base)  # type: ignore[arg-type]
@@ -59,8 +65,8 @@ class LpIntentTests(unittest.TestCase):
             make_intent(max_swap_input=-1)
         with self.assertRaises(TypeError):
             make_intent(nonce=True)  # type: ignore[arg-type]
-        with self.assertRaisesRegex(ValueError, "code_hashes"):
-            make_intent(code_hashes=())
+        with self.assertRaisesRegex(ValueError, "runtime_pins"):
+            make_intent(runtime_pins=())
 
 
 class LpStateMachineTests(unittest.TestCase):
@@ -208,7 +214,7 @@ def test_intent_rejects_malformed_hashes_and_evm_overflow():
         {"pool_id": "not-a-hash"},
         {"state_hash": "0x01"},
         {"config_hash": "0x01"},
-        {"code_hashes": ("0x01",)},
+        {"runtime_pins": ()},
         {"max_fee_pips": 1_000_001},
         {"amount0_max": 1 << 128},
         {"nonce": 1 << 256},

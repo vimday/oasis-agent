@@ -1,7 +1,8 @@
 """Read-only observation routes (P0) and the live decision stream (P1).
 
-All data served here is re-validated from the hash-linked journals on every
-request; integrity failures surface as HTTP 503 through the centralized
+Journal reads check connection-local SQLite data versions on every request,
+fully revalidating changed chains in read transactions. Integrity failures
+surface as HTTP 503 through the centralized
 exception handlers so the frontend never sees a partial or tampered view.
 Response payloads are the canonical journal records (``schema``/``digest``
 preserved) so what the dashboard displays is exactly what the audit chain
@@ -18,13 +19,15 @@ import json
 import logging
 import time
 from collections.abc import Sequence
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
 from ..models.common import sha256_hex
 from . import __version__
 from .chains import RpcProtocolError, decode_rpc_quantity
-from .databases import Page, ReadOnlyError
+from .console_contract import CONSOLE_VIEWS
+from .databases import Page, ReadOnlyDatabases, ReadOnlyError
 from .deps import State
 from .routers_launch import launch_data
 from .schemas import (
@@ -46,13 +49,21 @@ _WS_HEARTBEAT_SECONDS = 15.0
 _SERVER_NAME = "oasis-agent-observation-server"
 
 
+@router.get("/metrics")
+async def metrics(state: State) -> dict[str, object]:
+    return {
+        "schema": "oasis.server-reader-metrics.v1",
+        **await state.reader.run(lambda _: state.reader.metrics()),
+    }
+
+
 def _page(items: Sequence[dict[str, object]], offset: int, limit: int) -> Page:
     total = len(items)
     start = min(offset, total)
     end = min(offset + limit, total)
     sliced = tuple(items[start:end])
-    next_seq = sliced[-1].get("seq") if sliced else None
-    next_seq = int(next_seq) + 1 if isinstance(next_seq, int) and end < total else None
+    next_value = items[end].get("seq") if end < total else None
+    next_seq = next_value if isinstance(next_value, int) else None
     return Page(items=sliced, total=total, next_seq=next_seq)
 
 
@@ -69,7 +80,7 @@ def _require_limit(limit: int, max_rows: int) -> int:
 
 
 @router.get("/meta", response_model=MetaResponse)
-async def meta(request: Request) -> MetaResponse:
+async def meta(request: Request, state: State) -> MetaResponse:
     """Self-describing API metadata: version, schemas and live routes."""
     endpoints: dict[str, tuple[str, ...]] = {}
     paths = request.app.openapi().get("paths", {})
@@ -96,8 +107,9 @@ async def meta(request: Request) -> MetaResponse:
         version=__version__,
         data_schemas=list(DATA_SCHEMAS),
         envelope_schemas=list(ENVELOPE_SCHEMAS),
+        max_rows_per_page=state.config.max_rows_per_page,
         endpoints=[
-            MetaEndpoint(path=path, methods=list(methods))
+            MetaEndpoint(path=path, methods=list(methods), console_view=CONSOLE_VIEWS.get(path))
             for path, methods in sorted(endpoints.items())
         ],
     )
@@ -105,7 +117,7 @@ async def meta(request: Request) -> MetaResponse:
 
 @router.get("/health", response_model=HealthResponse)
 async def health(state: State) -> HealthResponse:
-    sources = state.databases.sources_status()
+    sources = await state.reader.run(lambda databases: databases.sources_status())
     return HealthResponse(
         schema="oasis.server-health.v1",
         ok=all(source.available for source in sources.values()),
@@ -118,7 +130,10 @@ async def health(state: State) -> HealthResponse:
 
 @router.get("/status", response_model=StatusResponse)
 async def status(state: State) -> StatusResponse:
-    databases = state.databases
+    return await state.reader.run(_status)
+
+
+def _status(databases: ReadOnlyDatabases) -> StatusResponse:
     decisions: tuple[dict[str, object], ...] = ()
     health: tuple[dict[str, object], ...] = ()
     # The overview endpoint degrades gracefully: if one journal is unreadable
@@ -161,10 +176,12 @@ async def observations(
     state: State,
     limit: int = Query(default=50),
     offset: int = Query(default=0),
+    order: Literal["asc", "desc"] = Query(default="asc"),
 ) -> dict[str, object]:
     limit = _require_limit(limit, state.config.max_rows_per_page)
     offset = _require_offset(offset, state.config.max_rows_per_page)
-    page = _page(state.databases.health_chain(), offset, limit)
+    chain = await state.reader.run(lambda databases: databases.health_chain())
+    page = _page(chain if order == "asc" else chain[::-1], offset, limit)
     return {
         "schema": "oasis.server-observations.v1",
         "integrity": "verified",
@@ -181,17 +198,18 @@ async def decisions(
     offset: int = Query(default=0),
     decision: str | None = Query(default=None),
     strategy: str = Query(default="lp", pattern="^(lp|launch)$"),
+    order: Literal["asc", "desc"] = Query(default="asc"),
 ) -> dict[str, object]:
     limit = _require_limit(limit, state.config.max_rows_per_page)
     offset = _require_offset(offset, state.config.max_rows_per_page)
     chain = (
-        tuple(launch_data(state.config.databases.launch)[1])
+        tuple((await asyncio.to_thread(launch_data, state.config.databases.launch))[1])
         if strategy == "launch"
-        else state.databases.decision_chain()
+        else await state.reader.run(lambda databases: databases.decision_chain())
     )
     if decision is not None:
         chain = tuple(item for item in chain if item.get("decision") == decision)
-    page = _page(chain, offset, limit)
+    page = _page(chain if order == "asc" else chain[::-1], offset, limit)
     return {
         "schema": "oasis.server.decisions.v1",
         "integrity": "verified",
@@ -203,8 +221,12 @@ async def decisions(
 
 @router.get("/decisions/{seq}")
 async def decision_detail(state: State, seq: int) -> dict[str, object]:
-    chain = state.databases.decision_chain()
-    health = state.databases.health_chain()
+    return await state.reader.run(lambda databases: _decision_detail(databases, seq))
+
+
+def _decision_detail(databases: ReadOnlyDatabases, seq: int) -> dict[str, object]:
+    chain = databases.decision_chain()
+    health = databases.health_chain()
     match = next((item for item in chain if item.get("seq") == seq), None)
     if match is None:
         raise HTTPException(status_code=404, detail="decision not found")
@@ -218,6 +240,7 @@ async def decision_detail(state: State, seq: int) -> dict[str, object]:
         "schema": "oasis.server.decision-detail.v1",
         "decision": match,
         "linked_health": linked_health,
+        "document": json.dumps({"decision": match, "linked_health": linked_health}, indent=2),
     }
 
 
@@ -232,8 +255,10 @@ async def evidence(
 ) -> dict[str, object]:
     limit = _require_limit(limit, state.config.max_rows_per_page)
     offset = _require_offset(offset, state.config.max_rows_per_page)
-    page = state.databases.evidence_page(
-        kind=kind, chain_id=chain_id, source=source, limit=limit, offset=offset
+    page = await state.reader.run(
+        lambda databases: databases.evidence_page(
+            kind=kind, chain_id=chain_id, source=source, limit=limit, offset=offset
+        )
     )
     return {
         "schema": "oasis.server.evidence.v1",
@@ -244,15 +269,19 @@ async def evidence(
 
 @router.get("/evidence/{evidence_key}")
 async def evidence_detail(state: State, evidence_key: str) -> dict[str, object]:
-    record = state.databases.evidence_by_key(evidence_key)
+    record = await state.reader.run(lambda databases: databases.evidence_by_key(evidence_key))
     if record is None:
         raise HTTPException(status_code=404, detail="evidence not found")
-    return {"schema": "oasis.server.evidence-detail.v1", "record": record}
+    return {
+        "schema": "oasis.server.evidence-detail.v1",
+        "record": record,
+        "document": json.dumps(record, indent=2),
+    }
 
 
 @router.get("/readiness")
 async def readiness(state: State) -> dict[str, object]:
-    assessment = state.databases.readiness()
+    assessment = await state.reader.run(lambda databases: databases.readiness())
     payload = json.loads(assessment.payload)
     return {
         "schema": "oasis.lp-release-assessment.v1",
@@ -267,8 +296,28 @@ async def readiness(state: State) -> dict[str, object]:
 
 @router.get("/journal/lp")
 async def execution_journal(state: State) -> dict[str, object]:
-    summary = state.databases.execution_summary()
+    summary = await state.reader.run(lambda databases: databases.execution_summary())
     return {"schema": "oasis.server.execution-journal.v1", **summary}
+
+
+@router.get("/journal/lp/events")
+async def execution_events(
+    state: State,
+    limit: int = Query(default=50),
+    offset: int = Query(default=0),
+    order: Literal["asc", "desc"] = Query(default="asc"),
+) -> dict[str, object]:
+    limit = _require_limit(limit, state.config.max_rows_per_page)
+    offset = _require_offset(offset, state.config.max_rows_per_page)
+    chain, policy_hash = await state.reader.run(lambda databases: databases.execution_events())
+    page = _page(chain if order == "asc" else chain[::-1], offset, limit)
+    return {
+        "schema": "oasis.server.execution-events.v1",
+        "integrity": "verified",
+        "policy_hash": policy_hash,
+        "total": page.total,
+        "items": list(page.items),
+    }
 
 
 @router.get("/chains/{chain_id}/pool")
@@ -318,8 +367,14 @@ async def stream(websocket: WebSocket) -> None:
     try:
         while True:
             try:
-                chain = state.databases.decision_chain()
-            except ReadOnlyError:
+                chain = await state.reader.run(lambda databases: databases.decision_chain())
+            except ReadOnlyError as exc:
+                if exc.code != "unconfigured":
+                    await websocket.send_json(
+                        {"type": "error", "source": "shadow", "code": exc.code}
+                    )
+                    await websocket.close(code=1011)
+                    return
                 chain = ()
             latest_seq = max(
                 (int(item["seq"]) for item in chain if isinstance(item.get("seq"), int)),

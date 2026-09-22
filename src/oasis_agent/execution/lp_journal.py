@@ -24,7 +24,15 @@ from ..models.common import (
     normalize_hash32,
     sha256_hex,
 )
-from .lp_state_machine import VALID_TRANSITIONS, LpIntent, LpIntentMode, LpState, TickRange
+from .lp_state_machine import (
+    VALID_TRANSITIONS,
+    LpIntent,
+    LpIntentMode,
+    LpState,
+    RuntimePin,
+    RuntimeRole,
+    TickRange,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -229,7 +237,14 @@ class LpExecutionJournal:
             if (
                 not (
                     (schema == "oasis.lp-execution-journal.v1" and set(data) == v1_fields)
-                    or (schema == "oasis.lp-execution-journal.v2" and set(data) == v2_fields)
+                    or (
+                        schema
+                        in {
+                            "oasis.lp-execution-journal.v2",
+                            "oasis.lp-execution-journal.v3",
+                        }
+                        and set(data) == v2_fields
+                    )
                 )
                 or canonical_json(data) != payload
                 or type(data["seq"]) is not int
@@ -263,6 +278,10 @@ class LpExecutionJournal:
                     decoded["mode"] = LpIntentMode(decoded["mode"])
                     decoded["old_range"] = TickRange(**decoded["old_range"])
                     decoded["new_range"] = TickRange(**decoded["new_range"])
+                    decoded["runtime_pins"] = tuple(
+                        RuntimePin(RuntimeRole(pin["role"]), pin["address"], pin["code_hash"])
+                        for pin in decoded["runtime_pins"]
+                    )
                     intent = LpIntent(**decoded)
                 except (TypeError, KeyError) as exc:
                     raise ValueError("execution reservation intent corrupt") from exc
@@ -368,7 +387,7 @@ class LpExecutionJournal:
     ) -> DurableLpRecord:
         payload = canonical_json(
             {
-                "schema": "oasis.lp-execution-journal.v2",
+                "schema": "oasis.lp-execution-journal.v3",
                 "seq": sequence + 1,
                 "previous": previous,
                 "policy_hash": hashlib.sha256(self.policy).hexdigest(),

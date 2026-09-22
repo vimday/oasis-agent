@@ -10,16 +10,17 @@ hash is journaled append-only and hash-linked. No raw signature, key, or
 mnemonic is ever journaled; only hashes are.
 
 The EIP-1559 digest is constructed here from the exact envelope fields and is
-the only value handed to the provider, so the provider cannot sign any other
-payload ("no blind signing"). The assembled signed transaction is returned to
-the operator/broadcaster, never broadcast by this module.
+the only digest requested from the provider. The provider remains a trusted
+key authority; this interface cannot prove what else it signs. The assembled
+signed transaction is returned to the operator/broadcaster, never broadcast
+by this module.
 """
 
 import hashlib
 import json
 import sqlite3
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Protocol, Self, runtime_checkable
@@ -42,11 +43,12 @@ from .lp_signer_policy import (
     authorize_lp_signing,
     calldata_hash,
 )
-from .lp_state_machine import LpIntent, LpIntentMode, TickRange
+from .lp_state_machine import LpIntent, LpIntentMode, RuntimePin, RuntimeRole, TickRange
 
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 SIDE_CAR_SCHEMA = "oasis.lp-signer-sidecar.v1"
-SIDE_CAR_REQUEST_SCHEMA = "oasis.lp-signer-request.v1"
+SIDE_CAR_CONFIG_SCHEMA = "oasis.lp-signer-config.v2"
+SIDE_CAR_REQUEST_SCHEMA = "oasis.lp-signer-request.v2"
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -97,6 +99,20 @@ class NullSigningKeyProvider:
         raise RuntimeError("no signing key provider is configured")
 
 
+@runtime_checkable
+class SigningRiskGuard(Protocol):
+    @property
+    def policy_digest(self) -> str: ...
+
+    def reserve(self, request: "LpSidecarRequest") -> str:
+        """Independently reconcile, check global limits and durably reserve capital."""
+        ...
+
+    def release(self, request: "LpSidecarRequest", *, reason: str) -> None:
+        """Withdraw a reservation whose signing attempt produced no transaction."""
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class LpSidecarConfig:
     policy: LpSignerPolicy
@@ -104,6 +120,7 @@ class LpSidecarConfig:
     max_priority_fee_per_gas: int
     journal_path: Path
     provider: SigningKeyProvider | None = None
+    risk_guard: SigningRiskGuard | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.policy, LpSignerPolicy):
@@ -116,6 +133,12 @@ class LpSidecarConfig:
             raise ValueError("priority fee cannot exceed the max fee")
         if not isinstance(self.journal_path, Path):
             raise TypeError("journal path required")
+        if self.risk_guard is not None:
+            if not isinstance(self.risk_guard, SigningRiskGuard):
+                raise TypeError("independent risk guard required")
+            digest = self.risk_guard.policy_digest
+            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
+                raise ValueError("canonical global risk policy digest required")
         if self.provider is not None and not isinstance(self.provider, SigningKeyProvider):
             raise TypeError("key provider must implement the signing protocol")
 
@@ -148,7 +171,7 @@ class LpSidecarDecision:
     digest: str | None = None
     signature_hash: str | None = None
     transaction_hash: str | None = None
-    raw_transaction_hex: str | None = None
+    raw_transaction_hex: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.outcome not in {"denied", "signed"}:
@@ -197,7 +220,7 @@ def signed_transaction_bytes(request: LpSidecarRequest, *, r: int, s: int, y_par
             raise ValueError(f"{name} is outside the secp256k1 range")
     if s > SECP256K1_ORDER // 2:
         raise ValueError("high-s signatures are rejected (EIP-2)")
-    if y_parity not in (0, 1):
+    if type(y_parity) is not int or y_parity not in (0, 1):
         raise ValueError("y_parity must be 0 or 1")
     fields = [*_eip1559_fields(request), y_parity, r, s]
     return b"\x02" + bytes(rlp_encode(fields))
@@ -224,7 +247,7 @@ def sidecar_request_hash(request: LpSidecarRequest) -> str:
             "simulation_block": asdict(request.signing.simulation_block),
             "simulation_succeeded": request.signing.simulation_succeeded,
             "simulation_calldata_hash": request.signing.simulation_calldata_hash,
-            "observed_code_hashes": list(request.signing.observed_code_hashes),
+            "observed_runtime_pins": [asdict(pin) for pin in request.signing.observed_runtime_pins],
             "risk_approved": request.signing.risk_approved,
             "risk_decision_hash": request.signing.risk_decision_hash,
             "evidence": [asdict(item) for item in request.signing.evidence],
@@ -255,6 +278,9 @@ class LpSignerSidecarJournal:
                 "account": policy.account,
                 "config_hash": policy.config_hash,
                 "policy_hash": self.policy_hash,
+                "global_risk_policy": config.risk_guard.policy_digest
+                if config.risk_guard
+                else None,
                 "max_fee_per_gas": config.max_fee_per_gas,
                 "max_priority_fee_per_gas": config.max_priority_fee_per_gas,
             }
@@ -369,6 +395,7 @@ class LpSignerSidecarJournal:
             raise ValueError("reservation final status must be signed or failed")
         try:
             self.db.execute("BEGIN IMMEDIATE")
+            self._read()
             row = self.db.execute("SELECT seq FROM events ORDER BY seq DESC LIMIT 1").fetchone()
             sequence = row[0] if row is not None else 0
             previous = self._tail_digest()
@@ -413,6 +440,9 @@ class LpSignerSidecarJournal:
             raise ValueError("account nonce must be a nonnegative integer")
         try:
             self.db.execute("BEGIN IMMEDIATE")
+            # Recheck under the writer lock, including changes by another process.
+            # Cached initialization-time validation cannot protect a running signer.
+            signed_maximum = self._read()
             unresolved = self.db.execute(
                 "SELECT account_nonce FROM nonce_reservations "
                 "WHERE status IN ('reserved','failed') LIMIT 1"
@@ -423,7 +453,7 @@ class LpSignerSidecarJournal:
                 )
             row = self.db.execute("SELECT MAX(account_nonce) FROM nonce_reservations").fetchone()
             maximum = -1 if row is None or row[0] is None else row[0]
-            if account_nonce <= maximum:
+            if account_nonce <= max(maximum, signed_maximum):
                 raise StaleAccountNonce(account_nonce)
             self.db.execute(
                 "INSERT INTO nonce_reservations VALUES (?, ?, 'reserved')",
@@ -437,6 +467,19 @@ class LpSignerSidecarJournal:
     def _tail_digest(self) -> str:
         row = self.db.execute("SELECT digest FROM events ORDER BY seq DESC LIMIT 1").fetchone()
         return row[0] if row is not None else "0" * 64
+
+    @property
+    def has_unresolved_attempt(self) -> bool:
+        """Whether a previous attempt still blocks every further signature.
+
+        Read without a write transaction: it gates an expensive independent risk
+        admission, and ``reserve_nonce`` re-checks the same condition under the
+        writer lock before any external provider call.
+        """
+        row = self.db.execute(
+            "SELECT 1 FROM nonce_reservations WHERE status IN ('reserved','failed') LIMIT 1"
+        ).fetchone()
+        return row is not None
 
     def close(self) -> None:
         self.db.close()
@@ -479,6 +522,23 @@ class LpSignerSidecar:
         with self._lock:
             return self._handle_locked(request)
 
+    def _release_risk_capital(self, request: LpSidecarRequest) -> None:
+        """Return this attempt's reservation when no transaction was produced.
+
+        Only called after this attempt won the nonce reservation, which is what
+        makes the commitment unambiguously ours. A successful signature keeps its
+        reservation until an independent reconciliation releases it. The denial is
+        already journaled, so a failed release must not replace it: capital that
+        stays reserved is the conservative direction.
+        """
+        guard = self.config.risk_guard
+        if guard is None:
+            return
+        try:
+            guard.release(request, reason="signing attempt produced no transaction")
+        except Exception:  # noqa: BLE001 - a failed release leaves capital reserved
+            return
+
     def _handle_locked(self, request: LpSidecarRequest) -> LpSidecarDecision:
         reasons: list[str] = []
         request_hash = sidecar_request_hash(request)
@@ -492,9 +552,24 @@ class LpSignerSidecar:
             reasons.append("priority fee per gas exceeds the sidecar cap")
         if signing.account_nonce <= self.journal.max_signed_nonce:
             reasons.append("account nonce is stale or already signed")
+        if self.journal.has_unresolved_attempt:
+            # Checked before the risk guard so a latched signer cannot keep
+            # reserving capital it will never be allowed to sign.
+            reasons.append("an unresolved signing attempt must be reconciled first")
         provider = self.config.provider
         if provider is None:
             reasons.append("no signing key provider is configured")
+
+        guard = self.config.risk_guard
+        if guard is None:
+            reasons.append("no independent account risk guard is configured")
+        elif not reasons:
+            try:
+                reservation = guard.reserve(request)
+                if len(reservation) != 64 or any(c not in "0123456789abcdef" for c in reservation):
+                    raise ValueError("invalid risk reservation digest")
+            except Exception:  # noqa: BLE001 - trusted service failure denies; never echo its error
+                reasons.append("independent account risk admission failed")
 
         if reasons:
             decision = LpSidecarDecision("denied", tuple(dict.fromkeys(reasons)), request_hash)
@@ -516,6 +591,9 @@ class LpSignerSidecar:
         try:
             self.journal.reserve_nonce(signing.account_nonce, request_hash)
         except (StaleAccountNonce, UnresolvedAccountNonce):
+            # The reservation is deliberately kept: an unresolved or already
+            # reserved nonce means another attempt owns this request identity and
+            # its capital commitment, possibly with a transaction in flight.
             decision = LpSidecarDecision(
                 "denied",
                 ("account nonce is stale or has an unresolved signing attempt",),
@@ -553,6 +631,7 @@ class LpSignerSidecar:
                 reservation_request_hash=request_hash,
                 reservation_status="failed",
             )
+            self._release_risk_capital(request)
             return decision
 
         try:
@@ -574,6 +653,7 @@ class LpSignerSidecar:
                 reservation_request_hash=request_hash,
                 reservation_status="failed",
             )
+            self._release_risk_capital(request)
             return decision
 
         try:
@@ -596,6 +676,7 @@ class LpSignerSidecar:
                 reservation_request_hash=request_hash,
                 reservation_status="failed",
             )
+            self._release_risk_capital(request)
             return decision
 
         if recovered != policy.account:
@@ -615,6 +696,7 @@ class LpSignerSidecar:
                 reservation_request_hash=request_hash,
                 reservation_status="failed",
             )
+            self._release_risk_capital(request)
             return decision
 
         signature_hash = "0x" + sha256_hex(canonical_json({"r": r, "s": s, "y_parity": y_parity}))
@@ -648,6 +730,7 @@ class LpSignerSidecar:
 def sidecar_config_to_json(config: LpSidecarConfig) -> bytes:
     return canonical_json(
         {
+            "schema": SIDE_CAR_CONFIG_SCHEMA,
             "policy": asdict(config.policy),
             "max_fee_per_gas": config.max_fee_per_gas,
             "max_priority_fee_per_gas": config.max_priority_fee_per_gas,
@@ -660,9 +743,11 @@ def sidecar_config_from_json(
 ) -> LpSidecarConfig:
     data = _expect_keys(
         json.loads(payload, object_pairs_hook=_unique_object),
-        {"policy", "max_fee_per_gas", "max_priority_fee_per_gas"},
+        {"schema", "policy", "max_fee_per_gas", "max_priority_fee_per_gas"},
         "sidecar config",
     )
+    if data["schema"] != SIDE_CAR_CONFIG_SCHEMA:
+        raise ValueError("sidecar config schema is unsupported")
     policy_data = _expect_keys(
         data["policy"],
         {
@@ -671,7 +756,7 @@ def sidecar_config_from_json(
             "executor",
             "pool_id",
             "config_hash",
-            "code_hashes",
+            "runtime_pins",
             "max_liquidity",
             "max_amount0",
             "max_amount1",
@@ -681,6 +766,10 @@ def sidecar_config_from_json(
             "max_deadline_seconds",
         },
         "sidecar policy",
+    )
+    policy_data["runtime_pins"] = tuple(
+        RuntimePin(RuntimeRole(pin["role"]), pin["address"], pin["code_hash"])
+        for pin in policy_data["runtime_pins"]
     )
     policy = LpSignerPolicy(**policy_data)
     return LpSidecarConfig(
@@ -695,14 +784,17 @@ def sidecar_config_from_json(
 def _intent_to_json(intent: LpIntent) -> dict[str, Any]:
     data = asdict(intent)
     data["mode"] = intent.mode.value
-    data["code_hashes"] = list(intent.code_hashes)
+    data["runtime_pins"] = [asdict(pin) for pin in intent.runtime_pins]
     return data
 
 
 def _intent_from_json(data: dict[str, Any]) -> LpIntent:
     raw = dict(data)
     raw["mode"] = LpIntentMode(raw["mode"])
-    raw["code_hashes"] = tuple(raw["code_hashes"])
+    raw["runtime_pins"] = tuple(
+        RuntimePin(RuntimeRole(pin["role"]), pin["address"], pin["code_hash"])
+        for pin in raw["runtime_pins"]
+    )
     raw["old_range"] = TickRange(**raw["old_range"])
     raw["new_range"] = TickRange(**raw["new_range"])
     return LpIntent(**raw)
@@ -712,6 +804,7 @@ def sidecar_request_to_json(request: LpSidecarRequest) -> bytes:
     signing = request.signing
     return canonical_json(
         {
+            "schema": SIDE_CAR_REQUEST_SCHEMA,
             "signing": {
                 "intent": _intent_to_json(signing.intent),
                 "account": signing.account,
@@ -725,7 +818,7 @@ def sidecar_request_to_json(request: LpSidecarRequest) -> bytes:
                 "simulation_block": asdict(signing.simulation_block),
                 "simulation_succeeded": signing.simulation_succeeded,
                 "simulation_calldata_hash": signing.simulation_calldata_hash,
-                "observed_code_hashes": list(signing.observed_code_hashes),
+                "observed_runtime_pins": [asdict(pin) for pin in signing.observed_runtime_pins],
                 "risk_approved": signing.risk_approved,
                 "risk_decision_hash": signing.risk_decision_hash,
                 "evidence": [asdict(item) for item in signing.evidence],
@@ -740,9 +833,11 @@ def sidecar_request_to_json(request: LpSidecarRequest) -> bytes:
 def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
     data = _expect_keys(
         json.loads(payload, object_pairs_hook=_unique_object),
-        {"signing", "max_fee_per_gas", "max_priority_fee_per_gas", "access_list"},
+        {"schema", "signing", "max_fee_per_gas", "max_priority_fee_per_gas", "access_list"},
         "sidecar request",
     )
+    if data["schema"] != SIDE_CAR_REQUEST_SCHEMA:
+        raise ValueError("sidecar request schema is unsupported")
     signing = _expect_keys(
         data["signing"],
         {
@@ -758,7 +853,7 @@ def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
             "simulation_block",
             "simulation_succeeded",
             "simulation_calldata_hash",
-            "observed_code_hashes",
+            "observed_runtime_pins",
             "risk_approved",
             "risk_decision_hash",
             "evidence",
@@ -790,7 +885,7 @@ def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
             "state_hash",
             "deadline_timestamp",
             "config_hash",
-            "code_hashes",
+            "runtime_pins",
         },
         "LP intent",
     )
@@ -817,7 +912,10 @@ def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
         simulation_block=BlockRef(**signing["simulation_block"]),
         simulation_succeeded=signing["simulation_succeeded"],
         simulation_calldata_hash=signing["simulation_calldata_hash"],
-        observed_code_hashes=tuple(signing["observed_code_hashes"]),
+        observed_runtime_pins=tuple(
+            RuntimePin(RuntimeRole(pin["role"]), pin["address"], pin["code_hash"])
+            for pin in signing["observed_runtime_pins"]
+        ),
         risk_approved=signing["risk_approved"],
         risk_decision_hash=signing["risk_decision_hash"],
         evidence=evidence,

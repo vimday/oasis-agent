@@ -56,6 +56,15 @@ class AccountingFlow:
 
 
 @dataclass(frozen=True, slots=True)
+class AccountingReplayInputs:
+    opening: ValuationPoint
+    closing: ValuationPoint
+    entries: tuple[ValuedLedgerEntry, ...]
+    external_cost_evidence: tuple[EvidenceRef, ...]
+    beneficial_owner_continuity_evidence: EvidenceRef | None
+
+
+@dataclass(frozen=True, slots=True)
 class PositionAccountingReplay:
     status: AccountingReplayStatus
     ledger: PositionTokenLedger
@@ -67,6 +76,7 @@ class PositionAccountingReplay:
     cumulative_flow_value1: int | None
     external_cost1: int
     net_pnl1: int | None
+    inputs: AccountingReplayInputs
 
 
 def value_in_currency1(amount0: int, amount1: int, price_x192: int) -> int:
@@ -91,6 +101,13 @@ def replay_position_accounting(
     external_cost_evidence: tuple[EvidenceRef, ...] = (),
     beneficial_owner_continuity_evidence: EvidenceRef | None = None,
 ) -> PositionAccountingReplay:
+    inputs = AccountingReplayInputs(
+        opening_valuation,
+        closing_valuation,
+        tuple(valued_entries),
+        tuple(external_cost_evidence),
+        beneficial_owner_continuity_evidence,
+    )
     if opening_valuation.block != ledger.opening.block:
         raise ValueError("opening valuation does not match opening position snapshot")
     if closing_valuation.block != ledger.closing.block:
@@ -156,6 +173,7 @@ def replay_position_accounting(
             None,
             external_cost1,
             None,
+            inputs,
         )
     if ownership is None or (owner_changed and beneficial_owner_continuity_evidence is None):
         if valued_entries:
@@ -171,6 +189,7 @@ def replay_position_accounting(
             None,
             external_cost1,
             None,
+            inputs,
         )
 
     if tuple(item.entry for item in valued_entries) != ledger.entries:
@@ -205,6 +224,7 @@ def replay_position_accounting(
         cumulative,
         external_cost1,
         closing_value + cumulative - opening_value - external_cost1,
+        inputs,
     )
 
 

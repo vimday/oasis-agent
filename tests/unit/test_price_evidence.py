@@ -10,9 +10,12 @@ from oasis_agent.farming.price_evidence import (
     CostValuation,
     UsdFeedPolicy,
     UsdPriceCapture,
+    UsdPriceObservation,
     persist_cost_valuation,
     persist_price_evidence,
+    persist_price_observation_evidence,
     replay_price_evidence,
+    replay_price_observation_evidence,
     selector,
     value_cost_in_quote,
     value_native_cost,
@@ -120,6 +123,42 @@ def test_price_persistence_reconstructs_wire_and_rejects_forged_answer(tmp_path)
     with pytest.raises(ValueError, match="interpretation differs"):
         replay_price_evidence(store, bad, header=p.header, policy=p.policy)
     store.close()
+
+
+def test_price_v2_persists_complete_round_timing_and_replays_wire(tmp_path):
+    c = cost_fixture()
+    p = price(c, QUOTE, 10**8, updated=c.header.ref.timestamp - 7)
+    expected = UsdPriceObservation(
+        answer=10**8,
+        decimals=8,
+        round_id=2,
+        started_at=c.header.ref.timestamp - 100,
+        updated_at=c.header.ref.timestamp - 7,
+        answered_in_round=2,
+    )
+    assert p.reconstruct_observation() == expected
+    store = EvidenceStore(tmp_path / "price-v2.db")
+    try:
+        ref = persist_price_observation_evidence(store, p)
+        assert ref.schema_version == 2
+        assert replay_price_observation_evidence(store, ref, header=p.header, policy=p.policy) == p
+        record = store.get_record(ref)
+        payload = json.loads(record.payload)
+        payload["observation"]["updated_at"] += 1
+        forged = store.put(
+            ref.kind,
+            canonical_json(payload),
+            ref.block,
+            ref.source,
+            request=json.loads(record.request_payload),
+            raw_response=json.loads(record.raw_response_payload),
+            interpretation=json.loads(record.interpretation_payload),
+            schema_version=2,
+        )
+        with pytest.raises(ValueError, match="interpretation differs"):
+            replay_price_observation_evidence(store, forged, header=p.header, policy=p.policy)
+    finally:
+        store.close()
 
 
 def test_cost_valuation_is_quote_units_and_usd_uses_feed_not_peg():

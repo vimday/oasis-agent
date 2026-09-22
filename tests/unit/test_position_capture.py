@@ -16,6 +16,7 @@ from oasis_agent.farming.position_capture import (
     PositionSnapshotCapture,
     collect_position_snapshot,
     persist_position_snapshot_evidence,
+    replay_position_snapshot_evidence,
 )
 from oasis_agent.farming.position_pipeline import replay_captured_position_datasets
 from oasis_agent.models.common import canonical_json
@@ -98,6 +99,7 @@ def test_snapshot_reconstructs_and_retains_exact_envelopes(tmp_path: Path) -> No
     try:
         ref = persist_position_snapshot_evidence(store, capture)
         record = store.get_record(ref)
+        assert replay_position_snapshot_evidence(store, ref) == capture
         assert record.payload == capture.payload
         requests = json.loads(record.request_payload)["exchanges"]
         responses = json.loads(record.raw_response_payload)["exchanges"]

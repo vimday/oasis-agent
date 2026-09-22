@@ -1,6 +1,7 @@
 # Oasis Agent 服务集成接口文档
 
-Date: 2026-09-08
+Updated: 2026-09-15
+Current scope: [当前实现与验证边界](../CURRENT_IMPLEMENTATION.md)。
 Scope: 底层数据/证据/影子/门禁/部署清单接口契约，供服务框架与前端实现方对接使用。本文只描述已实现并已验证的接口；未实现的能力（生产签名、广播、自动执行）不在此列。
 
 ## 1. 集成边界
@@ -27,10 +28,10 @@ Scope: 底层数据/证据/影子/门禁/部署清单接口契约，供服务框
 | `data/evidence.db` | 区块钉扎证据（`EvidenceStore`） | 只读；按 `EvidenceRef` 检索 |
 | `data/shadow.db` | 影子观测/决策哈希链 + 策略指纹 | 只读（服务端）；由影子入口追加 |
 | `data/execution.db` | 账户/nonce 预留、HALT、恢复证明 | 只读（服务端）；由执行日志层追加 |
-| `data/server_ops.db` | 操作审计（追加型） | 只读（服务端）；由操作接口追加 |
+| `data/server_ops.db` | 操作审计（追加型） | 由服务端操作接口写入；观察数据接口不得直接修改 |
 | `data/readiness-manifest.json` | 就绪门禁评估清单 | 原子替换；按内容哈希校验 |
 
-读路径全部经过哈希链校验：`observations`、`decisions`、`execution events` 三条链在每次读取时复核完整链；任何篡改或追加都触发全量重验并失败关闭。服务框架不应绕过该层直接读原始 SQLite 文件。
+读路径全部经过哈希链校验：`observations`、`decisions`、`execution events` 三条链在读事务中检查 SQLite data version；数据版本变化时全量重验，校验失败则关闭读取。服务框架不应绕过该层直接读原始 SQLite 文件。
 
 ## 3. 证据模型
 
@@ -58,15 +59,15 @@ class EvidenceRef:
 
 入口模块 `src/oasis_agent/shadow/`：
 
-- `service.py`：`LpShadowService(store, journal, strategy, ...)` 消费 `LpCycle`，返回 `LpShadowDecision`。构造时对 10 个源码文件与策略配置做 SHA-256 指纹并写入 `lp_policy` 表；指纹不一致时拒绝启动（"start a new reviewed journal"）。`consume()` 先复验输入证据绑定，绑定失败写入 `fault` 并保留 HALT。
-- `features.py`：实时 LP 特征生产器，只接受同链、无未来数据、双 RPC 一致、区块钉扎的整数输入；`AgreedInteger` 携带 `content_hash`/`interpretation_hash` 绑定，违约拒绝。
+- `service.py`：`LpShadowService(store, journal, strategy, ...)` 消费 `LpCycle`，返回 `LpShadowDecision`。构造时对受保护源码文件与策略配置做 SHA-256 指纹并写入 `lp_policy` 表；指纹不一致时拒绝启动（"start a new reviewed journal"）。`consume()` 先复验输入证据绑定，绑定失败写入 `fault` 并保留 HALT。
+- `features.py`：确定性 LP 特征计算接口；原始 RPC 回放校验由上游采集/窗口层负责。它只接受同链、无未来数据、双 RPC 一致、区块钉扎的整数输入；`AgreedInteger` 携带 `content_hash`/`interpretation_hash` 绑定，违约拒绝。
 - `journal.py`：`ShadowJournal(path, chain_id, max_age_seconds)`，方法 `observe`、`fault`、`record_decision`、`decision_records`；所有记录哈希链接，HALT 后必须人工轮换 journal 才能复位。
 - `lp_runner.py`：`LpShadowRunner` 决策运行器，`execution_eligible` 恒为 `False`。
 
 服务框架对接方式：
 
 - 只读消费：通过服务器 API 读取观测/决策；不直接打开 `shadow.db`。
-- 触发新影子轮次：经 `POST /api/v1/runs/shadow`（需操作令牌），服务器以隔离子进程运行 `scripts/run_lp_shadow.py`（或 `run_live_shadow.py`），输出尾部脱敏后记入操作日志。
+- 触发新影子轮次：经 `POST /api/v1/runs/shadow`（需操作令牌），服务器以隔离子进程运行 `scripts/run_lp_shadow.py`（或 `run_live_shadow.py`），输出尾部脱敏后记入操作日志。默认子进程仅获得最小环境，不继承服务端密钥、操作令牌或 RPC 凭据；campaign 的 RPC 环境另行显式筛选。
 - 实时流：`/api/v1/stream` WebSocket 推送决策流，只读、无命令通道。
 
 ## 5. 就绪门禁
@@ -75,10 +76,10 @@ class EvidenceRef:
 
 - `LpGate`：`wp0_correctness`、`wp1_pool_access`、`wp2_replay_accounting`、`wp3_research`、`wp4_hook_executor`、`wp5_adversarial`、`wp6_shadow_routing`、`wp7_canary`、`wp8_production`。
 - `GateStatus`：`pass` / `fail` / `unresolved`。
-- `GateResult`：PASS 必须携带完整出处证据（三哈希齐全）且 `findings` 为空；证据必须来自 ≥2 个不同提供者且解释哈希唯一；WP5/WP7/WP8 的 PASS 还必须有 `independent_reviewer`。
+- `GateResult`：PASS 必须携带完整出处证据（三哈希齐全）且 `findings` 为空；证据必须来自 ≥2 个不同提供者且解释哈希唯一，并绑定完全相同、含时间戳的 chain/block；WP5/WP7/WP8 的 PASS 还必须有 `independent_reviewer`。
 - `LpReleaseAssessment`：聚合九门禁，输出 `stage`（reject/research/shadow/canary/bounded_production）、`blockers`、`execution_eligible`；仅九门禁按顺序全部有效通过时为 `True`。
 
-CLI：`scripts/run_lp_readiness.py` 生成/复核评估清单。服务端 `GET /api/v1/readiness` 返回九门禁状态，`execution_eligible: false` 为固定字段。服务框架不得提供任何"放行/授权"写接口。
+CLI：`scripts/run_lp_readiness.py` 生成/复核评估清单。服务端 `GET /api/v1/readiness` 返回九门禁状态，`execution_eligible: false` 为固定字段。服务框架不得提供直接开启实盘的写接口；P2 审批仅记录流程元数据，不替代发布证据或 signer 授权。
 
 ## 6. 执行层（策略进程无密钥、无广播）
 
@@ -86,7 +87,7 @@ CLI：`scripts/run_lp_readiness.py` 生成/复核评估清单。服务端 `GET /
 
 - `execution/lp_journal.py`：`LpExecutionJournal` 提供账户/nonce 预留（`reserve`）、`advance`、`recover_halted`；竞争写入者互斥、重启恢复、HALT 全退出有证据门控。服务端只读展示。
 - `execution/lp_signer_policy.py`：独立解码有界执行器 calldata 并校验链、账户、nonce、代码、模拟、风险、资金、gas、期限绑定；无密钥、无签名、无广播。
-- `execution/lp_signer_sidecar.py`：先在 SQLite 中跨进程预留 nonce，再执行"检查→外部密钥提供方签名→落账"；重启、并发和提供方失败均会锁存未决 nonce。默认 Null provider 拒绝签名，当前仍未接入生产 HSM/远程签名服务，也不广播。
+- `execution/lp_signer_sidecar.py`：先在 SQLite 中跨进程预留 nonce，再执行"检查→外部密钥提供方签名→落账"；重启、并发和提供方失败均会锁存未决 nonce。默认 Null provider 拒绝签名，提供可选 Unix socket 摘要签名适配器（详见 [本地签名传输](../security/LOCAL_SIGNER_TRANSPORT.md)）；默认 CLI 仍未接入生产 signer，也不广播。
 
 前端如需展示执行状态，读 `GET /api/v1/journal/lp` 与 halt-proofs（`GET /api/v1/p2/halt-proofs`）；所有门禁审批走双人确认流程（`POST /api/v1/p2/gates/{gate}/approval` + `.../confirm`）。
 

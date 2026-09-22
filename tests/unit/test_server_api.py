@@ -15,7 +15,7 @@ import oasis_agent.server as package
 from oasis_agent.errors import ConfigurationError
 from oasis_agent.server.app import create_app
 from oasis_agent.server.config import ServerChainConfig, ServerShadowRunnerConfig
-from oasis_agent.server.databases import ReadOnlyDatabases
+from scripts.check_dashboard import dashboard_source
 
 from .server_helpers import build_shadow_db, make_server_config
 
@@ -359,17 +359,8 @@ def test_websocket_stream_pushes_new_decisions(tmp_path):
     ):
         first = websocket.receive_json()
         assert first["type"] == "heartbeat"
-        # A new decision appears on the next poll cycle. The read-only
-        # connection was opened on the app event loop, so the swap must
-        # run there too (sqlite is thread-affine).
-        rebuild = build_shadow_db(config.databases.shadow, decision_count=1)
-        config = replace(config, databases=replace(config.databases, shadow=rebuild))
-
-        def _swap() -> None:
-            client.app.state.databases.close()
-            client.app.state.databases = ReadOnlyDatabases(config)
-
-        client.portal.call(_swap)
+        # Committed SQLite changes invalidate the persistent reader connection.
+        build_shadow_db(config.databases.shadow, decision_count=1)
         second = websocket.receive_json()
         assert second["type"] == "decisions"
         assert len(second["items"]) == 1
@@ -397,7 +388,7 @@ def test_server_package_never_imports_broadcast_capability():
 
 def _dashboard_html() -> str:
     root = pathlib.Path(package.__file__).parent
-    return (root / "static" / "index.html").read_text(encoding="utf-8")
+    return (root / "static" / "index.html").read_text(encoding="utf-8") + dashboard_source()
 
 
 def test_meta_endpoint_describes_api(tmp_path):
@@ -452,6 +443,9 @@ def test_dashboard_views_match_tabs():
         "gates",
         "chains",
         "launch",
+        "observations",
+        "system",
+        "research",
     }
 
 

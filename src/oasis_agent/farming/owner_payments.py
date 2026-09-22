@@ -315,6 +315,27 @@ def resolve_exclusive_owner_payment(capture: OwnerBalanceCapture) -> AssetPair:
     return amounts
 
 
+def owner_payment_payload(
+    capture: OwnerBalanceCapture, amounts: AssetPair, core_ref: EvidenceRef
+) -> bytes:
+    return canonical_json(
+        {
+            "schema": "oasis.exclusive-owner-payment.v1",
+            "entry": asdict(capture.core.entry),
+            "owner": capture.owner,
+            "amounts": asdict(amounts),
+            "core_evidence": asdict(core_ref),
+            "trust": "single_provider_research",
+            "execution_eligible": False,
+            "unresolved": [
+                "independent_provider_finality",
+                "token_runtime_attestation",
+                "all_cost_pnl",
+            ],
+        }
+    )
+
+
 def persist_owner_payment(
     store: EvidenceStore, capture: OwnerBalanceCapture
 ) -> PositionLedgerEntry:
@@ -338,22 +359,7 @@ def persist_owner_payment(
 
     ref: EvidenceRef = store.put(
         "position_owner_settlement",
-        canonical_json(
-            {
-                "schema": "oasis.exclusive-owner-payment.v1",
-                "entry": asdict(capture.core.entry),
-                "owner": capture.owner,
-                "amounts": asdict(amounts),
-                "core_evidence": asdict(core_ref),
-                "trust": "single_provider_research",
-                "execution_eligible": False,
-                "unresolved": [
-                    "independent_provider_finality",
-                    "token_runtime_attestation",
-                    "all_cost_pnl",
-                ],
-            }
-        ),
+        owner_payment_payload(capture, amounts, core_ref),
         capture.core.header.ref,
         capture.source,
         request=envelope(False),

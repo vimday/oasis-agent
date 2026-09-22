@@ -1,26 +1,23 @@
-"""Read-only access to the evidence, shadow and execution journals.
+"""Read-only, version-bound access to evidence and hash-linked journals.
 
-Every SQLite connection opens with ``mode=ro`` and ``PRAGMA query_only``, so
-the API process cannot mutate the audit chains it serves. Hash-linked chains
-(observations, decisions, execution events) are fully re-validated on every
-read and any inconsistency raises :class:`ReadOnlyError`; the API then fails
-closed instead of serving a partial or tampered view. The readiness manifest
-is parsed with the repository's strict fail-closed parser.
-
-Validated chains are memoized: each read probes the journals with cheap
-indexed queries (row count, tail digest, policy hash) and only re-runs the
-full hash-chain validation when the probe changes. The journals are
-append-only, so an unchanged probe guarantees the previously validated
-records are still authoritative; a changed or tampered journal forces a full
-re-validation and fails closed on any inconsistency. The memo lives on the
-single-threaded event loop, so it needs no lock.
+Connections are query-only and confined to the server event-loop thread.
+Each journal cache probe uses SQLite data_version on the same persistent
+connection inside a read transaction. Any external SQLite commit invalidates
+validation, including edits that preserve row count and tail digest. A cold
+read validates the entire chain in that transaction before publishing it.
+Unchanged reads perform no table scans. Separate database files do not form
+an atomic cross-database snapshot. Direct file mutation outside SQLite is not
+supported; operators must stop the server before replacing journal files.
 """
 
 import hashlib
 import json
 import sqlite3
+from contextlib import ExitStack
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from ..models.common import canonical_json, sha256_hex
 from ..reporting.lp_readiness import LpReleaseAssessment, parse_assessment
@@ -30,6 +27,7 @@ SHADOW_HEALTH_SCHEMA = "oasis.shadow-health.v1"
 SHADOW_DECISION_SCHEMA = "oasis.shadow-lp-decision.v1"
 EXECUTION_SCHEMA_V1 = "oasis.lp-execution-journal.v1"
 EXECUTION_SCHEMA_V2 = "oasis.lp-execution-journal.v2"
+EXECUTION_SCHEMA_V3 = "oasis.lp-execution-journal.v3"
 EXECUTION_EVENT_FIELDS_V1 = frozenset(
     {
         "schema",
@@ -48,20 +46,6 @@ EXECUTION_EVENT_FIELDS_V2 = EXECUTION_EVENT_FIELDS_V1 | {"recovery"}
 SHADOW_DECISION_VALUES = frozenset({"hold", "halt", "recenter", "remove", "reduce", "unwind"})
 ZERO_HASH = "0" * 64
 
-# Fixed SQL fragments keyed by allowlisted journal table names only. The
-# statements are explicit literals so static analysis sees no string
-# interpolation and there is no injection surface.
-_CHAIN_TABLES: tuple[str, ...] = ("observations", "decisions", "events")
-_PROBE_SQL: dict[str, str] = {
-    "observations": "SELECT COUNT(*), COALESCE(MAX(seq), 0) FROM observations",
-    "decisions": "SELECT COUNT(*), COALESCE(MAX(seq), 0) FROM decisions",
-    "events": "SELECT COUNT(*), COALESCE(MAX(seq), 0) FROM events",
-}
-_TAIL_SQL: dict[str, str] = {
-    "observations": "SELECT digest FROM observations ORDER BY seq DESC LIMIT 1",
-    "decisions": "SELECT digest FROM decisions ORDER BY seq DESC LIMIT 1",
-    "events": "SELECT digest FROM events ORDER BY seq DESC LIMIT 1",
-}
 _EVIDENCE_COLUMNS = (
     "evidence_key, content_hash, kind, payload, chain_id, block_number, block_hash, "
     "source, retrieved_at, request_hash, raw_response_hash, interpretation_hash, "
@@ -119,7 +103,11 @@ def _decode(payload: bytes, seq: int, previous: str, digest: str) -> dict[str, o
         raise ReadOnlyError("journal record is not valid JSON") from exc
     if not isinstance(data, dict):
         raise ReadOnlyError("journal record is not a JSON object")
-    if data.get("seq") != seq or data.get("previous") != previous:
+    if (
+        type(data.get("seq")) is not int
+        or data.get("seq") != seq
+        or data.get("previous") != previous
+    ):
         raise ReadOnlyError("journal record position mismatch")
     if hashlib.sha256(payload).hexdigest() != digest:
         raise ReadOnlyError("journal record digest mismatch")
@@ -128,26 +116,14 @@ def _decode(payload: bytes, seq: int, previous: str, digest: str) -> dict[str, o
     return data
 
 
-def _chain_probe(connection: sqlite3.Connection, table: str) -> tuple[int, int, str]:
-    """Cheap invalidation key for an append-only hash-linked chain.
-
-    ``table`` must be one of the allowlisted :data:`_CHAIN_TABLES` names; the
-    statements themselves are fixed literals looked up from :data:`_PROBE_SQL`
-    and :data:`_TAIL_SQL`. A hash chain is fully determined by its tail digest
-    and length, so an unchanged probe proves the cached validation is still
-    authoritative.
-    """
-    row = connection.execute(_PROBE_SQL[table]).fetchone()
-    tail = connection.execute(_TAIL_SQL[table]).fetchone()
-    return (int(row[0]), int(row[1]), str(tail[0]) if tail is not None else ZERO_HASH)
-
-
 def _validate_observation_chain(connection: sqlite3.Connection) -> tuple[dict[str, object], ...]:
     records: list[dict[str, object]] = []
     previous = ZERO_HASH
     for seq, payload, digest in connection.execute(
         "SELECT seq, payload, digest FROM observations ORDER BY seq"
     ):
+        if seq != len(records) + 1:
+            raise ReadOnlyError("observation journal sequence gap")
         data = _decode(bytes(payload), int(seq), previous, str(digest))
         if (
             data.get("schema") != SHADOW_HEALTH_SCHEMA
@@ -165,6 +141,8 @@ def _validate_decision_chain(connection: sqlite3.Connection) -> tuple[dict[str, 
     for seq, payload, digest in connection.execute(
         "SELECT seq, payload, digest FROM decisions ORDER BY seq"
     ):
+        if seq != len(records) + 1:
+            raise ReadOnlyError("decision journal sequence gap")
         data = _decode(bytes(payload), int(seq), previous, str(digest))
         if (
             data.get("schema") != SHADOW_DECISION_SCHEMA
@@ -197,7 +175,7 @@ def _validate_execution_chain(
         data = _decode(bytes(payload), int(seq), previous, str(digest))
         schema = data.get("schema")
         allowed_fields = EXECUTION_EVENT_FIELDS_V1 if schema == EXECUTION_SCHEMA_V1 else None
-        if schema == EXECUTION_SCHEMA_V2:
+        if schema in {EXECUTION_SCHEMA_V2, EXECUTION_SCHEMA_V3}:
             allowed_fields = EXECUTION_EVENT_FIELDS_V2
         if allowed_fields is None or set(data) != allowed_fields:
             raise ReadOnlyError("execution journal schema violated")
@@ -299,14 +277,18 @@ class ReadOnlyDatabases:
         self._shadow: sqlite3.Connection | None = None
         self._evidence: sqlite3.Connection | None = None
         self._execution: sqlite3.Connection | None = None
-        self._snapshot: _ValidatedSnapshot | None = None
+        self._snapshots: dict[str, _ValidatedSnapshot] = {}
         self._readiness: tuple[str, LpReleaseAssessment] | None = None
-        if config.databases.shadow is not None:
-            self._shadow = _open_ro(config.databases.shadow)
-        if config.databases.evidence is not None:
-            self._evidence = _open_ro(config.databases.evidence)
-        if config.databases.execution is not None:
-            self._execution = _open_ro(config.databases.execution)
+        try:
+            if config.databases.shadow is not None:
+                self._shadow = _open_ro(config.databases.shadow)
+            if config.databases.evidence is not None:
+                self._evidence = _open_ro(config.databases.evidence)
+            if config.databases.execution is not None:
+                self._execution = _open_ro(config.databases.execution)
+        except sqlite3.Error:
+            self.close()
+            raise
 
     def close(self) -> None:
         for connection in (self._shadow, self._evidence, self._execution):
@@ -315,7 +297,7 @@ class ReadOnlyDatabases:
         self._shadow = None
         self._evidence = None
         self._execution = None
-        self._snapshot = None
+        self._snapshots.clear()
         self._readiness = None
 
     def _require(self, connection: sqlite3.Connection | None, name: str) -> sqlite3.Connection:
@@ -325,52 +307,45 @@ class ReadOnlyDatabases:
 
     # ----- Validated snapshot (memoized hash-chain validation) -----
 
-    def _shadow_probe(self) -> tuple[tuple[int, int, str], tuple[int, int, str]]:
-        connection = self._require(self._shadow, "shadow")
+    def _validated(self, source: Literal["shadow", "execution"]) -> _ValidatedSnapshot:
+        # Source ownership is independent: a corrupt execution journal cannot
+        # conceal a verified shadow HALT, nor can it validate the other source.
+        connection = self._require(self._shadow if source == "shadow" else self._execution, source)
         try:
-            return (
-                _chain_probe(connection, "observations"),
-                _chain_probe(connection, "decisions"),
-            )
-        except sqlite3.Error as exc:
-            raise ReadOnlyError("shadow database unreadable") from exc
-
-    def _execution_probe(self) -> tuple[tuple[int, int, str], str | None]:
-        connection = self._require(self._execution, "execution")
-        try:
-            policy_row = connection.execute("SELECT payload FROM policy WHERE id=1").fetchone()
-            policy_hash = sha256_hex(bytes(policy_row[0])) if policy_row is not None else None
-            return (_chain_probe(connection, "events"), policy_hash)
-        except sqlite3.Error as exc:
-            raise ReadOnlyError("execution database unreadable") from exc
-
-    def _validated(self) -> _ValidatedSnapshot:
-        probe: tuple[object, ...] = (
-            self._shadow_probe() if self._shadow is not None else None,
-            self._execution_probe() if self._execution is not None else None,
-        )
-        snapshot = self._snapshot
-        if snapshot is not None and snapshot.probe == probe:
+            with ExitStack() as transaction:
+                connection.execute("BEGIN")
+                transaction.callback(connection.rollback)
+                probe = (connection.execute("PRAGMA data_version").fetchone()[0],)
+                snapshot = self._snapshots.get(source)
+                if snapshot is not None and snapshot.probe == probe:
+                    return snapshot
+                self._snapshots.pop(source, None)
+                if source == "shadow":
+                    observations = _validate_observation_chain(connection)
+                    decisions = _validate_decision_chain(connection)
+                    health_digests = {record["digest"] for record in observations}
+                    if any(record["health_digest"] not in health_digests for record in decisions):
+                        raise ReadOnlyError("decision health evidence is missing")
+                    snapshot = _ValidatedSnapshot(probe, observations, decisions)
+                else:
+                    snapshot = _ValidatedSnapshot(
+                        probe, execution=_validate_execution_chain(connection)
+                    )
+            self._snapshots[source] = snapshot
             return snapshot
-        observations = _validate_observation_chain(self._shadow) if self._shadow is not None else ()
-        decisions = _validate_decision_chain(self._shadow) if self._shadow is not None else ()
-        if self._execution is not None:
-            execution = _validate_execution_chain(self._execution)
-        else:
-            execution = ((), "")
-        snapshot = _ValidatedSnapshot(probe, observations, decisions, execution)
-        self._snapshot = snapshot
-        return snapshot
+        except sqlite3.Error as exc:
+            self._snapshots.pop(source, None)
+            raise ReadOnlyError("journal database unreadable") from exc
 
     # ----- Shadow health chain -----
 
     def health_chain(self) -> tuple[dict[str, object], ...]:
         self._require(self._shadow, "shadow")
-        return self._validated().observations
+        return self._validated("shadow").observations
 
     def decision_chain(self) -> tuple[dict[str, object], ...]:
         self._require(self._shadow, "shadow")
-        return self._validated().decisions
+        return self._validated("shadow").decisions
 
     # ----- Evidence -----
 
@@ -421,7 +396,7 @@ class ReadOnlyDatabases:
 
     def execution_events(self) -> tuple[tuple[dict[str, object], ...], str]:
         self._require(self._execution, "execution")
-        events, policy_hash = self._validated().execution
+        events, policy_hash = self._validated("execution").execution
         return events, policy_hash
 
     def execution_summary(self) -> dict[str, object]:
@@ -445,7 +420,7 @@ class ReadOnlyDatabases:
 
     # ----- Readiness -----
 
-    def readiness(self) -> LpReleaseAssessment:
+    def readiness(self, *, as_of: str | None = None) -> LpReleaseAssessment:
         manifest = self._config.databases.readiness_manifest
         if manifest is None:
             raise ReadOnlyError("readiness manifest is not configured", code="unconfigured")
@@ -453,17 +428,20 @@ class ReadOnlyDatabases:
             raw = manifest.read_bytes()
         except OSError as exc:
             raise ReadOnlyError(f"readiness manifest unreadable: {exc}") from exc
-        # The manifest is a signed evidence file that is replaced atomically by
-        # the producer; a content-hash probe proves the cached parse is still
-        # authoritative without re-validating on every request.
+        # Cache parsing, never time-dependent eligibility. A content hash does
+        # not stop evidence from expiring, and is not a signature verification.
         probe = sha256_hex(raw)
         cached = self._readiness
-        if cached is not None and cached[0] == probe:
-            return cached[1]
         try:
-            assessment = parse_assessment(raw)
-        except (ValueError, TypeError) as exc:
-            raise ReadOnlyError(f"readiness manifest unreadable: {exc}") from exc
+            evaluated_at = as_of if as_of is not None else datetime.now(UTC).isoformat()
+            assessment = (
+                LpReleaseAssessment(evaluated_at, cached[1].gates)
+                if cached is not None and cached[0] == probe
+                else parse_assessment(raw, as_of=evaluated_at)
+            )
+        except (ValueError, TypeError, KeyError) as exc:
+            self._readiness = None
+            raise ReadOnlyError("readiness manifest unreadable") from exc
         self._readiness = (probe, assessment)
         return assessment
 
@@ -481,17 +459,17 @@ class ReadOnlyDatabases:
                 continue
             try:
                 if name == "shadow":
-                    self._validated()
+                    self._validated("shadow")
                 elif name == "evidence":
                     connection.execute("SELECT 1 FROM evidence LIMIT 1").fetchone()
                 else:
-                    self._validated()
+                    self._validated("execution")
                 statuses[name] = DataSourceStatus(True, "verified")
             except (ReadOnlyError, sqlite3.Error) as exc:
                 statuses[name] = DataSourceStatus(False, "corrupt", str(exc))
-        statuses["readiness"] = (
-            DataSourceStatus(True, "verified")
-            if self._config.databases.readiness_manifest is not None
-            else DataSourceStatus(False, "unconfigured")
-        )
+        try:
+            self.readiness()
+            statuses["readiness"] = DataSourceStatus(True, "verified")
+        except ReadOnlyError as exc:
+            statuses["readiness"] = DataSourceStatus(False, exc.code)
         return statuses

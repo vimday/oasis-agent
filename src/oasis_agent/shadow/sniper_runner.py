@@ -9,7 +9,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from ..launch.models import Cycle, Target
+from ..launch.holders import assess_holders
+from ..launch.models import Cycle, HolderTarget, TargetPolicy, parse_target
 from ..launch.quotes import matrix_reasons
 from ..launch.watcher import coherent
 from ..models.common import canonical_json, sha256_hex
@@ -27,10 +28,18 @@ def code_digest() -> str:
     )
 
 
-def evaluate(cycle: Cycle, target: Target) -> dict[str, Any]:
+def evaluate(cycle: Cycle, target: TargetPolicy) -> dict[str, Any]:
     observations = cycle.observations
     gates: dict[str, list[str]] = {f"G{i}": [] for i in range(1, 12)}
     stand_down: list[str] = []
+    holder_assessment = None
+    if isinstance(target, HolderTarget):
+        holder_assessment = assess_holders(cycle, target)
+        gates["HOLDERS"] = holder_assessment["reasons"]
+        if holder_assessment["stand_down"]:
+            stand_down.extend(holder_assessment["reasons"])
+    elif cycle.holder_observations is not None:
+        stand_down.append("holder_policy_v3_required")
     if not coherent(observations):
         stand_down.append("two_source_snapshot_required")
     if not observations:
@@ -59,6 +68,8 @@ def evaluate(cycle: Cycle, target: Target) -> dict[str, Any]:
         ):
             gates["G4"].append("invalid_pool_assets")
         block = observation.snapshot
+        if block.chain_id != target.chain_id:
+            stand_down.append("chain_mismatch")
         if not block.timestamp <= observation.retrieved_at <= cycle.evaluated_at:
             stand_down.append("future_or_incoherent_time")
         if (
@@ -99,6 +110,8 @@ def evaluate(cycle: Cycle, target: Target) -> dict[str, Any]:
             gate = "G9" if name in {"kill_price_usd_micros", "buy_tranches_wei"} else "G8"
             gates[gate].append(f"{name}_unfrozen")
     return {
+        **({"holders": holder_assessment} if holder_assessment is not None else {}),
+        **({"chain_id": target.chain_id} if hasattr(target, "schema_") else {}),
         "schema": "oasis.shadow-launch-decision.v1",
         "target_ca": target.target_ca,
         "decision": "stand_down" if stand_down else "reject",
@@ -115,7 +128,7 @@ def evaluate(cycle: Cycle, target: Target) -> dict[str, Any]:
 
 
 def evaluate_transition(
-    cycle: Cycle, target: Target, records: list[dict[str, Any]]
+    cycle: Cycle, target: TargetPolicy, records: list[dict[str, Any]]
 ) -> dict[str, Any]:
     record = evaluate(cycle, target)
     if records:
@@ -149,7 +162,7 @@ def read_records(db: sqlite3.Connection) -> list[dict[str, Any]]:
     if policy is None:
         raise ValueError("launch policy missing")
     policy_digest = sha256_hex(bytes(policy[0]))
-    target = Target.from_json(canonical_json(json.loads(policy[0])["target"]))
+    target = parse_target(canonical_json(json.loads(policy[0])["target"]))
     previous = "0" * 64
     records: list[dict[str, Any]] = []
     for seq, input_digest, raw, digest in db.execute(
@@ -183,7 +196,7 @@ def read_records(db: sqlite3.Connection) -> list[dict[str, Any]]:
 
 
 class SniperJournal:
-    def __init__(self, path: Path, target: Target):
+    def __init__(self, path: Path, target: TargetPolicy):
         self.target = target
         self.db = sqlite3.connect(path)
         self.db.execute("PRAGMA synchronous=FULL")

@@ -6,6 +6,7 @@ from oasis_agent.farming.backtest import (
     ExperimentLock,
     LpReplayObservation,
     WalkForwardSpec,
+    _expected_shortfall,
     backtest_strategy,
     observation_dataset_hash,
 )
@@ -175,3 +176,32 @@ def test_precommitted_dataset_hash_rejects_changed_observations():
     changed = (replace(observations[0], other_cost1=1), *observations[1:])
     with pytest.raises(ValueError, match="dataset hash"):
         backtest_strategy(changed, lock(observations), WalkForwardSpec(2, 2, 1, 2))
+
+
+def test_positive_hold_excess_cannot_hide_inferior_static_lp():
+    observations = tuple(
+        observation(n, dynamic_fee_pips=100, elasticity_ppm_per_fee_pip=0) for n in range(10, 22)
+    )
+    result = backtest_strategy(observations, lock(observations), WalkForwardSpec(2, 2, 1, 2))
+    assert result.metrics.r11_excess_lower_bound1 > 0
+    assert not result.accepted
+    assert any("R01" in reason for reason in result.reasons)
+
+
+def test_losing_fold_vs_static_cannot_be_hidden_by_profitable_folds():
+    observations = tuple(
+        observation(n, dynamic_fee_pips=100 if n in (13, 14) else 1000) for n in range(10, 22)
+    )
+    result = backtest_strategy(observations, lock(observations), WalkForwardSpec(2, 2, 1, 2))
+    assert not result.accepted
+    assert any("R01" in reason for reason in result.reasons)
+
+
+def test_walk_forward_cannot_split_one_block_between_calibration_and_evaluation():
+    observations = tuple(replace(observation(10 + i // 5), log_index=i) for i in range(12))
+    with pytest.raises(ValueError, match="block boundary"):
+        backtest_strategy(observations, lock(observations), WalkForwardSpec(2, 2, 1, 2))
+
+
+def test_expected_shortfall_rounds_loss_up():
+    assert _expected_shortfall((-1, 0), 1_000_000) == 1

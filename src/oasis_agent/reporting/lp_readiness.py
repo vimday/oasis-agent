@@ -74,6 +74,13 @@ class GateResult:
         if self.status is GateStatus.PASS:
             if not self.evidence or self.findings:
                 raise ValueError("a passing gate requires evidence and no open findings")
+            block = self.evidence[0].block
+            if (
+                block is None
+                or block.timestamp is None
+                or any(reference.block != block for reference in self.evidence)
+            ):
+                raise ValueError("passing gate evidence must bind the same timestamped block")
             for reference in self.evidence:
                 if (
                     not reference.request_hash

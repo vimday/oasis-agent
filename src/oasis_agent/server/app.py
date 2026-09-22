@@ -33,6 +33,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.requests import Request
+from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..errors import ConfigurationError
@@ -43,25 +44,26 @@ from .auth import OpsAuthorizer, OpsDisabledError
 from .campaigns import CampaignError, CampaignIntegrityError, CampaignManager
 from .chains import ChainRegistry, RpcProtocolError, RpcUnavailableError
 from .config import ServerConfig
-from .databases import ReadOnlyDatabases, ReadOnlyError
+from .databases import ReadOnlyError
+from .read_worker import ReadWorker
 from .routers_campaigns import router as campaigns_router
 from .routers_configuration import router as configuration_router
 from .routers_launch import router as launch_router
 from .routers_observe import router as observe_router
 from .routers_ops import router as ops_router
 from .routers_p3 import router as p3_router
+from .routers_research import router as research_router
 from .runner import ShadowRunCoordinator
 
 logger = logging.getLogger(__name__)
 
 _STATIC_INDEX = Path(__file__).parent / "static" / "index.html"
 
-# The dashboard is a self-contained inline document, so script-src and
-# style-src need 'unsafe-inline'; everything else stays locked to this origin
-# plus same-origin WebSockets. The interactive API docs pull their assets from
+# Scripts are local ES modules; inline script execution is forbidden.
+# Existing layout attributes still require inline styles. API docs pull assets from
 # a CDN, so they are exempted from the policy below.
 _CSP = (
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+    "default-src 'self'; script-src 'self'; "
     "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
     "connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 )
@@ -79,6 +81,7 @@ _ROUTERS = (
     launch_router,
     configuration_router,
     campaigns_router,
+    research_router,
 )
 
 _REQUEST_ID_HEX_LENGTH = 12
@@ -192,7 +195,7 @@ def create_app(
         # with 503 until a token is configured.
         if config.ops_token_required:
             authorizer.require_enabled()
-        databases = ReadOnlyDatabases(config)
+        reader = ReadWorker(config)
         journal = ServerOpsJournal(config.databases.ops)
         registry = ChainRegistry(config.chains)
         runner: ShadowRunCoordinator | None = None
@@ -204,13 +207,16 @@ def create_app(
                 loop_factory=asyncio.get_running_loop,
             )
         app.state.config = config
-        app.state.databases = databases
+        app.state.reader = reader
         app.state.journal = journal
         app.state.authorizer = authorizer
         app.state.registry = registry
         app.state.runner = runner
         campaigns: CampaignManager | None = None
         try:
+            # Open/validate configured SQLite files on their owning thread;
+            # startup fails promptly when a configured file is unavailable.
+            await reader.run(lambda _: None)
             campaigns = CampaignManager(config, journal, resolved_environ)
             app.state.campaigns = campaigns
             yield
@@ -220,7 +226,7 @@ def create_app(
             if runner is not None:
                 await runner.aclose()
                 runner.close()
-            databases.close()
+            await reader.aclose()
             journal.close()
             await registry.close()
 
@@ -291,6 +297,7 @@ def create_app(
         return response
 
     # ---- static console ----
+    application.mount("/static", StaticFiles(directory=_STATIC_INDEX.parent), name="static")
 
     @application.get("/", include_in_schema=False)
     async def index() -> Response:

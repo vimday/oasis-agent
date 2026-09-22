@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 # registry exposed through the ``/api/v1/meta`` endpoint.
 ENVELOPE_SCHEMAS: tuple[str, ...] = (
     "oasis.server-meta.v1",
+    "oasis.server-reader-metrics.v1",
+    "oasis.server.execution-events.v1",
     "oasis.server-health.v1",
     "oasis.server-status.v1",
     "oasis.server-observations.v1",
@@ -48,6 +50,7 @@ DATA_SCHEMAS: tuple[str, ...] = (
     "oasis.shadow-lp-decision.v1",
     "oasis.lp-execution-journal.v1",
     "oasis.lp-execution-journal.v2",
+    "oasis.lp-execution-journal.v3",
 )
 
 
@@ -120,6 +123,7 @@ class AlertsResponse(Envelope):
 class MetaEndpoint(BaseModel):
     path: str
     methods: list[str]
+    console_view: str | None = None
 
 
 class MetaResponse(Envelope):
@@ -128,3 +132,5 @@ class MetaResponse(Envelope):
     data_schemas: list[str]
     envelope_schemas: list[str]
     endpoints: list[MetaEndpoint]
+    max_rows_per_page: int
+    stream_path: str = "/api/v1/stream"

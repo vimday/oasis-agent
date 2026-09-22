@@ -49,10 +49,13 @@ async def chain_status(state: State, chain_id: int) -> ChainStatusResponse:
 
 @router.get("/alerts", response_model=AlertsResponse)
 async def alerts(state: State) -> AlertsResponse:
-    items = evaluate_alerts(
-        config=state.config,
-        databases=state.databases,
-        journal=state.journal,
+    runs = tuple(state.journal.list_runs(limit=5))
+    items = await state.reader.run(
+        lambda databases: evaluate_alerts(
+            config=state.config,
+            databases=databases,
+            runs=runs,
+        )
     )
     return AlertsResponse(
         schema="oasis.server.alerts.v1",

@@ -13,6 +13,7 @@ from oasis_agent.execution.lp_signer_policy import (
     preflight_evidence_hash,
     simulation_evidence_hash,
 )
+from oasis_agent.execution.lp_state_machine import RuntimePin, RuntimeRole
 from oasis_agent.models.common import BlockRef, EvidenceRef
 from oasis_agent.models.v4 import DYNAMIC_FEE_FLAG, PoolKey
 from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
@@ -20,7 +21,14 @@ from tests.unit.test_lp_state_machine import make_intent
 
 ACCOUNT = "0x" + "45" * 20
 EXECUTOR = "0x" + "44" * 20
-CODE_HASHES = ("0x" + "12" * 32, "0x" + "34" * 32)
+CODE_HASHES = ("0x" + "12" * 32, "0x" + "34" * 32, "0x" + "56" * 32)
+POSITION_MANAGER = "0x" + "55" * 20
+POOL_MANAGER = "0x" + "66" * 20
+RUNTIME_PINS = (
+    RuntimePin(RuntimeRole.EXECUTOR, EXECUTOR, CODE_HASHES[0]),
+    RuntimePin(RuntimeRole.POSITION_MANAGER, POSITION_MANAGER, CODE_HASHES[1]),
+    RuntimePin(RuntimeRole.POOL_MANAGER, POOL_MANAGER, CODE_HASHES[2]),
+)
 CONFIG_HASH = "0x" + "ef" * 32
 POOL_KEY = PoolKey("0x" + "11" * 20, "0x" + "22" * 20, DYNAMIC_FEE_FLAG, 60, "0x" + "33" * 20)
 
@@ -60,7 +68,7 @@ def fixtures():
         state_hash="0x" + "ab" * 32,
         deadline_timestamp=1_050,
         config_hash=CONFIG_HASH,
-        code_hashes=CODE_HASHES,
+        runtime_pins=RUNTIME_PINS,
     )
     calldata = make_calldata(intent)
     intent = replace(intent, calldata_hash=calldata_hash(calldata))
@@ -71,7 +79,7 @@ def fixtures():
         EXECUTOR,
         intent.pool_id,
         CONFIG_HASH,
-        CODE_HASHES,
+        RUNTIME_PINS,
         1_000_000,
         2_000_000,
         3_000_000,
@@ -93,7 +101,7 @@ def fixtures():
         simulation_block=simulation,
         simulation_succeeded=True,
         simulation_calldata_hash=calldata_hash(calldata),
-        observed_code_hashes=CODE_HASHES,
+        observed_runtime_pins=RUNTIME_PINS,
         risk_approved=True,
         risk_decision_hash="0x" + "67" * 32,
         evidence=(),
@@ -154,10 +162,35 @@ def test_complete_bounded_request_is_authorized_without_signing_capability():
     assert not hasattr(policy, "sign")
 
 
+def test_request_rejects_target_without_matching_executor_runtime_pin():
+    _, request = fixtures()
+    with pytest.raises(ValueError, match="executor runtime pin"):
+        replace(request, target="0x" + "99" * 20)
+
+
+def test_runtime_hashes_at_wrong_addresses_are_rejected():
+    policy, request = fixtures()
+    swapped = (
+        request.observed_runtime_pins[0],
+        RuntimePin(
+            RuntimeRole.POSITION_MANAGER,
+            POOL_MANAGER,
+            request.observed_runtime_pins[1].code_hash,
+        ),
+        RuntimePin(
+            RuntimeRole.POOL_MANAGER,
+            POSITION_MANAGER,
+            request.observed_runtime_pins[2].code_hash,
+        ),
+    )
+    decision = authorize_lp_signing(policy, replace(request, observed_runtime_pins=swapped))
+    assert not decision.authorized
+    assert any("runtime address" in reason for reason in decision.reasons)
+
+
 @pytest.mark.parametrize(
     ("field", "value", "reason"),
     [
-        ("target", "0x" + "99" * 20, "target"),
         ("value", 1, "value"),
         ("executor_last_nonce", 3, "intent nonce"),
         ("account_nonce", 92, "execution preflight"),
@@ -165,7 +198,14 @@ def test_complete_bounded_request_is_authorized_without_signing_capability():
         ("gas_limit", 4_000_000, "gas"),
         ("simulation_succeeded", False, "simulation failed"),
         ("risk_approved", False, "risk decision"),
-        ("observed_code_hashes", ("0x" + "99" * 32,), "code hashes"),
+        (
+            "observed_runtime_pins",
+            (
+                RuntimePin(RuntimeRole.EXECUTOR, EXECUTOR, "0x" + "99" * 32),
+                *RUNTIME_PINS[1:],
+            ),
+            "runtime",
+        ),
     ],
 )
 def test_policy_rejects_each_independent_boundary(field, value, reason):
@@ -237,3 +277,10 @@ def test_preflight_provider_disagreement_fails_closed():
         "execution preflight" in reason
         for reason in authorize_lp_signing(policy, disagreeing).reasons
     )
+
+
+def test_simulation_proof_cannot_be_reused_after_gas_envelope_change():
+    policy, request = fixtures()
+    assert authorize_lp_signing(policy, request).authorized
+    changed = replace(request, gas_limit=request.gas_limit - 1)
+    assert not authorize_lp_signing(policy, changed).authorized

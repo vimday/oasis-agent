@@ -58,6 +58,17 @@ def test_feed_stale_alert(tmp_path):
             "UPDATE observations SET payload = ?, digest = ? WHERE seq = 1",
             (payload, hashlib.sha256(payload).hexdigest()),
         )
+        decision = json.loads(connection.execute("SELECT payload FROM decisions").fetchone()[0])
+        decision["health_digest"] = hashlib.sha256(payload).hexdigest()
+        decision["observed_at"] = record["observed_at"]
+        encoded = canonical_json(decision)
+        connection.execute(
+            "UPDATE decisions SET payload=?, digest=?",
+            (
+                encoded,
+                hashlib.sha256(encoded).hexdigest(),
+            ),
+        )
     config = replace(config, alert_feed_max_age_seconds=3600)
     databases = ReadOnlyDatabases(config)
     journal = ServerOpsJournal(config.databases.ops)

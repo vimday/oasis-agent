@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from oasis_agent.launch.models import Cycle, Target
+from oasis_agent.launch.models import Cycle, Target, parse_target
 from oasis_agent.shadow.sniper_runner import SniperJournal
 
 
@@ -16,7 +16,7 @@ def main() -> None:
         "--target", type=Path, help="strict target config; defaults remain unverified"
     )
     args = parser.parse_args()
-    target = Target() if args.target is None else Target.from_json(args.target.read_bytes())
+    target = Target() if args.target is None else parse_target(args.target.read_bytes())
     journal = SniperJournal(args.journal, target)
     try:
         with args.input.open() as stream:

@@ -18,7 +18,7 @@ from .counterfactual import (
 )
 
 PPM = 1_000_000
-ENGINE_VERSION = "lp-factorial-replay-v1"
+ENGINE_VERSION = "lp-factorial-replay-v2"
 
 
 def _integer(value: int, name: str, *, nonnegative: bool = False) -> None:
@@ -196,6 +196,9 @@ class EvaluationMetrics:
     r11_excess_lower_bound1: int
     r11_max_drawdown1: int
     r11_expected_shortfall1: int
+    r11_vs_r00_min_fold_excess1: int
+    r11_vs_r01_min_fold_excess1: int
+    r11_vs_r10_min_fold_excess1: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,7 +266,7 @@ def _drawdown(increments: tuple[int, ...]) -> int:
 def _expected_shortfall(increments: tuple[int, ...], tail_fraction_ppm: int) -> int:
     losses = sorted((max(0, -value) for value in increments), reverse=True)
     count = max(1, (len(losses) * tail_fraction_ppm + PPM - 1) // PPM)
-    return sum(losses[:count]) // count
+    return (sum(losses[:count]) + count - 1) // count
 
 
 def backtest_strategy(
@@ -294,13 +297,28 @@ def backtest_strategy(
 
     evaluation: list[LpReplayObservation] = []
     fold_totals: list[int] = []
+    baseline_folds: dict[str, list[int]] = {"R00": [], "R01": [], "R10": []}
     cursor = 0
     width = walk_forward.calibration_size + walk_forward.purge_size + walk_forward.evaluation_size
     while cursor + width <= len(ordered):
         start = cursor + walk_forward.calibration_size + walk_forward.purge_size
         fold = ordered[start : start + walk_forward.evaluation_size]
+        calibration_end = cursor + walk_forward.calibration_size - 1
+        if ordered[calibration_end].block.number >= fold[0].block.number:
+            raise ValueError("calibration/evaluation must cross a strict block boundary")
         evaluation.extend(fold)
         fold_totals.append(sum(_event_net(item, True, True) - item.hold_pnl1 for item in fold))
+        for name, dynamic, active in (
+            ("R00", False, False),
+            ("R01", False, True),
+            ("R10", True, False),
+        ):
+            baseline_folds[name].append(
+                sum(
+                    _event_net(item, True, True) - _event_net(item, dynamic, active)
+                    for item in fold
+                )
+            )
         cursor = start + walk_forward.evaluation_size
     if len(fold_totals) < walk_forward.minimum_folds:
         raise ValueError("insufficient observations for precommitted walk-forward folds")
@@ -361,11 +379,17 @@ def backtest_strategy(
         r11_excess_lower_bound1=min(fold_totals),
         r11_max_drawdown1=_drawdown(r11_increments),
         r11_expected_shortfall1=_expected_shortfall(r11_increments, experiment.tail_fraction_ppm),
+        r11_vs_r00_min_fold_excess1=min(baseline_folds["R00"]),
+        r11_vs_r01_min_fold_excess1=min(baseline_folds["R01"]),
+        r11_vs_r10_min_fold_excess1=min(baseline_folds["R10"]),
     )
     reasons: list[str] = []
+    for name, totals in baseline_folds.items():
+        if min(totals) < max(1, experiment.minimum_r11_excess1):
+            reasons.append(f"R11 versus {name} minimum fold excess below required threshold")
     if metrics.sample_count < experiment.minimum_evaluation_events:
         reasons.append("evaluation sample count below precommitted minimum")
-    if metrics.r11_excess_lower_bound1 < experiment.minimum_r11_excess1:
+    if metrics.r11_excess_lower_bound1 < max(1, experiment.minimum_r11_excess1):
         reasons.append("R11 fold lower bound below precommitted excess threshold")
     if metrics.r11_max_drawdown1 > experiment.maximum_drawdown1:
         reasons.append("R11 drawdown exceeds precommitted limit")

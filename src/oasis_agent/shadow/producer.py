@@ -49,7 +49,7 @@ class ObservedPoolKey:
             raise ValueError("positive observation chain required")
         for name in ("token0", "token1", "hook"):
             address = normalize_address(getattr(self, name))
-            if int(address, 16) == 0:
+            if name == "token1" and int(address, 16) == 0:
                 raise ValueError(f"{name} must be nonzero")
             object.__setattr__(self, name, address)
         if self.token0 >= self.token1:
@@ -116,7 +116,10 @@ class SwapQuoteComparison:
 
 @dataclass(frozen=True, slots=True)
 class ObservationReport:
-    schema: str = field(default="oasis.lp-live-shadow-observation.v2", init=False)
+    schema: str = field(default="oasis.lp-live-shadow-observation.v3", init=False)
+    amount_sign_convention: str = field(default="caller_delta_negative_input", init=False)
+    feature_timing: str = field(default="post_swap_diagnostic", init=False)
+    observed_fee_kind: str = field(default="total_swap_fee", init=False)
     chain_id: int
     source: str
     start_block: int
@@ -266,7 +269,7 @@ def _realized_adverse_selection(
     future = Decimal(following.sqrt_price_x96) ** 2
     if execution == 0:
         return None
-    if current.amount0 > 0:  # pool received token0: zero-for-one swap
+    if current.amount0 > 0:  # caller receives token0: pool loses exposure before a rise
         return max(Decimal(0), (future - execution) / future)
     return max(Decimal(0), (execution - future) / future)
 
@@ -291,6 +294,8 @@ def build_observation(
         raise TypeError("typed deployed hook fee policy required")
     if not isinstance(min_benefit, Decimal) or not min_benefit.is_finite():
         raise ValueError("finite Decimal min_benefit required")
+    if type(max_window_swaps) is not int or not 1 <= max_window_swaps <= 10_000:
+        raise ValueError("swap diagnostic window must be 1..10000")
     blocks_by_number = {item.ref.number: item.ref for item in dataset.blocks}
     swaps: list[tuple[SwapObservation, str, int]] = []
     for log in dataset.logs:
@@ -298,6 +303,12 @@ def build_observation(
             decoded = decode_swap(log)
             if decoded.pool_id != pool.pool_id:
                 raise ValueError("observed swap does not belong to the pinned pool")
+            if (
+                decoded.amount0 == 0
+                or decoded.amount1 == 0
+                or decoded.amount0 * decoded.amount1 >= 0
+            ):
+                raise ValueError("swap diagnostic requires opposite nonzero caller deltas")
             swaps.append((decoded, log.transaction_hash, log.log_index))
     ordered = tuple(sorted(swaps, key=lambda item: item[0].block_number))
     if len(ordered) > max_window_swaps:
@@ -308,11 +319,13 @@ def build_observation(
         block = blocks_by_number.get(swap.block_number)
         if block is None or block.block_hash is None:
             raise ValueError("swap block missing from acquired window")
-        history = tuple(item[0] for item in ordered if item[0].block_number <= swap.block_number)
+        # Include the current post-swap state, never a later event in the same block.
+        # This is a diagnostic, not a reconstruction of the original beforeSwap input.
+        history = tuple(item[0] for item in ordered[: index + 1])
         state = swap_state(decision_block=block, price_history=history)
-        direction = SwapDirection.ZERO_FOR_ONE if swap.amount0 > 0 else SwapDirection.ONE_FOR_ZERO
-        exact_input_amount = swap.amount0 if swap.amount0 > 0 else swap.amount1
-        exact_output_amount = -swap.amount1 if swap.amount1 < 0 else -swap.amount0
+        direction = SwapDirection.ZERO_FOR_ONE if swap.amount0 < 0 else SwapDirection.ONE_FOR_ZERO
+        exact_input_amount = -min(swap.amount0, swap.amount1)
+        exact_output_amount = max(swap.amount0, swap.amount1)
         quote_in = strategy.quote(
             state, direction, exact_input_amount, exact_input=True, benign_flow=False
         )
@@ -339,7 +352,7 @@ def build_observation(
                 transaction_hash=transaction_hash,
                 log_index=log_index,
                 pool_id=swap.pool_id,
-                zero_for_one=swap.amount0 > 0,
+                zero_for_one=swap.amount0 < 0,
                 direction=direction.value,
                 amount0=swap.amount0,
                 amount1=swap.amount1,
@@ -355,11 +368,9 @@ def build_observation(
                 inventory_skew=_decimal_str(state.inventory_imbalance),
                 adverse_selection=None if adverse is None else _decimal_str(adverse),
                 oracle_deviation=_decimal_str(state.oracle_deviation),
-                exact_fee_match=(
-                    None
-                    if observed is None or hook_quote_in is None or hook_quote_in != hook_quote_out
-                    else observed == hook_quote_in
-                ),
+                # Swap emits combined protocol + LP fee. No protocol split is acquired
+                # by this single-provider producer; equality cannot certify LP policy.
+                exact_fee_match=None,
             )
         )
     return ObservationReport(

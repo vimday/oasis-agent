@@ -1,0 +1,25 @@
+{
+  "version": "oasis.meme-score.research.v1",
+  "max_age_seconds": 30,
+  "trend_window_seconds": 300,
+  "max_top10_bps": 4000,
+  "max_common_control_bps": 1500,
+  "max_impact_bps": 100,
+  "max_round_trip_cost_bps": 300,
+  "min_unique_traders": 100,
+  "min_holders": 100,
+  "min_depth_usd_micros": 100000000,
+  "max_fdv_liquidity_ratio": 100,
+  "min_score": 7000,
+  "stop_loss_bps": 1000,
+  "take_profit_bps": 2000,
+  "trailing_drawdown_bps": 800,
+  "max_hold_seconds": 3600,
+  "weights": [
+    2000,
+    2000,
+    2500,
+    2000,
+    1500
+  ]
+}

@@ -438,6 +438,30 @@ def resolve_exclusive_native_payment(capture: NativeOwnerPaymentCapture) -> Asse
     return amounts
 
 
+def native_owner_payment_payload(
+    capture: NativeOwnerPaymentCapture, amounts: AssetPair, core_ref: EvidenceRef
+) -> bytes:
+    return canonical_json(
+        {
+            "schema": "oasis.exclusive-native-owner-payment.v1",
+            "entry": asdict(capture.core.entry),
+            "owner": capture.owner,
+            "amounts": asdict(amounts),
+            "native_currency": ZERO_ADDRESS,
+            "native_decimals": NATIVE_DECIMALS,
+            "core_evidence": asdict(core_ref),
+            "trust": "single_provider_research",
+            "execution_eligible": False,
+            "unresolved": [
+                "independent_provider_finality",
+                "token_runtime_attestation",
+                "all_cost_pnl",
+                "batch_native_mixed_transactions",
+            ],
+        }
+    )
+
+
 def persist_native_owner_payment(
     store: EvidenceStore, capture: NativeOwnerPaymentCapture
 ) -> PositionLedgerEntry:
@@ -461,25 +485,7 @@ def persist_native_owner_payment(
 
     ref: EvidenceRef = store.put(
         "native_owner_settlement",
-        canonical_json(
-            {
-                "schema": "oasis.exclusive-native-owner-payment.v1",
-                "entry": asdict(capture.core.entry),
-                "owner": capture.owner,
-                "amounts": asdict(amounts),
-                "native_currency": ZERO_ADDRESS,
-                "native_decimals": NATIVE_DECIMALS,
-                "core_evidence": asdict(core_ref),
-                "trust": "single_provider_research",
-                "execution_eligible": False,
-                "unresolved": [
-                    "independent_provider_finality",
-                    "token_runtime_attestation",
-                    "all_cost_pnl",
-                    "batch_native_mixed_transactions",
-                ],
-            }
-        ),
+        native_owner_payment_payload(capture, amounts, core_ref),
         capture.core.header.ref,
         capture.source,
         request=envelope(False),

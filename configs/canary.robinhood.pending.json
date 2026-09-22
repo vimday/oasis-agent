@@ -1,0 +1,11 @@
+{
+  "schema": "oasis.canary-owner-instructions.v1",
+  "chain_id": 4663,
+  "wallet_dedicated_to_project": true,
+  "valuation_currency": "USD",
+  "maximum_total_capital_usd": "500",
+  "maximum_daily_loss_usd": "200",
+  "maximum_cumulative_loss_usd": "500",
+  "execution_enabled": false,
+  "status": "pending_production_validation"
+}
