@@ -78,6 +78,36 @@ not live indexing, and it holds no key and exposes no signing or broadcast path.
 The reader only replays what an operator retains: it does not fetch, value or attest anything
 itself, and it never weakens a ledger check.
 
+### Declared LP positions (2026-09-24)
+
+A manifest chain may also declare LP positions, and one declared position becomes one ledger asset:
+
+- `risk/portfolio_manifest.py` `ManifestPosition` pins the position `asset_id`, the position
+  manager, the state view, the pool manager, the ERC-721 `token_id`, the `pool_id` and both pool
+  currencies, together with the state-view and pool-manager runtime hashes. Both currencies must be
+  declared fungible assets of the same chain, a position may not reuse a fungible `asset_id`, and
+  `ChainInventory.asset_ids` — and therefore the global policy inventory — covers positions too, so
+  a declaration can never silently add an asset the ledger does not count.
+- `farming/account_inventory.py` reads `ownerOf` for every declared position, so its units are
+  observed from chain rather than assumed. Units must be exactly `1` at the reconciled block; a
+  transferred or burned position refuses the frame instead of counting as zero.
+- `farming/account_flows.py` reconstructs a position's movements from the ERC-721 `Transfer` logs of
+  its own token id (four topics, empty data, `units` always 1), so a position leaving the account is
+  a reconcilable movement rather than a silent drop.
+- `execution/retained_position.py` (`value_retained_position`) values one declared position from
+  retained proof only: two agreeing position snapshots at the frame block, the pool's slot0 window
+  covering that block, and one fresh feed round per pool currency, all from exactly the declared
+  providers. The result is floored leg by leg, so it can never over-state the position.
+- `execution/account_risk_reader.py` requires the snapshot's own `ownerOf` to name the account, so
+  ownership is proven on two independent capture paths instead of trusted once, and refuses a
+  valuation that is not at the reconciled block or is not positive. The value enters `AccountFrame`
+  as an `investment` asset with `decimals` 0, numerator equal to the floored USD micros and
+  denominator 1, its own snapshot hash as evidence; `movements` still reconciles the position's own
+  units against the inventory.
+
+The declaration defines what the ledger counts: the reader neither discovers nor values a position
+that the manifest does not declare.
+
 ### Manifest shape
 
 `configs/account-risk.base.example.json` is the one manifest committed to this repository. Its
@@ -93,10 +123,12 @@ the chain must confirm, not a claim about the chain.
 
 The shape below is the reference for any other chain. Pins shown are placeholders: a production
 manifest must supply real, independently verified values, and the Robinhood feed still lacks them.
+A declared position also has to appear in `policy.inventory` for its chain/account, because the
+inventory must cover exactly what the manifest declares.
 
 ```json
 {
-  "policy": { "inventory": { "<chain_id>:<account>": ["native", "<asset_id>"] }, "...": "GlobalRiskPolicy" },
+  "policy": { "inventory": { "<chain_id>:<account>": ["native", "<asset_id>", "<position asset_id>"] }, "...": "GlobalRiskPolicy" },
   "chains": [
     {
       "chain_id": 0,
@@ -116,6 +148,21 @@ manifest must supply real, independently verified values, and the Robinhood feed
             "runtime_keccak": "0x<feed runtime codehash>",
             "max_age_seconds": 3600
           }
+        }
+      ],
+      "positions": [
+        {
+          "asset_id": "<position asset id>",
+          "position_manager": "0x<v4 position manager>",
+          "position_manager_runtime_keccak": "0x<position manager runtime codehash>",
+          "token_id": 0,
+          "pool_id": "0x<pool id>",
+          "state_view": "0x<v4 state view>",
+          "state_view_runtime_keccak": "0x<state view runtime codehash>",
+          "pool_manager": "0x<v4 pool manager>",
+          "pool_manager_runtime_keccak": "0x<pool manager runtime codehash>",
+          "currency0_id": "<asset id>",
+          "currency1_id": "<asset id>"
         }
       ]
     }
@@ -158,6 +205,12 @@ tell a genuine native withdrawal from a native outflow that bought an investment
 the way, and crediting that outflow would erase the loss. A run whose account sends native out
 beyond gas is therefore refused rather than under-reported.
 
+Every declared position is captured as well: the CLI retains two-provider position snapshots plus a
+two-provider slot0 window for each declared pool at the reconciled block, and the `inventory` block
+of `report.json` lists the retained snapshot and pool-state hashes per position. A position whose
+proof cannot be retained fails the run exactly like a missing fungible asset, so a declared position
+can never degrade into an unvalued zero.
+
 It writes `evidence.db`, `budget.db`, `inventory.json` and `report.json` into `--output` (which must
 not already exist), and, when the frame is accepted, `frame.json` plus `state.json` for the next
 run. Exit codes: `1` invalid configuration, `2` inventory capture failed (retained evidence
@@ -180,11 +233,17 @@ the CLI at a fresh pinned block; a failed run leaves no frame and no state to ch
 - Only the Base example manifest is committed, and it is an *example*: the account is the
   owner-confirmed dedicated wallet and the ETH/USD pin was verified from two Base mainnet
   providers, but no completed reconciliation run has been archived yet, its Base ERC-20 inventory
-  is empty because no retained Base USDC/USD feed evidence exists, and no Robinhood feed is
-  verified at all. Reconciliation over a declared inventory is therefore still not complete NAV.
+  is empty because no retained Base USDC/USD feed evidence exists, it declares no position, and no
+  Robinhood feed is verified at all. Reconciliation over a declared inventory is therefore still not
+  complete NAV.
 - The example's declared inventory is what the ledger counts: any asset an operator forgets to
   declare is simply not observed, so the manifest is a completeness claim that only an
-  independently operated reader can audit.
+  independently operated reader can audit. The same holds for positions: a position that the
+  manifest does not declare is never discovered, owned or valued by any of this code.
+- A declared position's value is a floored claimable amount — principal plus uncollected fees, priced
+  by the declared feeds at one pinned block — so it excludes exit gas and slippage, does not model
+  impermanent loss against a benchmark, and is not a realized value. A positive valuation is
+  therefore a lower bound, not a mark-to-market NAV.
 - `state.json` chaining is an operator-run observer, not a supervisor: nothing schedules it, no
   alert fires on a refusal, and a halted `state.json` is only as durable as the filesystem it sits on.
 - The default signer CLI loads neither a reader nor a guard and still denies every attempt;

@@ -82,12 +82,17 @@ def value_retained_position(
     currency0: CurrencyPrice,
     currency1: CurrencyPrice,
     providers: frozenset[str],
+    owner: str | None = None,
 ) -> PositionValuation:
     """Value one declared position from retained proof, or refuse.
 
     Both providers must have seen the same position and the same pool state, the
     pool state must cover the position's own block, and every declared identity
     must match what the proofs actually say. Nothing is inferred from absence.
+
+    When `owner` is given the snapshot's own `ownerOf` answer must name it, so a
+    caller can bind ownership and value in one replay instead of trusting that a
+    separate capture agreed.
     """
     if not isinstance(retained, RetainedPosition):
         raise TypeError("retained position identity required")
@@ -106,6 +111,8 @@ def value_retained_position(
         raise ValueError("retained position manager differs from the declaration")
     if snapshot.token_id != retained.token_id:
         raise ValueError("retained position token id differs from the declaration")
+    if owner is not None and snapshot.nft_owner != normalize_address(owner):
+        raise ValueError("retained position is not owned by the expected account")
     if snapshot.pool_id != retained.pool_id:
         raise ValueError("retained position pool differs from the declaration")
     if quorum.left.state_view != retained.state_view:

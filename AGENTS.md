@@ -168,13 +168,23 @@ autonomous trader. Its current verified boundary is:
   read-only baseline that never appends an event. `execution/account_risk_guard.py`
   binds it to the signer as an admission boundary over an injected `AccountRiskReader`.
   `risk/portfolio_manifest.py` declares the reconciled accounts/assets and must exactly cover one
-  `GlobalRiskPolicy` inventory; `farming/account_inventory.py` and `farming/account_flows.py`
-  capture and replay two-provider, block-pinned balances/feeds and raw `Transfer` movements
+  `GlobalRiskPolicy` inventory, and may declare v4 LP positions: a `ManifestPosition` pins the
+  position manager, state view, pool manager, ERC-721 token id, pool id and both pool currencies
+  plus the state-view and pool-manager runtime hashes, and `ChainInventory.asset_ids` covers
+  positions too, so a declaration can never add an asset the ledger does not count.
+  `farming/account_inventory.py` and `farming/account_flows.py`
+  capture and replay two-provider, block-pinned balances/feeds, `ownerOf` for every declared
+  position and raw `Transfer`/ERC-721 movements
   (unexplained residuals become `unresolved_operations`, never zero; every transfer-driven token
   delta is credited, including transfers between monitored accounts, while gas and undeclared
-  native movement are never credited). `execution/account_risk_reader.py`
+  native movement are never credited). `execution/retained_position.py` values one declared position
+  from retained proof only — two agreeing position snapshots, the pool's slot0 window covering the
+  position's own block and one fresh feed round per pool currency — floored leg by leg.
+  `execution/account_risk_reader.py`
   (`EvidenceReplayAccountRiskReader`) is the first `AccountRiskReader` implementation: it replays
-  those retained proofs into one complete `PortfolioFrame` and prices a signing request's worst-case
+  those retained proofs into one complete `PortfolioFrame`, carries each declared position as an
+  `investment` asset whose value is that floor (units must be exactly 1 and both capture paths must
+  agree on ownership), and prices a signing request's worst-case
   commitment with ceiling rounding, raising on any missing, stale, disagreeing, undeclared-provider
   or unexplained input.
   `scripts/run_account_risk_reconcile.py` is an observe-only CLI that never opens the risk journal,
@@ -182,12 +192,13 @@ autonomous trader. Its current verified boundary is:
   providers, chains its own prior `RiskState` (`--state`) so successive runs accumulate day and
   cumulative loss, and takes native gas/non-gas units only as explicit operator declarations
   (`--native`). `configs/account-risk.base.example.json` is the only committed manifest: the
-  owner-confirmed dedicated wallet on Base 8453, native-only, with an ETH/USD feed pin verified
-  from two Base mainnet providers before it was written and re-parsed by a unit test so it cannot
-  rot silently. The default signer CLI loads no reader or guard and still
+  owner-confirmed dedicated wallet on Base 8453, native-only, declaring no position, with an ETH/USD
+  feed pin verified from two Base mainnet providers before it was written and re-parsed by a unit
+  test so it cannot rot silently. The default signer CLI loads no reader or guard and still
   denies; no completed reconciliation run is archived, no Robinhood or ERC-20 manifest pin is
-  verified, and no independent NAV valuation or production
-  signer/broadcast integration exists, so this is not a deployed production kill switch;
+  verified, no position is declared anywhere in a committed manifest, and no all-asset chain indexer
+  or production signer/broadcast integration exists, so this is not a deployed production kill
+  switch;
 - Native wallet balances now support bounded two-provider capture and offline raw-RPC replay;
   real Base and Robinhood pinned samples agree. A same-block Base ETH/USD reference also replays
   from two providers with explicit integer valuation rounding. This is native-only historical

@@ -113,6 +113,7 @@ def position(**overrides: object) -> ManifestPosition:
         "pool_id": POOL_ID,
         "state_view": STATE_VIEW,
         "state_view_runtime_keccak": STATE_VIEW_RUNTIME,
+        "pool_manager": POOL_MANAGER,
         "pool_manager_runtime_keccak": POOL_MANAGER_RUNTIME,
         "currency0_id": "usdc",
         "currency1_id": "weth",
@@ -260,6 +261,8 @@ def test_a_position_requires_deployed_contracts_and_canonical_hashes() -> None:
         position(position_manager=ZERO_ADDRESS)
     with pytest.raises(ValueError, match="requires deployed contracts"):
         position(state_view=ZERO_ADDRESS)
+    with pytest.raises(ValueError, match="requires deployed contracts"):
+        position(pool_manager=ZERO_ADDRESS)
     with pytest.raises(ValueError, match="requires two distinct pool currencies"):
         position(currency1_id="usdc")
     with pytest.raises(ValueError):

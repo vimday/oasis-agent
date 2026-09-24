@@ -90,9 +90,11 @@ class ManifestPosition(Strict):
     A position has no pinned oracle, so unlike a fungible asset it carries the
     identity that its retained proof must satisfy instead of a feed: two
     agreeing position snapshots at the reconciled block, the pool's slot0 window
-    covering that block, and one fresh feed round per pool currency. Both pool
-    currencies must be declared fungible assets of the same chain inventory, so a
-    position can never be valued in a currency the portfolio does not reconcile.
+    covering that block, and one fresh feed round per pool currency. The
+    declared pool manager is proven against the state view's own `poolManager()`
+    getter and its runtime hash. Both pool currencies must be declared fungible
+    assets of the same chain inventory, so a position can never be valued in a
+    currency the portfolio does not reconcile.
     """
 
     asset_id: Annotated[str, Field(min_length=1, max_length=160)]
@@ -102,13 +104,18 @@ class ManifestPosition(Strict):
     pool_id: str
     state_view: Address
     state_view_runtime_keccak: str
+    pool_manager: Address
     pool_manager_runtime_keccak: str
     currency0_id: Annotated[str, Field(min_length=1, max_length=160)]
     currency1_id: Annotated[str, Field(min_length=1, max_length=160)]
 
     @model_validator(mode="after")
     def usable(self) -> "ManifestPosition":
-        if self.position_manager == ZERO_ADDRESS or self.state_view == ZERO_ADDRESS:
+        if (
+            self.position_manager == ZERO_ADDRESS
+            or self.state_view == ZERO_ADDRESS
+            or self.pool_manager == ZERO_ADDRESS
+        ):
             raise ValueError("a declared position requires deployed contracts")
         for name in (
             "position_manager_runtime_keccak",

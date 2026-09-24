@@ -274,6 +274,7 @@ def position(**overrides: object) -> ManifestPosition:
         "pool_id": POOL_ID,
         "state_view": STATE_VIEW,
         "state_view_runtime_keccak": STATE_VIEW_RUNTIME,
+        "pool_manager": "0x" + "41" * 20,
         "pool_manager_runtime_keccak": POOL_MANAGER_RUNTIME,
         "currency0_id": "usdc",
         "currency1_id": "weth",

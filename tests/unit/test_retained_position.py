@@ -53,7 +53,7 @@ POOL_MANAGER = "0x" + "11" * 20
 WETH = "0x" + "55" * 20
 USDC = "0x" + "66" * 20
 HOOKS = "0x" + "77" * 20
-OWNER = "0x" + "33" * 20
+OWNER = "0x" + "3a" * 20
 TOKEN_ID = 7
 LIQUIDITY = 10**24
 TICK_LOWER = -120
@@ -460,5 +460,21 @@ def test_a_position_valuation_requires_its_own_identity_object(tmp_path: Path) -
             replace(retained(), chain_id=0)
         with pytest.raises(ValueError, match="bounded token id"):
             replace(retained(), token_id=0)
+    finally:
+        store.close()
+
+
+def test_an_expected_owner_binds_ownership_to_the_same_replay(tmp_path: Path) -> None:
+    """Ownership may be asserted from the snapshot itself; case is not identity."""
+    store = EvidenceStore(tmp_path / "owner.db")
+    try:
+        snapshots = retain_snapshots(store)
+        pool_state = retain_pool_state(store)
+        assert value(store, snapshots, pool_state, owner=OWNER) == value(
+            store, snapshots, pool_state
+        )
+        assert value(store, snapshots, pool_state, owner="0x" + OWNER[2:].upper()).usd_micros > 0
+        with pytest.raises(ValueError, match="not owned by the expected account"):
+            value(store, snapshots, pool_state, owner=HOOKS)
     finally:
         store.close()

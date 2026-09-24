@@ -15,7 +15,10 @@ operator declarations in `--native`, and anything undeclared stays unresolved an
 blocks the frame.
 
 Reported figures are retained-input reconstructions at one pinned block, not
-settled PnL, not complete NAV across time and not independent LP valuation.
+settled PnL and not complete NAV across time. A position that the manifest
+declares is valued from its own two-provider proof at the reconciled block,
+floored and before any exit cost; nothing outside that declaration is
+discovered or valued.
 """
 
 import argparse
@@ -31,6 +34,7 @@ from oasis_agent.execution.account_risk_reader import (
     AccountObservation,
     AssetFlowEvidence,
     EvidenceReplayAccountRiskReader,
+    PositionEvidence,
 )
 from oasis_agent.farming.account_flows import (
     FlowScope,
@@ -42,6 +46,7 @@ from oasis_agent.farming.account_inventory import (
     collect_account_inventory_quorum,
     persist_account_inventory_evidence,
 )
+from oasis_agent.farming.position_quorum import collect_position_quorum
 from oasis_agent.models.common import canonical_json
 from oasis_agent.risk.account_risk import (
     AccountFrame,
@@ -52,6 +57,10 @@ from oasis_agent.risk.account_risk import (
 from oasis_agent.risk.portfolio_manifest import ChainInventory, PortfolioManifest
 from oasis_agent.rpc.budget import BudgetedPoster, BudgetPolicy
 from oasis_agent.rpc.transport import JsonRpcTransport, _UrlLibPoster
+from oasis_agent.shadow.pool_state_capture import (
+    collect_slot0_window_quorum,
+    persist_slot0_window_evidence,
+)
 
 
 def _pairs(values: list[str], name: str) -> dict[str, str]:
@@ -155,10 +164,9 @@ def _flow_evidence(
     policies: tuple[BudgetPolicy, ...],
     budget: Path,
 ) -> tuple[AssetFlowEvidence, ...]:
-    """Attribute every declared ERC-20 delta from complete two-provider logs."""
-    collected: list[AssetFlowEvidence] = []
-    for asset in entry.erc20_assets:
-        scope = FlowScope(
+    """Attribute every declared ERC-20 and position delta from complete two-provider logs."""
+    scopes: list[FlowScope] = [
+        FlowScope(
             entry.chain_id,
             entry.account,
             asset.asset_id,
@@ -167,6 +175,23 @@ def _flow_evidence(
             prior_block,
             end_block,
         )
+        for asset in entry.erc20_assets
+    ]
+    scopes.extend(
+        FlowScope(
+            entry.chain_id,
+            entry.account,
+            position.asset_id,
+            position.position_manager,
+            0,
+            prior_block,
+            end_block,
+            position.token_id,
+        )
+        for position in entry.positions
+    )
+    collected: list[AssetFlowEvidence] = []
+    for scope in scopes:
         sessions = _sessions(
             sources=(entry.primary_source, entry.secondary_source),
             urls=urls,
@@ -175,8 +200,59 @@ def _flow_evidence(
         )
         quorum = collect_token_flow_quorum(sessions[0], sessions[1], scope=scope)
         collected.append(
-            AssetFlowEvidence(asset.asset_id, persist_token_flow_evidence(store, quorum))
+            AssetFlowEvidence(scope.asset_id, persist_token_flow_evidence(store, quorum))
         )
+    return tuple(collected)
+
+
+def _position_evidence(
+    store: EvidenceStore,
+    entry: ChainInventory,
+    *,
+    block: int,
+    urls: Mapping[str, str],
+    policies: tuple[BudgetPolicy, ...],
+    budget: Path,
+) -> tuple[PositionEvidence, ...]:
+    """Prove each declared position's ownership, ticks and pool state at the pinned block."""
+    collected: list[PositionEvidence] = []
+    for position in entry.positions:
+        sessions = _sessions(
+            sources=(entry.primary_source, entry.secondary_source),
+            urls=urls,
+            policies=policies,
+            budget=budget,
+        )
+        snapshots = collect_position_quorum(
+            sessions[0],
+            sessions[1],
+            chain_id=entry.chain_id,
+            position_manager=position.position_manager,
+            state_view=position.state_view,
+            token_id=position.token_id,
+            block_number=block,
+        ).retain(store)
+        window_sessions = _sessions(
+            sources=(entry.primary_source, entry.secondary_source),
+            urls=urls,
+            policies=policies,
+            budget=budget,
+        )
+        pool_state = persist_slot0_window_evidence(
+            store,
+            collect_slot0_window_quorum(
+                window_sessions[0],
+                window_sessions[1],
+                chain_id=entry.chain_id,
+                state_view=position.state_view,
+                pool_manager=position.pool_manager,
+                pool_id=position.pool_id,
+                block_numbers=(block,),
+                state_view_runtime_keccak=position.state_view_runtime_keccak,
+                pool_manager_runtime_keccak=position.pool_manager_runtime_keccak,
+            ),
+        )
+        collected.append(PositionEvidence(position.asset_id, snapshots, pool_state))
     return tuple(collected)
 
 
@@ -308,8 +384,16 @@ def main() -> None:
             )
             references = persist_account_inventory_evidence(store, quorum)
             prior = _account(state.frame, entry.key)
+            positions = _position_evidence(
+                store,
+                entry,
+                block=quorum.header.ref.number,
+                urls=urls,
+                policies=policies,
+                budget=args.output / "budget.db",
+            )
             observations[entry.key] = (
-                AccountObservation(inventory=references)
+                AccountObservation(inventory=references, positions=positions)
                 if prior is None
                 else AccountObservation(
                     inventory=references,
@@ -322,6 +406,7 @@ def main() -> None:
                         policies=policies,
                         budget=args.output / "budget.db",
                     ),
+                    positions=positions,
                     native_gas_units=native[entry.key][0],
                     non_trading_native_units=native[entry.key][1],
                 )
@@ -335,6 +420,14 @@ def main() -> None:
                     "feeds": [
                         [feed.asset_id, feed.answer, feed.decimals, feed.round_id]
                         for feed in quorum.feeds
+                    ],
+                    "positions": [
+                        [
+                            item.asset_id,
+                            item.snapshots[0].content_hash,
+                            item.pool_state[0].content_hash,
+                        ]
+                        for item in positions
                     ],
                 }
             )
@@ -374,7 +467,8 @@ def main() -> None:
             "declared_manifest_is_supplied_policy_not_chain_truth",
             "native_gas_and_non_trading_native_units_are_operator_declared",
             "observer_never_writes_the_risk_journal",
-            "no_independent_lp_or_position_valuation",
+            "positions_are_declared_in_the_manifest_not_discovered_from_chain",
+            "position_value_is_a_floored_claimable_value_before_exit_costs",
         ],
     }
     (args.output / "report.json").write_bytes(canonical_json(result) + b"\n")

@@ -30,14 +30,16 @@ from ..farming.account_inventory import (
     FeedAnswer,
     replay_account_inventory_evidence,
 )
+from ..farming.position_valuation import CurrencyPrice, PositionValuation
 from ..farming.price_evidence import value_usd_micros
-from ..models.common import EvidenceRef
+from ..models.common import BlockRef, EvidenceRef
 from ..models.v4 import PoolKey
 from ..risk.account_risk import AccountFrame, AssetBalance, PortfolioFrame
 from ..risk.portfolio_manifest import ChainInventory, ManifestAsset, PortfolioManifest
 from ..uniswap_v4.pool_id import pool_id_from_key
 from .lp_signer_policy import EXECUTE_SELECTOR, EXECUTE_TYPE
 from .lp_signer_sidecar import LpSidecarRequest
+from .retained_position import RetainedPosition, value_retained_position
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,29 +62,66 @@ class AssetFlowEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class PositionEvidence:
+    """Retained two-provider ownership and pool-state proof for one position.
+
+    The snapshot pair proves the position's own `ownerOf`, ticks, liquidity and
+    uncollected fees at one block; the slot0 window proves the pool state that
+    block. Both pairs must come from exactly the manifest's declared providers.
+    """
+
+    asset_id: str
+    snapshots: tuple[EvidenceRef, EvidenceRef]
+    pool_state: tuple[EvidenceRef, EvidenceRef]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "snapshots", tuple(self.snapshots))
+        object.__setattr__(self, "pool_state", tuple(self.pool_state))
+        if not self.asset_id:
+            raise ValueError("position evidence requires an asset identifier")
+        for name, kind in (("snapshots", "position_snapshot"), ("pool_state", "slot0_window")):
+            pair: tuple[EvidenceRef, ...] = getattr(self, name)
+            if len(pair) != 2 or len({reference.source for reference in pair}) != 2:
+                raise ValueError(f"position evidence requires two distinct {name} providers")
+            if any(reference.kind != kind for reference in pair):
+                raise ValueError(f"position evidence must retain {kind} proofs")
+
+
+@dataclass(frozen=True, slots=True)
 class AccountObservation:
     """Latest retained reconciliation evidence for one manifest account."""
 
     inventory: tuple[EvidenceRef, EvidenceRef]
     flows: tuple[AssetFlowEvidence, ...] = ()
+    positions: tuple[PositionEvidence, ...] = ()
     native_gas_units: int = 0
     non_trading_native_units: int = 0
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "inventory", tuple(self.inventory))
         object.__setattr__(self, "flows", tuple(self.flows))
+        object.__setattr__(self, "positions", tuple(self.positions))
         if len(self.inventory) != 2 or len({r.source for r in self.inventory}) != 2:
             raise ValueError("account observation requires two distinct inventory providers")
         if any(reference.kind != "account_inventory" for reference in self.inventory):
             raise ValueError("account observation must retain inventory proofs")
         if len({flow.asset_id for flow in self.flows}) != len(self.flows):
             raise ValueError("one flow attribution per asset required")
+        if len({evidence.asset_id for evidence in self.positions}) != len(self.positions):
+            raise ValueError("one position proof per position required")
         for name in ("native_gas_units", "non_trading_native_units"):
             value = getattr(self, name)
             if type(value) is not int:
                 raise TypeError(f"{name} must be an integer")
         if self.native_gas_units < 0:
             raise ValueError("native gas units must be nonnegative")
+
+
+def _position_snapshot_hash(observation: AccountObservation, asset_id: str) -> str:
+    for evidence in observation.positions:
+        if evidence.asset_id == asset_id:
+            return evidence.snapshots[0].content_hash
+    raise ValueError("position evidence is missing for a declared position")
 
 
 def _pool_currencies(calldata: bytes, *, pool_id: str) -> tuple[str, str]:
@@ -178,9 +217,13 @@ class EvidenceReplayAccountRiskReader:
             raise ValueError("inventory quorum is not bound to the manifest chain")
         units = {unit.asset_id: unit.units for unit in quorum.units}
         feeds = {feed.asset_id: feed for feed in quorum.feeds}
-        declared = {asset.asset_id for asset in entry.assets}
-        if set(units) != declared or set(feeds) != declared:
+        fungible = {asset.asset_id for asset in entry.assets}
+        declared = set(entry.asset_ids)
+        if set(units) != declared:
             raise ValueError("inventory quorum does not cover the declared assets")
+        if set(feeds) != fungible:
+            raise ValueError("inventory quorum does not cover the declared feeds")
+        position_values = self._position_values(entry, ref, feeds, units, observation)
         prices = {
             asset.asset_id: (
                 feeds[asset.asset_id].usd_micros_numerator,
@@ -189,6 +232,12 @@ class EvidenceReplayAccountRiskReader:
             )
             for asset in entry.assets
         }
+        prices.update(
+            {
+                position.asset_id: (position_values[position.asset_id].usd_micros, 1, 0)
+                for position in entry.positions
+            }
+        )
         prior = self._prior(entry.key)
         if prior is None:
             if (
@@ -228,6 +277,20 @@ class EvidenceReplayAccountRiskReader:
                 evidence_hash=observation.inventory[0].content_hash,
             )
             for asset in entry.assets
+        ) + tuple(
+            AssetBalance(
+                asset_id=position.asset_id,
+                units=units[position.asset_id],
+                decimals=0,
+                price_usd_micros_numerator=position_values[position.asset_id].usd_micros,
+                price_denominator=1,
+                price_timestamp=ref.timestamp,
+                role="investment",
+                # The position's value rides on its own snapshot proof; the frame's
+                # inventory hash still binds the ownership and unit fact.
+                evidence_hash=_position_snapshot_hash(observation, position.asset_id),
+            )
+            for position in entry.positions
         )
         return (
             AccountFrame(
@@ -245,6 +308,67 @@ class EvidenceReplayAccountRiskReader:
             feeds,
         )
 
+    def _position_values(
+        self,
+        entry: ChainInventory,
+        ref: BlockRef,
+        feeds: Mapping[str, FeedAnswer],
+        units: Mapping[str, int],
+        observation: AccountObservation,
+    ) -> dict[str, PositionValuation]:
+        """Value every declared position from its retained proof at the frame block."""
+        declared = {position.asset_id: position for position in entry.positions}
+        if {evidence.asset_id for evidence in observation.positions} != set(declared):
+            raise ValueError("position evidence must cover exactly the declared positions")
+        providers = frozenset({entry.primary_source, entry.secondary_source})
+        values: dict[str, PositionValuation] = {}
+        for evidence in observation.positions:
+            position = declared[evidence.asset_id]
+            self._require_declared_sources(entry, (*evidence.snapshots, *evidence.pool_state))
+            if units[position.asset_id] != 1:
+                # Two independent capture paths must agree that the account owns it:
+                # the inventory's `ownerOf` here and the snapshot's own answer below.
+                raise ValueError("a declared position must be owned at the reconciled block")
+            valuation = value_retained_position(
+                self.store,
+                retained=RetainedPosition(
+                    chain_id=entry.chain_id,
+                    position_manager=position.position_manager,
+                    state_view=position.state_view,
+                    pool_id=position.pool_id,
+                    token_id=position.token_id,
+                    state_view_runtime_keccak=position.state_view_runtime_keccak,
+                    pool_manager_runtime_keccak=position.pool_manager_runtime_keccak,
+                ),
+                snapshots=evidence.snapshots,
+                pool_state=evidence.pool_state,
+                currency0=self._currency(entry, feeds, position.currency0_id),
+                currency1=self._currency(entry, feeds, position.currency1_id),
+                providers=providers,
+                owner=entry.account,
+            )
+            if valuation.block != ref:
+                raise ValueError("position valuation is not at the reconciled block")
+            if valuation.usd_micros <= 0:
+                # A zero numerator cannot be carried by the ledger, and dropping the
+                # asset would silently redefine the inventory: refuse instead.
+                raise ValueError("a declared position must have a positive retained value")
+            values[evidence.asset_id] = valuation
+        return values
+
+    @staticmethod
+    def _currency(
+        entry: ChainInventory, feeds: Mapping[str, FeedAnswer], asset_id: str
+    ) -> CurrencyPrice:
+        asset = entry.asset(asset_id)
+        return CurrencyPrice(
+            address=asset.address,
+            asset_id=asset.asset_id,
+            decimals=asset.decimals,
+            feed=feeds[asset.asset_id],
+            max_age_seconds=asset.feed.max_age_seconds,
+        )
+
     def _flows(
         self,
         entry: ChainInventory,
@@ -252,7 +376,8 @@ class EvidenceReplayAccountRiskReader:
         end_block: int,
         observation: AccountObservation,
     ) -> dict[str, TokenFlow]:
-        declared = {asset.asset_id for asset in entry.erc20_assets}
+        positions = {position.asset_id: position for position in entry.positions}
+        declared = {asset.asset_id for asset in entry.erc20_assets} | set(positions)
         unknown = {flow.asset_id for flow in observation.flows} - declared
         if unknown:
             raise ValueError("flow evidence for an undeclared asset")
@@ -260,16 +385,29 @@ class EvidenceReplayAccountRiskReader:
         flows: dict[str, TokenFlow] = {}
         for attribution in observation.flows:
             self._require_declared_sources(entry, attribution.references)
-            asset = entry.asset(attribution.asset_id)
-            scope = FlowScope(
-                entry.chain_id,
-                entry.account,
-                asset.asset_id,
-                asset.address,
-                asset.decimals,
-                prior.block_number,
-                end_block,
-            )
+            position = positions.get(attribution.asset_id)
+            if position is None:
+                asset = entry.asset(attribution.asset_id)
+                scope = FlowScope(
+                    entry.chain_id,
+                    entry.account,
+                    asset.asset_id,
+                    asset.address,
+                    asset.decimals,
+                    prior.block_number,
+                    end_block,
+                )
+            else:
+                scope = FlowScope(
+                    entry.chain_id,
+                    entry.account,
+                    position.asset_id,
+                    position.position_manager,
+                    0,
+                    prior.block_number,
+                    end_block,
+                    position.token_id,
+                )
             providers = [
                 replay_token_flow_evidence(
                     self.store, reference, scope=scope, tracked_accounts=tracked
@@ -278,7 +416,7 @@ class EvidenceReplayAccountRiskReader:
             ]
             if any(provider != providers[0] for provider in providers[1:]):
                 raise ValueError("flow providers disagree on the transfer set")
-            flows[asset.asset_id] = providers[0]
+            flows[attribution.asset_id] = providers[0]
         return flows
 
     def _prior(self, key: str) -> AccountFrame | None:
@@ -339,4 +477,5 @@ __all__ = [
     "AccountObservation",
     "AssetFlowEvidence",
     "EvidenceReplayAccountRiskReader",
+    "PositionEvidence",
 ]

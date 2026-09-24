@@ -22,6 +22,7 @@ from oasis_agent.execution.account_risk_reader import (
     AccountObservation,
     AssetFlowEvidence,
     EvidenceReplayAccountRiskReader,
+    PositionEvidence,
 )
 from oasis_agent.farming.account_flows import (
     FlowScope,
@@ -32,10 +33,15 @@ from oasis_agent.farming.account_inventory import (
     DECIMALS_SELECTOR,
     balance_of_data,
     collect_account_inventory_quorum,
+    owner_of_data,
     persist_account_inventory_evidence,
 )
-from oasis_agent.farming.price_evidence import selector
-from oasis_agent.models.common import ZERO_ADDRESS, canonical_json
+from oasis_agent.farming.inventory import PositionInventory, position_inventory
+from oasis_agent.farming.position_quorum import collect_position_quorum
+from oasis_agent.farming.positions import PositionSnapshot, position_id
+from oasis_agent.farming.price_evidence import selector, value_usd_micros
+from oasis_agent.models.common import ZERO_ADDRESS, BlockRef, canonical_json
+from oasis_agent.models.v4 import PoolKey
 from oasis_agent.risk.account_risk import (
     GlobalRiskJournal,
     GlobalRiskPolicy,
@@ -47,10 +53,17 @@ from oasis_agent.risk.portfolio_manifest import (
     ChainInventory,
     ManifestAsset,
     ManifestFeed,
+    ManifestPosition,
     PortfolioManifest,
 )
 from oasis_agent.rpc.transport import JsonRpcTransport
-from tests.unit.test_account_flows import FlowFixture, transfer_log
+from oasis_agent.shadow.pool_state_capture import (
+    collect_slot0_window_quorum,
+    persist_slot0_window_evidence,
+)
+from oasis_agent.uniswap_v4.liquidity_math import sqrt_price_at_tick
+from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
+from tests.unit.test_account_flows import FlowFixture, erc721_transfer_log, transfer_log
 from tests.unit.test_lp_signer_sidecar import ACCOUNT, make_policy, make_request
 
 CHAIN_ID = 4663
@@ -73,6 +86,25 @@ SECOND_ACCOUNT = "0x" + "ea" * 20
 ASSET_IDS = ("native", "usdc", "weth")
 CID_MIDNIGHT = 1_800_028_800
 DAY_START = 1_800_000_000
+
+POSITION_MANAGER = "0x" + "21" * 20
+POSITION_MANAGER_CODE = "0x6004"
+STATE_VIEW = "0x" + "31" * 20
+STATE_VIEW_CODE = "0x6005"
+POOL_MANAGER = "0x" + "41" * 20
+POOL_MANAGER_CODE = "0x6006"
+POSITION_ASSET = "lp-position"
+POSITION_ID = 7
+POSITION_LIQUIDITY = 10**12
+TICK_LOWER = -120
+TICK_UPPER = 120
+POOL_FEE = 3_000
+POOL_MANAGER_SELECTOR = "0x" + keccak(b"poolManager()")[:4].hex()
+GET_SLOT0_SELECTOR = "0x" + keccak(b"getSlot0(bytes32)")[:4].hex()
+
+
+def reply(request: dict[str, object], result: object) -> bytes:
+    return canonical_json({"jsonrpc": "2.0", "id": request["id"], "result": result})
 
 
 def runtime_hash(code: str) -> str:
@@ -116,6 +148,16 @@ WETH_SPEC = TokenSpec(
 )
 
 
+@dataclass(frozen=True)
+class PositionSpec:
+    """One declared position and the `ownerOf` answer this provider gives for it."""
+
+    asset_id: str = POSITION_ASSET
+    token_id: int = POSITION_ID
+    owner: str = ACCOUNT
+    code: str = POSITION_MANAGER_CODE
+
+
 @dataclass
 class InventoryFixture:
     """One deterministic provider for one manifest account at one pinned block."""
@@ -129,6 +171,7 @@ class InventoryFixture:
     native_units: int = NATIVE_UNITS
     native_feed: FeedSpec = NATIVE_SPEC
     tokens: tuple[TokenSpec, ...] = (USDC_SPEC, WETH_SPEC)
+    positions: tuple[PositionSpec, ...] = ()
     feed_age_seconds: int = 10
     flip_closing_header: bool = False
     methods: list[str] = field(default_factory=list)
@@ -167,6 +210,8 @@ class InventoryFixture:
         for token in self.tokens:
             codes[token.address] = token.code
             codes[token.feed.address] = token.feed.code
+        for position in self.positions:
+            codes[POSITION_MANAGER] = position.code
         return codes
 
     @property
@@ -181,6 +226,11 @@ class InventoryFixture:
         for token in self.tokens:
             if address == token.address:
                 return self._token(token, data)
+        position = next((item for item in self.positions if address == POSITION_MANAGER), None)
+        if position is not None:
+            if data != owner_of_data(position.token_id):
+                raise AssertionError(data)
+            return "0x" + encode(["address"], [position.owner]).hex()
         return self._feed(next(feed for feed in self.feeds if feed.address == address), data)
 
     def _token(self, token: TokenSpec, data: str) -> str:
@@ -233,6 +283,153 @@ def manifest_feed(spec: FeedSpec) -> ManifestFeed:
     )
 
 
+def position_pool_key() -> PoolKey:
+    return PoolKey(USDC_SPEC.address, WETH_SPEC.address, POOL_FEE, 60, ZERO_ADDRESS)
+
+
+def position_snapshot(
+    *,
+    block_number: int = BLOCK_NUMBER,
+    block_hash: str = BLOCK_HASH,
+    timestamp: int = TIMESTAMP,
+    owner: str = ACCOUNT,
+    token_id: int = POSITION_ID,
+    liquidity: int = POSITION_LIQUIDITY,
+) -> PositionSnapshot:
+    """One synthetic live position whose pool trades the two declared currencies."""
+    key = position_pool_key()
+    return PositionSnapshot(
+        BlockRef(CHAIN_ID, block_number, block_hash, timestamp),
+        POSITION_MANAGER,
+        token_id,
+        owner,
+        POSITION_MANAGER,
+        key,
+        pool_id_from_key(key),
+        position_id(POSITION_MANAGER, TICK_LOWER, TICK_UPPER, token_id),
+        TICK_LOWER,
+        TICK_UPPER,
+        False,
+        liquidity,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+
+
+def slot0_sqrt_price() -> int:
+    return sqrt_price_at_tick(0)
+
+
+def position_session(source: str, snapshot: PositionSnapshot) -> tuple:
+    """One hash-pinned position session whose raw calls reconstruct `snapshot`."""
+    key = snapshot.pool_key
+    packed = (
+        (int(snapshot.pool_id[:52], 16) << 56)
+        | ((snapshot.tick_lower & 0xFFFFFF) << 8)
+        | ((snapshot.tick_upper & 0xFFFFFF) << 32)
+    )
+    values = {
+        "ownerOf(uint256)": (["address"], [snapshot.nft_owner]),
+        "getPoolAndPositionInfo(uint256)": (
+            ["(address,address,uint24,int24,address)", "uint256"],
+            [(key.currency0, key.currency1, key.fee, key.tick_spacing, key.hooks), packed],
+        ),
+        "getPositionLiquidity(uint256)": (["uint128"], [snapshot.liquidity]),
+        "getPositionInfo(bytes32,bytes32)": (
+            ["uint128", "uint256", "uint256"],
+            [snapshot.liquidity, 0, 0],
+        ),
+        "getFeeGrowthInside(bytes32,int24,int24)": (["uint256", "uint256"], [0, 0]),
+    }
+    results = {
+        "0x" + keccak(signature.encode())[:4].hex(): "0x" + encode(*value).hex()
+        for signature, value in values.items()
+    }
+
+    class Poster:
+        def post(self, payload: bytes) -> bytes:
+            request = json.loads(payload)
+            method = request["method"]
+            if method == "eth_chainId":
+                return reply(request, hex(snapshot.block.chain_id))
+            if method == "eth_getBlockByNumber":
+                return reply(
+                    request,
+                    {
+                        "number": hex(snapshot.block.number),
+                        "hash": snapshot.block.block_hash,
+                        "timestamp": hex(snapshot.block.timestamp),
+                        "parentHash": PARENT_HASH,
+                    },
+                )
+            if method == "eth_call":
+                return reply(request, results[request["params"][0]["data"][:10]])
+            raise AssertionError(method)
+
+    recorder = BoundedExchangeRecorder()
+    return (
+        JsonRpcTransport("https://fixture.invalid", http=Poster(), recorder=recorder),
+        recorder,
+        source,
+    )
+
+
+def slot0_session(
+    source: str,
+    *,
+    number: int = BLOCK_NUMBER,
+    block_hash: str = BLOCK_HASH,
+    timestamp: int = TIMESTAMP,
+) -> tuple:
+    """One pinned slot0 window session; it answers the exact call set the capture expects."""
+
+    class Poster:
+        def post(self, payload: bytes) -> bytes:
+            request = json.loads(payload)
+            method, params = request["method"], request["params"]
+            if method == "eth_chainId":
+                return reply(request, hex(CHAIN_ID))
+            if method == "eth_getBlockByNumber":
+                return reply(
+                    request,
+                    {
+                        "number": hex(number),
+                        "hash": block_hash,
+                        "parentHash": PARENT_HASH,
+                        "timestamp": hex(timestamp),
+                    },
+                )
+            pin = {"blockHash": block_hash, "requireCanonical": True}
+            assert params[1] == pin
+            if method == "eth_getCode":
+                code = STATE_VIEW_CODE if params[0] == STATE_VIEW else POOL_MANAGER_CODE
+                return reply(request, code)
+            assert method == "eth_call"
+            call = params[0]
+            if call["data"] == POOL_MANAGER_SELECTOR:
+                return reply(request, "0x" + "00" * 12 + POOL_MANAGER[2:])
+            assert call["to"] == STATE_VIEW and call["data"].startswith(GET_SLOT0_SELECTOR)
+            return reply(
+                request,
+                "0x"
+                + encode(
+                    ["uint160", "int24", "uint24", "uint24"],
+                    [slot0_sqrt_price(), 0, 0, POOL_FEE],
+                ).hex(),
+            )
+
+    recorder = BoundedExchangeRecorder()
+    return (
+        JsonRpcTransport("https://fixture.invalid", http=Poster(), recorder=recorder),
+        recorder,
+        source,
+    )
+
+
 def chain_inventory(fixture: InventoryFixture) -> ChainInventory:
     return ChainInventory(
         chain_id=fixture.chain_id,
@@ -260,12 +457,28 @@ def chain_inventory(fixture: InventoryFixture) -> ChainInventory:
                 for token in fixture.tokens
             ),
         ),
+        positions=tuple(
+            ManifestPosition(
+                asset_id=position.asset_id,
+                position_manager=POSITION_MANAGER,
+                position_manager_runtime_keccak=runtime_hash(position.code),
+                token_id=position.token_id,
+                pool_id=pool_id_from_key(position_pool_key()),
+                state_view=STATE_VIEW,
+                state_view_runtime_keccak=runtime_hash(STATE_VIEW_CODE),
+                pool_manager=POOL_MANAGER,
+                pool_manager_runtime_keccak=runtime_hash(POOL_MANAGER_CODE),
+                currency0_id="usdc",
+                currency1_id="weth",
+            )
+            for position in fixture.positions
+        ),
     )
 
 
 def risk_policy(*chains: ChainInventory) -> GlobalRiskPolicy:
     return GlobalRiskPolicy(
-        inventory={chain.key: tuple(asset.asset_id for asset in chain.assets) for chain in chains},
+        inventory={chain.key: chain.asset_ids for chain in chains},
         total_capital_usd_micros=500_000_000,
         daily_loss_usd_micros=200_000_000,
         cumulative_loss_usd_micros=500_000_000,
@@ -322,16 +535,91 @@ def observe_flow(
     return persist_token_flow_evidence(store, quorum)
 
 
+def observe_position(
+    store: EvidenceStore,
+    fixture: InventoryFixture,
+    *,
+    snapshot: PositionSnapshot | None = None,
+    sources: tuple[str, str] = ("rpc_a", "rpc_b"),
+) -> tuple:
+    """Retain the ownership, pool-state and slot0 proof a declared position needs."""
+    position = chain_inventory(fixture).positions[0]
+    view = position_snapshot() if snapshot is None else snapshot
+    block = view.block
+    if block.timestamp is None:
+        raise ValueError("retained position proof requires a timestamped block")
+    snapshots = collect_position_quorum(
+        position_session(sources[0], view),
+        position_session(sources[1], view),
+        chain_id=fixture.chain_id,
+        position_manager=POSITION_MANAGER,
+        state_view=STATE_VIEW,
+        token_id=position.token_id,
+        block_number=block.number,
+    ).retain(store)
+    window = collect_slot0_window_quorum(
+        slot0_session(
+            sources[0], number=block.number, block_hash=block.block_hash, timestamp=block.timestamp
+        ),
+        slot0_session(
+            sources[1], number=block.number, block_hash=block.block_hash, timestamp=block.timestamp
+        ),
+        chain_id=fixture.chain_id,
+        state_view=STATE_VIEW,
+        pool_manager=POOL_MANAGER,
+        pool_id=position.pool_id,
+        block_numbers=(block.number,),
+        state_view_runtime_keccak=position.state_view_runtime_keccak,
+        pool_manager_runtime_keccak=position.pool_manager_runtime_keccak,
+    )
+    return (
+        PositionEvidence(
+            position.asset_id, snapshots, persist_slot0_window_evidence(store, window)
+        ),
+    )
+
+
+def observe_position_flow(
+    store: EvidenceStore,
+    fixture: InventoryFixture,
+    *,
+    start_block: int,
+    incoming: tuple = (),
+    outgoing: tuple = (),
+    sources: tuple[str, str] = ("rpc_a", "rpc_b"),
+) -> tuple:
+    """Retain the four-topic ERC-721 movement window of the declared position."""
+    position = chain_inventory(fixture).positions[0]
+    scope = FlowScope(
+        fixture.chain_id,
+        fixture.account,
+        position.asset_id,
+        position.position_manager,
+        0,
+        start_block,
+        fixture.block_number,
+        position.token_id,
+    )
+    quorum = collect_token_flow_quorum(
+        flow_session(sources[0], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
+        flow_session(sources[1], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
+        scope=scope,
+    )
+    return persist_token_flow_evidence(store, quorum)
+
+
 def observation(
     inventory: tuple,
     *,
     flows: tuple = (),
+    positions: tuple = (),
     native_gas_units: int = 0,
     non_trading_native_units: int = 0,
 ) -> AccountObservation:
     return AccountObservation(
         inventory=inventory,
         flows=flows,
+        positions=positions,
         native_gas_units=native_gas_units,
         non_trading_native_units=non_trading_native_units,
     )
@@ -409,6 +697,16 @@ def usdc_out(units: int) -> FlowFixture:
 def ceil_micros(units: int, *, answer: int, decimals: int) -> int:
     """Independent integer re-derivation of the reader's conservative pricing."""
     return -(-(units * answer * 1_000_000) // (10**8 * 10**decimals))
+
+
+def expected_position_micros(snapshot: PositionSnapshot) -> int:
+    """Independent re-derivation of the floored position value the reader must report."""
+    inventory: PositionInventory = position_inventory(snapshot, slot0_sqrt_price())
+    return value_usd_micros(
+        inventory.total0, numerator=USDC_ANSWER * 1_000_000, denominator=10**8, decimals=6
+    ) + value_usd_micros(
+        inventory.total1, numerator=WETH_ANSWER * 1_000_000, denominator=10**8, decimals=18
+    )
 
 
 def cst_midnight(timestamp: int) -> int:
@@ -1101,3 +1399,276 @@ def test_the_reader_binds_the_real_signer_policy_account() -> None:
     assert entry.chain_id == policy.chain_id == 4663
     assert entry.key == f"{CHAIN_ID}:{ACCOUNT}"
     assert json.loads(canonical_json({"chain_id": entry.chain_id}))["chain_id"] == CHAIN_ID
+
+
+def test_position_evidence_requires_two_distinct_provider_pairs(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "position-evidence.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        evidence = observe_position(store, fixture)[0]
+        with pytest.raises(ValueError, match="two distinct snapshots providers"):
+            replace(evidence, snapshots=(evidence.snapshots[0], evidence.snapshots[0]))
+        with pytest.raises(ValueError, match="two distinct pool_state providers"):
+            replace(evidence, pool_state=(evidence.pool_state[1], evidence.pool_state[1]))
+        with pytest.raises(ValueError, match="must retain slot0_window proofs"):
+            replace(evidence, pool_state=evidence.snapshots)
+        with pytest.raises(ValueError, match="position evidence requires an asset identifier"):
+            replace(evidence, asset_id="")
+        inventory = observe_inventory(store, fixture)
+        with pytest.raises(ValueError, match="one position proof per position required"):
+            observation(inventory, positions=(evidence, evidence))
+    finally:
+        store.close()
+
+
+def test_a_declared_position_is_carried_into_the_frame_at_its_retained_value(tmp_path) -> None:
+    """The position enters NAV as an investment; its value never redefines the inventory."""
+    store = EvidenceStore(tmp_path / "position.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        declared = chain_inventory(fixture)
+        positions = observe_position(store, fixture)
+        frame = reader_for(
+            store,
+            fixtures=(fixture,),
+            observations={
+                declared.key: observation(observe_inventory(store, fixture), positions=positions)
+            },
+        ).reconcile()
+        account = frame.accounts[0]
+        expected = expected_position_micros(position_snapshot())
+        assert expected > 0
+        assert account.movements == dict.fromkeys((*ASSET_IDS, POSITION_ASSET), 0)
+        assert (account.non_trading_flow_usd_micros, account.unresolved_operations) == (0, 0)
+        assert account.nav == 13_000_000_000 + expected
+        balance = next(asset for asset in account.assets if asset.asset_id == POSITION_ASSET)
+        assert (balance.units, balance.decimals, balance.role) == (1, 0, "investment")
+        assert (balance.value, balance.price_timestamp) == (expected, TIMESTAMP)
+        assert balance.evidence_hash == positions[0].snapshots[0].content_hash
+        state = reconcile(risk_policy(declared), RiskState(), frame, now=TIMESTAMP)
+        assert (state.halted, state.cumulative_loss) == (False, 0)
+    finally:
+        store.close()
+
+
+def test_position_evidence_must_cover_exactly_the_declared_positions(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "position-coverage.db")
+    declared = InventoryFixture(positions=(PositionSpec(),))
+    bare = InventoryFixture()
+    try:
+        with pytest.raises(ValueError, match="position evidence must cover exactly"):
+            reader_for(
+                store,
+                fixtures=(declared,),
+                observations={
+                    chain_inventory(declared).key: observation(observe_inventory(store, declared))
+                },
+            ).reconcile()
+        stray = observe_position(store, declared)
+        with pytest.raises(ValueError, match="position evidence must cover exactly"):
+            reader_for(
+                store,
+                fixtures=(bare,),
+                observations={
+                    chain_inventory(bare).key: observation(
+                        observe_inventory(store, bare), positions=stray
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def test_a_position_no_longer_owned_at_the_reconciled_block_is_refused(tmp_path) -> None:
+    """A declared position must be owned; an exit requires a manifest change, never a guess."""
+    store = EvidenceStore(tmp_path / "position-not-owned.db")
+    fixture = InventoryFixture(positions=(PositionSpec(owner=THIRD_PARTY),))
+    try:
+        with pytest.raises(ValueError, match="must be owned at the reconciled block"):
+            reader_for(
+                store,
+                fixtures=(fixture,),
+                observations={
+                    chain_inventory(fixture).key: observation(
+                        observe_inventory(store, fixture),
+                        positions=observe_position(store, fixture),
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def test_a_position_snapshot_owned_by_another_account_is_refused(tmp_path) -> None:
+    """Ownership and value must come from one replay, not from a side agreement."""
+    store = EvidenceStore(tmp_path / "position-owner.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        with pytest.raises(ValueError, match="not owned by the expected account"):
+            reader_for(
+                store,
+                fixtures=(fixture,),
+                observations={
+                    chain_inventory(fixture).key: observation(
+                        observe_inventory(store, fixture),
+                        positions=observe_position(
+                            store, fixture, snapshot=position_snapshot(owner=THIRD_PARTY)
+                        ),
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def test_a_position_valuation_on_another_block_is_refused(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "position-block.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        later_view = position_snapshot(
+            block_number=BLOCK_TWO, block_hash=HASH_TWO, timestamp=TIMESTAMP + 30
+        )
+        with pytest.raises(ValueError, match="position valuation is not at the reconciled block"):
+            reader_for(
+                store,
+                fixtures=(fixture,),
+                observations={
+                    chain_inventory(fixture).key: observation(
+                        observe_inventory(store, fixture),
+                        positions=observe_position(store, fixture, snapshot=later_view),
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def test_a_position_with_no_retained_value_is_refused(tmp_path) -> None:
+    """Dropping a zero-valued asset would redefine the inventory; refuse instead."""
+    store = EvidenceStore(tmp_path / "position-zero.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        thin = position_snapshot(liquidity=1)
+        assert expected_position_micros(thin) == 0
+        with pytest.raises(ValueError, match="positive retained value"):
+            reader_for(
+                store,
+                fixtures=(fixture,),
+                observations={
+                    chain_inventory(fixture).key: observation(
+                        observe_inventory(store, fixture),
+                        positions=observe_position(store, fixture, snapshot=thin),
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def test_position_evidence_from_an_undeclared_provider_is_refused(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "position-provider.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        rogue = observe_position(store, fixture, sources=("rpc_a", "rpc_c"))
+        with pytest.raises(ValueError, match="declared manifest providers"):
+            reader_for(
+                store,
+                fixtures=(fixture,),
+                observations={
+                    chain_inventory(fixture).key: observation(
+                        observe_inventory(store, fixture), positions=rogue
+                    )
+                },
+            ).reconcile()
+    finally:
+        store.close()
+
+
+def position_frame(store: EvidenceStore, fixture: InventoryFixture) -> PortfolioFrame:
+    fixture = InventoryFixture(positions=fixture.positions, account=fixture.account)
+    return reader_for(
+        store,
+        fixtures=(fixture,),
+        observations={
+            chain_inventory(fixture).key: observation(
+                observe_inventory(store, fixture), positions=observe_position(store, fixture)
+            )
+        },
+    ).reconcile()
+
+
+def test_a_position_flow_window_is_rebuilt_from_its_own_token_id(tmp_path) -> None:
+    """A four-topic ERC-721 window that shows no movement leaves the position unchanged."""
+    store = EvidenceStore(tmp_path / "position-flow.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        first = position_frame(store, fixture)
+        second = later(fixture)
+        window = observe_position_flow(store, second, start_block=BLOCK_NUMBER)
+        frame = reader_for(
+            store,
+            fixtures=(second,),
+            observations={
+                chain_inventory(second).key: observation(
+                    observe_inventory(store, second),
+                    flows=(AssetFlowEvidence(POSITION_ASSET, window),),
+                    positions=observe_position(
+                        store,
+                        second,
+                        snapshot=position_snapshot(
+                            block_number=BLOCK_TWO, block_hash=HASH_TWO, timestamp=TIMESTAMP + 30
+                        ),
+                    ),
+                )
+            },
+            previous=first,
+        ).reconcile()
+        account = frame.accounts[0]
+        assert account.movements[POSITION_ASSET] == 0
+        assert (account.non_trading_flow_usd_micros, account.unresolved_operations) == (0, 0)
+    finally:
+        store.close()
+
+
+def test_a_claimed_position_transfer_that_contradicts_ownership_blocks_the_frame(tmp_path) -> None:
+    """The ERC-721 net units must equal the delta the two inventory providers proved."""
+    store = EvidenceStore(tmp_path / "position-flow-mismatch.db")
+    fixture = InventoryFixture(positions=(PositionSpec(),))
+    try:
+        first = position_frame(store, fixture)
+        second = later(fixture)
+        log = erc721_transfer_log(
+            from_address=ACCOUNT,
+            to_address=THIRD_PARTY,
+            token=POSITION_MANAGER,
+            token_id=POSITION_ID,
+            block_number=BLOCK_TWO,
+        )
+        window = observe_position_flow(store, second, start_block=BLOCK_NUMBER, outgoing=(log,))
+        view = position_snapshot(
+            block_number=BLOCK_TWO, block_hash=HASH_TWO, timestamp=TIMESTAMP + 30
+        )
+        frame = reader_for(
+            store,
+            fixtures=(second,),
+            observations={
+                chain_inventory(second).key: observation(
+                    observe_inventory(store, second),
+                    flows=(AssetFlowEvidence(POSITION_ASSET, window),),
+                    positions=observe_position(store, second, snapshot=view),
+                )
+            },
+            previous=first,
+        ).reconcile()
+        account = frame.accounts[0]
+        assert account.movements[POSITION_ASSET] == 0
+        assert account.unresolved_operations == 1
+        with pytest.raises(ValueError, match="unresolved or stale account state"):
+            reconcile(
+                risk_policy(chain_inventory(second)),
+                RiskState(frame=first),
+                frame,
+                now=TIMESTAMP + 30,
+            )
+    finally:
+        store.close()
