@@ -49,6 +49,7 @@ SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD036
 SIDE_CAR_SCHEMA = "oasis.lp-signer-sidecar.v1"
 SIDE_CAR_CONFIG_SCHEMA = "oasis.lp-signer-config.v2"
 SIDE_CAR_REQUEST_SCHEMA = "oasis.lp-signer-request.v2"
+SIDE_CAR_DECISION_SCHEMA = "oasis.lp-signer-decision.v1"
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -928,6 +929,39 @@ def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
     )
 
 
+def sidecar_decision_from_json(payload: bytes) -> LpSidecarDecision:
+    """Read one recorded sidecar decision; the caller re-verifies every binding."""
+    data = _expect_keys(
+        json.loads(payload, object_pairs_hook=_unique_object),
+        {
+            "schema",
+            "outcome",
+            "reasons",
+            "request_hash",
+            "digest",
+            "signature_hash",
+            "transaction_hash",
+            "raw_transaction_hex",
+        },
+        "sidecar decision",
+    )
+    if data["schema"] != SIDE_CAR_DECISION_SCHEMA:
+        raise ValueError("sidecar decision schema is unsupported")
+    if not isinstance(data["reasons"], list) or any(
+        not isinstance(reason, str) for reason in data["reasons"]
+    ):
+        raise ValueError("sidecar decision reasons must be strings")
+    return LpSidecarDecision(
+        outcome=data["outcome"],
+        reasons=tuple(data["reasons"]),
+        request_hash=data["request_hash"],
+        digest=data["digest"],
+        signature_hash=data["signature_hash"],
+        transaction_hash=data["transaction_hash"],
+        raw_transaction_hex=data["raw_transaction_hex"],
+    )
+
+
 __all__ = [
     "LpSidecarConfig",
     "LpSidecarDecision",
@@ -939,6 +973,7 @@ __all__ = [
     "recover_signer",
     "sidecar_config_from_json",
     "sidecar_config_to_json",
+    "sidecar_decision_from_json",
     "sidecar_request_from_json",
     "sidecar_request_hash",
     "sidecar_request_to_json",

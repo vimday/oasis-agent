@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 from oasis_agent.execution.lp_signer_sidecar import (
+    SIDE_CAR_DECISION_SCHEMA,
     LpSignerSidecar,
     sidecar_config_from_json,
     sidecar_request_from_json,
@@ -40,7 +41,7 @@ def main() -> None:
     args.out.write_bytes(
         canonical_json(
             {
-                "schema": "oasis.lp-signer-decision.v1",
+                "schema": SIDE_CAR_DECISION_SCHEMA,
                 "outcome": decision.outcome,
                 "reasons": list(decision.reasons),
                 "request_hash": decision.request_hash,
