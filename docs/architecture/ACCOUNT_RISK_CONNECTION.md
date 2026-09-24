@@ -22,11 +22,21 @@ be independently replayed by the reader. Unresolved bridges block admission.
 
 Snapshot ingestion, loss-latch evaluation and worst-case USD reservation share one SQLite
 BEGIN IMMEDIATE transaction. Pending commitments survive restart and provider failure, and
-nothing here is time-released: there is no timeout or automatic settlement. A caller may
-explicitly release one commitment by request hash when it knows no transaction was produced;
-a release only withdraws reserved capital and never weakens recorded losses or a recorded halt.
-A subsequent snapshot may conservatively double-count pending capital already invested; that
-blocks availability until a verified settlement adapter is implemented.
+nothing here is time-released: there is no timeout, and no caller can request a settlement.
+A caller may explicitly release one commitment by request hash when it knows no transaction was
+produced; a release only withdraws reserved capital and never weakens recorded losses or a halt.
+
+The ceiling counts deployed investment plus pending commitments, so capital already spent would
+otherwise be charged twice and compress the account's capacity permanently. Settlement is derived
+inside the same transaction from what a frame itself shows: a commitment settles only against
+*investment units its own account gained* between two consecutive reconciled frames, valued at the
+new frame's prices and floored, and each observed unit settles at most one unit of pending
+commitments in (account, request hash) order, so no observation is consumed twice. A rise in the
+value of units already held is a price move rather than a deployment and settles nothing, cash and
+debt units are never deployment, and without a previous frame nothing settles at all. A settlement
+may be partial, and any unobserved remainder stays pending. Enforcement stays fail-closed in the
+other direction too: `release()` refuses a commitment a frame already showed as deployed
+investment, because that settlement is proof a transaction was produced.
 
 The signer calls an independently configured risk guard after static checks and before
 requesting any signature. Missing guard, reader failure or risk rejection denies. The guard
@@ -246,6 +256,12 @@ the CLI at a fresh pinned block; a failed run leaves no frame and no state to ch
   therefore a lower bound, not a mark-to-market NAV.
 - `state.json` chaining is an operator-run observer, not a supervisor: nothing schedules it, no
   alert fires on a refusal, and a halted `state.json` is only as durable as the filesystem it sits on.
+- Settlement is derived from unit increases alone, because the ledger sees a frame and not why the
+  units arrived. Investment units worth an outstanding commitment's amount that reach the account
+  from a gift or an unrelated transfer settle that commitment without any transaction-level evidence
+  binding them to it, so the ceiling can then count less than the worst case if the settled
+  commitment's own transaction is also still spendable. Closing that gap needs transaction-level
+  deployment evidence, which this reader does not bind.
 - The default signer CLI loads neither a reader nor a guard and still denies every attempt;
   wiring a production reader requires an operator-supplied, independently operated source.
 - `execution_eligible` and `lp_readiness` remain closed. Nothing here is a deployed kill switch,

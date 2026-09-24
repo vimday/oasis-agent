@@ -22,6 +22,7 @@ from oasis_agent.risk.account_risk import (
 DAY = timezone(timedelta(hours=8))
 USD = "usd"
 GOLD = "gold"
+POS = "lp-position"
 CHAIN_A = 4663
 CHAIN_B = 8453
 ACCOUNT_A = "0x" + "a1" * 20
@@ -49,6 +50,20 @@ def asset(
         price_denominator=1,
         price_timestamp=price_timestamp,
         role=role,
+        evidence_hash="e" * 64,
+    )
+
+
+def repriced(units: int, *, value_micros: int, price_timestamp: int = NOON) -> AssetBalance:
+    """One whole unit of this LP position asset is worth `value_micros` USD micros."""
+    return AssetBalance(
+        asset_id=POS,
+        units=units,
+        decimals=0,
+        price_usd_micros_numerator=value_micros,
+        price_denominator=1,
+        price_timestamp=price_timestamp,
+        role="investment",
         evidence_hash="e" * 64,
     )
 
@@ -643,3 +658,232 @@ def test_current_state_fails_closed_on_a_tampered_chain(tmp_path: Path) -> None:
     connection.close()
     with pytest.raises(ValueError, match="global risk journal integrity failure"):
         journal.current_state()
+
+
+def position_policy() -> GlobalRiskPolicy:
+    return make_policy(inventory={f"{CHAIN_A}:{ACCOUNT_A}": (USD, POS)})
+
+
+def settled_journal(tmp_path: Path) -> tuple[GlobalRiskJournal, PortfolioFrame]:
+    """Admit 400 USD, then reconcile a frame that shows those units deployed."""
+    journal = make_journal(tmp_path, position_policy())
+    held = 900_000_000
+    baseline = PortfolioFrame(
+        accounts=(make_frame(assets=(asset(held), asset(0, asset_id=POS, role="investment"))),)
+    )
+    journal.admit(baseline, commitment(400_000_000, request="2" * 64), now=NOON)
+    deployed = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(held, price_timestamp=NOON + 1),
+                    asset(
+                        400_000_000,
+                        asset_id=POS,
+                        role="investment",
+                        price_timestamp=NOON + 1,
+                    ),
+                ),
+                movements={USD: 0, POS: 400_000_000},
+            ),
+        )
+    )
+    journal.admit(deployed, commitment(100_000_000, request="3" * 64), now=NOON + 1)
+    return journal, deployed
+
+
+def test_observed_deployment_settles_a_commitment_and_frees_capacity(tmp_path: Path) -> None:
+    journal, deployed = settled_journal(tmp_path)
+    state = state_of(journal)
+    assert state["settlements"] == [
+        {
+            "request_hash": "2" * 64,
+            "account_key": f"{CHAIN_A}:{ACCOUNT_A}",
+            "usd_micros": 400_000_000,
+            "block_number": 101,
+            "block_hash": "0x" + f"{101:064x}",
+        }
+    ]
+    assert [r["request_hash"] for r in state["reservations"]] == ["2" * 64, "3" * 64]
+    with pytest.raises(ValueError, match="blocked admission"):
+        journal.admit(deployed, commitment(1, request="4" * 64), now=NOON + 1)
+
+
+def test_a_price_gain_on_held_units_settles_nothing(tmp_path: Path) -> None:
+    journal = make_journal(tmp_path, position_policy())
+    baseline = PortfolioFrame(
+        accounts=(make_frame(assets=(asset(0), repriced(1, value_micros=400_000_000))),)
+    )
+    journal.admit(baseline, commitment(100_000_000, request="2" * 64), now=NOON)
+    appreciated = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(0, price_timestamp=NOON + 1),
+                    repriced(1, value_micros=500_000_000, price_timestamp=NOON + 1),
+                ),
+                movements={USD: 0, POS: 0},
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="blocked admission"):
+        journal.admit(appreciated, commitment(1, request="3" * 64), now=NOON + 1)
+    assert state_of(journal)["settlements"] == []
+
+
+def test_only_the_observed_increase_settles_and_the_remainder_stays_pending(
+    tmp_path: Path,
+) -> None:
+    journal = make_journal(tmp_path, position_policy())
+    baseline = PortfolioFrame(
+        accounts=(make_frame(assets=(asset(0), asset(0, asset_id=POS, role="investment"))),)
+    )
+    journal.admit(baseline, commitment(400_000_000, request="2" * 64), now=NOON)
+    partial = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(0, price_timestamp=NOON + 1),
+                    asset(
+                        120_000_000,
+                        asset_id=POS,
+                        role="investment",
+                        price_timestamp=NOON + 1,
+                    ),
+                ),
+                movements={USD: 0, POS: 120_000_000},
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="blocked admission"):
+        journal.admit(partial, commitment(380_000_000, request="3" * 64), now=NOON + 1)
+    state = state_of(journal)
+    assert [s["usd_micros"] for s in state["settlements"]] == [120_000_000]
+    assert [r["request_hash"] for r in state["reservations"]] == ["2" * 64]
+    journal.admit(partial, commitment(100_000_000, request="4" * 64), now=NOON + 1)
+    assert [r["request_hash"] for r in state_of(journal)["reservations"]] == ["2" * 64, "4" * 64]
+    with pytest.raises(ValueError, match="blocked admission"):
+        journal.admit(partial, commitment(1, request="5" * 64), now=NOON + 1)
+
+
+def test_the_first_frame_settles_nothing_without_a_previous_reconciliation(tmp_path: Path) -> None:
+    journal = make_journal(tmp_path, position_policy())
+    inception = PortfolioFrame(
+        accounts=(
+            make_frame(
+                assets=(asset(0), asset(400_000_000, asset_id=POS, role="investment")),
+            ),
+        )
+    )
+    journal.admit(inception, commitment(1, request="2" * 64), now=NOON)
+    state = state_of(journal)
+    assert state["settlements"] == []
+    assert [r["request_hash"] for r in state["reservations"]] == ["2" * 64]
+
+
+def test_a_deployment_on_another_account_settles_nothing(tmp_path: Path) -> None:
+    policy = make_policy(
+        inventory={
+            f"{CHAIN_A}:{ACCOUNT_A}": (USD, POS),
+            f"{CHAIN_B}:{ACCOUNT_B}": (USD, POS),
+        }
+    )
+    journal = make_journal(tmp_path, policy)
+    idle = (asset(900_000_000), asset(0, asset_id=POS, role="investment"))
+    baseline = PortfolioFrame(
+        accounts=(
+            make_frame(assets=idle),
+            make_frame(chain_id=CHAIN_B, account=ACCOUNT_B, block_number=200, assets=idle),
+        )
+    )
+    journal.admit(baseline, commitment(400_000_000, request="2" * 64), now=NOON)
+    grown = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(900_000_000, price_timestamp=NOON + 1),
+                    asset(0, asset_id=POS, role="investment", price_timestamp=NOON + 1),
+                ),
+            ),
+            make_frame(
+                chain_id=CHAIN_B,
+                account=ACCOUNT_B,
+                block_number=201,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(900_000_000, price_timestamp=NOON + 1),
+                    asset(
+                        400_000_000,
+                        asset_id=POS,
+                        role="investment",
+                        price_timestamp=NOON + 1,
+                    ),
+                ),
+                movements={USD: 0, POS: 400_000_000},
+            ),
+        )
+    )
+    with pytest.raises(ValueError, match="blocked admission"):
+        journal.admit(grown, commitment(100_000_000, request="3" * 64), now=NOON + 1)
+    assert state_of(journal)["settlements"] == []
+
+
+def test_a_settled_commitment_cannot_be_released_as_unproduced(tmp_path: Path) -> None:
+    journal, _ = settled_journal(tmp_path)
+    with pytest.raises(ValueError, match="settled commitment cannot be released"):
+        journal.release("2" * 64, reason="signing attempt produced no transaction")
+    assert journal.db.execute("SELECT count(*) FROM global_events").fetchone()[0] == 2
+    assert [r["request_hash"] for r in state_of(journal)["reservations"]] == ["2" * 64, "3" * 64]
+
+
+def test_replaying_a_settled_commitment_is_idempotent(tmp_path: Path) -> None:
+    journal, deployed = settled_journal(tmp_path)
+    journal.admit(deployed, commitment(400_000_000, request="2" * 64), now=NOON + 1)
+    state = state_of(journal)
+    assert len(state["settlements"]) == 1
+    assert [r["request_hash"] for r in state["reservations"]] == ["2" * 64, "3" * 64]
+
+
+def test_one_observation_settles_at_most_its_own_value_in_total(tmp_path: Path) -> None:
+    journal = make_journal(tmp_path, position_policy())
+    baseline = PortfolioFrame(
+        accounts=(make_frame(assets=(asset(0), asset(0, asset_id=POS, role="investment"))),)
+    )
+    journal.admit(baseline, commitment(300_000_000, request="2" * 64), now=NOON)
+    journal.admit(baseline, commitment(100_000_000, request="3" * 64), now=NOON)
+    deployed = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(
+                    asset(0, price_timestamp=NOON + 1),
+                    asset(
+                        300_000_000,
+                        asset_id=POS,
+                        role="investment",
+                        price_timestamp=NOON + 1,
+                    ),
+                ),
+                movements={USD: 0, POS: 300_000_000},
+            ),
+        )
+    )
+    journal.admit(deployed, commitment(1, request="5" * 64), now=NOON + 1)
+    state = state_of(journal)
+    assert [(s["request_hash"], s["usd_micros"]) for s in state["settlements"]] == [
+        ("2" * 64, 300_000_000)
+    ]
+    assert [r["request_hash"] for r in state["reservations"]] == [
+        "2" * 64,
+        "3" * 64,
+        "5" * 64,
+    ]

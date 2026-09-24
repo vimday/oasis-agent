@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ..farming.price_evidence import value_usd_micros
 from ..models.common import canonical_json, sha256_hex
 
 UInt = Annotated[int, Field(strict=True, ge=0)]
@@ -118,12 +119,108 @@ class Commitment(Strict):
     usd_micros: Positive
 
 
+class Settlement(Strict):
+    """The observed-deployment part of one admitted commitment.
+
+    A reservation records an authorized worst-case spend; this records how much
+    of it a reconciled frame has since shown as deployed investment units on the
+    commitment's own account, at the block that showed it.
+    """
+
+    request_hash: Digest
+    account_key: str
+    usd_micros: Positive
+    block_number: UInt
+    block_hash: Annotated[str, Field(pattern=r"^0x[0-9a-f]{64}$")]
+
+
 class RiskState(Strict):
     frame: PortfolioFrame | None = None
     daily_losses: dict[str, int] = Field(default_factory=dict)
     cumulative_loss: UInt = 0
     reservations: tuple[Commitment, ...] = ()
+    settlements: tuple[Settlement, ...] = ()
     halted: bool = False
+
+
+def _newly_deployed_usd_micros(previous: AccountFrame | None, current: AccountFrame) -> int:
+    """Value the investment units an account gained between two frames, floored.
+
+    Only a *unit* increase counts. A rise in the value of units the account
+    already held is a price move rather than a deployment, so it must never
+    settle a commitment; cash and debt units are never deployment either.
+    """
+    if previous is None:
+        return 0
+    before = {asset.asset_id: asset for asset in previous.assets}
+    total = 0
+    for asset in current.assets:
+        if asset.role != "investment":
+            continue
+        held = before.get(asset.asset_id)
+        delta = asset.units - (held.units if held is not None else 0)
+        if delta <= 0:
+            continue
+        total += value_usd_micros(
+            delta,
+            numerator=asset.price_usd_micros_numerator,
+            denominator=asset.price_denominator,
+            decimals=asset.decimals,
+        )
+    return total
+
+
+def _outstanding_usd_micros(reservation: Commitment, settled: tuple[Settlement, ...]) -> int:
+    used = sum(s.usd_micros for s in settled if s.request_hash == reservation.request_hash)
+    return max(0, reservation.usd_micros - used)
+
+
+def _settlements(
+    reservations: tuple[Commitment, ...],
+    settled: tuple[Settlement, ...],
+    previous: PortfolioFrame | None,
+    frame: PortfolioFrame,
+) -> tuple[Settlement, ...]:
+    """Settle commitments whose capital is now observed as deployed investment.
+
+    The ceiling counts deployed investment plus pending commitments, so a
+    commitment whose capital has already been spent is charged twice and
+    compresses the account's capacity permanently. A commitment settles only
+    against investment units its own account gained between two consecutive
+    reconciled frames, valued at the new frame's prices and floored, and each
+    observed unit settles at most one unit of pending commitments, in
+    (account, request hash) order, so no observation is consumed twice. Without a
+    previous frame nothing is settled, and an unobserved remainder stays pending.
+    """
+    if previous is None:
+        return ()
+    accounts = {account.key: account for account in frame.accounts}
+    prior = {account.key: account for account in previous.accounts}
+    available = {
+        key: _newly_deployed_usd_micros(prior.get(key), account)
+        for key, account in accounts.items()
+    }
+    new: list[Settlement] = []
+    for reservation in sorted(reservations, key=lambda r: (r.account_key, r.request_hash)):
+        outstanding = _outstanding_usd_micros(reservation, settled)
+        account = accounts.get(reservation.account_key)
+        if outstanding <= 0 or account is None:
+            continue
+        budget = available[reservation.account_key]
+        amount = min(outstanding, budget)
+        if amount <= 0:
+            continue
+        available[reservation.account_key] = budget - amount
+        new.append(
+            Settlement(
+                request_hash=reservation.request_hash,
+                account_key=reservation.account_key,
+                usd_micros=amount,
+                block_number=account.block_number,
+                block_hash=account.block_hash,
+            )
+        )
+    return tuple(new)
 
 
 def reconcile(
@@ -187,12 +284,13 @@ def reconcile(
         daily_losses=losses,
         cumulative_loss=cumulative,
         reservations=old.reservations,
+        settlements=old.settlements,
         halted=halted,
     )
 
 
 class GlobalRiskJournal:
-    """Serialized account/loss/reservation updates. No timed or automatic release."""
+    """Serialized account/loss/reservation updates. No timed or caller-driven release."""
 
     def __init__(self, path: Path, policy: GlobalRiskPolicy) -> None:
         self.policy = policy
@@ -262,6 +360,11 @@ class GlobalRiskJournal:
             state = reconcile(self.policy, old, frame, now)
             if commitment.account_key not in self.policy.inventory:
                 raise ValueError("commitment account outside policy")
+            # Settlement is derived here, never requested by a caller: only proof
+            # that the account itself gained investment units can free capital.
+            settled = _settlements(old.reservations, old.settlements, old.frame, frame)
+            if settled:
+                state = state.model_copy(update={"settlements": (*state.settlements, *settled)})
             existing = next(
                 (r for r in state.reservations if r.request_hash == commitment.request_hash), None
             )
@@ -270,7 +373,7 @@ class GlobalRiskJournal:
             deployed = sum(
                 max(0, a.value) for f in frame.accounts for a in f.assets if a.role == "investment"
             )
-            pending = sum(r.usd_micros for r in state.reservations)
+            pending = sum(_outstanding_usd_micros(r, state.settlements) for r in state.reservations)
             rejected = (
                 state.halted
                 or deployed + pending + (0 if existing else commitment.usd_micros)
@@ -295,7 +398,10 @@ class GlobalRiskJournal:
         Idempotent by request hash: an unknown or already released commitment is a
         no-op. Released capital is available again, so a caller that keeps an
         unresolved signing latch must not release on its own initiative. Recorded
-        losses and a recorded halt are never weakened.
+        losses and a recorded halt are never weakened. A commitment that a
+        reconciled frame already showed as deployed investment is refused: its
+        settlement is proof that a transaction was produced, so only the
+        unexplained remainder stays pending instead of being withdrawn here.
         """
         if (
             not isinstance(request_hash, str)
@@ -317,6 +423,8 @@ class GlobalRiskJournal:
                 if len(remaining) == len(old.reservations):
                     self.db.rollback()
                     return previous
+                if any(s.request_hash == request_hash for s in old.settlements):
+                    raise ValueError("a settled commitment cannot be released as unproduced")
                 state = old.model_copy(update={"reservations": remaining})
                 raw = canonical_json(
                     {

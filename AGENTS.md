@@ -163,9 +163,14 @@ autonomous trader. Its current verified boundary is:
   hash-linked SQLite state carrying each account's NAV, per-asset movement reconciliation,
   non-trading-flow explanation, conservative gross loss (a gain in one account never offsets a loss
   in another), day/cumulative loss latch, and capital ceiling over deployed investment plus pending
-  commitments. It timestamps by a trusted integer clock, requires an exact-midnight reconciliation
-  across day boundaries, and latches the halt without weakening; `current_state()` is a pure
-  read-only baseline that never appends an event. `execution/account_risk_guard.py`
+  commitments. A commitment settles only against investment units its own account gained between two
+  consecutive frames, valued at the new frame's prices and floored, at most one unit of pending per
+  observed unit, so capital already spent is not charged against the ceiling twice; an appreciation
+  of units already held settles nothing, a settled commitment is refused by `release()` as
+  unproduced, and no caller can request a settlement. It timestamps by a trusted integer clock,
+  requires an exact-midnight reconciliation across day boundaries, and latches the halt without
+  weakening; `current_state()` is a pure read-only baseline that never appends an event.
+  `execution/account_risk_guard.py`
   binds it to the signer as an admission boundary over an injected `AccountRiskReader`.
   `risk/portfolio_manifest.py` declares the reconciled accounts/assets and must exactly cover one
   `GlobalRiskPolicy` inventory, and may declare v4 LP positions: a `ManifestPosition` pins the
