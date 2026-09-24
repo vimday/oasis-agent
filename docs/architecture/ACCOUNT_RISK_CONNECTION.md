@@ -41,3 +41,153 @@ truth or inventory completeness. A production source must replay those proofs an
 independent credentials/permissions. No caller-supplied JSON approval adapter is provided.
 This change does not implement the missing all-asset chain indexer, independent LP prices,
 bridge settlement service, OS isolation or production release approval.
+
+## Implemented components (2026-09-23)
+
+The reader boundary above now has one concrete implementation. It is retained-input replay,
+not live indexing, and it holds no key and exposes no signing or broadcast path.
+
+- `risk/portfolio_manifest.py` declares the reconciled accounts and assets and binds them to
+  exactly one `GlobalRiskPolicy` inventory. Every declared asset re-derives from raw RPC
+  before a frame is admitted, so a manifest that disagrees with the chain fails closed. Each
+  `ChainInventory` requires two distinct providers and exactly one native gas asset; each
+  ERC-20 asset pins `decimals` and `runtime_keccak`, and each asset pins a USD `feed` with its
+  own `runtime_keccak` and `max_age_seconds`.
+- `farming/account_inventory.py` captures and replays two-provider, block-pinned balances,
+  decimals, code hashes and feed answers; the quorum rejects any disagreement or drift.
+- `farming/account_flows.py` reconstructs per-asset movements from raw `Transfer` logs and
+  explains native gas plus declared non-gas native units. Observed movement is the exact
+  difference; unexplained residuals become `unresolved_operations` instead of zero. The credit the
+  ledger consumes is `non_trading_flow_usd_micros`, built from every transfer-driven token delta
+  (`net_units`), including transfers between monitored accounts, because the portfolio still holds
+  those tokens. Valuing at the floor can only under-credit the owner, so it cannot hide a loss;
+  gas and undeclared native movement are never credited. `TokenFlow.external_*` is reporting
+  metadata for bridge/withdrawal attribution, not a ledger credit: using it would charge every
+  transfer between monitored accounts as a loss.
+- `execution/account_risk_reader.py` (`EvidenceReplayAccountRiskReader`) replays those retained
+  proofs into one complete `PortfolioFrame`. `reconcile()` rebuilds the frame; it raises on any
+  missing, stale, disagreeing or unexplained input. Retained proofs must come from exactly the
+  manifest's declared `primary_source`/`secondary_source`: two arbitrary distinct providers are not
+  enough, because the manifest names who the reconciliation trusts. `reconcile_and_price()`
+  additionally returns
+  the worst-case incremental commitment for one signing request, priced with ceiling rounding:
+  `ceil(amount0_max) + ceil(amount1_max) + ceil(pricier pool currency, max_swap_input) +
+  ceil(native, gas_limit * max_fee_per_gas + value)`. The swap term is denominated in the more
+  valuable pool currency, which never understates the cap.
+
+The reader only replays what an operator retains: it does not fetch, value or attest anything
+itself, and it never weakens a ledger check.
+
+### Manifest shape
+
+`configs/account-risk.base.example.json` is the one manifest committed to this repository. Its
+account is the owner-confirmed dedicated canary wallet, its provider aliases are the two Base
+environment entries the capture reads from, its loss limits are the owner's USD 200/500 limits,
+and its ETH/USD feed pin (address, `ETH / USD` description, runtime codehash, 3600s heartbeat)
+was read from two independent Base mainnet providers at the same block before it was written.
+`tests/unit/test_portfolio_manifest.py` re-parses the file and fails on any pin change, so the
+example cannot rot silently. It is Base-only and native-only: it declares no ERC-20 because no
+retained Base USDC/USD feed evidence exists, and a fabricated pin would be worse than an absent
+one. The capture re-derives every declared value from raw RPC, so the example is an assertion
+the chain must confirm, not a claim about the chain.
+
+The shape below is the reference for any other chain. Pins shown are placeholders: a production
+manifest must supply real, independently verified values, and the Robinhood feed still lacks them.
+
+```json
+{
+  "policy": { "inventory": { "<chain_id>:<account>": ["native", "<asset_id>"] }, "...": "GlobalRiskPolicy" },
+  "chains": [
+    {
+      "chain_id": 0,
+      "account": "0x<reconciled account>",
+      "primary_source": "<provider-a>",
+      "secondary_source": "<provider-b>",
+      "assets": [
+        {
+          "asset_id": "native",
+          "address": "0x0000000000000000000000000000000000000000",
+          "decimals": 18,
+          "runtime_keccak": null,
+          "role": "cash",
+          "feed": {
+            "address": "0x<USD feed>",
+            "description": "<feed description, e.g. ETH / USD>",
+            "runtime_keccak": "0x<feed runtime codehash>",
+            "max_age_seconds": 3600
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+The `policy` must be the full `GlobalRiskPolicy` (owner USD total/daily/cumulative limits plus
+the same inventory), not a partial object; the manifest validator rejects any inventory that
+does not match exactly.
+
+### Observe-only reconciliation CLI
+
+`scripts/run_account_risk_reconcile.py` captures two-provider pinned account inventory, replays
+it into one portfolio frame and reports units, feeds, NAV, per-asset movement attribution and the
+loss the pure ledger reconciliation would record. It never opens the risk journal, never reserves
+capital, never admits a commitment and cannot sign or broadcast; `execution_eligible` is always
+`false`. Usage:
+
+```bash
+python scripts/run_account_risk_reconcile.py \
+  --manifest configs/account-risk.base.example.json \
+  --output reports/evidence/account-risk-base-<date> \
+  --rpc 8453:BASE_RPC_PRIMARY:BASE_RPC_SECONDARY \
+  --block 8453=<pinned block> \
+  --env-file .env \
+  --interval-ms 3000
+```
+
+The `--rpc` provider names must be exactly the manifest's declared `primary_source` and
+`secondary_source` for that chain; anything else is refused, so the retained proofs always satisfy
+the trust assumption the manifest states. `--state <previous state.json>` chains the previous
+ledger state: with it, the CLI also captures complete two-provider `Transfer` windows from the
+prior frame's block to the new one, and the day/cumulative loss accumulates across runs instead of
+restarting at inception. Native movement is never inferred — `--native <declarations.json>` supplies
+`{"<chain_id>:<account>": {"gas_units": <int>, "non_trading_units": <int>}}`, and anything omitted
+stays unresolved and blocks the frame. Native declarations are refused without `--state`, and both
+values must be unsigned: the library accepts a signed non-gas attribution, but this observer cannot
+tell a genuine native withdrawal from a native outflow that bought an investment and lost value on
+the way, and crediting that outflow would erase the loss. A run whose account sends native out
+beyond gas is therefore refused rather than under-reported.
+
+It writes `evidence.db`, `budget.db`, `inventory.json` and `report.json` into `--output` (which must
+not already exist), and, when the frame is accepted, `frame.json` plus `state.json` for the next
+run. Exit codes: `1` invalid configuration, `2` inventory capture failed (retained evidence
+incomplete — this also covers any failure while collecting movement windows, so a refused run
+retains whatever evidence existed and no frame), `3` the ledger refused the reconstructed frame.
+A failed run writes only `report.json`, with `status` `capture_failed_redacted` and no digests, so it
+cannot be mistaken for an accepted reconciliation. Provider endpoints are read only from
+environment variable names, never printed. The `report.json` `unresolved` list records what this
+observer still cannot establish.
+
+Capture is one-shot by design: an exact capture may not reuse a recorder, because an accepted
+quorum requires exactly one successful wire exchange per expected call. A retry inside a session
+would append a second exchange and invalidate the capture, so `retries=0` and any transport-level
+failure — a public provider dropping the connection, for example — aborts with exit `2` and a
+redacted `report.json` rather than admitting partial evidence. The operator response is to re-run
+the CLI at a fresh pinned block; a failed run leaves no frame and no state to chain from.
+
+## Unresolved
+
+- Only the Base example manifest is committed, and it is an *example*: the account is the
+  owner-confirmed dedicated wallet and the ETH/USD pin was verified from two Base mainnet
+  providers, but no completed reconciliation run has been archived yet, its Base ERC-20 inventory
+  is empty because no retained Base USDC/USD feed evidence exists, and no Robinhood feed is
+  verified at all. Reconciliation over a declared inventory is therefore still not complete NAV.
+- The example's declared inventory is what the ledger counts: any asset an operator forgets to
+  declare is simply not observed, so the manifest is a completeness claim that only an
+  independently operated reader can audit.
+- `state.json` chaining is an operator-run observer, not a supervisor: nothing schedules it, no
+  alert fires on a refusal, and a halted `state.json` is only as durable as the filesystem it sits on.
+- The default signer CLI loads neither a reader nor a guard and still denies every attempt;
+  wiring a production reader requires an operator-supplied, independently operated source.
+- `execution_eligible` and `lp_readiness` remain closed. Nothing here is a deployed kill switch,
+  live NAV, settled PnL or production release approval.

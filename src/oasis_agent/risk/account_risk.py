@@ -56,7 +56,9 @@ class AccountFrame(Strict):
     assets: tuple[AssetBalance, ...]
     # Per-asset delta from the preceding frame, reconstructed from complete activity.
     movements: dict[str, int]
-    external_flow_usd_micros: int
+    # Non-trading flow in USD micros: attributed transfers (including between monitored
+    # accounts) plus a declared native attribution. Gas is never credited here.
+    non_trading_flow_usd_micros: int
     inventory_evidence_hash: Digest
     unresolved_operations: UInt
 
@@ -151,7 +153,7 @@ def reconcile(
         if any(not 0 <= now - a.price_timestamp <= policy.max_age_seconds for a in account.assets):
             raise ValueError("stale or future valuation")
         if key not in prior:
-            if any(account.movements.values()) or account.external_flow_usd_micros:
+            if any(account.movements.values()) or account.non_trading_flow_usd_micros:
                 raise ValueError("inception must be an explicit zero-flow baseline")
             continue
         previous = prior[key]
@@ -165,7 +167,7 @@ def reconcile(
                 raise ValueError("asset units or role changed")
             if before.units + account.movements[before.asset_id] != after.units:
                 raise ValueError("unreconciled per-asset residual")
-        loss = max(0, previous.nav + account.external_flow_usd_micros - account.nav)
+        loss = max(0, previous.nav + account.non_trading_flow_usd_micros - account.nav)
         if account.day != previous.day:
             midnight = datetime.fromtimestamp(account.timestamp, UTC).astimezone(_DAY)
             if (midnight.hour, midnight.minute, midnight.second) != (0, 0, 0):
@@ -237,6 +239,17 @@ class GlobalRiskJournal:
             state = RiskState.model_validate_json(canonical_json(import_data["state"]))
             seq, previous = number, digest
         return state, seq, previous
+
+    def current_state(self) -> RiskState:
+        """Read-only snapshot of the last committed state.
+
+        Adds no write semantics and relaxes no check: it verifies the full
+        policy digest and hash chain before returning. Callers may use the
+        retained frame as the prior baseline for the next reconciliation, but
+        must never treat it as a fresh observation.
+        """
+        with self._lock:
+            return self._read()[0]
 
     def admit(self, frame: PortfolioFrame, commitment: Commitment, *, now: int) -> str:
         with self._lock:

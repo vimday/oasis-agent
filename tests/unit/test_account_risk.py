@@ -61,7 +61,7 @@ def make_frame(
     timestamp: int = NOON,
     assets: tuple[AssetBalance, ...] | None = None,
     movements: dict[str, int] | None = None,
-    external_flow_usd_micros: int = 0,
+    non_trading_flow_usd_micros: int = 0,
     unresolved_operations: int = 0,
 ) -> AccountFrame:
     assets = assets if assets is not None else (asset(100_000_000, price_timestamp=timestamp),)
@@ -73,7 +73,7 @@ def make_frame(
         timestamp=timestamp,
         assets=assets,
         movements=movements if movements is not None else {a.asset_id: 0 for a in assets},
-        external_flow_usd_micros=external_flow_usd_micros,
+        non_trading_flow_usd_micros=non_trading_flow_usd_micros,
         inventory_evidence_hash="f" * 64,
         unresolved_operations=unresolved_operations,
     )
@@ -302,7 +302,7 @@ def test_gains_in_one_account_never_offset_a_loss_in_another() -> None:
     assert state.halted is False
 
 
-def test_external_flow_is_not_a_loss_but_unexplained_drop_is() -> None:
+def test_non_trading_flow_is_not_a_loss_but_unexplained_drop_is() -> None:
     policy = make_policy()
     state = reconcile(policy, RiskState(), PortfolioFrame(accounts=(make_frame(),)), NOON)
     withdrawn = PortfolioFrame(
@@ -312,7 +312,7 @@ def test_external_flow_is_not_a_loss_but_unexplained_drop_is() -> None:
                 timestamp=NOON + 1,
                 assets=(asset(70_000_000, price_timestamp=NOON + 1),),
                 movements={USD: -30_000_000},
-                external_flow_usd_micros=-30_000_000,
+                non_trading_flow_usd_micros=-30_000_000,
             ),
         )
     )
@@ -595,3 +595,51 @@ def test_admission_state_is_append_only_and_hash_linked(tmp_path: Path) -> None:
         assert json.loads(payload)["previous"] == previous
         assert hashlib.sha256(payload).hexdigest() == digest
         previous = digest
+
+
+def test_current_state_is_a_read_only_baseline_without_write_semantics(tmp_path: Path) -> None:
+    journal = make_journal(tmp_path)
+    assert journal.current_state() == RiskState()
+    frame = PortfolioFrame(accounts=(make_frame(),))
+    journal.admit(frame, commitment(300_000_000, request="2" * 64), now=NOON)
+    first = journal.current_state()
+    second = journal.current_state()
+    assert first == second
+    assert first.frame == frame
+    assert (first.halted, first.cumulative_loss) == (False, 0)
+    assert [r.request_hash for r in first.reservations] == ["2" * 64]
+    events = journal.db.execute("SELECT count(*) FROM global_events").fetchone()[0]
+    assert events == 1  # reading never appends
+
+    # The retained frame is a legitimate prior baseline for the next observation.
+    lost = PortfolioFrame(
+        accounts=(
+            make_frame(
+                block_number=101,
+                timestamp=NOON + 1,
+                assets=(asset(0, price_timestamp=NOON + 1),),
+                movements={USD: -100_000_000},
+            ),
+        )
+    )
+    state = reconcile(journal.policy, first, lost, now=NOON + 1)
+    assert state.cumulative_loss == 100_000_000
+    assert journal.db.execute("SELECT count(*) FROM global_events").fetchone()[0] == 1
+
+
+def test_current_state_fails_closed_on_a_tampered_chain(tmp_path: Path) -> None:
+    policy = make_policy()
+    journal = make_journal(tmp_path, policy)
+    journal.admit(PortfolioFrame(accounts=(make_frame(),)), commitment(1), now=NOON)
+    connection = sqlite3.connect(tmp_path / "risk.db")
+    payload, _ = connection.execute(
+        "SELECT payload, digest FROM global_events WHERE seq = 1"
+    ).fetchone()
+    connection.execute(
+        "UPDATE global_events SET payload = ? WHERE seq = 1",
+        (payload.replace(b'"halted":false', b'"halted":true'),),
+    )
+    connection.commit()
+    connection.close()
+    with pytest.raises(ValueError, match="global risk journal integrity failure"):
+        journal.current_state()

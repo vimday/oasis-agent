@@ -1,0 +1,35 @@
+{
+  "policy": {
+    "inventory": {
+      "8453:0xe653df20a8c525edf381942ffc47704b7bdfe97d": ["eth"]
+    },
+    "total_capital_usd_micros": 500000000,
+    "daily_loss_usd_micros": 200000000,
+    "cumulative_loss_usd_micros": 500000000,
+    "max_age_seconds": 3600,
+    "max_skew_seconds": 0
+  },
+  "chains": [
+    {
+      "chain_id": 8453,
+      "account": "0xe653df20a8c525edf381942ffc47704b7bdfe97d",
+      "primary_source": "BASE_RPC_PRIMARY",
+      "secondary_source": "BASE_RPC_SECONDARY",
+      "assets": [
+        {
+          "asset_id": "eth",
+          "address": "0x0000000000000000000000000000000000000000",
+          "decimals": 18,
+          "runtime_keccak": null,
+          "role": "cash",
+          "feed": {
+            "address": "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70",
+            "description": "ETH / USD",
+            "runtime_keccak": "0xbd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+            "max_age_seconds": 3600
+          }
+        }
+      ]
+    }
+  ]
+}

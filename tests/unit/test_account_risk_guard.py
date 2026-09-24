@@ -75,7 +75,7 @@ class Reader:
             timestamp=block.timestamp,
             assets=(asset,),
             movements={RISK_ASSET: 0},
-            external_flow_usd_micros=0,
+            non_trading_flow_usd_micros=0,
             inventory_evidence_hash="f" * 64,
             unresolved_operations=0,
         )

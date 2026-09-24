@@ -193,6 +193,36 @@ class UsdPriceCapture:
         )
 
 
+def value_usd_micros(
+    units: int,
+    *,
+    numerator: int,
+    denominator: int,
+    decimals: int,
+    round_up: bool = False,
+) -> int:
+    """Exact integer USD-micros value of `units` at one pinned feed observation.
+
+    `numerator/denominator` is the feed answer normalized to USD micros, so the
+    result is `units * numerator / (denominator * 10**decimals)`. Negative units
+    (outflows) are supported and rounded in the caller's chosen direction, which
+    lets conservative callers over-state a loss in every case.
+    """
+    for name, value in (
+        ("units", units),
+        ("numerator", numerator),
+        ("denominator", denominator),
+    ):
+        if type(value) is not int:
+            raise TypeError(f"{name} must be an integer")
+    if numerator <= 0 or denominator <= 0 or not 0 <= decimals <= 36:
+        raise ValueError("valuation scale must be positive and bounded")
+    scaled = units * numerator
+    unit_scale: int = 10**decimals
+    scale = denominator * unit_scale
+    return -((-scaled) // scale) if round_up else scaled // scale
+
+
 def value_native_cost(
     cost: TransactionCostCapture,
     native_usd: UsdPriceCapture,

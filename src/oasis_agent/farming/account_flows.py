@@ -1,0 +1,470 @@
+"""Per-asset movement and non-trading-flow attribution between two pinned frames.
+
+Balance deltas come from two agreeing inventory providers. ERC-20 deltas are
+additionally explained from complete, two-provider `Transfer` logs; the native
+delta is only explained by an explicit retained gas/transfer attestation.
+
+`non_trading_flow_usd_micros` is what the risk ledger needs: the value of the
+flow that explains a NAV change without being a trading result. Every
+transfer-driven token delta qualifies, including transfers between monitored
+accounts, because the portfolio still holds those tokens; gas and unexplained
+native movement never qualify. Valuing at the floor can only under-credit the
+owner, so it can never hide a loss. Anything still unexplained is counted and
+the ledger refuses the frame.
+
+`TokenFlow.external_*` is reporting metadata only: it separates counterparties
+outside the monitored set, which is what a bridge or withdrawal attribution
+needs. Using those figures as the ledger credit would charge every transfer
+between monitored accounts as a loss. No pricing, signing or execution.
+"""
+
+import re
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass, field
+from typing import cast
+
+from eth_hash.auto import keccak
+
+from ..evidence.exact_capture import (
+    RecordedSession,
+    successful_results,
+    validate_session_pair,
+    wire_envelope,
+)
+from ..evidence.rpc_validation import restore_exchanges, rpc_quantity, strict_json_object
+from ..evidence.store import EvidenceStore
+from ..models.common import (
+    EvidenceRef,
+    canonical_json,
+    normalize_address,
+    normalize_hash32,
+    normalize_hex,
+)
+from ..rpc.transport import RpcExchange
+from .price_evidence import value_usd_micros
+
+TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
+_SCHEMA = "oasis.account-token-flow.v1"
+
+
+def _topic_address(value: object) -> str:
+    if not isinstance(value, str):
+        raise TypeError("transfer topic must be a hex string")
+    topic = normalize_hex(value)
+    if len(topic) != 66 or topic[2:26] != "0" * 24:
+        raise ValueError("transfer topic is not a canonical address word")
+    return normalize_address("0x" + topic[26:])
+
+
+def _topic_word(address: str) -> str:
+    return "0x" + address[2:].rjust(64, "0")
+
+
+@dataclass(frozen=True, slots=True)
+class TransferLog:
+    """One finalized ERC-20 `Transfer` touching the reconciled account."""
+
+    token: str
+    from_address: str
+    to_address: str
+    units: int
+    block_number: int
+    log_index: int
+    transaction_hash: str
+
+    def __post_init__(self) -> None:
+        for name in ("token", "from_address", "to_address"):
+            address = normalize_address(getattr(self, name))
+            if int(address, 16) == 0:
+                raise ValueError(f"transfer {name} must be nonzero")
+            object.__setattr__(self, name, address)
+        if self.from_address == self.to_address:
+            raise ValueError("self transfers are not attributable")
+        if type(self.units) is not int or not 0 <= self.units < 2**256:
+            raise ValueError("transfer units must be uint256")
+        if type(self.block_number) is not int or self.block_number < 0:
+            raise ValueError("transfer block must be nonnegative")
+        if type(self.log_index) is not int or self.log_index < 0:
+            raise ValueError("transfer log index must be nonnegative")
+        object.__setattr__(
+            self, "transaction_hash", normalize_hash32(self.transaction_hash, "transaction hash")
+        )
+
+    @property
+    def order_key(self) -> tuple[int, int, str]:
+        return (self.block_number, self.log_index, self.transaction_hash)
+
+
+def _log_from_result(value: object, *, token: str) -> TransferLog:
+    if not isinstance(value, dict):
+        raise TypeError("transfer log must be an object")
+    topics = value.get("topics")
+    if not isinstance(topics, list) or len(topics) != 3:
+        raise ValueError("transfer log must carry exactly three topics")
+    if normalize_hex(cast(str, topics[0])) != TRANSFER_TOPIC:
+        raise ValueError("transfer log is not a canonical ERC-20 Transfer")
+    data = value.get("data")
+    if not isinstance(data, str):
+        raise TypeError("transfer log data must be hex")
+    normalized = normalize_hex(data)
+    if len(normalized) != 66:
+        raise ValueError("transfer log value must be one ABI word")
+    address = value.get("address")
+    if not isinstance(address, str) or normalize_address(address) != token:
+        raise ValueError("transfer log token address mismatch")
+    if value.get("removed") not in (False, None):
+        raise ValueError("removed transfer log is not final")
+    return TransferLog(
+        token,
+        _topic_address(topics[1]),
+        _topic_address(topics[2]),
+        int(normalized, 16),
+        rpc_quantity(value.get("blockNumber")),
+        rpc_quantity(value.get("logIndex")),
+        normalize_hash32(cast(str, value.get("transactionHash")), "transaction hash"),
+    )
+
+
+def _logs_from_result(value: object, *, token: str) -> tuple[TransferLog, ...]:
+    if not isinstance(value, list):
+        raise TypeError("eth_getLogs result must be a list")
+    return tuple(_log_from_result(item, token=token) for item in value)
+
+
+@dataclass(frozen=True, slots=True)
+class FlowScope:
+    """Identity of one attributable ERC-20 movement window (exclusive of start)."""
+
+    chain_id: int
+    account: str
+    asset_id: str
+    token: str
+    decimals: int
+    start_block: int
+    end_block: int
+
+    def __post_init__(self) -> None:
+        if type(self.chain_id) is not int or self.chain_id <= 0:
+            raise ValueError("token flow requires a positive chain")
+        account = normalize_address(self.account)
+        token = normalize_address(self.token)
+        if int(account, 16) == 0 or int(token, 16) == 0:
+            raise ValueError("token flow requires nonzero account and token")
+        object.__setattr__(self, "account", account)
+        object.__setattr__(self, "token", token)
+        if not self.asset_id:
+            raise ValueError("token flow requires an asset identifier")
+        if type(self.decimals) is not int or not 0 <= self.decimals <= 36:
+            raise ValueError("token flow decimals must be bounded")
+        if type(self.start_block) is not int or self.start_block < 0:
+            raise ValueError("token flow start block must be nonnegative")
+        if type(self.end_block) is not int or self.end_block <= self.start_block:
+            raise ValueError("token flow window must span at least one block")
+
+
+@dataclass(frozen=True, slots=True)
+class TokenFlow:
+    """Net and external units attributable to one window."""
+
+    asset_id: str
+    decimals: int
+    net_units: int
+    external_net_units: int
+    external_in_units: int
+    external_out_units: int
+    logs: tuple[TransferLog, ...]
+
+
+def _expected(scope: FlowScope) -> list[tuple[str, list[object]]]:
+    window: dict[str, object] = {
+        "fromBlock": hex(scope.start_block + 1),
+        "toBlock": hex(scope.end_block),
+    }
+    return [
+        ("eth_chainId", []),
+        (
+            "eth_getLogs",
+            [
+                {
+                    "address": scope.token,
+                    **window,
+                    "topics": [TRANSFER_TOPIC, None, _topic_word(scope.account)],
+                }
+            ],
+        ),
+        (
+            "eth_getLogs",
+            [
+                {
+                    "address": scope.token,
+                    **window,
+                    "topics": [TRANSFER_TOPIC, _topic_word(scope.account), None],
+                }
+            ],
+        ),
+    ]
+
+
+@dataclass(frozen=True, slots=True)
+class TokenFlowCapture:
+    """One provider's exact bytes for a scope."""
+
+    source: str
+    scope: FlowScope
+    exchanges: tuple[RpcExchange, ...]
+    logs: tuple[TransferLog, ...] = field(init=False, repr=False, default=())
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "exchanges", tuple(self.exchanges))
+        if not re.fullmatch(r"[a-zA-Z0-9_-]{1,64}", self.source):
+            raise ValueError("token flow provider name is invalid")
+        object.__setattr__(self, "logs", self.reconstruct())
+
+    @property
+    def payload(self) -> bytes:
+        return canonical_json(
+            {
+                "schema": _SCHEMA,
+                "source": self.source,
+                "scope": asdict(self.scope),
+                "logs": [asdict(log) for log in self.logs],
+            }
+        )
+
+    def reconstruct(self) -> tuple[TransferLog, ...]:
+        results = successful_results(self.exchanges, _expected(self.scope))
+        if rpc_quantity(results[0]) != self.scope.chain_id:
+            raise ValueError("token flow provider chain mismatch")
+        collected = [
+            *_logs_from_result(results[1], token=self.scope.token),
+            *_logs_from_result(results[2], token=self.scope.token),
+        ]
+        if any(
+            not self.scope.start_block < log.block_number <= self.scope.end_block
+            for log in collected
+        ):
+            raise ValueError("token flow log lies outside its declared window")
+        identities = {log.order_key for log in collected}
+        if len(identities) != len(collected):
+            raise ValueError("token flow provider returned a duplicate log")
+        return tuple(sorted(collected, key=lambda log: log.order_key))
+
+    def flow(self, *, tracked_accounts: frozenset[str]) -> TokenFlow:
+        external_in = external_out = net = 0
+        for log in self.logs:
+            if self.scope.account not in (log.from_address, log.to_address):
+                raise ValueError("transfer log does not involve the reconciled account")
+            if log.to_address == self.scope.account:
+                net += log.units
+                if log.from_address not in tracked_accounts:
+                    external_in += log.units
+            else:
+                net -= log.units
+                if log.to_address not in tracked_accounts:
+                    external_out += log.units
+        return TokenFlow(
+            self.scope.asset_id,
+            self.scope.decimals,
+            net,
+            external_in - external_out,
+            external_in,
+            external_out,
+            self.logs,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class TokenFlowQuorum:
+    left: TokenFlowCapture
+    right: TokenFlowCapture
+
+    def __post_init__(self) -> None:
+        if self.left.source == self.right.source or self.left.scope != self.right.scope:
+            raise ValueError("token flow quorum requires distinct providers of one scope")
+        if self.left.logs != self.right.logs:
+            raise ValueError("token flow providers disagree on the transfer set")
+
+    def flow(self, *, tracked_accounts: frozenset[str]) -> TokenFlow:
+        return self.left.flow(tracked_accounts=tracked_accounts)
+
+
+def _collect_one(session: RecordedSession, *, scope: FlowScope) -> TokenFlowCapture:
+    transport, recorder, source = session
+    transport.request("eth_chainId", [])
+    for method, params in _expected(scope)[1:]:
+        transport.request(method, params)
+    return TokenFlowCapture(source, scope, recorder.exchanges)
+
+
+def collect_token_flow_quorum(
+    primary: RecordedSession,
+    secondary: RecordedSession,
+    *,
+    scope: FlowScope,
+) -> TokenFlowQuorum:
+    validate_session_pair(primary, secondary)
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="account-token-flow") as workers:
+        left = workers.submit(_collect_one, primary, scope=scope)
+        right = workers.submit(_collect_one, secondary, scope=scope)
+        return TokenFlowQuorum(left.result(), right.result())
+
+
+def persist_token_flow_evidence(
+    store: EvidenceStore,
+    quorum: TokenFlowQuorum,
+    *,
+    retrieved_at: str | None = None,
+) -> tuple[EvidenceRef, EvidenceRef]:
+    if quorum.left.logs != quorum.right.logs or quorum.left.scope != quorum.right.scope:
+        raise ValueError("token flow quorum changed before persistence")
+    left, right = quorum.left, quorum.right
+    return (
+        _persist_capture(store, left, retrieved_at=retrieved_at),
+        _persist_capture(store, right, retrieved_at=retrieved_at),
+    )
+
+
+def _persist_capture(
+    store: EvidenceStore, capture: TokenFlowCapture, *, retrieved_at: str | None
+) -> EvidenceRef:
+    return store.put(
+        "account_token_flow",
+        capture.payload,
+        None,
+        capture.source,
+        request=wire_envelope(capture.exchanges, response=False),
+        raw_response=wire_envelope(capture.exchanges, response=True),
+        interpretation={
+            "schema": "oasis.account-token-flow-evidence.v1",
+            "block_window": [capture.scope.start_block, capture.scope.end_block],
+            "execution_eligible": False,
+        },
+        retrieved_at=retrieved_at,
+        schema_version=1,
+    )
+
+
+def replay_token_flow_evidence(
+    store: EvidenceStore,
+    reference: EvidenceRef,
+    *,
+    scope: FlowScope,
+    tracked_accounts: frozenset[str],
+) -> TokenFlow:
+    if (
+        reference.kind != "account_token_flow"
+        or reference.schema_version != 1
+        or reference.block is not None
+    ):
+        raise ValueError("unsupported token flow evidence")
+    record = store.get_record(reference)
+    if record.request_payload is None:
+        raise ValueError("token flow evidence is missing raw requests")
+    data = strict_json_object(record.payload)
+    if (
+        set(data) != {"schema", "source", "scope", "logs"}
+        or data["schema"] != _SCHEMA
+        or data["scope"] != asdict(scope)
+    ):
+        raise ValueError("token flow evidence does not match the requested scope")
+    capture = TokenFlowCapture(
+        reference.source,
+        scope,
+        restore_exchanges(record.request_payload, record.raw_response_payload),
+    )
+    if capture.payload != record.payload:
+        raise ValueError("token flow interpretation differs from raw reconstruction")
+    return capture.flow(tracked_accounts=tracked_accounts)
+
+
+@dataclass(frozen=True, slots=True)
+class MovementReconstruction:
+    """Ledger inputs for one account: exact deltas, non-trading flow, unresolved count."""
+
+    movements: dict[str, int]
+    non_trading_flow_usd_micros: int
+    unresolved_operations: int
+    evidence: tuple[EvidenceRef, ...]
+
+
+def reconstruct_movements(
+    *,
+    previous_units: Mapping[str, int],
+    current_units: Mapping[str, int],
+    prices: Mapping[str, tuple[int, int, int]],
+    flows: Mapping[str, TokenFlow],
+    native_asset_id: str,
+    native_gas_units: int,
+    non_trading_native_units: int = 0,
+    evidence: tuple[EvidenceRef, ...] = (),
+) -> MovementReconstruction:
+    """Explain every asset delta; count, never guess, what cannot be explained.
+
+    `movements` is the exact two-source observed delta the ledger re-checks. A
+    missing or disagreeing explanation for a nonzero delta increments
+    `unresolved_operations`, which makes the ledger refuse the whole frame.
+    `non_trading_native_units` is the declared native inflow/outflow that is not
+    gas; a native decrease that equals neither it plus gas nor zero is unresolved.
+    """
+    if set(previous_units) != set(current_units) or set(prices) != set(previous_units):
+        raise ValueError("movement reconstruction requires one complete asset set")
+    if native_asset_id not in prices:
+        raise ValueError("movement reconstruction requires the native gas asset")
+    for name, value in (
+        ("native_gas_units", native_gas_units),
+        ("non_trading_native_units", non_trading_native_units),
+    ):
+        if type(value) is not int:
+            raise TypeError(f"{name} must be an integer")
+    if native_gas_units < 0:
+        raise ValueError("native gas units must be nonnegative")
+
+    movements: dict[str, int] = {}
+    flow_usd_micros = 0
+    unresolved = 0
+    for asset_id, (numerator, denominator, decimals) in prices.items():
+        delta = current_units[asset_id] - previous_units[asset_id]
+        movements[asset_id] = delta
+        if asset_id == native_asset_id:
+            if asset_id in flows:
+                raise ValueError("native gas flow cannot be reconstructed from Transfer logs")
+            if delta == non_trading_native_units - native_gas_units:
+                flow_usd_micros += value_usd_micros(
+                    non_trading_native_units,
+                    numerator=numerator,
+                    denominator=denominator,
+                    decimals=decimals,
+                )
+            elif delta:
+                unresolved += 1
+            continue
+        flow = flows.get(asset_id)
+        if flow is None:
+            if delta:
+                unresolved += 1
+            continue
+        if flow.decimals != decimals or flow.net_units != delta:
+            unresolved += 1
+            continue
+        flow_usd_micros += value_usd_micros(
+            flow.net_units,
+            numerator=numerator,
+            denominator=denominator,
+            decimals=decimals,
+        )
+    return MovementReconstruction(movements, flow_usd_micros, unresolved, evidence)
+
+
+__all__ = [
+    "FlowScope",
+    "MovementReconstruction",
+    "TokenFlow",
+    "TokenFlowCapture",
+    "TokenFlowQuorum",
+    "TransferLog",
+    "collect_token_flow_quorum",
+    "persist_token_flow_evidence",
+    "reconstruct_movements",
+    "replay_token_flow_evidence",
+]
