@@ -196,11 +196,27 @@ autonomous trader. Its current verified boundary is:
   reserves capital or admits a commitment; it binds retained sources to the manifest's declared
   providers, chains its own prior `RiskState` (`--state`) so successive runs accumulate day and
   cumulative loss, and takes native gas/non-gas units only as explicit operator declarations
-  (`--native`). `configs/account-risk.base.example.json` is the only committed manifest: the
+  (`--native`). `risk/shadow_acceptance.py` adds the shadow precondition with no I/O: a
+  `ShadowWindow` derives every summary — block range, span, last cumulative loss — from its own
+  accepted runs, refuses a window with too few runs, a discontinuous sequence, a halted or
+  unresolved run, a repeated ledger state, a regressed block or time, a gap beyond the requirement
+  or a span below it, and `canary_admission()` refuses a window observed under another manifest or
+  policy, an account outside the policy inventory, a future or stale window, and a canary cap above
+  the approved total capital, the daily loss budget or the remaining cumulative loss budget; its
+  default window requirements are stated operator minima, not chain facts, and neither function
+  authorizes a transaction. `scripts/run_account_risk_shadow.py` is the observe-only loop that
+  produces one such window, running the reconciliation observer in an isolated subprocess at a
+  freshly pinned block, retrying a capture failure at a new block, halting the loop on a refused
+  capture, and never opening the risk journal, holding a key, signing or broadcasting;
+  `scripts/check_canary_admission.py` re-derives a retained window byte for byte against the manifest
+  it claims to describe and prints the admission or refusal reasons, always with
+  `execution_eligible: false`. `configs/account-risk.base.example.json` is the only committed
+  manifest: the
   owner-confirmed dedicated wallet on Base 8453, native-only, declaring no position, with an ETH/USD
   feed pin verified from two Base mainnet providers before it was written and re-parsed by a unit
   test so it cannot rot silently. The default signer CLI loads no reader or guard and still
-  denies; no completed reconciliation run is archived, no Robinhood or ERC-20 manifest pin is
+  denies; no completed reconciliation run or shadow window is archived, no Robinhood or ERC-20
+  manifest pin is
   verified, no position is declared anywhere in a committed manifest, and no all-asset chain indexer
   or production signer/broadcast integration exists, so this is not a deployed production kill
   switch;

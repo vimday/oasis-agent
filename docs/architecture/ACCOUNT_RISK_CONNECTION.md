@@ -238,6 +238,65 @@ failure — a public provider dropping the connection, for example — aborts wi
 redacted `report.json` rather than admitting partial evidence. The operator response is to re-run
 the CLI at a fresh pinned block; a failed run leaves no frame and no state to chain from.
 
+### Sustained shadow window before a canary (2026-09-24)
+
+A canary needs more than one accepted reconciliation, so the precondition that a *sustained*
+observation window exists is enforced in code rather than in a document:
+
+- `risk/shadow_acceptance.py` is the gate, with no I/O, no key and no transaction. `ObservationRun`
+  is one accepted observer run — pinned block and hash, block timestamp, the ledger `state.json`
+  digest, the retained `report.json` digest, the run's cumulative loss and its unresolved count.
+  `ShadowWindow` stores only the account key, the manifest and policy digests, the requirements and
+  the runs: `first_block`, `last_block`, `last_timestamp`, `span_seconds` and
+  `cumulative_loss_usd_micros` are derived properties, so a window cannot claim a span or a block
+  range its own runs do not support, and its `payload` is a self-describing record whose digest
+  binds the runs *and* the derived summary. The validator refuses an empty or too-short run set, a
+  sequence that is not contiguous from 1, a halted or unresolved run, a block or time that does not
+  strictly advance, a gap beyond `max_gap_seconds`, a repeated ledger `state_digest`, and a span
+  below `min_span_seconds`.
+- `canary_admission(window, ...)` is the decision. It refuses a window observed under a different
+  manifest or policy digest, an account outside the policy inventory, a window whose last timestamp
+  is in the future or older than `max_staleness_seconds`, and a cap larger than the approved total
+  capital, the daily loss budget, or the remaining cumulative loss budget
+  (`cumulative_loss + cap`), because a canary can lose all of its cap. Admission is a precondition
+  only: capital authorization, signer policy, simulation and the operator broadcast gate all remain
+  separate decisions, and `execution_eligible` stays false.
+- `CANARY_WINDOW_REQUIREMENTS` (3 runs, 120s span, 300s maximum gap, 900s staleness) is a stated
+  operator minimum, not a chain fact. A production canary should tighten or lengthen it, and the
+  window records the requirements it was accepted under.
+- `scripts/run_account_risk_shadow.py` produces a window, run from the repository root as
+  `python -m scripts.run_account_risk_shadow`. Each attempt runs the observer once in an isolated
+  subprocess at a freshly pinned block behind the primary source's tip. Only accepted runs enter the
+  window: a capture failure (exit `2`) is retried at a *new* pinned block, an accepted capture the
+  ledger refused (exit `3`) stops the loop immediately as a risk signal, and a configuration error
+  (exit `1`) aborts. Attempt output is captured and discarded rather than persisted, because a
+  provider error can echo an endpoint URL; a refused capture's own bounded reason is read from its
+  retained `report.json`. It writes `attempts/`, `runs.jsonl`, and `window.json` plus `outcome.json`
+  when the window is complete. Exit codes: `0` window recorded, `2` ledger refused, `3` incomplete,
+  `1` invalid configuration.
+- `scripts/check_canary_admission.py` is the operator-facing check: it reads one retained
+  `window.json` with the manifest it claims to describe, rebuilds the window from the retained runs,
+  requires the rebuilt record to equal the retained bytes (so an edited summary is rejected), and
+  prints the decision with its reasons and `execution_eligible: false`. Exit codes: `0` admitted,
+  `2` refused, `1` invalid input.
+
+```bash
+python -m scripts.run_account_risk_shadow \
+  --manifest configs/account-risk.base.example.json \
+  --out reports/evidence/account-shadow-base-<date> \
+  --rpc 8453:BASE_RPC_PRIMARY:BASE_RPC_SECONDARY \
+  --runs 3 --attempts-per-run 3 --run-interval-seconds 90 --tip-lag 5
+
+python scripts/check_canary_admission.py \
+  --window reports/evidence/account-shadow-base-<date>/window.json \
+  --manifest configs/account-risk.base.example.json \
+  --cap-usd 50
+```
+
+The run schedule is checked before the loop starts: the interval may not exceed `max_gap_seconds`
+and must be long enough that `(runs - 1) * interval` covers `min_span_seconds`. Span is measured
+from block timestamps, not wall clock, so the interval should leave margin for block-time jitter.
+
 ## Unresolved
 
 - Only the Base example manifest is committed, and it is an *example*: the account is the
@@ -256,6 +315,20 @@ the CLI at a fresh pinned block; a failed run leaves no frame and no state to ch
   therefore a lower bound, not a mark-to-market NAV.
 - `state.json` chaining is an operator-run observer, not a supervisor: nothing schedules it, no
   alert fires on a refusal, and a halted `state.json` is only as durable as the filesystem it sits on.
+- No completed shadow window is archived: the gate, the loop and the check are unit-tested with
+  scripted observers, and the public Base providers used by the loop are flaky, so a live window
+  needs several accepted runs at fresh pinned blocks. A window proves only repeated, unhalted,
+  unresolved-free reconciliation of one declared account under one manifest and policy; it is not
+  evidence of profitability, of complete NAV, or that a canary would be safe.
+- The loop declares no native movement, so an account that spends gas or sends native value between
+  two runs produces an unresolved residual and the frame is refused rather than under-reported. The
+  window therefore fits a funded but idle account, and an active canary account would need per-interval
+  operator declarations the loop does not collect.
+- Admission is a precondition that is not yet consumed by anything: no canary path reads
+  `canary_admission()`, and no process reserves the admitted cap. The default requirements are a
+  stated operator minimum, and the staleness bound is measured against the block timestamp of the
+  last run, so a clock-skewed host can refuse or admit a window that a correct clock would judge
+  differently.
 - Settlement is derived from unit increases alone, because the ledger sees a frame and not why the
   units arrived. Investment units worth an outstanding commitment's amount that reach the account
   from a gift or an unrelated transfer settle that commitment without any transaction-level evidence
