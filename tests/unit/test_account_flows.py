@@ -17,13 +17,14 @@ from oasis_agent.farming.account_flows import (
     TRANSFER_TOPIC,
     FlowScope,
     TokenFlow,
+    TransferLog,
     collect_token_flow_quorum,
     persist_token_flow_evidence,
     reconstruct_movements,
     replay_token_flow_evidence,
 )
 from oasis_agent.farming.price_evidence import value_usd_micros
-from oasis_agent.models.common import canonical_json
+from oasis_agent.models.common import ZERO_ADDRESS, canonical_json
 from oasis_agent.rpc.transport import JsonRpcTransport
 
 CHAIN_ID = 4663
@@ -31,6 +32,8 @@ ACCOUNT = "0x" + "e6" * 20
 OTHER_ACCOUNT = "0x" + "e7" * 20
 THIRD_PARTY = "0x" + "e8" * 20
 TOKEN = "0x" + "11" * 20
+POSITION_MANAGER = "0x" + "21" * 20
+POSITION_ID = 7
 TOKEN_DECIMALS = 6
 NATIVE_ANSWER = 240_000_000_000
 USDC_ANSWER = 100_000_000
@@ -69,9 +72,36 @@ def transfer_log(
     }
 
 
+def erc721_transfer_log(
+    *,
+    from_address: str = ZERO_ADDRESS,
+    to_address: str = ACCOUNT,
+    block_number: int = END_BLOCK - 1,
+    log_index: int = 0,
+    token: str = POSITION_MANAGER,
+    token_id: int = POSITION_ID,
+    transaction_hash: str = "0x" + "7b" * 32,
+    removed: bool = False,
+) -> dict[str, object]:
+    return {
+        "address": token,
+        "topics": [
+            TRANSFER_TOPIC,
+            _word(from_address),
+            _word(to_address),
+            "0x" + f"{token_id:064x}",
+        ],
+        "data": "0x",
+        "blockNumber": hex(block_number),
+        "logIndex": hex(log_index),
+        "transactionHash": transaction_hash,
+        "removed": removed,
+    }
+
+
 @dataclass
 class FlowFixture:
-    """One deterministic provider for one ERC-20 movement window."""
+    """One deterministic provider for one movement window."""
 
     chain_id: int = CHAIN_ID
     incoming: list[dict[str, object]] = field(default_factory=list)
@@ -110,6 +140,12 @@ def session(source: str, fixture: FlowFixture | None = None) -> tuple:
 
 def scope(*, end_block: int = END_BLOCK, decimals: int = TOKEN_DECIMALS) -> FlowScope:
     return FlowScope(CHAIN_ID, ACCOUNT, "usdc", TOKEN, decimals, START_BLOCK, end_block)
+
+
+def position_scope(*, token_id: int = POSITION_ID, end_block: int = END_BLOCK) -> FlowScope:
+    return FlowScope(
+        CHAIN_ID, ACCOUNT, "lp-position", POSITION_MANAGER, 0, START_BLOCK, end_block, token_id
+    )
 
 
 def flow_quorum(
@@ -498,3 +534,147 @@ def test_flow_scope_and_transfer_log_validation() -> None:
         scope(end_block=START_BLOCK)
     with pytest.raises(ValueError, match="self transfers are not attributable"):
         flow_quorum(FlowFixture(incoming=[transfer_log(from_address=ACCOUNT, to_address=ACCOUNT)]))
+
+
+def test_a_position_scope_queries_logs_by_its_own_token_id() -> None:
+    collected = flow_quorum(
+        FlowFixture(incoming=[erc721_transfer_log()]),
+        FlowFixture(incoming=[erc721_transfer_log()]),
+        window=position_scope(),
+    )
+    queries = [
+        json.loads(exchange.request_payload)["params"][0]
+        for exchange in collected.left.exchanges
+        if json.loads(exchange.request_payload)["method"] == "eth_getLogs"
+    ]
+    assert queries[0]["topics"] == [TRANSFER_TOPIC, None, _word(ACCOUNT), f"0x{POSITION_ID:064x}"]
+    assert queries[1]["topics"] == [TRANSFER_TOPIC, _word(ACCOUNT), None, f"0x{POSITION_ID:064x}"]
+
+
+def test_a_position_mint_and_burn_move_exactly_one_unit(tmp_path) -> None:
+    minted = flow_quorum(
+        FlowFixture(incoming=[erc721_transfer_log()]),
+        FlowFixture(incoming=[erc721_transfer_log()]),
+        window=position_scope(),
+    )
+    flow = minted.flow(tracked_accounts=frozenset({ACCOUNT}))
+    assert (flow.asset_id, flow.decimals, flow.net_units) == ("lp-position", 0, 1)
+    assert flow.logs[0].token_id == POSITION_ID
+    store = EvidenceStore(tmp_path / "position-flow.db")
+    try:
+        references = persist_token_flow_evidence(store, minted)
+        for reference in references:
+            replayed = replay_token_flow_evidence(
+                store, reference, scope=position_scope(), tracked_accounts=frozenset({ACCOUNT})
+            )
+            assert replayed == flow
+        payload = json.loads(store.get_record(references[0]).payload)
+        assert payload["scope"]["token_id"] == POSITION_ID
+        assert payload["logs"][0]["token_id"] == POSITION_ID
+    finally:
+        store.close()
+    burned = flow_quorum(
+        FlowFixture(outgoing=[erc721_transfer_log(from_address=ACCOUNT, to_address=ZERO_ADDRESS)]),
+        FlowFixture(outgoing=[erc721_transfer_log(from_address=ACCOUNT, to_address=ZERO_ADDRESS)]),
+        window=position_scope(),
+    )
+    assert burned.flow(tracked_accounts=frozenset({ACCOUNT})).net_units == -1
+
+
+def test_the_erc20_evidence_shape_is_unchanged(tmp_path) -> None:
+    """A position adds keys to its own payload; ERC-20 evidence bytes must not move."""
+    collected = flow_quorum(
+        FlowFixture(incoming=[transfer_log(units=4, log_index=1)]),
+        FlowFixture(incoming=[transfer_log(units=4, log_index=1)]),
+    )
+    store = EvidenceStore(tmp_path / "shape.db")
+    try:
+        reference = persist_token_flow_evidence(store, collected)[0]
+        payload = json.loads(store.get_record(reference).payload)
+        assert set(payload["scope"]) == {
+            "chain_id",
+            "account",
+            "asset_id",
+            "token",
+            "decimals",
+            "start_block",
+            "end_block",
+        }
+        assert set(payload["logs"][0]) == {
+            "token",
+            "from_address",
+            "to_address",
+            "units",
+            "block_number",
+            "log_index",
+            "transaction_hash",
+        }
+    finally:
+        store.close()
+
+
+def test_a_position_log_with_another_token_id_is_rejected() -> None:
+    with pytest.raises(ValueError, match="token id differs from the declared position"):
+        flow_quorum(
+            FlowFixture(incoming=[erc721_transfer_log(token_id=POSITION_ID + 1)]),
+            window=position_scope(),
+        )
+
+
+def test_an_erc721_log_must_carry_no_data() -> None:
+    with pytest.raises(ValueError, match="must carry no data"):
+        flow_quorum(
+            FlowFixture(incoming=[erc721_transfer_log() | {"data": "0x" + "00" * 32}]),
+            window=position_scope(),
+        )
+
+
+def test_a_position_and_an_erc20_scope_do_not_mix() -> None:
+    with pytest.raises(ValueError, match="must carry exactly 4 topics"):
+        flow_quorum(FlowFixture(incoming=[transfer_log()]), window=position_scope())
+    with pytest.raises(ValueError, match="must carry exactly 3 topics"):
+        flow_quorum(FlowFixture(incoming=[erc721_transfer_log()]), window=scope())
+
+
+def test_a_position_scope_requires_zero_decimals_and_a_bounded_token_id() -> None:
+    with pytest.raises(ValueError, match="requires zero decimals"):
+        FlowScope(
+            CHAIN_ID,
+            ACCOUNT,
+            "lp-position",
+            POSITION_MANAGER,
+            6,
+            START_BLOCK,
+            END_BLOCK,
+            POSITION_ID,
+        )
+    for invalid in (0, -1, 2**256, True):
+        with pytest.raises(ValueError, match="bounded token id"):
+            position_scope(token_id=invalid)
+
+
+def test_a_position_transfer_moves_exactly_one_unit() -> None:
+    minted = TransferLog(
+        POSITION_MANAGER,
+        ZERO_ADDRESS,
+        ACCOUNT,
+        1,
+        END_BLOCK - 1,
+        0,
+        "0x" + "7b" * 32,
+        POSITION_ID,
+    )
+    assert minted.from_address == ZERO_ADDRESS
+    with pytest.raises(ValueError, match="exactly one position unit"):
+        TransferLog(
+            POSITION_MANAGER,
+            ZERO_ADDRESS,
+            ACCOUNT,
+            2,
+            END_BLOCK - 1,
+            0,
+            "0x" + "7b" * 32,
+            POSITION_ID,
+        )
+    with pytest.raises(ValueError, match="must be nonzero"):
+        TransferLog(POSITION_MANAGER, ZERO_ADDRESS, ACCOUNT, 1, END_BLOCK - 1, 0, "0x" + "7b" * 32)

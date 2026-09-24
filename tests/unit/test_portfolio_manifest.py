@@ -16,6 +16,7 @@ from oasis_agent.risk.portfolio_manifest import (
     ChainInventory,
     ManifestAsset,
     ManifestFeed,
+    ManifestPosition,
     PortfolioManifest,
 )
 
@@ -24,10 +25,21 @@ ACCOUNT = "0x" + "e6" * 20
 OTHER_ACCOUNT = "0x" + "e7" * 20
 TOKEN = "0x" + "11" * 20
 OTHER_TOKEN = "0x" + "12" * 20
+WETH = "0x" + "13" * 20
 NATIVE_FEED = "0x" + "f1" * 20
 TOKEN_FEED = "0x" + "f2" * 20
+WETH_FEED = "0x" + "f3" * 20
 RUNTIME = "0x" + "ab" * 32
 TOKEN_RUNTIME = "0x" + "cd" * 32
+WETH_RUNTIME = "0x" + "ce" * 32
+POSITION_MANAGER = "0x" + "21" * 20
+POSITION_MANAGER_RUNTIME = "0x" + "de" * 32
+STATE_VIEW = "0x" + "31" * 20
+STATE_VIEW_RUNTIME = "0x" + "df" * 32
+POOL_MANAGER = "0x" + "41" * 20
+POOL_MANAGER_RUNTIME = "0x" + "e1" * 32
+POOL_ID = "0x" + "3c" * 32
+TOKEN_ID = 7
 
 # Shipped Base example, independently verified from two Base mainnet providers.
 BASE_EXAMPLE = Path(__file__).parents[2] / "configs/account-risk.base.example.json"
@@ -81,11 +93,40 @@ def token_asset(
     )
 
 
+def weth_asset() -> ManifestAsset:
+    return ManifestAsset(
+        asset_id="weth",
+        address=WETH,
+        decimals=18,
+        runtime_keccak=WETH_RUNTIME,
+        role="cash",
+        feed=feed(address=WETH_FEED, description="WETH / USD", runtime=RUNTIME),
+    )
+
+
+def position(**overrides: object) -> ManifestPosition:
+    options: dict[str, object] = {
+        "asset_id": "lp-position",
+        "position_manager": POSITION_MANAGER,
+        "position_manager_runtime_keccak": POSITION_MANAGER_RUNTIME,
+        "token_id": TOKEN_ID,
+        "pool_id": POOL_ID,
+        "state_view": STATE_VIEW,
+        "state_view_runtime_keccak": STATE_VIEW_RUNTIME,
+        "pool_manager_runtime_keccak": POOL_MANAGER_RUNTIME,
+        "currency0_id": "usdc",
+        "currency1_id": "weth",
+    }
+    options.update(overrides)
+    return ManifestPosition(**options)  # type: ignore[arg-type]
+
+
 def chain(
     *,
     chain_id: int = CHAIN_ID,
     account: str = ACCOUNT,
     assets: tuple[ManifestAsset, ...] | None = None,
+    positions: tuple[ManifestPosition, ...] = (),
     primary: str = "rpc_a",
     secondary: str = "rpc_b",
 ) -> ChainInventory:
@@ -95,7 +136,28 @@ def chain(
         primary_source=primary,
         secondary_source=secondary,
         assets=assets if assets is not None else (native_asset(), token_asset()),
+        positions=positions,
     )
+
+
+def position_chain(
+    positions: tuple[ManifestPosition, ...] = (position(),),
+    *,
+    assets: tuple[ManifestAsset, ...] | None = None,
+) -> ChainInventory:
+    """One account holding two pool currencies and a declared LP position."""
+    return chain(
+        assets=assets if assets is not None else (native_asset(), token_asset(), weth_asset()),
+        positions=positions,
+    )
+
+
+def position_policy(**overrides: object) -> GlobalRiskPolicy:
+    options: dict[str, object] = {
+        "inventory": {f"{CHAIN_ID}:{ACCOUNT}": ("native", "usdc", "weth", "lp-position")}
+    }
+    options.update(overrides)
+    return policy(**options)
 
 
 def policy(**overrides: object) -> GlobalRiskPolicy:
@@ -142,6 +204,74 @@ def test_manifest_digest_is_deterministic_and_policy_sensitive() -> None:
     assert manifest().digest == manifest().digest
     assert manifest().digest != manifest(policy_=policy(max_skew_seconds=61)).digest
     assert len(manifest().digest) == 64
+
+
+def test_a_declared_position_is_part_of_the_reconciled_inventory() -> None:
+    """The position identifier, not only its currencies, must be in the policy."""
+    built = PortfolioManifest(policy=position_policy(), chains=(position_chain(),))
+    entry = built.chain(built.keys[0])
+    assert entry.asset_ids == ("native", "usdc", "weth", "lp-position")
+    assert entry.position("lp-position") == position()
+    with pytest.raises(KeyError):
+        entry.asset("lp-position")  # a position is not a fungible asset
+    with pytest.raises(KeyError):
+        entry.position("usdc")
+    with pytest.raises(KeyError):
+        entry.position("missing")
+    assert entry.erc20_assets == (entry.asset("usdc"), entry.asset("weth"))
+
+
+def test_the_policy_must_cover_a_position_identifier() -> None:
+    with pytest.raises(ValueError, match="assets must exactly cover the policy inventory"):
+        PortfolioManifest(policy=policy(), chains=(position_chain(),))
+    with pytest.raises(ValueError, match="assets must exactly cover the policy inventory"):
+        PortfolioManifest(
+            policy=position_policy(inventory={f"{CHAIN_ID}:{ACCOUNT}": ("native",)}),
+            chains=(position_chain(),),
+        )
+
+
+def test_a_position_currency_must_be_a_declared_fungible_asset() -> None:
+    with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
+        position_chain((position(currency0_id="dai"),))
+    with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
+        position_chain((position(currency1_id="native"),))
+    with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
+        position_chain((position(),), assets=(native_asset(), token_asset()))
+
+
+def test_a_position_must_not_reuse_a_fungible_identifier() -> None:
+    with pytest.raises(ValueError, match="cannot reuse a fungible asset identifier"):
+        position_chain((position(asset_id="usdc"),))
+
+
+def test_position_identities_must_be_unique() -> None:
+    with pytest.raises(ValueError, match="unique position asset identifiers required"):
+        position_chain((position(), position(asset_id="lp-position")))
+    with pytest.raises(ValueError, match="one manifest position per position manager"):
+        position_chain((position(), position(asset_id="other-position")))
+    second = position(asset_id="other-position", position_manager=OTHER_TOKEN, token_id=TOKEN_ID)
+    entry = position_chain((position(), second))
+    assert entry.asset_ids[-2:] == ("lp-position", "other-position")
+
+
+def test_a_position_requires_deployed_contracts_and_canonical_hashes() -> None:
+    with pytest.raises(ValueError, match="requires deployed contracts"):
+        position(position_manager=ZERO_ADDRESS)
+    with pytest.raises(ValueError, match="requires deployed contracts"):
+        position(state_view=ZERO_ADDRESS)
+    with pytest.raises(ValueError, match="requires two distinct pool currencies"):
+        position(currency1_id="usdc")
+    with pytest.raises(ValueError):
+        position(pool_id="0x3c")
+    with pytest.raises(ValueError):
+        position(state_view_runtime_keccak="0xdf")
+    with pytest.raises(ValueError):
+        position(token_id=0)
+    with pytest.raises(ValueError):
+        position(position_manager_runtime_keccak="0xde")
+    with pytest.raises(ValueError):
+        position(pool_manager_runtime_keccak="0xe1")
 
 
 def test_manifest_rejects_a_policy_account_it_does_not_cover() -> None:

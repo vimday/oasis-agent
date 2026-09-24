@@ -1,9 +1,11 @@
-"""Two-provider pinned account inventory: native plus every declared ERC-20.
+"""Two-provider pinned account inventory: native, declared ERC-20 and declared positions.
 
-Raw capture, offline replay and nothing else. Balances and USD feed answers are
-re-derived from exact retained RPC bytes at one canonical block, so a manifest
-that disagrees with the chain fails closed. This is not NAV, not settlement and
-never an execution input by itself.
+Raw capture, offline replay and nothing else. Balances, position ownership and
+USD feed answers are re-derived from exact retained RPC bytes at one canonical
+block, so a manifest that disagrees with the chain fails closed. A declared
+position contributes one unit exactly when `ownerOf` names the reconciled
+account, which makes ownership a captured fact rather than an assumption. This is
+not NAV, not settlement and never an execution input by itself.
 """
 
 import re
@@ -22,7 +24,7 @@ from ..evidence.exact_capture import (
 from ..evidence.rpc_validation import restore_exchanges, rpc_quantity, strict_json_object
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
-from ..models.common import EvidenceRef, canonical_json
+from ..models.common import EvidenceRef, canonical_json, normalize_address
 from ..risk.portfolio_manifest import ChainInventory
 from ..rpc.client import RpcClient
 from ..rpc.transport import RpcExchange
@@ -32,12 +34,19 @@ from .price_evidence import selector
 
 DECIMALS_SELECTOR = selector("decimals()")
 BALANCE_OF_SELECTOR = selector("balanceOf(address)")
+OWNER_OF_SELECTOR = selector("ownerOf(uint256)")
 FEED_SIGNATURES = ("decimals()", "description()", "latestRoundData()")
 _SCHEMA = "oasis.account-inventory.v1"
 
 
 def balance_of_data(account: str) -> str:
     return BALANCE_OF_SELECTOR + account[2:].rjust(64, "0")
+
+
+def owner_of_data(token_id: int) -> str:
+    if type(token_id) is not int or not 0 < token_id < 2**256:
+        raise ValueError("position token id must be a bounded unsigned integer")
+    return OWNER_OF_SELECTOR + f"{token_id:064x}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +111,11 @@ def _expected(entry: ChainInventory, header: BlockSnapshot) -> list[tuple[str, l
                 ("eth_call", [{"to": asset.address, "data": DECIMALS_SELECTOR}, pin]),
                 ("eth_call", [{"to": asset.address, "data": balance_of_data(entry.account)}, pin]),
             ]
+        )
+    for position in entry.positions:
+        owner_call = {"to": position.position_manager, "data": owner_of_data(position.token_id)}
+        expected.extend(
+            [("eth_getCode", [position.position_manager, pin]), ("eth_call", [owner_call, pin])]
         )
     for asset in entry.assets:
         expected.append(("eth_getCode", [asset.feed.address, pin]))
@@ -188,6 +202,12 @@ class AccountInventoryCapture:
             balance = cast(int, _abi(["uint256"], _text(results[cursor]))[0])
             units.append(AssetUnits(asset.asset_id, int(balance)))
             cursor += 1
+        for position in entry.positions:
+            require_code_hash(results[cursor], position.position_manager_runtime_keccak)
+            cursor += 1
+            owner = normalize_address(cast(str, _abi(["address"], _text(results[cursor]))[0]))
+            cursor += 1
+            units.append(AssetUnits(position.asset_id, 1 if owner == entry.account else 0))
         feeds: list[FeedAnswer] = []
         for asset in entry.assets:
             require_code_hash(results[cursor], asset.feed.runtime_keccak)
@@ -252,6 +272,12 @@ def _collect_one(
         transport.request("eth_call", [{"to": asset.address, "data": DECIMALS_SELECTOR}, pin])
         transport.request(
             "eth_call", [{"to": asset.address, "data": balance_of_data(entry.account)}, pin]
+        )
+    for position in entry.positions:
+        transport.request("eth_getCode", [position.position_manager, pin])
+        transport.request(
+            "eth_call",
+            [{"to": position.position_manager, "data": owner_of_data(position.token_id)}, pin],
         )
     for asset in entry.assets:
         transport.request("eth_getCode", [asset.feed.address, pin])
@@ -354,6 +380,7 @@ __all__ = [
     "FeedAnswer",
     "balance_of_data",
     "collect_account_inventory_quorum",
+    "owner_of_data",
     "persist_account_inventory_evidence",
     "replay_account_inventory_evidence",
 ]

@@ -1,8 +1,11 @@
 """Per-asset movement and non-trading-flow attribution between two pinned frames.
 
 Balance deltas come from two agreeing inventory providers. ERC-20 deltas are
-additionally explained from complete, two-provider `Transfer` logs; the native
-delta is only explained by an explicit retained gas/transfer attestation.
+additionally explained from complete, two-provider `Transfer` logs; a declared LP
+position is explained from the four-topic ERC-721 `Transfer` logs of its own token
+id, where a mint from or a burn to the zero address is a legitimate movement of
+one unit. The native delta is only explained by an explicit retained gas/transfer
+attestation.
 
 `non_trading_flow_usd_micros` is what the risk ledger needs: the value of the
 flow that explains a NAV change without being a trading result. Every
@@ -21,7 +24,7 @@ between monitored accounts as a loss. No pricing, signing or execution.
 import re
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import cast
 
 from eth_hash.auto import keccak
@@ -61,9 +64,19 @@ def _topic_word(address: str) -> str:
     return "0x" + address[2:].rjust(64, "0")
 
 
+def _topic_token(token_id: int) -> str:
+    return "0x" + f"{token_id:064x}"
+
+
 @dataclass(frozen=True, slots=True)
 class TransferLog:
-    """One finalized ERC-20 `Transfer` touching the reconciled account."""
+    """One finalized `Transfer` touching the reconciled account.
+
+    An ERC-20 log carries three topics and its amount in `data`, so both sides
+    must be real addresses. An ERC-721 log carries the token id as a fourth
+    topic, has no data, and moves exactly one unit of its position asset; its
+    mint and burn sides are the zero address.
+    """
 
     token: str
     from_address: str
@@ -72,13 +85,16 @@ class TransferLog:
     block_number: int
     log_index: int
     transaction_hash: str
+    token_id: int | None = None
 
     def __post_init__(self) -> None:
         for name in ("token", "from_address", "to_address"):
             address = normalize_address(getattr(self, name))
-            if int(address, 16) == 0:
+            if int(address, 16) == 0 and (name == "token" or self.token_id is None):
                 raise ValueError(f"transfer {name} must be nonzero")
             object.__setattr__(self, name, address)
+        if self.token_id is not None and self.units != 1:
+            raise ValueError("an ERC-721 transfer moves exactly one position unit")
         if self.from_address == self.to_address:
             raise ValueError("self transfers are not attributable")
         if type(self.units) is not int or not 0 <= self.units < 2**256:
@@ -96,20 +112,30 @@ class TransferLog:
         return (self.block_number, self.log_index, self.transaction_hash)
 
 
-def _log_from_result(value: object, *, token: str) -> TransferLog:
+def _log_from_result(value: object, *, token: str, token_id: int | None = None) -> TransferLog:
     if not isinstance(value, dict):
         raise TypeError("transfer log must be an object")
     topics = value.get("topics")
-    if not isinstance(topics, list) or len(topics) != 3:
-        raise ValueError("transfer log must carry exactly three topics")
+    expected_topics = 3 if token_id is None else 4
+    if not isinstance(topics, list) or len(topics) != expected_topics:
+        raise ValueError(f"transfer log must carry exactly {expected_topics} topics")
     if normalize_hex(cast(str, topics[0])) != TRANSFER_TOPIC:
-        raise ValueError("transfer log is not a canonical ERC-20 Transfer")
+        kind = "ERC-20" if token_id is None else "ERC-721"
+        raise ValueError(f"transfer log is not a canonical {kind} Transfer")
     data = value.get("data")
     if not isinstance(data, str):
         raise TypeError("transfer log data must be hex")
     normalized = normalize_hex(data)
-    if len(normalized) != 66:
-        raise ValueError("transfer log value must be one ABI word")
+    if token_id is None:
+        if len(normalized) != 66:
+            raise ValueError("transfer log value must be one ABI word")
+        units = int(normalized, 16)
+    else:
+        if normalized != "0x":
+            raise ValueError("an ERC-721 transfer log must carry no data")
+        if normalize_hex(cast(str, topics[3])) != _topic_token(token_id):
+            raise ValueError("transfer log token id differs from the declared position")
+        units = 1
     address = value.get("address")
     if not isinstance(address, str) or normalize_address(address) != token:
         raise ValueError("transfer log token address mismatch")
@@ -119,22 +145,45 @@ def _log_from_result(value: object, *, token: str) -> TransferLog:
         token,
         _topic_address(topics[1]),
         _topic_address(topics[2]),
-        int(normalized, 16),
+        units,
         rpc_quantity(value.get("blockNumber")),
         rpc_quantity(value.get("logIndex")),
         normalize_hash32(cast(str, value.get("transactionHash")), "transaction hash"),
+        token_id,
     )
 
 
-def _logs_from_result(value: object, *, token: str) -> tuple[TransferLog, ...]:
+def _logs_from_result(
+    value: object, *, token: str, token_id: int | None = None
+) -> tuple[TransferLog, ...]:
     if not isinstance(value, list):
         raise TypeError("eth_getLogs result must be a list")
-    return tuple(_log_from_result(item, token=token) for item in value)
+    return tuple(_log_from_result(item, token=token, token_id=token_id) for item in value)
+
+
+def _log_json(log: TransferLog) -> dict[str, object]:
+    """The persisted ERC-20 shape is unchanged; only a position log adds its id."""
+    data: dict[str, object] = {
+        "token": log.token,
+        "from_address": log.from_address,
+        "to_address": log.to_address,
+        "units": log.units,
+        "block_number": log.block_number,
+        "log_index": log.log_index,
+        "transaction_hash": log.transaction_hash,
+    }
+    if log.token_id is not None:
+        data["token_id"] = log.token_id
+    return data
 
 
 @dataclass(frozen=True, slots=True)
 class FlowScope:
-    """Identity of one attributable ERC-20 movement window (exclusive of start)."""
+    """Identity of one attributable movement window (exclusive of start).
+
+    `token_id` selects the ERC-721 shape: the scope then owns exactly one token
+    of `token` and its movements are single units, not scaled amounts.
+    """
 
     chain_id: int
     account: str
@@ -143,6 +192,7 @@ class FlowScope:
     decimals: int
     start_block: int
     end_block: int
+    token_id: int | None = None
 
     def __post_init__(self) -> None:
         if type(self.chain_id) is not int or self.chain_id <= 0:
@@ -161,6 +211,27 @@ class FlowScope:
             raise ValueError("token flow start block must be nonnegative")
         if type(self.end_block) is not int or self.end_block <= self.start_block:
             raise ValueError("token flow window must span at least one block")
+        if self.token_id is not None:
+            if type(self.token_id) is not int or not 0 < self.token_id < 2**256:
+                raise ValueError("an NFT position flow requires a bounded token id")
+            if self.decimals != 0:
+                raise ValueError("an NFT position flow requires zero decimals")
+
+
+def _scope_json(scope: FlowScope) -> dict[str, object]:
+    """The persisted ERC-20 scope shape is unchanged; a position scope adds its id."""
+    data: dict[str, object] = {
+        "chain_id": scope.chain_id,
+        "account": scope.account,
+        "asset_id": scope.asset_id,
+        "token": scope.token,
+        "decimals": scope.decimals,
+        "start_block": scope.start_block,
+        "end_block": scope.end_block,
+    }
+    if scope.token_id is not None:
+        data["token_id"] = scope.token_id
+    return data
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +252,7 @@ def _expected(scope: FlowScope) -> list[tuple[str, list[object]]]:
         "fromBlock": hex(scope.start_block + 1),
         "toBlock": hex(scope.end_block),
     }
+    owned: list[str] = [] if scope.token_id is None else [_topic_token(scope.token_id)]
     return [
         ("eth_chainId", []),
         (
@@ -189,7 +261,7 @@ def _expected(scope: FlowScope) -> list[tuple[str, list[object]]]:
                 {
                     "address": scope.token,
                     **window,
-                    "topics": [TRANSFER_TOPIC, None, _topic_word(scope.account)],
+                    "topics": [TRANSFER_TOPIC, None, _topic_word(scope.account), *owned],
                 }
             ],
         ),
@@ -199,7 +271,7 @@ def _expected(scope: FlowScope) -> list[tuple[str, list[object]]]:
                 {
                     "address": scope.token,
                     **window,
-                    "topics": [TRANSFER_TOPIC, _topic_word(scope.account), None],
+                    "topics": [TRANSFER_TOPIC, _topic_word(scope.account), None, *owned],
                 }
             ],
         ),
@@ -227,8 +299,8 @@ class TokenFlowCapture:
             {
                 "schema": _SCHEMA,
                 "source": self.source,
-                "scope": asdict(self.scope),
-                "logs": [asdict(log) for log in self.logs],
+                "scope": _scope_json(self.scope),
+                "logs": [_log_json(log) for log in self.logs],
             }
         )
 
@@ -237,8 +309,8 @@ class TokenFlowCapture:
         if rpc_quantity(results[0]) != self.scope.chain_id:
             raise ValueError("token flow provider chain mismatch")
         collected = [
-            *_logs_from_result(results[1], token=self.scope.token),
-            *_logs_from_result(results[2], token=self.scope.token),
+            *_logs_from_result(results[1], token=self.scope.token, token_id=self.scope.token_id),
+            *_logs_from_result(results[2], token=self.scope.token, token_id=self.scope.token_id),
         ]
         if any(
             not self.scope.start_block < log.block_number <= self.scope.end_block
@@ -365,7 +437,7 @@ def replay_token_flow_evidence(
     if (
         set(data) != {"schema", "source", "scope", "logs"}
         or data["schema"] != _SCHEMA
-        or data["scope"] != asdict(scope)
+        or data["scope"] != _scope_json(scope)
     ):
         raise ValueError("token flow evidence does not match the requested scope")
     capture = TokenFlowCapture(

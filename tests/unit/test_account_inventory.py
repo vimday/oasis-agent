@@ -12,13 +12,16 @@ import pytest
 from eth_abi.abi import encode
 from eth_hash.auto import keccak
 
+from oasis_agent.errors import RpcError
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.account_inventory import (
     BALANCE_OF_SELECTOR,
     DECIMALS_SELECTOR,
+    OWNER_OF_SELECTOR,
     balance_of_data,
     collect_account_inventory_quorum,
+    owner_of_data,
     persist_account_inventory_evidence,
     replay_account_inventory_evidence,
 )
@@ -28,6 +31,7 @@ from oasis_agent.risk.portfolio_manifest import (
     ChainInventory,
     ManifestAsset,
     ManifestFeed,
+    ManifestPosition,
 )
 from oasis_agent.rpc.transport import JsonRpcTransport
 
@@ -54,8 +58,32 @@ NATIVE_ANSWER = 240_000_000_000
 TOKEN_ANSWER = 100_000_000
 ROUND_ID = 7
 FEED_MAX_AGE = 300
+WETH = "0x" + "12" * 20
+WETH_CODE = "0x6004"
+WETH_RUNTIME = "0x" + keccak(bytes.fromhex("6004")).hex()
+WETH_DECIMALS = 18
+WETH_UNITS = 2 * 10**18
+WETH_FEED = "0x" + "f3" * 20
+WETH_FEED_CODE = "0x6005"
+WETH_FEED_RUNTIME = "0x" + keccak(bytes.fromhex("6005")).hex()
+WETH_ANSWER = 240_000_000_000
+POSITION_MANAGER = "0x" + "21" * 20
+POSITION_MANAGER_CODE = "0x6006"
+POSITION_MANAGER_RUNTIME = "0x" + keccak(bytes.fromhex("6006")).hex()
+POSITION_ID = 7
+STATE_VIEW = "0x" + "31" * 20
+STATE_VIEW_RUNTIME = "0x" + "df" * 32
+POOL_MANAGER_RUNTIME = "0x" + "e1" * 32
+POOL_ID = "0x" + "3c" * 32
 
-CODES = {TOKEN: TOKEN_CODE, NATIVE_FEED: NATIVE_FEED_CODE, TOKEN_FEED: TOKEN_FEED_CODE}
+CODES = {
+    TOKEN: TOKEN_CODE,
+    NATIVE_FEED: NATIVE_FEED_CODE,
+    TOKEN_FEED: TOKEN_FEED_CODE,
+    WETH: WETH_CODE,
+    WETH_FEED: WETH_FEED_CODE,
+    POSITION_MANAGER: POSITION_MANAGER_CODE,
+}
 
 
 @dataclass
@@ -73,6 +101,11 @@ class Fixture:
     token_code: str = TOKEN_CODE
     feed_updated_at: int = TIMESTAMP - 10
     token_feed_description: str = "USDC / USD"
+    weth_units: int = WETH_UNITS
+    weth_decimals: int = WETH_DECIMALS
+    position_owner: str = ACCOUNT
+    position_manager_code: str = POSITION_MANAGER_CODE
+    burns_position: bool = False
     flip_closing_header: bool = False
     methods: list[str] = field(default_factory=list)
     block_calls: int = 0
@@ -81,6 +114,18 @@ class Fixture:
         request = json.loads(payload)
         method, params = request["method"], request["params"]
         self.methods.append(method)
+        if self.burns_position and method == "eth_call":
+            call = params[0]
+            if isinstance(call, dict) and call.get("data") == owner_of_data(POSITION_ID):
+                # A burned position reverts instead of reporting a zero owner, so
+                # the capture must refuse rather than turn absence into zero units.
+                return canonical_json(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": request["id"],
+                        "error": {"code": 3, "message": "execution reverted"},
+                    }
+                )
         result = self._result(method, params)
         return canonical_json({"jsonrpc": "2.0", "id": request["id"], "result": result})
 
@@ -101,7 +146,11 @@ class Fixture:
         if method == "eth_getCode":
             address = params[0]
             assert isinstance(address, str)
-            return self.token_code if address == TOKEN else CODES[address]
+            if address == TOKEN:
+                return self.token_code
+            if address == POSITION_MANAGER:
+                return self.position_manager_code
+            return CODES[address]
         if method == "eth_call":
             return self._call(params)
         raise AssertionError(method)
@@ -116,6 +165,14 @@ class Fixture:
                 return "0x" + encode(["uint8"], [self.token_decimals]).hex()
             if data == balance_of_data(ACCOUNT):
                 return "0x" + encode(["uint256"], [self.token_units]).hex()
+        elif address == WETH:
+            if data == DECIMALS_SELECTOR:
+                return "0x" + encode(["uint8"], [self.weth_decimals]).hex()
+            if data == balance_of_data(ACCOUNT):
+                return "0x" + encode(["uint256"], [self.weth_units]).hex()
+        elif address == POSITION_MANAGER:
+            assert data == owner_of_data(POSITION_ID)
+            return "0x" + encode(["address"], [self.position_owner]).hex()
         else:
             return self._feed(address, data)
         raise AssertionError(data)
@@ -124,13 +181,17 @@ class Fixture:
         if data == selector("decimals()"):
             return "0x" + encode(["uint8"], [8]).hex()
         if data == selector("description()"):
-            description = "ETH / USD" if address == NATIVE_FEED else self.token_feed_description
-            return "0x" + encode(["string"], [description]).hex()
+            descriptions = {
+                NATIVE_FEED: "ETH / USD",
+                TOKEN_FEED: self.token_feed_description,
+                WETH_FEED: "WETH / USD",
+            }
+            return "0x" + encode(["string"], [descriptions[address]]).hex()
         if data == selector("latestRoundData()"):
-            answer = NATIVE_ANSWER if address == NATIVE_FEED else TOKEN_ANSWER
+            answers = {NATIVE_FEED: NATIVE_ANSWER, TOKEN_FEED: TOKEN_ANSWER, WETH_FEED: WETH_ANSWER}
             values = [
                 ROUND_ID,
-                answer,
+                answers[address],
                 self.feed_updated_at - 10,
                 self.feed_updated_at,
                 ROUND_ID,
@@ -148,41 +209,77 @@ def session(source: str, fixture: Fixture | None = None) -> tuple:
     )
 
 
-def entry(*, account: str = ACCOUNT, chain_id: int = CHAIN_ID) -> ChainInventory:
+def entry(*, account: str = ACCOUNT, chain_id: int = CHAIN_ID, positions=()) -> ChainInventory:
+    assets = (
+        ManifestAsset(
+            asset_id="native",
+            address=ZERO_ADDRESS,
+            decimals=18,
+            runtime_keccak=None,
+            role="cash",
+            feed=ManifestFeed(
+                address=NATIVE_FEED,
+                description="ETH / USD",
+                runtime_keccak=NATIVE_FEED_RUNTIME,
+                max_age_seconds=FEED_MAX_AGE,
+            ),
+        ),
+        ManifestAsset(
+            asset_id="usdc",
+            address=TOKEN,
+            decimals=TOKEN_DECIMALS,
+            runtime_keccak=TOKEN_RUNTIME,
+            role="cash",
+            feed=ManifestFeed(
+                address=TOKEN_FEED,
+                description="USDC / USD",
+                runtime_keccak=TOKEN_FEED_RUNTIME,
+                max_age_seconds=FEED_MAX_AGE,
+            ),
+        ),
+    )
+    if positions:
+        assets = (
+            *assets,
+            ManifestAsset(
+                asset_id="weth",
+                address=WETH,
+                decimals=WETH_DECIMALS,
+                runtime_keccak=WETH_RUNTIME,
+                role="cash",
+                feed=ManifestFeed(
+                    address=WETH_FEED,
+                    description="WETH / USD",
+                    runtime_keccak=WETH_FEED_RUNTIME,
+                    max_age_seconds=FEED_MAX_AGE,
+                ),
+            ),
+        )
     return ChainInventory(
         chain_id=chain_id,
         account=account,
         primary_source="rpc_a",
         secondary_source="rpc_b",
-        assets=(
-            ManifestAsset(
-                asset_id="native",
-                address=ZERO_ADDRESS,
-                decimals=18,
-                runtime_keccak=None,
-                role="cash",
-                feed=ManifestFeed(
-                    address=NATIVE_FEED,
-                    description="ETH / USD",
-                    runtime_keccak=NATIVE_FEED_RUNTIME,
-                    max_age_seconds=FEED_MAX_AGE,
-                ),
-            ),
-            ManifestAsset(
-                asset_id="usdc",
-                address=TOKEN,
-                decimals=TOKEN_DECIMALS,
-                runtime_keccak=TOKEN_RUNTIME,
-                role="cash",
-                feed=ManifestFeed(
-                    address=TOKEN_FEED,
-                    description="USDC / USD",
-                    runtime_keccak=TOKEN_FEED_RUNTIME,
-                    max_age_seconds=FEED_MAX_AGE,
-                ),
-            ),
-        ),
+        assets=assets,
+        positions=positions,
     )
+
+
+def position(**overrides: object) -> ManifestPosition:
+    options: dict[str, object] = {
+        "asset_id": "lp-position",
+        "position_manager": POSITION_MANAGER,
+        "position_manager_runtime_keccak": POSITION_MANAGER_RUNTIME,
+        "token_id": POSITION_ID,
+        "pool_id": POOL_ID,
+        "state_view": STATE_VIEW,
+        "state_view_runtime_keccak": STATE_VIEW_RUNTIME,
+        "pool_manager_runtime_keccak": POOL_MANAGER_RUNTIME,
+        "currency0_id": "usdc",
+        "currency1_id": "weth",
+    }
+    options.update(overrides)
+    return ManifestPosition(**options)  # type: ignore[arg-type]
 
 
 def quorum(left: Fixture | None = None, right: Fixture | None = None, **kwargs: object):
@@ -313,3 +410,61 @@ def test_replace_keeps_a_fresh_reference_provider() -> None:
     first = Fixture()
     second = replace(first, methods=[], block_calls=0)
     assert first.methods is not second.methods
+
+
+def test_a_declared_position_is_owned_exactly_when_owner_of_names_the_account(tmp_path) -> None:
+    """Ownership is captured, not assumed: another owner means zero units."""
+    declared = position()
+    held = quorum(None, None, positions=(declared,))
+    assert [(unit.asset_id, unit.units) for unit in held.units] == [
+        ("native", NATIVE_UNITS),
+        ("usdc", TOKEN_UNITS),
+        ("weth", WETH_UNITS),
+        ("lp-position", 1),
+    ]
+    not_held = quorum(
+        Fixture(position_owner=OTHER_ACCOUNT),
+        Fixture(position_owner=OTHER_ACCOUNT),
+        positions=(declared,),
+    )
+    assert not_held.units[-1] == not_held.left.units[-1]
+    assert not_held.units[-1].asset_id == "lp-position"
+    assert not_held.units[-1].units == 0
+    store = EvidenceStore(tmp_path / "position.db")
+    try:
+        references = persist_account_inventory_evidence(store, held)
+        declared_entry = entry(positions=(declared,))
+        for reference, capture in zip(references, (held.left, held.right), strict=True):
+            replayed = replay_account_inventory_evidence(store, reference, entry=declared_entry)
+            assert replayed == capture
+    finally:
+        store.close()
+
+
+def test_providers_must_agree_on_position_ownership() -> None:
+    declared = position()
+    with pytest.raises(ValueError, match="disagree on balances or valuations"):
+        quorum(
+            Fixture(),
+            Fixture(position_owner=OTHER_ACCOUNT),
+            positions=(declared,),
+        )
+
+
+def test_a_position_manager_runtime_hash_mismatch_is_rejected() -> None:
+    with pytest.raises(ValueError, match="runtime hash mismatch"):
+        quorum(None, Fixture(position_manager_code="0x6009"), positions=(position(),))
+
+
+def test_a_burned_position_is_refused_rather_than_counted_as_zero() -> None:
+    """A reverting `ownerOf` is an error result, so the whole capture fails closed."""
+    with pytest.raises(RpcError, match="execution reverted"):
+        quorum(Fixture(burns_position=True), None, positions=(position(),))
+
+
+def test_owner_of_calldata_is_canonical() -> None:
+    assert owner_of_data(POSITION_ID) == OWNER_OF_SELECTOR + f"{POSITION_ID:064x}"
+    assert len(owner_of_data(POSITION_ID)) == 74
+    for invalid in (0, -1, 2**256, True, 1.0):
+        with pytest.raises(ValueError, match="bounded unsigned integer"):
+            owner_of_data(invalid)  # type: ignore[arg-type]
