@@ -246,9 +246,50 @@ Every check precedes the first write, so a refused declaration leaves no partial
 behind. The returned cycle is exactly what `LpShadowService.consume` validates.
 
 This is not execution authority and not an economic result. The declared terms are unevaluated
-hypotheses, `reference_price_x192` still needs an independent derivation, the account-level inputs of
-step 3 are supplied by the caller rather than captured here, no cycle has been produced against a
-funded account or a real market window, and `execution_eligible` stays False throughout.
+hypotheses, the account-level inputs of step 3 arrive as caller-supplied agreed values (bound, not
+captured, by this module—see the next section), no cycle has been produced against a funded account
+or a real market window, and `execution_eligible` stays False throughout.
+
+## LP cycle inventory and operator assembly (2026-09-25)
+
+Three gaps stood between the producer above and a runnable live path, and all three closed without
+adding any economic assumption.
+
+**The producer's bytes and the consumer's digest could drift.** `agreed_value_payload(name, value,
+block)` now holds the one wire definition of an agreed integer; `agreed_value_content_hash` hashes it
+and the shadow's own digest is unaffected. `serialize_cycle(cycle)` in `shadow/service.py` is the
+producer-side JSONL serializer, and `consume_once` computes its idempotency digest from exactly those
+bytes, so an appended line and the duplicate-detection fingerprint are one definition. The existing
+round-trip test now asserts `serialize_cycle(cycle) == canonical_json(serializable(cycle))` and that
+`LpCycle.from_json` inverts it.
+
+**Step 3's account-level inputs were caller-asserted.** `execution/lp_position_inventory.py` derives
+the declared position's `inventory0`/`inventory1` at the decision block from evidence instead:
+`agreed_position_inventory(store, window, position_references, scope=...)` replays both retained
+position snapshots, requires a quorum, requires both captures to end at the window's decision block
+and to be exactly the window's own two providers, recomputes principal plus uncollected fees with
+`position_inventory`, and retains one `kind = "derived_position_integer"` record per provider. Each
+record borrows that provider's original position wire envelope as its request/raw payload, and its
+interpretation names `bytes_kind`, the `parents`, the pool id and `execution_eligible: False`. Every
+check precedes the first write, so a scope mismatch or a provider disagreement retains nothing.
+
+**The reference price was asserted rather than read.** `replay_agreed_integer(store, references,
+name=..., block=...)` in `execution/lp_cycle_assembly.py` rebuilds an `AgreedInteger` from its
+retained records alone: the payload's field set, schema, name, pinned block and value must all agree
+and both providers must carry the same interpretation. A fabricated or stretched reference fails
+closed. This makes the retained value the authority; it does not invent the reference's source.
+
+`scripts/assemble_lp_cycle.py` is the operator step that composes these: it re-derives the market
+window, derives the inventories, replays the reference price, calls `build_lp_cycle` and appends one
+`serialize_cycle` line. It takes a request JSON, a declaration JSON, an existing evidence database and
+an output path; every failure exits 1 without appending, and no code path here holds a key, signs or
+broadcasts.
+
+The independent source of `reference_price_x192` is still an owner research decision, not an
+implementation detail: whether it comes from a USD feed ratio, the pool's own TWAP or another
+independent reference, and what staleness/confidence bounds apply, is the experiment hypothesis the
+blueprint requires the owner to lock. No cycle has yet been produced against a funded account or a
+live market window, and `execution_eligible` remains False.
 
 ## Verification completed 2026-09-12
 

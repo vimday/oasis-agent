@@ -112,9 +112,18 @@ autonomous trader. Its current verified boundary is:
   inputs to be two-provider agreed values at the decision block from that window's own providers,
   derives volatility/toxicity/marginal value from the verified feature window (a declaration can
   never override them), and retains the operator's declaration as its own block-pinned record, so
-  every check precedes the first write. Its candidate terms, thresholds and `pin_simulated_ok` are
+  every check precedes the first write. `execution/lp_position_inventory.py` derives a declared
+  position's own decision-block token amounts from two agreeing retained position proofs and the
+  window's own agreed pool price (principal plus reported uncollected fees, retained as
+  `derived_position_integer` records that borrow each provider's own wire envelope), and
+  `replay_agreed_integer()` reads a declared reference price out of its retained records rather than
+  taking it from the caller; `scripts/assemble_lp_cycle.py` is the operator step that rebuilds the
+  window, derives that inventory and appends one cycle line, appending nothing when any check
+  refuses. Its candidate terms, thresholds and `pin_simulated_ok` are
   explicit operator declarations, not an estimated edge: the fee/LVR/inventory model is still
-  unlocked, nothing is wired to a funded account, and a sustained strategy observation window across
+  unlocked, the independent reference-price source is still an owner research decision, no cycle has
+  been produced against a funded account or a live market window, and a sustained strategy
+  observation window across
   real markets remains required;
 - Bounded pool-state observation now has persistent RPC budgets, raw two-provider market-window
   replay, mature/deferred sample handling, and hash-linked checkpoint recovery (at most 1000 windows).

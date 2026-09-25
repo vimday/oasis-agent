@@ -56,7 +56,7 @@ from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
 from ..models.position_scope import LpPositionScope
 from ..models.v4 import SwapDirection
-from ..shadow.features import AgreedInteger, produce_pool_state
+from ..shadow.features import AGREED_INTEGER_SCHEMA, AgreedInteger, produce_pool_state
 from ..shadow.market_window import MarketWindow
 from ..shadow.pool_state_capture import (
     Slot0WindowCapture,
@@ -356,6 +356,61 @@ def _record(store: EvidenceStore, reference: EvidenceRef) -> EvidenceRecord:
         raise ValueError("a referenced evidence record is not retained") from error
 
 
+_AGREED_FIELDS: Final[frozenset[str]] = frozenset({"schema", "name", "value", "block"})
+
+
+def replay_agreed_integer(
+    store: EvidenceStore,
+    references: tuple[EvidenceRef, EvidenceRef],
+    *,
+    name: str,
+    block: BlockRef,
+) -> AgreedInteger:
+    """Rebuild one declared two-provider agreed value from its retained records.
+
+    The reference price is the one input this assembler cannot derive: which
+    independent source prices the pool is a research decision the owner makes, so
+    the operator points at that source's retained evidence instead of this code
+    inventing one. The value is then read out of the evidence rather than supplied
+    beside it, and ``AgreedInteger`` re-derives the content hash, so a payload that
+    does not carry the claimed role, block or value cannot pass.
+    """
+    if not isinstance(store, EvidenceStore):
+        raise TypeError("an evidence store is required")
+    if not isinstance(name, str) or not name.strip():
+        raise ValueError("an agreed value name is required")
+    if not isinstance(block, BlockRef):
+        raise TypeError("a block reference is required")
+    if (
+        not isinstance(references, tuple)
+        or len(references) != 2
+        or not all(isinstance(item, EvidenceRef) for item in references)
+        or references[0].source == references[1].source
+    ):
+        raise ValueError("two distinct evidence providers are required")
+    values: list[int] = []
+    for reference in references:
+        record = _record(store, reference)
+        payload = strict_object(
+            json.loads(record.payload, object_pairs_hook=_unique_object), "agreed value"
+        )
+        if set(payload) != _AGREED_FIELDS:
+            raise ValueError("agreed value payload has invalid fields")
+        if payload["schema"] != AGREED_INTEGER_SCHEMA:
+            raise ValueError("agreed value payload has an unsupported schema")
+        if strict_string(payload["name"], "name") != name:
+            raise ValueError("agreed value payload is named for another role")
+        declared_block = strict_object(payload["block"], "block")
+        if set(declared_block) != {"chain_id", "number", "block_hash", "timestamp"}:
+            raise ValueError("agreed value payload block has invalid fields")
+        if BlockRef(**declared_block) != block:  # type: ignore[arg-type]
+            raise ValueError("agreed value payload is not the pinned decision block")
+        values.append(strict_integer(payload["value"], "value"))
+    if len(set(values)) != 1:
+        raise ValueError("agreed value providers disagree on the value")
+    return AgreedInteger(name, values[0], block, references)
+
+
 def _wire_bytes(store: EvidenceStore, reference: EvidenceRef) -> tuple[bytes, bytes]:
     """The retained wire request and response a derived record borrows.
 
@@ -622,4 +677,5 @@ __all__ = [
     "LpCycleDeclaration",
     "build_lp_cycle",
     "parse_lp_cycle_declaration",
+    "replay_agreed_integer",
 ]
