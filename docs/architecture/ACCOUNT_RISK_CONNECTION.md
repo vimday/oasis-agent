@@ -369,7 +369,8 @@ The bounds are literal, and each one fails closed:
   retained ledger state and report;
 - native movement is an operator declaration. An undeclared native change stays unresolved and blocks
   the frame, so gas spent by an earlier signed transaction must be declared explicitly before the next
-  request can be admitted;
+  request can be admitted; the receipt producer below derives exactly that one quantity from the
+  transaction's own receipt;
 - a declared position must already exist and be owned at the reconciled block. The reference
   deployment therefore mints the first canary position out of band, declares it in the manifest, and
   only then opens the admission ledger; starting the ledger afterwards is what keeps its day and
@@ -379,6 +380,56 @@ The last point is the honest cost of a fail-closed design: the ledger's loss onl
 frames it observes, so an account funded after the ledger opens would show its deposit as an
 unexplained movement instead of an inception NAV. Nothing in this path schedules itself, broadcasts a
 signed transaction, or records a receipt; the admission it consumes reserves no capital.
+
+### From a confirmed receipt to the next native declaration (2026-09-25)
+
+The one quantity an operator still had to type by hand is now derived from the chain. The close is
+deliberately narrow: it reads a receipt, it never writes one, and it holds no key.
+
+- `execution/lp_broadcast.py` is the only place in the repository that may put a signed transaction on
+  chain. It decodes one EIP-1559 envelope, requires every field to equal the sidecar request that
+  produced it, applies the operator's own chain, target, fee and value allowlists, pins the endpoint's
+  chain id and submits exactly once. Its append-only, hash-linked journal records request hash,
+  transaction hash, recovered signer, outcome and reasons — never raw bytes, a signature or a key —
+  and a broadcast whose result is unknown is journaled `unresolved` and never retried, because a
+  transaction that may have landed must not be replayed blindly. `request_hash()` reports which
+  admitted request a journaled transaction belongs to, so a later receipt can be attributed to its
+  request without reopening the journal's own conclusion.
+- `execution/lp_receipts.py` is the producer. `observe_receipt()` takes a transaction the operator's
+  broadcast journal already sent, locates its block *from the receipt itself*, pins that height and
+  hash, and reconstructs the whole native cost of that transaction at two independent providers
+  through `farming/transaction_costs.py`: execution gas, plus the OP L1 fee and the pinned on-chain
+  operator fee, the Nitro `gasUsedForL1` share, or Ethereum blob gas. The block is not an operator
+  input on purpose — a declared height could disagree with the receipt that is supposed to be inside
+  it. Both captures share the one pin, so a provider that does not see that block fails closed with
+  `cost block changed`, and only exact agreement on payer, status and every cost component becomes an
+  observation. Nothing is retained until every check has passed, so a refused receipt leaves no
+  partial evidence.
+- `gas_declarations()` turns observations into the declaration file the reconciliation observer
+  consumes: one entry per manifest account, covering exactly the manifest's accounts, with the summed
+  gas of the named transactions and non-gas movement always zero. Non-gas native movement is never
+  derived — an account that also sent native value keeps its unexplained residual and its next frame
+  is refused, rather than having that outflow reported as gas.
+- `scripts/run_lp_receipts.py` is the operator entry point, run from the repository root as
+  `python -m scripts.run_lp_receipts`. Every named transaction must already appear in the operator's
+  broadcast journal, so a declaration can only ever describe a transaction this system signed and
+  sent. Each one is read at its own receipt's block, and every open broadcast among them is closed
+  from that same observed receipt. Exit codes: `0` declarations written, `2` a receipt was refused or
+  unreadable, `1` invalid configuration.
+
+```bash
+python -m scripts.run_lp_receipts \
+  --manifest configs/account-risk.<chain>.json --policy out/broadcast-policy.json \
+  --journal out/broadcast.db --transaction <chain>:<transaction_hash> \
+  --output out/receipts --rpc <chain>:<PRIMARY_ENV>:<SECONDARY_ENV>
+python -m scripts.run_account_risk_reconcile ... --native out/receipts/declarations.json
+```
+
+`--output` is a directory that must not exist. It retains `declarations.json`, `evidence.db` with the
+two providers' exact cost wire bytes, and a `report.json` naming each receipt's request hash, block,
+payer, status and evidence hashes — always with `execution_eligible: false`. When a receipt is
+refused the directory keeps only a redacted `report.json`: no declaration is written, and the endpoint
+values a provider error might echo are never persisted.
 
 ## Unresolved
 
@@ -407,7 +458,9 @@ signed transaction, or records a receipt; the admission it consumes reserves no 
 - The loop declares no native movement, so an account that spends gas or sends native value between
   two runs produces an unresolved residual and the frame is refused rather than under-reported. The
   window therefore fits a funded but idle account, and an active canary account would need per-interval
-  operator declarations the loop does not collect.
+  declarations the loop does not collect — `scripts/run_lp_receipts.py` can now produce them for
+  transactions this system sent, but the shadow loop has no flag to consume them and would still be
+  refused by an unaccounted native transfer.
 - Admission is consumed by exactly one path, and only when an operator configures it: a signing
   authority plus a risk manifest now requires an admitted window, but a window read by this path is
   still an operator record, so an operator who fabricates a consistent window can satisfy it. The
@@ -426,10 +479,21 @@ signed transaction, or records a receipt; the admission it consumes reserves no 
   sidecar's `--risk-*` wiring are covered by two-provider fixtures and an in-process end-to-end signing
   test, not by a funded canary request; the one live observation so far is the observe-only shadow
   window above, which uses a different entry point.
-- No producer turns a confirmed receipt into the next native declaration. `execution/lp_broadcast.py`
-  closes one open broadcast from an observed receipt status and block number only — it records no
-  `gasUsed` — so the gas an admitted request actually spends is not fed back as the `gas_units` the
-  next admission needs; until that exists, an operator must declare it by hand.
+- The receipt producer closes one loop, not the whole one, and nothing schedules it. It derives only
+  `gas_units`: non-gas native movement is never derived from a receipt, so an account that also sent
+  native value still needs an operator declaration and its next frame is refused until it has one.
+  `gas_units` also counts every named transaction as gas, which is only sound because a broadcast this
+  system sent is an executor call with no native value; a native transfer through the same account
+  would be reported as gas rather than refused, and no code prevents an operator from naming such a
+  transaction. An operator must run the producer for the transactions in question and then pass its
+  output to the observer's `--native`; no component does either on its own, and the declaration is
+  never written into the risk journal.
+- The receipt's block is a provider claim, not a finalized header: the producer pins the height and
+  hash two providers agree on and retains them, but nothing proves the block survived a reorg, and a
+  reorged-out receipt would still be declared. The cost of a reverted transaction is declared too,
+  which is correct — the gas was spent — but that means a canary can accumulate a continued native
+  drawdown with no accepted position to show for it, and only the per-run reconciliation is expected
+  to notice.
 - The signer CLI loads a reader or a guard only when an operator supplies the `--risk-*` flags, and it
   admits a canary only when that operator also supplies an admitted shadow window; with neither it
   denies every attempt. The live path has no default configuration, and wiring a production reader

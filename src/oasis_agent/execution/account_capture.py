@@ -46,6 +46,35 @@ from .account_risk_reader import AccountObservation, AssetFlowEvidence, Position
 type SessionPairFactory = Callable[[tuple[str, str]], tuple[RecordedSession, RecordedSession]]
 """Builds one fresh one-shot session per provider alias, in the given order."""
 
+type SessionFactory = Callable[[str], RecordedSession]
+"""Builds one fresh one-shot session for one provider alias."""
+
+
+def one_shot_session(
+    source: str,
+    *,
+    urls: Mapping[str, str],
+    policies: tuple[BudgetPolicy, ...],
+    budget: Path,
+) -> RecordedSession:
+    """One fresh session for one declared provider, sharing the caller's budget ledger.
+
+    An exact capture may not reuse a recorder, so a new transport and a new recorder
+    are built for every call: a caller that needs a lookup before the capture itself
+    (locating a receipt's block, for example) must not spend the capture's own session.
+    """
+    recorder = BoundedExchangeRecorder()
+    return (
+        JsonRpcTransport(
+            "https://unused.invalid",
+            http=BudgetedPoster(_UrlLibPoster(urls[source], 15), budget, policies, source),
+            retries=0,
+            recorder=recorder,
+        ),
+        recorder,
+        source,
+    )
+
 
 def one_shot_sessions(
     sources: tuple[str, str],
@@ -54,27 +83,11 @@ def one_shot_sessions(
     policies: tuple[BudgetPolicy, ...],
     budget: Path,
 ) -> tuple[RecordedSession, RecordedSession]:
-    """One fresh session per declared provider, sharing the caller's budget ledger.
-
-    An exact capture may not reuse a recorder, so a new transport and a new
-    recorder are built for every pair and every call.
-    """
-    sessions: list[RecordedSession] = []
-    for source in sources:
-        recorder = BoundedExchangeRecorder()
-        sessions.append(
-            (
-                JsonRpcTransport(
-                    "https://unused.invalid",
-                    http=BudgetedPoster(_UrlLibPoster(urls[source], 15), budget, policies, source),
-                    retries=0,
-                    recorder=recorder,
-                ),
-                recorder,
-                source,
-            )
-        )
-    pair = (sessions[0], sessions[1])
+    """One fresh session per declared provider, validated as a distinct pair."""
+    pair = (
+        one_shot_session(sources[0], urls=urls, policies=policies, budget=budget),
+        one_shot_session(sources[1], urls=urls, policies=policies, budget=budget),
+    )
     validate_session_pair(*pair)
     return pair
 
@@ -209,10 +222,12 @@ def capture_observation(
 
 
 __all__ = [
+    "SessionFactory",
     "SessionPairFactory",
     "capture_flows",
     "capture_inventory",
     "capture_observation",
     "capture_positions",
+    "one_shot_session",
     "one_shot_sessions",
 ]

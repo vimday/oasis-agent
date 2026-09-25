@@ -626,7 +626,7 @@ class LpBroadcastJournal:
         if type(block_number) is not int or block_number < 0:
             raise ValueError("resolution block number must be a nonnegative integer")
         self.append(
-            request_hash=self._request_hash(transaction_hash),
+            request_hash=self.request_hash(transaction_hash),
             transaction_hash=normalize_hash32(transaction_hash, "transaction hash"),
             outcome="resolved",
             reasons=(),
@@ -634,7 +634,13 @@ class LpBroadcastJournal:
             block_number=block_number,
         )
 
-    def _request_hash(self, transaction_hash: str) -> str:
+    def request_hash(self, transaction_hash: str) -> str:
+        """The admitted request a journaled transaction belongs to, resolved or not.
+
+        Exposed so a later observation of the same transaction — a receipt, for
+        instance — can be reported against the request that produced it, without
+        reopening or trusting anything the journal recorded about the outcome.
+        """
         requested = normalize_hash32(transaction_hash, "transaction hash")
         for (payload,) in self.db.execute("SELECT payload FROM events ORDER BY seq"):
             data = json.loads(payload)

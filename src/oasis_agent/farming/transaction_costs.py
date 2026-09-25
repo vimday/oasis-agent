@@ -52,6 +52,40 @@ class TransactionCost:
     native_decimals: int = 18
 
 
+def transaction_cost_head(block: BlockRef, transaction_hash: str) -> list[tuple[str, list[object]]]:
+    """The exact pre-receipt requests: chain, pinned header, then the receipt itself."""
+    return [
+        ("eth_chainId", []),
+        ("eth_getBlockByNumber", [hex(block.number), False]),
+        ("eth_getTransactionReceipt", [transaction_hash]),
+    ]
+
+
+def transaction_cost_tail(block: BlockRef, *, gas: int) -> list[tuple[str, list[object]]]:
+    """The exact post-receipt requests, ending in a second read of the same header.
+
+    The OP family adds a pinned oracle-code read and the versioned on-chain operator
+    fee for *this* transaction's gas, so a tail cannot be built before the receipt has
+    been read. A writer and the verifier share this one definition on purpose: a gate
+    whose own requests differ from the ones it checks is not checking what it sent.
+    """
+    family = FAMILIES.get(block.chain_id)
+    if family is None:
+        raise ValueError("unknown chain cost policy")
+    pin = {"blockHash": block.block_hash, "requireCanonical": True}
+    tail: list[tuple[str, list[object]]] = []
+    if family == "op":
+        tail += [
+            ("eth_getCode", [OP_ORACLE, pin]),
+            (
+                "eth_call",
+                [{"to": OP_ORACLE, "data": OP_SELECTOR + encode(["uint256"], [gas]).hex()}, pin],
+            ),
+        ]
+    tail.append(("eth_getBlockByNumber", [hex(block.number), False]))
+    return tail
+
+
 @dataclass(frozen=True, slots=True)
 class TransactionCostCapture:
     header: BlockSnapshot
@@ -82,24 +116,9 @@ class TransactionCostCapture:
         price = rpc_quantity(receipt.get("effectiveGasPrice"))
         if gas >= 1 << 64 or price >= 1 << 256:
             raise ValueError("gas/price width overflow")
-        pin = {"blockHash": b.block_hash, "requireCanonical": True}
-        expected: list[tuple[str, list[object]]] = [
-            ("eth_chainId", []),
-            ("eth_getBlockByNumber", [hex(b.number), False]),
-            ("eth_getTransactionReceipt", [self.transaction_hash]),
-        ]
-        if family == "op":
-            expected += [
-                ("eth_getCode", [OP_ORACLE, pin]),
-                (
-                    "eth_call",
-                    [
-                        {"to": OP_ORACLE, "data": OP_SELECTOR + encode(["uint256"], [gas]).hex()},
-                        pin,
-                    ],
-                ),
-            ]
-        expected += [("eth_getBlockByNumber", [hex(b.number), False])]
+        expected = transaction_cost_head(b, self.transaction_hash) + transaction_cost_tail(
+            b, gas=gas
+        )
         results = []
         ids = set()
         for x, (m, p) in zip(self.exchanges, expected, strict=True):

@@ -154,6 +154,28 @@ autonomous trader. Its current verified boundary is:
   stays unresolved. The CLI still never broadcasts and a produced signature is not an execution
   permit. Default shadow children receive a minimal
   environment, which is not OS-level isolation from wallet files;
+- `execution/lp_broadcast.py` is the only place that may put an already-signed transaction on chain:
+  it decodes one EIP-1559 envelope, requires every field to equal the sidecar request that produced
+  it, applies the operator's own chain/target/fee/value allowlists, pins the endpoint chain id and
+  submits once, journaling request/transaction hashes, the recovered signer, outcomes and reasons in
+  an append-only hash-linked SQLite ledger that never contains raw bytes, a signature or a key; an
+  unknown result is journaled `unresolved` and never retried. `execution/lp_receipts.py` is the
+  producer that closes the loop the ledger left open: `observe_receipt()` reads a journaled
+  transaction's receipt from two independent providers at the block the receipt itself names (never an
+  operator-supplied height), reconstructs the transaction's whole native cost through
+  `farming/transaction_costs.py` (execution gas plus OP L1/operator or Nitro `gasUsedForL1` or
+  Ethereum blob gas), and refuses a missing receipt, a provider that does not see that block, any
+  disagreement on payer/status/cost, a payer that is not the reconciled account and a native asset
+  whose decimals differ from the cost policy, retaining nothing until every check passes.
+  `gas_declarations()` then emits the `--native` file the reconciliation observer consumes, summing
+  per manifest account and never deriving non-gas native movement.
+  `scripts/run_lp_receipts.py` (run as `python -m scripts.run_lp_receipts`) requires every named
+  transaction to already appear in the operator's broadcast journal, closes each open broadcast from
+  that same observed receipt, and writes `declarations.json`, cost `evidence.db` and a
+  `report.json` that always carries `execution_eligible: false`; a refused receipt leaves only a
+  redacted report. Nothing here signs, holds a key or schedules itself, the shadow loop does not
+  consume its declarations, and an account that also sends native value still keeps an unexplained
+  residual that refuses its next frame;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
   agreement, and precommitted rejection thresholds; it still needs a production target dataset and
