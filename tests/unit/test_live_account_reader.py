@@ -7,10 +7,12 @@ call, an inception baseline that refuses a native declaration, a capture that mu
 advance the lineage, a request whose block the capture does not match, a
 multi-chain manifest that one block cannot reconcile, and native declarations
 outside the manifest. The last tests wire the real guard and the operator CLI, so
-the boundary is exercised as the sidecar builds it rather than in isolation.
+the boundary is exercised as the sidecar builds it rather than in isolation,
+including the shadow window that a signing authority must present.
 """
 
 import argparse
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -28,6 +30,12 @@ from oasis_agent.execution.lp_signer_sidecar import (
 from oasis_agent.models.common import BlockRef, canonical_json, normalize_address
 from oasis_agent.risk.account_risk import GlobalRiskJournal, PortfolioFrame
 from oasis_agent.risk.portfolio_manifest import PortfolioManifest
+from oasis_agent.risk.shadow_acceptance import (
+    CANARY_WINDOW_REQUIREMENTS,
+    ObservationRun,
+    ShadowRequirements,
+    build_shadow_window,
+)
 from oasis_agent.rpc.budget import BudgetPolicy
 from scripts.run_lp_signer_sidecar import _risk_guard
 from tests.unit.test_account_flows import FlowFixture
@@ -344,9 +352,35 @@ def risk_args(**overrides: object) -> argparse.Namespace:
         "risk_native": None,
         "risk_interval_ms": 3000,
         "risk_max_requests": 256,
+        "canary_window": None,
+        "canary_cap_usd": None,
+        "signer_socket": None,
+        "signer_account": None,
     }
     names.update(overrides)
     return argparse.Namespace(**names)
+
+
+AUTHORITY = FixtureKeyProvider(KEY)
+
+
+def recent_runs(*, age_seconds: int = 120, seconds: int = 60) -> tuple[ObservationRun, ...]:
+    """Three accepted runs spanning the repository minimum, ending `age_seconds` ago."""
+    end = int(time.time()) - age_seconds
+    return tuple(
+        ObservationRun(
+            seq=index + 1,
+            block_number=BLOCK_NUMBER + index,
+            block_hash=BLOCK_HASH,
+            timestamp=end - 2 * seconds + index * seconds,
+            state_digest=f"{index + 1:064x}",
+            report_digest=f"{index + 101:064x}",
+            cumulative_loss_usd_micros=0,
+            unresolved_operations=0,
+            halted=False,
+        )
+        for index in range(3)
+    )
 
 
 def write_manifest(path: Path, declared: PortfolioManifest) -> Path:
@@ -354,20 +388,40 @@ def write_manifest(path: Path, declared: PortfolioManifest) -> Path:
     return path
 
 
+def write_window(
+    path: Path,
+    declared: PortfolioManifest,
+    *,
+    runs: tuple[ObservationRun, ...] | None = None,
+    requirements: ShadowRequirements = CANARY_WINDOW_REQUIREMENTS,
+    manifest_digest: str | None = None,
+) -> Path:
+    window = build_shadow_window(
+        recent_runs() if runs is None else runs,
+        account_key=declared.chains[0].key,
+        manifest_digest=declared.digest if manifest_digest is None else manifest_digest,
+        policy_digest=declared.policy.digest,
+        requirements=requirements,
+    )
+    path.write_bytes(window.payload + b"\n")
+    return path
+
+
 def test_the_cli_needs_nothing_for_admission_and_refuses_half_of_it(tmp_path) -> None:
-    assert _risk_guard(risk_args(), None) is None
+    assert _risk_guard(risk_args(), None, authority=None) is None
     with pytest.raises(ValueError, match="admission options require a risk manifest"):
-        _risk_guard(risk_args(risk_rpc=["4663:rpc_a:rpc_b"]), None)
+        _risk_guard(risk_args(risk_rpc=["4663:rpc_a:rpc_b"]), None, authority=None)
     declared = manifest(InventoryFixture())
     manifest_path = write_manifest(tmp_path / "manifest.json", declared)
     with pytest.raises(ValueError, match="needs its retained evidence store"):
-        _risk_guard(risk_args(risk_manifest=manifest_path), None)
+        _risk_guard(risk_args(risk_manifest=manifest_path), None, authority=None)
     store = EvidenceStore(tmp_path / "evidence.db")
     try:
         with pytest.raises(ValueError, match="needs its journal and budget ledger"):
             _risk_guard(
                 risk_args(risk_manifest=manifest_path, risk_journal=tmp_path / "ledger.db"),
                 store,
+                authority=None,
             )
     finally:
         store.close()
@@ -392,6 +446,7 @@ def test_the_cli_refuses_admission_it_cannot_bind(tmp_path) -> None:
                     risk_env_file=env_file,
                 ),
                 store,
+                authority=None,
             )
         multi = write_manifest(tmp_path / "multi.json", manifest(base, other))
         journal_path = tmp_path / "multi.db"
@@ -405,6 +460,7 @@ def test_the_cli_refuses_admission_it_cannot_bind(tmp_path) -> None:
                     risk_env_file=env_file,
                 ),
                 store,
+                authority=None,
             )
         # A reader the CLI refused must leave no open ledger and no admitted state.
         reopened = GlobalRiskJournal(journal_path, manifest(base, other).policy)
@@ -435,12 +491,182 @@ def test_the_cli_builds_the_guard_the_sidecar_will_use(tmp_path) -> None:
                 risk_env_file=env_file,
             ),
             store,
+            authority=None,
         )
         assert risk is not None
         guard, journal = risk
         assert guard.policy_digest == declared.policy.digest
         assert journal.policy == declared.policy
         assert journal.current_state().frame is None
+    finally:
+        if risk is not None:
+            risk[1].close()
+        store.close()
+
+
+def test_a_signing_authority_cannot_start_without_a_shadow_window(tmp_path) -> None:
+    """The path that can sign is unstartable without the canary precondition."""
+    declared = manifest(InventoryFixture())
+    manifest_path = write_manifest(tmp_path / "manifest.json", declared)
+    env_file = tmp_path / ".env"
+    env_file.write_text("rpc_a=https://a.invalid\nrpc_b=https://b.invalid\n")
+    store = EvidenceStore(tmp_path / "evidence.db")
+    journal_path = tmp_path / "ledger.db"
+    try:
+        with pytest.raises(ValueError, match="needs a shadow window and its canary cap"):
+            _risk_guard(
+                risk_args(
+                    risk_manifest=manifest_path,
+                    risk_journal=journal_path,
+                    risk_budget=tmp_path / "budget.db",
+                    risk_rpc=["4663:rpc_a:rpc_b"],
+                    risk_env_file=env_file,
+                ),
+                store,
+                authority=AUTHORITY,
+            )
+        # Half of the pair is still nothing, and no ledger was opened either way.
+        with pytest.raises(ValueError, match="needs a shadow window and its canary cap"):
+            _risk_guard(
+                risk_args(
+                    risk_manifest=manifest_path,
+                    risk_journal=journal_path,
+                    risk_budget=tmp_path / "budget.db",
+                    risk_rpc=["4663:rpc_a:rpc_b"],
+                    risk_env_file=env_file,
+                    canary_cap_usd="50",
+                ),
+                store,
+                authority=AUTHORITY,
+            )
+        # A window without the authority that would consume it is a configuration
+        # error, never a silently ignored input.
+        window_path = write_window(tmp_path / "window.json", declared)
+        with pytest.raises(ValueError, match="only admitted with a signing authority"):
+            _risk_guard(
+                risk_args(
+                    risk_manifest=manifest_path,
+                    risk_journal=journal_path,
+                    risk_budget=tmp_path / "budget.db",
+                    risk_rpc=["4663:rpc_a:rpc_b"],
+                    risk_env_file=env_file,
+                    canary_window=window_path,
+                    canary_cap_usd="50",
+                ),
+                store,
+                authority=None,
+            )
+        assert not journal_path.exists()
+    finally:
+        store.close()
+
+
+def test_the_cli_refuses_a_window_that_does_not_admit_the_cap(tmp_path) -> None:
+    """A stale, foreign, altered or over-cap window is refused before any ledger."""
+    declared = manifest(InventoryFixture())
+    manifest_path = write_manifest(tmp_path / "manifest.json", declared)
+    env_file = tmp_path / ".env"
+    env_file.write_text("rpc_a=https://a.invalid\nrpc_b=https://b.invalid\n")
+    store = EvidenceStore(tmp_path / "evidence.db")
+    authority = AUTHORITY
+    base = {
+        "risk_manifest": manifest_path,
+        "risk_journal": tmp_path / "ledger.db",
+        "risk_budget": tmp_path / "budget.db",
+        "risk_rpc": ["4663:rpc_a:rpc_b"],
+        "risk_env_file": env_file,
+        "signer_socket": Path("/private/tmp/oasis-signer.sock"),
+        "signer_account": ACCOUNT,
+    }
+    try:
+        # USD 300 exceeds the owner's USD 200 daily loss budget.
+        window_path = write_window(tmp_path / "window.json", declared)
+        with pytest.raises(ValueError, match="canary cap exceeds the daily loss budget"):
+            _risk_guard(
+                risk_args(**base, canary_window=window_path, canary_cap_usd="300"),
+                store,
+                authority=authority,
+            )
+        # A window observed under another manifest cannot describe this one.
+        foreign = write_window(tmp_path / "foreign.json", declared, manifest_digest="b" * 64)
+        with pytest.raises(ValueError, match="observed under a different manifest"):
+            _risk_guard(
+                risk_args(**base, canary_window=foreign, canary_cap_usd="50"),
+                store,
+                authority=authority,
+            )
+        # A window whose staleness allowance is wider than the repository minimum
+        # would make this gate decorative.
+        loose = write_window(
+            tmp_path / "loose.json",
+            declared,
+            requirements=ShadowRequirements(
+                min_runs=3,
+                min_span_seconds=120,
+                max_gap_seconds=300,
+                max_staleness_seconds=86_400,
+            ),
+        )
+        with pytest.raises(ValueError, match="weaker than the repository minimum"):
+            _risk_guard(
+                risk_args(**base, canary_window=loose, canary_cap_usd="50"),
+                store,
+                authority=authority,
+            )
+        # Runs older than the staleness allowance are refused too.
+        stale = write_window(tmp_path / "stale.json", declared, runs=recent_runs(age_seconds=3600))
+        with pytest.raises(ValueError, match="shadow window is stale"):
+            _risk_guard(
+                risk_args(**base, canary_window=stale, canary_cap_usd="50"),
+                store,
+                authority=authority,
+            )
+        # An edited record is not the record that was recorded: this one inflates
+        # its own derived span, which the re-derivation refuses.
+        altered = write_window(tmp_path / "altered.json", declared)
+        retained = altered.read_bytes().replace(b'"span_seconds":120', b'"span_seconds":121')
+        assert retained != altered.read_bytes()
+        altered.write_bytes(retained)
+        with pytest.raises(ValueError, match="altered after it was recorded"):
+            _risk_guard(
+                risk_args(**base, canary_window=altered, canary_cap_usd="50"),
+                store,
+                authority=authority,
+            )
+        assert not (tmp_path / "ledger.db").exists()
+    finally:
+        store.close()
+
+
+def test_the_cli_starts_the_signing_path_on_an_admitted_window(tmp_path) -> None:
+    declared = manifest(InventoryFixture())
+    manifest_path = write_manifest(tmp_path / "manifest.json", declared)
+    env_file = tmp_path / ".env"
+    env_file.write_text("rpc_a=https://a.invalid\nrpc_b=https://b.invalid\n")
+    store = EvidenceStore(tmp_path / "evidence.db")
+    window_path = write_window(tmp_path / "window.json", declared)
+    risk = None
+    try:
+        risk = _risk_guard(
+            risk_args(
+                risk_manifest=manifest_path,
+                risk_journal=tmp_path / "ledger.db",
+                risk_budget=tmp_path / "budget.db",
+                risk_rpc=["4663:rpc_a:rpc_b"],
+                risk_env_file=env_file,
+                signer_socket=Path("/private/tmp/oasis-signer.sock"),
+                signer_account=ACCOUNT,
+                canary_window=window_path,
+                canary_cap_usd="50",
+            ),
+            store,
+            authority=AUTHORITY,
+        )
+        assert risk is not None
+        guard, journal = risk
+        assert guard.policy_digest == declared.policy.digest
+        # The admission is a precondition, never a reservation.
+        assert journal.current_state().reservations == ()
     finally:
         if risk is not None:
             risk[1].close()

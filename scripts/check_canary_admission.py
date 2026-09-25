@@ -12,26 +12,13 @@ Exit codes: 0 = admitted, 2 = refused, 1 = invalid configuration.
 """
 
 import argparse
-import json
 import time
 from pathlib import Path
 
 from oasis_agent.models.common import canonical_json
 from oasis_agent.risk.canary_instructions import usd_micros
 from oasis_agent.risk.portfolio_manifest import PortfolioManifest
-from oasis_agent.risk.shadow_acceptance import (
-    ShadowRequirements,
-    build_shadow_window,
-    canary_admission,
-)
-
-
-def _retained_window(path: Path) -> dict:
-    """The window record must be exactly the canonical payload it digests."""
-    data = json.loads(path.read_bytes())
-    if not isinstance(data, dict):
-        raise ValueError("retained shadow window must be a JSON object")
-    return data
+from oasis_agent.risk.shadow_acceptance import canary_admission, load_shadow_window
 
 
 def main() -> None:
@@ -42,19 +29,10 @@ def main() -> None:
     parser.add_argument("--now", type=int, help="integer wall clock (default: the system clock)")
     args = parser.parse_args()
     try:
-        retained = _retained_window(args.window)
         manifest = PortfolioManifest.model_validate_json(args.manifest.read_bytes())
         if len(manifest.keys) != 1 or len(manifest.chains) != 1:
             raise ValueError("a shadow window describes exactly one declared account")
-        window = build_shadow_window(
-            tuple(retained["runs"]),
-            account_key=retained["account_key"],
-            manifest_digest=retained["manifest_digest"],
-            policy_digest=retained["policy_digest"],
-            requirements=ShadowRequirements.model_validate(retained["requirements"]),
-        )
-        if window.payload != canonical_json(retained):
-            raise ValueError("retained shadow window was altered after it was recorded")
+        window = load_shadow_window(args.window)
         decision = canary_admission(
             window,
             policy=manifest.policy,

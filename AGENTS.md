@@ -142,7 +142,11 @@ autonomous trader. Its current verified boundary is:
   both that socket authority and the independent admission boundary, so a request that clears the
   static policy, the fee caps, the nonce journal and the live reconciled-account reservation does
   produce a signature; with either authority absent it still denies, and the default path loads
-  neither. The boundary is built from a single-chain `PortfolioManifest` by
+  neither. A configured authority additionally requires the canary precondition: `--canary-window`
+  must name a retained shadow window for the same account, manifest and policy whose requirements are
+  at least `CANARY_WINDOW_REQUIREMENTS`, and `--canary-cap-usd` a cap `canary_admission()` admits, or
+  the CLI refuses to start; a window without an authority to consume it is itself an error rather than
+  a silently ignored input. The boundary is built from a single-chain `PortfolioManifest` by
   `execution/account_capture.py` and `execution/live_account_reader.py`, so the frame it reserves
   against is captured at the signing request's own block; a multi-chain manifest is refused because
   one block cannot pin two chains, a declared position must already exist and be owned at that block,
@@ -240,13 +244,15 @@ autonomous trader. Its current verified boundary is:
   dropped two attempts of each of the first two runs), and the admission check admitted a USD 50 cap
   while refusing a USD 300 cap against the owner's USD 200 daily budget; that window is retained only
   under `reports/evidence/` (not version controlled), its requirements are the repository minimum, it
-  covers one native-only account, and no canary path consumes the admission, so it is a mechanism
-  demonstration rather than canary acceptance. `configs/account-risk.base.example.json` is the only
+  covers one native-only account, and it is too short and too narrow to satisfy a real canary, so it is
+  a mechanism demonstration rather than canary acceptance. `configs/account-risk.base.example.json` is
+  the only
   committed
   manifest: the
   owner-confirmed dedicated wallet on Base 8453, native-only, declaring no position, with an ETH/USD
   feed pin verified from two Base mainnet providers before it was written and re-parsed by a unit
-  test so it cannot rot silently. The signer CLI only admits through flags an operator supplies, so its
+  test so it cannot rot silently. The signer CLI only admits through flags an operator supplies — a
+  reader and guard, plus an admitted shadow window once a signing authority is configured — so its
   default invocation loads no reader or guard and still denies; no reconciliation run or shadow window
   is archived in version control, no Robinhood or
   ERC-20

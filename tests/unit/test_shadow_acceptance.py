@@ -26,6 +26,7 @@ from oasis_agent.risk.shadow_acceptance import (
     ShadowWindow,
     build_shadow_window,
     canary_admission,
+    load_shadow_window,
 )
 from scripts.check_canary_admission import main as admission_main
 from scripts.run_account_risk_shadow import (
@@ -681,6 +682,37 @@ def run_gate(
         ],
     )
     admission_main()
+
+
+def test_a_retained_window_loads_only_as_the_record_it_digests(tmp_path) -> None:
+    """Re-derivation is the loader's only authority; nothing is taken on trust."""
+    retained = gate(tmp_path)
+    loaded = load_shadow_window(retained.window)
+    assert (
+        loaded.digest
+        == build_shadow_window(
+            sustained_runs(),
+            account_key=retained.key,
+            manifest_digest=retained.portfolio.digest,
+            policy_digest=retained.portfolio.policy.digest,
+            requirements=CANARY_WINDOW_REQUIREMENTS,
+        ).digest
+    )
+    record = json.loads(retained.window.read_bytes())
+    for name, tampered in (
+        ("summary", {**record, "span_seconds": 6_000}),
+        ("eligibility", {**record, "execution_eligible": True}),
+        ("extra", {**record, "permitted": True}),
+        ("incomplete", {key: value for key, value in record.items() if key != "runs"}),
+    ):
+        path = tmp_path / f"{name}.json"
+        path.write_bytes(canonical_json(tampered) + b"\n")
+        with pytest.raises(ValueError, match="retained shadow window"):
+            load_shadow_window(path)
+    listing = tmp_path / "listing.json"
+    listing.write_bytes(b"[1, 2]\n")
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        load_shadow_window(listing)
 
 
 def test_the_gate_admits_a_fresh_window_and_still_permits_no_execution(

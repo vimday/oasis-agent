@@ -244,7 +244,18 @@ Its bounds are literal and each fails closed — the manifest must declare exact
 signing request carries one block; a declared position must already be owned at that block, so the
 reference deployment mints the first position out of band and only then opens the ledger; and native
 gas spent by an earlier signed transaction must be declared explicitly, because an undeclared native
-change is left unresolved and blocks the next frame. Producing a signature is still not an execution
+change is left unresolved and blocks the next frame.
+
+A configured authority additionally requires the shadow precondition, so the only configuration that
+can produce a signature is unstartable without it: `--canary-window` must name a retained window for
+the same account, manifest and policy whose requirements are at least the repository minimum, and
+`--canary-cap-usd` a cap `canary_admission()` admits against the owner's total-capital, daily and
+cumulative loss budgets. Re-derivation refuses a window whose summary its own runs do not support, or
+whose fields are not the schema's, but a window read this way is still an operator record: it proves
+internal consistency, not that the observation happened, and the runs' `state_digest`/`report_digest`
+are what bind them to retained ledger state and reports. The refusal is fail-closed and happens before
+any ledger, RPC session or key authority exists, and a supplied window with no authority to consume it
+is an error rather than an ignored input. Producing a signature is still not an execution
 permit, and this CLI never broadcasts.
 
 ## 8. Agent transaction policy

@@ -4,14 +4,16 @@ An operator loop reconciles the declared account at successive pinned blocks and
 retains one accepted run per blocking. This module turns those runs into one
 hash-linked window record and decides whether the canary precondition holds.
 
-Nothing here fetches, prices, signs or broadcasts. A window proves only that one
-declared account was reconciled repeatedly, without unresolved operations or a
-halt, at strictly advancing blocks and times, and under one manifest and policy.
-It is a precondition, never an execution permit: `execution_eligible` stays False
-everywhere in this repository.
+Nothing here fetches chain state, prices, signs or broadcasts. A window proves
+only that one declared account was reconciled repeatedly, without unresolved
+operations or a halt, at strictly advancing blocks and times, and under one
+manifest and policy. It is a precondition, never an execution permit:
+`execution_eligible` stays False everywhere in this repository.
 """
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -180,6 +182,54 @@ def build_shadow_window(
     )
 
 
+# Exactly the fields `ShadowWindow.payload` writes: a record carrying anything
+# else is not the record this module digests.
+_WINDOW_FIELDS = frozenset(
+    {
+        "schema",
+        "account_key",
+        "manifest_digest",
+        "policy_digest",
+        "requirements",
+        "first_block",
+        "last_block",
+        "last_timestamp",
+        "span_seconds",
+        "cumulative_loss_usd_micros",
+        "runs",
+        "execution_eligible",
+    }
+)
+
+
+def load_shadow_window(path: Path) -> ShadowWindow:
+    """Rebuild one retained window record, never trusting what the file claims.
+
+    The record must carry exactly the schema's fields, and re-deriving it from its
+    own runs must reproduce the canonical bytes it digested. A summary its runs do
+    not support (`span_seconds`, the block range, the cumulative loss), an extra or
+    missing field, and an attempt to flip `execution_eligible` are all refused. The
+    runs themselves are bound by their own `state_digest` and `report_digest`, not
+    re-proven here: this loader establishes that a record is internally consistent
+    and unedited, not that the observation it records happened.
+    """
+    data = json.loads(path.read_bytes())
+    if not isinstance(data, dict):
+        raise ValueError("retained shadow window must be a JSON object")
+    if set(data) != _WINDOW_FIELDS:
+        raise ValueError("retained shadow window fields do not match its schema")
+    window = build_shadow_window(
+        tuple(data["runs"]),
+        account_key=data["account_key"],
+        manifest_digest=data["manifest_digest"],
+        policy_digest=data["policy_digest"],
+        requirements=ShadowRequirements.model_validate(data["requirements"]),
+    )
+    if window.payload != canonical_json(data):
+        raise ValueError("retained shadow window was altered after it was recorded")
+    return window
+
+
 @dataclass(frozen=True, slots=True)
 class CanaryAdmission:
     """The shadow precondition for a canary cycle. It permits no transaction.
@@ -263,4 +313,5 @@ __all__ = [
     "ShadowWindow",
     "build_shadow_window",
     "canary_admission",
+    "load_shadow_window",
 ]

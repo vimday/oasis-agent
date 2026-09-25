@@ -13,6 +13,15 @@ re-captures the declared two-provider proofs at the signing request's own block
 before any key authority is called. Both capabilities are required for a
 signature: without either, the sidecar denies and no signature exists.
 
+A signing authority additionally needs the canary precondition, so the path that
+can produce a real signature is unstartable without it: `--canary-window` names
+the retained `window.json` of the operator's own sustained observation of the
+same account under the same manifest and policy, and `--canary-cap-usd` declares
+the cap that window must admit. The window must itself be at least the
+repository's stated minimum, and `canary_admission` charges the cap against the
+owner's total-capital, daily and cumulative loss budgets. Nothing here reserves
+capital or broadcasts; the admission is a precondition, not a permit.
+
 The reader's bounds are literal. One manifest chain only, because one signing
 request carries one block. Any declared position must already be owned and
 declared at the reconciled block, so the reference deployment mints the first
@@ -27,6 +36,7 @@ Producing a signature is never an execution permit, and this CLI never broadcast
 
 import argparse
 import json
+import time
 from pathlib import Path
 
 from oasis_agent.evidence.store import EvidenceStore
@@ -35,13 +45,20 @@ from oasis_agent.execution.live_account_reader import CaptureAccountRiskReader, 
 from oasis_agent.execution.lp_signer_sidecar import (
     SIDE_CAR_DECISION_SCHEMA,
     LpSignerSidecar,
+    SigningKeyProvider,
     sidecar_config_from_json,
     sidecar_request_from_json,
 )
 from oasis_agent.execution.socket_key_provider import SocketKeyProvider
 from oasis_agent.models.common import canonical_json
 from oasis_agent.risk.account_risk import GlobalRiskJournal, PortfolioFrame
+from oasis_agent.risk.canary_instructions import usd_micros
 from oasis_agent.risk.portfolio_manifest import PortfolioManifest
+from oasis_agent.risk.shadow_acceptance import (
+    CANARY_WINDOW_REQUIREMENTS,
+    canary_admission,
+    load_shadow_window,
+)
 from scripts.run_account_risk_reconcile import (
     _bind_endpoints,
     _budget_policies,
@@ -58,6 +75,7 @@ _RISK_OPTIONS = (
     "risk_rpc",
     "risk_native",
 )
+_CANARY_OPTIONS = ("canary_window", "canary_cap_usd")
 
 
 def _key_authority(args: argparse.Namespace) -> SocketKeyProvider | None:
@@ -70,12 +88,45 @@ def _key_authority(args: argparse.Namespace) -> SocketKeyProvider | None:
     )
 
 
+def _canary_precondition(args: argparse.Namespace, manifest: PortfolioManifest) -> None:
+    """Refuse the signing path unless a fresh window admits the declared cap.
+
+    The window is the operator's own observation of the same account under the
+    same manifest and policy, and it must be at least the repository's stated
+    minimum: a weaker record would make this gate decorative. Nothing is reserved
+    here and no transaction is authorized.
+    """
+    if args.canary_window is None or args.canary_cap_usd is None:
+        raise ValueError("a signing authority needs a shadow window and its canary cap")
+    window = load_shadow_window(args.canary_window)
+    minimum, declared = CANARY_WINDOW_REQUIREMENTS, window.requirements
+    if (
+        declared.min_runs < minimum.min_runs
+        or declared.min_span_seconds < minimum.min_span_seconds
+        or declared.max_gap_seconds > minimum.max_gap_seconds
+        or declared.max_staleness_seconds > minimum.max_staleness_seconds
+    ):
+        raise ValueError("shadow window requirements are weaker than the repository minimum")
+    admission = canary_admission(
+        window,
+        policy=manifest.policy,
+        manifest_digest=manifest.digest,
+        cap_usd_micros=usd_micros(args.canary_cap_usd),
+        now=int(time.time()),
+    )
+    if not admission.admitted:
+        raise ValueError("canary precondition refused: " + "; ".join(admission.reasons))
+
+
 def _risk_guard(
-    args: argparse.Namespace, store: EvidenceStore | None
+    args: argparse.Namespace,
+    store: EvidenceStore | None,
+    *,
+    authority: SigningKeyProvider | None,
 ) -> tuple[AccountRiskGuard, GlobalRiskJournal] | None:
     """Build the independent admission boundary, or nothing when it is not asked for."""
     if args.risk_manifest is None:
-        if any(getattr(args, name) for name in _RISK_OPTIONS):
+        if any(getattr(args, name) for name in _RISK_OPTIONS + _CANARY_OPTIONS):
             raise ValueError("admission options require a risk manifest")
         return None
     if store is None:
@@ -84,6 +135,13 @@ def _risk_guard(
         if getattr(args, name) is None:
             raise ValueError("a risk manifest needs its journal and budget ledger")
     manifest = PortfolioManifest.model_validate_json(args.risk_manifest.read_bytes())
+    # The two gates are never separable: only this combination can sign, so it is
+    # the one that must carry the shadow precondition. Checked before the ledger
+    # is opened, so a refused canary leaves no state behind.
+    if authority is not None:
+        _canary_precondition(args, manifest)
+    elif args.canary_window is not None or args.canary_cap_usd is not None:
+        raise ValueError("a shadow window is only admitted with a signing authority")
     endpoints = _bind_endpoints(manifest, _rpc_map(args.risk_rpc))
     if not 3000 <= args.risk_interval_ms <= 60000:
         raise ValueError("minimum request interval is three seconds")
@@ -129,6 +187,17 @@ def _add_risk_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--risk-native", type=Path, default=None)
     parser.add_argument("--risk-interval-ms", type=int, default=3000)
     parser.add_argument("--risk-max-requests", type=int, default=256)
+    parser.add_argument(
+        "--canary-window",
+        type=Path,
+        default=None,
+        help="retained shadow window.json that admits this canary",
+    )
+    parser.add_argument(
+        "--canary-cap-usd",
+        default=None,
+        help="declared canary cap in plain USD decimal",
+    )
 
 
 def _write_decision(path: Path, decision) -> None:
@@ -168,13 +237,14 @@ def main() -> None:
     try:
         config_bytes = args.config.read_bytes()
         request_bytes = args.request.read_bytes()
+        authority = _key_authority(args)
         if args.risk_store is not None:
             store = EvidenceStore(args.risk_store)
-        risk = _risk_guard(args, store)
+        risk = _risk_guard(args, store, authority=authority)
         config = sidecar_config_from_json(
             config_bytes,
             journal_path=journal,
-            provider=_key_authority(args),
+            provider=authority,
             risk_guard=None if risk is None else risk[0],
         )
         request = sidecar_request_from_json(request_bytes)

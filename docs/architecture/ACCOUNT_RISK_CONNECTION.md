@@ -310,8 +310,9 @@ retry ladder is exercised by genuine public-provider flakiness rather than only 
 `canary cap exceeds the daily loss budget`, against the owner's USD 200 daily limit.
 
 This is a mechanism demonstration at the stated operator minimum, not canary acceptance: it covers
-one native-only account over one short window, the requirements are the repository default rather
-than a production choice, and no canary path consumes the admission.
+one native-only account over one short window, and the requirements are the repository default rather
+than a production choice. The signing path now requires such an admitted window (below), but this
+record is too short and too narrow to satisfy a real canary on its own.
 
 ### Live admission at the signing block (2026-09-25)
 
@@ -335,6 +336,14 @@ they hold no key, never sign and never broadcast:
   file, and the request-interval/request-cap pair. Admission options without a manifest, a manifest
   without a store or without its journal/budget ledger, and RPC names that are not the manifest's own
   declared providers are each refused at startup rather than partially wired.
+- a configured signing authority additionally requires the shadow precondition, so the only
+  configuration that can produce a real signature is unstartable without it: `--canary-window` names
+  the retained `window.json` and `--canary-cap-usd` the cap it must admit. `load_shadow_window()`
+  re-derives the record from its own runs and refuses a summary the runs do not support, an extra or
+  missing field and a flipped `execution_eligible`; the window must carry requirements at least as
+  strong as `CANARY_WINDOW_REQUIREMENTS`, so a record declaring a wider staleness or gap allowance is
+  refused; and `canary_admission()` must admit the cap against the manifest's own policy. Supplying a
+  window with no authority to consume it is itself a configuration error rather than a silent input.
 
 ```bash
 python -m scripts.run_lp_signer_sidecar \
@@ -343,7 +352,8 @@ python -m scripts.run_lp_signer_sidecar \
   --risk-manifest configs/account-risk.<chain>.json \
   --risk-journal out/global-risk.db --risk-store out/evidence.db --risk-budget out/budget.db \
   --risk-rpc <chain>:<PRIMARY_ENV>:<SECONDARY_ENV> \
-  --risk-native out/native-declarations.json
+  --risk-native out/native-declarations.json \
+  --canary-window out/shadow/window.json --canary-cap-usd 50
 ```
 
 The bounds are literal, and each one fails closed:
@@ -352,6 +362,11 @@ The bounds are literal, and each one fails closed:
   block, so it is refused rather than assembled from blocks of different heights;
 - the capture must land on the request's own block number *and* hash, so a reorg, a stale tip, a
   provider that answers another height, or a same-height state the request does not name all refuse;
+- the canary window must describe this manifest and policy, be no older than the allowance it carries,
+  and admit the declared cap against the owner's total-capital, daily and cumulative loss budgets. The
+  window is an operator record: re-derivation proves it is internally consistent and unedited, not that
+  the observation happened, and the runs' own `state_digest`/`report_digest` are the bindings to the
+  retained ledger state and report;
 - native movement is an operator declaration. An undeclared native change stays unresolved and blocks
   the frame, so gas spent by an earlier signed transaction must be declared explicitly before the next
   request can be admitted;
@@ -362,8 +377,8 @@ The bounds are literal, and each one fails closed:
 
 The last point is the honest cost of a fail-closed design: the ledger's loss only accrues from the
 frames it observes, so an account funded after the ledger opens would show its deposit as an
-unexplained movement instead of an inception NAV. Nothing in this path schedules itself, consumes a
-`canary_admission()` window, broadcasts a signed transaction, or records a receipt.
+unexplained movement instead of an inception NAV. Nothing in this path schedules itself, broadcasts a
+signed transaction, or records a receipt; the admission it consumes reserves no capital.
 
 ## Unresolved
 
@@ -393,11 +408,14 @@ unexplained movement instead of an inception NAV. Nothing in this path schedules
   two runs produces an unresolved residual and the frame is refused rather than under-reported. The
   window therefore fits a funded but idle account, and an active canary account would need per-interval
   operator declarations the loop does not collect.
-- Admission is a precondition that is not yet consumed by anything: no canary path reads
-  `canary_admission()`, and no process reserves the admitted cap. The default requirements are a
-  stated operator minimum, and the staleness bound is measured against the block timestamp of the
-  last run, so a clock-skewed host can refuse or admit a window that a correct clock would judge
-  differently.
+- Admission is consumed by exactly one path, and only when an operator configures it: a signing
+  authority plus a risk manifest now requires an admitted window, but a window read by this path is
+  still an operator record, so an operator who fabricates a consistent window can satisfy it. The
+  stated requirements are a repository minimum, not a production choice, and the staleness bound is
+  measured against the block timestamp of the last run, so a clock-skewed host can refuse or admit a
+  window that a correct clock would judge differently. The admission is not recorded in the sidecar
+  decision or its ledger, so the retained window file is currently the only evidence that a given
+  signature passed this gate.
 - Settlement is derived from unit increases alone, because the ledger sees a frame and not why the
   units arrived. Investment units worth an outstanding commitment's amount that reach the account
   from a gift or an unrelated transfer settle that commitment without any transaction-level evidence
@@ -412,8 +430,9 @@ unexplained movement instead of an inception NAV. Nothing in this path schedules
   closes one open broadcast from an observed receipt status and block number only — it records no
   `gasUsed` — so the gas an admitted request actually spends is not fed back as the `gas_units` the
   next admission needs; until that exists, an operator must declare it by hand.
-- The default signer CLI loads neither a reader nor a guard and still denies every attempt, and the
-  live path only exists when an operator supplies the `--risk-*` flags, a manifest and a funded,
-  already-owned inventory; wiring a production reader still requires an independently operated source.
+- The signer CLI loads a reader or a guard only when an operator supplies the `--risk-*` flags, and it
+  admits a canary only when that operator also supplies an admitted shadow window; with neither it
+  denies every attempt. The live path has no default configuration, and wiring a production reader
+  still requires an independently operated source.
 - `execution_eligible` and `lp_readiness` remain closed. Nothing here is a deployed kill switch,
   live NAV, settled PnL or production release approval.
