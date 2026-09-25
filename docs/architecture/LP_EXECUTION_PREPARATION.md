@@ -215,6 +215,41 @@ accepted path is exercised by synthetic retained proofs only; `run_lp_signer_sid
 an operator-supplied request file plus an admitted shadow window, and release approval, finality and
 the economic gates remain unresolved.
 
+## LP cycle producer implemented (2026-09-25)
+
+`run_lp_shadow.py` consumes `LpCycle` records and `build_lp_simulation_plan` refuses any journal whose
+latest decision is not a `recenter`/`remove` with `rebalance_allowed` true, so an `LpCycle` producer
+sits on the live path—and until now candidates and the rebalance gate existed only inside test
+fixtures. `execution/lp_cycle_assembly.py` is that producer.
+
+It does not estimate economics. The five blueprint 6.3 candidate terms, `min_benefit`, the hysteresis
+threshold and the twelve trigger conditions a verifier here cannot derive (including
+`pin_simulated_ok`) are explicit operator declarations, retained as their own block-pinned
+`kind = "lp-cycle-declaration"` record whose interpretation names them as operator-supplied rather
+than estimated and keeps `execution_eligible` False outside the declared bytes, so the declaration
+round-trips through `parse_lp_cycle_declaration`. A fee/LVR/inventory model is a trading hypothesis
+that the owner must lock before it is implemented; this module deliberately does not invent one.
+
+Everything else is bound rather than trusted:
+
+1. both slot0 captures are replayed from the evidence store and required to be the two distinct
+   sources behind the market window, to agree in a quorum, and to end at the decision block;
+2. the decision-block header is the one those captures read twice, and the header record borrows
+   their exact wire envelope so the shadow consumer's request/interpretation requirements hold;
+3. inventory0, inventory1 and the reference price must be retained two-provider agreed values at the
+   decision block from that window's own providers;
+4. volatility, the toxicity score and the gate's marginal value come from `produce_pool_state` on the
+   verified feature window, so a declaration can never disagree with the evidence it describes;
+5. the declared chain, pool, block, and any declared position scope must match the window.
+
+Every check precedes the first write, so a refused declaration leaves no partially retained cycle
+behind. The returned cycle is exactly what `LpShadowService.consume` validates.
+
+This is not execution authority and not an economic result. The declared terms are unevaluated
+hypotheses, `reference_price_x192` still needs an independent derivation, the account-level inputs of
+step 3 are supplied by the caller rather than captured here, no cycle has been produced against a
+funded account or a real market window, and `execution_eligible` stays False throughout.
+
 ## Verification completed 2026-09-12
 
 - Regressions first reproduced missing preparation support, stale simulation proof acceptance after

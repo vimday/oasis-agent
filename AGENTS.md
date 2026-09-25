@@ -106,8 +106,16 @@ autonomous trader. Its current verified boundary is:
   production custody model. This is not multi-chain live trading.
 - `shadow/service.py` and `scripts/run_lp_shadow.py` support atomic, idempotent cycle consumption and
   optional bounded JSONL following, with partial-line waits, truncation/rotation checks and idle HALT.
-  They consume retained, block-bound LP input evidence with code/config locking across restarts; an upstream live feature/reconciliation
-  producer and a sustained strategy observation window remain required;
+  They consume retained, block-bound LP input evidence with code/config locking across restarts;
+  `execution/lp_cycle_assembly.py` is the deterministic `LpCycle` producer they were missing: it
+  replays the two slot0 captures behind a market window, requires inventory and reference-price
+  inputs to be two-provider agreed values at the decision block from that window's own providers,
+  derives volatility/toxicity/marginal value from the verified feature window (a declaration can
+  never override them), and retains the operator's declaration as its own block-pinned record, so
+  every check precedes the first write. Its candidate terms, thresholds and `pin_simulated_ok` are
+  explicit operator declarations, not an estimated edge: the fee/LVR/inventory model is still
+  unlocked, nothing is wired to a funded account, and a sustained strategy observation window across
+  real markets remains required;
 - Bounded pool-state observation now has persistent RPC budgets, raw two-provider market-window
   replay, mature/deferred sample handling, and hash-linked checkpoint recovery (at most 1000 windows).
   This is not a complete unattended backfill/reconciliation service or a sustained acceptance result;
