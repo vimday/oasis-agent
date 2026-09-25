@@ -218,6 +218,22 @@ For an early EOA canary, “agent owns the key” is still implemented through a
 If that isolation is unavailable, autonomous execution remains disabled; putting a raw key directly
 inside the agent process is not an acceptable shortcut.
 
+The repository now carries one bounded *reference* implementation of that separate process:
+`src/oasis_agent/execution/lp_signer_daemon.py`, started by the operator via
+`scripts/run_lp_signer_daemon.py`. It holds exactly one key in its own memory, serves one canonical
+32-byte digest request per connection over an owner-only Unix socket (0700 directory, 0600 endpoint),
+enforces a single-account allowlist, a signature budget and a wall-clock time to live, and appends an
+audit of addresses, digests, signature hashes and fixed refusal reasons — never key material, request
+bodies or provider diagnostics. It signs digests, never transactions, and cannot tell what it
+authorized: admission therefore stays in the sidecar, and a returned signature is never an execution
+permit. The key may be read from one owner-only 0600 file or one environment variable of that
+process. A local EOA key file is the *least* isolated configuration this socket contract supports;
+an HSM, cloud KMS or hardware wallet can serve the same contract unchanged. The reference daemon is
+not yet a supervised production service: it has no restart supervision, no OS-level confinement
+beyond file ownership and socket permissions, and the operator CLI (`scripts/run_lp_signer_sidecar.py`)
+still cannot configure an independent reconciled-account risk guard, so a live request stays denied
+even with a signing authority wired.
+
 ## 8. Agent transaction policy
 
 Every signed intent must bind:

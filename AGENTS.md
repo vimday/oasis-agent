@@ -130,9 +130,18 @@ autonomous trader. Its current verified boundary is:
   configured it must reserve reconciled capital before any provider call, an attempt that produces
   no transaction releases its reservation, and a successful signature keeps it until an independent
   reconciliation releases it. `socket_key_provider.py` implements a bounded local Unix-socket digest
-  adapter. It is not a key daemon, and the default CLI configures neither a production provider nor a
-  risk guard, so it always denies. Default shadow children receive a minimal environment, which is
-  not OS-level isolation from wallet files;
+  adapter, and `execution/lp_signer_daemon.py` (started by `scripts/run_lp_signer_daemon.py`) is a
+  bounded *reference* isolated signing authority for it: one owner-only 0700 directory with a 0600
+  endpoint, one allowlisted account, one canonical 32-byte digest request per connection, a signature
+  budget, a time to live, and an append-only audit of addresses, digests, signature hashes and fixed
+  refusal reasons that never contains key material or echoes client input. It signs digests, never
+  transactions, and a returned signature is not an execution permit. Its key comes from one
+  owner-only 0600 file or one environment variable of that process; a local EOA key file is the least
+  isolated configuration the same socket contract supports, and the daemon has no restart supervision
+  or OS-level confinement beyond file ownership and socket permissions. The operator CLI can now wire
+  that socket authority, but it still cannot configure a risk guard, so a live request is still denied
+  and no signature is produced by the default path. Default shadow children receive a minimal
+  environment, which is not OS-level isolation from wallet files;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
   agreement, and precommitted rejection thresholds; it still needs a production target dataset and
