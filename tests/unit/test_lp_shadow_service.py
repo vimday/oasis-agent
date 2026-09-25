@@ -12,7 +12,13 @@ from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.models.common import canonical_json
 from oasis_agent.models.v4 import SwapDirection
 from oasis_agent.shadow.journal import ShadowJournal
-from oasis_agent.shadow.service import LpCycle, LpShadowService, parse_policy, serializable
+from oasis_agent.shadow.service import (
+    LpCycle,
+    LpShadowService,
+    parse_policy,
+    serializable,
+    serialize_cycle,
+)
 from tests.unit.test_shadow_lp_runner import (
     band_strategy,
     blocks,
@@ -65,7 +71,10 @@ def setup(tmp_path):
 
 def test_evidence_to_decision_round_trip(tmp_path):
     store, journal, service, cycle = setup(tmp_path)
-    parsed = LpCycle.from_json(canonical_json(serializable(cycle)))
+    # The producer's own serializer must be the consumer's accepted input.
+    wire = serialize_cycle(cycle)
+    assert wire == canonical_json(serializable(cycle))
+    parsed = LpCycle.from_json(wire)
     assert parsed == cycle
     assert service.consume(parsed, now=100).decision == "recenter"
     assert journal.decision_records()[-1]["execution_eligible"] is False

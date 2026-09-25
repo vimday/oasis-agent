@@ -14,7 +14,7 @@ from ..models.v4 import PoolKey, SwapDirection
 from ..rpc.collector import require_provider_agreement
 from ..uniswap_v4.events import SWAP_TOPIC, decode_swap
 from ..uniswap_v4.pool_id import pool_id_from_key
-from .features import AGREED_INTEGER_SCHEMA, AgreedInteger, LpFeatureWindow, SwapMarkout
+from .features import AgreedInteger, LpFeatureWindow, SwapMarkout, agreed_value_payload
 from .pool_state_capture import Slot0WindowQuorum, replay_slot0_window_evidence
 
 
@@ -194,14 +194,7 @@ def build_market_window(
             if not 0 < sqrt < 2**160:
                 raise ValueError("positive bounded market price required")
             value = sqrt if name == "sqrt_price_x96" else sqrt * sqrt
-            payload = canonical_json(
-                {
-                    "schema": AGREED_INTEGER_SCHEMA,
-                    "name": name,
-                    "value": value,
-                    "block": asdict(block),
-                }
-            )
+            payload = agreed_value_payload(name, value, block)
             interpretation = {
                 "schema": "oasis.derived-slot0-integer.v1",
                 "pool_id": pool_id,

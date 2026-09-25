@@ -182,6 +182,17 @@ class LpConsumption:
     halted: bool
 
 
+def serialize_cycle(cycle: LpCycle) -> bytes:
+    """The canonical JSON record a producer appends and this consumer re-parses.
+
+    ``LpCycle.from_json`` is the inverse. Defining the producer side here keeps one
+    wire definition: the same bytes are the idempotency digest of the decision.
+    """
+    if not isinstance(cycle, LpCycle):
+        raise TypeError("typed LP cycle required")
+    return canonical_json(serializable(cycle))
+
+
 class LpShadowService:
     def __init__(
         self,
@@ -244,7 +255,7 @@ class LpShadowService:
         """
         if type(now) is not int or now < 0:
             raise ValueError("integer observation time required")
-        digest = hashlib.sha256(canonical_json(serializable(cycle))).hexdigest()
+        digest = hashlib.sha256(serialize_cycle(cycle)).hexdigest()
         try:
             with self.journal.atomic(cycle_digest=digest):
                 records = self.journal.decision_records()

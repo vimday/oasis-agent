@@ -13,6 +13,22 @@ Q192 = 1 << 192
 AGREED_INTEGER_SCHEMA = "oasis.agreed-integer.v1"
 
 
+def agreed_value_payload(name: str, value: int, block: BlockRef) -> bytes:
+    """The canonical payload every agreed-value producer must persist.
+
+    One definition of the frozen wire format keeps producers from drifting apart
+    from the digest the constructor checks.
+    """
+    return canonical_json(
+        {
+            "schema": AGREED_INTEGER_SCHEMA,
+            "name": name,
+            "value": value,
+            "block": asdict(block),
+        }
+    )
+
+
 def agreed_value_content_hash(name: str, value: int, block: BlockRef) -> str:
     """Canonical digest that cryptographically binds an agreed value to evidence.
 
@@ -22,16 +38,7 @@ def agreed_value_content_hash(name: str, value: int, block: BlockRef) -> str:
     from the constructor caller to the stored evidence, matching the explicit
     content-hash binding used by ``lp_signer_policy``.
     """
-    return sha256_hex(
-        canonical_json(
-            {
-                "schema": AGREED_INTEGER_SCHEMA,
-                "name": name,
-                "value": value,
-                "block": asdict(block),
-            }
-        )
-    )
+    return sha256_hex(agreed_value_payload(name, value, block))
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,5 +197,6 @@ __all__ = [
     "LpFeatureWindow",
     "SwapMarkout",
     "agreed_value_content_hash",
+    "agreed_value_payload",
     "produce_pool_state",
 ]
