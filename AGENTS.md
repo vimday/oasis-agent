@@ -320,7 +320,9 @@ autonomous trader. Its current verified boundary is:
   authorizes a transaction. `scripts/run_account_risk_shadow.py` is the observe-only loop that
   produces one such window, running the reconciliation observer in an isolated subprocess at a
   freshly pinned block, retrying a capture failure at a new block, halting the loop on a refused
-  capture, and never opening the risk journal, holding a key, signing or broadcasting;
+  capture, refusing a schedule its own window requirements cannot satisfy and stopping as soon as an
+  accepted run lands beyond the maximum gap, and never opening the risk journal, holding a key,
+  signing or broadcasting;
   `scripts/check_canary_admission.py` re-derives a retained window byte for byte against the manifest
   it claims to describe and prints the admission or refusal reasons, always with
   `execution_eligible: false`. One live run of that loop against the two public Base providers the

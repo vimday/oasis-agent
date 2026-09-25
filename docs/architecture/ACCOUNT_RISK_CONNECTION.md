@@ -293,9 +293,13 @@ python scripts/check_canary_admission.py \
   --cap-usd 50
 ```
 
-The run schedule is checked before the loop starts: the interval may not exceed `max_gap_seconds`
-and must be long enough that `(runs - 1) * interval` covers `min_span_seconds`. Span is measured
-from block timestamps, not wall clock, so the interval should leave margin for block-time jitter.
+The run schedule is checked before the loop starts: the interval must be strictly below
+`max_gap_seconds` and long enough that `(runs - 1) * interval` covers `min_span_seconds`. Both are
+measured on the pinned block clock, so a real gap is the interval *plus* the observer's own duration:
+an interval that reaches the maximum gap can never produce an accepted window, and refusing it before
+the providers are contacted is cheaper than discovering it afterwards. For the same reason the loop
+stops immediately — `incomplete`, with the runs it already accepted — when an accepted run lands
+beyond the maximum gap, because a broken sequence cannot be healed by later runs.
 
 #### Live mechanism demonstration (2026-09-24)
 

@@ -36,6 +36,7 @@ from scripts.run_account_risk_shadow import (
     _observer_command,
     _retained_run,
     observe,
+    resolve_schedule,
 )
 from tests.unit.test_account_risk import (
     ACCOUNT_A,
@@ -405,11 +406,19 @@ class Loop:
     unspent: tuple[int, ...]
 
 
-def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
+def drive(
+    codes: Sequence[int],
+    *,
+    tip_failures: Sequence[int] = (),
+    timestamps: Sequence[int] | None = None,
+    max_gap_seconds: int = 300,
+) -> Loop:
     """Run `observe` with a scripted observer exit code per attempt.
 
     ``tip_failures`` names the 1-based head reads that fail as a transport error,
     so the loop can be driven through a flaky provider without a network.
+    ``timestamps`` is the pinned-block time of each accepted run, which is what
+    the window's gap rule is measured on; it defaults to one minute apart.
     """
     remaining = list(codes)
     failures = set(tip_failures)
@@ -417,6 +426,7 @@ def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
     pinned: list[int] = []
     sleeps: list[float] = []
     reads = 0
+    clock = list(timestamps) if timestamps is not None else []
 
     def tip() -> dict[int, int]:
         nonlocal reads
@@ -435,7 +445,8 @@ def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
     def read(directory: Path, blocks: Mapping[int, int]) -> ObservationRun:
         index = len(recorded) + 1
         block = blocks[CHAIN_A]
-        return run(index, block=block, timestamp=BASE_TIME + 60 * index)
+        stamp = clock[index - 1] if clock else BASE_TIME + 60 * index
+        return run(index, block=block, timestamp=stamp)
 
     def record(observed: ObservationRun) -> None:
         recorded.append(observed)
@@ -444,6 +455,7 @@ def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
         runs_required=3,
         attempts_per_run=2,
         run_interval_seconds=60.0,
+        max_gap_seconds=max_gap_seconds,
         ports=ObservationPorts(
             tip=tip,
             attempt=attempt,
@@ -453,6 +465,59 @@ def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
         ),
     )
     return Loop(outcome, tuple(recorded), tuple(pinned), tuple(sleeps), tuple(remaining))
+
+
+def test_a_schedule_that_cannot_satisfy_its_own_window_is_refused() -> None:
+    """A cadence the window would reject must not be accepted at startup.
+
+    A real gap on the pinned clock is the sleep interval plus the observer's own
+    duration, so an interval that reaches the maximum gap can never produce an
+    accepted window: the loop would spend the whole schedule only to refuse it.
+    """
+    common = {
+        "runs": 3,
+        "attempts_per_run": 1,
+        "run_interval_seconds": 60.0,
+        "requirements": CANARY_WINDOW_REQUIREMENTS,
+    }
+    with pytest.raises(ValueError, match="headroom"):
+        resolve_schedule(**{**common, "run_interval_seconds": 300.0})
+    with pytest.raises(ValueError, match="headroom"):
+        resolve_schedule(**{**common, "run_interval_seconds": 301.0})
+    with pytest.raises(ValueError, match="attempts per run"):
+        resolve_schedule(**{**common, "attempts_per_run": 11})
+    with pytest.raises(ValueError, match="span"):
+        resolve_schedule(
+            **{
+                **common,
+                "run_interval_seconds": 10.0,
+                "requirements": ShadowRequirements(
+                    min_runs=3,
+                    min_span_seconds=1200,
+                    max_gap_seconds=300,
+                    max_staleness_seconds=900,
+                ),
+            }
+        )
+    assert resolve_schedule(**{**common, "runs": None}) == CANARY_WINDOW_REQUIREMENTS.min_runs
+    assert resolve_schedule(**{**common, "runs": 10}) == 10
+
+
+def test_the_loop_stops_when_an_accepted_run_lands_beyond_the_maximum_gap() -> None:
+    """A gap is permanent, so spending the rest of the schedule on it is waste.
+
+    The runs collected before the violation are reported as they were observed;
+    the window is never built, so no record claims a sustained observation.
+    """
+    result = drive(
+        [0, 0, 0],
+        timestamps=(BASE_TIME, BASE_TIME + 100, BASE_TIME + 500),
+        max_gap_seconds=300,
+    )
+    assert result.outcome.status == "incomplete"
+    assert "gap exceeded the requirement at run 3" in result.outcome.reason
+    assert [item.seq for item in result.outcome.runs] == [1, 2]
+    assert result.unspent == ()
 
 
 def test_the_loop_retries_a_capture_failure_at_a_fresh_pinned_block() -> None:

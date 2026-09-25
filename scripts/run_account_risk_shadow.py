@@ -14,7 +14,8 @@ URL: run `run_account_risk_reconcile.py` directly to inspect a failing attempt,
 and read that attempt's retained `report.json` for its refusal reason.
 
 Exit codes: 0 = window recorded, 2 = ledger refused an accepted capture,
-3 = window incomplete (attempts exhausted), 1 = invalid configuration.
+3 = window incomplete (attempts exhausted or an unhealable gap), 1 = invalid
+configuration.
 """
 
 import argparse
@@ -143,6 +144,7 @@ def observe(
     runs_required: int,
     attempts_per_run: int,
     run_interval_seconds: float,
+    max_gap_seconds: int,
     ports: ObservationPorts,
 ) -> ShadowOutcome:
     """Collect `runs_required` accepted observations, or stop fail-closed.
@@ -150,7 +152,9 @@ def observe(
     A capture failure — including a provider read that fails while pinning the
     head — is retried at a fresh pinned block, so a flaky provider costs an
     attempt rather than the window. An accepted capture the ledger refused is
-    never retried: it is a risk signal, not a transport failure.
+    never retried: it is a risk signal, not a transport failure. An accepted run
+    that lands beyond the window's own maximum gap ends the loop immediately,
+    because no later run can heal a sequence `ShadowWindow` will refuse.
     """
     runs: list[ObservationRun] = []
     while len(runs) < runs_required:
@@ -175,6 +179,12 @@ def observe(
             if code != 0:
                 continue
             run = ports.read(directory, blocks).model_copy(update={"seq": len(runs) + 1})
+            if runs and run.timestamp - runs[-1].timestamp > max_gap_seconds:
+                return ShadowOutcome(
+                    "incomplete",
+                    f"observation gap exceeded the requirement at run {len(runs) + 1}",
+                    tuple(runs),
+                )
             runs.append(run)
             ports.record(run)
             accepted = True
@@ -188,6 +198,31 @@ def observe(
         if len(runs) < runs_required:
             ports.sleep(run_interval_seconds)
     return ShadowOutcome("complete", f"{len(runs)} consecutive accepted runs", tuple(runs))
+
+
+def resolve_schedule(
+    *,
+    runs: int | None,
+    attempts_per_run: int,
+    run_interval_seconds: float,
+    requirements: ShadowRequirements,
+) -> int:
+    """Return the accepted-run count, refusing a schedule that cannot satisfy it.
+
+    The clock a window is measured on is the pinned block time, so a real gap is
+    at least the sleep interval plus the observer's own duration. An interval that
+    reaches the maximum gap therefore cannot produce an accepted window, and an
+    interval that cannot reach the minimum span cannot either; both are refused
+    here rather than after the whole schedule has been spent.
+    """
+    if not 1 <= attempts_per_run <= 10:
+        raise ValueError("attempts per run must be 1..10")
+    if not 0 < run_interval_seconds < requirements.max_gap_seconds:
+        raise ValueError("run interval must leave headroom within the maximum gap")
+    runs_required = requirements.min_runs if runs is None else runs
+    if (runs_required - 1) * run_interval_seconds < requirements.min_span_seconds:
+        raise ValueError("schedule cannot span the required window duration")
+    return runs_required
 
 
 def _tip_blocks(entry: ChainInventory, urls: Mapping[str, str], *, lag: int) -> dict[int, int]:
@@ -269,7 +304,6 @@ def main() -> None:
             else args.max_staleness_seconds
         ),
     )
-    runs_required = args.runs or requirements.min_runs
     try:
         manifest = PortfolioManifest.model_validate_json(args.manifest.read_bytes())
         if len(manifest.keys) != 1 or len(manifest.chains) != 1:
@@ -277,12 +311,12 @@ def main() -> None:
         _bind_endpoints(manifest, _rpc_map(args.rpc))
         entry = manifest.chains[0]
         urls = _environment(args.env_file, {entry.primary_source, entry.secondary_source})
-        if not 1 <= args.attempts_per_run <= 10:
-            raise ValueError("attempts per run must be 1..10")
-        if not 0 < args.run_interval_seconds <= requirements.max_gap_seconds:
-            raise ValueError("run interval must be positive and within the maximum gap")
-        if (runs_required - 1) * args.run_interval_seconds < requirements.min_span_seconds:
-            raise ValueError("schedule cannot span the required window duration")
+        runs_required = resolve_schedule(
+            runs=args.runs,
+            attempts_per_run=args.attempts_per_run,
+            run_interval_seconds=args.run_interval_seconds,
+            requirements=requirements,
+        )
         args.out.mkdir(parents=True, exist_ok=False)
     except Exception:  # noqa: BLE001 - never print endpoint values
         parser.exit(1, "Invalid shadow-window configuration; no signing is available.\n")
@@ -328,6 +362,7 @@ def main() -> None:
         runs_required=runs_required,
         attempts_per_run=args.attempts_per_run,
         run_interval_seconds=args.run_interval_seconds,
+        max_gap_seconds=requirements.max_gap_seconds,
         ports=ObservationPorts(
             tip=tip,
             attempt=attempt,
