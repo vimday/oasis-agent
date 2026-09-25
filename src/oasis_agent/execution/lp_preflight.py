@@ -31,7 +31,11 @@ from ..evidence.rpc_validation import (
     decode_exchange,
     restore_exchanges,
     rpc_quantity,
+    strict_integer,
     strict_json_object,
+    strict_list,
+    strict_object,
+    strict_string,
 )
 from ..evidence.store import EvidenceStore
 from ..models.chain import BlockSnapshot
@@ -249,36 +253,18 @@ def persist_lp_preflight_evidence(
     )
 
 
-def _object(value: object, name: str) -> dict[str, object]:
-    if not isinstance(value, dict):
-        raise TypeError(f"{name} must be an object")
-    return value
-
-
-def _integer(value: object, name: str) -> int:
-    if type(value) is not int:
-        raise TypeError(f"{name} must be an integer")
-    return value
-
-
-def _string(value: object, name: str) -> str:
-    if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
-    return value
-
-
 def _pin(value: object) -> RuntimePin:
-    data = _object(value, "runtime pin")
+    data = strict_object(value, "runtime pin")
     if set(data) != {"role", "address", "code_hash"}:
         raise ValueError("runtime pin has invalid fields")
     try:
-        role = RuntimeRole(_string(data["role"], "runtime role"))
+        role = RuntimeRole(strict_string(data["role"], "runtime role"))
     except ValueError as exc:
         raise ValueError("runtime pin has an unknown role") from exc
     return RuntimePin(
         role,
-        _string(data["address"], "runtime pin address"),
-        _string(data["code_hash"], "runtime pin code hash"),
+        strict_string(data["address"], "runtime pin address"),
+        strict_string(data["code_hash"], "runtime pin code hash"),
     )
 
 
@@ -299,24 +285,21 @@ def _parse_payload(
         raise ValueError("preflight payload has invalid fields")
     if data["schema"] != "oasis.lp-execution-preflight.v2":
         raise ValueError("unsupported preflight schema")
-    block_data = _object(data["block"], "block")
+    block_data = strict_object(data["block"], "block")
     if set(block_data) != {"chain_id", "number", "block_hash", "timestamp"}:
         raise ValueError("preflight block has invalid fields")
-    pins_data = data["runtime_pins"]
-    if not isinstance(pins_data, list):
-        raise TypeError("preflight runtime pins must be a list")
     return (
         BlockRef(
-            _integer(block_data["chain_id"], "chain ID"),
-            _integer(block_data["number"], "block number"),
-            _string(block_data["block_hash"], "block hash"),
-            _integer(block_data["timestamp"], "block timestamp"),
+            strict_integer(block_data["chain_id"], "chain ID"),
+            strict_integer(block_data["number"], "block number"),
+            strict_string(block_data["block_hash"], "block hash"),
+            strict_integer(block_data["timestamp"], "block timestamp"),
         ),
-        _string(data["account"], "account"),
-        _integer(data["account_nonce"], "account nonce"),
-        _string(data["executor"], "executor"),
-        _integer(data["executor_last_nonce"], "executor last nonce"),
-        tuple(_pin(item) for item in pins_data),
+        strict_string(data["account"], "account"),
+        strict_integer(data["account_nonce"], "account nonce"),
+        strict_string(data["executor"], "executor"),
+        strict_integer(data["executor_last_nonce"], "executor last nonce"),
+        tuple(_pin(item) for item in strict_list(data["runtime_pins"], "runtime pins")),
     )
 
 

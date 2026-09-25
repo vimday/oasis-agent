@@ -1,4 +1,9 @@
-"""Offline validation of retained RPC envelopes, without trusting their labels."""
+"""Offline validation of retained payloads, without trusting their labels.
+
+Every helper here validates bytes or decoded fields a producer retained earlier.
+Nothing fetches, and a malformed, ambiguous or unexpectedly typed field raises
+instead of becoming a permissive default.
+"""
 
 import json
 import re
@@ -35,6 +40,49 @@ def _object(payload: bytes) -> dict[str, object]:
 def strict_json_object(payload: bytes) -> dict[str, object]:
     """Decode one hostile JSON object, rejecting duplicate/non-finite fields."""
     return _object(payload)
+
+
+def strict_object(value: object, name: str) -> dict[str, object]:
+    """Require one JSON object; a retained payload field is never duck-typed."""
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    return cast(dict[str, object], value)
+
+
+def strict_list(value: object, name: str) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError(f"{name} must be a JSON array")
+    return value
+
+
+def strict_string(value: object, name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a JSON string")
+    return value
+
+
+def strict_integer(value: object, name: str) -> int:
+    """A JSON integer: never a bool, a float or a numeric string."""
+    if type(value) is not int:
+        raise ValueError(f"{name} must be a JSON integer")
+    return value
+
+
+def strict_boolean(value: object, name: str) -> bool:
+    if type(value) is not bool:
+        raise ValueError(f"{name} must be a JSON boolean")
+    return value
+
+
+def strict_digest(value: object, name: str) -> str:
+    """One canonical, unprefixed, lowercase SHA-256 hex digest."""
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise ValueError(f"{name} must be a lowercase SHA-256 hex digest")
+    return value
 
 
 def rpc_quantity(value: object) -> int:
@@ -130,4 +178,15 @@ def restore_exchanges(request_payload: bytes, response_payload: bytes) -> tuple[
     return tuple(result)
 
 
-__all__ = ["decode_exchange", "restore_exchanges", "rpc_quantity", "strict_json_object"]
+__all__ = [
+    "decode_exchange",
+    "restore_exchanges",
+    "rpc_quantity",
+    "strict_boolean",
+    "strict_digest",
+    "strict_integer",
+    "strict_json_object",
+    "strict_list",
+    "strict_object",
+    "strict_string",
+]

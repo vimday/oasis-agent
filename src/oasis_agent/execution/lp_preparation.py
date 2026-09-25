@@ -13,6 +13,8 @@ from ..shadow.service import LpCycle, serializable
 from .lp_signer_policy import EXECUTE_SELECTOR, EXECUTE_TYPE, LpSignerPolicy, calldata_hash
 from .lp_state_machine import LpIntent, LpIntentMode, RuntimeRole, TickRange
 
+SIMULATION_PLAN_SCHEMA = "oasis.lp-simulation-plan.v2"
+
 
 @dataclass(frozen=True, slots=True)
 class LpPlanBounds:
@@ -60,7 +62,7 @@ class LpSimulationPlan:
     def payload(self) -> bytes:
         return canonical_json(
             {
-                "schema": "oasis.lp-simulation-plan.v2",
+                "schema": SIMULATION_PLAN_SCHEMA,
                 "mode": "simulate",
                 "execution_eligible": False,
                 "intent": asdict(self.intent),

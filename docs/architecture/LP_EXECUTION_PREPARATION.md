@@ -161,11 +161,59 @@ recovers the head's parent hash from the raw header instead of a payload field, 
 its own bytes contradict.
 
 This closes one required evidence kind. It is not an execution permit and does not by itself make a
-request signable: `kind = "risk-decision"` (exactly one record, at the simulation block, whose content
-hash equals the request's `risk_decision_hash`) still has no producer, and `scripts/run_lp_signer_sidecar.py`
-and `scripts/run_lp_broadcast.py` still only read `requests/<request>.json` because nothing assembles a
-pinned simulation, this preflight and a risk decision into one `LpSigningRequest`. Account nonce
-reservation, deployment relationship review, finality and the economic gates also stay unresolved.
+request signable: account nonce reservation, deployment relationship review, finality and the
+economic gates stay unresolved, and `scripts/run_lp_signer_sidecar.py` and
+`scripts/run_lp_broadcast.py` only read `requests/<request>.json`. The two remaining evidence kinds
+and that assembly are implemented below.
+
+## Risk decision and request assembly implemented (2026-09-25)
+
+`execution/lp_risk_decision.py` is the producer of `kind = "risk-decision"` that the frozen gate
+always demanded and nothing wrote. `decide_lp_risk()` accepts only an
+`EvidenceReplayAccountRiskReader`—a duck-typed reader could price the same intent differently—and
+refuses calldata that does not hash to the intent, a gas envelope other than the intent's own
+`max_gas_units`, an untimestamped or foreign simulation block, and fewer than two distinct
+simulation providers at that block. It prices by rebuilding a `current_block = simulation_block`
+envelope with zeroed nonces, no evidence and `risk_approved=False` and calling the reader's own
+`reconcile_and_price`, so the capital ceiling and the worst-case commitment are produced by the same
+code the signer guard reserves against instead of a second valuation. `LpRiskDecision` refuses to
+exist with `approved` inconsistent with its `reasons`, and the only two reasons are an unresolved
+operation in the reconciled account and a worst case above the ceiling. `persist_lp_risk_decision()`
+retains exactly one record at the simulation block, and `replay_lp_risk_decision()` rebuilds it from
+its retained bytes through the one payload definition the gate re-derives: the gate compares
+`"0x" + content_hash` with the request's `risk_decision_hash`, so a producer with its own bytes would
+retain evidence that can never authorize anything.
+
+`execution/lp_signing_request.py` assembles a request. `parse_prepared_simulation()` rebuilds one
+plan and its two simulation references from a report's exact bytes, refusing a report that still
+lists `pinned_simulation` as unresolved, another schema, a plan that is not simulation-only, a
+nonzero value, an intent hash that does not match its own intent, calldata that does not match the
+intent's hash, and evidence that is not two distinct sources at the plan block.
+`assemble_lp_signing_request()` then re-reads every submitted reference from the evidence store
+first—the gate matches by hash alone, so without this a reference that was never retained could be
+smuggled in—and adds the checks the gate cannot make: the retained simulation payload must be
+byte-for-byte the envelope this plan's own simulation must consist of, the preflight providers must be
+exactly the manifest's declared pair and the preflight must observe the policy's own account,
+executor and runtime pins, the manifest must describe exactly one chain and the plan's account, and
+the intent's pool and token id must be a position that manifest declares. It returns the sidecar
+request together with `authorize_lp_signing`'s own verdict, so a caller enforces the frozen policy
+instead of re-deriving it. It holds no key, cannot sign, reserve a nonce or broadcast.
+
+`scripts/assemble_lp_signing_request.py` is the operator command. It requires explicit `--config`,
+`--manifest`, `--plan`, `--evidence`, `--budget`, `--out` and one `--rpc`/`--block` per declared
+chain, keeps the gas envelope out of the operator's hands (the fee caps are the sidecar config's own
+and the gas limit is the plan's own intent, so a retained decision cannot describe a cheaper
+transaction than the one a signer would be handed), re-captures the manifest's declared two-provider
+account proofs at the intent's own state block, prices the decision, collects a fresh two-provider
+preflight at a later head, and writes `--out` exclusively only when the gate authorizes. A refused
+bundle exits 3 and writes no file at all, so an unauthorized request never becomes a path a signer
+could be pointed at; an invalid configuration or plan exits 1; a capture or write failure exits 2.
+
+Nothing here reserves an account nonce, holds a key or broadcasts, and a retained request is still
+not an execution permit. No request has yet been assembled against a funded live account, so the
+accepted path is exercised by synthetic retained proofs only; `run_lp_signer_sidecar.py` still needs
+an operator-supplied request file plus an admitted shadow window, and release approval, finality and
+the economic gates remain unresolved.
 
 ## Verification completed 2026-09-12
 

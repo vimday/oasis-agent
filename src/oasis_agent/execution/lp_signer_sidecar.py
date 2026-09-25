@@ -31,8 +31,8 @@ from rlp import encode as rlp_encode  # type: ignore[import-untyped]
 
 from ..models.common import (
     BlockRef,
-    EvidenceRef,
     canonical_json,
+    evidence_ref_from_json,
     normalize_address,
     normalize_hash32,
     sha256_hex,
@@ -739,13 +739,8 @@ def sidecar_config_to_json(config: LpSidecarConfig) -> bytes:
     )
 
 
-def sidecar_config_from_json(
-    payload: bytes,
-    *,
-    journal_path: Path,
-    provider: SigningKeyProvider | None = None,
-    risk_guard: SigningRiskGuard | None = None,
-) -> LpSidecarConfig:
+def _sidecar_config_fields(payload: bytes) -> tuple[LpSignerPolicy, int, int]:
+    """The frozen policy and the sidecar's own fee caps, and nothing else."""
     data = _expect_keys(
         json.loads(payload, object_pairs_hook=_unique_object),
         {"schema", "policy", "max_fee_per_gas", "max_priority_fee_per_gas"},
@@ -776,25 +771,49 @@ def sidecar_config_from_json(
         RuntimePin(RuntimeRole(pin["role"]), pin["address"], pin["code_hash"])
         for pin in policy_data["runtime_pins"]
     )
-    policy = LpSignerPolicy(**policy_data)
+    return (
+        LpSignerPolicy(**policy_data),
+        data["max_fee_per_gas"],
+        data["max_priority_fee_per_gas"],
+    )
+
+
+def sidecar_limits_from_json(payload: bytes) -> tuple[LpSignerPolicy, int, int]:
+    """Read one declared policy and its fee caps without a journal or key authority.
+
+    A request producer reads these before it prices anything, so the gas envelope
+    it commits to is the one this sidecar will actually admit, and it must never
+    be handed a journal path it has no business opening.
+    """
+    return _sidecar_config_fields(payload)
+
+
+def sidecar_config_from_json(
+    payload: bytes,
+    *,
+    journal_path: Path,
+    provider: SigningKeyProvider | None = None,
+    risk_guard: SigningRiskGuard | None = None,
+) -> LpSidecarConfig:
+    policy, max_fee_per_gas, max_priority_fee_per_gas = _sidecar_config_fields(payload)
     return LpSidecarConfig(
         policy=policy,
-        max_fee_per_gas=data["max_fee_per_gas"],
-        max_priority_fee_per_gas=data["max_priority_fee_per_gas"],
+        max_fee_per_gas=max_fee_per_gas,
+        max_priority_fee_per_gas=max_priority_fee_per_gas,
         journal_path=journal_path,
         provider=provider,
         risk_guard=risk_guard,
     )
 
 
-def _intent_to_json(intent: LpIntent) -> dict[str, Any]:
+def intent_to_json(intent: LpIntent) -> dict[str, Any]:
     data = asdict(intent)
     data["mode"] = intent.mode.value
     data["runtime_pins"] = [asdict(pin) for pin in intent.runtime_pins]
     return data
 
 
-def _intent_from_json(data: dict[str, Any]) -> LpIntent:
+def intent_from_json(data: dict[str, Any]) -> LpIntent:
     raw = dict(data)
     raw["mode"] = LpIntentMode(raw["mode"])
     raw["runtime_pins"] = tuple(
@@ -812,7 +831,7 @@ def sidecar_request_to_json(request: LpSidecarRequest) -> bytes:
         {
             "schema": SIDE_CAR_REQUEST_SCHEMA,
             "signing": {
-                "intent": _intent_to_json(signing.intent),
+                "intent": intent_to_json(signing.intent),
                 "account": signing.account,
                 "target": signing.target,
                 "calldata": "0x" + signing.calldata.hex(),
@@ -895,16 +914,8 @@ def sidecar_request_from_json(payload: bytes) -> LpSidecarRequest:
         },
         "LP intent",
     )
-    intent = _intent_from_json(intent_data)
-    evidence = tuple(
-        EvidenceRef(
-            **{
-                **item,
-                "block": BlockRef(**item["block"]),
-            }
-        )
-        for item in signing["evidence"]
-    )
+    intent = intent_from_json(intent_data)
+    evidence = tuple(evidence_ref_from_json(item) for item in signing["evidence"])
     request = LpSigningRequest(
         intent=intent,
         account=signing["account"],
@@ -975,10 +986,13 @@ __all__ = [
     "LpSignerSidecarJournal",
     "NullSigningKeyProvider",
     "SigningKeyProvider",
+    "intent_from_json",
+    "intent_to_json",
     "recover_signer",
     "sidecar_config_from_json",
     "sidecar_config_to_json",
     "sidecar_decision_from_json",
+    "sidecar_limits_from_json",
     "sidecar_request_from_json",
     "sidecar_request_hash",
     "sidecar_request_to_json",

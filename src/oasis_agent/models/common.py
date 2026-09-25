@@ -80,6 +80,26 @@ class EvidenceRef:
             raise ValueError("retrieved_at must include a timezone")
 
 
+def evidence_ref_from_json(value: object) -> EvidenceRef:
+    """Rebuild one evidence reference from its retained JSON projection.
+
+    Producers write a reference with `asdict` and verifiers parse it here, so the
+    two halves of the wire format cannot drift. An absent or null block stays
+    absent instead of becoming a default reference, and an unknown key is
+    refused rather than silently dropped.
+    """
+    if not isinstance(value, dict):
+        raise TypeError("evidence reference must be an object")
+    data = dict(value)
+    data.setdefault("block", None)
+    block = data["block"]
+    if block is not None:
+        if not isinstance(block, dict):
+            raise TypeError("evidence reference block must be an object")
+        data["block"] = BlockRef(**block)
+    return EvidenceRef(**data)
+
+
 def canonical_json(value: object) -> bytes:
     """Return stable JSON bytes for hashing structured request/response data."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()

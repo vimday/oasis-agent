@@ -20,6 +20,7 @@ from .lp_state_machine import RuntimeRole
 
 POSITION_MANAGER_SELECTOR = keccak(b"POSITION_MANAGER()")[:4]
 POOL_MANAGER_SELECTOR = keccak(b"POOL_MANAGER()")[:4]
+SIMULATION_KIND = "pinned-simulation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,7 +192,7 @@ def simulate_lp_plan(
 
     def retain(exchanges: tuple[RpcExchange, ...], source: str) -> EvidenceRef:
         return store.put(
-            "pinned-simulation",
+            SIMULATION_KIND,
             payload,
             block,
             source,

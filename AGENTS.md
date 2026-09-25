@@ -190,9 +190,38 @@ autonomous trader. Its current verified boundary is:
   providers as `kind = "execution-preflight"` records whose payload, interpretation and content hash are
   the same bytes `authorize_lp_signing` re-derives, and `replay_lp_preflight_evidence()` rebuilds one
   from its retained envelopes alone, refusing a payload its own bytes contradict. It holds no key and
-  cannot sign or broadcast, it does not reserve an account nonce, and no code yet assembles a pinned
-  simulation, this preflight and an independent risk decision into one `LpSigningRequest`, so the sidecar
-  and broadcast CLIs still have no request producer and `kind = "risk-decision"` still has none either;
+  cannot sign or broadcast and it does not reserve an account nonce;
+- `execution/lp_risk_decision.py` supplies the `kind = "risk-decision"` evidence the frozen gate always
+  demanded and nothing wrote: `decide_lp_risk()` accepts only an `EvidenceReplayAccountRiskReader`,
+  refuses calldata that does not hash to the intent, a gas envelope other than the intent's own
+  `max_gas_units`, an untimestamped or foreign simulation block and fewer than two distinct simulation
+  providers, prices by reusing that reader's own `reconcile_and_price` under a
+  `current_block = simulation_block` envelope with zeroed nonces and no evidence (so a second valuation
+  can never disagree with the ceiling the signer guard reserves against), and refuses to build a
+  decision whose `approved` contradicts its reasons, which are only an unresolved operation in the
+  reconciled account and a worst case above the capital ceiling. `persist_lp_risk_decision()` retains
+  exactly one record at the simulation block through one payload definition shared with
+  `replay_lp_risk_decision()`, so the bytes a producer retains are the ones the gate re-derives.
+  `execution/lp_signing_request.py` then assembles a request: `parse_prepared_simulation()` rebuilds one
+  plan and its two simulation references from a report's exact bytes (refusing a report that still lists
+  `pinned_simulation` as unresolved, another schema, a non-simulation plan, a nonzero value, a mismatched
+  intent hash or calldata and evidence that is not two distinct sources at the plan block), and
+  `assemble_lp_signing_request()` re-reads every submitted reference from the store (the gate matches by
+  hash alone, so an unretained reference could otherwise be smuggled in), requires the retained
+  simulation payload to be byte-for-byte the envelope this plan's own simulation must consist of,
+  requires the preflight providers to be exactly the manifest's declared pair observing the policy's own
+  account, executor and runtime pins, requires the manifest to describe exactly one chain and the plan's
+  account, and requires the intent's pool and token id to be a position that manifest declares. It
+  returns the sidecar request with `authorize_lp_signing`'s own verdict, holds no key and cannot sign,
+  reserve a nonce or broadcast. `scripts/assemble_lp_signing_request.py` is the operator command: it
+  keeps the gas envelope out of the operator's hands (the fee caps are the sidecar config's own and the
+  gas limit is the plan's own intent), re-captures the manifest's two-provider account proofs at the
+  intent's own state block, prices the decision, collects a fresh two-provider preflight at a later head
+  and writes `--out` exclusively only when the gate authorizes — a refusal exits 3 and writes no file, so
+  an unauthorized request never becomes a path a signer could be pointed at. No request has yet been
+  assembled against a funded live account, so the accepted path is exercised by synthetic retained proofs
+  only, `run_lp_signer_sidecar.py` still needs an operator-supplied request file plus an admitted shadow
+  window, and a retained request is not an execution permit;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
   agreement, and precommitted rejection thresholds; it still needs a production target dataset and

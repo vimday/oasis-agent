@@ -336,6 +336,15 @@ they hold no key, never sign and never broadcast:
   file, and the request-interval/request-cap pair. Admission options without a manifest, a manifest
   without a store or without its journal/budget ledger, and RPC names that are not the manifest's own
   declared providers are each refused at startup rather than partially wired.
+- `scripts/assemble_lp_signing_request.py` produces the request file that CLI consumes.
+  `execution/lp_signing_request.py` and `execution/lp_risk_decision.py` supply what the gate demanded
+  and nothing wrote: one pinned simulation, one two-provider execution preflight and exactly one
+  `risk-decision` record, all re-read from the store before they are bound. The command takes
+  `--config` (the same sidecar config, so the fee caps a decision prices are exactly the caps the
+  sidecar enforces), `--manifest`, the plan report, the evidence store and budget, one
+  `--rpc`/`--block` per declared chain, and writes `--out` exclusively only when
+  `authorize_lp_signing` authorizes the assembled request; a refusal exits 3 and writes no file at all.
+  See `docs/architecture/LP_EXECUTION_PREPARATION.md` for its exact refusals.
 - a configured signing authority additionally requires the shadow precondition, so the only
   configuration that can produce a real signature is unstartable without it: `--canary-window` names
   the retained `window.json` and `--canary-cap-usd` the cap it must admit. `load_shadow_window()`
@@ -479,6 +488,10 @@ values a provider error might echo are never persisted.
   sidecar's `--risk-*` wiring are covered by two-provider fixtures and an in-process end-to-end signing
   test, not by a funded canary request; the one live observation so far is the observe-only shadow
   window above, which uses a different entry point.
+- The request producer is exercised by synthetic retained proofs and fixtures only. No request has been
+  assembled against a funded live account, and neither of its two live captures (the account at the
+  intent's own state block, the preflight at a later head) has been run against real providers, so the
+  one path that can make a request signable is not yet demonstrated end to end.
 - The receipt producer closes one loop, not the whole one, and nothing schedules it. It derives only
   `gas_units`: non-gas native movement is never derived from a receipt, so an account that also sent
   native value still needs an operator declaration and its next frame is refused until it has one.
