@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from oasis_agent.errors import RpcError
 from oasis_agent.models.common import canonical_json
 from oasis_agent.risk.shadow_acceptance import (
     CANARY_WINDOW_REQUIREMENTS,
@@ -404,14 +405,24 @@ class Loop:
     unspent: tuple[int, ...]
 
 
-def drive(codes: Sequence[int]) -> Loop:
-    """Run `observe` with a scripted observer exit code per attempt."""
+def drive(codes: Sequence[int], *, tip_failures: Sequence[int] = ()) -> Loop:
+    """Run `observe` with a scripted observer exit code per attempt.
+
+    ``tip_failures`` names the 1-based head reads that fail as a transport error,
+    so the loop can be driven through a flaky provider without a network.
+    """
     remaining = list(codes)
+    failures = set(tip_failures)
     recorded: list[ObservationRun] = []
     pinned: list[int] = []
     sleeps: list[float] = []
+    reads = 0
 
     def tip() -> dict[int, int]:
+        nonlocal reads
+        reads += 1
+        if reads in failures:
+            raise RpcError("RPC transport failure (details redacted)")
         block = 100 + len(pinned)
         pinned.append(block)
         return {CHAIN_A: block}
@@ -479,6 +490,25 @@ def test_the_loop_stops_incomplete_when_capture_attempts_are_exhausted() -> None
     assert result.outcome.runs == ()
     assert "attempts exhausted after 2 tries at run 1" in result.outcome.reason
     assert result.pinned == (100, 101)
+    assert result.unspent == ()
+
+
+def test_a_failed_head_read_costs_an_attempt_not_the_window() -> None:
+    """A live window died on one transient `eth_blockNumber` failure, so pinning
+    the head must be retried exactly like a capture failure."""
+    result = drive([0, 0, 0], tip_failures=(2,))
+    assert result.outcome.status == "complete"
+    assert result.recorded == result.outcome.runs
+    assert [r.block_number for r in result.recorded] == [100, 101, 102]
+    assert result.pinned == (100, 101, 102)
+    assert result.unspent == ()
+
+
+def test_a_window_whose_head_reads_all_fail_is_incomplete() -> None:
+    result = drive([], tip_failures=(1, 2))
+    assert result.outcome.status == "incomplete"
+    assert "attempts exhausted after 2 tries at run 1" in result.outcome.reason
+    assert result.pinned == ()
     assert result.unspent == ()
 
 

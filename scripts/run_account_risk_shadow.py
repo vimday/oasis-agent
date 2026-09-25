@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from oasis_agent.errors import RpcError
 from oasis_agent.evidence.rpc_validation import rpc_quantity
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.risk.portfolio_manifest import ChainInventory, PortfolioManifest
@@ -146,16 +147,22 @@ def observe(
 ) -> ShadowOutcome:
     """Collect `runs_required` accepted observations, or stop fail-closed.
 
-    A capture failure is retried at a fresh pinned block, so a flaky provider
-    costs an attempt rather than the window. An accepted capture the ledger
-    refused is never retried: it is a risk signal, not a transport failure.
+    A capture failure — including a provider read that fails while pinning the
+    head — is retried at a fresh pinned block, so a flaky provider costs an
+    attempt rather than the window. An accepted capture the ledger refused is
+    never retried: it is a risk signal, not a transport failure.
     """
     runs: list[ObservationRun] = []
     while len(runs) < runs_required:
         accepted = False
         for number in range(1, attempts_per_run + 1):
             directory = Path(f"attempt-{len(runs) + 1:03d}-{number:02d}")
-            blocks = ports.tip()
+            try:
+                blocks = ports.tip()
+            except RpcError:
+                # Pinning the head is itself a provider read, so a transport failure
+                # here costs an attempt rather than the whole observed window.
+                continue
             code = ports.attempt(directory, blocks)
             if code == _LEDGER_REFUSED:
                 return ShadowOutcome(
