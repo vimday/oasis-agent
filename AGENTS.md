@@ -124,7 +124,9 @@ autonomous trader. Its current verified boundary is:
   hash-linked transitions, restart recovery, and evidence-gated full-unwind closure from HALT;
   `execution/lp_signer_policy.py` independently decodes bounded executor calldata and checks chain,
   account, nonce, code, simulation, risk, capital, gas, and deadline bindings, but exposes no key,
-  signing, or broadcast capability and is not yet an isolated production signer service;
+  signing, or broadcast capability and is not yet an isolated production signer service; it and the
+  preflight producer share one public `preflight_payload()` definition, so the bytes a producer retains
+  are exactly the ones this gate re-derives;
 - `execution/lp_signer_sidecar.py` adds durable nonce reservation, external-provider signature
   verification, and an optional independent account-risk admission boundary: when a guard is
   configured it must reserve reconciled capital before any provider call, an attempt that produces
@@ -176,6 +178,21 @@ autonomous trader. Its current verified boundary is:
   redacted report. Nothing here signs, holds a key or schedules itself, the shadow loop does not
   consume its declarations, and an account that also sends native value still keeps an unexplained
   residual that refuses its next frame;
+- `execution/lp_preflight.py` produces the other evidence kind the signer gate has always demanded and
+  nothing wrote: `collect_lp_preflight_quorum()` observes one explicit head from two independent
+  providers and pins every read to it by EIP-1898 block hash, issuing exactly `eth_chainId`, the
+  opening header, one `eth_getCode` per role-bound runtime, the executor's own `lastNonce()`, the
+  signing account's `eth_getTransactionCount` and a closing re-read of the same header. Each capture
+  re-derives every field from its retained bytes and refuses a chain other than the policy chain, a
+  header that moved before the close, live code that differs from its pin, a word that is not a
+  canonical uint64 and an address that cannot be the signing identity; a quorum refuses a provider that
+  disagrees on the head, either nonce or the pins. `persist_lp_preflight_evidence()` retains both
+  providers as `kind = "execution-preflight"` records whose payload, interpretation and content hash are
+  the same bytes `authorize_lp_signing` re-derives, and `replay_lp_preflight_evidence()` rebuilds one
+  from its retained envelopes alone, refusing a payload its own bytes contradict. It holds no key and
+  cannot sign or broadcast, it does not reserve an account nonce, and no code yet assembles a pinned
+  simulation, this preflight and an independent risk decision into one `LpSigningRequest`, so the sidecar
+  and broadcast CLIs still have no request producer and `kind = "risk-decision"` still has none either;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
   agreement, and precommitted rejection thresholds; it still needs a production target dataset and

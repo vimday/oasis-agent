@@ -132,6 +132,41 @@ These are block-pinned read-only simulations, not transactions. The result's `ex
 remains False. It does not create the independent risk decision, account nonce reservation, deployment
 relationship review, finality guarantees or owner-cash settlement needed for live execution.
 
+## Execution preflight implemented (2026-09-25)
+
+`authorize_lp_signing` always demanded `kind = "execution-preflight"` evidence and no production code
+wrote any, so a real request could not exist. `execution/lp_preflight.py` is that producer.
+`collect_lp_preflight_quorum()` takes the frozen `LpSignerPolicy` (only its chain, account, executor
+and role-bound runtime pins are read; its capital limits stay with the signer gate) and one explicit
+block height, and issues exactly eight calls per provider: `eth_chainId`, the opening header, one
+`eth_getCode` per role-bound runtime, the executor's own `lastNonce()`, the signing account's
+`eth_getTransactionCount`, and the closing header. Every numeric read carries the EIP-1898
+`{"blockHash": ..., "requireCanonical": true}` pin of that same head, so no read can describe a
+different state than the rest.
+
+A capture re-derives every field from its retained bytes rather than trusting the parsed reply, and
+refuses a chain other than the policy chain, a header that moved between the opening and closing read,
+a live code hash that differs from its pin, a word that is not a canonical `uint64`, and a nonce or
+address that cannot be the signing identity. A quorum requires two distinct source aliases and
+identical headers and payloads, so a provider that disagrees on the head, the account nonce or the
+executor nonce refuses rather than being averaged away.
+
+`persist_lp_preflight_evidence()` retains both providers as `kind = "execution-preflight"` records at
+schema version 2 whose `payload`, `interpretation` and content hash are the same bytes, produced by the
+one public `preflight_payload()` that `preflight_evidence_hash()` also calls. Writer and verifier share
+that definition on purpose: a producer whose bytes differed from the ones the gate re-derives would
+retain evidence that can never authorize anything.
+`replay_lp_preflight_evidence()` rebuilds a capture from its retained request/response envelopes alone,
+recovers the head's parent hash from the raw header instead of a payload field, and refuses a payload
+its own bytes contradict.
+
+This closes one required evidence kind. It is not an execution permit and does not by itself make a
+request signable: `kind = "risk-decision"` (exactly one record, at the simulation block, whose content
+hash equals the request's `risk_decision_hash`) still has no producer, and `scripts/run_lp_signer_sidecar.py`
+and `scripts/run_lp_broadcast.py` still only read `requests/<request>.json` because nothing assembles a
+pinned simulation, this preflight and a risk decision into one `LpSigningRequest`. Account nonce
+reservation, deployment relationship review, finality and the economic gates also stay unresolved.
+
 ## Verification completed 2026-09-12
 
 - Regressions first reproduced missing preparation support, stale simulation proof acceptance after

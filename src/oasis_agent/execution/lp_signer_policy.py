@@ -207,19 +207,44 @@ def simulation_evidence_hash(request: LpSigningRequest) -> str:
     )
 
 
+def preflight_payload(
+    *,
+    block: BlockRef,
+    account: str,
+    account_nonce: int,
+    executor: str,
+    executor_last_nonce: int,
+    runtime_pins: tuple[RuntimePin, ...],
+) -> bytes:
+    """Version 2 binds head, both nonces and every role-bound runtime.
+
+    The writer and the verifier share this one definition on purpose: a producer
+    whose bytes differ from the ones the gate re-derives would be retained
+    evidence that can never authorize anything.
+    """
+    return canonical_json(
+        {
+            "schema": "oasis.lp-execution-preflight.v2",
+            "block": asdict(block),
+            "account": account,
+            "account_nonce": account_nonce,
+            "executor": executor,
+            "executor_last_nonce": executor_last_nonce,
+            "runtime_pins": [asdict(pin) for pin in runtime_pins],
+        }
+    )
+
+
 def preflight_evidence_hash(request: LpSigningRequest) -> str:
     """Hash independent account/executor nonce and runtime observations."""
     return sha256_hex(
-        canonical_json(
-            {
-                "schema": "oasis.lp-execution-preflight.v2",
-                "block": asdict(request.current_block),
-                "account": request.account,
-                "account_nonce": request.account_nonce,
-                "executor": request.target,
-                "executor_last_nonce": request.executor_last_nonce,
-                "runtime_pins": [asdict(pin) for pin in request.observed_runtime_pins],
-            }
+        preflight_payload(
+            block=request.current_block,
+            account=request.account,
+            account_nonce=request.account_nonce,
+            executor=request.target,
+            executor_last_nonce=request.executor_last_nonce,
+            runtime_pins=request.observed_runtime_pins,
         )
     )
 
@@ -418,5 +443,6 @@ __all__ = [
     "authorize_lp_signing",
     "calldata_hash",
     "preflight_evidence_hash",
+    "preflight_payload",
     "simulation_evidence_hash",
 ]
