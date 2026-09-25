@@ -210,12 +210,21 @@ autonomous trader. Its current verified boundary is:
   capture, and never opening the risk journal, holding a key, signing or broadcasting;
   `scripts/check_canary_admission.py` re-derives a retained window byte for byte against the manifest
   it claims to describe and prints the admission or refusal reasons, always with
-  `execution_eligible: false`. `configs/account-risk.base.example.json` is the only committed
+  `execution_eligible: false`. One live run of that loop against the two public Base providers the
+  example manifest declares completed a three-run window (blocks `51760279`/`51760358`/`51760414`,
+  270s span, cumulative loss 0, no unresolved operations, seven attempts because the public providers
+  dropped two attempts of each of the first two runs), and the admission check admitted a USD 50 cap
+  while refusing a USD 300 cap against the owner's USD 200 daily budget; that window is retained only
+  under `reports/evidence/` (not version controlled), its requirements are the repository minimum, it
+  covers one native-only account, and no canary path consumes the admission, so it is a mechanism
+  demonstration rather than canary acceptance. `configs/account-risk.base.example.json` is the only
+  committed
   manifest: the
   owner-confirmed dedicated wallet on Base 8453, native-only, declaring no position, with an ETH/USD
   feed pin verified from two Base mainnet providers before it was written and re-parsed by a unit
   test so it cannot rot silently. The default signer CLI loads no reader or guard and still
-  denies; no completed reconciliation run or shadow window is archived, no Robinhood or ERC-20
+  denies; no reconciliation run or shadow window is archived in version control, no Robinhood or
+  ERC-20
   manifest pin is
   verified, no position is declared anywhere in a committed manifest, and no all-asset chain indexer
   or production signer/broadcast integration exists, so this is not a deployed production kill

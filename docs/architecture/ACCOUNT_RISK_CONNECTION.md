@@ -297,6 +297,22 @@ The run schedule is checked before the loop starts: the interval may not exceed 
 and must be long enough that `(runs - 1) * interval` covers `min_span_seconds`. Span is measured
 from block timestamps, not wall clock, so the interval should leave margin for block-time jitter.
 
+#### Live mechanism demonstration (2026-09-24)
+
+One real run of the loop against the two public Base providers the example manifest declares
+produced window `abedce1f10fffeeb28514eafd8934068b0acf2bd6626ed1e5efc5cd074a09a65` for account
+`8453:0xe653…e97d`: three accepted runs at blocks `51760279`, `51760358` and `51760414`, a 270s
+span, cumulative loss 0 and no unresolved operations, with per-run ledger and report digests
+retained. Seven attempts were needed: runs 1 and 2 each needed three attempts because the first two
+attempts of each ended as `capture_failed_redacted` and were retried at fresh pinned blocks, so the
+retry ladder is exercised by genuine public-provider flakiness rather than only by tests.
+`check_canary_admission.py` then admitted a USD 50 cap and refused a USD 300 cap with exactly
+`canary cap exceeds the daily loss budget`, against the owner's USD 200 daily limit.
+
+This is a mechanism demonstration at the stated operator minimum, not canary acceptance: it covers
+one native-only account over one short window, the requirements are the repository default rather
+than a production choice, and no canary path consumes the admission.
+
 ## Unresolved
 
 - Only the Base example manifest is committed, and it is an *example*: the account is the
@@ -315,11 +331,12 @@ from block timestamps, not wall clock, so the interval should leave margin for b
   therefore a lower bound, not a mark-to-market NAV.
 - `state.json` chaining is an operator-run observer, not a supervisor: nothing schedules it, no
   alert fires on a refusal, and a halted `state.json` is only as durable as the filesystem it sits on.
-- No completed shadow window is archived: the gate, the loop and the check are unit-tested with
-  scripted observers, and the public Base providers used by the loop are flaky, so a live window
-  needs several accepted runs at fresh pinned blocks. A window proves only repeated, unhalted,
-  unresolved-free reconciliation of one declared account under one manifest and policy; it is not
-  evidence of profitability, of complete NAV, or that a canary would be safe.
+- No shadow window is archived in this repository. The one live mechanism demonstration above is
+  retained only under `reports/evidence/`, which is excluded from version control, and its
+  requirements are the repository default: it establishes that the loop, the gate and the check run
+  end to end against real providers, not that the window is long enough or that a canary would be
+  safe. A window proves only repeated, unhalted, unresolved-free reconciliation of one declared
+  account under one manifest and policy; it is not evidence of profitability or of complete NAV.
 - The loop declares no native movement, so an account that spends gas or sends native value between
   two runs produces an unresolved residual and the frame is refused rather than under-reported. The
   window therefore fits a funded but idle account, and an active canary account would need per-interval
