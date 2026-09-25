@@ -139,8 +139,16 @@ autonomous trader. Its current verified boundary is:
   owner-only 0600 file or one environment variable of that process; a local EOA key file is the least
   isolated configuration the same socket contract supports, and the daemon has no restart supervision
   or OS-level confinement beyond file ownership and socket permissions. The operator CLI can now wire
-  that socket authority, but it still cannot configure a risk guard, so a live request is still denied
-  and no signature is produced by the default path. Default shadow children receive a minimal
+  both that socket authority and the independent admission boundary, so a request that clears the
+  static policy, the fee caps, the nonce journal and the live reconciled-account reservation does
+  produce a signature; with either authority absent it still denies, and the default path loads
+  neither. The boundary is built from a single-chain `PortfolioManifest` by
+  `execution/account_capture.py` and `execution/live_account_reader.py`, so the frame it reserves
+  against is captured at the signing request's own block; a multi-chain manifest is refused because
+  one block cannot pin two chains, a declared position must already exist and be owned at that block,
+  and native gas spent by an earlier signed transaction must be declared explicitly or the next frame
+  stays unresolved. The CLI still never broadcasts and a produced signature is not an execution
+  permit. Default shadow children receive a minimal
   environment, which is not OS-level isolation from wallet files;
 - `farming/backtest.py` now executes evidence-bound R00/R01/R10/R11 walk-forward comparisons with
   purge windows, routing elasticity, full declared costs, drawdown/tail metrics, two-provider
@@ -201,6 +209,13 @@ autonomous trader. Its current verified boundary is:
   agree on ownership), and prices a signing request's worst-case
   commitment with ceiling rounding, raising on any missing, stale, disagreeing, undeclared-provider
   or unexplained input.
+  `execution/account_capture.py` extracts the two-provider acquisition path into a library
+  (a fresh one-shot session pair per declared provider, one block-pinned observation, an inception
+  baseline that refuses a native declaration) and `execution/live_account_reader.py`
+  (`CaptureAccountRiskReader`) is the `AccountRiskReader` a signing request needs at admission time:
+  it captures the manifest's declared proofs at the request's own block, replays them through the
+  evidence-bound reader and prices the worst case, refusing a multi-chain manifest, a capture at
+  another height or hash, and native declarations outside the manifest.
   `scripts/run_account_risk_reconcile.py` is an observe-only CLI that never opens the risk journal,
   reserves capital or admits a commitment; it binds retained sources to the manifest's declared
   providers, chains its own prior `RiskState` (`--state`) so successive runs accumulate day and
@@ -231,8 +246,9 @@ autonomous trader. Its current verified boundary is:
   manifest: the
   owner-confirmed dedicated wallet on Base 8453, native-only, declaring no position, with an ETH/USD
   feed pin verified from two Base mainnet providers before it was written and re-parsed by a unit
-  test so it cannot rot silently. The default signer CLI loads no reader or guard and still
-  denies; no reconciliation run or shadow window is archived in version control, no Robinhood or
+  test so it cannot rot silently. The signer CLI only admits through flags an operator supplies, so its
+  default invocation loads no reader or guard and still denies; no reconciliation run or shadow window
+  is archived in version control, no Robinhood or
   ERC-20
   manifest pin is
   verified, no position is declared anywhere in a committed manifest, and no all-asset chain indexer

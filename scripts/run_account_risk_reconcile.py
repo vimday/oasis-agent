@@ -28,25 +28,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from oasis_agent.evidence.exact_capture import RecordedSession
-from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.evidence.store import EvidenceStore
+from oasis_agent.execution.account_capture import (
+    SessionPairFactory,
+    capture_flows,
+    capture_inventory,
+    capture_positions,
+    one_shot_sessions,
+)
 from oasis_agent.execution.account_risk_reader import (
     AccountObservation,
-    AssetFlowEvidence,
     EvidenceReplayAccountRiskReader,
-    PositionEvidence,
 )
-from oasis_agent.farming.account_flows import (
-    FlowScope,
-    collect_token_flow_quorum,
-    persist_token_flow_evidence,
-)
-from oasis_agent.farming.account_inventory import (
-    AccountInventoryQuorum,
-    collect_account_inventory_quorum,
-    persist_account_inventory_evidence,
-)
-from oasis_agent.farming.position_quorum import collect_position_quorum
+from oasis_agent.farming.account_inventory import persist_account_inventory_evidence
 from oasis_agent.models.common import canonical_json
 from oasis_agent.risk.account_risk import (
     AccountFrame,
@@ -54,13 +48,8 @@ from oasis_agent.risk.account_risk import (
     RiskState,
     reconcile,
 )
-from oasis_agent.risk.portfolio_manifest import ChainInventory, PortfolioManifest
-from oasis_agent.rpc.budget import BudgetedPoster, BudgetPolicy
-from oasis_agent.rpc.transport import JsonRpcTransport, _UrlLibPoster
-from oasis_agent.shadow.pool_state_capture import (
-    collect_slot0_window_quorum,
-    persist_slot0_window_evidence,
-)
+from oasis_agent.risk.portfolio_manifest import PortfolioManifest
+from oasis_agent.rpc.budget import BudgetPolicy
 
 
 def _pairs(values: list[str], name: str) -> dict[str, str]:
@@ -117,143 +106,18 @@ def _sessions(
     budget: Path,
 ) -> tuple[RecordedSession, RecordedSession]:
     """Fresh one-shot sessions: an exact capture may not reuse a recorder."""
-    sessions: list[RecordedSession] = []
-    for source in sources:
-        recorder = BoundedExchangeRecorder()
-        sessions.append(
-            (
-                JsonRpcTransport(
-                    "https://unused.invalid",
-                    http=BudgetedPoster(_UrlLibPoster(urls[source], 15), budget, policies, source),
-                    retries=0,
-                    recorder=recorder,
-                ),
-                recorder,
-                source,
-            )
-        )
-    return sessions[0], sessions[1]
+    return one_shot_sessions(sources, urls=urls, policies=policies, budget=budget)
 
 
-def _inventory(
-    entry: ChainInventory,
-    *,
-    block: int,
-    urls: Mapping[str, str],
-    policies: tuple[BudgetPolicy, ...],
-    budget: Path,
-) -> AccountInventoryQuorum:
-    sessions = _sessions(
-        sources=(entry.primary_source, entry.secondary_source),
-        urls=urls,
-        policies=policies,
-        budget=budget,
-    )
-    return collect_account_inventory_quorum(
-        sessions[0], sessions[1], entry=entry, block_number=block
-    )
+def _session_factory(
+    *, urls: Mapping[str, str], policies: tuple[BudgetPolicy, ...], budget: Path
+) -> SessionPairFactory:
+    """The CLI's own declared-provider session factory, as the capture library wants."""
 
+    def build(sources: tuple[str, str]) -> tuple[RecordedSession, RecordedSession]:
+        return _sessions(sources=sources, urls=urls, policies=policies, budget=budget)
 
-def _flow_evidence(
-    store: EvidenceStore,
-    entry: ChainInventory,
-    *,
-    prior_block: int,
-    end_block: int,
-    urls: Mapping[str, str],
-    policies: tuple[BudgetPolicy, ...],
-    budget: Path,
-) -> tuple[AssetFlowEvidence, ...]:
-    """Attribute every declared ERC-20 and position delta from complete two-provider logs."""
-    scopes: list[FlowScope] = [
-        FlowScope(
-            entry.chain_id,
-            entry.account,
-            asset.asset_id,
-            asset.address,
-            asset.decimals,
-            prior_block,
-            end_block,
-        )
-        for asset in entry.erc20_assets
-    ]
-    scopes.extend(
-        FlowScope(
-            entry.chain_id,
-            entry.account,
-            position.asset_id,
-            position.position_manager,
-            0,
-            prior_block,
-            end_block,
-            position.token_id,
-        )
-        for position in entry.positions
-    )
-    collected: list[AssetFlowEvidence] = []
-    for scope in scopes:
-        sessions = _sessions(
-            sources=(entry.primary_source, entry.secondary_source),
-            urls=urls,
-            policies=policies,
-            budget=budget,
-        )
-        quorum = collect_token_flow_quorum(sessions[0], sessions[1], scope=scope)
-        collected.append(
-            AssetFlowEvidence(scope.asset_id, persist_token_flow_evidence(store, quorum))
-        )
-    return tuple(collected)
-
-
-def _position_evidence(
-    store: EvidenceStore,
-    entry: ChainInventory,
-    *,
-    block: int,
-    urls: Mapping[str, str],
-    policies: tuple[BudgetPolicy, ...],
-    budget: Path,
-) -> tuple[PositionEvidence, ...]:
-    """Prove each declared position's ownership, ticks and pool state at the pinned block."""
-    collected: list[PositionEvidence] = []
-    for position in entry.positions:
-        sessions = _sessions(
-            sources=(entry.primary_source, entry.secondary_source),
-            urls=urls,
-            policies=policies,
-            budget=budget,
-        )
-        snapshots = collect_position_quorum(
-            sessions[0],
-            sessions[1],
-            chain_id=entry.chain_id,
-            position_manager=position.position_manager,
-            state_view=position.state_view,
-            token_id=position.token_id,
-            block_number=block,
-        ).retain(store)
-        window_sessions = _sessions(
-            sources=(entry.primary_source, entry.secondary_source),
-            urls=urls,
-            policies=policies,
-            budget=budget,
-        )
-        pool_state = persist_slot0_window_evidence(
-            store,
-            collect_slot0_window_quorum(
-                window_sessions[0],
-                window_sessions[1],
-                chain_id=entry.chain_id,
-                state_view=position.state_view,
-                pool_manager=position.pool_manager,
-                pool_id=position.pool_id,
-                block_numbers=(block,),
-                state_view_runtime_keccak=position.state_view_runtime_keccak,
-                pool_manager_runtime_keccak=position.pool_manager_runtime_keccak,
-            ),
-        )
-        collected.append(PositionEvidence(position.asset_id, snapshots, pool_state))
-    return tuple(collected)
+    return build
 
 
 def _native_declarations(
@@ -373,38 +237,26 @@ def main() -> None:
 
     observations: dict[str, AccountObservation] = {}
     inventory: list[dict[str, object]] = []
+    sessions = _session_factory(urls=urls, policies=policies, budget=args.output / "budget.db")
     try:
         for entry in manifest.chains:
-            quorum = _inventory(
-                entry,
-                block=blocks[entry.chain_id],
-                urls=urls,
-                policies=policies,
-                budget=args.output / "budget.db",
-            )
+            quorum = capture_inventory(entry, block=blocks[entry.chain_id], sessions=sessions)
             references = persist_account_inventory_evidence(store, quorum)
             prior = _account(state.frame, entry.key)
-            positions = _position_evidence(
-                store,
-                entry,
-                block=quorum.header.ref.number,
-                urls=urls,
-                policies=policies,
-                budget=args.output / "budget.db",
+            positions = capture_positions(
+                store, entry, block=quorum.header.ref.number, sessions=sessions
             )
             observations[entry.key] = (
                 AccountObservation(inventory=references, positions=positions)
                 if prior is None
                 else AccountObservation(
                     inventory=references,
-                    flows=_flow_evidence(
+                    flows=capture_flows(
                         store,
                         entry,
                         prior_block=prior.block_number,
                         end_block=quorum.header.ref.number,
-                        urls=urls,
-                        policies=policies,
-                        budget=args.output / "budget.db",
+                        sessions=sessions,
                     ),
                     positions=positions,
                     native_gas_units=native[entry.key][0],

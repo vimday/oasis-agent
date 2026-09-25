@@ -313,6 +313,58 @@ This is a mechanism demonstration at the stated operator minimum, not canary acc
 one native-only account over one short window, the requirements are the repository default rather
 than a production choice, and no canary path consumes the admission.
 
+### Live admission at the signing block (2026-09-25)
+
+A signing request carries exactly one block, so the frame the signer's guard reserves against must be
+observed at that block — not at whatever block an observer last ran. Two modules close that gap, and
+they hold no key, never sign and never broadcast:
+
+- `execution/account_capture.py` is the acquisition library the observer CLI and the admission reader
+  now share: `one_shot_sessions()` builds one fresh session per declared provider (an exact capture may
+  not reuse a recorder), `capture_inventory`/`capture_positions`/`capture_flows` retain the
+  two-provider proofs, and `capture_observation()` assembles one complete `AccountObservation`. An
+  inception baseline must be a zero-flow statement, so declaring native movement without a previous
+  frame is refused rather than silently explained; with a previous frame the capture must advance it.
+- `execution/live_account_reader.py` (`CaptureAccountRiskReader`) is an `AccountRiskReader` that
+  captures the manifest's declared proofs at `request.signing.current_block.number`, replays them
+  through `EvidenceReplayAccountRiskReader` and returns the priced worst-case commitment. The
+  baseline it reconciles against is the ledger's own last committed frame, so the account advances
+  along one lineage rather than against an unrelated snapshot.
+- `scripts/run_lp_signer_sidecar.py` wires it: `--risk-manifest` plus `--risk-journal`, `--risk-store`,
+  `--risk-budget`, `--risk-rpc CHAIN:PRIMARY:SECONDARY` (repeatable), `--risk-native`, an environment
+  file, and the request-interval/request-cap pair. Admission options without a manifest, a manifest
+  without a store or without its journal/budget ledger, and RPC names that are not the manifest's own
+  declared providers are each refused at startup rather than partially wired.
+
+```bash
+python -m scripts.run_lp_signer_sidecar \
+  --config configs/sidecar.json --request requests/<request>.json --out out/decision.json \
+  --signer-socket /private/tmp/oasis-signer/signer.sock --signer-account <address> \
+  --risk-manifest configs/account-risk.<chain>.json \
+  --risk-journal out/global-risk.db --risk-store out/evidence.db --risk-budget out/budget.db \
+  --risk-rpc <chain>:<PRIMARY_ENV>:<SECONDARY_ENV> \
+  --risk-native out/native-declarations.json
+```
+
+The bounds are literal, and each one fails closed:
+
+- the manifest must declare exactly one chain — a multi-chain frame cannot be pinned to one signing
+  block, so it is refused rather than assembled from blocks of different heights;
+- the capture must land on the request's own block number *and* hash, so a reorg, a stale tip, a
+  provider that answers another height, or a same-height state the request does not name all refuse;
+- native movement is an operator declaration. An undeclared native change stays unresolved and blocks
+  the frame, so gas spent by an earlier signed transaction must be declared explicitly before the next
+  request can be admitted;
+- a declared position must already exist and be owned at the reconciled block. The reference
+  deployment therefore mints the first canary position out of band, declares it in the manifest, and
+  only then opens the admission ledger; starting the ledger afterwards is what keeps its day and
+  cumulative loss history from beginning mid-life.
+
+The last point is the honest cost of a fail-closed design: the ledger's loss only accrues from the
+frames it observes, so an account funded after the ledger opens would show its deposit as an
+unexplained movement instead of an inception NAV. Nothing in this path schedules itself, consumes a
+`canary_admission()` window, broadcasts a signed transaction, or records a receipt.
+
 ## Unresolved
 
 - Only the Base example manifest is committed, and it is an *example*: the account is the
@@ -352,7 +404,16 @@ than a production choice, and no canary path consumes the admission.
   binding them to it, so the ceiling can then count less than the worst case if the settled
   commitment's own transaction is also still spendable. Closing that gap needs transaction-level
   deployment evidence, which this reader does not bind.
-- The default signer CLI loads neither a reader nor a guard and still denies every attempt;
-  wiring a production reader requires an operator-supplied, independently operated source.
+- The live admission path has not been run against real providers. `CaptureAccountRiskReader` and the
+  sidecar's `--risk-*` wiring are covered by two-provider fixtures and an in-process end-to-end signing
+  test, not by a funded canary request; the one live observation so far is the observe-only shadow
+  window above, which uses a different entry point.
+- No producer turns a confirmed receipt into the next native declaration. `execution/lp_broadcast.py`
+  closes one open broadcast from an observed receipt status and block number only — it records no
+  `gasUsed` — so the gas an admitted request actually spends is not fed back as the `gas_units` the
+  next admission needs; until that exists, an operator must declare it by hand.
+- The default signer CLI loads neither a reader nor a guard and still denies every attempt, and the
+  live path only exists when an operator supplies the `--risk-*` flags, a manifest and a funded,
+  already-owned inventory; wiring a production reader still requires an independently operated source.
 - `execution_eligible` and `lp_readiness` remain closed. Nothing here is a deployed kill switch,
   live NAV, settled PnL or production release approval.

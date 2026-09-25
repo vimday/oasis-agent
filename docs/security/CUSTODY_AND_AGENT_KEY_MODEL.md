@@ -212,7 +212,8 @@ sink. The sweep cannot be redirected by the agent or hook governor.
   before any key authority is called. An attempt that produces no transaction releases its
   reservation; a successful signature keeps it until an independent reconciliation releases it.
   No guard reader implementation is loaded by default, so this boundary fails closed until an
-  operator supplies one that replays complete inventory and raw proofs.
+  operator supplies one that replays complete inventory and raw proofs; the repository now ships one
+  such reader for the live path (see below), but nothing wires it unless the operator asks for it.
 
 For an early EOA canary, “agent owns the key” is still implemented through an isolated signer process.
 If that isolation is unavailable, autonomous execution remains disabled; putting a raw key directly
@@ -229,10 +230,22 @@ authorized: admission therefore stays in the sidecar, and a returned signature i
 permit. The key may be read from one owner-only 0600 file or one environment variable of that
 process. A local EOA key file is the *least* isolated configuration this socket contract supports;
 an HSM, cloud KMS or hardware wallet can serve the same contract unchanged. The reference daemon is
-not yet a supervised production service: it has no restart supervision, no OS-level confinement
-beyond file ownership and socket permissions, and the operator CLI (`scripts/run_lp_signer_sidecar.py`)
-still cannot configure an independent reconciled-account risk guard, so a live request stays denied
-even with a signing authority wired.
+not yet a supervised production service: it has no restart supervision and no OS-level confinement
+beyond file ownership and socket permissions.
+
+The operator CLI (`scripts/run_lp_signer_sidecar.py`) can now wire both halves — the socket authority
+and the independent admission boundary — so a request that clears the static policy, the fee caps, the
+nonce journal and the live reconciled-account reservation does produce a signature. With either half
+absent it denies, and its default invocation loads neither. The boundary a live run builds is
+`execution/live_account_reader.py` over `execution/account_capture.py`: it captures the
+`PortfolioManifest`'s declared two-provider proofs at the signing request's own block, replays them
+through the evidence-bound reader and prices the worst-case commitment before the authority is called.
+Its bounds are literal and each fails closed — the manifest must declare exactly one chain, because one
+signing request carries one block; a declared position must already be owned at that block, so the
+reference deployment mints the first position out of band and only then opens the ledger; and native
+gas spent by an earlier signed transaction must be declared explicitly, because an undeclared native
+change is left unresolved and blocks the next frame. Producing a signature is still not an execution
+permit, and this CLI never broadcasts.
 
 ## 8. Agent transaction policy
 

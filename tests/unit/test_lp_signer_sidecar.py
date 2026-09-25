@@ -535,6 +535,12 @@ def test_json_round_trip_request_and_config(tmp_path):
     assert json.loads(config_payload)["schema"] == "oasis.lp-signer-config.v2"
     restored = sidecar_config_from_json(config_payload, journal_path=tmp_path / "sidecar.db")
     assert restored == config
+    # The admission boundary is authority, never serialized: the operator CLI injects it.
+    guard = make_guard(tmp_path)
+    injected = sidecar_config_from_json(
+        config_payload, journal_path=tmp_path / "sidecar.db", risk_guard=guard
+    )
+    assert injected.risk_guard is guard
 
 
 def test_json_decoders_reject_duplicate_and_unknown_fields(tmp_path):

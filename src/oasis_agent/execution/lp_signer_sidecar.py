@@ -740,7 +740,11 @@ def sidecar_config_to_json(config: LpSidecarConfig) -> bytes:
 
 
 def sidecar_config_from_json(
-    payload: bytes, *, journal_path: Path, provider: SigningKeyProvider | None = None
+    payload: bytes,
+    *,
+    journal_path: Path,
+    provider: SigningKeyProvider | None = None,
+    risk_guard: SigningRiskGuard | None = None,
 ) -> LpSidecarConfig:
     data = _expect_keys(
         json.loads(payload, object_pairs_hook=_unique_object),
@@ -779,6 +783,7 @@ def sidecar_config_from_json(
         max_priority_fee_per_gas=data["max_priority_fee_per_gas"],
         journal_path=journal_path,
         provider=provider,
+        risk_guard=risk_guard,
     )
 
 
