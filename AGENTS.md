@@ -330,14 +330,20 @@ autonomous trader. Its current verified boundary is:
   signing or broadcasting;
   `scripts/check_canary_admission.py` re-derives a retained window byte for byte against the manifest
   it claims to describe and prints the admission or refusal reasons, always with
-  `execution_eligible: false`. One live run of that loop against the two public Base providers the
-  example manifest declares completed a three-run window (blocks `51760279`/`51760358`/`51760414`,
-  270s span, cumulative loss 0, no unresolved operations, seven attempts because the public providers
-  dropped two attempts of each of the first two runs), and the admission check admitted a USD 50 cap
-  while refusing a USD 300 cap against the owner's USD 200 daily budget; that window is retained only
-  under `reports/evidence/` (not version controlled), its requirements are the repository minimum, it
-  covers one native-only account, and it is too short and too narrow to satisfy a real canary, so it is
-  a mechanism demonstration rather than canary acceptance. `configs/account-risk.base.example.json` is
+  `execution_eligible: false`. Live runs of that loop against the two public Base providers the
+  example manifest declares have completed accepted windows, including three runs over 270s (blocks
+  `51760279`/`51760358`/`51760414`, seven attempts because the public providers dropped two attempts
+  of each of the first two runs), four runs over 676s (blocks `51817579`–`51817917`) and five runs
+  over 924s (blocks `51822505`–`51822967`, cumulative loss 128188 USD micros, no unresolved
+  operations, every gap under the 300s maximum), while longer attempts produced no window at all
+  because one public provider dropped every attempt of a single run. The admission check re-derived
+  immediately after that last window admitted exactly USD 200.000000 and refused USD 200.000001 as
+  above the owner's USD 200 daily budget, and it refuses the same window once it is older than its
+  maximum staleness, so a window supports only an admission derived in its own session; every window
+  is retained only under `reports/evidence/` (not version controlled), their requirements are the
+  repository minimum, they cover one native-only account that has never broadcast, and they are still
+  too short and too narrow to satisfy a real canary, so they are a mechanism demonstration rather than
+  canary acceptance. `configs/account-risk.base.example.json` is
   the only
   committed
   manifest: the
