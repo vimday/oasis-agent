@@ -285,6 +285,23 @@ window, derives the inventories, replays the reference price, calls `build_lp_cy
 an output path; every failure exits 1 without appending, and no code path here holds a key, signs or
 broadcasts.
 
+**The position proof had no producer.** `assemble_lp_cycle.py` needs the declared position's own two
+retained snapshots at the market window's decision block, and the only other retention point is the
+simulation plan, which needs the cycle that needs the snapshots. `scripts/capture_lp_position.py` is
+the operator step that breaks that loop: it reads one NFT through `collect_position_quorum` at one
+explicit block from two declared providers, requires both to reconstruct the same canonical snapshot,
+and retains both captures in the operator's own evidence database, which must already hold the
+window's own captures. Its request declares each provider as an `{alias, env}` pair rather than
+assuming one, because `agreed_position_inventory` requires the position's providers to be exactly the
+window's own two; an endpoint variable that is not named as an endpoint (no `RPC`, or containing
+`KEY`), a shared alias or endpoint, and a request that names a different chain, height, manager,
+token, state view or alias pair are all refused before the first write, so a capture of some other
+NFT leaves the store untouched. The emitted `position` object is exactly the shape
+`assemble_lp_cycle.py`'s `PositionRequest` accepts, and its `scope` is derived from the two agreeing
+snapshots rather than declared. Like every other preparation step it holds no key, reserves no
+capital and offers no signing or broadcast path, and its output is a cycle input, never permission
+to trade.
+
 The independent source of `reference_price_x192` is still an owner research decision, not an
 implementation detail: whether it comes from a USD feed ratio, the pool's own TWAP or another
 independent reference, and what staleness/confidence bounds apply, is the experiment hypothesis the

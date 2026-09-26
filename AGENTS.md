@@ -124,7 +124,12 @@ autonomous trader. Its current verified boundary is:
   unlocked, the independent reference-price source is still an owner research decision, no cycle has
   been produced against a funded account or a live market window, and a sustained strategy
   observation window across
-  real markets remains required;
+  real markets remains required. `scripts/capture_lp_position.py` is the producer of the position
+  proof that step consumes: it reads one declared NFT through a two-provider quorum at one explicit
+  block, retains both agreeing snapshots in the operator's own evidence database, derives the scope
+  from those snapshots rather than a declaration, and takes each provider as an explicit
+  `{alias, env}` pair so the aliases can be the window's own two; it refuses a request naming another
+  chain, height, manager, token, state view or alias pair before its first write, and holds no key;
 - Bounded pool-state observation now has persistent RPC budgets, raw two-provider market-window
   replay, mature/deferred sample handling, and hash-linked checkpoint recovery (at most 1000 windows).
   This is not a complete unattended backfill/reconciliation service or a sustained acceptance result;
