@@ -126,9 +126,13 @@ autonomous trader. Its current verified boundary is:
   a settlement price or an economic estimate. `scripts/assemble_lp_cycle.py` is the operator step
   that rebuilds the window, derives that inventory and reference price and appends one cycle line,
   appending nothing when any check refuses. Its candidate terms, thresholds and `pin_simulated_ok`
-  are explicit operator declarations, not an estimated edge: the fee/LVR/inventory model is still
-  unlocked, no cycle has been produced against a funded account or a live market window, and a
-  sustained strategy observation window across real markets remains required.
+  are explicit operator declarations, not an estimated edge: the design of the fee/LVR/inventory
+  model, its data split, trial budget, acceptance thresholds and kill conditions are now locked by
+  owner delegation in `docs/strategies/PHASE1_LP_EXPERIMENT_LOCK.md`, but the estimator that would
+  produce those estimates does not exist, its target pool and dataset digest are unmaterialized
+  (no observed pool passes the locked selection rule), no cycle has been produced against a funded
+  account or a live market window, and a sustained strategy observation window across real markets
+  remains required.
   `scripts/capture_lp_position.py` and `scripts/capture_reference_price.py` are the producers of the
   retained inputs those steps consume: the first reads one declared NFT and the second each pool
   currency's own USD feed through a two-provider quorum at one explicit block, both derive their
@@ -550,7 +554,10 @@ Any new trading hypothesis must record:
 - parameter ownership, upgrade process, and rollback/unwind plan.
 
 Start from `docs/templates/STRATEGY_EXPERIMENT.md`. Lock the hypothesis, data split, total trial
-count, thresholds, and kill conditions before opening the untouched test window.
+count, thresholds, and kill conditions before opening the untouched test window. Phase 1's locked
+record is `docs/strategies/PHASE1_LP_EXPERIMENT_LOCK.md`; its decided thresholds are rules over
+calibration-only measurements, and every chain or dataset input in it is materialized by a named
+producer rather than typed in by hand.
 
 Promote experiments only through: `fixture -> historical replay -> fork -> shadow -> canary ->
 bounded production`. Never skip a stage based solely on backtest performance.
