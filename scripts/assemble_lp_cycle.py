@@ -6,8 +6,9 @@ Run from the repository root as ``python -m scripts.assemble_lp_cycle``.
 produced one from live evidence, so this is the operator's producer step: it
 rebuilds the market window from retained two-provider captures, derives the
 declared position's decision-block inventory from its own retained position
-proofs, binds the operator's declared reference price and economic declaration,
-and appends exactly one canonical cycle line.
+proofs, derives the decision-block reference price from both pool currencies'
+retained USD feed observations, binds the operator's economic declaration, and
+appends exactly one canonical cycle line.
 
 Everything that is not a declaration is re-read from the retained evidence store
 before the cycle is written, and nothing is written when any check refuses. This
@@ -23,20 +24,20 @@ from typing import Annotated
 from pydantic import Field
 
 from oasis_agent.evidence.store import EvidenceStore
-from oasis_agent.execution.lp_cycle_assembly import (
-    build_lp_cycle,
-    parse_lp_cycle_declaration,
-    replay_agreed_integer,
-)
+from oasis_agent.execution.lp_cycle_assembly import build_lp_cycle, parse_lp_cycle_declaration
 from oasis_agent.execution.lp_position_inventory import agreed_position_inventory
+from oasis_agent.execution.lp_reference_price import (
+    ReferenceRequest,
+    agreed_reference_price,
+    currency_feed,
+    reference_deviation,
+)
 from oasis_agent.launch.models import Address, StrictModel
 from oasis_agent.models.common import EvidenceRef
 from oasis_agent.models.position_scope import LpPositionScope
 from oasis_agent.models.v4 import PoolKey
 from oasis_agent.shadow.market_window import build_market_window
 from oasis_agent.shadow.service import serialize_cycle
-
-REFERENCE_NAME = "reference_price_x192"
 
 
 class WindowRequest(StrictModel):
@@ -59,11 +60,11 @@ class PositionRequest(StrictModel):
 
 
 class AssemblyRequest(StrictModel):
-    """Retained evidence the cycle is rebuilt from, plus the declared reference."""
+    """Retained evidence the cycle is rebuilt from, plus the two declarations."""
 
     window: WindowRequest
     position: PositionRequest
-    reference_price_x192: tuple[EvidenceRef, EvidenceRef]
+    reference: ReferenceRequest
     retrieved_at: str | None = None
 
 
@@ -89,11 +90,14 @@ def assemble(
         inventory0, inventory1 = agreed_position_inventory(
             store, window, request.position.references, scope=request.position.scope
         )
-        reference = replay_agreed_integer(
+        reference = agreed_reference_price(
             store,
-            request.reference_price_x192,
-            name=REFERENCE_NAME,
-            block=window.decision_block,
+            window,
+            pool=request.reference.pool,
+            currency0=currency_feed(window.chain_id, request.reference.currency0),
+            currency1=currency_feed(window.chain_id, request.reference.currency1),
+            providers=request.reference.providers,
+            max_deviation=reference_deviation(request.reference.max_reference_deviation),
         )
         assembled = build_lp_cycle(
             store,

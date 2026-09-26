@@ -115,21 +115,26 @@ autonomous trader. Its current verified boundary is:
   every check precedes the first write. `execution/lp_position_inventory.py` derives a declared
   position's own decision-block token amounts from two agreeing retained position proofs and the
   window's own agreed pool price (principal plus reported uncollected fees, retained as
-  `derived_position_integer` records that borrow each provider's own wire envelope), and
-  `replay_agreed_integer()` reads a declared reference price out of its retained records rather than
-  taking it from the caller; `scripts/assemble_lp_cycle.py` is the operator step that rebuilds the
-  window, derives that inventory and appends one cycle line, appending nothing when any check
-  refuses. Its candidate terms, thresholds and `pin_simulated_ok` are
-  explicit operator declarations, not an estimated edge: the fee/LVR/inventory model is still
-  unlocked, the independent reference-price source is still an owner research decision, no cycle has
-  been produced against a funded account or a live market window, and a sustained strategy
-  observation window across
-  real markets remains required. `scripts/capture_lp_position.py` is the producer of the position
-  proof that step consumes: it reads one declared NFT through a two-provider quorum at one explicit
-  block, retains both agreeing snapshots in the operator's own evidence database, derives the scope
-  from those snapshots rather than a declaration, and takes each provider as an explicit
-  `{alias, env}` pair so the aliases can be the window's own two; it refuses a request naming another
-  chain, height, manager, token, state view or alias pair before its first write, and holds no key;
+  `derived_position_integer` records that borrow each provider's own wire envelope).
+  `execution/lp_reference_price.py` supplies the other input the feature window always demanded and
+  nothing wrote: it replays each pool currency's own pinned USD feed observation through the window's
+  own two providers at the decision block, re-reads that currency's on-chain `decimals()` beside its
+  feed, requires both providers to agree on the q192 ratio and the ratio to be a plausible price of
+  that pool, and retains one `derived_reference_integer` per provider that borrows that provider's own
+  wire envelope. The source is the owner's declared feed pin per currency, and the value is derived
+  from two observed feed answers rather than asserted beside the request; it is not a stablecoin peg,
+  a settlement price or an economic estimate. `scripts/assemble_lp_cycle.py` is the operator step
+  that rebuilds the window, derives that inventory and reference price and appends one cycle line,
+  appending nothing when any check refuses. Its candidate terms, thresholds and `pin_simulated_ok`
+  are explicit operator declarations, not an estimated edge: the fee/LVR/inventory model is still
+  unlocked, no cycle has been produced against a funded account or a live market window, and a
+  sustained strategy observation window across real markets remains required.
+  `scripts/capture_lp_position.py` and `scripts/capture_reference_price.py` are the producers of the
+  retained inputs those steps consume: the first reads one declared NFT and the second each pool
+  currency's own USD feed through a two-provider quorum at one explicit block, both derive their
+  scope or block from the captures themselves, take each provider as an explicit `{alias, env}` pair
+  so the aliases can be the window's own two, refuse a request naming another chain, height, identity,
+  feed or alias pair before their first write, and hold no key;
 - Bounded pool-state observation now has persistent RPC budgets, raw two-provider market-window
   replay, mature/deferred sample handling, and hash-linked checkpoint recovery (at most 1000 windows).
   This is not a complete unattended backfill/reconciliation service or a sustained acceptance result;

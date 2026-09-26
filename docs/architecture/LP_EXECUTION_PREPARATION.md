@@ -273,14 +273,28 @@ record borrows that provider's original position wire envelope as its request/ra
 interpretation names `bytes_kind`, the `parents`, the pool id and `execution_eligible: False`. Every
 check precedes the first write, so a scope mismatch or a provider disagreement retains nothing.
 
-**The reference price was asserted rather than read.** `replay_agreed_integer(store, references,
-name=..., block=...)` in `execution/lp_cycle_assembly.py` rebuilds an `AgreedInteger` from its
-retained records alone: the payload's field set, schema, name, pinned block and value must all agree
-and both providers must carry the same interpretation. A fabricated or stretched reference fails
-closed. This makes the retained value the authority; it does not invent the reference's source.
+**The reference price was asserted rather than read.** `execution/lp_reference_price.py` derives it
+instead. `agreed_reference_price(store, window, pool=..., currency0=..., currency1=..., providers=...,
+max_deviation=...)` replays each pool currency's own pinned USD feed observation through the window's
+own two providers at the decision block, so the block is read out of the evidence rather than
+supplied beside it and the providers must be exactly the window's own two. Each observation is
+re-derived through `UsdPriceCapture`, which re-checks the feed runtime, description, decimals, round
+identity and freshness against that block; the currency's own on-chain `decimals()` is read beside its
+feed and compared with the declaration, because one mis-declared scale turns the ratio into a fiction
+no later check would catch. The ratio uses the exact integer definition
+`reference_price_x192(FeedQuote, FeedQuote)` documents - token1 base units per token0 base unit, in
+the same Q192 fixed point as `sqrtPriceX96 ** 2` - and both providers must agree on it to the base
+unit. It is then compared with the pool's own decision-block price under the operator's explicit
+`max_reference_deviation`, an input-quality bound stated as a decimal string and evaluated in exact
+integer arithmetic, so an inverted, mis-scaled or simply foreign feed pair is refused rather than
+becoming the denominator of every inventory valuation. Retention follows the derived-integer pattern:
+one `kind = "derived_reference_integer"` record per provider, each borrowing that provider's own
+currency-feed wire envelope. Every check precedes the first write, so a refused input retains no
+partially derived value. The value is derived from two observed feed answers; it is not a stablecoin
+peg, a settlement price or an economic estimate.
 
 `scripts/assemble_lp_cycle.py` is the operator step that composes these: it re-derives the market
-window, derives the inventories, replays the reference price, calls `build_lp_cycle` and appends one
+window, derives the inventories and the reference price, calls `build_lp_cycle` and appends one
 `serialize_cycle` line. It takes a request JSON, a declaration JSON, an existing evidence database and
 an output path; every failure exits 1 without appending, and no code path here holds a key, signs or
 broadcasts.
@@ -302,11 +316,23 @@ snapshots rather than declared. Like every other preparation step it holds no ke
 capital and offers no signing or broadcast path, and its output is a cycle input, never permission
 to trade.
 
-The independent source of `reference_price_x192` is still an owner research decision, not an
-implementation detail: whether it comes from a USD feed ratio, the pool's own TWAP or another
-independent reference, and what staleness/confidence bounds apply, is the experiment hypothesis the
-blueprint requires the owner to lock. No cycle has yet been produced against a funded account or a
-live market window, and `execution_eligible` remains False.
+The owner selected the source of `reference_price_x192`: each pool currency's own pinned USD feed,
+read from the window's own two providers. What remains an owner decision is the feed pin itself -
+each currency's feed address, description, runtime hash, freshness bound and token scale are declared
+rather than discovered - and the `max_reference_deviation` bound. `scripts/capture_reference_price.py`
+is the operator step that retains those observations: it reads each pool currency's own feed through
+`collect_currency_feed` at one explicit block from the two declared providers, requiring each
+provider's own on-chain `decimals()` to equal the declaration, and retains one
+`kind = "currency_feed_observation"` record per currency per provider with its exact wire envelope.
+It emits a `reference` object that is exactly the shape the cycle request accepts - the declared pool
+and currencies, the two retained provider references and the deviation bound - and parses that object
+back before writing, so a shape drift between producer and consumer is refused at write time rather
+than at assembly time. An observation of another chain, height, currency, feed, scale or provider is
+refused before the first write, and two providers that read different blocks are a disagreement
+rather than a merge. Like every other preparation step it holds no key, reserves no capital and offers
+no signing or broadcast path, and its output is a cycle input, never permission to trade. No cycle has
+yet been produced against a funded account or a live market window, and `execution_eligible` remains
+False.
 
 ## Verification completed 2026-09-12
 

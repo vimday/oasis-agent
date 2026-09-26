@@ -20,7 +20,7 @@ from oasis_agent.farming.position_quorum import PositionQuorum
 from oasis_agent.models.common import canonical_json
 from oasis_agent.models.position_scope import LpPositionScope
 from scripts.assemble_lp_cycle import PositionRequest
-from scripts.capture_lp_position import CaptureRequest, _endpoints, capture
+from scripts.capture_lp_position import CaptureRequest, capture, endpoint_bindings
 from tests.unit.test_lp_cycle_assembly import evidence_rows
 from tests.unit.test_position_capture import snapshot_capture
 
@@ -218,13 +218,13 @@ def test_the_alias_binding_reads_only_the_declared_endpoints(tmp_path: Path) -> 
         "SECONDARY_RPC_URL=https://secondary.invalid\n"
         "UNRELATED_KEY=unused\n"
     )
-    assert _endpoints(request_for(quorum), env) == {
+    assert endpoint_bindings(request_for(quorum).sources, env) == {
         ALIASES[0]: "https://primary.invalid",
         ALIASES[1]: "https://secondary.invalid",
     }
     env.write_text("PRIMARY_RPC_URL=https://same.invalid\nSECONDARY_RPC_URL=https://same.invalid\n")
     with pytest.raises(ValueError, match="two configured RPC endpoints"):
-        _endpoints(request_for(quorum), env)
+        endpoint_bindings(request_for(quorum).sources, env)
     env.write_text("PRIMARY_RPC_URL=https://primary.invalid\n")
     with pytest.raises(ValueError, match="two configured RPC endpoints"):
-        _endpoints(request_for(quorum), env)
+        endpoint_bindings(request_for(quorum).sources, env)

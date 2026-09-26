@@ -22,7 +22,7 @@ holds no key, reserves no capital and offers no signing or broadcast path:
 """
 
 import argparse
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Self
@@ -76,10 +76,15 @@ class CaptureRequest(StrictModel):
         return self
 
 
-def _endpoints(request: CaptureRequest, env_file: Path) -> dict[str, str]:
-    """Bind each declared alias to its declared endpoint, or refuse the run."""
-    found = _environment(env_file, {source.env for source in request.sources})
-    return {source.alias: found[source.env] for source in request.sources}
+def endpoint_bindings(sources: Sequence[ProviderSource], env_file: Path) -> dict[str, str]:
+    """Bind each declared alias to its declared endpoint, or refuse the run.
+
+    Shared with the other provider-reading producer so one endpoint policy governs
+    both: an environment variable that is not named as an endpoint, a missing one
+    and two aliases pointing at the same URL are all refused before any request.
+    """
+    found = _environment(env_file, {source.env for source in sources})
+    return {source.alias: found[source.env] for source in sources}
 
 
 def capture(
@@ -155,7 +160,7 @@ def main() -> None:
     try:
         request = CaptureRequest.from_json(args.request.read_bytes())
         aliases = tuple(source.alias for source in request.sources)
-        urls = _endpoints(request, args.env_file)
+        urls = endpoint_bindings(request.sources, args.env_file)
         policies = _budget_policies(
             set(urls),
             max_requests=args.max_requests,
