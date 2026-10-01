@@ -285,6 +285,7 @@ async def readiness(state: State) -> dict[str, object]:
     payload = json.loads(assessment.payload)
     return {
         "schema": "oasis.lp-release-assessment.v1",
+        "assessment_scope": payload["assessment_scope"],
         "as_of": assessment.as_of,
         "stage": assessment.stage.value,
         "execution_eligible": assessment.execution_eligible,

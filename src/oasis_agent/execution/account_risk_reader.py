@@ -252,7 +252,7 @@ class EvidenceReplayAccountRiskReader:
             previous_units = {asset.asset_id: asset.units for asset in prior.assets}
             if set(previous_units) != declared:
                 raise ValueError("account asset inventory changed between frames")
-            flows = self._flows(entry, prior, ref.number, observation)
+            flows = self._flows(entry, prior, ref, observation)
             reconstruction = reconstruct_movements(
                 previous_units=previous_units,
                 current_units=units,
@@ -373,7 +373,7 @@ class EvidenceReplayAccountRiskReader:
         self,
         entry: ChainInventory,
         prior: AccountFrame,
-        end_block: int,
+        end_block: BlockRef,
         observation: AccountObservation,
     ) -> dict[str, TokenFlow]:
         positions = {position.asset_id: position for position in entry.positions}
@@ -395,7 +395,9 @@ class EvidenceReplayAccountRiskReader:
                     asset.address,
                     asset.decimals,
                     prior.block_number,
-                    end_block,
+                    end_block.number,
+                    start_block_hash=prior.block_hash,
+                    end_block_hash=end_block.block_hash,
                 )
             else:
                 scope = FlowScope(
@@ -405,8 +407,10 @@ class EvidenceReplayAccountRiskReader:
                     position.position_manager,
                     0,
                     prior.block_number,
-                    end_block,
+                    end_block.number,
                     position.token_id,
+                    start_block_hash=prior.block_hash,
+                    end_block_hash=end_block.block_hash,
                 )
             providers = [
                 replay_token_flow_evidence(

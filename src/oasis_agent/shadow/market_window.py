@@ -11,11 +11,21 @@ from ..evidence.ingestion import replay_block_range_evidence
 from ..evidence.store import EvidenceStore
 from ..models.common import BlockRef, EvidenceRef, canonical_json, normalize_address
 from ..models.v4 import PoolKey, SwapDirection
-from ..rpc.collector import require_provider_agreement
+from ..rpc.collector import BlockRangeDataset, require_provider_agreement
 from ..uniswap_v4.events import SWAP_TOPIC, decode_swap
 from ..uniswap_v4.pool_id import pool_id_from_key
+from ..uniswap_v4.state_rpc import Slot0State
 from .features import AgreedInteger, LpFeatureWindow, SwapMarkout, agreed_value_payload
 from .pool_state_capture import Slot0WindowQuorum, replay_slot0_window_evidence
+
+
+class InsufficientMaturityTail(ValueError):
+    """Verified history is shorter than the declared maturity requirement."""
+
+    def __init__(self, observed_seconds: int, required_seconds: int):
+        super().__init__("window does not cover the predeclared maturity tail")
+        self.observed_seconds = observed_seconds
+        self.required_seconds = required_seconds
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +184,32 @@ def build_market_window(
             raise ValueError("price and activity scope/snapshot mismatch")
     if dataset.address != manager or dataset.topics != (SWAP_TOPIC, pool_id):
         raise ValueError("market activity must use exact manager and pool Swap filter")
+    return _derive_market_window(
+        store,
+        dataset=dataset,
+        pool_id=pool_id,
+        observations=tuple((state, price_references) for state in captures[0].slot0),
+        input_references=(*swap_references, *price_references),
+        horizon_seconds=horizon_seconds,
+        max_lateness_seconds=max_lateness_seconds,
+        mature_prefix=mature_prefix,
+    )
+
+
+def _derive_market_window(
+    store: EvidenceStore,
+    *,
+    dataset: BlockRangeDataset,
+    pool_id: str,
+    observations: tuple[tuple[Slot0State, tuple[EvidenceRef, EvidenceRef]], ...],
+    input_references: tuple[EvidenceRef, ...],
+    horizon_seconds: int,
+    max_lateness_seconds: int,
+    mature_prefix: bool,
+) -> MarketWindow:
+    """Derive only after callers replay all activity and each state's own raw parents."""
+    if len(observations) != len(dataset.blocks):
+        raise ValueError("one verified state per block required")
     if len(dataset.blocks) < 2:
         raise ValueError("market feature window requires at least two contiguous blocks")
     timestamps = tuple(header.ref.timestamp for header in dataset.blocks)
@@ -182,15 +218,15 @@ def build_market_window(
     times = tuple(int(value) for value in timestamps if value is not None)
     cutoff = times[-1] - horizon_seconds - max_lateness_seconds if mature_prefix else None
     if cutoff is not None and cutoff < times[0]:
-        raise ValueError("window does not cover the predeclared maturity tail")
-    refs_by_source = {ref.source: ref for ref in price_references}
+        raise InsufficientMaturityTail(times[-1] - times[0], horizon_seconds + max_lateness_seconds)
     price_cache: dict[tuple[str, int], AgreedInteger] = {}
 
     def agreed(name: str, index: int) -> AgreedInteger:
         key = (name, index)
         if key not in price_cache:
             block = dataset.blocks[index].ref
-            sqrt = captures[0].slot0[index].sqrt_price_x96
+            state, price_references = observations[index]
+            sqrt = state.sqrt_price_x96
             if not 0 < sqrt < 2**160:
                 raise ValueError("positive bounded market price required")
             value = sqrt if name == "sqrt_price_x96" else sqrt * sqrt
@@ -205,15 +241,14 @@ def build_market_window(
                 ],
             }
             references = []
-            for capture in captures:
-                parent = refs_by_source[capture.source]
+            for parent in price_references:
                 record = store.get_record(parent)
                 references.append(
                     store.put(
                         "derived_slot0_integer",
                         payload,
                         block,
-                        capture.source,
+                        parent.source,
                         request=record.request_payload,
                         raw_response=record.raw_response_payload,
                         interpretation=interpretation,
@@ -261,7 +296,7 @@ def build_market_window(
         len(swaps),
         horizon_seconds,
         max_lateness_seconds,
-        (*swap_references, *price_references),
+        input_references,
         cutoff,
         deferred,
     )

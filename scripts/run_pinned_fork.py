@@ -61,13 +61,18 @@ class PublicPoster:
         if self.user_agent is not None:
             command += ["-A", self.user_agent]
         command += ["--data-binary", "@-"]
-        return subprocess.run(
-            command,
-            input=payload,
-            capture_output=True,
-            check=True,
-            timeout=25,
-        ).stdout
+        try:
+            return subprocess.run(
+                command,
+                input=payload,
+                capture_output=True,
+                check=True,
+                timeout=25,
+            ).stdout
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            # Match JsonRpcTransport's bounded read-retry contract. Do not expose
+            # command arguments, endpoint credentials or upstream diagnostics.
+            raise OSError("public RPC transport failed") from None
 
 
 def main() -> None:
@@ -173,7 +178,7 @@ def main() -> None:
     (args.output / "preflight.json").write_bytes(canonical_json(manifest))
     contract = "OasisBasePoolForkTest" if args.suite == "base-pool" else "OasisForkLifecycleTest"
     manifest["suite"] = args.suite
-    command = ["forge", "test", "--match-contract", contract, "-vv"]
+    command = ["forge", "test", "--match-contract", contract, "-vvv"]
     with (args.output / "forge.log").open("wb") as log:
         result = subprocess.run(
             command,

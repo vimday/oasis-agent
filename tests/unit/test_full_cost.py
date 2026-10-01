@@ -116,6 +116,38 @@ def test_wrong_block_hash_and_reused_expense_evidence_fail(tmp_path):
         )
 
 
+def test_agreeing_sources_for_one_expense_are_debited_once(tmp_path):
+    replay, costs, blocks = fixture(tmp_path)
+    store = EvidenceStore(tmp_path / "paired-costs.db")
+    try:
+        refs = tuple(
+            store.put(
+                "synthetic_cost",
+                b"gas=7",
+                costs[0].evidence[0].block,
+                source,
+                request={"fixture": "gas"},
+                raw_response={"amount": 7},
+                interpretation={"fixture": True},
+            )
+            for source in ("fixture-a", "fixture-b")
+        )
+        assert refs[0].content_hash == refs[1].content_hash
+        gas = replace(costs[0], treatment=CostTreatment.EXTRA, amount=7, evidence=refs)
+        result = reconcile_full_cost(
+            replay, (gas, *costs[1:]), quote_decimals=18, canonical_blocks=blocks
+        )
+        assert result.additional_cost == 7
+        assert result.net_pnl == replay.net_pnl1 - 7
+        reused = replace(costs[1], treatment=CostTreatment.EXTRA, amount=7, evidence=(refs[1],))
+        with pytest.raises(ValueError, match="more than once"):
+            reconcile_full_cost(
+                replay, (gas, reused, *costs[2:]), quote_decimals=18, canonical_blocks=blocks
+            )
+    finally:
+        store.close()
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

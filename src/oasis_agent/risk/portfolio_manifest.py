@@ -161,7 +161,7 @@ class ChainInventory(Strict):
             raise ValueError("one manifest position per position manager and token id required")
         for position in self.positions:
             for currency_id in (position.currency0_id, position.currency1_id):
-                if currency_id not in {a.asset_id for a in self.assets if not a.is_native}:
+                if currency_id not in {a.asset_id for a in self.assets}:
                     raise ValueError("a position currency must be a declared fungible asset")
         return self
 

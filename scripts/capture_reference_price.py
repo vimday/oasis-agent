@@ -9,9 +9,10 @@ of the market window's own two providers at one explicit block. The derivation i
 lives in ``execution/lp_reference_price.py`` and runs when the cycle is assembled, so
 an observation retained here is an input, never a value.
 
-Each currency's own on-chain ``decimals()`` is read beside its feed and must equal the
-declaration, because one mis-declared scale would turn the ratio into a fiction that no
-later check would catch. The provider aliases are declared in the request, each paired
+Each ERC-20 currency's on-chain ``decimals()`` is read beside its feed and must equal the
+declaration. Native ETH instead requires its protocol-defined 18 decimals on an explicit
+supported chain; the chain identity is read and retained beside its USD feed. The
+provider aliases are declared in the request, each paired
 with the environment variable holding its endpoint, so they can be the market window's
 own two. The emitted ``reference`` object is exactly the shape the cycle request
 accepts, and it is parsed back before the file is written.

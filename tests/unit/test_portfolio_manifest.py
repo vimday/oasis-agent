@@ -235,8 +235,8 @@ def test_the_policy_must_cover_a_position_identifier() -> None:
 def test_a_position_currency_must_be_a_declared_fungible_asset() -> None:
     with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
         position_chain((position(currency0_id="dai"),))
-    with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
-        position_chain((position(currency1_id="native"),))
+    entry = position_chain((position(currency0_id="native", currency1_id="usdc"),))
+    assert entry.asset(entry.positions[0].currency0_id).is_native
     with pytest.raises(ValueError, match="currency must be a declared fungible asset"):
         position_chain((position(),), assets=(native_asset(), token_asset()))
 

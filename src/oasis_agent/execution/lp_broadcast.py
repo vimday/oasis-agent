@@ -482,6 +482,10 @@ class HttpBroadcastRpc:
         return str(self._transport.request("eth_sendRawTransaction", [raw_hex]))
 
 
+class _AlreadyRecorded(ValueError):
+    """Another writer already durably claimed this transaction."""
+
+
 class LpBroadcastJournal:
     """Append-only, hash-linked audit trail for operator broadcast attempts.
 
@@ -581,6 +585,7 @@ class LpBroadcastJournal:
         signer: str | None = None,
         receipt_status: int | None = None,
         block_number: int | None = None,
+        require_unseen: bool = False,
     ) -> None:
         """Append one hash-linked audit record inside a single writer transaction."""
         data = {
@@ -600,6 +605,8 @@ class LpBroadcastJournal:
         try:
             self.db.execute("BEGIN IMMEDIATE")
             open_hashes, resolved_hashes = self._read()
+            if require_unseen and transaction_hash in open_hashes | resolved_hashes:
+                raise _AlreadyRecorded("transaction already claimed")
             if outcome == "resolved" and transaction_hash not in open_hashes:
                 raise ValueError("broadcast resolution does not name a broadcast")
             if outcome in {"broadcast", "unresolved"} and transaction_hash in resolved_hashes:
@@ -642,9 +649,13 @@ class LpBroadcastJournal:
         reopening or trusting anything the journal recorded about the outcome.
         """
         requested = normalize_hash32(transaction_hash, "transaction hash")
+        self._read()
         for (payload,) in self.db.execute("SELECT payload FROM events ORDER BY seq"):
             data = json.loads(payload)
-            if data["transaction_hash"] == requested and data["outcome"] != "resolved":
+            if data["transaction_hash"] == requested and data["outcome"] in {
+                "broadcast",
+                "unresolved",
+            }:
                 return str(data["request_hash"])
         raise ValueError("broadcast resolution does not name a broadcast")
 
@@ -786,6 +797,25 @@ class LpBroadcaster:
                 expectation,
                 observed,
                 "broadcast endpoint is on a different chain than the signed transaction",
+                signer=transaction.signer,
+            )
+        # Commit before the irreversible network call. A crash at any later point
+        # leaves an unknown outcome that blocks resend, including after restart.
+        # BEGIN IMMEDIATE makes this claim atomic across competing processes.
+        try:
+            self.journal.append(
+                request_hash=expectation.request_hash,
+                transaction_hash=observed,
+                outcome="unresolved",
+                reasons=("submission reserved; outcome is unknown",),
+                signer=transaction.signer,
+                require_unseen=True,
+            )
+        except _AlreadyRecorded:
+            return self._deny(
+                expectation,
+                observed,
+                "this transaction is already recorded in the broadcast journal",
                 signer=transaction.signer,
             )
         try:

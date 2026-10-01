@@ -109,6 +109,38 @@ async def stop_campaign(name: str, state: State, authorization: Bearer = None) -
 def _snapshot(kind: str, path: Path, config: ServerConfig) -> dict[str, Any]:
     if not path.is_file():
         return {"status": "journal_not_created", "items": [], "execution_eligible": False}
+    if kind in {"market", "archive"}:
+        if path.stat().st_size > 131072:
+            raise ValueError("research status exceeds size bound")
+        result = json.loads(path.read_bytes())
+        if (
+            not isinstance(result, dict)
+            or result.get("schema")
+            != (
+                "oasis.market-archive-status.v1"
+                if kind == "archive"
+                else "oasis.lp-research-run.v1"
+            )
+            or result.get("execution_eligible") is not False
+        ):
+            raise ValueError("invalid research status")
+        diagnostics = {}
+        for name in ("economics.json", "coverage.json"):
+            report_path = path.parent / name
+            if report_path.is_file():
+                if report_path.stat().st_size > 262144:
+                    diagnostics[name] = {
+                        "preview": "size_limit",
+                        "message": "Report exceeds preview limit; inspect the local artifact.",
+                    }
+                    continue
+                diagnostics[name] = json.loads(report_path.read_bytes())
+        return {
+            "status": "retained",
+            "items": [result],
+            "diagnostics": diagnostics,
+            "execution_eligible": False,
+        }
     if kind == "launch":
         target, records, mode = launch_data(path)
         return {

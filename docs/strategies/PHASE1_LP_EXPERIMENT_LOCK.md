@@ -62,7 +62,8 @@ disagree, the blueprint controls.
 
 Chain and pool are facts, so the lock fixes the *rule* that selects them rather than a name.
 
-- **Chain:** Robinhood Chain (chain 46630) remains the initial benchmark. Base (8453) and other EVM
+- **Chain:** Robinhood Chain mainnet (chain 4663, matching blueprint §2.1; 46630 is the
+  repository's testnet configuration) remains the initial benchmark. Base (8453) and other EVM
   deployments are eligible only under the identical gate below; they rank after Robinhood only because
   Robinhood is the declared initial benchmark, not because it is expected to be better.
 - **Pool admission — every item mandatory, two-provider and block-pinned:** WP1 outcome is `accessible`
@@ -77,8 +78,13 @@ Chain and pool are facts, so the lock fixes the *rule* that selects them rather 
   treated as open to outside LPs and failed all twelve two-provider quotes at the maximum price boundary;
   the hookless ETH/STOCKHOOKS pool that passed twelve direct quotes is a quote benchmark whose §9.1 cap
   evaluates to `0.0000001 ETH`, too small to mint after gas and minimum useful liquidity. The first
-  eligible pool therefore does not yet exist, and the experiment is blocked at WP1. This is a decided
-  outcome of applying the rule, not an open question.
+  eligible pool has therefore not yet been established, and the experiment is blocked at WP1.
+  This is an evidence status, not proof that no eligible pool exists. The subsequent
+  [2026-09-27 screening](../verification/LP_TARGET_PROGRESS_20260927.md) verified Base
+  ETH/USDC and USDC/cbBTC direct quotes at block 51826740 and ETH/USDC's local
+  standard-router settlement and LP lifecycle. Complete two-sided admission depth,
+  cost and economic evidence remain unresolved; neither candidate is promoted by
+  those checks. The selection rule and experiment trial are unchanged.
 
 ## Hypothesis
 
@@ -115,8 +121,10 @@ attaches to the choice, only to the result measured against it.
 - **Observable inputs and lookback windows (decided):** markout horizons `{1, 5, 30, 300}` s — the horizons
   blueprint §8.2 already names — with the **primary horizon `H = 300 s`**; `max_lateness_seconds = 60`;
   price window span ≥ 600 s with ≥ 20 observations, which fixes the observation cadence at ≤ 30 s and
-  constant for the whole experiment. This cadence cannot be met by public RPC: blueprint §2.4 requires two
-  authenticated providers, which is an operator prerequisite. Derived from the window and never declared:
+  constant for the whole experiment. Under the owner's 2026-09-28 instruction, current research uses two
+  public RPC providers; credentials are not a research prerequisite. Capability is measured from actual
+  budgets, latency, complete captures and retained gaps, rather than inferred from authentication. The
+  cadence and data acceptance bounds are unchanged. Derived from the window and never declared:
   `volatility` (mean relative move of `sqrtPriceX96 ** 2`), `toxicity` (= `adverse_selection`, mean adverse
   markout ratio), `oracle_deviation`, `inventory_imbalance`.
 - **Parameter search space and total trials (decided):** `maximum_trials = 12` — three unidirectional
@@ -265,6 +273,15 @@ declarations, and no cycle may be treated as an economic estimate.
 
 ## Baselines
 
+The executable minimum market-coverage precheck is now
+`python -m scripts.check_lp_dataset_coverage`: it replays raw two-provider market
+inputs, checks the locked horizon/lookback/cadence, applies the 50/20/10/20 split
+and a 3600-second minimum purge, and refuses insufficient 21-day development or
+7-day test coverage. This does not seal an untouched test, implement the economic
+estimator, prove chain finality or a longer finality-driven purge, or establish
+economic acceptance. Its `out_of_sample_accepted` remains false. See
+[price/account/coverage verification](../verification/PRICE_ACCOUNT_OOS_20260927.md).
+
 - Buy-and-hold the volatile token for the identical window at the same valuation (`hold_pnl1`).
 - `R00` — static fee, fixed range: the primary control.
 - `R01` — static fee, active range: isolates range alpha.
@@ -335,7 +352,11 @@ None of these is an undecided policy; each is a fact or a measurement that does 
    stop being operator declarations and start being estimates bound to retained evidence.
 4. **`initial_capital1`** — the §9.1 sizing rule applied at a funded, isolated LP owner within the
    owner-approved USD 500 budget, plus the two-sided exit depth of the selected pool.
-5. **Authenticated two-provider credentials** at the decided ≤ 30 s cadence; public RPC cannot supply it.
+5. **Demonstrated two-provider capture reliability** at the decided ≤ 30 s cadence. Public endpoints
+   are allowed for current research under the owner's 2026-09-28 instruction; paid credentials are not
+   required to proceed. Existing public capture failures remain evidence of unresolved reliability,
+   not proof that every public endpoint is incapable. This infrastructure amendment changes no economic
+   parameter, opens no trial and grants no production release.
 6. **A named reviewer** before `R11` is promoted beyond shadow. This is the one item delegation cannot
    supply.
 

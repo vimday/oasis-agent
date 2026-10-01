@@ -2,9 +2,9 @@
 
 Reads a strict gate manifest (one result per WP0..WP8), evaluates it at the
 given time (default now), and writes the canonical assessment payload with its
-digest. It can never authorize: only a manifest whose every gate passes with
-fresh, complete, independently reviewed evidence can yield
-``execution_eligible: true``, and any malformed or missing input fails closed.
+digest. It checks declarations, not retained evidence contents or release
+authority. Even a structurally complete manifest yields
+``execution_eligible: false``; no input to this command authorizes execution.
 """
 
 import argparse
@@ -28,6 +28,7 @@ def main() -> None:
         json.dumps(
             {
                 "stage": assessment.stage.value,
+                "assessment_scope": "declared_gate_structure_only",
                 "execution_eligible": assessment.execution_eligible,
                 "blockers": list(assessment.blockers),
                 "digest": assessment.digest,

@@ -1,6 +1,6 @@
 import { $, esc, gateState, fmtTime } from "./core.js";
 
-// Presentation guidance only. Backend readiness and signer policy own authority.
+// Gate declarations are not raw-evidence replay or execution authority.
 export const RELEASE_PATH = Object.freeze([
   ["wp0_correctness", "基础正确性", "核对解码、数值边界与测试证据。", "evidence"],
   ["wp1_pool_access", "池与权限", "核验目标池身份、LP 准入与可报价性。", "evidence"],
@@ -32,7 +32,7 @@ export function renderReadinessPath(assessment) {
   const model = readinessModel(assessment);
   const labels = {pass: "通过", fail: "未通过", expired: "已过期", unresolved: "未验证"};
   $("readiness-summary").textContent = model.valid
-    ? `${model.passed} / ${model.items.length} 项证据门禁通过 · 评估时间 ${fmtTime(assessment.as_of)}`
+    ? `${model.passed} / ${model.items.length} 项门槛声明通过 · 原始证据与执行授权未验证 · 评估时间 ${fmtTime(assessment.as_of)}`
     : "发布证据不可用或不完整 · 当前资格未验证";
   $("readiness-path").innerHTML = model.items.map((item, i) =>
     `<div class="path-step ${item.status}"><span class="path-index">WP${i}</span><strong>${item.label}</strong><span>${labels[item.status]}</span></div>`
@@ -42,5 +42,5 @@ export function renderReadinessPath(assessment) {
     ? '<div><strong>下一步 · 恢复证据读取</strong><p>检查数据源配置与完整性，再重新评估发布路径。</p></div><button type="button" class="action" data-action="navigate" data-view="system">检查数据源 ↗</button>'
     : next
       ? `<div><strong>首个待核验环节 · ${esc(next.label)}</strong><p>${esc(next.guidance)}</p></div><button type="button" class="action" data-action="navigate" data-view="${next.view}">查看相关工作区 ↗</button>`
-      : '<div><strong>此评估时点的证据门禁已通过</strong><p>执行权限仍由独立风险门禁、签名策略和发布批准共同决定。</p></div><button type="button" class="action" data-action="navigate" data-view="gates">查看审批记录 ↗</button>';
+      : '<div><strong>门槛声明完整，尚未获得执行资格</strong><p>还需重放原始证据、核验审查身份与发布授权，并通过独立风险门禁和签名策略。</p></div><button type="button" class="action" data-action="navigate" data-view="gates">查看审批记录 ↗</button>';
 }

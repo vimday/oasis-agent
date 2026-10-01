@@ -1,0 +1,25 @@
+{
+  "chain_id": 8453,
+  "pool_id": "0x96d4b53a38337a5733179751781178a2613306063c511b78cd02684739288c0a",
+  "state_view": "0xa3c0c9b65bad0b08107aa264b0f3db444b867a71",
+  "pool_manager": "0x498581ff718922c3f8e6a244956af099b2652b2b",
+  "state_view_runtime_keccak": "0xbbd5859677ef5491143133e8ed2b8faa0272f6fc2cbae94c53e79cc8c0538545",
+  "pool_manager_runtime_keccak": "0x83b2af6e9f3158defc2811cbcb0db71ecf8b2ba2abea39c39e370ac5c6f43eb6",
+  "public_request_cap": 20,
+  "paid_request_cap": 18,
+  "public_interval_ms": 3000,
+  "paid_interval_ms": 3000,
+  "max_age_seconds": 180,
+  "market": {
+    "pool": {
+      "currency0": "0x0000000000000000000000000000000000000000",
+      "currency1": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+      "fee": 500,
+      "tick_spacing": 10,
+      "hooks": "0x0000000000000000000000000000000000000000"
+    },
+    "blocks": 2,
+    "horizon_seconds": 1,
+    "max_lateness_seconds": 1
+  }
+}

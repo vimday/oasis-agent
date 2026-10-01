@@ -19,12 +19,36 @@ from oasis_agent.farming.price_evidence import (
     selector,
     value_cost_in_quote,
     value_native_cost,
+    value_usd_micros,
 )
 from oasis_agent.models.common import ZERO_ADDRESS, canonical_json
 from oasis_agent.rpc.transport import RpcExchange
 from tests.unit.test_transaction_costs import fixture as cost_fixture
 
 QUOTE = "0x" + "99" * 20
+
+
+@pytest.mark.parametrize("decimals", [True, False, 1.5, 6.0, "6", None])
+def test_usd_valuation_rejects_noninteger_decimal_scale(decimals):
+    with pytest.raises(TypeError, match="decimals"):
+        value_usd_micros(10, numerator=3, denominator=7, decimals=decimals)
+
+
+@pytest.mark.parametrize("round_up", [0, 1, "false", "true", None])
+def test_usd_valuation_rejects_ambiguous_rounding(round_up):
+    with pytest.raises(TypeError, match="round_up"):
+        value_usd_micros(10, numerator=3, denominator=7, decimals=0, round_up=round_up)
+
+
+@pytest.mark.parametrize("units", [-(2**256 - 1), -1, 0, 1, 2**256 - 1])
+@pytest.mark.parametrize("decimals", [0, 6, 36])
+def test_usd_valuation_preserves_signed_integer_rounding(units, decimals):
+    down = value_usd_micros(units, numerator=3, denominator=7, decimals=decimals)
+    up = value_usd_micros(units, numerator=3, denominator=7, decimals=decimals, round_up=True)
+    scale = 7 * 10**decimals
+    assert type(down) is int and type(up) is int
+    assert down * scale <= units * 3 <= up * scale
+    assert up - down in {0, 1}
 
 
 def price(cost, token, answer, decimals=8, updated=None):

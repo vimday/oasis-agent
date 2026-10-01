@@ -285,6 +285,19 @@ def backtest_strategy(
     chain_id = ordered[0].block.chain_id
     if any(item.block.chain_id != chain_id for item in ordered):
         raise ValueError("backtest cannot cross chains")
+    previous_block: BlockRef | None = None
+    for item in ordered:
+        block = item.block
+        if block.timestamp is None:
+            raise ValueError("backtest requires timestamped observations")
+        if previous_block is not None:
+            if block.number == previous_block.number and block != previous_block:
+                raise ValueError("one block height cannot contain conflicting identities")
+            if block.number > previous_block.number and (
+                previous_block.timestamp is None or block.timestamp <= previous_block.timestamp
+            ):
+                raise ValueError("backtest block time must strictly advance")
+        previous_block = block
     if ordered[0].block.number <= experiment.locked_before_block:
         raise ValueError("experiment lock must predate every observation")
     if any(
@@ -292,6 +305,15 @@ def backtest_strategy(
         for reference in experiment.evidence
     ):
         raise ValueError("experiment lock evidence belongs to another chain")
+    first_timestamp = ordered[0].block.timestamp
+    assert first_timestamp is not None  # Every observation was validated above.
+    if any(
+        reference.block is None
+        or reference.block.timestamp is None
+        or reference.block.timestamp >= first_timestamp
+        for reference in experiment.evidence
+    ):
+        raise ValueError("experiment lock time must predate observations")
     if any(item.unexplained_residual1 != 0 for item in ordered):
         raise ValueError("unexplained accounting residual blocks evaluation")
 

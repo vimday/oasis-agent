@@ -132,11 +132,13 @@ def reconcile_full_cost(
                 or not ref.interpretation_hash
             ):
                 raise ValueError("cost evidence needs complete provenance within accounting window")
-            if item.treatment is CostTreatment.EXTRA:
-                if ref.content_hash in hashes:
-                    raise ValueError("same cost evidence debited more than once")
-                hashes.add(ref.content_hash)
         if item.treatment is CostTreatment.EXTRA:
+            # Multiple providers may retain the same payload for one expense.
+            # Reject reuse across debits, not agreement within a single debit.
+            item_hashes = {ref.content_hash for ref in item.evidence}
+            if hashes.intersection(item_hashes):
+                raise ValueError("same cost evidence debited more than once")
+            hashes.update(item_hashes)
             total += item.amount
     missing = tuple(sorted(x.value for x in CostCategory if x not in seen))
     if replay.net_pnl1 is None:

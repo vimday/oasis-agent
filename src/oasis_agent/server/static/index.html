@@ -190,17 +190,17 @@
       <div class="table-wrap"><table id="campaign-table" aria-label="独立策略任务"></table></div>
       <div class="row" style="margin-top:16px">
         <label for="campaign-name">任务 ID</label><input type="text" id="campaign-name" value="launch-observe" maxlength="64" style="max-width:240px">
-        <label for="campaign-kind">策略</label><select id="campaign-kind"><option value="launch">Launch 观察</option><option value="lp">LP Shadow</option></select>
+        <label for="campaign-kind">策略</label><select id="campaign-kind"><option value="launch">Launch 观察</option><option value="lp">LP Shadow</option><option value="market">LP 市场采集与分析</option><option value="archive">LP 历史采集（可恢复）</option></select>
         <button type="button" class="action" data-action="campaign-template">载入策略示例</button>
       </div>
       <div class="row" id="campaign-launch-fields">
-        <label for="campaign-wallet">公开钱包地址</label><input type="text" id="campaign-wallet" autocomplete="off" placeholder="0x…（不接受私钥）" style="max-width:380px">
+        <label id="campaign-wallet-label" for="campaign-wallet">公开钱包地址</label><input type="text" id="campaign-wallet" autocomplete="off" placeholder="0x…（不接受私钥）" style="max-width:380px">
         <label for="campaign-primary">主 RPC</label><select id="campaign-primary"></select>
         <label for="campaign-secondary">复核 RPC</label><select id="campaign-secondary"></select>
       </div>
       <div class="row" id="campaign-lp-fields" hidden>
-        <label for="campaign-source">已注册证据输入</label><select id="campaign-source"></select>
-        <label for="campaign-cycles">最多周期</label><input type="text" id="campaign-cycles" value="100" inputmode="numeric" style="max-width:120px">
+        <label id="campaign-source-label" for="campaign-source">已注册证据输入</label><select id="campaign-source"></select>
+        <label for="campaign-cycles">本次最多周期 / 片段</label><input type="text" id="campaign-cycles" value="100" inputmode="numeric" style="max-width:120px">
       </div>
       <div class="row">
         <label for="campaign-timeout">运行上限（秒）</label><input type="text" id="campaign-timeout" value="900" inputmode="numeric" style="max-width:120px">
@@ -234,7 +234,7 @@
       <p id="configuration-capabilities" role="status">正在读取后端能力…</p>
       <p class="muted">编辑、服务端校验并导出配置。导出不会修改运行中的策略；重新启动前需绑定新配置与证据。RPC 仅填写环境变量名，完整端点在服务器配置。LP 的代币与池身份由输入证据绑定，不能用表单覆盖。</p>
       <label for="configuration-kind">配置类型</label>
-      <select id="configuration-kind"><option value="launch">Launch 代币合约、精度与策略（Base）</option><option value="lp">LP Shadow 费率与风险策略</option><option value="rpc">链与 RPC 环境变量引用</option></select>
+      <select id="configuration-kind"><option value="launch">Launch 代币合约、精度与策略（Base）</option><option value="lp">LP Shadow 费率与风险策略</option><option value="rpc">链与 RPC 环境变量引用</option><option value="market">LP 市场采集与分析</option><option value="archive">LP 历史采集（可恢复）</option></select>
       <button type="button" class="action" data-action="configuration-template">加载示例</button>
       <label for="configuration-document" class="configuration-label">配置 JSON（金额保留整数字面量，估值 Decimal 使用字符串）</label>
       <textarea id="configuration-document" rows="12" spellcheck="false" maxlength="65536"></textarea>

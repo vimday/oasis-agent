@@ -36,7 +36,8 @@ const assessment = {
 assert.equal(readinessModel(assessment).passed, 9);
 assert.equal(readinessModel(assessment).next, null);
 renderReadinessPath(assessment);
-assert.match(nodes.get('readiness-next').innerHTML, /执行权限仍由独立/);
+assert.match(nodes.get('readiness-next').innerHTML, /尚未获得执行资格/);
+assert.match(nodes.get('readiness-summary').textContent, /原始证据与执行授权未验证/);
 assessment.gates[2].expires_at = assessment.as_of;
 assert.equal(readinessModel(assessment).passed, 8);
 assert.equal(readinessModel(assessment).next.id, 'wp2_replay_accounting');

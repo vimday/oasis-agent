@@ -107,6 +107,8 @@ class FlowFixture:
     incoming: list[dict[str, object]] = field(default_factory=list)
     outgoing: list[dict[str, object]] = field(default_factory=list)
     methods: list[str] = field(default_factory=list)
+    headers: dict[int, dict[str, object]] = field(default_factory=dict)
+    bind_hashes: bool = False
 
     def post(self, payload: bytes) -> bytes:
         request = json.loads(payload)
@@ -118,12 +120,22 @@ class FlowFixture:
     def _result(self, method: str, params: list[object]) -> object:
         if method == "eth_chainId":
             return hex(self.chain_id)
+        if method == "eth_getBlockByNumber":
+            return self.headers[int(str(params[0]), 16)]
         if method == "eth_getLogs":
             query = params[0]
             assert isinstance(query, dict)
             topics = query["topics"]
             assert isinstance(topics, list)
-            return list(self.incoming if topics[1] is None else self.outgoing)
+            logs = list(self.incoming if topics[1] is None else self.outgoing)
+            if "blockHash" in query and self.bind_hashes:
+                header = next(h for h in self.headers.values() if h["hash"] == query["blockHash"])
+                return [
+                    dict(log, blockHash=log.get("blockHash", header["hash"]))
+                    for log in logs
+                    if log["blockNumber"] == header["number"]
+                ]
+            return logs
         raise AssertionError(method)
 
 
@@ -532,8 +544,11 @@ def test_a_provider_on_another_chain_is_rejected() -> None:
 def test_flow_scope_and_transfer_log_validation() -> None:
     with pytest.raises(ValueError, match="window must span at least one block"):
         scope(end_block=START_BLOCK)
-    with pytest.raises(ValueError, match="self transfers are not attributable"):
-        flow_quorum(FlowFixture(incoming=[transfer_log(from_address=ACCOUNT, to_address=ACCOUNT)]))
+    self_transfer = flow_quorum(
+        FlowFixture(incoming=[transfer_log(from_address=ACCOUNT, to_address=ACCOUNT)]),
+        FlowFixture(incoming=[transfer_log(from_address=ACCOUNT, to_address=ACCOUNT)]),
+    ).flow(tracked_accounts=frozenset({ACCOUNT}))
+    assert self_transfer.net_units == self_transfer.external_net_units == 0
 
 
 def test_a_position_scope_queries_logs_by_its_own_token_id() -> None:

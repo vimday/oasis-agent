@@ -3,9 +3,11 @@ from pathlib import Path
 
 import pytest
 from eth_abi.abi import encode
+from eth_hash.auto import keccak
 
 from oasis_agent.rpc.transport import RpcExchange
 from oasis_agent.uniswap_v4.quotes import QuoteDirection, QuoteKind, SinglePoolQuoteRequest
+from scripts import run_v4_route_probe as probe_module
 from scripts.run_v4_route_probe import (
     CONFIG_SCHEMA,
     NOT_ENOUGH_LIQUIDITY,
@@ -14,6 +16,51 @@ from scripts.run_v4_route_probe import (
     _impact_ppm,
     load_config,
 )
+
+
+def test_every_state_read_uses_the_opening_block_hash(tmp_path, monkeypatch):
+    payload = config_payload()
+    digest = "0x" + keccak(bytes.fromhex("6000")).hex()
+    payload["expected_hashes"] = dict.fromkeys(probe_module.HASH_ROLES, digest)
+    config = load_config(
+        write_config(tmp_path / "probe.json", payload),
+        {"RPC_A": "https://a.example", "RPC_B": "https://b.example"},
+    )
+    observed = []
+    block_hash = "0x" + "ab" * 32
+
+    class Poster:
+        def __init__(self, url):
+            self.url = url
+
+        def post(self, body):
+            req = json.loads(body)
+            method, params = req["method"], req["params"]
+            observed.append((self.url, method, params))
+            if method == "eth_chainId":
+                value = hex(config.chain_id)
+            elif method == "eth_getBlockByNumber":
+                value = {
+                    "number": "0x64",
+                    "hash": block_hash,
+                    "timestamp": "0x3e8",
+                    "parentHash": "0x" + "cd" * 32,
+                }
+            else:
+                assert params[-1] == {"blockHash": block_hash, "requireCanonical": True}
+                if method == "eth_getCode":
+                    value = "0x6000"
+                elif params[0]["data"] == probe_module.POOL_MANAGER_SELECTOR:
+                    value = "0x" + encode(["address"], [config.pool_manager]).hex()
+                else:
+                    value = "0x" + encode(["uint256", "uint256"], [100, 50000]).hex()
+            return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": value}).encode()
+
+    monkeypatch.setattr(probe_module, "CurlPoster", Poster)
+    report = probe_module.run(config, 100, tmp_path / "output")
+    assert report["route_probe_verified"] is True
+    assert report["execution_eligible"] is False
+    assert sum(m in {"eth_call", "eth_getCode"} for _, m, _ in observed) == 32
 
 
 def config_payload() -> dict[str, object]:

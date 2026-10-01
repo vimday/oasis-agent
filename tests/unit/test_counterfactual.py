@@ -90,6 +90,22 @@ class CounterfactualTests(unittest.TestCase):
                 flow_response_model="",
             )
 
+    def test_all_costs_require_integer_base_units(self) -> None:
+        run = self.make_run(FeePolicyKind.STATIC, RangePolicyKind.FIXED, 100, 20)
+        for name in (
+            "gas_cost1",
+            "rebalance_cost1",
+            "adverse_selection_cost1",
+            "other_cost1",
+            "failed_tx_cost1",
+            "opportunity_cost1",
+        ):
+            for value in (True, 0.5, float("nan"), float("inf")):
+                with self.subTest(field=name, value=value), self.assertRaisesRegex(TypeError, name):
+                    replace(run, **{name: value})
+            with self.subTest(field=name, value=-1), self.assertRaisesRegex(ValueError, name):
+                replace(run, **{name: -1})
+
 
 if __name__ == "__main__":
     unittest.main()

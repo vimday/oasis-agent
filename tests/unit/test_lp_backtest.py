@@ -205,3 +205,35 @@ def test_walk_forward_cannot_split_one_block_between_calibration_and_evaluation(
 
 def test_expected_shortfall_rounds_loss_up():
     assert _expected_shortfall((-1, 0), 1_000_000) == 1
+
+
+@pytest.mark.parametrize("timestamp", [None, 9, 10])
+def test_observation_order_cannot_hide_missing_or_regressing_time(timestamp):
+    items = [observation(n) for n in range(10, 22)]
+    block = replace(items[1].block, timestamp=timestamp)
+    items[1] = replace(items[1], block=block, evidence=provider_evidence(block))
+    observations = tuple(items)
+    with pytest.raises(ValueError, match=r"timestamped|time must strictly advance"):
+        backtest_strategy(observations, lock(observations), WalkForwardSpec(2, 2, 1, 2))
+
+
+def test_one_height_cannot_hide_a_fork_by_changing_log_index():
+    first = observation(10)
+    conflicting = replace(first.block, block_hash="0x" + "ff" * 32)
+    observations = (
+        first,
+        replace(first, block=conflicting, log_index=1, evidence=provider_evidence(conflicting)),
+    )
+    with pytest.raises(ValueError, match="conflicting identities"):
+        backtest_strategy(observations, lock(observations), WalkForwardSpec(1, 1, 0, 1))
+
+
+def test_older_lock_height_cannot_hide_a_late_lock_timestamp():
+    observations = tuple(observation(n) for n in range(10, 22))
+    experiment = lock(observations)
+    reference = experiment.evidence[0]
+    experiment = replace(
+        experiment, evidence=(replace(reference, block=replace(reference.block, timestamp=10)),)
+    )
+    with pytest.raises(ValueError, match="lock time must predate"):
+        backtest_strategy(observations, experiment, WalkForwardSpec(2, 2, 1, 2))

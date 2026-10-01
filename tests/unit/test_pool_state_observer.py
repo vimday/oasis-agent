@@ -37,6 +37,21 @@ def config():
     )
 
 
+def test_impossible_pacing_refused_before_io(tmp_path):
+    cfg = config().model_copy(update={"max_age_seconds": 20})
+    # Seven reads per source require at least 6 * (1 + 3) seconds,
+    # even excluding head discovery and network latency.
+    with pytest.raises(ValueError, match="pacing cannot satisfy"):
+        observer.sample(
+            cfg,
+            {"public": object(), "paid": object()},
+            budget_path=tmp_path / "budget.db",
+            output=tmp_path / "out",
+        )
+    assert not (tmp_path / "budget.db").exists()
+    assert not (tmp_path / "out").exists()
+
+
 @pytest.fixture
 def clock(monkeypatch):
     ticks = count(10000, 10000)

@@ -59,6 +59,8 @@ class CounterfactualRun:
             "rebalance_cost1",
             "adverse_selection_cost1",
             "other_cost1",
+            "failed_tx_cost1",
+            "opportunity_cost1",
             "hold_net_pnl1",
         ):
             value = getattr(self, name)

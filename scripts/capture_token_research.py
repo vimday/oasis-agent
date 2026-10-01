@@ -30,6 +30,7 @@ from oasis_agent.models.common import canonical_json, sha256_hex
 
 MAX_BYTES = 5_000_000
 OKX_ROUTES = {
+    "pools": "/api/v6/dex/market/token/top-liquidity",
     "trending": "/api/v6/dex/market/token/hot-token",
     "advanced": "/api/v6/dex/market/token/advanced-info",
     "holders": "/api/v6/dex/market/token/holder",

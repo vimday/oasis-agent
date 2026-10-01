@@ -38,7 +38,6 @@ from oasis_agent.risk.shadow_acceptance import (
 )
 from oasis_agent.rpc.budget import BudgetPolicy
 from scripts.run_lp_signer_sidecar import _risk_guard
-from tests.unit.test_account_flows import FlowFixture
 from tests.unit.test_account_risk_reader import (
     ACCOUNT,
     BLOCK_HASH,
@@ -48,6 +47,7 @@ from tests.unit.test_account_risk_reader import (
     TIMESTAMP,
     InventoryFixture,
     baseline,
+    bound_flow_fixture,
     chain_inventory,
     flow_session,
     inventory_session,
@@ -75,10 +75,10 @@ def inventory_pair(sources: tuple[str, str], fixture: InventoryFixture) -> tuple
     )
 
 
-def flow_pair(sources: tuple[str, str], logs: tuple = ()) -> tuple:
+def flow_pair(sources: tuple[str, str], fixture: InventoryFixture, logs: tuple = ()) -> tuple:
     return (
-        flow_session(sources[0], FlowFixture(incoming=list(logs))),
-        flow_session(sources[1], FlowFixture(incoming=list(logs))),
+        flow_session(sources[0], bound_flow_fixture(fixture, incoming=logs)),
+        flow_session(sources[1], bound_flow_fixture(fixture, incoming=logs)),
     )
 
 
@@ -89,7 +89,7 @@ def capture_factory(fixture: InventoryFixture) -> object:
     def build(sources: tuple[str, str]) -> tuple:
         index = calls["count"]
         calls["count"] += 1
-        return inventory_pair(sources, fixture) if index == 0 else flow_pair(sources)
+        return inventory_pair(sources, fixture) if index == 0 else flow_pair(sources, fixture)
 
     return build
 

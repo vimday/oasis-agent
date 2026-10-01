@@ -31,12 +31,19 @@ from eth_hash.auto import keccak
 
 from ..evidence.exact_capture import (
     RecordedSession,
+    decode_header,
     successful_results,
     validate_session_pair,
     wire_envelope,
 )
-from ..evidence.rpc_validation import restore_exchanges, rpc_quantity, strict_json_object
+from ..evidence.rpc_validation import (
+    decode_exchange,
+    restore_exchanges,
+    rpc_quantity,
+    strict_json_object,
+)
 from ..evidence.store import EvidenceStore
+from ..models.chain import BlockSnapshot
 from ..models.common import (
     EvidenceRef,
     canonical_json,
@@ -70,7 +77,7 @@ def _topic_token(token_id: int) -> str:
 
 @dataclass(frozen=True, slots=True)
 class TransferLog:
-    """One finalized `Transfer` touching the reconciled account.
+    """One observed `Transfer` touching the reconciled account.
 
     An ERC-20 log carries three topics and its amount in `data`, so both sides
     must be real addresses. An ERC-721 log carries the token id as a fourth
@@ -95,8 +102,6 @@ class TransferLog:
             object.__setattr__(self, name, address)
         if self.token_id is not None and self.units != 1:
             raise ValueError("an ERC-721 transfer moves exactly one position unit")
-        if self.from_address == self.to_address:
-            raise ValueError("self transfers are not attributable")
         if type(self.units) is not int or not 0 <= self.units < 2**256:
             raise ValueError("transfer units must be uint256")
         if type(self.block_number) is not int or self.block_number < 0:
@@ -193,6 +198,8 @@ class FlowScope:
     start_block: int
     end_block: int
     token_id: int | None = None
+    start_block_hash: str | None = None
+    end_block_hash: str | None = None
 
     def __post_init__(self) -> None:
         if type(self.chain_id) is not int or self.chain_id <= 0:
@@ -211,6 +218,13 @@ class FlowScope:
             raise ValueError("token flow start block must be nonnegative")
         if type(self.end_block) is not int or self.end_block <= self.start_block:
             raise ValueError("token flow window must span at least one block")
+        if (self.start_block_hash is None) != (self.end_block_hash is None):
+            raise ValueError("flow requires both boundary hashes or neither")
+        if self.end_block_hash is not None:
+            if self.end_block - self.start_block > 1000:
+                raise ValueError("hash-bound flow window exceeds 1000 blocks")
+            for name in ("start_block_hash", "end_block_hash"):
+                object.__setattr__(self, name, normalize_hash32(getattr(self, name)))
         if self.token_id is not None:
             if type(self.token_id) is not int or not 0 < self.token_id < 2**256:
                 raise ValueError("an NFT position flow requires a bounded token id")
@@ -231,6 +245,8 @@ def _scope_json(scope: FlowScope) -> dict[str, object]:
     }
     if scope.token_id is not None:
         data["token_id"] = scope.token_id
+    if scope.end_block_hash is not None:
+        data.update(start_block_hash=scope.start_block_hash, end_block_hash=scope.end_block_hash)
     return data
 
 
@@ -247,12 +263,40 @@ class TokenFlow:
     logs: tuple[TransferLog, ...]
 
 
-def _expected(scope: FlowScope) -> list[tuple[str, list[object]]]:
+def _expected(
+    scope: FlowScope, headers: tuple[BlockSnapshot, ...] = ()
+) -> list[tuple[str, list[object]]]:
     window: dict[str, object] = {
         "fromBlock": hex(scope.start_block + 1),
         "toBlock": hex(scope.end_block),
     }
     owned: list[str] = [] if scope.token_id is None else [_topic_token(scope.token_id)]
+    if scope.end_block_hash is not None:
+        expected: list[tuple[str, list[object]]] = [("eth_chainId", [])]
+        expected.extend(
+            ("eth_getBlockByNumber", [hex(n), False])
+            for n in range(scope.start_block, scope.end_block + 1)
+        )
+        for header in headers[1:]:
+            topic_pairs = (
+                [TRANSFER_TOPIC, None, _topic_word(scope.account), *owned],
+                [TRANSFER_TOPIC, _topic_word(scope.account), None, *owned],
+            )
+            expected.extend(
+                (
+                    "eth_getLogs",
+                    [
+                        {
+                            "address": scope.token,
+                            "blockHash": header.ref.block_hash,
+                            "topics": topics,
+                        }
+                    ],
+                )
+                for topics in topic_pairs
+            )
+        expected.append(("eth_getBlockByNumber", [hex(scope.end_block), False]))
+        return expected
     return [
         ("eth_chainId", []),
         (
@@ -297,36 +341,105 @@ class TokenFlowCapture:
     def payload(self) -> bytes:
         return canonical_json(
             {
-                "schema": _SCHEMA,
+                "schema": _SCHEMA
+                if self.scope.end_block_hash is None
+                else "oasis.account-token-flow.v2",
                 "source": self.source,
                 "scope": _scope_json(self.scope),
                 "logs": [_log_json(log) for log in self.logs],
             }
         )
 
+    def bound_headers(self) -> tuple[BlockSnapshot, ...]:
+        if self.scope.end_block_hash is None:
+            return ()
+        count = self.scope.end_block - self.scope.start_block + 1
+        if len(self.exchanges) != 3 * (count - 1) + 3:
+            raise ValueError("incomplete hash-bound flow evidence")
+        headers = tuple(
+            decode_header(decode_exchange(item)[1].get("result"), chain_id=self.scope.chain_id)
+            for item in self.exchanges[1 : 1 + count]
+        )
+        if (headers[0].ref.block_hash, headers[-1].ref.block_hash) != (
+            self.scope.start_block_hash,
+            self.scope.end_block_hash,
+        ):
+            raise ValueError("flow boundaries differ from reconciled snapshots")
+        for index, header in enumerate(headers):
+            if header.ref.number != self.scope.start_block + index:
+                raise ValueError("flow headers do not cover the exact window")
+            if index and header.parent_hash != headers[index - 1].ref.block_hash:
+                raise ValueError("flow header ancestry is discontinuous")
+            if index:
+                current_time, prior_time = header.ref.timestamp, headers[index - 1].ref.timestamp
+                if current_time is None or prior_time is None or current_time <= prior_time:
+                    raise ValueError("flow header time did not advance")
+        return headers
+
     def reconstruct(self) -> tuple[TransferLog, ...]:
-        results = successful_results(self.exchanges, _expected(self.scope))
+        headers = self.bound_headers()
+        results = successful_results(self.exchanges, _expected(self.scope, headers))
         if rpc_quantity(results[0]) != self.scope.chain_id:
             raise ValueError("token flow provider chain mismatch")
-        collected = [
-            *_logs_from_result(results[1], token=self.scope.token, token_id=self.scope.token_id),
-            *_logs_from_result(results[2], token=self.scope.token, token_id=self.scope.token_id),
-        ]
+        if headers:
+            if decode_header(results[-1], chain_id=self.scope.chain_id) != headers[-1]:
+                raise ValueError("flow block changed during capture")
+            collected: list[TransferLog] = []
+            cursor = 1 + len(headers)
+            for header in headers[1:]:
+                for direction, raw in enumerate(results[cursor : cursor + 2]):
+                    if not isinstance(raw, list) or any(
+                        not isinstance(item, dict)
+                        or item.get("blockHash") != header.ref.block_hash
+                        or item.get("blockNumber") != hex(header.ref.number)
+                        for item in raw
+                    ):
+                        raise ValueError("flow log does not belong to its pinned block")
+                    logs = _logs_from_result(
+                        raw, token=self.scope.token, token_id=self.scope.token_id
+                    )
+                    if len({log.order_key for log in logs}) != len(logs):
+                        raise ValueError("token flow provider returned a duplicate log")
+                    if any(
+                        (log.to_address if direction == 0 else log.from_address)
+                        != self.scope.account
+                        for log in logs
+                    ):
+                        raise ValueError("flow log does not match its direction filter")
+                    collected.extend(logs)
+                cursor += 2
+        else:
+            collected = [
+                *_logs_from_result(
+                    results[1], token=self.scope.token, token_id=self.scope.token_id
+                ),
+                *_logs_from_result(
+                    results[2], token=self.scope.token, token_id=self.scope.token_id
+                ),
+            ]
         if any(
             not self.scope.start_block < log.block_number <= self.scope.end_block
             for log in collected
         ):
             raise ValueError("token flow log lies outside its declared window")
-        identities = {log.order_key for log in collected}
-        if len(identities) != len(collected):
-            raise ValueError("token flow provider returned a duplicate log")
-        return tuple(sorted(collected, key=lambda log: log.order_key))
+        unique: dict[tuple[int, int, str], TransferLog] = {}
+        for log in collected:
+            if log.order_key in unique and (
+                not headers
+                or unique[log.order_key] != log
+                or not (log.from_address == log.to_address == self.scope.account)
+            ):
+                raise ValueError("token flow provider returned a duplicate log")
+            unique[log.order_key] = log
+        return tuple(sorted(unique.values(), key=lambda log: log.order_key))
 
     def flow(self, *, tracked_accounts: frozenset[str]) -> TokenFlow:
         external_in = external_out = net = 0
         for log in self.logs:
             if self.scope.account not in (log.from_address, log.to_address):
                 raise ValueError("transfer log does not involve the reconciled account")
+            if log.from_address == log.to_address:
+                continue
             if log.to_address == self.scope.account:
                 net += log.units
                 if log.from_address not in tracked_accounts:
@@ -364,7 +477,15 @@ class TokenFlowQuorum:
 def _collect_one(session: RecordedSession, *, scope: FlowScope) -> TokenFlowCapture:
     transport, recorder, source = session
     transport.request("eth_chainId", [])
-    for method, params in _expected(scope)[1:]:
+    headers: tuple[BlockSnapshot, ...] = ()
+    if scope.end_block_hash is not None:
+        headers = tuple(
+            decode_header(
+                transport.request("eth_getBlockByNumber", [hex(n), False]), chain_id=scope.chain_id
+            )
+            for n in range(scope.start_block, scope.end_block + 1)
+        )
+    for method, params in _expected(scope, headers)[1 + len(headers) :]:
         transport.request(method, params)
     return TokenFlowCapture(source, scope, recorder.exchanges)
 
@@ -403,17 +524,19 @@ def _persist_capture(
     return store.put(
         "account_token_flow",
         capture.payload,
-        None,
+        capture.bound_headers()[-1].ref if capture.scope.end_block_hash is not None else None,
         capture.source,
         request=wire_envelope(capture.exchanges, response=False),
         raw_response=wire_envelope(capture.exchanges, response=True),
         interpretation={
-            "schema": "oasis.account-token-flow-evidence.v1",
+            "schema": "oasis.account-token-flow-evidence.v2"
+            if capture.scope.end_block_hash is not None
+            else "oasis.account-token-flow-evidence.v1",
             "block_window": [capture.scope.start_block, capture.scope.end_block],
             "execution_eligible": False,
         },
         retrieved_at=retrieved_at,
-        schema_version=1,
+        schema_version=2 if capture.scope.end_block_hash is not None else 1,
     )
 
 
@@ -426,8 +549,8 @@ def replay_token_flow_evidence(
 ) -> TokenFlow:
     if (
         reference.kind != "account_token_flow"
-        or reference.schema_version != 1
-        or reference.block is not None
+        or reference.schema_version != (2 if scope.end_block_hash is not None else 1)
+        or (scope.end_block_hash is None and reference.block is not None)
     ):
         raise ValueError("unsupported token flow evidence")
     record = store.get_record(reference)
@@ -436,7 +559,8 @@ def replay_token_flow_evidence(
     data = strict_json_object(record.payload)
     if (
         set(data) != {"schema", "source", "scope", "logs"}
-        or data["schema"] != _SCHEMA
+        or data["schema"]
+        != (_SCHEMA if scope.end_block_hash is None else "oasis.account-token-flow.v2")
         or data["scope"] != _scope_json(scope)
     ):
         raise ValueError("token flow evidence does not match the requested scope")
@@ -447,6 +571,8 @@ def replay_token_flow_evidence(
     )
     if capture.payload != record.payload:
         raise ValueError("token flow interpretation differs from raw reconstruction")
+    if scope.end_block_hash is not None and reference.block != capture.bound_headers()[-1].ref:
+        raise ValueError("flow evidence is not pinned to its closing snapshot")
     return capture.flow(tracked_accounts=tracked_accounts)
 
 

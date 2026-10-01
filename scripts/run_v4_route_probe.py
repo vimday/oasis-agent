@@ -396,7 +396,7 @@ def run(config: ProbeConfig, block_number: int, output: Path) -> dict[str, objec
                 ("universal_router", config.universal_router),
             ):
                 before = len(recorder.exchanges)
-                code = rpc.get_code(address, block_number)
+                code = rpc.get_code(address, start)
                 exchange = recorder.exchanges[before]
                 digest = "0x" + keccak(bytes.fromhex(code[2:])).hex()
                 runtime_hashes[role] = digest
@@ -414,7 +414,7 @@ def run(config: ProbeConfig, block_number: int, output: Path) -> dict[str, objec
             report["runtime_hashes"] = runtime_hashes
 
             before = len(recorder.exchanges)
-            binding = _decode_address(rpc.call(config.quoter, POOL_MANAGER_SELECTOR, block_number))
+            binding = _decode_address(rpc.call(config.quoter, POOL_MANAGER_SELECTOR, start))
             exchange = recorder.exchanges[before]
             report["quoter_pool_manager"] = binding
             all_refs.append(
@@ -442,9 +442,7 @@ def run(config: ProbeConfig, block_number: int, output: Path) -> dict[str, objec
                     ).hexdigest(),
                 }
                 try:
-                    result = decode_single_pool_quote(
-                        rpc.call(config.quoter, calldata, block_number)
-                    )
+                    result = decode_single_pool_quote(rpc.call(config.quoter, calldata, start))
                     row.update(
                         status="ok",
                         quoted_amount=result.quoted_amount,

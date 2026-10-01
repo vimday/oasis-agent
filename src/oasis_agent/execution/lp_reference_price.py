@@ -14,8 +14,9 @@ Every input is re-derived from retained raw RPC bytes before the first write:
   re-checks the feed runtime, description, decimals, round identity and freshness
   against the observation's own pinned block, so the block is read out of the
   evidence rather than supplied beside it;
-* the currency's own ``decimals()`` is read on chain and compared with the
-  declaration, because one mis-declared scale turns the ratio into a fiction;
+* ERC-20 ``decimals()`` is read on chain and compared with the declaration;
+  native ETH uses its protocol-defined 18 decimals only on explicit supported
+  chains, whose identity is checked in the same retained wire evidence;
 * the derived ratio is compared with the pool's own decision-block price, so an
   inverted, mis-scaled or simply foreign pair of feeds is refused instead of
   becoming the denominator of every inventory valuation.
@@ -43,11 +44,19 @@ from ..evidence.exact_capture import (
 )
 from ..evidence.rpc_validation import decode_exchange, restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceRecord, EvidenceStore
+from ..farming.account_inventory import AccountInventoryCapture
 from ..farming.price_evidence import UsdFeedPolicy, UsdPriceCapture, UsdPriceObservation, selector
 from ..launch.models import Address, Hash, StrictModel
 from ..launch.models import Source as Alias
 from ..models.chain import BlockSnapshot
-from ..models.common import BlockRef, EvidenceRef, canonical_json, normalize_address, normalize_hex
+from ..models.common import (
+    ZERO_ADDRESS,
+    BlockRef,
+    EvidenceRef,
+    canonical_json,
+    normalize_address,
+    normalize_hex,
+)
 from ..models.v4 import PoolKey
 from ..rpc.client import RpcClient
 from ..rpc.transport import RpcExchange
@@ -70,9 +79,11 @@ _FEED_SEQUENCE: Final[tuple[int, ...]] = (0, 1, 2, 3, 4, 5, 7)
 _CHAIN: Final[int] = 0
 _OPENING_HEADER: Final[int] = 1
 _TOKEN_DECIMALS: Final[int] = 6
-_CLOSING_HEADER: Final[int] = 7
 _EXPECTED_EXCHANGES: Final[int] = 8
 _MAX_ENVELOPE_BYTES: Final[int] = 1_000_000
+# Explicit ETH-denominated deployments already supported by this repository.
+# A native asset has no ERC-20 decimals() getter. Unknown chains fail closed.
+_NATIVE_ETH_CHAINS: Final[frozenset[int]] = frozenset({1, 8453, 84532, 4663, 46630})
 #: The three getters ``UsdPriceCapture`` itself validates, in its own order.
 FEED_SIGNATURES: Final[tuple[str, ...]] = ("decimals()", "description()", "latestRoundData()")
 #: The explicit input-quality bound: a plain decimal string between zero and one.
@@ -177,6 +188,14 @@ class CurrencyFeed:
             raise ValueError("currency decimals must be a bounded integer")
         if self.policy.base_token != self.address:
             raise ValueError("feed denomination mismatch")
+        if self.address == ZERO_ADDRESS and (
+            self.decimals != 18
+            or self.policy.chain_id not in _NATIVE_ETH_CHAINS
+            or self.policy.description != "ETH / USD"
+        ):
+            raise ValueError(
+                "native currency requires a supported ETH chain, 18 decimals and ETH feed"
+            )
 
 
 def currency_feed(chain_id: int, declaration: CurrencyDeclaration) -> CurrencyFeed:
@@ -251,7 +270,8 @@ def reference_deviation(text: str) -> Decimal:
         raise ValueError("max_reference_deviation must be an explicit decimal string") from error
     if not bound.is_finite() or not 0 <= bound <= 1:
         raise ValueError("max_reference_deviation must be between zero and one")
-    if bound.scaleb(18) != bound.scaleb(18).to_integral_value():
+    numerator, denominator = bound.as_integer_ratio()
+    if numerator * 10**18 % denominator:
         raise ValueError("max_reference_deviation must have at most 18 decimal places")
     return bound
 
@@ -260,7 +280,8 @@ def _within_deviation(bound: Decimal, difference: int, reference: int) -> bool:
     """Integer-exact ``difference / reference <= bound``; no binary float anywhere."""
     if reference <= 0:
         raise ValueError("a positive reference price is required")
-    return difference * 10**18 <= int(bound.scaleb(18)) * reference
+    numerator, denominator = bound.as_integer_ratio()
+    return difference * denominator <= numerator * reference
 
 
 def _uint8(result: object) -> int:
@@ -292,13 +313,16 @@ class CurrencyFeedCapture:
             raise ValueError("feed denomination mismatch")
         if type(self.currency_decimals) is not int or not 0 <= self.currency_decimals <= 36:
             raise ValueError("currency decimals must be a bounded integer")
+        CurrencyFeed(self.currency, self.currency_decimals, self.policy)
         self.reconstruct()
 
     def reconstruct(self) -> tuple[BlockSnapshot, UsdPriceObservation, int]:
         """Every field this capture asserts, re-derived from its own raw bytes."""
         exchanges = self.exchanges
+        native = self.currency == ZERO_ADDRESS
+        expected_count = _EXPECTED_EXCHANGES - int(native)
         if (
-            len(exchanges) != _EXPECTED_EXCHANGES
+            len(exchanges) != expected_count
             or sum(len(item.request_payload) + len(item.response_payload) for item in exchanges)
             > _MAX_ENVELOPE_BYTES
         ):
@@ -317,13 +341,16 @@ class CurrencyFeedCapture:
             raise ValueError("currency feed evidence must open with a block header")
         header = decode_header(opening_response["result"], chain_id=chain_id)
         results = successful_results(exchanges, _expected(self, header))
-        if decode_header(results[_CLOSING_HEADER], chain_id=chain_id) != header:
+        if decode_header(results[-1], chain_id=chain_id) != header:
             raise ValueError("currency feed block changed during collection")
         feed = UsdPriceCapture(
-            header, self.policy, self.source, tuple(exchanges[index] for index in _FEED_SEQUENCE)
+            header,
+            self.policy,
+            self.source,
+            exchanges if native else tuple(exchanges[index] for index in _FEED_SEQUENCE),
         )
         observation = feed.reconstruct_observation()
-        decimals = _uint8(results[_TOKEN_DECIMALS])
+        decimals = 18 if native else _uint8(results[_TOKEN_DECIMALS])
         if decimals != self.currency_decimals:
             raise ValueError("currency token decimals mismatch")
         return header, observation, decimals
@@ -350,7 +377,10 @@ def _expected(
         ("eth_call", [{"to": policy.address, "data": selector(name)}, pin])
         for name in FEED_SIGNATURES
     )
-    expected.append(("eth_call", [{"to": capture.currency, "data": selector("decimals()")}, pin]))
+    if capture.currency != ZERO_ADDRESS:
+        expected.append(
+            ("eth_call", [{"to": capture.currency, "data": selector("decimals()")}, pin])
+        )
     expected.append(("eth_getBlockByNumber", [hex(block.number), False]))
     return expected
 
@@ -366,8 +396,8 @@ def collect_currency_feed(
     The caller supplies a fresh one-shot session with a wired recorder, so the
     exchanges this returns are the capture's own and cannot be shared with another
     read. The sequence is ``_expected``'s: the currency's own on-chain ``decimals``
-    is read beside the feed, because one mis-declared scale turns the ratio into a
-    fiction that no later check would catch.
+    is read beside the feed for ERC-20 currencies. Native ETH has no getter and
+    uses the supported chain's protocol scale, never a simulated zero-address call.
     """
     if not isinstance(currency, CurrencyFeed):
         raise TypeError("a typed currency feed is required")
@@ -379,7 +409,8 @@ def collect_currency_feed(
     client.get_code(currency.policy.address, header.ref)
     for name in FEED_SIGNATURES:
         client.call(currency.policy.address, selector(name), header.ref)
-    client.call(currency.address, selector("decimals()"), header.ref)
+    if currency.address != ZERO_ADDRESS:
+        client.call(currency.address, selector("decimals()"), header.ref)
     closing = client.get_block_snapshot(block_number)
     if closing != header:
         raise ValueError("the currency feed block moved during collection")
@@ -389,6 +420,39 @@ def collect_currency_feed(
         currency.decimals,
         currency.policy,
         recorder.exchanges,
+    )
+
+
+def currency_feed_from_inventory(
+    capture: AccountInventoryCapture, *, currency: CurrencyFeed
+) -> CurrencyFeedCapture:
+    """Reuse an inventory's exact wire bytes without another price lookup.
+
+    Revalidate the complete inventory first. Selected exchanges preserve IDs
+    and bytes; the ERC-20 getter is reordered into the reference envelope, not
+    represented as a new network observation. Both valuations use one policy.
+    """
+    if not isinstance(capture, AccountInventoryCapture) or not isinstance(currency, CurrencyFeed):
+        raise TypeError("typed inventory capture and currency required")
+    capture.reconstruct()
+    asset = capture.entry.asset_by_address(currency.address)
+    if (
+        asset.decimals != currency.decimals
+        or asset.usd_feed(capture.entry.chain_id) != currency.policy
+    ):
+        raise ValueError("reference currency policy differs from account inventory")
+    # Inventory reconstruction verified this exact layout. Select the asset's
+    # own four feed exchanges, even when ETH and WETH share a feed address.
+    entry = capture.entry
+    offset = (
+        3 + 3 * len(entry.erc20_assets) + 2 * len(entry.positions) + 4 * entry.assets.index(asset)
+    )
+    selected = [*capture.exchanges[:2], *capture.exchanges[offset : offset + 4]]
+    if not asset.is_native:
+        selected.append(capture.exchanges[4 + 3 * entry.erc20_assets.index(asset)])
+    selected.append(capture.exchanges[-1])
+    return CurrencyFeedCapture(
+        capture.source, currency.address, currency.decimals, currency.policy, tuple(selected)
     )
 
 
@@ -426,6 +490,9 @@ def persist_currency_feed_evidence(
         interpretation={
             "schema": CURRENCY_FEED_SCHEMA,
             "validation": "raw_rpc_reconstruction",
+            "currency_decimals_source": "native_eth_protocol"
+            if capture.currency == ZERO_ADDRESS
+            else "erc20_decimals_getter",
             "execution_eligible": False,
         },
     )
@@ -524,6 +591,7 @@ def agreed_reference_price(
         raise ValueError("two distinct reference providers are required")
     if not isinstance(max_deviation, Decimal):
         raise TypeError("an explicit max_reference_deviation is required")
+    max_deviation = reference_deviation(str(max_deviation))
     if (pool.currency0, pool.currency1) != (currency0.address, currency1.address):
         raise ValueError("the declared currencies are not the pool's own currencies")
     if pool_id_from_key(pool) != window.pool_id:

@@ -71,6 +71,7 @@ class HealthResponse(Envelope):
 
 
 class ReadinessPayload(Envelope):
+    assessment_scope: str = "declared_gate_structure_only"
     as_of: str
     stage: str
     execution_eligible: bool

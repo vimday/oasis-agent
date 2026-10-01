@@ -66,10 +66,12 @@ def assessment(gates) -> LpReleaseAssessment:
     return LpReleaseAssessment("2026-09-07T00:00:00+00:00", tuple(gates))
 
 
-def test_all_gates_and_independent_reviews_are_required_for_execution():
+def test_declared_gates_and_reviewer_names_never_authorize_execution():
     complete = assessment(result(gate) for gate in LpGate)
     assert complete.stage is ReleaseStage.BOUNDED_PRODUCTION
-    assert complete.execution_eligible
+    assert not complete.execution_eligible
+    assert complete.blockers[0].startswith("execution_authority:")
+    assert json.loads(complete.payload)["assessment_scope"] == "declared_gate_structure_only"
     assert len(complete.digest) == 64
 
     blocked = assessment(
@@ -169,8 +171,8 @@ def test_parse_assessment_round_trip_and_machine_evaluator_cli(tmp_path):
     gates = [result(gate) for gate in LpGate]
     parsed = parse_assessment(_manifest(gates), as_of="2026-09-07T00:00:00+00:00")
     assert parsed.stage is ReleaseStage.BOUNDED_PRODUCTION
-    assert parsed.execution_eligible
-    assert not parsed.blockers
+    assert not parsed.execution_eligible
+    assert parsed.blockers[0].startswith("execution_authority:")
     assert parsed.digest == assessment(gates).digest
 
     manifest_path = tmp_path / "manifest.json"
@@ -198,7 +200,8 @@ def test_parse_assessment_round_trip_and_machine_evaluator_cli(tmp_path):
     assert completed.returncode == 0, completed.stderr
     stdout = json.loads(completed.stdout)
     assert stdout["stage"] == "bounded_production"
-    assert stdout["execution_eligible"] is True
+    assert stdout["execution_eligible"] is False
+    assert stdout["assessment_scope"] == "declared_gate_structure_only"
     assert stdout["digest"] == parsed.digest
     assert out_path.read_bytes() == parsed.payload + b"\n"
 

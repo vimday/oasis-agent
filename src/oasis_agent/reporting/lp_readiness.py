@@ -1,4 +1,8 @@
-"""Machine-readable, fail-closed Phase-1 LP release assessment."""
+"""Structural assessment of declared gates, never execution authority.
+
+References and reviewer names in a manifest are declarations. This module does
+not replay gate-specific raw evidence or authenticate an operator release.
+"""
 
 import json
 from dataclasses import asdict, dataclass, field
@@ -152,14 +156,20 @@ class LpReleaseAssessment:
         else:
             stage = ReleaseStage.REJECT
         object.__setattr__(self, "stage", stage)
+        if stage is ReleaseStage.BOUNDED_PRODUCTION:
+            blockers.append(
+                "execution_authority: declared gates do not verify raw evidence, "
+                "reviewer identity or operator release approval"
+            )
         object.__setattr__(self, "blockers", tuple(blockers))
-        object.__setattr__(self, "execution_eligible", stage is ReleaseStage.BOUNDED_PRODUCTION)
+        object.__setattr__(self, "execution_eligible", False)
 
     @property
     def payload(self) -> bytes:
         return canonical_json(
             {
                 "schema": "oasis.lp-release-assessment.v1",
+                "assessment_scope": "declared_gate_structure_only",
                 "as_of": self.as_of,
                 "stage": self.stage.value,
                 "execution_eligible": self.execution_eligible,

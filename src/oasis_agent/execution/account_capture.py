@@ -141,6 +141,8 @@ def capture_flows(
     *,
     prior_block: int,
     end_block: int,
+    prior_block_hash: str,
+    end_block_hash: str,
     sessions: SessionPairFactory,
 ) -> tuple[AssetFlowEvidence, ...]:
     """Attribute every declared ERC-20 and position delta from complete provider logs."""
@@ -153,6 +155,8 @@ def capture_flows(
             asset.decimals,
             prior_block,
             end_block,
+            start_block_hash=prior_block_hash,
+            end_block_hash=end_block_hash,
         )
         for asset in entry.erc20_assets
     ]
@@ -166,6 +170,8 @@ def capture_flows(
             prior_block,
             end_block,
             position.token_id,
+            start_block_hash=prior_block_hash,
+            end_block_hash=end_block_hash,
         )
         for position in entry.positions
     )
@@ -213,6 +219,8 @@ def capture_observation(
             entry,
             prior_block=previous.block_number,
             end_block=ref.number,
+            prior_block_hash=previous.block_hash,
+            end_block_hash=ref.block_hash,
             sessions=sessions,
         ),
         positions=positions,

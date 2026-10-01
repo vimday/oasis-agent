@@ -212,9 +212,12 @@ def value_usd_micros(
         ("units", units),
         ("numerator", numerator),
         ("denominator", denominator),
+        ("decimals", decimals),
     ):
         if type(value) is not int:
             raise TypeError(f"{name} must be an integer")
+    if type(round_up) is not bool:
+        raise TypeError("round_up must be a boolean")
     if numerator <= 0 or denominator <= 0 or not 0 <= decimals <= 36:
         raise ValueError("valuation scale must be positive and bounded")
     scaled = units * numerator

@@ -9,23 +9,23 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
 
 import httpx
-from pydantic import Field
 
 from oasis_agent.evidence.exact_capture import wire_envelope
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder, persist_block_range_evidence
 from oasis_agent.evidence.store import EvidenceStore
-from oasis_agent.launch.models import Address, Hash, Positive, StrictModel
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.models.v4 import PoolKey
-from oasis_agent.rpc.budget import BudgetedPoster, BudgetPolicy, RpcBudget
+from oasis_agent.rpc.budget import BudgetedPoster, RpcBudget
 from oasis_agent.rpc.client import RpcClient
 from oasis_agent.rpc.collector import collect_block_range
 from oasis_agent.rpc.transport import HttpPoster, JsonRpcTransport
 from oasis_agent.shadow.market_checkpoint import MarketCheckpoint, MarketScope
 from oasis_agent.shadow.market_window import MarketWindow, build_market_window
+from oasis_agent.shadow.observer_config import (  # noqa: F401 - CLI compatibility
+    Config,
+    MarketConfig,
+)
 from oasis_agent.shadow.pool_state_capture import (
     Slot0WindowQuorum,
     collect_slot0_window,
@@ -34,34 +34,6 @@ from oasis_agent.shadow.pool_state_capture import (
 )
 from oasis_agent.uniswap_v4.events import SWAP_TOPIC
 from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
-
-
-class MarketConfig(StrictModel):
-    pool: PoolKey
-    blocks: Annotated[int, Field(ge=2, le=10)]
-    horizon_seconds: Annotated[int, Field(ge=1, le=300)]
-    max_lateness_seconds: Annotated[int, Field(ge=1, le=300)]
-
-
-class Config(StrictModel):
-    market: MarketConfig | None = None
-    chain_id: Positive
-    pool_id: Hash
-    state_view: Address
-    pool_manager: Address
-    state_view_runtime_keccak: Hash
-    pool_manager_runtime_keccak: Hash
-    public_request_cap: Annotated[int, Field(ge=1, le=1000)]
-    paid_request_cap: Annotated[int, Field(ge=1, le=100)]
-    public_interval_ms: Annotated[int, Field(ge=1000, le=60000)]
-    paid_interval_ms: Annotated[int, Field(ge=3000, le=60000)]
-    max_age_seconds: Annotated[int, Field(ge=1, le=300)]
-
-    def policies(self) -> tuple[BudgetPolicy, ...]:
-        return (
-            BudgetPolicy("public", self.public_request_cap, self.public_interval_ms),
-            BudgetPolicy("paid", self.paid_request_cap, self.paid_interval_ms),
-        )
 
 
 def env_urls(
@@ -131,12 +103,19 @@ def sample(
         set(posters) != {"public", "paid"} or pool_id_from_key(market.pool) != config.pool_id
     ):
         raise ValueError("market acquisition requires matching PoolKey and two sources")
-    output.mkdir(parents=True, exist_ok=False)
     policies = config.policies()
+    # The providers are collected sequentially. Even zero network latency cannot
+    # make a window fresh if mandatory pacing alone exceeds its age limit.
+    per_source = 7 if market is None else 7 * market.blocks + 4
+    minimum_elapsed_ms = sum(
+        (per_source - 1) * policy.min_interval_ms for policy in policies if policy.source in posters
+    )
+    if minimum_elapsed_ms >= config.max_age_seconds * 1000:
+        raise ValueError("RPC pacing cannot satisfy snapshot freshness")
+    output.mkdir(parents=True, exist_ok=False)
     with RpcBudget(budget_path, policies) as budget:
         before = budget.counts()
         # Slot0: 1 + 6N; activity: chain + N headers + logs + closing.
-        per_source = 7 if market is None else 7 * market.blocks + 4
         needed = {"public": per_source + 2, **({"paid": per_source} if "paid" in posters else {})}
         if any(
             before[source] + count > budget.policies[source].max_requests

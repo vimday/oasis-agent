@@ -156,6 +156,7 @@ class PositionSpec:
     token_id: int = POSITION_ID
     owner: str = ACCOUNT
     code: str = POSITION_MANAGER_CODE
+    native_pool: bool = False
 
 
 @dataclass
@@ -283,7 +284,9 @@ def manifest_feed(spec: FeedSpec) -> ManifestFeed:
     )
 
 
-def position_pool_key() -> PoolKey:
+def position_pool_key(*, native: bool = False) -> PoolKey:
+    if native:
+        return PoolKey(ZERO_ADDRESS, USDC_SPEC.address, POOL_FEE, 60, ZERO_ADDRESS)
     return PoolKey(USDC_SPEC.address, WETH_SPEC.address, POOL_FEE, 60, ZERO_ADDRESS)
 
 
@@ -295,9 +298,10 @@ def position_snapshot(
     owner: str = ACCOUNT,
     token_id: int = POSITION_ID,
     liquidity: int = POSITION_LIQUIDITY,
+    native_pool: bool = False,
 ) -> PositionSnapshot:
     """One synthetic live position whose pool trades the two declared currencies."""
-    key = position_pool_key()
+    key = position_pool_key(native=native_pool)
     return PositionSnapshot(
         BlockRef(CHAIN_ID, block_number, block_hash, timestamp),
         POSITION_MANAGER,
@@ -463,13 +467,13 @@ def chain_inventory(fixture: InventoryFixture) -> ChainInventory:
                 position_manager=POSITION_MANAGER,
                 position_manager_runtime_keccak=runtime_hash(position.code),
                 token_id=position.token_id,
-                pool_id=pool_id_from_key(position_pool_key()),
+                pool_id=pool_id_from_key(position_pool_key(native=position.native_pool)),
                 state_view=STATE_VIEW,
                 state_view_runtime_keccak=runtime_hash(STATE_VIEW_CODE),
                 pool_manager=POOL_MANAGER,
                 pool_manager_runtime_keccak=runtime_hash(POOL_MANAGER_CODE),
-                currency0_id="usdc",
-                currency1_id="weth",
+                currency0_id="native" if position.native_pool else "usdc",
+                currency1_id="usdc" if position.native_pool else "weth",
             )
             for position in fixture.positions
         ),
@@ -526,10 +530,12 @@ def observe_flow(
         token.decimals,
         start_block,
         fixture.block_number,
+        start_block_hash=BLOCK_HASH,
+        end_block_hash=fixture.block_hash,
     )
     quorum = collect_token_flow_quorum(
-        flow_session(sources[0], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
-        flow_session(sources[1], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
+        flow_session(sources[0], bound_flow_fixture(fixture, incoming=incoming, outgoing=outgoing)),
+        flow_session(sources[1], bound_flow_fixture(fixture, incoming=incoming, outgoing=outgoing)),
         scope=scope,
     )
     return persist_token_flow_evidence(store, quorum)
@@ -544,7 +550,11 @@ def observe_position(
 ) -> tuple:
     """Retain the ownership, pool-state and slot0 proof a declared position needs."""
     position = chain_inventory(fixture).positions[0]
-    view = position_snapshot() if snapshot is None else snapshot
+    view = (
+        position_snapshot(native_pool=fixture.positions[0].native_pool)
+        if snapshot is None
+        else snapshot
+    )
     block = view.block
     if block.timestamp is None:
         raise ValueError("retained position proof requires a timestamped block")
@@ -599,10 +609,12 @@ def observe_position_flow(
         start_block,
         fixture.block_number,
         position.token_id,
+        start_block_hash=BLOCK_HASH,
+        end_block_hash=fixture.block_hash,
     )
     quorum = collect_token_flow_quorum(
-        flow_session(sources[0], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
-        flow_session(sources[1], FlowFixture(incoming=list(incoming), outgoing=list(outgoing))),
+        flow_session(sources[0], bound_flow_fixture(fixture, incoming=incoming, outgoing=outgoing)),
+        flow_session(sources[1], bound_flow_fixture(fixture, incoming=incoming, outgoing=outgoing)),
         scope=scope,
     )
     return persist_token_flow_evidence(store, quorum)
@@ -684,14 +696,37 @@ def usdc_transfer(*, from_address: str, to_address: str, units: int) -> dict[str
     )
 
 
+def bound_flow_fixture(fixture: InventoryFixture, *, incoming=(), outgoing=()) -> FlowFixture:
+    return FlowFixture(
+        chain_id=fixture.chain_id,
+        incoming=list(incoming),
+        outgoing=list(outgoing),
+        bind_hashes=True,
+        headers={
+            BLOCK_NUMBER: {
+                "number": hex(BLOCK_NUMBER),
+                "hash": BLOCK_HASH,
+                "parentHash": PARENT_HASH,
+                "timestamp": hex(TIMESTAMP),
+            },
+            fixture.block_number: {
+                "number": hex(fixture.block_number),
+                "hash": fixture.block_hash,
+                "parentHash": BLOCK_HASH,
+                "timestamp": hex(fixture.timestamp),
+            },
+        },
+    )
+
+
 def usdc_in(units: int) -> FlowFixture:
     log = usdc_transfer(from_address=THIRD_PARTY, to_address=ACCOUNT, units=units)
-    return FlowFixture(incoming=[log])
+    return bound_flow_fixture(later(InventoryFixture()), incoming=(log,))
 
 
 def usdc_out(units: int) -> FlowFixture:
     log = usdc_transfer(from_address=ACCOUNT, to_address=THIRD_PARTY, units=units)
-    return FlowFixture(outgoing=[log])
+    return bound_flow_fixture(later(InventoryFixture()), outgoing=(log,))
 
 
 def ceil_micros(units: int, *, answer: int, decimals: int) -> int:
@@ -824,6 +859,38 @@ def test_a_deposit_is_explained_and_credited_without_a_loss(tmp_path) -> None:
             risk_policy(chain_inventory(second)), RiskState(frame=first), frame, now=TIMESTAMP + 30
         )
         assert (state.halted, state.cumulative_loss) == (False, 0)
+    finally:
+        store.close()
+
+
+def test_production_reader_refuses_legacy_height_only_flow_proofs(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "legacy-flow.db")
+    fixture = InventoryFixture()
+    try:
+        first = baseline(store, fixture)
+        second = later(fixture)
+        legacy_scope = FlowScope(
+            CHAIN_ID, ACCOUNT, "usdc", USDC_SPEC.address, 6, BLOCK_NUMBER, BLOCK_TWO
+        )
+        quorum = collect_token_flow_quorum(
+            flow_session("rpc_a", FlowFixture()),
+            flow_session("rpc_b", FlowFixture()),
+            scope=legacy_scope,
+        )
+        refs = persist_token_flow_evidence(store, quorum)
+        assert all(ref.schema_version == 1 and ref.block is None for ref in refs)
+        reader = reader_for(
+            store,
+            fixtures=(second,),
+            observations={
+                chain_inventory(second).key: observation(
+                    observe_inventory(store, second), flows=(AssetFlowEvidence("usdc", refs),)
+                )
+            },
+            previous=first,
+        )
+        with pytest.raises(ValueError, match="unsupported"):
+            reader.reconcile()
     finally:
         store.close()
 
@@ -1051,7 +1118,17 @@ def test_a_flow_provider_disagreement_blocks_the_frame(tmp_path) -> None:
     try:
         first = baseline(store, fixture)
         second = later(retoken(fixture, asset_id="usdc", units=USDC_UNITS - 100_000_000))
-        scope = FlowScope(CHAIN_ID, ACCOUNT, "usdc", USDC_SPEC.address, 6, BLOCK_NUMBER, BLOCK_TWO)
+        scope = FlowScope(
+            CHAIN_ID,
+            ACCOUNT,
+            "usdc",
+            USDC_SPEC.address,
+            6,
+            BLOCK_NUMBER,
+            BLOCK_TWO,
+            start_block_hash=BLOCK_HASH,
+            end_block_hash=HASH_TWO,
+        )
         left = collect_token_flow_quorum(
             flow_session("rpc_a", usdc_in(1)),
             flow_session("rpc_b", usdc_in(1)),
@@ -1447,6 +1524,35 @@ def test_a_declared_position_is_carried_into_the_frame_at_its_retained_value(tmp
         assert balance.evidence_hash == positions[0].snapshots[0].content_hash
         state = reconcile(risk_policy(declared), RiskState(), frame, now=TIMESTAMP)
         assert (state.halted, state.cumulative_loss) == (False, 0)
+    finally:
+        store.close()
+
+
+def test_native_eth_position_uses_its_feed_without_counting_wallet_eth_twice(tmp_path) -> None:
+    store = EvidenceStore(tmp_path / "native-position.db")
+    fixture = InventoryFixture(positions=(PositionSpec(native_pool=True),))
+    try:
+        declared = chain_inventory(fixture)
+        proofs = observe_position(store, fixture)
+        frame = reader_for(
+            store,
+            fixtures=(fixture,),
+            observations={
+                declared.key: observation(observe_inventory(store, fixture), positions=proofs)
+            },
+        ).reconcile()
+        amounts = position_inventory(
+            position_snapshot(native_pool=True), sqrt_price_x96=slot0_sqrt_price()
+        )
+        expected = amounts.total0 * NATIVE_ANSWER * 10**6 // (
+            10**8 * 10**18
+        ) + amounts.total1 * USDC_ANSWER * 10**6 // (10**8 * 10**6)
+        account = frame.accounts[0]
+        balances = {asset.asset_id: asset for asset in account.assets}
+        assert balances["native"].units == NATIVE_UNITS
+        assert balances[POSITION_ASSET].value == expected > 0
+        assert account.nav == 13_000_000_000 + expected
+        assert account.unresolved_operations == 0
     finally:
         store.close()
 

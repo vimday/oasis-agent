@@ -20,6 +20,7 @@ from oasis_agent.server.app import create_app
 from oasis_agent.server.audit import ServerOpsJournal
 from oasis_agent.server.campaigns import CampaignManager
 from oasis_agent.server.config import ServerCampaignInput, load_server_config
+from oasis_agent.server.routers_campaigns import _snapshot as campaign_snapshot
 from oasis_agent.shadow.service import serializable
 
 from .server_helpers import make_server_config
@@ -510,3 +511,138 @@ async def test_stop_during_input_preparation_prevents_process_creation(tmp_path,
         finally:
             release.set()
             await controller.aclose()
+
+
+def test_market_campaign_runs_fixed_worker_without_wallet_authority(tmp_path, monkeypatch):
+    fake_root = tmp_path / "worker"
+    (fake_root / "scripts").mkdir(parents=True)
+    (fake_root / "scripts/__init__.py").write_text("")
+    (fake_root / "scripts/run_lp_research.py").write_text(
+        "import os, sys, json\nfrom pathlib import Path\n"
+        "assert 'OASIS_PRIVATE_KEY' not in os.environ\n"
+        "assert '--wallet' not in sys.argv and '--live' not in sys.argv\n"
+        "out=Path(sys.argv[sys.argv.index('--output')+1]); out.mkdir()\n"
+        "(out/'status.json').write_text(json.dumps({'schema':'oasis.lp-research-run.v1','stage':'completed','execution_eligible':False}))\n"
+        "print('market research authority verified')\n"
+    )
+    monkeypatch.setattr(campaigns, "_REPOSITORY", fake_root)
+    with client_for(tmp_path) as client:
+        template = client.get("/api/v1/configuration").json()["templates"]["market"]
+        document = {
+            "kind": "market",
+            "mode": "observe",
+            "policy": template,
+            "rpc_primary": "primary",
+            "rpc_secondary": "secondary",
+        }
+        assert (
+            save(client, document=json.dumps(document | {"wallet": "0x" + "1" * 40})).status_code
+            == 422
+        )
+        assert save(client, document=json.dumps(document)).status_code == 200
+        for name in ("primary", "secondary"):
+            client.post(
+                f"/api/v1/campaigns/rpc/{name}", headers=AUTH, json={"url": f"https://{name}.test"}
+            )
+        client.post(
+            "/api/v1/campaigns/demo/apply",
+            headers=AUTH,
+            json={"expected_revision": 1, "revision": 1},
+        )
+        body = {"revision": 1, "request_id": "a" * 32}
+        first = client.post("/api/v1/campaigns/demo/start", headers=AUTH, json=body)
+        assert first.status_code == 200
+        final = wait_terminal(client)
+        assert final["status"] == "succeeded", final["run"]["stderr_tail"]
+        again = client.post("/api/v1/campaigns/demo/start", headers=AUTH, json=body)
+        assert again.json()["requested_run_id"] == final["run"]["run_id"]
+        snapshot = client.get("/api/v1/campaigns/demo/snapshot").json()
+        assert json.loads(snapshot["document"])["items"][0]["stage"] == "completed"
+        assert snapshot["execution_eligible"] is False
+
+
+def test_archive_starts_resume_same_revision_after_controller_restart(tmp_path, monkeypatch):
+    fake_root = tmp_path / "worker"
+    (fake_root / "scripts").mkdir(parents=True)
+    (fake_root / "scripts/__init__.py").write_text("")
+    (fake_root / "scripts/capture_lp_market_archive.py").write_text(
+        "import os, sys, json\nfrom pathlib import Path\n"
+        "assert 'OASIS_PRIVATE_KEY' not in os.environ\n"
+        "assert '--wallet' not in sys.argv and '--max-chunks' in sys.argv\n"
+        "out=Path(sys.argv[sys.argv.index('--output')+1]); out.mkdir(parents=True, exist_ok=True)\n"
+        "p=out/'status.json'\n"
+        "n=json.loads(p.read_text())['chunks_completed'] if p.exists() else 0\n"
+        "p.write_text(json.dumps({'schema':'oasis.market-archive-status.v1','stage':'partial',"
+        "'chunks_completed':n+1,'execution_eligible':False}))\n"
+    )
+    monkeypatch.setattr(campaigns, "_REPOSITORY", fake_root)
+    monkeypatch.setenv("OASIS_PRIVATE_KEY", "synthetic-test-only")
+    config = make_server_config(tmp_path)
+    environ = {"OASIS_SERVER_OPS_TOKEN": "campaign-test"}
+    for index in range(2):
+        with TestClient(create_app(config, environ=environ)) as client:
+            for name in ("primary", "secondary"):
+                client.post(
+                    f"/api/v1/campaigns/rpc/{name}",
+                    headers=AUTH,
+                    json={"url": f"https://{name}.test"},
+                )
+            if index == 0:
+                policy = client.get("/api/v1/configuration").json()["templates"]["archive"]
+                document = {
+                    "kind": "archive",
+                    "mode": "observe",
+                    "policy": policy,
+                    "rpc_primary": "primary",
+                    "rpc_secondary": "secondary",
+                    "cycles": 1,
+                }
+                assert (
+                    save(client, document=json.dumps(document | {"cycles": 1001})).status_code
+                    == 422
+                )
+                assert save(client, document=json.dumps(document)).status_code == 200
+                client.post(
+                    "/api/v1/campaigns/demo/apply",
+                    headers=AUTH,
+                    json={"expected_revision": 1, "revision": 1},
+                )
+            plan = client.get("/api/v1/campaigns/demo").json()["configuration_plan"]
+            assert plan["revision"] == 1 and plan["minimum_total_requests_per_provider"] == 36
+            assert (
+                plan["distinct_rpc_profiles_configured"] and plan["configured_budget_covers_range"]
+            )
+            assert plan["execution_eligible"] is False
+            body = {"revision": 1, "request_id": str(index + 1) * 32}
+            assert (
+                client.post("/api/v1/campaigns/demo/start", headers=AUTH, json=body).status_code
+                == 200
+            )
+            final = wait_terminal(client)
+            assert final["status"] == "succeeded", final["run"]["stderr_tail"]
+            snapshot = client.get("/api/v1/campaigns/demo/snapshot").json()
+            assert json.loads(snapshot["document"])["items"][0]["chunks_completed"] == index + 1
+            assert snapshot["execution_eligible"] is False
+            assert (
+                client.post("/api/v1/campaigns/demo/start", headers=AUTH, json=body).status_code
+                == 200
+            )
+    paths = tuple((tmp_path / "campaigns/archives").rglob("status.json"))
+    assert len(paths) == 1
+
+
+def test_large_archive_diagnostic_does_not_hide_runtime_status(tmp_path):
+    from_placeholder = {
+        "schema": "oasis.market-archive-status.v1",
+        "stage": "completed",
+        "execution_eligible": False,
+    }
+    folder = tmp_path / "archive"
+    folder.mkdir()
+    path = folder / "status.json"
+    path.write_text(json.dumps(from_placeholder))
+    (folder / "economics.json").write_bytes(b" " * 262145)
+    snapshot = campaign_snapshot("archive", path, make_server_config(tmp_path))
+    assert snapshot["items"][0]["stage"] == "completed"
+    assert snapshot["diagnostics"]["economics.json"]["preview"] == "size_limit"
+    assert snapshot["execution_eligible"] is False

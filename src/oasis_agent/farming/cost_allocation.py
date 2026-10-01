@@ -6,12 +6,39 @@ beneficial ownership, reimbursements, or which NFT physically paid shared gas.
 
 from dataclasses import dataclass
 
+from .receipt_cost_valuation import PricedReceiptCost
+
 
 @dataclass(frozen=True, slots=True)
 class AllocatedCost:
     position_id: str
     weight: int
     native_units: int
+
+
+@dataclass(frozen=True, slots=True)
+class AllocatedPricedCost:
+    position_id: str
+    weight: int
+    native_units: int
+    quote_units: int
+
+
+def allocate_priced_cost(
+    cost: PricedReceiptCost, weights: tuple[tuple[str, int], ...]
+) -> tuple[AllocatedPricedCost, ...]:
+    """Declared bookkeeping shares of one cost; conserve both denominations.
+
+    Allocate the already ceiling-rounded whole quote cost once. Rounding each LP's
+    conversion separately would inflate the total. This does not prove ownership or
+    causal allocation, and must not be treated as observed position gas payment.
+    """
+    native = allocate_cost(cost.total_native, weights)
+    quote = allocate_cost(cost.quote_units, weights)
+    return tuple(
+        AllocatedPricedCost(n.position_id, n.weight, n.native_units, q.native_units)
+        for n, q in zip(native, quote, strict=True)
+    )
 
 
 def allocate_cost(

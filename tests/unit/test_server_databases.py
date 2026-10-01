@@ -257,7 +257,9 @@ def test_cached_gate_evidence_expires_without_manifest_change(tmp_path):
     db = ReadOnlyDatabases(config)
     try:
         before = db.readiness(as_of="2029-12-31T23:59:59+00:00")
-        assert before.execution_eligible is True
+        assert before.execution_eligible is False
+        assert before.stage.value == "bounded_production"
+        assert before.blockers[0].startswith("execution_authority:")
         expired = db.readiness(as_of="2030-01-01T00:00:00+00:00")
         assert expired.execution_eligible is False
         assert expired.stage.value == "reject"

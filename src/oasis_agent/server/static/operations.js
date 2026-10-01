@@ -30,8 +30,14 @@ let campaignEditorDirty = false;
 
 function campaignKindChanged() {
   const launch = $("campaign-kind").value === "launch";
-  $("campaign-launch-fields").hidden = !launch;
-  $("campaign-lp-fields").hidden = launch;
+  const archive = $("campaign-kind").value === "archive";
+  const market = $("campaign-kind").value === "market" || archive;
+  $("campaign-launch-fields").hidden = !(launch || market);
+  $("campaign-wallet").hidden = !launch;
+  $("campaign-wallet-label").hidden = !launch;
+  $("campaign-lp-fields").hidden = launch || (market && !archive);
+  $("campaign-source").hidden = archive;
+  $("campaign-source-label").hidden = archive;
 }
 
 function updateCampaignOptions(id, items) {
@@ -49,7 +55,7 @@ async function loadCampaigns() {
   campaignLoading = true;
   try {
     const data = await apiGet("/api/v1/campaigns");
-    $("campaign-capabilities").textContent = "可运行：LP Shadow / Launch Observe · 最多 " + data.max_active
+    $("campaign-capabilities").textContent = "可运行：LP 市场分析 / 可恢复历史采集 / LP Shadow / Launch Observe · 最多 " + data.max_active
       + " 个并行任务 · 实盘阻断：独立签名服务及目标发布门禁未通过";
     updateCampaignOptions("campaign-primary", data.rpc_profiles.map(x => x.name));
     updateCampaignOptions("campaign-secondary", data.rpc_profiles.map(x => x.name));
@@ -92,7 +98,8 @@ async function selectCampaign(name) {
   campaignKindChanged();
   const snapshot = await apiGet(`/api/v1/campaigns/${encodeURIComponent(name)}/snapshot`);
   $("campaign-output").textContent = "运行状态：" + head.status + "\n" + (head.run?.stdout_tail || "") + "\n"
-    + (head.run?.stderr_tail || "") + "\n" + snapshot.document;
+    + (head.run?.stderr_tail || "") + "\n配置计划（不代表实盘许可）：\n"
+    + JSON.stringify(head.configuration_plan, null, 2) + "\n" + snapshot.document;
 }
 
 function campaignInteger(id, min, max) {
@@ -112,9 +119,12 @@ async function campaignAction(action) {
     const base = `/api/v1/campaigns/${encodeURIComponent(name)}`;
     if (action === "save") {
       const kind = $("campaign-kind").value;
-      const spec = {kind, mode: kind === "launch" ? "observe" : "shadow", policy: $("campaign-policy").value,
+      const spec = {kind, mode: kind === "lp" ? "shadow" : "observe", policy: $("campaign-policy").value,
         timeout_seconds: campaignInteger("campaign-timeout", 10, 86400)};
-      if (kind === "launch") {
+      if (kind === "market" || kind === "archive") {
+        Object.assign(spec, {rpc_primary: $("campaign-primary").value, rpc_secondary: $("campaign-secondary").value});
+        if (kind === "archive") spec.cycles = campaignInteger("campaign-cycles", 1, 1000);
+      } else if (kind === "launch") {
         Object.assign(spec, {wallet: $("campaign-wallet").value.toLowerCase(), rpc_primary: $("campaign-primary").value,
           rpc_secondary: $("campaign-secondary").value, events: $("campaign-events").checked});
         if ($("campaign-discovery").value) spec.discovery_from_block = campaignInteger("campaign-discovery", 0, Number.MAX_SAFE_INTEGER);
@@ -133,7 +143,7 @@ async function campaignAction(action) {
       if (action === "stop") await apiPost(base + "/stop");
     }
     $("campaign-result").textContent = {save:"配置已保存，需应用后才用于启动", apply:"版本已应用，下次启动将使用该版本",
-      start:"启动已受理，请以任务状态及证据为准", stop:"停止请求已受理，等待进程退出"}[action];
+      start:"启动已受理；历史采集将从该版本的已完成片段和原预算继续", stop:"停止请求已受理，等待进程退出"}[action];
     await loadCampaigns();
     await selectCampaign(name);
   } catch (error) {

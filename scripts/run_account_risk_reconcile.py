@@ -256,6 +256,8 @@ def main() -> None:
                         entry,
                         prior_block=prior.block_number,
                         end_block=quorum.header.ref.number,
+                        prior_block_hash=prior.block_hash,
+                        end_block_hash=quorum.header.ref.block_hash,
                         sessions=sessions,
                     ),
                     positions=positions,

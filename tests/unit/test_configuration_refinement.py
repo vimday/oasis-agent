@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 
 from oasis_agent.server.app import create_app
 from oasis_agent.server.config import ServerShadowRunnerConfig
+from oasis_agent.shadow.market_archive import ArchiveConfig
+from oasis_agent.shadow.observer_config import Config
 from oasis_agent.shadow.service import parse_policy
 from oasis_agent.sniping.config import ExecutionConfig
 
@@ -79,6 +81,10 @@ def test_all_ui_templates_use_the_same_validators(tmp_path):
                 assert tomllib.loads(result)["chains"][0]["rpc_url_env"] == "BASE_RPC_PRIMARY"
             elif kind == "lp":
                 assert parse_policy(result.encode())["chain_id"] == 46630
+            elif kind == "archive":
+                assert ArchiveConfig.from_json(result).start_block == 51907410
+            elif kind == "market":
+                assert Config.from_json(result).market is not None
             else:
                 assert ExecutionConfig.from_json(result).chain_id == 8453
 

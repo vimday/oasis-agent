@@ -13,6 +13,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -431,6 +432,71 @@ def test_a_submission_returning_another_hash_is_unresolved(tmp_path: Path) -> No
         assert journal.open_transactions() == (expectation.transaction_hash,)
     finally:
         journal.close()
+
+
+def test_submission_is_durable_before_a_crash_and_cannot_be_retried(tmp_path: Path) -> None:
+    request = signed_request()
+    decision = signed_decision(request)
+    expectation = expectation_from_sidecar(request, decision)
+    raw = raw_bytes_from_decision(decision)
+    path = tmp_path / "crash.db"
+
+    class CrashingRpc(FakeRpc):
+        def send_raw_transaction(self, raw_hex: str) -> str:
+            observer = LpBroadcastJournal(path, policy=policy())
+            try:
+                assert observer.open_transactions() == (expectation.transaction_hash,)
+            finally:
+                observer.close()
+            raise SystemExit("process terminated during submission")
+
+    with (
+        LpBroadcaster(policy(), path, rpc=CrashingRpc()) as broadcaster,
+        pytest.raises(SystemExit),
+    ):
+        broadcaster.broadcast(raw, expectation=expectation)
+    rpc = FakeRpc(result=expectation.transaction_hash)
+    with LpBroadcaster(policy(), path, rpc=rpc) as restarted:
+        assert restarted.broadcast(raw, expectation=expectation).outcome == "denied"
+    assert rpc.sent == []
+
+
+def test_competing_writer_claims_between_initial_check_and_send(tmp_path: Path) -> None:
+    request = signed_request()
+    decision = signed_decision(request)
+    expectation = expectation_from_sidecar(request, decision)
+    raw = raw_bytes_from_decision(decision)
+    path = tmp_path / "competing.db"
+    winner_rpc = FakeRpc(result=expectation.transaction_hash)
+
+    class RacingRpc(FakeRpc):
+        def chain_id(self) -> int:
+            with LpBroadcaster(policy(), path, rpc=winner_rpc) as winner:
+                assert winner.broadcast(raw, expectation=expectation).outcome == "broadcast"
+            return CHAIN_ID
+
+    loser_rpc = RacingRpc(result=expectation.transaction_hash)
+    with LpBroadcaster(policy(), path, rpc=loser_rpc) as loser:
+        assert loser.broadcast(raw, expectation=expectation).outcome == "denied"
+    assert len(winner_rpc.sent) == 1
+    assert loser_rpc.sent == []
+
+
+def test_denied_attempt_cannot_supply_receipt_request_identity(tmp_path: Path) -> None:
+    request = signed_request()
+    decision = signed_decision(request)
+    expectation = expectation_from_sidecar(request, decision)
+    raw = raw_bytes_from_decision(decision)
+    rpc = FakeRpc(result=expectation.transaction_hash)
+    with LpBroadcaster(policy(), tmp_path / "identity.db", rpc=rpc) as broadcaster:
+        foreign = replace(expectation, request_hash=OTHER_HASH, nonce=REQUEST_NONCE + 1)
+        assert broadcaster.broadcast(raw, expectation=foreign).outcome == "denied"
+        with pytest.raises(ValueError, match="does not name a broadcast"):
+            broadcaster.journal.request_hash(expectation.transaction_hash)
+        assert broadcaster.broadcast(raw, expectation=expectation).outcome == "broadcast"
+        assert broadcaster.journal.request_hash(expectation.transaction_hash) == (
+            expectation.request_hash
+        )
 
 
 def test_a_malformed_submission_hash_is_unresolved(tmp_path: Path) -> None:

@@ -9,7 +9,7 @@ retained. No case ends with an execution permit.
 
 import json
 from dataclasses import asdict, replace
-from decimal import Decimal
+from decimal import Decimal, localcontext
 from pathlib import Path
 
 import pytest
@@ -42,7 +42,7 @@ from oasis_agent.execution.lp_reference_price import (
 )
 from oasis_agent.farming.price_evidence import selector
 from oasis_agent.models.chain import BlockSnapshot
-from oasis_agent.models.common import BlockRef, canonical_json
+from oasis_agent.models.common import ZERO_ADDRESS, BlockRef, canonical_json
 from oasis_agent.rpc.transport import JsonRpcTransport, RpcExchange
 from oasis_agent.shadow.features import Q192, agreed_value_payload
 from tests.unit.test_live_shadow_producer import CHAIN, blocks
@@ -158,6 +158,8 @@ def capture(
         ),
         ("eth_getBlockByNumber", [hex(b.number), False], header),
     ]
+    if feed.address == ZERO_ADDRESS:
+        specs.pop(6)
     exchanges = tuple(
         RpcExchange(
             method,
@@ -284,6 +286,37 @@ def test_loose_deviation_bounds_are_refused(text: str) -> None:
 def test_a_deviation_bound_must_be_an_explicit_string() -> None:
     with pytest.raises(ValueError, match="explicit max_reference_deviation"):
         reference_deviation(Decimal("0.05"))  # type: ignore[arg-type]
+
+
+def test_deviation_precision_is_not_rounded_by_the_decimal_context() -> None:
+    with localcontext() as context:
+        context.prec = 4
+        with pytest.raises(ValueError, match="18 decimal places"):
+            reference_deviation("0.1234567890123456789")
+
+
+@pytest.mark.parametrize("bound", ["1.5", "-0.1", "NaN", "Infinity", "0.0000000000000000001"])
+def test_direct_reference_producer_refuses_invalid_bounds_before_writing(
+    tmp_path: Path, bound: str
+) -> None:
+    store, _refs, window = market(tmp_path)
+    try:
+        providers = retained(store)
+        first, second = currency_feeds()
+        before = evidence_rows(tmp_path / "evidence.db")
+        with pytest.raises(ValueError, match="max_reference_deviation"):
+            agreed_reference_price(
+                store,
+                window,
+                pool=POOL,
+                currency0=first,
+                currency1=second,
+                providers=providers,
+                max_deviation=Decimal(bound),
+            )
+        assert evidence_rows(tmp_path / "evidence.db") == before
+    finally:
+        store.close()
 
 
 def test_feed_pin_requires_an_explicit_usd_description() -> None:
@@ -542,6 +575,44 @@ def test_collection_reads_the_currency_scale_beside_the_feed() -> None:
     header, quote, decimals = observation.reconstruct()
     assert header == DECISION and decimals == 18
     assert quote.answer == 2000 * 10**8
+
+
+def test_native_eth_capture_replays_without_a_fabricated_decimals_call(tmp_path: Path) -> None:
+    native = currency_feed(
+        CHAIN, declaration(ZERO_ADDRESS, FEED0, decimals=18, description="ETH / USD")
+    )
+    observation = collect_currency_feed(
+        session(native, "a", answer=2000 * 10**8),
+        currency=native,
+        block_number=DECISION.ref.number,
+    )
+    assert len(observation.exchanges) == 7
+    for exchange in observation.exchanges:
+        request = json.loads(exchange.request_payload)
+        if request["method"] == "eth_call":
+            assert request["params"][0]["to"] != ZERO_ADDRESS
+    header, quote, decimals = observation.reconstruct()
+    assert header == DECISION and decimals == 18
+    assert quote.answer == 2000 * 10**8
+    store = EvidenceStore(tmp_path / "native.db")
+    try:
+        reference = persist_currency_feed_evidence(store, observation)
+        assert replay_currency_feed_evidence(store, reference, currency=native) == observation
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize(
+    ("chain", "decimals", "description"),
+    [(CHAIN, 6, "ETH / USD"), (56, 18, "ETH / USD"), (CHAIN, 18, "USDC / USD")],
+)
+def test_native_eth_refuses_an_unrecognized_protocol_scale_or_feed(
+    chain: int, decimals: int, description: str
+) -> None:
+    with pytest.raises(ValueError, match="native currency requires"):
+        currency_feed(
+            chain, declaration(ZERO_ADDRESS, FEED0, decimals=decimals, description=description)
+        )
 
 
 def test_collection_refuses_a_block_that_moved_mid_read() -> None:

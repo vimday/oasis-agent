@@ -28,6 +28,8 @@ from pydantic import Field, model_validator
 from ..errors import ConfigurationError
 from ..launch.models import Address, StrictModel
 from ..models.common import canonical_json, sha256_hex
+from ..shadow.market_archive import ArchiveConfig
+from ..shadow.observer_config import Config as ObserverConfig
 from ..shadow.service import parse_policy, serializable
 from ..sniping.config import ExecutionConfig
 from .audit import ServerOpsJournal
@@ -49,7 +51,7 @@ class CampaignIntegrityError(RuntimeError):
 
 
 class CampaignSpec(StrictModel):
-    kind: Literal["launch", "lp"]
+    kind: Literal["launch", "lp", "market", "archive"]
     mode: Literal["observe", "shadow"]
     policy: Annotated[str, Field(min_length=2, max_length=65_536)]
     wallet: Address | None = None
@@ -63,7 +65,22 @@ class CampaignSpec(StrictModel):
 
     @model_validator(mode="after")
     def validate_kind(self) -> "CampaignSpec":
-        if self.kind == "launch":
+        if self.kind in {"market", "archive"}:
+            if (
+                self.mode != "observe"
+                or not self.rpc_primary
+                or not self.rpc_secondary
+                or self.rpc_primary == self.rpc_secondary
+                or self.wallet is not None
+                or self.input_source is not None
+                or self.events
+                or self.discovery_from_block is not None
+                or (self.kind == "archive" and self.cycles > 1000)
+            ):
+                raise ValueError(
+                    "Market research requires two RPC profiles, observe mode and no wallet"
+                )
+        elif self.kind == "launch":
             if (
                 self.mode != "observe"
                 or not self.wallet
@@ -94,7 +111,14 @@ class CampaignSpec(StrictModel):
 
 def normalize_spec(document: str) -> CampaignSpec:
     spec = CampaignSpec.from_json(document)
-    if spec.kind == "launch":
+    if spec.kind == "archive":
+        policy = ArchiveConfig.from_json(spec.policy).model_dump(mode="json")
+    elif spec.kind == "market":
+        parsed = ObserverConfig.from_json(spec.policy)
+        if parsed.market is None:
+            raise ValueError("market research requires a market window configuration")
+        policy = parsed.model_dump(mode="json")
+    elif spec.kind == "launch":
         policy = ExecutionConfig.from_json(spec.policy).model_dump(mode="json", by_alias=True)
     else:
         policy = serializable(parse_policy(spec.policy.encode()))
@@ -288,8 +312,7 @@ class CampaignManager:
             raise CampaignError("campaign not found")
         desired, applied = row
         spec, digest = self._revision(name, desired)
-        if applied is not None:
-            self._revision(name, applied)
+        applied_spec = self._revision(name, applied)[0] if applied is not None else spec
         last = self._db.execute(
             "SELECT run_id, revision FROM campaign_runs WHERE name=? ORDER BY rowid DESC LIMIT 1",
             (name,),
@@ -305,8 +328,33 @@ class CampaignManager:
             "document": json.dumps(spec.model_dump(mode="json"), indent=2),
             "status": "preparing" if name in self._starting else run.status if run else "idle",
             "run": None if run is None else asdict(run) | {"revision": last[1]},
+            "configuration_plan": self.configuration_plan(applied_spec, applied or desired),
             "execution_eligible": False,
         }
+
+    def configuration_plan(self, spec: CampaignSpec, revision: int) -> dict[str, Any]:
+        plan: dict[str, Any] = {"revision": revision, "execution_eligible": False}
+        if spec.kind in {"market", "archive", "launch"}:
+            primary = self._rpc.get(str(spec.rpc_primary))
+            secondary = self._rpc.get(str(spec.rpc_secondary))
+            plan["distinct_rpc_profiles_configured"] = bool(
+                primary and secondary and primary[0] != secondary[0]
+            )
+        if spec.kind == "archive":
+            config = ArchiveConfig.from_json(spec.policy)
+            minimum = config.requests_to_finish(0)
+            plan.update(
+                start_block=config.start_block,
+                end_block=config.end_block,
+                chunks_total=len(config.ranges),
+                max_chunks_this_start=spec.cycles,
+                minimum_total_requests_per_provider=minimum,
+                configured_total_requests_per_provider=config.max_requests_per_provider,
+                configured_budget_covers_range=config.max_requests_per_provider >= minimum,
+                budget_scope="whole archive; failures spent; remaining budget checked by worker",
+                resume_scope="same campaign and applied revision",
+            )
+        return plan
 
     def listing(self) -> dict[str, Any]:
         return {
@@ -317,7 +365,12 @@ class CampaignManager:
             "rpc_profiles": self.rpc_profiles(),
             "input_sources": sorted(self._sources),
             "max_active": 4,
-            "supported_modes": {"launch": ["observe"], "lp": ["shadow"]},
+            "supported_modes": {
+                "launch": ["observe"],
+                "lp": ["shadow"],
+                "market": ["observe"],
+                "archive": ["observe"],
+            },
             "live_blockers": [
                 "isolated_policy_signer_not_released",
                 "target_release_gates_not_passed",
@@ -413,7 +466,7 @@ class CampaignManager:
         spec, digest = self._revision(name, revision)
         env = {"PATH": os.defpath, "PYTHONUNBUFFERED": "1"}
         rpc_binding: dict[str, str] = {}
-        if spec.kind == "launch":
+        if spec.kind in {"launch", "market", "archive"}:
             primary = self._rpc.get(str(spec.rpc_primary))
             secondary = self._rpc.get(str(spec.rpc_secondary))
             if primary is None or secondary is None or primary[0] == secondary[0]:
@@ -460,6 +513,28 @@ class CampaignManager:
                     str(folder / "journal.db"),
                     "--cycles",
                     str(spec.cycles),
+                )
+            elif spec.kind == "archive":
+                command = (
+                    sys.executable,
+                    "-m",
+                    "scripts.capture_lp_market_archive",
+                    "--config",
+                    str(folder / "policy.json"),
+                    "--output",
+                    str(self.archive_path(name, revision)),
+                    "--max-chunks",
+                    str(spec.cycles),
+                )
+            elif spec.kind == "market":
+                command = (
+                    sys.executable,
+                    "-m",
+                    "scripts.run_lp_research",
+                    "--config",
+                    str(folder / "policy.json"),
+                    "--output",
+                    str(folder / "research"),
                 )
             else:
                 command = (
@@ -554,6 +629,12 @@ class CampaignManager:
         )
         return self.head(name)
 
+    def archive_path(self, name: str, revision: int) -> Path:
+        _name(name)
+        if type(revision) is not int or not 1 <= revision <= 10000:
+            raise CampaignError("invalid archive revision")
+        return self.root / "archives" / name / str(revision)
+
     def journal_path(self, name: str) -> tuple[str, Path | None]:
         head = self.head(name)
         run = head["run"]
@@ -565,7 +646,11 @@ class CampaignManager:
         folder = row[0]
         if not re.fullmatch(r"[0-9a-f]{32}", folder):
             raise CampaignError("invalid retained run path")
-        return head["kind"], self.root / folder / "journal.db"
+        if head["kind"] == "archive":
+            return "archive", self.archive_path(name, run["revision"]) / "status.json"
+        return head["kind"], self.root / folder / (
+            "research/status.json" if head["kind"] == "market" else "journal.db"
+        )
 
     async def aclose(self) -> None:
         self._closed = True

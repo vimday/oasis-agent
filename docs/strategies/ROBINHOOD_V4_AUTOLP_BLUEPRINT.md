@@ -112,8 +112,10 @@ therefore a Phase 1 product requirement, not a later marketing task.
 
 ### 2.4 Chain-specific constraints
 
-- Production uses two authenticated providers plus an archive source; Robinhood's public RPC is
-  rate-limited and explicitly unsuitable for production.
+- The production design calls for two authenticated providers plus an archive source. Under the
+  owner's 2026-09-28 instruction, current research proceeds with public RPC and does not wait for paid
+  credentials. Budget, latency, historical availability and provider agreement must be measured; missing
+  data still refuses the affected result. Production release remains a separate evidence gate.
 - Subscribe to the sequencer feed for low-latency heads, but reconstruct truth from RPC receipts,
   logs, and independent snapshots.
 - `block.number` in Solidity is an L1-height estimate on this Arbitrum Nitro chain. Use
