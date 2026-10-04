@@ -1,0 +1,60 @@
+{
+  "schema": "oasis.lp-workflow.v1",
+  "market_windows": [
+    {
+      "request": {
+        "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/market.json",
+        "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+      },
+      "evidence": {
+        "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/cash.db",
+        "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+      }
+    }
+  ],
+  "account": {
+    "request": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/account.json",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    },
+    "evidence": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/cash.db",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    }
+  },
+  "position": {
+    "request": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/position.json",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    },
+    "evidence": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/cash.db",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    }
+  },
+  "cycle": {
+    "request": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/assembly.json",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    },
+    "evidence": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/cash.db",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    },
+    "declaration": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/declaration.json",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    }
+  },
+  "shadow": {
+    "policy": {
+      "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/shadow.json",
+      "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+    },
+    "now": 1001
+  },
+  "preparation": {
+    "path": "reports/review-20261004/one-command-workflow/synthetic-only/incoming/preparation.json",
+    "checkpoint": "reports/review-20261004/one-command-workflow/synthetic-input-sha256.json"
+  }
+}

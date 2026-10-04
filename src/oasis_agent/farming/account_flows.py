@@ -600,10 +600,11 @@ def reconstruct_movements(
     """Explain every asset delta; count, never guess, what cannot be explained.
 
     `movements` is the exact two-source observed delta the ledger re-checks. A
-    missing or disagreeing explanation for a nonzero delta increments
+    missing or disagreeing movement explanation increments
     `unresolved_operations`, which makes the ledger refuse the whole frame.
     `non_trading_native_units` is the declared native inflow/outflow that is not
-    gas; a native decrease that equals neither it plus gas nor zero is unresolved.
+    gas; any native delta different from declared inflow less gas is unresolved,
+    including an unchanged balance that hides an unexplained offsetting inflow.
     """
     if set(previous_units) != set(current_units) or set(prices) != set(previous_units):
         raise ValueError("movement reconstruction requires one complete asset set")
@@ -634,7 +635,7 @@ def reconstruct_movements(
                     denominator=denominator,
                     decimals=decimals,
                 )
-            elif delta:
+            else:
                 unresolved += 1
             continue
         flow = flows.get(asset_id)

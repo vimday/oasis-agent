@@ -50,3 +50,12 @@ security-check:
 
 contract-security-check:
 	cd contracts && VIRTUAL_ENV="$(abspath .venv)" ../.venv/bin/slither . --filter-paths node_modules --exclude-dependencies --fail-low
+
+# Offline fixed pipeline; exit 3 means retained inputs are incomplete, not trading approval.
+WORKFLOW ?= configs/workflow.current.json
+RUN_OUTPUT ?= reports/runs/current
+.PHONY: run verify-run
+run:
+	$(PYTHON) -m scripts.run_lp_research --workflow "$(WORKFLOW)" --output "$(RUN_OUTPUT)" --resume
+
+verify-run: check run

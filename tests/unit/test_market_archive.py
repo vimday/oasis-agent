@@ -249,6 +249,37 @@ def test_disagreement_keeps_partial_wire_without_admitting_a_chunk(tmp_path, arc
     assert status["stage"] == "halted" and status["chunks_completed"] == 0
     assert not (out / "chunk-0000.json").exists()
     assert (out / "evidence.db").exists()
+    assert status["capture_detail"]["category"] == "validation_or_budget_refused"
+    assert status["capture_detail"]["last_rpc"]["rpc_returned"] is True
+
+
+def test_rpc_failure_diagnostic_is_redacted_durable_and_budgeted(tmp_path, archive_inputs):
+    config, posters, hashes = archive_inputs
+    out = tmp_path / "archive"
+
+    class FailedPoster:
+        def post(self, payload):
+            raise OSError("secret-provider-token-do-not-retain")
+
+    result = archive.capture(
+        config, posters | {"public": FailedPoster()}, out, endpoint_hashes=hashes
+    )
+    assert result["request_counts"] == {"public": 1, "paid": 0}
+    assert result["capture_detail"]["category"] == "rpc_refused"
+    assert result["capture_detail"]["last_rpc"] == {
+        "source": "public",
+        "method": "eth_chainId",
+        "rpc_returned": False,
+    }
+    assert result["chunks_completed"] == 0
+    with sqlite3.connect(out / "evidence.db") as db:
+        rows = db.execute(
+            "SELECT payload FROM evidence WHERE kind='market_archive_failure'"
+        ).fetchall()
+    assert len(rows) == 1
+    assert json.loads(rows[0][0]) == result["capture_detail"]
+    assert b"secret-provider-token" not in (out / "evidence.db").read_bytes()
+    assert "secret-provider-token" not in (out / "status.json").read_text()
 
 
 def test_two_agreeing_chunks_on_disconnected_forks_are_not_joined(tmp_path, archive_inputs):

@@ -29,7 +29,7 @@ contract OasisRealPermit2LifecycleTest is OasisLifecycleBase {
     }
 
     function test_expiredPermit2AllowanceRejectsMintAtomically() public {
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(vm.getBlockTimestamp() + 2 days);
         (uint160 allowanceAmount, uint48 expiration, uint48 nonce) =
             permit2.allowance(OWNER, address(token0), address(positions));
         assertGt(allowanceAmount, 0);

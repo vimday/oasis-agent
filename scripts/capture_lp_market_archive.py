@@ -14,6 +14,7 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
+from oasis_agent.errors import RpcError
 from oasis_agent.evidence.exact_capture import wire_envelope
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.evidence.store import EvidenceStore
@@ -32,6 +33,32 @@ from oasis_agent.shadow.market_window import InsufficientMaturityTail
 from scripts.report_lp_market_economics import summarize
 from scripts.run_pool_state_observer import Http
 from scripts.run_v4_route_probe import CurlPoster
+
+
+class _ObservedTransport(JsonRpcTransport):
+    """Keep only fixed, non-sensitive RPC diagnostics; never copy provider errors."""
+
+    def __init__(self, *args, source, progress, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.source = source
+        self.progress = progress
+
+    def request(self, method, params):
+        safe_methods = {
+            "eth_chainId",
+            "eth_getBlockByNumber",
+            "eth_getCode",
+            "eth_call",
+            "eth_getLogs",
+        }
+        self.progress.update(
+            source=self.source,
+            method=method if method in safe_methods else "other",
+            rpc_returned=False,
+        )
+        result = super().request(method, params)
+        self.progress["rpc_returned"] = True
+        return result
 
 
 def _write(path: Path, value: object) -> None:
@@ -152,11 +179,14 @@ def _capture_locked(config, posters, output, endpoint_hashes, max_chunks):
                     save_status()
                     return status
             sessions = []
+            progress = {}
 
-            def session(source, records=sessions):
+            def session(source, records=sessions, diagnostics=progress):
                 recorder = BoundedExchangeRecorder()
-                rpc = JsonRpcTransport(
+                rpc = _ObservedTransport(
                     "https://archive.invalid",
+                    source=source,
+                    progress=diagnostics,
                     retries=0,
                     recorder=recorder,
                     http=BudgetedPoster(posters[source], output / "budget.db", policies, source),
@@ -181,8 +211,26 @@ def _capture_locked(config, posters, output, endpoint_hashes, max_chunks):
             except KeyboardInterrupt:
                 status.update(stage="stopped", reason="operator_stop")
                 return status
-            except Exception:  # noqa: BLE001 - RPC errors may contain credentials
-                status.update(stage="halted", reason="chunk_capture_or_replay_refused")
+            except Exception as exc:  # noqa: BLE001 - RPC errors may contain credentials
+                category = (
+                    "rpc_refused"
+                    if isinstance(exc, RpcError)
+                    else "validation_or_budget_refused"
+                    if isinstance(exc, ValueError)
+                    else "unexpected_failure"
+                )
+                detail = {
+                    "category": category,
+                    "start_block": start,
+                    "end_block": end,
+                    "last_rpc": dict(progress),
+                }
+                store.put(
+                    "market_archive_failure", canonical_json(detail), None, "archive-diagnostic"
+                )
+                status.update(
+                    stage="halted", reason="chunk_capture_or_replay_refused", capture_detail=detail
+                )
                 return status
             finally:
                 for _, recorder, source in sessions:

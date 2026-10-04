@@ -25,14 +25,15 @@ from ..farming.account_flows import (
     reconstruct_movements,
     replay_token_flow_evidence,
 )
+from ..farming.account_gas_coverage import AccountGasRequest, replay_account_gas
 from ..farming.account_inventory import (
     AccountInventoryQuorum,
     FeedAnswer,
     replay_account_inventory_evidence,
 )
 from ..farming.position_valuation import CurrencyPrice, PositionValuation
-from ..farming.price_evidence import value_usd_micros
-from ..models.common import BlockRef, EvidenceRef
+from ..farming.price_evidence import replay_price_observation_evidence, value_usd_micros
+from ..models.common import BlockRef, EvidenceRef, normalize_address
 from ..models.v4 import PoolKey
 from ..risk.account_risk import AccountFrame, AssetBalance, PortfolioFrame
 from ..risk.portfolio_manifest import ChainInventory, ManifestAsset, PortfolioManifest
@@ -89,13 +90,20 @@ class PositionEvidence:
 
 @dataclass(frozen=True, slots=True)
 class AccountObservation:
-    """Latest retained reconciliation evidence for one manifest account."""
+    """Latest retained reconciliation evidence for one manifest account.
+
+    Complete native_gas_evidence, when supplied, is replayed internally instead
+    of accepting native_gas_units. The separate legacy scalar declaration path
+    remains available and is not authenticated outer-transaction coverage.
+    """
 
     inventory: tuple[EvidenceRef, EvidenceRef]
     flows: tuple[AssetFlowEvidence, ...] = ()
     positions: tuple[PositionEvidence, ...] = ()
     native_gas_units: int = 0
     non_trading_native_units: int = 0
+    # Optional complete raw coverage. With it, no scalar gas override is allowed.
+    native_gas_evidence: AccountGasRequest | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "inventory", tuple(self.inventory))
@@ -115,6 +123,11 @@ class AccountObservation:
                 raise TypeError(f"{name} must be an integer")
         if self.native_gas_units < 0:
             raise ValueError("native gas units must be nonnegative")
+        if self.native_gas_evidence is not None:
+            if not isinstance(self.native_gas_evidence, AccountGasRequest):
+                raise TypeError("native gas evidence requires a typed complete account request")
+            if self.native_gas_units:
+                raise ValueError("native gas evidence cannot also carry declared gas units")
 
 
 def _position_snapshot_hash(observation: AccountObservation, asset_id: str) -> str:
@@ -244,6 +257,7 @@ class EvidenceReplayAccountRiskReader:
                 observation.flows
                 or observation.native_gas_units
                 or observation.non_trading_native_units
+                or observation.native_gas_evidence is not None
             ):
                 raise ValueError("inception baseline must not carry flow attribution")
             movements = dict.fromkeys(declared, 0)
@@ -259,7 +273,7 @@ class EvidenceReplayAccountRiskReader:
                 prices=prices,
                 flows=flows,
                 native_asset_id=entry.native.asset_id,
-                native_gas_units=observation.native_gas_units,
+                native_gas_units=self._native_gas(entry, prior, quorum, observation),
                 non_trading_native_units=observation.non_trading_native_units,
             )
             movements = reconstruction.movements
@@ -307,6 +321,49 @@ class EvidenceReplayAccountRiskReader:
             ),
             feeds,
         )
+
+    def _native_gas(
+        self,
+        entry: ChainInventory,
+        prior: AccountFrame,
+        current: AccountInventoryQuorum,
+        observation: AccountObservation,
+    ) -> int:
+        """Rebuild all outer-account costs at this exact reconciliation interval.
+
+        Expenses already reduce observed wallet units; this explains that debit,
+        never subtracts them again from NAV or labels them LP costs. Unexplained
+        reimbursements/native movement still refuse risk reconciliation.
+        """
+        request = observation.native_gas_evidence
+        if request is None:
+            return observation.native_gas_units
+        opening = request.opening.ref
+        if (
+            normalize_address(request.account) != entry.account
+            or request.providers != (entry.primary_source, entry.secondary_source)
+            or request.closing != current.header
+            or opening
+            != BlockRef(entry.chain_id, prior.block_number, prior.block_hash, prior.timestamp)
+            or request.native_policy != entry.native.usd_feed(entry.chain_id)
+        ):
+            raise ValueError(
+                "complete gas proof differs from account/interval/providers/native feed"
+            )
+        gas = replay_account_gas(self.store, request)
+        feed = next(f for f in current.feeds if f.asset_id == entry.native.asset_id)
+        for reference in request.blocks[-1].native_prices:
+            price = replay_price_observation_evidence(
+                self.store, reference, header=current.header, policy=request.native_policy
+            ).reconstruct_observation()
+            if (price.answer, price.decimals, price.round_id, price.updated_at) != (
+                feed.answer,
+                feed.decimals,
+                feed.round_id,
+                feed.updated_at,
+            ):
+                raise ValueError("closing gas and inventory native USD rounds differ")
+        return gas.total_native
 
     def _position_values(
         self,

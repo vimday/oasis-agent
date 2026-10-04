@@ -14,6 +14,7 @@ from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.transport import HttpPoster
 from oasis_agent.shadow.observer_config import Config
 from scripts.check_lp_dataset_coverage import check
+from scripts.lp_workflow import run as run_workflow
 from scripts.report_lp_market_economics import report
 from scripts.run_pool_state_observer import Http, sample
 
@@ -104,7 +105,10 @@ def run(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--config", type=Path)
+    mode.add_argument("--workflow", type=Path)
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -112,6 +116,21 @@ def main() -> None:
         raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, stop_requested)
+    if args.workflow is not None:
+        try:
+            result = run_workflow(args.workflow, args.output, resume=args.resume)
+        except KeyboardInterrupt:
+            parser.exit(130, "Workflow stopped; partial artifacts retained.\n")
+        except Exception:  # noqa: BLE001 - never echo hostile config, paths or endpoints
+            parser.exit(
+                2, "Workflow integrity/configuration refused; existing evidence retained.\n"
+            )
+        print(f"Workflow {result['status']}; report: {args.output / 'report.html'}")
+        if result["status"] != "completed":
+            parser.exit(3, "Required inputs blocked; inspect report.json.\n")
+        return
+    if args.resume:
+        parser.error("resume is available only for offline workflow; acquisition never restarts")
     posters = {}
     try:
         config = Config.from_json(args.config.read_bytes())

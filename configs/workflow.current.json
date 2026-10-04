@@ -1,0 +1,20 @@
+{
+  "schema": "oasis.lp-workflow.v1",
+  "market_windows": [
+    {
+      "request": {
+        "path": "reports/evidence/lp-one-start-20260928/market-request.json",
+        "checkpoint": "reports/review-20261004/one-command-workflow/retained-input-sha256.json"
+      },
+      "evidence": {
+        "path": "reports/evidence/lp-one-start-20260928/capture/evidence.db",
+        "checkpoint": "reports/review-20261004/one-command-workflow/retained-input-sha256.json"
+      }
+    }
+  ],
+  "account": null,
+  "position": null,
+  "cycle": null,
+  "shadow": null,
+  "preparation": null
+}

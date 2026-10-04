@@ -183,6 +183,7 @@ class BudgetedPoster:
             "eth_getCode",
             "eth_getBalance",
             "eth_getLogs",
+            "eth_getTransactionReceipt",
             "eth_call",
         }:
             raise ValueError("budgeted observation method not allowed")

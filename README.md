@@ -21,6 +21,25 @@ The [dynamic multi-token workflow](docs/strategies/MULTITOKEN_DISCOVERY_RESEARCH
 discovery, batch enrichment checks and position exits independent of current popularity.
 
 
+## One command
+
+```bash
+make run
+```
+
+On macOS you can also double-click `Oasis.command`; it opens the result page.
+
+The offline workflow replays pinned inputs, joins complete account gas and position accounting,
+assembles a cycle, journals its Shadow decision and prepares bounded simulation calldata.
+It writes `reports/runs/current/report.html` and `report.json`, including each blocked step.
+Re-running the same completed run verifies its seals and reuses its result. Changed code or inputs
+require a new `RUN_OUTPUT`; partial failures remain retained and are not automatically retried.
+The bundled configuration uses existing market evidence; account/position inputs are still missing,
+so it returns exit 3. It never requests a key, acquires data, signs or broadcasts.
+
+Use `make verify-run` to run the complete engineering checks first. See
+[workflow inputs and operation](docs/operations/ONE_COMMAND_WORKFLOW.md) for the strict input contract.
+
 ## Start here
 
 - [Current implementation and review](docs/CURRENT_IMPLEMENTATION.md): capability map,
