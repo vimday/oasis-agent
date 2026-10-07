@@ -454,6 +454,156 @@ def test_third_party_native_value_flow_fails():
         native_fixture(amounts=(-100, -200, 0, 0), native=(1000, -300), trace_hook=hook)
 
 
+@pytest.mark.parametrize("kind", ["CREATE", "CREATE2"])
+@pytest.mark.parametrize("value", ["0x1", q((1 << 256) - 1)])
+def test_creation_endowment_refuses_full_native_payment(kind, value):
+    def hook(root):
+        root["calls"].append(
+            {
+                "type": kind,
+                "from": POSM,
+                "to": "0x" + "99" * 20,
+                "input": "0x6000",
+                "output": "0x6000",
+                "value": value,
+                "calls": [],
+            }
+        )
+
+    clean = native_fixture()
+    assert resolve_exclusive_native_payment(clean).amount0 == -100
+    with pytest.raises(UnsupportedOwnerPayment, match="creation endowment"):
+        native_fixture(trace_hook=hook)
+
+
+@pytest.mark.parametrize("kind", ["CREATE", "CREATE2"])
+@pytest.mark.parametrize("value", [None, False, "0x01", "0x-1", "invalid"])
+def test_unknown_creation_endowment_refuses(kind, value):
+    def hook(root):
+        frame = {
+            "type": kind,
+            "from": POSM,
+            "to": "0x" + "99" * 20,
+            "input": "0x6000",
+            "output": "0x6000",
+            "calls": [],
+        }
+        if value is not None:
+            frame["value"] = value
+        root["calls"].append(frame)
+
+    assert resolve_exclusive_native_payment(native_fixture()).amount0 == -100
+    with pytest.raises((TypeError, ValueError)):
+        native_fixture(trace_hook=hook)
+
+
+@pytest.mark.parametrize("kind", ["CREATE", "CREATE2"])
+def test_zero_creation_has_no_native_debit(kind):
+    def hook(root):
+        root["calls"].append(
+            {
+                "type": kind,
+                "from": POSM,
+                "to": "0x" + "99" * 20,
+                "input": "0x6000",
+                "output": "0x6000",
+                "value": "0x0",
+                "calls": [],
+            }
+        )
+
+    amounts = resolve_exclusive_native_payment(native_fixture(trace_hook=hook))
+    assert (amounts.amount0, amounts.amount1) == (-100, -200)
+
+
+def test_delegatecall_inherited_value_is_not_a_second_native_payment():
+    def hook(root):
+        calls = root["calls"]
+        root["calls"] = [
+            {
+                "type": "DELEGATECALL",
+                "from": POSM,
+                "to": "0x" + "99" * 20,
+                "input": "0x",
+                "output": "0x",
+                "value": root["value"],
+                "calls": calls,
+            }
+        ]
+
+    amounts = resolve_exclusive_native_payment(native_fixture(trace_hook=hook))
+    assert (amounts.amount0, amounts.amount1) == (-100, -200)
+
+
+@pytest.mark.parametrize("kind", ["CREATE", "CREATE2"])
+def test_creation_endowment_cannot_persist_settlement(tmp_path, kind):
+    capture = native_fixture()
+
+    def hook(response):
+        response["result"]["calls"].append(
+            {
+                "type": kind,
+                "from": POSM,
+                "to": "0x" + "99" * 20,
+                "input": "0x6000",
+                "output": "0x6000",
+                "value": "0x1",
+                "calls": [],
+            }
+        )
+
+    # Core deltas alone may still be reconstructed; payment persistence must
+    # replay the exclusive native flow check before its first evidence write.
+    core = mutate(capture.core, 3, hook)
+    forged = object.__new__(NativeOwnerPaymentCapture)
+    for name, value in (
+        ("core", core),
+        ("owner", capture.owner),
+        ("source", capture.source),
+        ("exchanges", capture.exchanges),
+    ):
+        object.__setattr__(forged, name, value)
+    database = tmp_path / "evidence.db"
+    store = EvidenceStore(database)
+    before = database.read_bytes()
+    with pytest.raises(UnsupportedOwnerPayment, match="creation endowment"):
+        persist_native_owner_payment(store, forged)
+    assert database.read_bytes() == before
+    store.close()
+
+
+@pytest.mark.parametrize("kind", ["CREATE", "CREATE2"])
+def test_zero_creation_does_not_hide_child_value_flow(kind):
+    created = "0x" + "99" * 20
+
+    def hook(root):
+        root["calls"].append(
+            {
+                "type": kind,
+                "from": POSM,
+                "to": created,
+                "input": "0x6000",
+                "output": "0x6000",
+                "value": "0x0",
+                "calls": [
+                    {
+                        "type": "CALL",
+                        "from": created,
+                        "to": "0x" + "98" * 20,
+                        "input": "0x",
+                        "output": "0x",
+                        "value": "0x1",
+                        "calls": [],
+                    }
+                ],
+            }
+        )
+
+    assert resolve_exclusive_native_payment(native_fixture()).amount0 == -100
+    with pytest.raises(UnsupportedOwnerPayment, match="third-party"):
+        native_fixture(trace_hook=hook)
+
+
 def test_settle_and_take_in_same_action_fails():
     def hook(root):
         root["calls"].append(

@@ -154,7 +154,10 @@ def _native_value_frames(
     Allowed CALL frames carrying value: the root owner -> PositionManager
     payment (``settle_in``), one PositionManager -> PoolManager ``settle{value}``
     (``settle_in``), and one PoolManager -> owner ``take`` refund (``take_out``).
-    WRAP/UNWRAP, sweeps, third parties, or excess value all fail closed.
+    CREATE/CREATE2 endowments are separate native transfers and are forbidden.
+    Their value must be explicitly zero; DELEGATECALL's inherited value does
+    not transfer funds. WRAP/UNWRAP, sweeps, third parties, or excess value all
+    fail closed.
     """
     settle_in = take_out = 0
     settle_seen = False
@@ -162,6 +165,12 @@ def _native_value_frames(
     while stack:
         frame = stack.pop()
         stack.extend(_mapping(x) for x in cast(list[object], frame.get("calls", [])))
+        if frame.get("type") in {"CREATE", "CREATE2"}:
+            # Creation transfers its endowment even though it is not CALL.
+            # Missing/malformed value cannot certify the absence of that flow.
+            if rpc_quantity(frame.get("value")) != 0:
+                raise UnsupportedOwnerPayment("native creation endowment is not exclusive LP cash")
+            continue
         if frame.get("type") != "CALL":
             continue
         value = rpc_quantity(frame.get("value", "0x0"))

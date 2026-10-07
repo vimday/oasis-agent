@@ -595,6 +595,7 @@ def reconstruct_movements(
     native_asset_id: str,
     native_gas_units: int,
     non_trading_native_units: int = 0,
+    unclassified_assets: frozenset[str] = frozenset(),
     evidence: tuple[EvidenceRef, ...] = (),
 ) -> MovementReconstruction:
     """Explain every asset delta; count, never guess, what cannot be explained.
@@ -605,11 +606,19 @@ def reconstruct_movements(
     `non_trading_native_units` is the declared native inflow/outflow that is not
     gas; any native delta different from declared inflow less gas is unresolved,
     including an unchanged balance that hides an unexplained offsetting inflow.
+
+    A Transfer proves movement, not its economic purpose. For assets whose
+    trading/non-trading cash attribution is missing, retain the observed delta
+    but count nonzero activity as unresolved and credit no external flow. The
+    account reader derives this set from its manifest's owned LP currencies:
+    principal moved into an already counted LP asset is not a capital withdrawal.
     """
     if set(previous_units) != set(current_units) or set(prices) != set(previous_units):
         raise ValueError("movement reconstruction requires one complete asset set")
     if native_asset_id not in prices:
         raise ValueError("movement reconstruction requires the native gas asset")
+    if type(unclassified_assets) is not frozenset or not unclassified_assets <= prices.keys():
+        raise ValueError("unclassified assets must be a frozen subset of the inventory")
     for name, value in (
         ("native_gas_units", native_gas_units),
         ("non_trading_native_units", non_trading_native_units),
@@ -628,6 +637,9 @@ def reconstruct_movements(
         if asset_id == native_asset_id:
             if asset_id in flows:
                 raise ValueError("native gas flow cannot be reconstructed from Transfer logs")
+            if asset_id in unclassified_assets and non_trading_native_units:
+                unresolved += 1
+                continue
             if delta == non_trading_native_units - native_gas_units:
                 flow_usd_micros += value_usd_micros(
                     non_trading_native_units,
@@ -644,6 +656,11 @@ def reconstruct_movements(
                 unresolved += 1
             continue
         if flow.decimals != decimals or flow.net_units != delta:
+            unresolved += 1
+            continue
+        if asset_id in unclassified_assets and (
+            flow.net_units or any(log.units for log in flow.logs)
+        ):
             unresolved += 1
             continue
         flow_usd_micros += value_usd_micros(

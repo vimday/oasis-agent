@@ -275,6 +275,16 @@ class EvidenceReplayAccountRiskReader:
                 native_asset_id=entry.native.asset_id,
                 native_gas_units=self._native_gas(entry, prior, quorum, observation),
                 non_trading_native_units=observation.non_trading_native_units,
+                # Cash movements in these currencies can exchange wallet value
+                # for the LP claim already included in NAV. Transfer evidence
+                # alone cannot classify them as external funding/withdrawals;
+                # neither an operator declaration nor an arbitrary counterparty
+                # may subtract that activity from the account's observed loss.
+                unclassified_assets=frozenset(
+                    currency
+                    for position in entry.positions
+                    for currency in (position.currency0_id, position.currency1_id)
+                ),
             )
             movements = reconstruction.movements
             flow = reconstruction.non_trading_flow_usd_micros

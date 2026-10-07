@@ -35,6 +35,14 @@ separately keeps target/OOS/canary/execution false and `net_pnl: null`.
    frames do not reset or replace any production/global risk journal; prior
    loss history remains a live-release prerequisite. The owner's 500/200/500 USD
    limits cannot be raised in a workflow configuration.
+   For a declared owned LP, nonzero activity in either pool currency is
+   unresolved until its wallet/position cash purpose is authenticated. Transfer
+   agreement alone cannot turn LP principal into an external capital withdrawal
+   that reduces measured loss. The account reader currently refuses such activity,
+   including offsetting transfers and native scalar explanations for a native LP
+   currency. A separate position cash report does not supply this missing account
+   classification. Empty/zero-value token flows and gas-only wallet debits still
+   undergo the existing balance and complete gas checks.
 4. **Position:** reconstruct LP cash/claims and gas; require the same gas request,
    declared NFT, exact opening/closing position and pool proofs, USD policies and
    endpoint valuations as the account step. Account NAV already observes gas paid;
