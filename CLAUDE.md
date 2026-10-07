@@ -36,6 +36,17 @@ through bravado or claims of guaranteed profit.
    explicit user authorization.
 6. Every completion report must include tests run, results, assumptions, and residual risks.
 
+## Python environment (uv)
+
+The Python environment is managed by `uv` only. `uv.lock` is the dependency source of truth;
+`requirements.lock` / `requirements-dev.lock` are hashed `uv export` outputs kept for `pip-audit`
+and must never be edited by hand or with pip-compile.
+
+- Create/refresh the env: `make install` (`uv sync --frozen --all-extras --python 3.12`).
+- Change dependencies: edit `pyproject.toml`, then `make lock` (re-locks and re-exports both files).
+- Run tools inside the env: `make <target>`, `uv run <cmd>`, or `.venv/bin/python -m <module>`.
+  Never use the system `python3`/`pip` for project commands; it lacks project dependencies.
+
 ## Working loop
 
 Use `explore -> plan -> implement -> verify -> adversarial review` for non-trivial changes. Before
@@ -45,10 +56,11 @@ changes, first write the invariants and failure/rollback behavior in the plan.
 Run focused tests while iterating. Before claiming completion, run:
 
 ```bash
-python3 -m pytest -q
-python3 -m ruff check src tests scripts
-python3 -m ruff format --check src tests scripts
-python3 -m mypy src
+uv run pytest -q
+uv run ruff check src tests scripts
+uv run ruff format --check src tests scripts
+uv run mypy src
+make security-check
 git diff --check
 ```
 

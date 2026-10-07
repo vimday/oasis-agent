@@ -1,11 +1,16 @@
-.PHONY: install contract-install test lint format typecheck python-check frontend-check contract-check check report run-server
+.PHONY: install lock contract-install test lint format typecheck python-check frontend-check contract-check check report run-server
 PYTHON ?= .venv/bin/python
 RUNNER ?= $(PYTHON)
 
+# uv owns the environment: uv.lock is the source of truth; requirements*.lock
+# are hashed exports kept for pip-audit and must never be edited by hand.
 install:
-	python3 -m venv .venv
-	$(PYTHON) -m pip install --require-hashes -r requirements-dev.lock
-	$(PYTHON) -m pip install --no-deps --no-build-isolation -e .
+	uv sync --frozen --all-extras --python 3.12
+
+lock:
+	uv lock --python 3.12
+	uv export --frozen --no-emit-project --no-header --format requirements.txt -o requirements.lock
+	uv export --frozen --all-extras --no-emit-project --no-header --format requirements.txt -o requirements-dev.lock
 
 contract-install:
 	cd contracts && npm ci --ignore-scripts --no-audit --no-fund

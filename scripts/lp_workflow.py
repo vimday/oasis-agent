@@ -170,6 +170,7 @@ def code_pins() -> dict[str, str]:
         "Oasis.command": digest(ROOT / "Oasis.command"),
         "requirements.lock": digest(ROOT / "requirements.lock"),
         "requirements-dev.lock": digest(ROOT / "requirements-dev.lock"),
+        "uv.lock": digest(ROOT / "uv.lock"),
         "python": sha256_hex(sys.version.encode()),
     }
 
