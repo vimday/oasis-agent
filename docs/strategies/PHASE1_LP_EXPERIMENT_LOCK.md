@@ -362,3 +362,37 @@ None of these is an undecided policy; each is a fact or a measurement that does 
 
 Until these exist, no window is opened, no cycle carries an estimated edge, and `execution_eligible`
 remains False everywhere, including in every retained record this repository produces.
+
+## Amendment 2026-10-08: owner-authorized live canary (trial_number = 1)
+
+- **Owner instruction (2026-10-08):** confirmed `0xe653df20a8c525edf381942ffc47704b7bdfe97d` as the
+  project's dedicated wallet, approved LP-first on it, and decided: *"shadow一天就全面实盘，我们不能总是
+  犹豫错失时机"* — one day of forward shadow, then full live.
+- **What this overrides, on the owner's authority:** the 21d dev + 7d untouched OOS gate, the named
+  reviewer requirement (item 6 above) and the replay-producer gates (items 2–3) no longer block the canary.
+  They remain the bar for raising capital above the USD 500 cap. This is an owner risk acceptance, not a
+  review, and it is recorded as such.
+- **Parameters (trial 1, `configs/live.base-eth-usdc.json`):** Base ETH/USDC fee-500 hookless v4 pool
+  `0x96d4…8c0a`; symmetric range ±490 ticks (≈ ±5%, the best band in the 2026-10-08 36-day replay);
+  recenter only when out of range, ≥ 600 s after open; ≤ 12 actions/day; swap slippage 50 bps against the worse of pool
+  and Chainlink ETH/USD; pool vs oracle deviation ≤ 40 bps; oracle age ≤ 1800 s; pool and oracle reads
+  block-pinned and cross-checked on a second provider; 0.004 ETH gas reserve.
+- **Unchanged hard limits:** USD 500 committed capital, USD 200 daily and USD 500 cumulative loss latch
+  (mark-to-market wallet NAV at Chainlink, UTC+8 day). Daily loss is gross: decreases between hourly /
+  per-action / day-boundary NAV checkpoints lock in and later gains never subtract them; a missing
+  midnight observation charges the new day. Cumulative is net loss against funded basis; any wallet
+  change not produced by the loop's own verified actions halts until the operator books it as an
+  external flow (`--acknowledge-flow`). All state, balances and runtime code are read at one block hash
+  and must match on two providers; a submission resolves only from a receipt for exactly that hash,
+  sender and target, ≥ 3 blocks deep on a canonical block both providers agree on (a burn also needs
+  the NFT burn log). Per-action runtime-hash and USDC-implementation check against
+  hashes pinned in config and confirmed on two providers 2026-10-08 (change ⇒ halt), key isolated in the
+  digest signer process. A halt does not unwind the LP; the operator decides.
+- **Shadow result (2026-10-08 23:21 → 2026-10-10 00:06 UTC+8):** 2759 ticks, one paper swap/mint, NAV
+  USD 545.94 → 546.94 (range USD 534.30–549.47), no halt. Gross 1-hour-checkpoint decreases were
+  USD 16.64 over the day, far below the USD 200 daily cap. This is paper (no fees, no impact), not
+  economic evidence.
+- **Executor:** `scripts/run_live_lp.py` (`oasis_agent.live`). Fork e2e on a Base fork passed
+  approve → swap → mint → forced out-of-range → burn → swap → mint before any mainnet signature.
+- **Expectation on record:** the replay put the ±5% edge at tens of USD per month at this size; the canary
+  tests execution and accounting, not a money machine.

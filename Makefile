@@ -64,3 +64,15 @@ run:
 	$(PYTHON) -m scripts.run_lp_research --workflow "$(WORKFLOW)" --output "$(RUN_OUTPUT)" --resume
 
 verify-run: check run
+
+# Live LP loop (Base ETH/USDC v4). `make live` expects the signer daemon on SIGNER_SOCKET.
+SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
+.PHONY: shadow live live-report live-stop
+shadow:
+	$(PYTHON) scripts/run_live_lp.py --mode shadow
+live:
+	$(PYTHON) scripts/run_live_lp.py --mode live --signer-socket "$(SIGNER_SOCKET)"
+live-report:
+	$(PYTHON) scripts/run_live_lp.py --mode $(or $(MODE),live) --report
+live-stop:
+	touch data/live/STOP
