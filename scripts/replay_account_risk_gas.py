@@ -67,12 +67,17 @@ def run(input_path: Path, evidence_path: Path, output: Path) -> None:
                             for key, o in request.closing.items()
                             if o.native_gas_evidence is not None
                         },
+                        "lp_cash_proofs": {
+                            key: [asdict(proof) for proof in o.lp_cash]
+                            for key, o in request.closing.items()
+                            if o.lp_cash
+                        },
                         "expense_treatment": (
                             "gas explains observed native debit; no second NAV debit"
                         ),
                         "coverage": "declared manifest inventory; full outer-account gas quorum",
                         "unresolved": [
-                            "internal cash and reimbursements",
+                            "native internal cash, reimbursements and other unclassified purposes",
                             "LP expense allocation, other costs and fair baselines",
                             "finality, sustained economic/OOS and release acceptance",
                         ],

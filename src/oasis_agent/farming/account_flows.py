@@ -8,12 +8,12 @@ one unit. The native delta is only explained by an explicit retained gas/transfe
 attestation.
 
 `non_trading_flow_usd_micros` is what the risk ledger needs: the value of the
-flow that explains a NAV change without being a trading result. Every
-transfer-driven token delta qualifies, including transfers between monitored
-accounts, because the portfolio still holds those tokens; gas and unexplained
-native movement never qualify. Valuing at the floor can only under-credit the
-owner, so it can never hide a loss. Anything still unexplained is counted and
-the ledger refuses the frame.
+flow that explains a NAV change without being a trading result. Declared LP
+currencies are unclassified until the reader derives exact internal transfers
+from raw settlement proofs; those transfers explain balances but receive zero
+external-flow credit. Other token deltas retain the legacy transfer-credit path,
+including transfers between monitored accounts. Gas is never credited. Anything
+still unexplained is counted and the ledger refuses the frame.
 
 `TokenFlow.external_*` is reporting metadata only: it separates counterparties
 outside the monitored set, which is what a bridge or withdrawal attribution
@@ -596,6 +596,7 @@ def reconstruct_movements(
     native_gas_units: int,
     non_trading_native_units: int = 0,
     unclassified_assets: frozenset[str] = frozenset(),
+    internal_transfers: frozenset[TransferLog] = frozenset(),
     evidence: tuple[EvidenceRef, ...] = (),
 ) -> MovementReconstruction:
     """Explain every asset delta; count, never guess, what cannot be explained.
@@ -612,6 +613,9 @@ def reconstruct_movements(
     but count nonzero activity as unresolved and credit no external flow. The
     account reader derives this set from its manifest's owned LP currencies:
     principal moved into an already counted LP asset is not a capital withdrawal.
+    The account reader may supply individual internal transfers only after raw
+    owned-position settlement replay. Uncovered nonzero activity stays unresolved;
+    a net amount or an arbitrary counterparty is never a purpose proof.
     """
     if set(previous_units) != set(current_units) or set(prices) != set(previous_units):
         raise ValueError("movement reconstruction requires one complete asset set")
@@ -619,6 +623,13 @@ def reconstruct_movements(
         raise ValueError("movement reconstruction requires the native gas asset")
     if type(unclassified_assets) is not frozenset or not unclassified_assets <= prices.keys():
         raise ValueError("unclassified assets must be a frozen subset of the inventory")
+    if type(internal_transfers) is not frozenset or not internal_transfers <= {
+        log
+        for asset_id, flow in flows.items()
+        if asset_id in unclassified_assets
+        for log in flow.logs
+    }:
+        raise ValueError("internal transfers must belong to the unclassified movement set")
     for name, value in (
         ("native_gas_units", native_gas_units),
         ("non_trading_native_units", non_trading_native_units),
@@ -661,7 +672,10 @@ def reconstruct_movements(
         if asset_id in unclassified_assets and (
             flow.net_units or any(log.units for log in flow.logs)
         ):
-            unresolved += 1
+            if not any(log.units for log in flow.logs) or any(
+                log.units and log not in internal_transfers for log in flow.logs
+            ):
+                unresolved += 1
             continue
         flow_usd_micros += value_usd_micros(
             flow.net_units,

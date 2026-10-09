@@ -22,6 +22,7 @@ from ..evidence.store import EvidenceStore
 from ..farming.account_flows import (
     FlowScope,
     TokenFlow,
+    TransferLog,
     reconstruct_movements,
     replay_token_flow_evidence,
 )
@@ -31,6 +32,7 @@ from ..farming.account_inventory import (
     FeedAnswer,
     replay_account_inventory_evidence,
 )
+from ..farming.account_lp_cash import AccountLpCashEvidence, replay_account_lp_cash
 from ..farming.position_valuation import CurrencyPrice, PositionValuation
 from ..farming.price_evidence import replay_price_observation_evidence, value_usd_micros
 from ..models.common import BlockRef, EvidenceRef, normalize_address
@@ -104,11 +106,19 @@ class AccountObservation:
     non_trading_native_units: int = 0
     # Optional complete raw coverage. With it, no scalar gas override is allowed.
     native_gas_evidence: AccountGasRequest | None = None
+    lp_cash: tuple[AccountLpCashEvidence, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "inventory", tuple(self.inventory))
         object.__setattr__(self, "flows", tuple(self.flows))
         object.__setattr__(self, "positions", tuple(self.positions))
+        object.__setattr__(self, "lp_cash", tuple(self.lp_cash))
+        if any(not isinstance(p, AccountLpCashEvidence) for p in self.lp_cash):
+            raise TypeError("LP cash bridge requires typed raw position evidence")
+        if len({p.asset_id for p in self.lp_cash}) != len(self.lp_cash):
+            raise ValueError("LP cash bridge cannot repeat a position")
+        if self.lp_cash and (self.native_gas_evidence is None or self.non_trading_native_units):
+            raise ValueError("LP cash bridge requires complete gas and no native override")
         if len(self.inventory) != 2 or len({r.source for r in self.inventory}) != 2:
             raise ValueError("account observation requires two distinct inventory providers")
         if any(reference.kind != "account_inventory" for reference in self.inventory):
@@ -258,6 +268,7 @@ class EvidenceReplayAccountRiskReader:
                 or observation.native_gas_units
                 or observation.non_trading_native_units
                 or observation.native_gas_evidence is not None
+                or observation.lp_cash
             ):
                 raise ValueError("inception baseline must not carry flow attribution")
             movements = dict.fromkeys(declared, 0)
@@ -267,13 +278,29 @@ class EvidenceReplayAccountRiskReader:
             if set(previous_units) != declared:
                 raise ValueError("account asset inventory changed between frames")
             flows = self._flows(entry, prior, ref, observation)
+            native_gas = self._native_gas(entry, prior, quorum, observation)
+            internal: frozenset[TransferLog] = frozenset()
+            if observation.lp_cash:
+                if observation.native_gas_evidence is None:
+                    raise ValueError("LP cash requires complete gas evidence")
+                internal = replay_account_lp_cash(
+                    self.store,
+                    entry=entry,
+                    previous=prior,
+                    closing_units=units,
+                    closing_snapshots={p.asset_id: p.snapshots for p in observation.positions},
+                    requests=observation.lp_cash,
+                    flows=flows,
+                    gas_request=observation.native_gas_evidence,
+                )
             reconstruction = reconstruct_movements(
                 previous_units=previous_units,
                 current_units=units,
                 prices=prices,
                 flows=flows,
                 native_asset_id=entry.native.asset_id,
-                native_gas_units=self._native_gas(entry, prior, quorum, observation),
+                native_gas_units=native_gas,
+                internal_transfers=internal,
                 non_trading_native_units=observation.non_trading_native_units,
                 # Cash movements in these currencies can exchange wallet value
                 # for the LP claim already included in NAV. Transfer evidence

@@ -292,13 +292,27 @@ def reconcile(
 class GlobalRiskJournal:
     """Serialized account/loss/reservation updates. No timed or caller-driven release."""
 
-    def __init__(self, path: Path, policy: GlobalRiskPolicy) -> None:
+    def __init__(
+        self, path: Path, policy: GlobalRiskPolicy, *, require_existing: bool = False
+    ) -> None:
         self.policy = policy
         self._lock = threading.RLock()
-        self.db = sqlite3.connect(path, timeout=5, isolation_level=None, check_same_thread=False)
+        self.db = sqlite3.connect(
+            path.resolve().as_uri() + "?mode=rw" if require_existing else path,
+            uri=require_existing,
+            timeout=5,
+            isolation_level=None,
+            check_same_thread=False,
+        )
         self.db.execute("PRAGMA synchronous=FULL")
         try:
             self.db.execute("BEGIN IMMEDIATE")
+            if require_existing:
+                # Observation cannot recreate an absent schema or policy and
+                # silently establish a new zero-loss history.
+                self._read()
+                self.db.commit()
+                return
             self.db.execute(
                 "CREATE TABLE IF NOT EXISTS global_policy (id INTEGER PRIMARY KEY, digest TEXT)"
             )
@@ -352,6 +366,56 @@ class GlobalRiskJournal:
     def admit(self, frame: PortfolioFrame, commitment: Commitment, *, now: int) -> str:
         with self._lock:
             return self._admit(frame, commitment, now=now)
+
+    def observe(
+        self, frame: PortfolioFrame, *, expected: RiskState, now: int, evidence_hash: str
+    ) -> tuple[RiskState, str]:
+        """Persist independent reconciliation without admitting or releasing capital.
+
+        The trusted reader must derive the frame against ``expected``. Compare
+        the entire baseline under the database write lock so a concurrent
+        reservation, release or observation cannot be overwritten. An identical
+        fresh frame is a no-op; losses and a halt survive retries and restart.
+        Observed investment units settle commitments by the same conservative
+        rule as admission; callers cannot request a release or settlement.
+        """
+        if (
+            not isinstance(evidence_hash, str)
+            or len(evidence_hash) != 64
+            or any(c not in "0123456789abcdef" for c in evidence_hash)
+        ):
+            raise ValueError("canonical observation evidence hash required")
+        with self._lock:
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                old, seq, previous = self._read()
+                if old != expected:
+                    raise ValueError("risk baseline changed during evidence replay")
+                if old.frame is None:
+                    raise ValueError("observation requires an established risk baseline")
+                state = reconcile(self.policy, old, frame, now)
+                settled = _settlements(old.reservations, old.settlements, old.frame, frame)
+                if settled:
+                    state = state.model_copy(update={"settlements": (*state.settlements, *settled)})
+                if state == old:
+                    self.db.rollback()
+                    return old, previous
+                raw = canonical_json(
+                    {
+                        "previous": previous,
+                        "observation_sha256": evidence_hash,
+                        "state": state.model_dump(mode="json"),
+                    }
+                )
+                digest = sha256_hex(raw)
+                self.db.execute(
+                    "INSERT INTO global_events VALUES (?, ?, ?)", (seq + 1, raw, digest)
+                )
+                self.db.commit()
+                return state, digest
+            except BaseException:
+                self.db.rollback()
+                raise
 
     def _admit(self, frame: PortfolioFrame, commitment: Commitment, *, now: int) -> str:
         self.db.execute("BEGIN IMMEDIATE")

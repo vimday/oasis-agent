@@ -23,6 +23,20 @@ input becomes zero. A completed seven-stage **engineering** workflow returns 0,
 even if its coverage diagnostic rejects the economic dataset. Every result
 separately keeps target/OOS/canary/execution false and `net_pnl: null`.
 
+## Raw ERC-20 LP cash input
+
+A closing account observation may include `lp_cash`, a list of
+`{"asset_id": "<manifest position>", "window": <CashWindowRequest>}` entries.
+Every declared position must be covered. The current bridge accepts a single
+block with unchanged ownership and two ERC-20 currencies, together with complete
+`native_gas_evidence`; it takes retained raw references, never declared amounts.
+Proven internal transfers receive zero external-flow credit. Unknown transfers,
+native LP currencies, partial coverage and mismatched receipts/balances refuse.
+The offline account report retains `lp_cash_proofs` for review. Existing sealed
+runs must not be overwritten; changed code/input requires a new offline run
+location. This does not grant a new acquisition budget or release authority.
+See [the bridge verification](../verification/ACCOUNT_LP_CASH_BRIDGE_20261008.md).
+
 ## Connected steps
 
 1. **Market:** reconstruct all declared market windows from raw provider evidence.
