@@ -24,6 +24,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 
 from ..models.common import sha256_hex
+from ..reporting.live_status import LiveStatusResponse, read_live_status
 from . import __version__
 from .chains import RpcProtocolError, decode_rpc_quantity
 from .console_contract import CONSOLE_VIEWS
@@ -47,6 +48,11 @@ logger = logging.getLogger(__name__)
 _WS_POLL_SECONDS = 3.0
 _WS_HEARTBEAT_SECONDS = 15.0
 _SERVER_NAME = "oasis-agent-observation-server"
+
+
+@router.get("/live/status", response_model=LiveStatusResponse)
+async def live_status(state: State) -> LiveStatusResponse:
+    return await state.reader.run(lambda _: read_live_status(state.config.databases.live_state))
 
 
 @router.get("/metrics")

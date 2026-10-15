@@ -6,6 +6,7 @@ no position and balanced -> mint. Shadow mode runs the same decisions on paper
 balances and never signs.
 """
 
+import re
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -14,6 +15,11 @@ from typing import Any
 
 from eth_hash.auto import keccak
 
+from ..farming.positions import decode_position_info
+from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
+from ..reporting.live_release import require_live_release
+from ..reporting.live_status import LiveObservation
+from .approval_cash import reconcile_approval
 from .chain import (
     ChainError,
     DigestSigner,
@@ -25,6 +31,10 @@ from .chain import (
     send_transaction,
 )
 from .config import LiveConfig
+from .intent import SubmittedTransaction, pending_plan_hash
+from .positions import collect_position_outcome, replay_position_outcome
+from .receipts import RetainedReceiptCostReader
+from .revert_cash import reconcile_revert
 from .state import Pending, Position, StateStore
 from .v4lp import (
     UINT160_MAX,
@@ -39,6 +49,7 @@ from .v4lp import (
     range_ticks,
     swap_call,
 )
+from .wallet import WalletBalance, capture_wallet, replay_wallet
 
 TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
 # FiatToken proxies keep the implementation at the zeppelinos slot.
@@ -47,6 +58,7 @@ PENDING_TIMEOUT = 900
 ORACLE_DECIMALS = 8  # Base ETH/USD feed decimals(), verified on two providers 2026-10-08
 MAX_CONSECUTIVE_REVERTS = 2
 RECEIPT_CONFIRMATIONS = 3
+MAX_HEAD_AGE_SECONDS = 120
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
 
@@ -85,6 +97,7 @@ class LiveLoop:
         stop_file: Path | None = None,
         log: Callable[[str], None] = print,
         secondary: Rpc | None = None,
+        receipt_costs: RetainedReceiptCostReader | None = None,
     ) -> None:
         if mode not in {"shadow", "live"}:
             raise ValueError("mode must be shadow or live")
@@ -94,8 +107,17 @@ class LiveLoop:
             raise ValueError("signer account is not the configured dedicated account")
         if mode == "live" and secondary is None:
             raise ValueError("live mode requires a second, independent RPC provider")
+        if mode == "live" and receipt_costs is None:
+            raise ValueError("live mode requires retained receipt cost evidence")
+        if receipt_costs is not None and (
+            receipt_costs.chain_id != config.chain_id
+            or receipt_costs.account != config.account
+            or receipt_costs.native_decimals != config.decimals0
+        ):
+            raise ValueError("receipt cost scope differs from live account")
         self.c, self.rpc, self.store, self.mode = config, rpc, store, mode
         self.secondary = secondary
+        self.receipt_costs = receipt_costs
         self.signer, self.stop_file, self.log = signer, stop_file, log
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
@@ -106,6 +128,7 @@ class LiveLoop:
         loop = cls.__new__(cls)
         loop.c, loop.rpc, loop.store, loop.mode = config, rpc, store, mode
         loop.signer, loop.secondary, loop.stop_file, loop.log = None, None, None, print
+        loop.receipt_costs = None
         loop.state = store.load(mode)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         return loop
@@ -117,6 +140,8 @@ class LiveLoop:
         a second provider must return identical values for that same hash."""
         block = self.rpc.block()
         number, timestamp = int(str(block["number"]), 16), int(str(block["timestamp"]), 16)
+        if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
+            raise ChainError("observation head is stale or in the future")
         ref = {"blockHash": str(block["hash"]), "requireCanonical": True}
         reads = self._reads(self.rpc, ref)
         if self.secondary is not None:
@@ -126,8 +151,17 @@ class LiveLoop:
                 raise ChainError(f"secondary provider cannot serve block {number}") from exc
             if other != reads:
                 raise ChainError(f"providers disagree on state at block {number}")
+        for rpc in (self.rpc, self.secondary):
+            if rpc is None:
+                continue
+            closing = rpc.call("eth_getBlockByNumber", [hex(number), False])
+            if not isinstance(closing, dict) or any(
+                closing.get(field) != block.get(field)
+                for field in ("number", "hash", "timestamp", "parentHash")
+            ):
+                raise ChainError("observation header changed or providers disagree")
         sqrt_price, tick, answer, updated, eth, usdc, liquidity = reads
-        if timestamp - updated > self.c.oracle_max_age_seconds or answer <= 0:
+        if not 0 <= timestamp - updated <= self.c.oracle_max_age_seconds or answer <= 0:
             raise ChainError("ETH/USD oracle is stale")
         if self.mode == "shadow":
             if not self.state.history:
@@ -148,6 +182,8 @@ class LiveLoop:
         )
 
     def _reads(self, rpc: Rpc, ref: dict[str, Any]) -> tuple[int, ...]:
+        if self.mode == "live" and rpc.uint("eth_chainId", []) != self.c.chain_id:
+            raise ChainError("observation provider is on another chain")
         slot = rpc.call_abi(
             self.c.state_view,
             "getSlot0(bytes32)",
@@ -169,8 +205,39 @@ class LiveLoop:
         position = self.state.position
         liquidity = 0
         if position is not None and position.token_id > 0:
+            self._position_identity(rpc, position, ref)
             liquidity = self._liquidity(rpc, position.token_id, ref)
         return int(slot[0]), int(slot[1]), int(answer), int(updated), eth, usdc, liquidity
+
+    def _position_identity(self, rpc: Rpc, position: Position, ref: dict[str, Any]) -> None:
+        owner = rpc.call_abi(
+            self.c.position_manager,
+            "ownerOf(uint256)",
+            ["uint256"],
+            [position.token_id],
+            ["address"],
+            ref,
+        )[0]
+        key, packed = rpc.call_abi(
+            self.c.position_manager,
+            "getPoolAndPositionInfo(uint256)",
+            ["uint256"],
+            [position.token_id],
+            ["(address,address,uint24,int24,address)", "uint256"],
+            ref,
+        )
+        try:
+            info = decode_position_info(packed)
+        except (TypeError, ValueError):
+            raise ChainError("observed position info is invalid") from None
+        if (
+            owner != self.c.account
+            or key != self.c.pool.tuple()
+            or info.pool_id_prefix != self.c.pool_id[:52]
+            or (info.tick_lower, info.tick_upper) != (position.lower, position.upper)
+            or info.has_subscriber
+        ):
+            raise ChainError("position owner, pool, range or subscription changed")
 
     def _usdc(self, rpc: Rpc, ref: dict[str, Any]) -> int:
         return int(
@@ -260,6 +327,22 @@ class LiveLoop:
         s.roll_day(m.timestamp, nav, flow)
         s.last_units = m.units
         daily, cumulative = s.losses(nav)
+        s.last_observation = LiveObservation(
+            chain_id=self.c.chain_id,  # type: ignore[arg-type]  # validated Base-only config
+            account=self.c.account,
+            pool_id=self.c.pool_id,
+            config_hash=sha256_hex(canonical_json(asdict(self.c))),
+            block=m.block,
+            block_hash=m.block_hash,
+            block_timestamp=m.timestamp,
+            observed_at=int(time.time()),
+            nav_usd=nav,
+            daily_loss_usd=daily,
+            cumulative_loss_usd=cumulative,
+            capital_limit_usd=self.c.max_capital_usd,
+            daily_loss_limit_usd=self.c.max_daily_loss_usd,
+            cumulative_loss_limit_usd=self.c.max_cumulative_loss_usd,
+        ).model_dump()
         base = (
             f"block {m.block} px {m.price:.2f} oracle {m.oracle:.2f} nav ${nav:.2f} "
             f"loss d${daily:.2f}/c${cumulative:.2f}"
@@ -305,18 +388,17 @@ class LiveLoop:
         p = s.position
         if p is not None:
             if m.position_liquidity == 0 and self.mode == "live":
-                s.record("position_gone", token_id=p.token_id)
-                s.position = None
-                return self._decide(m)
-            if p.lower <= m.tick < p.upper:
-                return None
-            if m.timestamp - p.opened_at < c.recenter_cooldown_seconds:
+                s.halted = f"position {p.token_id} disappeared without reconciled exit"
                 return None
             if self.mode == "live" and m.position_liquidity != p.liquidity:
                 s.halted = (
                     f"position {p.token_id} liquidity {m.position_liquidity} != recorded "
                     f"{p.liquidity}"
                 )
+                return None
+            if p.lower <= m.tick < p.upper:
+                return None
+            if m.timestamp - p.opened_at < c.recenter_cooldown_seconds:
                 return None
             a0, a1 = position_amounts(m.sqrt_price, p.lower, p.upper, p.liquidity)
             if a0 == 0 and a1 == 0:
@@ -376,11 +458,26 @@ class LiveLoop:
     def _approval_needed(self, m: Market) -> tuple[str, dict[str, Any]] | None:
         c = self.c
         need = c.approval_usdc
+        peer = self.secondary
+        if peer is None:
+            raise ChainError("allowance observation requires two providers")
+        pin = {"blockHash": m.block_hash, "requireCanonical": True}
+
+        def agreed_allowance(
+            target: str, signature: str, values: list[str], returns: list[str]
+        ) -> tuple[Any, ...]:
+            observations = tuple(
+                rpc.call_abi(target, signature, ["address"] * len(values), values, returns, pin)
+                for rpc in (self.rpc, peer)
+            )
+            if observations[0] != observations[1]:
+                raise ChainError("allowance providers disagree at decision block")
+            return observations[0]
+
         allowance = int(
-            self.rpc.call_abi(
+            agreed_allowance(
                 c.pool.currency1,
                 "allowance(address,address)",
-                ["address", "address"],
                 [c.account, c.permit2],
                 ["uint256"],
             )[0]
@@ -388,10 +485,9 @@ class LiveLoop:
         if allowance < need // 2:
             return "approve_usdc", {"amount": need}
         for spender in (c.position_manager, c.universal_router):
-            amount, expiration, _ = self.rpc.call_abi(
+            amount, expiration, _ = agreed_allowance(
                 c.permit2,
                 "allowance(address,address,address)",
-                ["address", "address", "address"],
                 [c.account, c.pool.currency1, spender],
                 ["uint160", "uint48", "uint48"],
             )
@@ -450,11 +546,66 @@ class LiveLoop:
         s = self.state
         if self.mode == "shadow":
             return self._paper(m, kind, args)
+        try:
+            require_live_release()
+        except ValueError as exc:
+            raise ChainError(str(exc)) from None
+        self.c.validate()
         assert self.signer is not None
         to, data, value = self._transaction(m, kind, args)
 
-        def on_signed(tx_hash: str, nonce: int) -> None:
-            s.pending = Pending(kind, tx_hash, nonce, int(time.time()), args, to)
+        # A provider on another chain must not supply simulation or nonce inputs
+        # to a transaction which will be signed for the configured chain.
+        if self.secondary is None or any(
+            rpc.uint("eth_chainId", []) != self.c.chain_id for rpc in (self.rpc, self.secondary)
+        ):
+            raise ChainError("transaction preparation requires both providers on the policy chain")
+
+        reader = self.receipt_costs
+        if reader is None:
+            raise ChainError("pre-sign wallet evidence unavailable")
+        try:
+            wallet = capture_wallet(
+                reader.store,
+                self.c,
+                BlockRef(self.c.chain_id, m.block, m.block_hash, m.timestamp),
+                sources=reader.sources,
+                sessions=reader.sessions,
+            )
+            before = replay_wallet(reader.store, wallet[0]).reconstruct()
+            if (before.native, before.token) != (m.eth, m.usdc):
+                raise ValueError("wallet differs from decision snapshot")
+        except Exception:  # noqa: BLE001 - raw capture failures may contain credentials
+            raise ChainError("pre-sign wallet evidence unresolved (details redacted)") from None
+
+        def on_signed(tx: SubmittedTransaction) -> None:
+            if (
+                tx.chain_id != self.c.chain_id
+                or tx.account != self.c.account
+                or tx.target != to
+                or tx.value != value
+                or tx.calldata_hash != "0x" + keccak(data).hex()
+                or tx.nonce != before.nonce
+            ):
+                raise ChainError("signed transaction differs from the proposed action")
+            s.pending = Pending(
+                kind,
+                tx.transaction_hash,
+                tx.nonce,
+                int(time.time()),
+                dict(args),
+                to,
+                tx,
+                pending_plan_hash(
+                    asdict(self.c),
+                    kind,
+                    args,
+                    tx,
+                    asdict(s.position) if s.position else None,
+                    tuple(asdict(r) for r in wallet),
+                ),
+                wallet,
+            )
             self.store.save(s)
 
         try:
@@ -473,12 +624,37 @@ class LiveLoop:
             return f"{kind} submitted, awaiting verified receipt: {exc}"
         return f"{kind} {self._resolve_pending()} {sent.tx_hash}"
 
-    def _charge_gas(self, receipt: dict[str, Any]) -> None:
-        used = int(str(receipt["gasUsed"]), 16) * int(str(receipt["effectiveGasPrice"]), 16)
-        self.state.gas_spent_wei += used
+    def _receipt_cost(
+        self, pending: Pending, receipt: dict[str, Any]
+    ) -> tuple[int, tuple[EvidenceRef, ...]]:
+        if self.mode == "shadow":
+            return int(receipt["gasUsed"], 16) * int(receipt["effectiveGasPrice"], 16), ()
+        if self.receipt_costs is None:
+            raise ChainError("retained receipt cost evidence is unavailable")
+        try:
+            proof = self.receipt_costs.observe(
+                receipt, transaction_hash=pending.tx_hash, target=pending.to
+            )
+        except Exception:  # noqa: BLE001 - provider/persistence errors may contain secrets
+            raise ChainError("whole native receipt cost unresolved (details redacted)") from None
+        return proof.cost.total_native, proof.evidence
 
-    def _apply(self, kind: str, args: dict[str, Any], receipt: dict[str, Any]) -> None:
+    def _apply(
+        self,
+        kind: str,
+        args: dict[str, Any],
+        receipt: dict[str, Any],
+        *,
+        native_cost: int,
+        cost_evidence: tuple[EvidenceRef, ...],
+        outcome_evidence: tuple[EvidenceRef, ...] = (),
+        transaction: SubmittedTransaction | None = None,
+        wallet: WalletBalance | None = None,
+        cash_evidence: tuple[EvidenceRef, ...] = (),
+    ) -> None:
         """Commit a confirmed action. Everything that can fail runs before `pending` clears."""
+        if self.mode == "live" and (wallet is None or len(cash_evidence) != 2):
+            raise ChainError("successful action cash unresolved; pending retained")
         s = self.state
         position = s.position
         if kind == "mint":
@@ -492,27 +668,61 @@ class LiveLoop:
             )
         elif kind == "burn":
             position = None
-        used = int(str(receipt["gasUsed"]), 16) * int(str(receipt["effectiveGasPrice"]), 16)
         s.position = position
-        s.gas_spent_wei += used
+        s.gas_spent_wei += native_cost
         s.consecutive_reverts = 0
         s.actions_today += 1
         s.last_action_at = int(time.time())
-        s.last_units = None
+        s.last_units = (
+            [wallet.native, wallet.token, position.liquidity if position else 0] if wallet else None
+        )
+        s.last_observation = None  # pre-action NAV cannot describe the settled account
         s.checkpoint_at = 0  # the next observation locks this action's NAV change
         s.pending = None
-        s.record(kind, tx=receipt.get("transactionHash"), args=args)
+        s.record(
+            kind,
+            tx=receipt.get("transactionHash"),
+            args=args,
+            native_gas_units=native_cost,
+            cost_evidence=[asdict(ref) for ref in cost_evidence],
+            position_evidence=[asdict(ref) for ref in outcome_evidence],
+            transaction=asdict(transaction) if transaction else None,
+            cash_evidence=[asdict(ref) for ref in cash_evidence],
+        )
 
-    def _reverted(self, kind: str, receipt: dict[str, Any]) -> str:
+    def _reverted(
+        self,
+        kind: str,
+        receipt: dict[str, Any],
+        *,
+        native_cost: int,
+        cost_evidence: tuple[EvidenceRef, ...],
+        transaction: SubmittedTransaction | None = None,
+        wallet: WalletBalance | None = None,
+        cash_evidence: tuple[EvidenceRef, ...] = (),
+    ) -> str:
         s = self.state
-        self._charge_gas(receipt)
-        s.last_units = None
+        s.gas_spent_wei += native_cost
+        s.last_observation = None
+        s.last_units = (
+            [wallet.native, wallet.token, s.position.liquidity if s.position else 0]
+            if wallet
+            else None
+        )
         s.checkpoint_at = 0
         s.pending = None
         s.consecutive_reverts += 1
         s.actions_today += 1
         tx = receipt.get("transactionHash")
-        s.record("reverted", kind=kind, tx=tx)
+        s.record(
+            "reverted",
+            kind=kind,
+            tx=tx,
+            native_gas_units=native_cost,
+            cost_evidence=[asdict(ref) for ref in cost_evidence],
+            transaction=asdict(transaction) if transaction else None,
+            cash_evidence=[asdict(r) for r in cash_evidence],
+        )
         if s.consecutive_reverts >= MAX_CONSECUTIVE_REVERTS:
             s.halted = f"{s.consecutive_reverts} consecutive reverts (last {kind})"
         return f"{kind} REVERTED {tx}"
@@ -520,6 +730,7 @@ class LiveLoop:
     def _minted_token(self, receipt: dict[str, Any]) -> int:
         zero_topic = "0x" + "0" * 64
         owner_topic = "0x" + "0" * 24 + self.c.account[2:]
+        found = []
         for log in receipt.get("logs", []):
             topics = [str(t).lower() for t in log.get("topics", [])]
             if (
@@ -529,16 +740,75 @@ class LiveLoop:
                 and topics[1] == zero_topic
                 and topics[2] == owner_topic
             ):
-                return int(topics[3], 16)
-        raise ChainError("mint receipt has no position NFT transfer")
+                found.append(int(topics[3], 16))
+        if len(found) != 1 or found[0] <= 0:
+            raise ChainError("mint receipt must have exactly one position NFT transfer")
+        return found[0]
 
     def _verified_receipt(self, p: Pending) -> dict[str, Any] | None:
         """The receipt for exactly `p`, on a canonical block both providers agree on and
         at least RECEIPT_CONFIRMATIONS deep. None means not yet provable."""
+        if self.mode == "live" and self.secondary is None:
+            raise ChainError("receipt resolution requires a second independent provider")
+        if self.mode == "live":
+            tx = p.transaction
+            if tx is None:
+                raise ChainError("pending transaction lacks its retained signed commitment")
+            if (
+                tx.transaction_hash != p.tx_hash
+                or tx.nonce != p.nonce
+                or tx.target != p.to
+                or tx.chain_id != self.c.chain_id
+                or tx.account != self.c.account
+                or tx.max_fee_per_gas > self.c.max_fee_per_gas_wei
+                or tx.max_priority_fee_per_gas > self.c.priority_fee_wei
+                or tx.gas_limit > self.fees.max_gas
+                or p.plan_hash
+                != pending_plan_hash(
+                    asdict(self.c),
+                    p.kind,
+                    p.intent,
+                    tx,
+                    asdict(self.state.position) if self.state.position else None,
+                    tuple(asdict(r) for r in p.wallet_evidence),
+                )
+            ):
+                raise ChainError("pending commitment, intent or configuration mismatch")
         receipt = self.rpc.receipt(p.tx_hash)
         if receipt is None:
             return None
-        number = int(str(receipt["blockNumber"]), 16)
+        fields = (
+            "transactionHash",
+            "blockHash",
+            "blockNumber",
+            "from",
+            "to",
+            "status",
+            "gasUsed",
+            "effectiveGasPrice",
+            "logs",
+        )
+        if any(k not in receipt or receipt[k] is None for k in fields):
+            raise ChainError("receipt lacks required identity or cost evidence")
+        for name in ("blockNumber", "status", "gasUsed", "effectiveGasPrice"):
+            value = receipt[name]
+            if (
+                not isinstance(value, str)
+                or re.fullmatch(r"0x(?:0|[1-9a-f][0-9a-f]*)", value) is None
+            ):
+                raise ChainError("receipt contains a malformed integer")
+        if receipt["status"] not in {"0x0", "0x1"} or not isinstance(receipt["logs"], list):
+            raise ChainError("receipt contains malformed status or logs")
+        number = int(receipt["blockNumber"], 16)
+        if (
+            self.mode == "live"
+            and p.transaction is not None
+            and (
+                int(receipt["gasUsed"], 16) > p.transaction.gas_limit
+                or int(receipt["effectiveGasPrice"], 16) > p.transaction.max_fee_per_gas
+            )
+        ):
+            raise ChainError("receipt exceeds the signed gas envelope")
         if self.rpc.uint("eth_blockNumber", []) - number < RECEIPT_CONFIRMATIONS:
             return None
         for rpc in (self.rpc, self.secondary):
@@ -547,9 +817,22 @@ class LiveLoop:
             other = receipt if rpc is self.rpc else rpc.receipt(p.tx_hash)
             if other is None:
                 return None
-            fields = ("transactionHash", "blockHash", "status", "gasUsed", "logs")
             if any(other.get(k) != receipt.get(k) for k in fields):
                 raise ChainError(f"providers disagree on receipt {p.tx_hash}")
+            # Chain-specific cost components must agree, including their presence.
+            # This is quorum validation, not complete native-cost accounting.
+            costs = (
+                "l1Fee",
+                "operatorFeeScalar",
+                "operatorFeeConstant",
+                "gasUsedForL1",
+                "blobGasUsed",
+                "blobGasPrice",
+            )
+            if any((k in other) != (k in receipt) or other.get(k) != receipt.get(k) for k in costs):
+                raise ChainError(f"providers disagree on receipt costs {p.tx_hash}")
+            if rpc.uint("eth_blockNumber", []) - number < RECEIPT_CONFIRMATIONS:
+                return None
             canonical = rpc.call("eth_getBlockByNumber", [hex(number), False])
             if not isinstance(canonical, dict) or canonical.get("hash") != receipt["blockHash"]:
                 return None
@@ -569,12 +852,35 @@ class LiveLoop:
         p = s.pending
         receipt = self._verified_receipt(p)
         if receipt is not None:
-            if int(str(receipt["status"]), 16) != 1:
-                return "pending " + self._reverted(p.kind, receipt)
-            if p.kind == "burn" and not self._burned_in(receipt):
+            succeeded = receipt["status"] == "0x1"
+            if succeeded and p.kind == "burn" and not self._burned_in(receipt):
                 s.halted = f"burn receipt {p.tx_hash} has no position NFT burn"
                 return f"HALT {s.halted}"
-            self._apply(p.kind, p.intent, receipt)
+            native_cost, evidence = self._receipt_cost(p, receipt)
+            if not succeeded:
+                wallet, cash = self._revert_wallet(p, evidence)
+                return "pending " + self._reverted(
+                    p.kind,
+                    receipt,
+                    native_cost=native_cost,
+                    cost_evidence=evidence,
+                    transaction=p.transaction,
+                    wallet=wallet,
+                    cash_evidence=cash,
+                )
+            outcome = self._position_outcome(p, receipt, evidence)
+            wallet, cash = self._approval_wallet(p, evidence)
+            self._apply(
+                p.kind,
+                p.intent,
+                receipt,
+                native_cost=native_cost,
+                cost_evidence=evidence,
+                outcome_evidence=outcome,
+                transaction=p.transaction,
+                wallet=wallet,
+                cash_evidence=cash,
+            )
             return f"pending {p.kind} confirmed {p.tx_hash}"
         if self.rpc.nonce(self.c.account, "latest") > p.nonce:
             # The nonce moved: wait for the receipt to become provable before deciding.
@@ -586,6 +892,90 @@ class LiveLoop:
             s.halted = f"pending {p.kind} {p.tx_hash} unresolved after {PENDING_TIMEOUT}s"
             return f"HALT {s.halted}"
         return f"waiting on pending {p.kind} {p.tx_hash}"
+
+    def _approval_wallet(
+        self, pending: Pending, costs: tuple[EvidenceRef, ...]
+    ) -> tuple[WalletBalance | None, tuple[EvidenceRef, ...]]:
+        if self.mode != "live" or pending.kind not in {"approve_usdc", "approve_permit2"}:
+            return None, ()
+        reader = self.receipt_costs
+        if reader is None or pending.transaction is None:
+            raise ChainError("approval cash requires retained transaction and costs")
+        try:
+            return reconcile_approval(
+                reader.store,
+                self.c,
+                pending.kind,
+                pending.intent,
+                pending.transaction,
+                pending.wallet_evidence,
+                costs,
+                sources=reader.sources,
+                sessions=reader.sessions,
+            )
+        except Exception:  # noqa: BLE001 - never expose raw RPC errors or credentials
+            raise ChainError("approval cash unresolved (details redacted)") from None
+
+    def _revert_wallet(
+        self, pending: Pending, costs: tuple[EvidenceRef, ...]
+    ) -> tuple[WalletBalance | None, tuple[EvidenceRef, ...]]:
+        if self.mode == "shadow":
+            return None, ()
+        reader = self.receipt_costs
+        if reader is None or pending.transaction is None:
+            raise ChainError("reverted wallet evidence unavailable")
+        try:
+            return reconcile_revert(
+                reader.store,
+                self.c,
+                pending.transaction,
+                pending.wallet_evidence,
+                costs,
+                sources=reader.sources,
+                sessions=reader.sessions,
+            )
+        except Exception:  # noqa: BLE001 - raw provider/persistence errors are not safe to log
+            raise ChainError("reverted wallet cash unresolved (details redacted)") from None
+
+    def _position_outcome(
+        self, pending: Pending, receipt: dict[str, Any], costs: tuple[EvidenceRef, ...]
+    ) -> tuple[EvidenceRef, ...]:
+        if self.mode == "shadow" or pending.kind not in {"mint", "burn"}:
+            return ()
+        reader = self.receipt_costs
+        if reader is None or not costs or costs[0].block is None:
+            raise ChainError("position outcome requires retained receipt block")
+        position: Position | None
+        if pending.kind == "mint":
+            position = Position(
+                self._minted_token(receipt),
+                pending.intent["lower"],
+                pending.intent["upper"],
+                pending.intent["liquidity"],
+                0,
+            )
+        else:
+            position = self.state.position
+            if position is None:
+                raise ChainError("burn has no recorded position to reconcile")
+        try:
+            refs = collect_position_outcome(
+                reader.store,
+                self.c,
+                costs[0].block,
+                token_id=position.token_id,
+                lower=position.lower,
+                upper=position.upper,
+                liquidity=0 if pending.kind == "burn" else position.liquidity,
+                burned=pending.kind == "burn",
+                sources=reader.sources,
+                sessions=reader.sessions,
+            )
+            for ref in refs:
+                replay_position_outcome(reader.store, ref)
+            return refs
+        except Exception:  # noqa: BLE001 - raw provider failures are not safe to log
+            raise ChainError("position outcome unresolved (details redacted)") from None
 
     def _burned_in(self, receipt: dict[str, Any]) -> bool:
         assert self.state.position is not None
@@ -604,6 +994,8 @@ class LiveLoop:
         if s.pending is None:
             return "no pending submission"
         p = s.pending
+        if self.mode == "live":
+            raise ValueError("signed live pending cannot be forgotten from nonce/receipt absence")
         if self.rpc.receipt(p.tx_hash) is not None:
             raise ValueError(f"{p.tx_hash} has a receipt; let the loop resolve it")
         if self.rpc.nonce(self.c.account, "latest") != p.nonce:
@@ -667,5 +1059,6 @@ class LiveLoop:
             "initial_nav_usd": s.initial_nav_usd,
             "last_nav_usd": s.last_nav_usd,
             "gas_spent_eth": s.gas_spent_wei / 1e18,
+            "legacy_gas_cost_incomplete": s.legacy_gas_cost_incomplete,
             "actions": [h for h in s.history if h["event"] != "pins_recorded"][-20:],
         }

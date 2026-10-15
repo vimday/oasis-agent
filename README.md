@@ -23,6 +23,30 @@ discovery, batch enrichment checks and position exits independent of current pop
 
 ## One command
 
+For the current live release blockers, without RPC or signing:
+
+```bash
+make live-readiness
+```
+
+New live actions are currently blocked by incomplete engineering controls.
+See [the exact release gaps and closure criteria](docs/operations/LIVE_RELEASE.md).
+`make live-reconcile` only attempts to reconcile an already pending transaction;
+it never constructs a signer.
+
+For a read-only operational check of the dedicated Base canary account:
+
+```bash
+make live-check
+```
+
+This checks both configured RPC providers without contacting a signer or changing
+loop state. Exit 0 means the operational snapshot passed; it is not execution
+permission or profitability evidence. See [the live check and settlement
+boundaries](docs/operations/LIVE_START_CHECK.md).
+
+For the retained-input research pipeline:
+
 ```bash
 make run
 ```
@@ -48,6 +72,7 @@ Use `make verify-run` to run the complete engineering checks first. See
 - [Custody model](docs/security/CUSTODY_AND_AGENT_KEY_MODEL.md): capital ownership and signing authority.
 - [Contributing](CONTRIBUTING.md): locked development setup and mandatory verification.
 - [Console read model](docs/architecture/CONSOLE_READ_MODEL.md) and [dashboard controls](docs/operations/LP_LAUNCH_CONTROLS.md): API ownership and observation campaigns.
+- [Live canary console](docs/operations/LIVE_CONSOLE.md): recorded NAV/losses, pending transactions and reconciliation references, with explicit stale/missing states.
 - [LP market pipeline](docs/architecture/LP_MARKET_FEATURE_PIPELINE.md), [RPC budgets and recovery](docs/operations/ROBINHOOD_RPC_USAGE.md), and [execution preparation](docs/architecture/LP_EXECUTION_PREPARATION.md): implemented interfaces.
 - [Local signing transport](docs/security/LOCAL_SIGNER_TRANSPORT.md): implemented adapter and remaining service/isolation requirements.
 

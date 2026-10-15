@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from eth_abi.abi import encode
 
+from ..models.common import normalize_address
 from ..uniswap_v4.liquidity_math import amounts_for_liquidity, sqrt_price_at_tick
 from .chain import calldata
 
@@ -39,6 +40,14 @@ class PoolKey:
     hooks: str = ZERO
 
     def __post_init__(self) -> None:
+        for name in ("currency0", "currency1", "hooks"):
+            object.__setattr__(self, name, normalize_address(getattr(self, name)))
+        if type(self.fee) is not int or not 0 <= self.fee <= 1_000_000:
+            raise ValueError("static pool fee must be integer pips")
+        if type(self.tick_spacing) is not int or not 1 <= self.tick_spacing <= 32767:
+            raise ValueError("tick spacing must be a positive protocol integer")
+        if self.currency1 == ZERO:
+            raise ValueError("pool currencies must differ")
         if self.currency0 != ZERO:
             raise ValueError("this adapter supports native-ETH currency0 pools only")
         if self.hooks != ZERO:

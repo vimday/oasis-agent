@@ -65,9 +65,15 @@ run:
 
 verify-run: check run
 
-# Live LP loop (Base ETH/USDC v4). `make live` expects the signer daemon on SIGNER_SOCKET.
+# Base canary: live is release-gated; recovery never constructs a signer.
 SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
-.PHONY: shadow live live-report live-stop
+.PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile
+live-readiness:
+	$(PYTHON) scripts/run_live_lp.py --mode live --readiness
+live-reconcile:
+	$(PYTHON) scripts/run_live_lp.py --mode live --reconcile-only
+live-check:
+	$(PYTHON) scripts/run_live_lp.py --mode live --check
 shadow:
 	$(PYTHON) scripts/run_live_lp.py --mode shadow
 live:

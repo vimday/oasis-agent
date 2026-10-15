@@ -164,6 +164,15 @@ section.card { border-radius: 12px; padding: 24px; margin-bottom: 20px; }
 .card h2 { color: var(--ink); letter-spacing: .03em; font-size: 14px; }
 .hint { color: var(--muted); font-size: 11px; }
 .section-heading { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.live-panel { border-top: 2px solid var(--accent) !important; }
+.live-panel .section-heading { align-items: center; }
+.live-panel h2 { margin-top: 8px; color: var(--ink); font-size: 18px; letter-spacing: 0; }
+.live-next { margin: 4px 0 12px; line-height: 1.7; }
+.live-blockers { padding-left: 20px; color: var(--accent2); line-height: 1.8; margin: 12px 0; }
+.live-detail { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.8; margin: 14px 0; color: var(--muted); }
+.live-detail-grid { margin-bottom: 18px; border-top: 1px solid var(--rule); padding-top: 18px; }
+.live-detail-grid h3 { font-size: 13px; font-weight: 500; }
+.live-panel .stat .num { font-size: 16px; }
 .readiness-focus { border-top: 2px solid #719f8b !important; }
 #readiness-summary { margin: 3px 0 20px; color: var(--muted); }
 .readiness-path { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }

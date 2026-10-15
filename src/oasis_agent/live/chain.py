@@ -22,6 +22,7 @@ from eth_hash.auto import keccak
 from rlp import encode as rlp_encode  # type: ignore[import-untyped]
 
 from ..models.common import normalize_address
+from .intent import SubmittedTransaction
 
 USER_AGENT = "oasis-agent/0.1"
 SECP256K1_HALF = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
@@ -203,13 +204,13 @@ def send_transaction(
     data: bytes,
     value: int,
     fees: FeePolicy,
-    on_signed: Callable[[str, int], None],
+    on_signed: Callable[[SubmittedTransaction], None],
     receipt_timeout: float = 120.0,
 ) -> Sent:
     """Simulate, sign, broadcast once and wait for the receipt.
 
-    `on_signed(tx_hash, nonce)` runs before broadcast so the caller can persist
-    the pending submission. Failures before signing raise `ChainError`.
+    `on_signed(commitment)` runs before broadcast with fields recovered from
+    the actual signed bytes. It must persist pending or raise before submission.
     """
     account = normalize_address(signer.account)
     to = normalize_address(to)
@@ -231,8 +232,9 @@ def send_transaction(
     raw = sign_transaction(
         signer, _envelope(chain_id, nonce, fees.priority_fee, max_fee, gas, to, value, data)
     )
-    tx_hash = "0x" + keccak(raw).hex()
-    on_signed(tx_hash, nonce)
+    commitment = SubmittedTransaction.from_signed(raw)
+    tx_hash = commitment.transaction_hash
+    on_signed(commitment)
     try:
         rpc.send_raw(raw)
     except RpcRejected as exc:

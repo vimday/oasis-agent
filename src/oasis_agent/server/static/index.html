@@ -26,7 +26,7 @@
     <button role="tab" id="tab-btn-observations" aria-controls="tab-observations" aria-selected="false" data-tab="observations">健康观测</button>
     <button role="tab" id="tab-btn-decisions" aria-controls="tab-decisions" aria-selected="false" data-tab="decisions">决策链</button>
     <button role="tab" id="tab-btn-evidence" aria-controls="tab-evidence" aria-selected="false" data-tab="evidence">证据</button>
-    <button role="tab" id="tab-btn-execution" aria-controls="tab-execution" aria-selected="false" data-tab="execution">执行</button>
+    <button role="tab" id="tab-btn-execution" aria-controls="tab-execution" aria-selected="false" data-tab="execution">实盘与对账</button>
     <button role="tab" id="tab-btn-ops" aria-controls="tab-ops" aria-selected="false" data-tab="ops">运行与操作</button>
     <button role="tab" id="tab-btn-gates" aria-controls="tab-gates" aria-selected="false" data-tab="gates">门禁审批</button>
     <button role="tab" id="tab-btn-chains" aria-controls="tab-chains" aria-selected="false" data-tab="chains">多链与警报</button>
@@ -164,6 +164,26 @@
 
   <!-- ============ EXECUTION ============ -->
   <div id="tab-execution" role="tabpanel" aria-labelledby="tab-btn-execution" class="tab">
+    <section class="card live-panel" aria-labelledby="live-title">
+      <div class="section-heading">
+        <div><span class="eyebrow">CANARY / OBSERVATION</span><h2 id="live-title" role="status">正在读取实盘记录</h2></div>
+        <button type="button" class="action" data-action="refresh-live">刷新观测</button>
+      </div>
+      <p id="live-next" class="live-next">正在检查数据源。</p>
+      <p id="live-source" class="muted">只读观测 · 不提供交易启动或停机解除操作</p>
+      <div id="live-release" class="live-next"></div>
+      <ul id="live-blockers" class="live-blockers"></ul>
+      <div id="live-stats" class="grid g4"></div>
+      <p id="live-observation" class="live-detail mono"></p>
+      <div class="grid g2 live-detail-grid">
+        <div><h3>待处理交易</h3><p id="live-pending" class="live-detail"></p></div>
+        <div><h3>记录持仓</h3><p id="live-position" class="live-detail"></p></div>
+      </div>
+      <details><summary>最近 20 条已记账动作与证据引用</summary>
+        <p class="muted">引用数量来自本地记录，不等于证据校验通过。Swap / Mint / Burn 的完整资金对账仍未接通，新交易启动已阻断。</p>
+        <div class="table-wrap"><table id="live-actions" aria-label="实盘动作记录"></table></div>
+      </details>
+    </section>
     <section class="card">
       <h2>执行日志 <span class="hint">LP 执行事件与当前意图状态</span></h2>
       <div class="grid g4" id="ex-stats"></div>

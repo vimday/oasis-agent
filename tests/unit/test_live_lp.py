@@ -5,7 +5,7 @@ Anvil fork of Base in `.scratch/fork_live_e2e.py`; these tests pin the pure part
 and the fail-closed state machine with a scripted RPC.
 """
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,7 @@ from eth_abi.abi import decode
 
 from oasis_agent.live.chain import ChainError, sign_transaction
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.intent import SubmittedTransaction, pending_plan_hash
 from oasis_agent.live.runner import LiveLoop, Market
 from oasis_agent.live.state import LoopState, Pending, Position, StateStore, day_of
 from oasis_agent.live.v4lp import (
@@ -336,33 +337,21 @@ class DropRpc(ScriptedRpc):
         return self._latest_nonce if block == "latest" else self._pending
 
 
-def test_drop_pending_requires_proof_of_absence(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("latest", "pending"), [(4, 4), (3, 4), (3, 3)])
+def test_live_pending_cannot_be_forgotten_from_provider_absence(
+    tmp_path: Path, latest: int, pending: int
+) -> None:
     store = StateStore(tmp_path / "live.state.json")
     state = store.load("live")
     state.pending = Pending("swap", "0x" + "cc" * 32, 3, 0)
     store.save(state)
-    with pytest.raises(ValueError, match="consumed"):
-        LiveLoop.recovery(
-            CONFIG,
-            DropRpc(receipt=None, latest=4, pending=4),
-            store,  # type: ignore[arg-type]
-            "live",
-        ).drop_pending()
-    with pytest.raises(ValueError, match="mempool"):
-        LiveLoop.recovery(
-            CONFIG,
-            DropRpc(receipt=None, latest=3, pending=4),
-            store,  # type: ignore[arg-type]
-            "live",
-        ).drop_pending()
+    before = store.path.read_bytes()
     loop = LiveLoop.recovery(
-        CONFIG,
-        DropRpc(receipt=None, latest=3, pending=3),
-        store,  # type: ignore[arg-type]
-        "live",
+        CONFIG, DropRpc(receipt=None, latest=latest, pending=pending), store, "live"
     )
-    assert "dropped" in loop.drop_pending()
-    assert loop.state.pending is None
+    with pytest.raises(ValueError, match="cannot be forgotten"):
+        loop.drop_pending()
+    assert loop.state.pending is not None and store.path.read_bytes() == before
 
 
 def test_live_mode_requires_a_second_provider(tmp_path: Path) -> None:
@@ -420,8 +409,38 @@ def test_acknowledged_flow_is_not_profit_or_loss() -> None:
 
 def live_loop(tmp_path: Path, rpc: Any, secondary: Any = None, **state: Any) -> LiveLoop:
     loop = loop_with(tmp_path, rpc, **state)
-    loop.mode, loop.secondary = "live", secondary
+    loop.mode, loop.secondary = "live", secondary if secondary is not None else rpc
+    bind_pending(loop.state.pending, loop.state.position)
     return loop
+
+
+def bind_pending(
+    pending: Pending | None, position: Position | None = None, config: LiveConfig = CONFIG
+) -> None:
+    """Synthetic metadata for receipt-state tests; no signature or real submission."""
+    if pending is None:
+        return
+    pending.to = pending.to or config.position_manager
+    pending.transaction = SubmittedTransaction(
+        pending.tx_hash,
+        config.chain_id,
+        config.account,
+        pending.nonce,
+        pending.to,
+        0,
+        "0x" + "11" * 32,
+        1_000_000,
+        config.max_fee_per_gas_wei,
+        config.priority_fee_wei,
+    )
+    pending.plan_hash = pending_plan_hash(
+        asdict(config),
+        pending.kind,
+        pending.intent,
+        pending.transaction,
+        asdict(position) if position else None,
+        tuple(asdict(r) for r in pending.wallet_evidence),
+    )
 
 
 def test_unexplained_wallet_change_halts(tmp_path: Path) -> None:
@@ -491,4 +510,79 @@ def test_receipt_waits_for_depth_canonicality_and_provider_agreement(tmp_path: P
         secondary=ScriptedRpc(receipt=mined(a)),
         pending=pending,
     )
-    assert "confirmed" in loop.tick() and loop.state.pending is None
+    # Quorum/depth alone no longer substitutes for retained whole-cost evidence.
+    assert "cost evidence is unavailable" in loop.tick() and loop.state.pending is pending
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("effectiveGasPrice", "0x2"),
+        ("from", "0x" + "ab" * 20),
+        ("to", "0x" + "ab" * 20),
+        ("blockNumber", "0x65"),
+        ("l1Fee", "0x10"),
+    ],
+)
+def test_receipt_quorum_retains_pending_on_cost_or_identity_disagreement(
+    tmp_path: Path, field: str, value: str
+) -> None:
+    tx = "0x" + "0a" * 32
+    pending = Pending("swap", tx, 3, 10**10, {}, CONFIG.position_manager)
+    loop = live_loop(
+        tmp_path,
+        ScriptedRpc(receipt=mined(tx)),
+        secondary=ScriptedRpc(receipt=mined(tx, **{field: value})),
+        pending=pending,
+    )
+    assert "disagree" in loop.tick()
+    restored = loop.store.load("shadow")
+    assert restored.pending == pending
+    assert restored.gas_spent_wei == 0 and restored.actions_today == 0
+
+
+def test_live_recovery_cannot_resolve_pending_without_quorum(tmp_path: Path) -> None:
+    tx = "0x" + "0a" * 32
+    loop = live_loop(tmp_path, ScriptedRpc(receipt=mined(tx)), pending=Pending("swap", tx, 3, 0))
+    loop.secondary = None  # recovery() intentionally has no second provider
+    assert "second" in loop.tick()
+    assert loop.state.pending is not None and loop.state.actions_today == 0
+
+
+def test_receipt_depth_is_required_from_both_providers(tmp_path: Path) -> None:
+    class LaggingRpc(ScriptedRpc):
+        def uint(self, method: str, params: list[Any]) -> int:
+            return 101
+
+    tx = "0x" + "0a" * 32
+    loop = live_loop(
+        tmp_path,
+        ScriptedRpc(receipt=mined(tx)),
+        secondary=LaggingRpc(receipt=mined(tx)),
+        pending=Pending("swap", tx, 3, 10**10),
+    )
+    assert "waiting" in loop.tick()
+    assert loop.state.pending is not None and loop.state.gas_spent_wei == 0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("blockNumber", None),
+        ("effectiveGasPrice", "-0x1"),
+        ("gasUsed", "0x00"),
+        ("status", "0x2"),
+        ("logs", {}),
+    ],
+)
+def test_malformed_agreed_receipt_cannot_change_state(
+    tmp_path: Path, field: str, value: Any
+) -> None:
+    tx = "0x" + "0a" * 32
+    loop = live_loop(
+        tmp_path,
+        ScriptedRpc(receipt=mined(tx, **{field: value})),
+        pending=Pending("swap", tx, 3, 10**10),
+    )
+    assert "skip" in loop.tick()
+    assert loop.state.pending is not None and loop.state.gas_spent_wei == 0

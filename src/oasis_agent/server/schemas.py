@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 # schemas are defined in ``databases.py``; this tuple is the discoverable
 # registry exposed through the ``/api/v1/meta`` endpoint.
 ENVELOPE_SCHEMAS: tuple[str, ...] = (
+    "oasis.live-status.v1",
     "oasis.server-meta.v1",
     "oasis.server-reader-metrics.v1",
     "oasis.server.execution-events.v1",

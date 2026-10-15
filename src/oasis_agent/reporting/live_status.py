@@ -1,0 +1,215 @@
+"""Bounded, redacted projection of local canary state, never execution authority.
+
+The JSON file is an operator-local declaration, not an authenticated journal.
+Reference counts do not replay evidence. File mtime never establishes freshness.
+"""
+
+import json
+import os
+import stat
+import time
+from pathlib import Path
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
+
+from ..models.common import sha256_hex
+from .live_release import LiveRelease, live_release
+
+UInt = Annotated[int, Field(strict=True, ge=0, lt=2**256)]
+Usd = Annotated[FiniteFloat, Field(ge=0)]
+Hash = Annotated[str, Field(pattern=r"^0x[0-9a-f]{64}$")]
+Action = Literal["approve_usdc", "approve_permit2", "swap", "mint", "burn"]
+MAX_STATE_BYTES = 2_000_000
+MAX_OBSERVATION_AGE = 120
+
+
+class LiveObservation(BaseModel):
+    """Persisted only after an account observation has reached the loss check."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    chain_id: Literal[8453]
+    account: Annotated[str, Field(pattern=r"^0x[0-9a-f]{40}$")]
+    pool_id: Hash
+    config_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    block: UInt
+    block_hash: Hash
+    block_timestamp: UInt
+    observed_at: UInt
+    nav_usd: Usd
+    daily_loss_usd: Usd
+    cumulative_loss_usd: Usd
+    capital_limit_usd: Usd
+    daily_loss_limit_usd: Usd
+    cumulative_loss_limit_usd: Usd
+
+
+class PendingView(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+    kind: Action
+    tx_hash: Hash
+    nonce: UInt
+    signed_at: UInt
+
+
+class PositionView(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+    token_id: UInt
+    lower: Annotated[int, Field(ge=-887272, le=887272)]
+    upper: Annotated[int, Field(ge=-887272, le=887272)]
+    liquidity: UInt
+
+
+class _Event(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+    event: Annotated[str, Field(max_length=80)]
+    tx: Hash | None = None
+    native_gas_units: UInt | None = None
+    cost_evidence: Annotated[list[dict[str, Any]], Field(max_length=4)] = []
+    cash_evidence: Annotated[list[dict[str, Any]], Field(max_length=4)] = []
+    position_evidence: Annotated[list[dict[str, Any]], Field(max_length=4)] = []
+
+
+class _State(BaseModel):
+    model_config = ConfigDict(extra="ignore", strict=True)
+    mode: Literal["live"]
+    halted: Annotated[str, Field(max_length=4096)] | None
+    pending: PendingView | None
+    position: PositionView | None
+    gas_spent_wei: UInt
+    legacy_gas_cost_incomplete: bool | None = None
+    consecutive_reverts: UInt
+    actions_today: UInt
+    last_observation: LiveObservation | None = None
+    history: Annotated[list[_Event], Field(max_length=200)]
+
+
+class ActionView(BaseModel):
+    action: Action | Literal["reverted"]
+    transaction_hash: str | None
+    native_gas_units: str | None
+    cost_references: int
+    cash_references: int
+    position_references: int
+
+
+class LiveStatusResponse(BaseModel):
+    release: LiveRelease = Field(default_factory=live_release)
+    schema_: Literal["oasis.live-status.v1"] = Field(default="oasis.live-status.v1", alias="schema")
+    execution_eligible: Literal[False] = False
+    source: Literal["local_state_declaration"] = "local_state_declaration"
+    evidence_replayed: Literal[False] = False
+    profitability: Literal["unresolved"] = "unresolved"
+    status: Literal["unconfigured", "missing", "invalid", "halted", "pending", "stale", "observed"]
+    blockers: list[str]
+    state_hash: str | None = None
+    observation_age_seconds: int | None = None
+    observation: LiveObservation | None = None
+    pending: PendingView | None = None
+    position: PositionView | None = None
+    native_gas_units: str | None = None
+    actions_today: int | None = None
+    consecutive_reverts: int | None = None
+    recent_actions: list[ActionView] = []
+
+
+def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate state key")
+        result[key] = value
+    return result
+
+
+def _read(path: Path) -> bytes:
+    # A configured symlink or FIFO must not disclose another file or hang the reader.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as handle:
+        before = os.fstat(handle.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_STATE_BYTES:
+            raise ValueError("bounded regular state file required")
+        payload = handle.read(MAX_STATE_BYTES + 1)
+        after = os.fstat(handle.fileno())
+        if (
+            len(payload) > MAX_STATE_BYTES
+            or before.st_size != after.st_size
+            or before.st_mtime_ns != after.st_mtime_ns
+        ):
+            raise ValueError("state changed during read")
+        return payload
+
+
+def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatusResponse:
+    """Read one atomic local snapshot; missing/corrupt inputs never become zero NAV."""
+    if path is None:
+        return LiveStatusResponse(status="unconfigured", blockers=["live_state_unconfigured"])
+    try:
+        payload = _read(path)
+        state = _State.model_validate(json.loads(payload, object_pairs_hook=_unique))
+    except FileNotFoundError:
+        return LiveStatusResponse(status="missing", blockers=["live_state_missing"])
+    except (OSError, ValueError, TypeError, RecursionError, ValidationError):
+        return LiveStatusResponse(status="invalid", blockers=["live_state_invalid"])
+    clock = int(time.time()) if now is None else now
+    observation = state.last_observation
+    blockers = []
+    age = None
+    if observation is None:
+        blockers.append("observation_missing")
+    else:
+        age = clock - observation.observed_at
+        block_age = clock - observation.block_timestamp
+        if age < 0 or block_age < 0 or observation.block_timestamp > observation.observed_at:
+            blockers.append("observation_clock_invalid")
+        elif max(age, block_age) > MAX_OBSERVATION_AGE:
+            blockers.append("observation_stale")
+        if (
+            observation.daily_loss_usd >= observation.daily_loss_limit_usd
+            or observation.cumulative_loss_usd >= observation.cumulative_loss_limit_usd
+        ):
+            blockers.append("recorded_loss_budget_exhausted")
+    if state.halted:
+        blockers.append("state_halted")
+    if state.pending:
+        blockers.append("pending_requires_reconciliation")
+    if state.legacy_gas_cost_incomplete or (
+        state.legacy_gas_cost_incomplete is None and state.gas_spent_wei > 0
+    ):
+        blockers.append("historical_native_cost_incomplete")
+    actions = [
+        ActionView(
+            action=item.event,  # type: ignore[arg-type]  # narrowed by the explicit allowlist below
+            transaction_hash=item.tx,
+            native_gas_units=str(item.native_gas_units)
+            if item.native_gas_units is not None
+            else None,
+            cost_references=len(item.cost_evidence),
+            cash_references=len(item.cash_evidence),
+            position_references=len(item.position_evidence),
+        )
+        for item in reversed(state.history)
+        if item.event in {"approve_usdc", "approve_permit2", "swap", "mint", "burn", "reverted"}
+    ][:20]
+    status: Literal["halted", "pending", "stale", "observed"] = (
+        "halted"
+        if state.halted
+        else "pending"
+        if state.pending
+        else "stale"
+        if blockers
+        else "observed"
+    )
+    return LiveStatusResponse(
+        status=status,
+        blockers=blockers,
+        state_hash=sha256_hex(payload),
+        observation_age_seconds=age,
+        observation=observation,
+        pending=state.pending,
+        position=state.position,
+        native_gas_units=str(state.gas_spent_wei),
+        actions_today=state.actions_today,
+        consecutive_reverts=state.consecutive_reverts,
+        recent_actions=actions,
+    )

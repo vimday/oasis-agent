@@ -138,27 +138,32 @@ def _capture(
     return TransactionCostCapture(header, transaction_hash, source, recorder.exchanges)
 
 
-def observe_receipt(
-    store: EvidenceStore,
-    entry: ChainInventory,
+def collect_receipt_cost_quorum(
     *,
+    chain_id: int,
     transaction_hash: str,
+    sources: tuple[str, str],
     sessions: SessionFactory,
-) -> ReceiptObservation:
-    """Reconstruct one broadcast transaction's native cost from two providers.
+) -> tuple[TransactionCostCapture, TransactionCostCapture]:
+    """Acquire agreeing raw cost proofs without retaining or resolving a transaction.
 
     The provider that locates the block is not privileged: its answer only pins the
     height and hash, and the second provider's capture fails closed when it does not see
     the same block. Only exact agreement on every cost component becomes a declaration,
-    and nothing is retained until every check has passed.
+    and the caller binds the payer and application scope before retaining anything.
     """
     digest = normalize_hash32(transaction_hash)
-    header = _probe_header(
-        sessions(entry.primary_source), chain_id=entry.chain_id, transaction_hash=digest
-    )
-    first = sessions(entry.primary_source)
-    second = sessions(entry.secondary_source)
+    if len(sources) != 2 or sources[0] == sources[1]:
+        raise ValueError("two distinct receipt provider sources required")
+    probe = sessions(sources[0])
+    if probe[2] != sources[0] or probe[1].exchanges:
+        raise ValueError("receipt lookup source mismatch or reused session")
+    header = _probe_header(probe, chain_id=chain_id, transaction_hash=digest)
+    first = sessions(sources[0])
+    second = sessions(sources[1])
     validate_session_pair(first, second)
+    if (first[2], second[2]) != sources:
+        raise ValueError("receipt capture sources differ from declared providers")
     captures = (_capture(first, header, digest), _capture(second, header, digest))
     costs = (captures[0].reconstruct(), captures[1].reconstruct())
     if costs[0] != costs[1]:
@@ -166,7 +171,25 @@ def observe_receipt(
             name for name in _COST_FIELDS if getattr(costs[0], name) != getattr(costs[1], name)
         ]
         raise ValueError("providers disagree on the receipt cost: " + ", ".join(differing))
-    cost: TransactionCost = costs[0]
+    return captures
+
+
+def observe_receipt(
+    store: EvidenceStore,
+    entry: ChainInventory,
+    *,
+    transaction_hash: str,
+    sessions: SessionFactory,
+) -> ReceiptObservation:
+    """Retain agreed whole native cost bound to the manifest's payer and providers."""
+    captures = collect_receipt_cost_quorum(
+        chain_id=entry.chain_id,
+        transaction_hash=transaction_hash,
+        sources=(entry.primary_source, entry.secondary_source),
+        sessions=sessions,
+    )
+    cost: TransactionCost = captures[0].reconstruct()
+    header = captures[0].header
     if cost.payer != entry.account:
         raise ValueError("receipt payer is not the reconciled account")
     if entry.native.decimals != cost.native_decimals:
@@ -174,7 +197,7 @@ def observe_receipt(
     return ReceiptObservation(
         entry.key,
         entry.chain_id,
-        digest,
+        cost.transaction_hash,
         cost.payer,
         cost.status,
         header.ref.number,
@@ -214,6 +237,7 @@ def gas_declarations(
 
 __all__ = [
     "ReceiptObservation",
+    "collect_receipt_cost_quorum",
     "gas_declarations",
     "observe_receipt",
 ]

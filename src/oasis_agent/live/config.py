@@ -1,14 +1,27 @@
 """Typed, closed configuration for the live LP loop."""
 
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 from ..models.common import normalize_address, normalize_hash32
+from ..models.v4 import PoolKey as CanonicalPoolKey
+from ..uniswap_v4.pool_id import pool_id_from_key
 from .v4lp import PoolKey
 
 Mode = Literal["shadow", "live"]
+BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+
+
+def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate live configuration key")
+        result[key] = value
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,8 +57,16 @@ class LiveConfig:
 
     @staticmethod
     def load(path: Path) -> "LiveConfig":
-        raw: dict[str, Any] = json.loads(path.read_text())
+        raw: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=_unique)
         pool = raw.pop("pool")
+        if not isinstance(pool, dict) or set(pool) != {
+            "currency0",
+            "currency1",
+            "fee",
+            "tick_spacing",
+            "hooks",
+        }:
+            raise ValueError("pool fields mismatch")
         fields = set(LiveConfig.__dataclass_fields__) - {"pool"}
         if set(raw) != fields:
             missing, extra = fields - set(raw), set(raw) - fields
@@ -54,8 +75,8 @@ class LiveConfig:
             pool=PoolKey(
                 normalize_address(pool["currency0"]),
                 normalize_address(pool["currency1"]),
-                int(pool["fee"]),
-                int(pool["tick_spacing"]),
+                pool["fee"],
+                pool["tick_spacing"],
                 normalize_address(pool["hooks"]),
             ),
             **raw,
@@ -106,6 +127,12 @@ class LiveConfig:
         )
         if self.chain_id != 8453:
             raise ValueError("live loop is pinned to Base (8453)")
+        if (self.decimals0, self.decimals1) != (18, 6) or self.pool.currency1 != BASE_USDC:
+            raise ValueError("live adapter requires Base native ETH and USDC with 18/6 decimals")
+        if pool_id_from_key(CanonicalPoolKey(*self.pool.tuple())) != self.pool_id:
+            raise ValueError("pool id differs from the encoded pool key")
+        if self.max_daily_loss_usd > 200 or self.max_cumulative_loss_usd > 500:
+            raise ValueError("owner loss caps are USD 200 daily and USD 500 cumulative")
         if not 0 < self.max_daily_loss_usd <= self.max_cumulative_loss_usd:
             raise ValueError("daily loss cap must be positive and within the cumulative cap")
         if not 0 < self.max_capital_usd <= 500:
@@ -116,3 +143,28 @@ class LiveConfig:
             raise ValueError("swap slippage must be 1..200 bps")
         if self.priority_fee_wei > self.max_fee_per_gas_wei:
             raise ValueError("priority fee exceeds max fee")
+
+        # These bounds are the existing trial-1 authorization, not new operator defaults.
+        bounded = {
+            "approval_usdc": (1, 700_000_000),
+            "approval_days": (1, 30),
+            "max_actions_per_day": (1, 12),
+            "max_oracle_deviation_bps": (1, 40),
+            "oracle_max_age_seconds": (1, 1800),
+            "max_fee_per_gas_wei": (1, 1_000_000_000),
+            "priority_fee_wei": (0, 1_000_000),
+            "poll_seconds": (1, 3600),
+        }
+        for name, (lower, upper) in bounded.items():
+            if not lower <= getattr(self, name) <= upper:
+                raise ValueError(f"{name} is outside the bounded canary policy")
+        if self.swap_slippage_bps > 50 or self.recenter_cooldown_seconds < 600:
+            raise ValueError("slippage/cooldown exceeds trial-1 authority")
+        if self.gas_reserve_wei < 4_000_000_000_000_000:
+            raise ValueError("gas reserve is below trial-1 minimum")
+        if self.half_width_ticks != 490 or (self.pool.fee, self.pool.tick_spacing) != (500, 10):
+            raise ValueError("range/pool differs from trial-1 strategy")
+        if not isinstance(self.secondary_rpc_env, str) or not re.fullmatch(
+            r"[A-Z][A-Z0-9_]{0,127}", self.secondary_rpc_env
+        ):
+            raise ValueError("secondary RPC must name an environment variable")

@@ -175,7 +175,10 @@ def lp_source(tmp_path):
         "max_age_seconds": 120,
         "min_benefit": "0",
         "canary_limits": None,
-        "strategy": serializable(band_strategy()),
+        # This fixture tests subprocess lifecycle and snapshot isolation, not
+        # quote expiry. Leave room for the real interpreter to start under load;
+        # the default five-second quote can expire before the worker reads it.
+        "strategy": serializable(replace(band_strategy(), quote_validity_seconds=30)),
     }
     return ServerCampaignInput("fixture", input_path, tmp_path / "evidence.db"), json.dumps(policy)
 

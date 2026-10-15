@@ -11,6 +11,7 @@ CONSOLE_VIEWS: dict[str, str] = {
     "/api/v1/metrics": "system",
     "/api/v1/health": "system",
     "/api/v1/status": "overview",
+    "/api/v1/live/status": "execution",
     "/api/v1/observations": "observations",
     "/api/v1/decisions": "decisions",
     "/api/v1/decisions/{seq}": "decisions",
