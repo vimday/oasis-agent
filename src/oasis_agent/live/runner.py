@@ -363,7 +363,15 @@ class LiveLoop:
             return self._resolve_pending()
         self._check_settlements()
         self._check_nav_checkpoint()
-        m = self.observe()
+        try:
+            m = self.observe()
+        except ChainError:
+            if self.mode == "live":
+                self.state.halted = (
+                    "live observation refused; operator review required before polling"
+                )
+                self.state.record("observation_halted", reason=self.state.halted)
+            raise
         nav = self.nav_usd(m)
         flow = 0.0
         flow_micros = 0
@@ -686,14 +694,29 @@ class LiveLoop:
         if reader is None:
             raise ChainError("pre-sign wallet evidence unavailable")
         try:
-            wallet = capture_wallet(
-                reader.store,
-                self.c,
-                BlockRef(self.c.chain_id, m.block, m.block_hash, m.timestamp),
-                sources=reader.sources,
-                sessions=reader.sessions,
-            )
+            if m.nav_evidence:
+                captures = tuple(replay_nav(reader.store, ref, self.c) for ref in m.nav_evidence)
+                wallet = tuple(c.wallet for c in captures)
+                if (
+                    len(wallet) != 2
+                    or tuple(ref.source for ref in wallet) != reader.sources
+                    or any(
+                        ref.block != BlockRef(self.c.chain_id, m.block, m.block_hash, m.timestamp)
+                        for ref in wallet
+                    )
+                ):
+                    raise ValueError("decision wallet proof scope differs")
+            else:
+                wallet = capture_wallet(
+                    reader.store,
+                    self.c,
+                    BlockRef(self.c.chain_id, m.block, m.block_hash, m.timestamp),
+                    sources=reader.sources,
+                    sessions=reader.sessions,
+                )
             before = replay_wallet(reader.store, wallet[0]).reconstruct()
+            if before != replay_wallet(reader.store, wallet[1]).reconstruct():
+                raise ValueError("decision wallet quorum differs")
             if (before.native, before.token) != (m.eth, m.usdc):
                 raise ValueError("wallet differs from decision snapshot")
         except Exception:  # noqa: BLE001 - raw capture failures may contain credentials

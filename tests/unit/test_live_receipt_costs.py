@@ -450,7 +450,7 @@ def test_live_cli_wires_raw_cost_producer_without_signing(
     build = sessions({"live_primary": fixture, "live_secondary": replace(fixture)})
     monkeypatch.setattr(live_cli, "one_shot_session", lambda source, **_: build(source))
     monkeypatch.setattr(live_cli, "rpc_url", lambda name: f"https://{name}.invalid")
-    monkeypatch.setattr(live_cli, "Rpc", lambda _: ScriptedRpc(receipt=fixture._receipt()))
+    monkeypatch.setattr(live_cli, "BudgetedRpc", lambda *_: ScriptedRpc(receipt=fixture._receipt()))
     monkeypatch.setattr(live_cli, "TransactionSocketClient", lambda *_: NeverSign())
     monkeypatch.setattr(live_cli.time, "sleep", lambda _: None)
     monkeypatch.setattr(

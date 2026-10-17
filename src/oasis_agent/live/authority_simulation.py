@@ -14,6 +14,7 @@ from ..evidence.exact_capture import (
 )
 from ..evidence.rpc_validation import rpc_quantity
 from ..models.common import BlockRef, canonical_json, sha256_hex
+from .acquisition import acquire_pair
 from .chain import calldata
 from .config import LiveConfig
 from .receipts import RetainedReceiptCostReader
@@ -72,10 +73,9 @@ def simulate(
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != reader.sources:
         raise ValueError("simulation provider aliases changed")
+    acquire_pair(pair, calls)
     results = []
     for session in pair:
-        for method, params in calls:
-            session[0].request(method, params)
         values = successful_results(session[1].exchanges, calls)
         if (
             rpc_quantity(values[0]) != c.chain_id

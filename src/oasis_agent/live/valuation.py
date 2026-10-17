@@ -30,6 +30,7 @@ from ..models.common import (
 )
 from ..rpc.transport import RpcExchange
 from ..uniswap_v4.liquidity_math import MAX_TICK, sqrt_price_at_tick
+from .acquisition import acquire_pair
 from .config import LiveConfig
 from .positions import _call, collect_position_outcome, replay_position_outcome
 from .state import Position
@@ -292,10 +293,9 @@ def capture_nav(
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != sources:
         raise NavRefusal("NAV source aliases changed")
+    acquire_pair(pair, requests(c, block, position))
     captures = []
     for i, session in enumerate(pair):
-        for method, params in requests(c, block, position):
-            session[0].request(method, params)
         captures.append(
             NavCapture(
                 wallets[i], position, positions[i] if positions else None, session[1].exchanges

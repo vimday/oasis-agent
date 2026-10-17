@@ -1,0 +1,49 @@
+name: oasis-live
+x-common: &common
+  image: oasis-live:local
+  build:
+    context: ../..
+    dockerfile: deploy/live/Dockerfile
+    target: runtime
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 512m
+  restart: "no"
+  tmpfs: [/tmp:rw,noexec,nosuid,size=16m,mode=1777]
+  environment:
+    BASE_RPC_PRIMARY_ALT: ${BASE_RPC_PRIMARY_ALT:?Set primary RPC in operator environment}
+    BASE_RPC_PRIMARY: ${BASE_RPC_PRIMARY:?Set independent secondary RPC in operator environment}
+services:
+  initialize:
+    <<: *common
+    profiles: [setup]
+    user: "0:0"
+    network_mode: none
+    environment: {}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    volumes: [authority-state:/authority-state, strategy-state:/strategy-state, authority-socket:/socket]
+    command: [python, -c, "import os; [(os.chown(p,10001,10001),os.chmod(p,0o700)) for p in ('/authority-state','/strategy-state','/socket')]"]
+  authority:
+    <<: *common
+    volumes:
+      - authority-state:/state
+      - authority-socket:/run/oasis
+      - canary-keys:/secrets:ro
+    command: [python, -m, scripts.run_live_authority, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --socket, /run/oasis/authority.sock, --key-file, /secrets/canary.key, --max-signatures, "12", --ttl-seconds, "3600"]
+  strategy:
+    <<: *common
+    volumes:
+      - strategy-state:/state
+      - authority-socket:/run/oasis
+    command: [python, -m, scripts.run_live_lp, --mode, live, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --signer-socket, /run/oasis/authority.sock]
+volumes:
+  authority-state: {}
+  strategy-state: {}
+  authority-socket: {}
+  canary-keys:
+    external: true
+    name: oasis-canary-keys

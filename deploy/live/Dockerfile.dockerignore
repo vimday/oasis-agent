@@ -1,0 +1,15 @@
+**
+!requirements.lock
+!requirements-dev.lock
+!pyproject.toml
+!src/
+!src/**
+!scripts/
+!scripts/**
+!configs/
+!configs/live.base-eth-usdc.json
+!configs/live.rpc.canary.json
+!tests/
+!tests/**
+**/__pycache__
+**/*.pyc

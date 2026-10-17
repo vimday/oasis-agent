@@ -21,8 +21,9 @@ from oasis_agent.execution.lp_signer_daemon import (
 )
 from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections
-from oasis_agent.live.chain import Rpc
+from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.reporting.live_release import require_live_release
@@ -43,6 +44,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--socket", type=Path, required=True)
+    parser.add_argument("--rpc-profile", type=Path)
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--key-env")
     parser.add_argument("--primary-rpc-env", default="BASE_RPC_PRIMARY_ALT")
@@ -52,6 +54,7 @@ def main() -> None:
     # No CLI switch bypasses unfinished release controls; refusal precedes key loading.
     require_live_release()
     config = LiveConfig.load(args.config)
+    profile = LiveRpcProfile.load(args.rpc_profile)
     directory = args.state_dir
     if (
         directory != directory.resolve()
@@ -66,12 +69,20 @@ def main() -> None:
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
         with closing(EvidenceStore(directory / "evidence.db")) as evidence:
             loop = LiveLoop.recovery(
-                config, Rpc(primary), StateStore(directory / "state.json"), "live"
+                config,
+                BudgetedRpc(primary, directory, "live_primary", profile),
+                StateStore(directory / "state.json"),
+                "live",
             )
-            loop.secondary = Rpc(secondary)
+            loop.secondary = BudgetedRpc(secondary, directory, "live_secondary", profile)
             loop.stop_file = directory / "STOP"
             loop.receipt_costs = receipt_cost_reader(
-                config, evidence, directory, primary, secondary
+                config,
+                evidence,
+                directory,
+                primary,
+                secondary,
+                profile=profile,
             )
             key = load_private_key(key_file=args.key_file, key_env=args.key_env, environ=os.environ)
             provider = _KeyProvider(address_of(key), key)

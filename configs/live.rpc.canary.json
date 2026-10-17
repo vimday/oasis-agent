@@ -1,0 +1,4 @@
+{
+  "max_requests": 4096,
+  "min_interval_ms": 250
+}

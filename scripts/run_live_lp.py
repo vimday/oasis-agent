@@ -25,16 +25,18 @@ from tempfile import TemporaryDirectory
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.execution.account_capture import one_shot_session
 from oasis_agent.live.authority_socket import TransactionSocketClient
+from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.recovery import adopt_authority_pending
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release
-from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
+from oasis_agent.rpc.budget import RpcBudget
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,13 +47,15 @@ def receipt_cost_reader(
     state_dir: Path,
     primary_url: str,
     secondary_url: str,
+    *,
+    profile: LiveRpcProfile | None = None,
 ) -> RetainedReceiptCostReader:
     """Share live endpoints with bounded, raw-recording cost acquisition sessions."""
     if primary_url.rstrip("/") == secondary_url.rstrip("/"):
         raise ValueError("independent receipt providers require distinct endpoints")
     sources = ("live_primary", "live_secondary")
     urls = dict(zip(sources, (primary_url, secondary_url), strict=True))
-    policies = tuple(BudgetPolicy(source, 4096, 3000) for source in sources)
+    policies = (profile or LiveRpcProfile()).policies(sources)
     budget = state_dir / "live.receipt-budget.db"
     # Validate the durable cap before a loop can sign. Restarts never reset it.
     with RpcBudget(budget, policies):
@@ -85,6 +89,9 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, default=ROOT / "data/live")
     parser.add_argument("--rpc-env", default="BASE_RPC_PRIMARY_ALT")
     parser.add_argument("--signer-socket", type=Path)
+    parser.add_argument(
+        "--rpc-profile", type=Path, help="explicit RPC pacing; existing budgets stay frozen"
+    )
     parser.add_argument("--hours", type=float, help="stop after this many hours")
     parser.add_argument("--ticks", type=int, help="stop after this many ticks")
     parser.add_argument("--clear-halt", action="store_true")
@@ -146,6 +153,7 @@ def main() -> None:
         raise SystemExit(3)
 
     config = LiveConfig.load(args.config)
+    profile = LiveRpcProfile.load(args.rpc_profile)
     if args.check:
         if args.mode != "live" or any(
             (
@@ -167,13 +175,18 @@ def main() -> None:
                 directory = Path(temp)
                 with closing(EvidenceStore(directory / "evidence.db")) as evidence:
                     reader = receipt_cost_reader(
-                        config, evidence, directory, primary_url, secondary_url
+                        config,
+                        evidence,
+                        directory,
+                        primary_url,
+                        secondary_url,
+                        profile=profile,
                     )
                     report = check_live(
                         config,
                         StateStore(args.state_dir / "live.state.json"),
-                        Rpc(primary_url),
-                        Rpc(secondary_url),
+                        BudgetedRpc(primary_url, directory, "live_primary", profile),
+                        BudgetedRpc(secondary_url, directory, "live_secondary", profile),
                         stop_file=args.state_dir / "STOP",
                         receipt_costs=reader,
                     )
@@ -206,10 +219,20 @@ def main() -> None:
     if args.reconcile_only:
         with closing(EvidenceStore(args.state_dir / "live.receipts.db")) as evidence:
             primary_url, secondary_url = rpc_url(args.rpc_env), rpc_url(config.secondary_rpc_env)
-            loop = LiveLoop.recovery(config, Rpc(primary_url), store, "live")
-            loop.secondary = Rpc(secondary_url)
+            loop = LiveLoop.recovery(
+                config,
+                BudgetedRpc(primary_url, args.state_dir, "live_primary", profile),
+                store,
+                "live",
+            )
+            loop.secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
             loop.receipt_costs = receipt_cost_reader(
-                config, evidence, args.state_dir, primary_url, secondary_url
+                config,
+                evidence,
+                args.state_dir,
+                primary_url,
+                secondary_url,
+                profile=profile,
             )
             try:
                 if loop.state.signing_attempt is not None:
@@ -230,7 +253,12 @@ def main() -> None:
                 raise SystemExit(3)
         return
     if args.drop_pending:
-        loop = LiveLoop.recovery(config, Rpc(rpc_url(args.rpc_env)), store, args.mode)
+        rpc = (
+            BudgetedRpc(rpc_url(args.rpc_env), args.state_dir, "live_primary", profile)
+            if args.mode == "live"
+            else Rpc(rpc_url(args.rpc_env))
+        )
+        loop = LiveLoop.recovery(config, rpc, store, args.mode)
         print(loop.drop_pending())
         store.save(loop.state)
         return
@@ -286,6 +314,7 @@ def main() -> None:
 
     with ExitStack() as resources:
         primary_url = rpc_url(args.rpc_env)
+        primary: Rpc = Rpc(primary_url)
         secondary = None
         costs = None
         if args.mode == "live":
@@ -293,12 +322,18 @@ def main() -> None:
             evidence = EvidenceStore(args.state_dir / "live.receipts.db")
             resources.callback(evidence.close)
             costs = receipt_cost_reader(
-                config, evidence, args.state_dir, primary_url, secondary_url
+                config,
+                evidence,
+                args.state_dir,
+                primary_url,
+                secondary_url,
+                profile=profile,
             )
-            secondary = Rpc(secondary_url)
+            primary = BudgetedRpc(primary_url, args.state_dir, "live_primary", profile)
+            secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
         loop = LiveLoop(
             config,
-            Rpc(primary_url),
+            primary,
             store,
             mode=args.mode,
             signer=signer,

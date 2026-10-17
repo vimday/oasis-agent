@@ -179,6 +179,7 @@ class BudgetedPoster:
         request = json.loads(payload)
         if not isinstance(request, dict) or request.get("method") not in {
             "eth_chainId",
+            "eth_blockNumber",
             "eth_getBlockByNumber",
             "eth_getCode",
             "eth_getBalance",

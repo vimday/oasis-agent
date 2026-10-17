@@ -24,6 +24,7 @@ from ..models.common import (
     normalize_hash32,
 )
 from ..rpc.transport import RpcExchange
+from .acquisition import acquire_pair
 from .config import LiveConfig
 
 USDC_IMPL_SLOT = "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3"
@@ -154,10 +155,9 @@ def capture_wallet(
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != sources:
         raise ValueError("wallet source aliases changed")
+    acquire_pair(pair, wallet_requests(scope, block))
     captures = []
-    for transport, recorder, source in pair:
-        for method, params in wallet_requests(scope, block):
-            transport.request(method, params)
+    for _transport, recorder, source in pair:
         captures.append(WalletCapture(scope, block, source, recorder.exchanges))
     if captures[0].reconstruct() != captures[1].reconstruct():
         raise ValueError("wallet providers disagree")

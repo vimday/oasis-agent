@@ -31,6 +31,7 @@ from ..models.common import (
 from ..models.v4 import PoolKey
 from ..rpc.transport import RpcExchange
 from ..uniswap_v4.pool_id import pool_id_from_key
+from .acquisition import acquire_pair
 from .config import LiveConfig
 
 
@@ -220,10 +221,9 @@ def collect_position_outcome(
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != sources:
         raise ValueError("position outcome provider aliases differ from declared sources")
+    acquire_pair(pair, outcome_requests(scope, block))
     captures = []
-    for transport, recorder, source in pair:
-        for method, params in outcome_requests(scope, block):
-            transport.request(method, params)
+    for _transport, recorder, source in pair:
         capture = PositionOutcomeCapture(scope, block, source, recorder.exchanges)
         capture.validate()
         captures.append(capture)
