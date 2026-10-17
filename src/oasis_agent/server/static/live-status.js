@@ -71,13 +71,13 @@ export function renderLiveStatus(data) {
     renderTable("live-actions", [], [], "记录未验证");
     return;
   }
-  $("live-release").innerHTML = `<strong>新交易启动已阻断 · ${model.release.blockers.length} 项工程缺口</strong><ul>${model.release.blockers.map(item => `<li>${esc(item.title)}：${esc(item.required)}</li>`).join("")}</ul>`;
+  $("live-release").innerHTML = `<strong>新交易启动已阻断 · ${model.release.blockers.length} 项发布验收项</strong><ul>${model.release.blockers.map(item => `<li>${esc(item.title)}：${esc(item.required)}</li>`).join("")}</ul>`;
   $("live-title").textContent = STATES[model.status][0];
   $("live-next").textContent = STATES[model.status][1];
   $("live-blockers").innerHTML = model.blockers.map(code => `<li>${esc(BLOCKERS[code])}</li>`).join("");
   const o = model.observation;
   renderStats("live-stats", [
-    {label: "记录 NAV · 未含完整未收手续费", value: usd(o?.nav_usd), tone: o ? "" : "warn"},
+    {label: o?.valuation_basis === "two_feed_principal_and_fees" ? "记录 NAV · 双喂价、本金与未收手续费" : "历史 NAV · 未含完整未收手续费", value: usd(o?.nav_usd), tone: o ? "" : "warn"},
     {label: "当日检查点累计亏损 / 上限", value: usd(o?.daily_loss_usd) + " / " + usd(o?.daily_loss_limit_usd), tone: "warn"},
     {label: "累计净资本亏损 / 上限", value: usd(o?.cumulative_loss_usd) + " / " + usd(o?.cumulative_loss_limit_usd), tone: "warn"},
     {label: "已记账交易 gas · ETH", value: formatNative(model.native_gas_units)},

@@ -20,16 +20,19 @@ from contextlib import ExitStack, closing
 from dataclasses import asdict
 from functools import partial
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.execution.account_capture import one_shot_session
-from oasis_agent.execution.socket_key_provider import SocketKeyProvider
+from oasis_agent.live.authority_socket import TransactionSocketClient
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.receipts import RetainedReceiptCostReader
+from oasis_agent.live.recovery import adopt_authority_pending
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release
 from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
 
@@ -103,7 +106,9 @@ def main() -> None:
     )
     parser.add_argument("--readiness", action="store_true", help="offline release blockers; no RPC")
     parser.add_argument(
-        "--reconcile-only", action="store_true", help="reconcile pending once, no signer"
+        "--reconcile-only",
+        action="store_true",
+        help="reconcile pending once; optional public authority status only",
     )
     args = parser.parse_args()
     if (args.readiness or args.reconcile_only) and (
@@ -116,7 +121,7 @@ def main() -> None:
                 args.acknowledge_flow,
                 args.report,
                 args.check,
-                args.signer_socket is not None,
+                args.signer_socket is not None and not args.reconcile_only,
                 args.hours is not None,
                 args.ticks is not None,
             )
@@ -158,13 +163,24 @@ def main() -> None:
             primary_url, secondary_url = rpc_url(args.rpc_env), rpc_url(config.secondary_rpc_env)
             if primary_url.rstrip("/") == secondary_url.rstrip("/"):
                 raise ValueError("duplicate provider")
-            report = check_live(
-                config,
-                StateStore(args.state_dir / "live.state.json"),
-                Rpc(primary_url),
-                Rpc(secondary_url),
-                stop_file=args.state_dir / "STOP",
-            )
+            with TemporaryDirectory(prefix="oasis-live-check-") as temp:
+                directory = Path(temp)
+                with closing(EvidenceStore(directory / "evidence.db")) as evidence:
+                    reader = receipt_cost_reader(
+                        config, evidence, directory, primary_url, secondary_url
+                    )
+                    report = check_live(
+                        config,
+                        StateStore(args.state_dir / "live.state.json"),
+                        Rpc(primary_url),
+                        Rpc(secondary_url),
+                        stop_file=args.state_dir / "STOP",
+                        receipt_costs=reader,
+                    )
+                    # The diagnostic is ephemeral; do not advertise discarded refs as retained.
+                    if "observation" in report:
+                        report["observation"]["nav_evidence_ephemeral"] = True
+
         except (Exception, SystemExit):  # noqa: BLE001 - redact endpoint/configuration failures
             report = {
                 "schema": "oasis.live-operational-precheck.v1",
@@ -185,6 +201,8 @@ def main() -> None:
     except BlockingIOError:
         raise SystemExit(f"another {args.mode} loop holds {lock.name}") from None
     store = StateStore(args.state_dir / f"{args.mode}.state.json")
+    if args.mode == "live" and not args.report:
+        store.bind(sha256_hex(canonical_json(asdict(config))))
     if args.reconcile_only:
         with closing(EvidenceStore(args.state_dir / "live.receipts.db")) as evidence:
             primary_url, secondary_url = rpc_url(args.rpc_env), rpc_url(config.secondary_rpc_env)
@@ -194,6 +212,14 @@ def main() -> None:
                 config, evidence, args.state_dir, primary_url, secondary_url
             )
             try:
+                if loop.state.signing_attempt is not None:
+                    if args.signer_socket is None:
+                        raise ValueError("unresolved signing attempt requires authority status")
+                    public = TransactionSocketClient(
+                        args.signer_socket, config.account
+                    ).pending_status()
+                    adopt_authority_pending(loop.state, config, public)
+                    store.save(loop.state)
                 result = loop._resolve_pending() if loop.state.pending else "no pending transaction"
             except Exception:  # noqa: BLE001 - providers can expose credentials
                 print("pending reconciliation unresolved; state preserved")
@@ -247,7 +273,7 @@ def main() -> None:
     if args.mode == "live":
         if args.signer_socket is None:
             raise SystemExit("--signer-socket is required in live mode")
-        signer = SocketKeyProvider(args.signer_socket.expanduser().absolute(), config.account)
+        signer = TransactionSocketClient(args.signer_socket.expanduser().absolute(), config.account)
     elif args.signer_socket is not None:
         raise SystemExit("shadow mode never signs; drop --signer-socket")
     log_path = args.state_dir / f"{args.mode}.log"

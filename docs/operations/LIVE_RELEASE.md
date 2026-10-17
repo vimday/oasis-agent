@@ -1,49 +1,89 @@
-# Direct Base canary release boundary — 2026-10-14
+# Direct Base canary release boundary — 2026-10-17
 
-**Current result: new live transactions are blocked.** Engineering fixes and a
-Git push are not a completed production deployment. `make live-readiness` prints
-the same four concrete blockers displayed by the console and enforced before
-new actions. It does not read a key, connect to RPC, or create trading state.
+**New live transactions remain blocked.** The four missing controls now have
+implementations and executable tests. Production acceptance is incomplete;
+`make live-readiness`, the console, the action path and the authority CLI enforce
+the same closed release gate. A commit or a local fork result cannot open it.
 
-## Existing authority and evidence
+The owner's 2026-10-08 trial-1 exception remains unchanged: dedicated Base account,
+USD 500 committed capital, USD 200 daily checkpoint gross loss (UTC+8), USD 500
+cumulative funded-basis net loss. The waived long OOS window and external audit
+are not reintroduced. No sustained live profitability is claimed.
 
-The owner's 2026-10-08 trial-1 exception remains in force: the dedicated Base
-account, USD 500 committed capital, USD 200 daily checkpoint gross loss and
-USD 500 cumulative funded-basis net loss. The recorded one-day paper window is
-not rescinded or represented as newly observed. The waived long OOS window and
-external audit are not reintroduced as canary prerequisites. The exception did
-not make absent accounting, arbitrary digest signing or float accounting correct.
+## Implemented controls and their evidence
 
-## What must actually be completed
+| Control | Implemented behavior | Validation boundary |
+| --- | --- | --- |
+| Successful owner cash | `live/action_cash.py` replays complete bounded native call trees, refunds, ERC-20/NFT transfers, wallet snapshots and whole receipt costs. Both sources must agree; any residual preserves pending. | Unit cases and seven actual contract actions on a pinned **local** Base fork pass. The fork uses one Anvil node, artificial balances and explicitly synthetic zero OP fee metadata. It does not validate independent production trace providers or production OP costs. |
+| Full transaction authority | `live/authority.py` independently captures NAV, derives the bounded action, re-encodes exact calldata, checks nonces/code/fees/capital/loss, retains two-source simulation and reserves the attempt before key use. The socket accepts full envelopes and public status requests; no digest endpoint or fallback exists. | Malformed, foreign, stale and over-budget proposals are refused before the ephemeral test key. Private Unix-socket integration passes. Deployment confinement and two independent production RPC services remain unvalidated. |
+| Exact account NAV | `live/valuation.py` includes wallet balances, LP principal and accrued core fees, using the pool currencies' separate pinned USD feed rounds. Each leg floors to USD micros. `exact_risk.py` uses integer loss checkpoints; floats are display projections. | Unit coverage includes USDC depeg, modular fee growth, one-micro boundaries and conservative legacy migration. The live read-only check refused the USDC/USD feed under its completeness/freshness checks (1800-second maximum age); no replacement peg or relaxed age limit is used. |
+| Durable recovery | `live/journal.py` commits configuration-bound hash-linked SQLite snapshots before replacing the JSON projection, rejects stale writers and detects inconsistent history. Signing reservations persist across crashes. Settled blocks and receipts are checked again before another action. | Crash/projection interruption, reservation, conflicting writer, missing/truncated journal and reorg tests pass. Lost replies can adopt matching public authority metadata and independently reconcile receipts; recovery never signs or broadcasts. A deployed two-service restart drill remains outstanding. |
 
-| Gap in the direct loop | Required implementation and evidence |
-| --- | --- |
-| Successful swap/mint/burn owner cash | Two-provider retained native-value/internal-call/refund and ERC-20 flows; bind to the actual signed action, complete bounded block interval and position outcome; zero residual before settlement; both swap directions, mint refund and whole burn tested on a pinned local fork. |
-| Independent transaction authority | Decode and authorize the full transaction outside the strategy process; enforce account, target, recipient, calldata, nonce, deadline, code, fee/value/capital/loss limits and fresh simulation. Existing executor sidecar is a different calldata/accounting contract and is not interchangeable with this direct router loop. Keep key material out of agent/server processes. |
-| Exact account valuation | Replace binary-float risk/PnL arithmetic with explicit integer/Decimal rounding; include uncollected fees, identify oracle assumptions and native transaction costs; reconcile external flows without erasing losses. Preserve the owner's distinct daily gross and cumulative net conventions. |
-| Durable execution and recovery | Append-only configuration-bound journal; recover signatures/nonce reservations across crashes; detect post-settlement reorgs and block subsequent actions on inconsistent history. A three-block receipt depth and atomic JSON snapshot alone do not implement this. |
+The canonical action encoder is shared for byte equality; the authority owns its
+configuration, risk history and raw acquisition. Sharing implementation does not
+make the two processes independent software implementations.
 
-These are code/integration work, not missing confirmation clicks. They cannot be
-closed by setting a JSON `approved` field, changing a loss cap, checking a box,
-contacting a digest socket or publishing a commit. A fresh two-provider operational
-check and an exact-version local-fork lifecycle remain necessary after integration;
-synthetic tests do not prove live operation or economic return. Funded execution
-must use the separately provisioned canary account and operator-controlled signer.
+## Local fork reproduction
 
-## Fixed in this review
+```sh
+.venv/bin/python -m scripts.verify_live_action_fork \
+  --fork-url "$BASE_ARCHIVE_RPC_URL" \
+  --block 52598014 \
+  --block-hash 0x37e02a6d9d38ca39ebdbf475a9ed154212e55cb8f525faeb96bace6426cdf0fe \
+  --out reports/review-20261017/local-action-fork.json
+```
 
-- The CLI and internal action path refuse new live execution before signing. The
-  offline report and console make these implementation gaps visible.
-- Successful cost/position proofs alone no longer clear pending or reset the
-  wallet baseline. Existing approval/revert cash reconciliation remains usable.
-- `make live-reconcile` runs recovery without creating a signer or proceeding to
-  another action. A missing receipt/unused nonce cannot discard live pending.
-- Configuration rejects duplicate/extra pool keys, numeric coercion, inconsistent
-  PoolId, wrong token units and widening the existing trial's risk parameters.
-- State read/write rejects non-finite financial inputs, negative/ambiguous counters,
-  malformed wallet checkpoints, duplicate keys, oversized/nonregular reads and
-  symlinks. Unique owner-only temporary files replace the predictable `.tmp` path.
+The harness verifies the upstream block, starts loopback Anvil and verifies its
+client identity before creating an ephemeral account. Funding and broadcasting
+are restricted to that local node. The completed run covered USDC approval, both
+Permit2 approvals, ETH→USDC, USDC→ETH, mint with refund and whole-position burn.
+Original Anvil RPC responses are retained separately from the explicitly marked
+zero-OP-fee fixture. Report, raw evidence and budgets are local artifacts under
+`reports/review-20261017/`, not a production acceptance certificate.
 
-The prior receipt cost, signed-intent binding, two-provider position/wallet proofs,
-approval/revert reconciliation and observation console changes are included in
-this engineering delivery. None of these changes prove profitable live trading.
+## Operator recovery and deployment boundary
+
+`make live-check` performs read-only two-provider observation without loading a
+key or writing trading state. Its temporary NAV evidence is deleted afterwards;
+it is an operational diagnostic, not retained release evidence.
+
+`make live-reconcile` reconciles existing pending transactions only. For a lost
+reply after the authority committed a signed transaction, use:
+
+```sh
+.venv/bin/python scripts/run_live_lp.py --mode live --reconcile-only \
+  --signer-socket /absolute/private/authority.sock
+```
+
+This optional connection requests **public status only**. Account, transaction
+identity, calldata hash, original intent, fee limits and original wallet-proof
+block must match the strategy's durable reservation. An unknown key-provider
+outcome without a committed transaction hash stays blocked. A transaction that
+was signed but never broadcast is also retained as unresolved; this command does
+not retransmit it or release its nonce. Unrelated halt reasons are preserved.
+
+The operator authority entry point is `python -m scripts.run_live_authority`.
+It requires its own private state/evidence directory, STOP file, separate key
+source, bounded lifetime and signature count. Its release check precedes key
+loading. The supplied socket permissions require the same UID; they provide
+process separation, **not** protection from another unrestricted process with
+that UID. Separate filesystem namespaces/container mounts must prevent strategy
+and server access to the authority key and journal before deployment. That
+confinement has not been provisioned or tested here.
+
+The existing acquisition budget is 4096 requests per provider with a 3000 ms
+interval, persisted across restarts. Serial captures plus independent simulation
+may exceed the 120-second decision freshness bound. Production RPC capacity,
+trace support and capture latency must be measured and addressed before release;
+restarting must not reset the budget or make stale evidence acceptable.
+
+Base admission includes observed L1 upper-bound and operator fees alongside the
+EIP-1559 gas ceiling. The L1 estimate follows the
+[Optimism Fjord predeploy specification](https://specs.optimism.io/protocol/fjord/predeploys.html).
+It is a bound observed at the pinned block, not a cap on future L1 fee movement.
+Receipt accounting still requires actual complete chain-specific costs.
+
+Legacy monetary baselines migrate conservatively by ceiling to micros and carry
+a migration marker. This preserves declared losses, but does not turn historical
+float declarations into independently verified on-chain accounting. Real retained
+account history and complete position valuation still require operational acceptance.

@@ -182,11 +182,26 @@ class BudgetedPoster:
             "eth_getBlockByNumber",
             "eth_getCode",
             "eth_getBalance",
+            "eth_getTransactionCount",
+            "eth_getStorageAt",
+            "debug_traceTransaction",
             "eth_getLogs",
             "eth_getTransactionReceipt",
             "eth_call",
+            "eth_estimateGas",
         }:
             raise ValueError("budgeted observation method not allowed")
+        if request["method"] == "debug_traceTransaction":
+            params = request.get("params")
+            if (
+                not isinstance(params, list)
+                or len(params) != 2
+                or not isinstance(params[0], str)
+                or re.fullmatch(r"0x[0-9a-f]{64}", params[0]) is None
+                or params[1]
+                != {"tracer": "callTracer", "timeout": "5s", "tracerConfig": {"onlyTopCall": False}}
+            ):
+                raise ValueError("only bounded complete callTracer observation is allowed")
         while True:
             with RpcBudget(self.path, self.policies) as budget:
                 wait = budget.reserve(self.source, now_ms=self.clock())

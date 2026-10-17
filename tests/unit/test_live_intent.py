@@ -132,7 +132,8 @@ def test_observation_requires_fresh_head_and_matching_closing_headers(
     if fault == "timestamp":
         closing["timestamp"] = hex(timestamp - 1)
     loop = loop_with(tmp_path, Rpc(header))
-    loop.mode = "live"
+    # Basic shadow observations retain the existing header/freshness checks;
+    # retained live NAV is exercised with raw captures in test_live_valuation.
     loop.secondary = Rpc(closing)
     monkeypatch.setattr(runner.time, "time", lambda: now)
     monkeypatch.setattr(

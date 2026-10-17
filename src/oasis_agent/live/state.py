@@ -27,7 +27,9 @@ from pathlib import Path
 from typing import Any
 
 from ..models.common import EvidenceRef, evidence_ref_from_json
+from .exact_risk import ExactRisk, legacy_ceiling
 from .intent import SubmittedTransaction
+from .journal import LiveJournal
 
 DAY_ZONE = timezone(timedelta(hours=8))
 CHECKPOINT_SECONDS = 3600
@@ -88,6 +90,29 @@ class LoopState:
     paper_eth: int = 0
     paper_usdc: int = 0
     history: list[dict[str, Any]] = field(default_factory=list)
+    nav_evidence: tuple[EvidenceRef, ...] = ()
+    journal_required: bool = False
+    exact_risk: ExactRisk | None = None
+    signing_attempt: dict[str, Any] | None = None
+    settled_blocks: list[dict[str, Any]] = field(default_factory=list)
+
+    def integer_risk(self) -> ExactRisk:
+        if self.exact_risk is None:
+            self.exact_risk = ExactRisk()
+            if self.initial_nav_usd is not None:
+                if self.checkpoint_nav_usd is None:
+                    raise ValueError("legacy risk baseline incomplete")
+                self.exact_risk = ExactRisk(
+                    basis=legacy_ceiling(self.initial_nav_usd),
+                    external=legacy_ceiling(self.external_flow_usd),
+                    checkpoint=legacy_ceiling(self.checkpoint_nav_usd),
+                    checkpoint_at=self.checkpoint_at,
+                    day=self.day,
+                    daily_locked=legacy_ceiling(self.daily_loss_usd),
+                    migrated_legacy=True,
+                )
+        self.exact_risk.validate()
+        return self.exact_risk
 
     def record(self, event: str, **data: Any) -> None:
         self.history.append({"event": event, **data})
@@ -133,6 +158,27 @@ def _unique_state(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def validate_state(state: LoopState) -> None:
     """Reject corrupt risk inputs instead of allowing NaN to bypass loss comparisons."""
+    if not isinstance(state.settled_blocks, list) or len(state.settled_blocks) > 10_000:
+        raise ValueError("settlement anchor budget exceeded")
+    for anchor in state.settled_blocks:
+        if (
+            not isinstance(anchor, dict)
+            or set(anchor) != {"number", "hash", "transaction_hash"}
+            or type(anchor["number"]) is not int
+            or anchor["number"] < 0
+            or any(
+                not isinstance(anchor[k], str)
+                or len(anchor[k]) != 66
+                or not anchor[k].startswith("0x")
+                or any(c not in "0123456789abcdef" for c in anchor[k][2:])
+                for k in ("hash", "transaction_hash")
+            )
+        ):
+            raise ValueError("invalid settlement anchor")
+    if state.signing_attempt is not None and not isinstance(state.signing_attempt, dict):
+        raise ValueError("invalid signing reservation")
+    if state.exact_risk is not None:
+        state.exact_risk.validate()
     if state.mode not in {"live", "shadow"}:
         raise ValueError("invalid loop mode")
     for name in ("initial_nav_usd", "checkpoint_nav_usd", "last_nav_usd", "daily_loss_usd"):
@@ -159,7 +205,8 @@ def validate_state(state: LoopState) -> None:
         if type(value) is not int or not 0 <= value < 2**256:
             raise ValueError("invalid state counter")
     if (
-        type(state.acknowledge_flow) is not bool
+        type(state.journal_required) is not bool
+        or type(state.acknowledge_flow) is not bool
         or type(state.legacy_gas_cost_incomplete) is not bool
     ):
         raise ValueError("invalid state flag")
@@ -176,19 +223,52 @@ def validate_state(state: LoopState) -> None:
 class StateStore:
     def __init__(self, path: Path) -> None:
         self.path = path
+        self.journal: LiveJournal | None = None
+
+    @property
+    def journal_path(self) -> Path:
+        return self.path.with_suffix(self.path.suffix + ".journal.sqlite")
+
+    def bind(self, config_hash: str) -> None:
+        # Validate any pre-existing journal before allowing writes under this policy.
+        original = self.load("live")
+        self.journal = LiveJournal(self.journal_path, config_hash)
+        latest = self.journal.load()
+        if latest is None:
+            self.journal.append(asdict(original))
+            original.journal_required = True
+            self.save(original)
 
     def load(self, mode: str) -> LoopState:
+        projection: bytes | None = None
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         except FileNotFoundError:
-            return LoopState(mode=mode)
-        with os.fdopen(fd, "rb") as handle:
-            info = os.fstat(handle.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_size > 2_000_000:
-                raise ValueError("bounded regular state file required")
-            payload = handle.read(2_000_001)
-        if len(payload) > 2_000_000:
-            raise ValueError("state exceeds byte bound")
+            pass
+        else:
+            with os.fdopen(fd, "rb") as handle:
+                info = os.fstat(handle.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_size > 2_000_000:
+                    raise ValueError("bounded regular state file required")
+                projection = handle.read(2_000_001)
+            if len(projection) > 2_000_000:
+                raise ValueError("state exceeds byte bound")
+            # Validate duplicate/non-finite values before canonicalization in the journal.
+            self._decode(projection, mode)
+        if mode == "live" and self.journal_path.exists():
+            if self.journal is None:
+                self.journal = LiveJournal(self.journal_path)
+            payload = self.journal.load(projection)
+            if payload is None:
+                raise ValueError("live journal is empty")
+            return self._decode(payload, mode)
+        state = LoopState(mode=mode) if projection is None else self._decode(projection, mode)
+        if state.journal_required:
+            raise ValueError("required execution journal missing")
+        return state
+
+    @staticmethod
+    def _decode(payload: bytes, mode: str) -> LoopState:
         raw = json.loads(payload, object_pairs_hook=_unique_state)
         if raw.get("mode") != mode:
             raise ValueError(f"state file belongs to mode {raw.get('mode')!r}, not {mode!r}")
@@ -197,6 +277,9 @@ class StateStore:
         raw.setdefault(
             "legacy_gas_cost_incomplete", mode == "live" and raw.get("gas_spent_wei", 0) > 0
         )
+        if raw.get("exact_risk") is not None:
+            raw["exact_risk"] = ExactRisk(**raw["exact_risk"])
+        raw["nav_evidence"] = tuple(evidence_ref_from_json(r) for r in raw.get("nav_evidence", []))
         position = raw.pop("position")
         pending = raw.pop("pending")
         if pending and pending.get("transaction") is not None:
@@ -214,10 +297,16 @@ class StateStore:
         return state
 
     def save(self, state: LoopState) -> None:
+        if state.journal_required and not self.journal_path.exists():
+            raise ValueError("required execution journal missing")
         validate_state(state)
         payload = json.dumps(asdict(state), indent=1, sort_keys=True, allow_nan=False)
         if len(payload.encode()) > 2_000_000:
             raise ValueError("state exceeds byte bound")
+        if state.mode == "live" and self.journal_path.exists():
+            if self.journal is None:
+                raise ValueError("journal state must be loaded before saving")
+            self.journal.append(asdict(state))
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # A predictable .tmp filename could follow a stale or malicious symlink.
         with tempfile.NamedTemporaryFile(

@@ -13,6 +13,7 @@ class ReleaseBlocker(BaseModel):
     code: str
     title: str
     required: str
+    implementation_status: str = "implemented_pending_integration_validation"
 
 
 class LiveRelease(BaseModel):
@@ -30,23 +31,25 @@ def live_release() -> LiveRelease:
         blockers=[
             ReleaseBlocker(
                 code="successful_action_cash_incomplete",
-                title="兑换、建仓、撤仓资金对账未接通",
-                required="重放双源完整资金流、原生币退款与持仓变化, 零残差后保留余额基线。",
+                title="资金对账及本地 fork 已通过, 待生产双源验收",
+                required=("本地 fork 已通过; 仍需生产双源 trace 与完整 OP 费用验收。"),
             ),
             ReleaseBlocker(
                 code="transaction_policy_not_isolated",
-                title="交易策略约束尚未进入独立签名边界",
-                required="由独立进程校验实际交易、限额与损失预算; 摘要签名本身不能完成校验。",
+                title="完整交易签名边界已实现, 待进程隔离验收",
+                required=(
+                    "验证私有 socket、独立风险日志、原始双源模拟及部署身份隔离; 禁止摘要签名回退。"
+                ),
             ),
             ReleaseBlocker(
                 code="exact_nav_accounting_incomplete",
-                title="精确净值与未收手续费估值未接通",
-                required="以整数或 Decimal 核算本金、费用与亏损, 绑定原始证据并拒绝未解释变化。",
+                title="整数净值及未收手续费已接通, 待真实数据验收",
+                required="验证两种货币的有效 USD 喂价、历史资金基准迁移与完整持仓估值。",
             ),
             ReleaseBlocker(
                 code="durable_execution_recovery_incomplete",
-                title="执行记录与重组恢复未形成完整闭环",
-                required="追加式执行日志、配置绑定、签名崩溃恢复与已结算交易的重组处置。",
+                title="持久化及重组阻断已接通, 待跨进程恢复验收",
+                required="验证签名前后崩溃、两份执行日志恢复及链重组; 未知签名不可自动重试。",
             ),
         ]
     )

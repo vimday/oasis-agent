@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 import certifi
 from eth_abi.abi import decode, encode
@@ -150,6 +150,13 @@ class DigestSigner(Protocol):
     def sign(self, digest: bytes) -> tuple[int, int, int]: ...
 
 
+@runtime_checkable
+class TransactionSigner(Protocol):
+    account: str
+
+    def sign_envelope(self, fields: list[object], context: dict[str, Any]) -> bytes: ...
+
+
 @dataclass(frozen=True, slots=True)
 class FeePolicy:
     max_fee_per_gas_cap: int  # wei, hard ceiling
@@ -197,7 +204,7 @@ class Sent:
 
 def send_transaction(
     rpc: Rpc,
-    signer: DigestSigner,
+    signer: DigestSigner | TransactionSigner,
     *,
     chain_id: int,
     to: str,
@@ -206,6 +213,7 @@ def send_transaction(
     fees: FeePolicy,
     on_signed: Callable[[SubmittedTransaction], None],
     receipt_timeout: float = 120.0,
+    authority_context: dict[str, Any] | None = None,
 ) -> Sent:
     """Simulate, sign, broadcast once and wait for the receipt.
 
@@ -229,9 +237,18 @@ def send_transaction(
     nonce = rpc.nonce(account, "pending")
     if nonce != rpc.nonce(account, "latest"):
         raise ChainError("account has an unmined transaction in the mempool")
-    raw = sign_transaction(
-        signer, _envelope(chain_id, nonce, fees.priority_fee, max_fee, gas, to, value, data)
-    )
+    fields = _envelope(chain_id, nonce, fees.priority_fee, max_fee, gas, to, value, data)
+    if isinstance(signer, TransactionSigner):
+        if authority_context is None:
+            raise ChainError("transaction authority requires decision context")
+        try:
+            raw = signer.sign_envelope(fields, authority_context)
+        except (OSError, RuntimeError, ValueError):
+            raise ChainError("transaction authority outcome unresolved") from None
+    else:
+        if authority_context is not None:
+            raise ChainError("digest signer cannot authorize a live action")
+        raw = sign_transaction(signer, fields)
     commitment = SubmittedTransaction.from_signed(raw)
     tx_hash = commitment.transaction_hash
     on_signed(commitment)

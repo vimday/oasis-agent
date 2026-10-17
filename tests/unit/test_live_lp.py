@@ -24,15 +24,20 @@ from oasis_agent.live.v4lp import (
     liquidity_for_amounts,
     mint_call,
     position_amounts,
+    price_from_sqrt,
     range_ticks,
     swap_call,
 )
+from oasis_agent.live.valuation import AccountValue
+from oasis_agent.live.wallet import WalletBalance
+from oasis_agent.models.chain import BlockSnapshot
+from oasis_agent.models.common import BlockRef
 from oasis_agent.uniswap_v4.liquidity_math import sqrt_price_at_tick
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = LiveConfig.load(ROOT / "configs/live.base-eth-usdc.json")
 KEY = CONFIG.pool
-TICK = -197_990
+TICK = -198_080
 SQRT = sqrt_price_at_tick(TICK) + 12345
 
 
@@ -172,7 +177,36 @@ def market(**overrides: Any) -> Market:
         "usdc": 0,
         "position_liquidity": 0,
     }
-    return Market(**(values | overrides))
+    values.update(overrides)
+    if "sqrt_price" in overrides and "oracle" not in overrides:
+        values["oracle"] = price_from_sqrt(values["sqrt_price"], 18, 6)
+    answer = int(values["oracle"] * 10**8)
+    wallet = WalletBalance(
+        BlockSnapshot(
+            BlockRef(CONFIG.chain_id, values["block"], values["block_hash"], values["timestamp"]),
+            "0x" + "00" * 32,
+        ),
+        3,
+        values["eth"],
+        values["usdc"],
+        "0x" + "11" * 32,
+    )
+    values.setdefault(
+        "valuation",
+        AccountValue(
+            wallet,
+            values["sqrt_price"],
+            values["tick"],
+            answer,
+            10**8,
+            0,
+            0,
+            0,
+            0,
+            values["eth"] * answer // 10**20 + values["usdc"],
+        ),
+    )
+    return Market(**values)
 
 
 def test_halted_state_takes_no_action_and_persists(tmp_path: Path) -> None:

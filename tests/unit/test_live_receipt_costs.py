@@ -88,6 +88,9 @@ class LiveCostFixture(ReceiptFixture):
 
 
 class NeverSign:
+    def sign_envelope(self, *_: Any) -> bytes:
+        raise AssertionError("unexpected authority call")
+
     account = CONFIG.account
 
     def sign(self, digest: bytes) -> tuple[int, int, int]:
@@ -418,6 +421,9 @@ def test_legacy_execution_only_gas_is_preserved_and_reported_incomplete(
     old = json.loads(loop.store.path.read_bytes())
     old.pop("legacy_gas_cost_incomplete")
     old["gas_spent_wei"] = 200
+    # Legacy migration uses an unbound old file; editing a journal projection is refused.
+    old["journal_required"] = False
+    loop.store = StateStore(tmp_path / "legacy.state.json")
     loop.store.path.write_text(json.dumps(old))
     loop.state = loop.store.load("live")
     assert loop.state.legacy_gas_cost_incomplete
@@ -445,7 +451,7 @@ def test_live_cli_wires_raw_cost_producer_without_signing(
     monkeypatch.setattr(live_cli, "one_shot_session", lambda source, **_: build(source))
     monkeypatch.setattr(live_cli, "rpc_url", lambda name: f"https://{name}.invalid")
     monkeypatch.setattr(live_cli, "Rpc", lambda _: ScriptedRpc(receipt=fixture._receipt()))
-    monkeypatch.setattr(live_cli, "SocketKeyProvider", lambda *_: NeverSign())
+    monkeypatch.setattr(live_cli, "TransactionSocketClient", lambda *_: NeverSign())
     monkeypatch.setattr(live_cli.time, "sleep", lambda _: None)
     monkeypatch.setattr(
         sys,

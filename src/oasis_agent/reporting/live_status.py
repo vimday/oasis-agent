@@ -42,6 +42,12 @@ class LiveObservation(BaseModel):
     capital_limit_usd: Usd
     daily_loss_limit_usd: Usd
     cumulative_loss_limit_usd: Usd
+    valuation_basis: Literal["legacy_principal_only", "two_feed_principal_and_fees"] = (
+        "legacy_principal_only"
+    )
+    nav_micros: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
+    uncollected_native_units: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
+    uncollected_usdc_units: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
 
 
 class PendingView(BaseModel):

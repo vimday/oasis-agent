@@ -1,5 +1,6 @@
 """Durable observation quotas count failed requests and serialize competing workers."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -86,3 +87,57 @@ def test_failed_network_spends_quota_and_write_methods_are_rejected(tmp_path):
         poster.post(b'{"method":"eth_chainId"}')
     with RpcBudget(path, policy) as budget:
         assert budget.counts() == {"paid": 1}
+
+
+@pytest.mark.parametrize(
+    "method,params",
+    [
+        ("eth_getTransactionCount", ["0x" + "11" * 20, {"blockHash": "0x" + "22" * 32}]),
+        ("eth_getStorageAt", ["0x" + "11" * 20, "0x0", {"blockHash": "0x" + "22" * 32}]),
+        (
+            "debug_traceTransaction",
+            [
+                "0x" + "22" * 32,
+                {"tracer": "callTracer", "timeout": "5s", "tracerConfig": {"onlyTopCall": False}},
+            ],
+        ),
+    ],
+)
+def test_cash_proof_reads_are_budgeted_without_broadcast_capability(tmp_path, method, params):
+    class Poster:
+        def post(self, payload):
+            return payload
+
+    policy = (BudgetPolicy("proof", 1, 0),)
+    path = tmp_path / "budget.db"
+    poster = BudgetedPoster(Poster(), path, policy, "proof", clock=lambda: 1000)
+    raw = json.dumps({"method": method, "params": params}).encode()
+    assert poster.post(raw) == raw
+    with RpcBudget(path, policy) as budget:
+        assert budget.counts() == {"proof": 1}
+    with pytest.raises(ValueError, match="not allowed"):
+        poster.post(b'{"method":"eth_sendRawTransaction","params":[]}')
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"tracer": "custom JavaScript"},
+        {"tracer": "callTracer", "timeout": "1000s", "tracerConfig": {"onlyTopCall": False}},
+        {"tracer": "callTracer", "timeout": "5s", "tracerConfig": {"onlyTopCall": True}},
+    ],
+)
+def test_unbounded_or_incomplete_tracer_refused_before_spending_budget(tmp_path, options):
+    class Forbidden:
+        def post(self, payload):
+            raise AssertionError("trace must be refused before network")
+
+    path = tmp_path / "absent.db"
+    poster = BudgetedPoster(Forbidden(), path, (BudgetPolicy("proof", 1, 0),), "proof")
+    with pytest.raises(ValueError, match="bounded complete"):
+        poster.post(
+            json.dumps(
+                {"method": "debug_traceTransaction", "params": ["0x" + "22" * 32, options]}
+            ).encode()
+        )
+    assert not path.exists()

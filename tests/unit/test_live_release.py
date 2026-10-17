@@ -29,7 +29,7 @@ def test_release_cli_refuses_before_any_rpc_signer_or_state(
         raise AssertionError("release refusal must precede external access")
 
     monkeypatch.setattr(cli, "rpc_url", forbidden)
-    monkeypatch.setattr(cli, "SocketKeyProvider", forbidden)
+    monkeypatch.setattr(cli, "TransactionSocketClient", forbidden)
     path = tmp_path / "never-created"
     monkeypatch.setattr(sys, "argv", ["run", "--mode", "live", "--state-dir", str(path), *args])
     with pytest.raises(SystemExit) as exc:

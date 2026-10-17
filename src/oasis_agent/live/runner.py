@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,8 @@ from ..farming.positions import decode_position_info
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
 from ..reporting.live_release import require_live_release
 from ..reporting.live_status import LiveObservation
+from .action_cash import reconcile_action
+from .action_plan import action_call
 from .approval_cash import reconcile_approval
 from .chain import (
     ChainError,
@@ -27,6 +30,7 @@ from .chain import (
     Rpc,
     RpcRejected,
     SubmissionUnknown,
+    TransactionSigner,
     TxReverted,
     send_transaction,
 )
@@ -35,20 +39,14 @@ from .intent import SubmittedTransaction, pending_plan_hash
 from .positions import collect_position_outcome, replay_position_outcome
 from .receipts import RetainedReceiptCostReader
 from .revert_cash import reconcile_revert
-from .state import Pending, Position, StateStore
+from .state import Pending, Position, StateStore, day_of
 from .v4lp import (
-    UINT160_MAX,
-    burn_call,
-    erc20_approve_call,
-    eth_value_share,
     liquidity_for_amounts,
-    mint_call,
-    permit2_approve_call,
     position_amounts,
     price_from_sqrt,
     range_ticks,
-    swap_call,
 )
+from .valuation import AccountValue, NavRefusal, capture_nav, replay_nav
 from .wallet import WalletBalance, capture_wallet, replay_wallet
 
 TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
@@ -75,14 +73,26 @@ class Market:
     eth: int
     usdc: int
     position_liquidity: int
+    valuation: AccountValue | None = None
+    nav_evidence: tuple[EvidenceRef, ...] = ()
 
     @property
     def units(self) -> list[int]:
         return [self.eth, self.usdc, self.position_liquidity]
 
     @property
-    def deviation_bps(self) -> float:
-        return abs(self.price / self.oracle - 1) * 10_000
+    def pool_price(self) -> Fraction:
+        return Fraction(self.sqrt_price**2 * 10**12, 2**192)
+
+    @property
+    def reference_price(self) -> Fraction:
+        if self.valuation is not None:
+            return Fraction(self.valuation.eth_answer, self.valuation.usdc_answer)
+        return Fraction(str(self.oracle))  # paper fixtures only; live requires retained NAV
+
+    @property
+    def deviation_bps(self) -> Fraction:
+        return abs(self.pool_price / self.reference_price - 1) * 10_000
 
 
 class LiveLoop:
@@ -93,7 +103,7 @@ class LiveLoop:
         store: StateStore,
         *,
         mode: str,
-        signer: DigestSigner | None = None,
+        signer: DigestSigner | TransactionSigner | None = None,
         stop_file: Path | None = None,
         log: Callable[[str], None] = print,
         secondary: Rpc | None = None,
@@ -119,6 +129,8 @@ class LiveLoop:
         self.secondary = secondary
         self.receipt_costs = receipt_costs
         self.signer, self.stop_file, self.log = signer, stop_file, log
+        if mode == "live":
+            store.bind(sha256_hex(canonical_json(asdict(config))))
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
 
@@ -135,13 +147,46 @@ class LiveLoop:
 
     # ---- observation -------------------------------------------------------------
 
-    def observe(self) -> Market:
+    def observe(self, pinned_header: dict[str, Any] | None = None) -> Market:
         """Read one canonical block. Every value is bound to its hash, and in live mode
         a second provider must return identical values for that same hash."""
-        block = self.rpc.block()
+        block = self.rpc.block() if pinned_header is None else pinned_header
         number, timestamp = int(str(block["number"]), 16), int(str(block["timestamp"]), 16)
         if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
             raise ChainError("observation head is stale or in the future")
+        if self.mode == "live":
+            reader = self.receipt_costs
+            if reader is None:
+                raise ChainError("live observation requires retained NAV evidence")
+            try:
+                value, refs = capture_nav(
+                    reader.store,
+                    self.c,
+                    BlockRef(self.c.chain_id, number, str(block["hash"]), timestamp),
+                    self.state.position,
+                    sources=reader.sources,
+                    sessions=reader.sessions,
+                )
+            except NavRefusal as exc:
+                raise ChainError("account NAV refused: " + str(exc)) from None
+            except Exception:  # noqa: BLE001 - raw provider failures can contain credentials
+                raise ChainError("complete account NAV unresolved (details redacted)") from None
+            if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
+                raise ChainError("retained NAV expired during acquisition")
+            return Market(
+                number,
+                str(block["hash"]),
+                timestamp,
+                value.sqrt_price,
+                value.tick,
+                price_from_sqrt(value.sqrt_price, 18, 6),
+                value.eth_answer / 10**8,
+                value.wallet.native,
+                value.wallet.token,
+                self.state.position.liquidity if self.state.position else 0,
+                value,
+                refs,
+            )
         ref = {"blockHash": str(block["hash"]), "requireCanonical": True}
         reads = self._reads(self.rpc, ref)
         if self.secondary is not None:
@@ -264,6 +309,10 @@ class LiveLoop:
         )
 
     def nav_usd(self, m: Market) -> float:
+        if m.valuation is not None:
+            return m.valuation.nav_micros / 1_000_000  # display only
+        if self.mode == "live":
+            raise ChainError("live NAV requires replayed exact valuation")
         eth, usdc = m.eth, m.usdc
         if self.state.position is not None and m.position_liquidity:
             p = self.state.position
@@ -307,11 +356,17 @@ class LiveLoop:
             return "stopped: stop file present"
         if s.halted:
             return f"halted: {s.halted}"
+        if s.signing_attempt is not None:
+            s.halted = "signing outcome unknown; durable nonce reservation requires reconciliation"
+            return f"HALT {s.halted}"
         if s.pending is not None:
             return self._resolve_pending()
+        self._check_settlements()
+        self._check_nav_checkpoint()
         m = self.observe()
         nav = self.nav_usd(m)
         flow = 0.0
+        flow_micros = 0
         if self.mode == "live" and s.last_units is not None and m.units != s.last_units:
             d_eth, d_usdc, d_liq = (a - b for a, b in zip(m.units, s.last_units, strict=True))
             if not s.acknowledge_flow or d_liq:
@@ -321,12 +376,50 @@ class LiveLoop:
                 )
                 s.record("halt", reason=s.halted, block=m.block)
                 return f"HALT {s.halted}"
-            flow = d_eth / 10**self.c.decimals0 * m.oracle + d_usdc / 10**self.c.decimals1
+            if m.valuation is None:
+                raise ChainError("external flow requires retained prices")
+            exact_flow = Fraction(d_eth * m.valuation.eth_answer, 10**20) + Fraction(
+                d_usdc * m.valuation.usdc_answer, 10**8
+            )
+            flow_micros = -(-exact_flow.numerator // exact_flow.denominator)
+            flow = flow_micros / 1_000_000
             s.record("external_flow", block=m.block, usd=flow, eth=d_eth, usdc=d_usdc)
         s.acknowledge_flow = False
-        s.roll_day(m.timestamp, nav, flow)
+        if self.mode == "live":
+            if m.valuation is None:
+                raise ChainError("live risk requires retained integer NAV")
+            risk = s.integer_risk()
+            today = day_of(m.timestamp)
+            if risk.day != today:
+                s.actions_today = 0
+            daily_micros, cumulative_micros = risk.observe(
+                day=today,
+                at=m.timestamp,
+                nav=m.valuation.nav_micros,
+                flow=flow_micros,
+                checkpoint=s.checkpoint_at == 0,
+            )
+            s.day = risk.day
+            s.initial_nav_usd = risk.basis / 1_000_000 if risk.basis is not None else None
+            s.external_flow_usd = risk.external / 1_000_000
+            s.daily_loss_usd = risk.daily_locked / 1_000_000
+            s.checkpoint_nav_usd = (
+                risk.checkpoint / 1_000_000 if risk.checkpoint is not None else None
+            )
+            s.checkpoint_at, s.last_nav_usd = risk.checkpoint_at, nav
+            daily, cumulative = daily_micros / 1_000_000, cumulative_micros / 1_000_000
+            breached = (
+                daily_micros >= self.c.max_daily_loss_usd * 1_000_000
+                or cumulative_micros >= self.c.max_cumulative_loss_usd * 1_000_000
+            )
+        else:
+            s.roll_day(m.timestamp, nav, flow)
+            daily, cumulative = s.losses(nav)
+            breached = (
+                daily >= self.c.max_daily_loss_usd or cumulative >= self.c.max_cumulative_loss_usd
+            )
         s.last_units = m.units
-        daily, cumulative = s.losses(nav)
+        s.nav_evidence = m.nav_evidence
         s.last_observation = LiveObservation(
             chain_id=self.c.chain_id,  # type: ignore[arg-type]  # validated Base-only config
             account=self.c.account,
@@ -342,17 +435,23 @@ class LiveLoop:
             capital_limit_usd=self.c.max_capital_usd,
             daily_loss_limit_usd=self.c.max_daily_loss_usd,
             cumulative_loss_limit_usd=self.c.max_cumulative_loss_usd,
+            valuation_basis="two_feed_principal_and_fees"
+            if m.valuation
+            else "legacy_principal_only",
+            nav_micros=str(m.valuation.nav_micros) if m.valuation else None,
+            uncollected_native_units=str(m.valuation.fee0) if m.valuation else None,
+            uncollected_usdc_units=str(m.valuation.fee1) if m.valuation else None,
         ).model_dump()
         base = (
             f"block {m.block} px {m.price:.2f} oracle {m.oracle:.2f} nav ${nav:.2f} "
             f"loss d${daily:.2f}/c${cumulative:.2f}"
         )
-        if daily >= self.c.max_daily_loss_usd or cumulative >= self.c.max_cumulative_loss_usd:
+        if breached:
             s.halted = f"loss cap breached (daily {daily:.2f}, cumulative {cumulative:.2f})"
             s.record("halt", reason=s.halted, block=m.block, nav=nav)
             return f"{base} | HALT {s.halted}"
         if m.deviation_bps > self.c.max_oracle_deviation_bps:
-            return f"{base} | wait: pool/oracle deviation {m.deviation_bps:.0f} bps"
+            return f"{base} | wait: pool/oracle deviation {float(m.deviation_bps):.0f} bps"
         action = self._decide(m)
         if s.halted:
             s.record("halt", reason=s.halted, block=m.block)
@@ -364,6 +463,46 @@ class LiveLoop:
         if not self._pins_ok(m):
             return f"{base} | HALT {s.halted}"
         return f"{base} | {self._act(m, action)}"
+
+    def _check_nav_checkpoint(self) -> None:
+        if self.mode != "live" or not self.state.nav_evidence:
+            return
+        reader = self.receipt_costs
+        if reader is None or len(self.state.nav_evidence) != 2:
+            raise ChainError("retained NAV checkpoint missing")
+        try:
+            values = [
+                replay_nav(reader.store, ref, self.c).reconstruct(reader.store, self.c)
+                for ref in self.state.nav_evidence
+            ]
+            if (
+                values[0] != values[1]
+                or self.state.exact_risk is None
+                or values[0].nav_micros != self.state.exact_risk.last_nav
+            ):
+                raise ValueError("risk baseline differs from retained NAV")
+        except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
+            raise ChainError("retained NAV checkpoint cannot be replayed") from None
+
+    def _check_settlements(self) -> None:
+        if self.mode != "live" or not self.state.settled_blocks:
+            return
+        if self.secondary is None:
+            raise ChainError("settlement ancestry requires two providers")
+        for anchor in self.state.settled_blocks:
+            for rpc in (self.rpc, self.secondary):
+                block = rpc.call("eth_getBlockByNumber", [hex(anchor["number"]), False])
+                if not isinstance(block, dict) or block.get("hash") != anchor["hash"]:
+                    self.state.halted = "settled transaction block reorged or unavailable"
+                    raise ChainError(self.state.halted)
+                receipt = rpc.receipt(anchor["transaction_hash"])
+                if (
+                    receipt is None
+                    or receipt.get("blockHash") != anchor["hash"]
+                    or receipt.get("transactionHash") != anchor["transaction_hash"]
+                ):
+                    self.state.halted = "settled transaction receipt changed or unavailable"
+                    raise ChainError(self.state.halted)
 
     def _range_text(self, m: Market) -> str:
         p = self.state.position
@@ -411,23 +550,35 @@ class LiveLoop:
         lower, upper = range_ticks(m.tick, c.half_width_ticks, c.pool.tick_spacing)
         eth_free = max(0, m.eth - c.gas_reserve_wei)
         # Size internal swaps at the pool price so one swap lands on target.
-        eth_usd = eth_free / 10**c.decimals0 * m.price
-        usdc_usd = m.usdc / 10**c.decimals1
-        budget = min(eth_usd + usdc_usd, c.max_capital_usd * 0.98)
+        price = m.pool_price
+        eth_usd = Fraction(eth_free, 10**c.decimals0) * price
+        usdc_usd = Fraction(m.usdc, 10**c.decimals1)
+        quote_usd = Fraction(m.valuation.usdc_answer, 10**8) if m.valuation else Fraction(1)
+        gas_usd = (
+            Fraction(c.gas_reserve_wei * m.valuation.eth_answer, 10**26)
+            if m.valuation
+            else Fraction(0)
+        )
+        investment_cap = max(Fraction(0), c.max_capital_usd - gas_usd)
+        budget = min(eth_usd + usdc_usd, investment_cap * Fraction(98, 100) / quote_usd)
         if budget < 20:
             return None
-        share = eth_value_share(m.sqrt_price, lower, upper)
+        probe0, probe1 = position_amounts(m.sqrt_price, lower, upper, 10**20)
+        probe_value0 = Fraction(probe0 * m.sqrt_price**2, 2**192)
+        share = probe_value0 / (probe_value0 + probe1)
         want_eth_usd = share * budget
         want_usdc_usd = budget - want_eth_usd
-        tolerance = max(MIN_SWAP_USD, budget * 0.02)
-        raw_price = (m.sqrt_price / (1 << 96)) ** 2  # USDC micros per wei
+        tolerance = max(Fraction(3) / quote_usd, budget / 50)
+        raw_price = Fraction(m.sqrt_price**2, 2**192)  # USDC micros per wei
         if usdc_usd < want_usdc_usd - tolerance:
             sell_usd = min(want_usdc_usd - usdc_usd, eth_usd)
-            amount_in = int(sell_usd / m.price * 10**c.decimals0)
+            amount_in = int(sell_usd / price * 10**c.decimals0)
             return "swap", {
                 "zero_for_one": True,
                 "amount_in": amount_in,
-                "min_out": self._min_out(amount_in * raw_price * min(1.0, m.oracle / m.price)),
+                "min_out": self._min_out(
+                    amount_in * raw_price * min(Fraction(1), m.reference_price / price)
+                ),
             }
         if eth_usd < want_eth_usd - tolerance:
             sell_usd = min(want_eth_usd - eth_usd, usdc_usd)
@@ -435,10 +586,12 @@ class LiveLoop:
             return "swap", {
                 "zero_for_one": False,
                 "amount_in": amount_in,
-                "min_out": self._min_out(amount_in / raw_price * min(1.0, m.price / m.oracle)),
+                "min_out": self._min_out(
+                    amount_in / raw_price * min(Fraction(1), price / m.reference_price)
+                ),
             }
-        eth_amount = min(eth_free, int(want_eth_usd / m.price * 10**c.decimals0 * 1.01))
-        usdc_amount = min(m.usdc, int(want_usdc_usd * 10**c.decimals1 * 1.01))
+        eth_amount = min(eth_free, int(want_eth_usd / price * 10**c.decimals0 * Fraction(101, 100)))
+        usdc_amount = min(m.usdc, int(want_usdc_usd * 10**c.decimals1 * Fraction(101, 100)))
         liquidity = liquidity_for_amounts(m.sqrt_price, lower, upper, eth_amount, usdc_amount)
         liquidity = liquidity * 995 // 1000  # headroom for price drift before inclusion
         if liquidity <= 0:
@@ -451,9 +604,13 @@ class LiveLoop:
             "amount1_max": usdc_amount,
         }
 
-    def _min_out(self, expected: float) -> int:
-        fee = self.c.pool.fee / 1_000_000
-        return int(expected * (1 - fee) * (10_000 - self.c.swap_slippage_bps) / 10_000)
+    def _min_out(self, expected: Fraction) -> int:
+        return int(
+            expected
+            * (1_000_000 - self.c.pool.fee)
+            * (10_000 - self.c.swap_slippage_bps)
+            / 10_000_000_000
+        )
 
     def _approval_needed(self, m: Market) -> tuple[str, dict[str, Any]] | None:
         c = self.c
@@ -502,44 +659,7 @@ class LiveLoop:
     # ---- actions -----------------------------------------------------------------
 
     def _transaction(self, m: Market, kind: str, a: dict[str, Any]) -> tuple[str, bytes, int]:
-        c, deadline = self.c, m.timestamp + 300
-        if kind == "approve_usdc":
-            return c.pool.currency1, erc20_approve_call(c.permit2, a["amount"]), 0
-        if kind == "approve_permit2":
-            return (
-                c.permit2,
-                permit2_approve_call(
-                    c.pool.currency1, a["spender"], min(a["amount"], UINT160_MAX), a["expiration"]
-                ),
-                0,
-            )
-        if kind == "swap":
-            data = swap_call(c.pool, a["zero_for_one"], a["amount_in"], a["min_out"], deadline)
-            return c.universal_router, data, a["amount_in"] if a["zero_for_one"] else 0
-        if kind == "mint":
-            data = mint_call(
-                c.pool,
-                a["lower"],
-                a["upper"],
-                a["liquidity"],
-                a["amount0_max"],
-                a["amount1_max"],
-                c.account,
-                deadline,
-            )
-            return c.position_manager, data, a["amount0_max"]
-        if kind == "burn":
-            assert self.state.position is not None
-            data = burn_call(
-                c.pool,
-                self.state.position.token_id,
-                a["amount0_min"],
-                a["amount1_min"],
-                c.account,
-                deadline,
-            )
-            return c.position_manager, data, 0
-        raise ValueError(f"unknown action {kind}")
+        return action_call(self.c, m.timestamp, kind, a, self.state.position)
 
     def _act(self, m: Market, action: tuple[str, dict[str, Any]]) -> str:
         kind, args = action
@@ -551,7 +671,8 @@ class LiveLoop:
         except ValueError as exc:
             raise ChainError(str(exc)) from None
         self.c.validate()
-        assert self.signer is not None
+        if not isinstance(self.signer, TransactionSigner):
+            raise ChainError("live action requires full transaction authority")
         to, data, value = self._transaction(m, kind, args)
 
         # A provider on another chain must not supply simulation or nonce inputs
@@ -578,6 +699,21 @@ class LiveLoop:
         except Exception:  # noqa: BLE001 - raw capture failures may contain credentials
             raise ChainError("pre-sign wallet evidence unresolved (details redacted)") from None
 
+        if self.store.journal is None:
+            raise ChainError("live signing requires configuration-bound journal")
+        s.signing_attempt = {
+            "nonce": before.nonce,
+            "kind": kind,
+            "intent": dict(args),
+            "block": m.block,
+            "block_hash": m.block_hash,
+            "target": to,
+            "value": value,
+            "calldata_hash": "0x" + keccak(data).hex(),
+            "wallet_evidence": [asdict(r) for r in wallet],
+        }
+        self.store.save(s)
+
         def on_signed(tx: SubmittedTransaction) -> None:
             if (
                 tx.chain_id != self.c.chain_id
@@ -588,6 +724,7 @@ class LiveLoop:
                 or tx.nonce != before.nonce
             ):
                 raise ChainError("signed transaction differs from the proposed action")
+            s.signing_attempt = None
             s.pending = Pending(
                 kind,
                 tx.transaction_hash,
@@ -618,6 +755,12 @@ class LiveLoop:
                 value=value,
                 fees=self.fees,
                 on_signed=on_signed,
+                authority_context={
+                    "kind": kind,
+                    "intent": args,
+                    "block": m.block,
+                    "block_hash": m.block_hash,
+                },
             )
         except (TxReverted, SubmissionUnknown) as exc:
             # Pending stays recorded; only independently verified evidence resolves it.
@@ -668,6 +811,8 @@ class LiveLoop:
             )
         elif kind == "burn":
             position = None
+        if self.mode == "live":
+            self._anchor_settlement(receipt)
         s.position = position
         s.gas_spent_wei += native_cost
         s.consecutive_reverts = 0
@@ -676,6 +821,7 @@ class LiveLoop:
         s.last_units = (
             [wallet.native, wallet.token, position.liquidity if position else 0] if wallet else None
         )
+        s.nav_evidence = ()
         s.last_observation = None  # pre-action NAV cannot describe the settled account
         s.checkpoint_at = 0  # the next observation locks this action's NAV change
         s.pending = None
@@ -702,7 +848,10 @@ class LiveLoop:
         cash_evidence: tuple[EvidenceRef, ...] = (),
     ) -> str:
         s = self.state
+        if self.mode == "live":
+            self._anchor_settlement(receipt)
         s.gas_spent_wei += native_cost
+        s.nav_evidence = ()
         s.last_observation = None
         s.last_units = (
             [wallet.native, wallet.token, s.position.liquidity if s.position else 0]
@@ -726,6 +875,18 @@ class LiveLoop:
         if s.consecutive_reverts >= MAX_CONSECUTIVE_REVERTS:
             s.halted = f"{s.consecutive_reverts} consecutive reverts (last {kind})"
         return f"{kind} REVERTED {tx}"
+
+    def _anchor_settlement(self, receipt: dict[str, Any]) -> None:
+        anchor = {
+            "number": int(receipt["blockNumber"], 16),
+            "hash": receipt["blockHash"],
+            "transaction_hash": receipt["transactionHash"],
+        }
+        if anchor in self.state.settled_blocks:
+            raise ChainError("settlement already journaled")
+        if len(self.state.settled_blocks) >= 10_000:
+            raise ChainError("settlement anchor budget exhausted")
+        self.state.settled_blocks.append(anchor)
 
     def _minted_token(self, receipt: dict[str, Any]) -> int:
         zero_topic = "0x" + "0" * 64
@@ -896,12 +1057,25 @@ class LiveLoop:
     def _approval_wallet(
         self, pending: Pending, costs: tuple[EvidenceRef, ...]
     ) -> tuple[WalletBalance | None, tuple[EvidenceRef, ...]]:
-        if self.mode != "live" or pending.kind not in {"approve_usdc", "approve_permit2"}:
+        if self.mode != "live":
             return None, ()
         reader = self.receipt_costs
         if reader is None or pending.transaction is None:
             raise ChainError("approval cash requires retained transaction and costs")
         try:
+            if pending.kind not in {"approve_usdc", "approve_permit2"}:
+                return reconcile_action(
+                    reader.store,
+                    self.c,
+                    pending.kind,
+                    pending.intent,
+                    self.state.position,
+                    pending.transaction,
+                    pending.wallet_evidence,
+                    costs,
+                    sources=reader.sources,
+                    sessions=reader.sessions,
+                )
             return reconcile_approval(
                 reader.store,
                 self.c,
@@ -914,7 +1088,8 @@ class LiveLoop:
                 sessions=reader.sessions,
             )
         except Exception:  # noqa: BLE001 - never expose raw RPC errors or credentials
-            raise ChainError("approval cash unresolved (details redacted)") from None
+            label = "approval" if pending.kind.startswith("approve") else "successful action"
+            raise ChainError(f"{label} cash unresolved (details redacted)") from None
 
     def _revert_wallet(
         self, pending: Pending, costs: tuple[EvidenceRef, ...]

@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from oasis_agent.live.exact_risk import ExactRisk
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import LoopState, Pending, StateStore
@@ -32,6 +33,8 @@ class NonceRpc:
         ("pending", "pending_signed_commitment_missing"),
         ("nonce", "account_nonce_unresolved"),
         ("error", "chain_observation_unresolved"),
+        ("signing", "signing_outcome_unresolved"),
+        ("exact_loss", "loss_budget_exhausted"),
     ],
 )
 def test_precheck_never_changes_state_or_creates_authority(
@@ -45,6 +48,10 @@ def test_precheck_never_changes_state_or_creates_authority(
         state.legacy_gas_cost_incomplete = True
     if condition == "pending":
         state.pending = Pending("swap", "0x" + "ab" * 32, 3, 0)
+    if condition == "signing":
+        state.signing_attempt = {"nonce": 3}
+    if condition == "exact_loss":
+        state.exact_risk = ExactRisk(basis=10_000_000_000, checkpoint=10_000_000_000)
     store.save(state)
     before = store.path.read_bytes()
     stop = tmp_path / "STOP"
@@ -78,7 +85,7 @@ def test_cli_check_refuses_duplicate_endpoints_without_signer_or_state_writes(
     def forbidden(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("read-only check must never construct a signer")
 
-    monkeypatch.setattr(cli, "SocketKeyProvider", forbidden)
+    monkeypatch.setattr(cli, "TransactionSocketClient", forbidden)
     state_dir = tmp_path / "absent"
     monkeypatch.setattr(
         sys, "argv", ["check", "--mode", "live", "--check", "--state-dir", str(state_dir)]
