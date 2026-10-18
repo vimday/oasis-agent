@@ -23,6 +23,12 @@ The canonical action encoder is shared for byte equality; the authority owns its
 configuration, risk history and raw acquisition. Sharing implementation does not
 make the two processes independent software implementations.
 
+Simulation admission now replays both retained wire captures before key use and
+stores full source-bound references in the durable reservation. The v2 replay
+binds the exact envelope, nonce and complete observed gas bound; historical v1
+summaries cannot satisfy it. See
+`docs/verification/LIVE_SIMULATION_REPLAY_20261018.md` for the validation scope.
+
 ## Local fork reproduction
 
 ```sh

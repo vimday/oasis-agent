@@ -10,7 +10,7 @@ from dataclasses import asdict
 from fractions import Fraction
 from typing import Any
 
-from ..models.common import BlockRef, canonical_json, sha256_hex
+from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
 from .action_plan import action_call
 from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
@@ -34,6 +34,7 @@ class TransactionAuthority:
         self.expires = time.monotonic() + ttl_seconds
         self.loop, self.provider = loop, provider
         self.simulation_hashes: tuple[str, str] | None = None
+        self.simulation_evidence: tuple[EvidenceRef, EvidenceRef] | None = None
 
     def status(self) -> dict[str, Any]:
         state = self.loop.store.load("live")
@@ -90,6 +91,11 @@ class TransactionAuthority:
             "block": market.block,
             "block_hash": market.block_hash,
             "simulation_hashes": self.simulation_hashes,
+            "simulation_evidence": (
+                [asdict(ref) for ref in self.simulation_evidence]
+                if self.simulation_evidence is not None
+                else None
+            ),
         }
         loop.store.save(s)
         # This is the only key-provider call, after durable admission. Any exception
@@ -221,7 +227,7 @@ class TransactionAuthority:
         reader = loop.receipt_costs
         if reader is None:
             raise ValueError("raw simulation reader missing")
-        self.simulation_hashes = simulate(
+        self.simulation_evidence = simulate(
             reader,
             c,
             BlockRef(c.chain_id, m.block, m.block_hash, m.timestamp),
@@ -229,6 +235,10 @@ class TransactionAuthority:
             nonce=nonce,
             gas=gas,
             maximum=maximum,
+        )
+        self.simulation_hashes = (
+            self.simulation_evidence[0].content_hash,
+            self.simulation_evidence[1].content_hash,
         )
         if not 0 <= int(time.time()) - m.timestamp <= 120:
             raise ValueError("decision expired during authority checks")
