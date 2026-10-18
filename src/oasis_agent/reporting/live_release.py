@@ -36,8 +36,10 @@ def live_release() -> LiveRelease:
             ),
             ReleaseBlocker(
                 code="transaction_policy_not_isolated",
-                title="完整交易边界及 Docker 隔离已验证, 待生产服务验收",
-                required=("完成独立密钥配置、生产双源模拟及时效验收; 隔离演练未使用生产密钥。"),
+                title="隔离配置及密钥导入已验证, 待生产服务验收",
+                required=(
+                    "核对部署主机的密钥配置并完成生产双源模拟及时效验收; 密钥导入不代表交易授权。"
+                ),
             ),
             ReleaseBlocker(
                 code="exact_nav_accounting_incomplete",
@@ -46,7 +48,7 @@ def live_release() -> LiveRelease:
             ),
             ReleaseBlocker(
                 code="durable_execution_recovery_incomplete",
-                title="SIGKILL 跨进程恢复已验证, 待部署双服务联调",
+                title="双进程回执恢复模拟已验证, 待生产双服务联调",
                 required="完成部署双服务的状态恢复与真实回执对账; 未知签名仍禁止自动重试。",
             ),
         ]

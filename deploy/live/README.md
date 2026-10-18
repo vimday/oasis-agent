@@ -37,6 +37,29 @@ shared owner-only Unix socket. Only authority mounts the external
 `canary.key`, owner UID/GID 10001, mode 0600, using their secure key workflow.
 Never copy a key into this repository or pass it through the assistant.
 
+The one-shot importer can provision an existing owned 0600 key file. When the
+owner explicitly chooses an existing `.env`, `--dotenv` extracts only
+`OASIS_PRIVATE_KEY` inside a no-network, read-only-root container:
+
+```sh
+.venv/bin/python -m scripts.provision_live_key \
+  --source /absolute/path/to/.env --dotenv --image oasis-live:local
+```
+
+The host wrapper checks metadata only. It checks the bind's mapped UID separately
+because Docker Desktop maps a host-owned file to root inside its Linux VM. The
+container validates the configured public address before writing, installs mode
+0600 under UID/GID 10001 in a 0700 volume, then a second restricted container
+verifies that the production UID can load it. It never signs or overwrites an
+existing volume. A failed install preserves storage for operator inspection.
+The source is preserved; it is never added to the image, argv or environment.
+Only the provisioning container mounts the source file. Strategy never mounts it.
+
+On 2026-10-18 the owner authorized this `.env` path and the dedicated production
+account was successfully provisioned locally. This is an address/permissions
+verification, not trading approval. See the
+[acceptance record](../../docs/verification/LIVE_ACCEPTANCE_20261018.md).
+
 Set `BASE_RPC_PRIMARY_ALT` and `BASE_RPC_PRIMARY` in the operator environment.
 They must be independent providers with pinned reads, complete receipt costs,
 full callTracer support and suitable latency. No private RPC URL is baked into
@@ -87,6 +110,13 @@ is an unavailable observation, not proof that 1RPC never supports tracing.
 No private/paid provider should be repeatedly probed or used as an automatic
 fallback. Establish its tariff and a bounded spending budget before use.
 
+The subsequent 2026-10-18 1RPC probe reached the trace method and received
+`Method debug_traceTransaction not allowed`. A separately bounded dRPC/Alchemy
+probe returned matching single-frame traces, receipts and headers. The attempted
+nested LP trace/cost acceptance stopped on its first dRPC transport failure and
+made no paid request. Capability for one simple transaction is not complete LP
+cash acceptance. Existing closed diagnostic budgets must not be reset.
+
 The USDC/USD observed round was about 60000 seconds old, beyond the existing
 1800-second gate. Changing RPC providers cannot refresh an on-chain feed round.
 A suitable fresh price source or a separately reviewed owner-approved feed policy
@@ -94,10 +124,14 @@ is required; no dollar peg or silent freshness relaxation is implemented.
 
 ## Verification status
 
-Host tests passed for parallel capture, frozen-budget behavior, real socket
+The 2026-10-17 host tests passed for parallel capture, frozen-budget behavior, real socket
 SIGKILL/restart with an ephemeral test key, and public-only probe request limits.
 The Docker filesystem confinement drill and Linux validation-image tests passed.
 The earlier approval-service quota error was resolved on continuation. No
 production key was provisioned and no mainnet transaction was signed or broadcast.
 Final test counts and image identities are recorded in
 `docs/verification/LIVE_DEPLOYMENT_20261017.md`.
+The 2026-10-18 follow-up
+provisioned the owner-approved key and added simultaneous two-process receipt
+publication crash/restart tests with synthetic proofs. Actual deployed
+dual-service recovery against the canary's real receipt is still unaccepted.
