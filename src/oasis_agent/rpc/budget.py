@@ -188,10 +188,20 @@ class BudgetedPoster:
             "debug_traceTransaction",
             "eth_getLogs",
             "eth_getTransactionReceipt",
+            "eth_getTransactionByHash",
             "eth_call",
             "eth_estimateGas",
         }:
             raise ValueError("budgeted observation method not allowed")
+        if request["method"] == "eth_getTransactionByHash":
+            params = request.get("params")
+            if (
+                not isinstance(params, list)
+                or len(params) != 1
+                or not isinstance(params[0], str)
+                or re.fullmatch(r"0x[0-9a-f]{64}", params[0]) is None
+            ):
+                raise ValueError("one canonical transaction hash required")
         if request["method"] == "debug_traceTransaction":
             params = request.get("params")
             if (

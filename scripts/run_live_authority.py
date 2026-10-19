@@ -9,7 +9,7 @@ import argparse
 import fcntl
 import os
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from oasis_agent.evidence.store import EvidenceStore
@@ -26,6 +26,7 @@ from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_release
 from scripts.run_live_lp import receipt_cost_reader
 
@@ -43,7 +44,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, required=True)
-    parser.add_argument("--socket", type=Path, required=True)
+    parser.add_argument("--socket", type=Path)
+    parser.add_argument(
+        "--reconcile-only",
+        action="store_true",
+        help="Reconcile existing pending without key or socket",
+    )
     parser.add_argument("--rpc-profile", type=Path)
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--key-env")
@@ -51,8 +57,14 @@ def main() -> None:
     parser.add_argument("--max-signatures", type=int, default=12)
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
-    # No CLI switch bypasses unfinished release controls; refusal precedes key loading.
-    require_live_release()
+    if args.reconcile_only:
+        if args.socket is not None or args.key_file is not None or args.key_env is not None:
+            parser.error("reconcile-only forbids key and socket options")
+    else:
+        if args.socket is None:
+            parser.error("signing authority requires --socket")
+        # New signing always requires release; recovery has no signing capability.
+        require_live_release()
     config = LiveConfig.load(args.config)
     profile = LiveRpcProfile.load(args.rpc_profile)
     directory = args.state_dir
@@ -66,12 +78,21 @@ def main() -> None:
         parser.exit(3, "Authority state directory must be owned by this service identity.\n")
     with (directory / "authority.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        store = StateStore(directory / "state.json")
+        store.bind(sha256_hex(canonical_json(asdict(config))))
+        if args.reconcile_only:
+            state = store.load("live")
+            if state.signing_attempt is not None:
+                parser.exit(3, "Authority signing attempt unresolved; state preserved.\n")
+            if state.pending is None:
+                print("no pending transaction")
+                return
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
         with closing(EvidenceStore(directory / "evidence.db")) as evidence:
             loop = LiveLoop.recovery(
                 config,
                 BudgetedRpc(primary, directory, "live_primary", profile),
-                StateStore(directory / "state.json"),
+                store,
                 "live",
             )
             loop.secondary = BudgetedRpc(secondary, directory, "live_secondary", profile)
@@ -84,6 +105,16 @@ def main() -> None:
                 secondary,
                 profile=profile,
             )
+            if args.reconcile_only:
+                try:
+                    result = loop._resolve_pending()
+                except Exception:  # noqa: BLE001 - provider errors may contain credentials
+                    parser.exit(3, "Authority reconciliation unresolved; state preserved.\n")
+                store.save(loop.state)
+                print(result)
+                if loop.state.pending is not None:
+                    raise SystemExit(3)
+                return
             key = load_private_key(key_file=args.key_file, key_env=args.key_env, environ=os.environ)
             provider = _KeyProvider(address_of(key), key)
             authority = TransactionAuthority(loop, provider, ttl_seconds=args.ttl_seconds)

@@ -135,3 +135,43 @@ The 2026-10-18 follow-up
 provisioned the owner-approved key and added simultaneous two-process receipt
 publication crash/restart tests with synthetic proofs. Actual deployed
 dual-service recovery against the canary's real receipt is still unaccepted.
+
+## Bounded provider acceptance
+
+`scripts.verify_live_providers` collects the same historical Base transaction,
+complete OP fees and nested call tree from dRPC and Alchemy. It retains exact
+requests/responses and replays them before accepting agreement. The CLI uses
+one repository-bound lifetime budget (12 requests per source), independent of
+the output directory or working directory. Ordinary transport reads may retry
+once; trace never retries. A failed first source stops before paid-source use.
+An existing output directory is terminal. Do not remove or replace the budget.
+
+The initial tool validation retained seven dRPC responses, then received HTTP
+408 for nested trace (eight free calls charged, zero paid calls). Its retained
+fee proof replays offline and agrees with the older two-source historical cost.
+The remaining four free calls cannot fund another complete nine-request run;
+the tool refuses a renamed output directory. See
+[the follow-up record](../../docs/verification/LIVE_ACCEPTANCE_20261019.md).
+
+## Recover pending receipts while new actions are blocked
+
+The authority now has `--reconcile-only`, matching the strategy's existing
+recovery mode. It locks the authority state and binds its existing configuration,
+then reconciles a retained pending transaction with the same two-source
+receipt/cash proof requirements. It never loads a key or opens a signing socket.
+It refuses an uncertain signing attempt and leaves it unresolved; this command
+cannot reconstruct a transaction whose signature outcome was never retained.
+
+After stopping the two regular services, run each one-shot recovery service:
+
+```sh
+docker compose -f deploy/live/compose.yaml stop authority strategy
+docker compose -f deploy/live/compose.yaml --profile recovery run --rm --no-deps authority-recovery
+docker compose -f deploy/live/compose.yaml --profile recovery run --rm --no-deps strategy-recovery
+```
+
+Recovery services mount only their own existing state volume, with neither the
+key nor socket volume. They consume the original service RPC ledger without
+resetting it. Exit 3 means unresolved; do not clear pending or retry in a loop.
+An uncertain strategy signing attempt still needs separate authority-status
+recovery. These commands do not reopen release gates or establish live acceptance.

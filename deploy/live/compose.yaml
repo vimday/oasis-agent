@@ -40,6 +40,16 @@ services:
       - strategy-state:/state
       - authority-socket:/run/oasis
     command: [python, -m, scripts.run_live_lp, --mode, live, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --signer-socket, /run/oasis/authority.sock]
+  authority-recovery:
+    <<: *common
+    profiles: [recovery]
+    volumes: [authority-state:/state]
+    command: [python, -m, scripts.run_live_authority, --reconcile-only, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state]
+  strategy-recovery:
+    <<: *common
+    profiles: [recovery]
+    volumes: [strategy-state:/state]
+    command: [python, -m, scripts.run_live_lp, --mode, live, --reconcile-only, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state]
 volumes:
   authority-state: {}
   strategy-state: {}

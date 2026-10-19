@@ -92,6 +92,7 @@ def test_failed_network_spends_quota_and_write_methods_are_rejected(tmp_path):
 @pytest.mark.parametrize(
     "method,params",
     [
+        ("eth_getTransactionByHash", ["0x" + "22" * 32]),
         ("eth_getTransactionCount", ["0x" + "11" * 20, {"blockHash": "0x" + "22" * 32}]),
         ("eth_getStorageAt", ["0x" + "11" * 20, "0x0", {"blockHash": "0x" + "22" * 32}]),
         (
@@ -140,4 +141,17 @@ def test_unbounded_or_incomplete_tracer_refused_before_spending_budget(tmp_path,
                 {"method": "debug_traceTransaction", "params": ["0x" + "22" * 32, options]}
             ).encode()
         )
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("params", [[], [None], ["latest"], ["0x12"], ["0x" + "22" * 32, False]])
+def test_transaction_lookup_requires_one_hash_before_budget_or_network(tmp_path, params):
+    class Forbidden:
+        def post(self, payload):
+            raise AssertionError("network must not be reached")
+
+    path = tmp_path / "absent.db"
+    poster = BudgetedPoster(Forbidden(), path, (BudgetPolicy("proof", 1, 0),), "proof")
+    with pytest.raises(ValueError, match="canonical transaction"):
+        poster.post(json.dumps({"method": "eth_getTransactionByHash", "params": params}).encode())
     assert not path.exists()
