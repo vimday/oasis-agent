@@ -45,6 +45,18 @@ services:
     profiles: [recovery]
     volumes: [authority-state:/state]
     command: [python, -m, scripts.run_live_authority, --reconcile-only, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state]
+  authority-status:
+    <<: *common
+    profiles: [recovery]
+    network_mode: none
+    environment: {}
+    volumes: [authority-state:/state, authority-socket:/run/oasis]
+    command: [python, -m, scripts.run_live_authority, --status-only, --config, /app/configs/live.base-eth-usdc.json, --state-dir, /state, --socket, /run/oasis/authority.sock, --max-status-requests, "12", --ttl-seconds, "60"]
+  strategy-status-recovery:
+    <<: *common
+    profiles: [recovery]
+    volumes: [strategy-state:/state, authority-socket:/run/oasis]
+    command: [python, -m, scripts.run_live_lp, --mode, live, --reconcile-only, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --signer-socket, /run/oasis/authority.sock]
   strategy-recovery:
     <<: *common
     profiles: [recovery]

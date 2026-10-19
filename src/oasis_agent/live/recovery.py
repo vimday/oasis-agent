@@ -16,6 +16,7 @@ def adopt_authority_pending(state: LoopState, c: LiveConfig, status: dict[str, A
     public = status.get("pending")
     if (
         status.get("account") != c.account
+        or status.get("signing_unresolved") is not False
         or status.get("chain_id") != c.chain_id
         or not isinstance(public, dict)
         or not isinstance(public.get("transaction"), dict)

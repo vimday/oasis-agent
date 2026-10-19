@@ -5,6 +5,7 @@ import os
 import socket
 import stat
 import time
+from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 from typing import Any, Protocol
@@ -49,9 +50,14 @@ def parse_request(raw: bytes) -> tuple[str, list[object], dict[str, Any]]:
     return normalize_address(d["account"]), f, d["context"]
 
 
-def read_frame(connection: socket.socket) -> bytes:
+def read_frame(connection: socket.socket, *, deadline: float | None = None) -> bytes:
     result = bytearray()
     while len(result) <= MAX_FRAME:
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("authority frame deadline expired")
+            connection.settimeout(min(5, remaining))
         chunk = connection.recv(min(4096, MAX_FRAME + 1 - len(result)))
         if not chunk:
             raise ValueError("incomplete authority frame")
@@ -137,6 +143,53 @@ class Authority(Protocol):
     def status(self) -> dict[str, Any]: ...
 
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes: ...
+
+
+def serve_status_connections(
+    server: socket.socket,
+    status: Callable[[], dict[str, Any]],
+    *,
+    account: str,
+    max_requests: int,
+    ttl_seconds: int,
+) -> int:
+    """Keyless recovery endpoint: every connection spends a finite request slot.
+
+    Signing frames are rejected before parsing an envelope. This server accepts
+    only a status reader, so there is no signing provider or signing callback.
+    """
+    if (
+        type(max_requests) is not int
+        or not 1 <= max_requests <= 1000
+        or type(ttl_seconds) is not int
+        or not 1 <= ttl_seconds <= 86400
+    ):
+        raise ValueError("status lifetime/request budget invalid")
+    expected = canonical_json({"schema": SCHEMA, "account": account, "operation": "status"})
+    deadline, requests = time.monotonic() + ttl_seconds, 0
+    while requests < max_requests and time.monotonic() < deadline:
+        server.settimeout(min(1, max(0.001, deadline - time.monotonic())))
+        try:
+            connection, _ = server.accept()
+        except TimeoutError:
+            continue
+        requests += 1
+        with connection:
+            connection.settimeout(min(5, max(0.001, deadline - time.monotonic())))
+            try:
+                if (
+                    read_frame(connection, deadline=deadline) != expected
+                    or time.monotonic() >= deadline
+                ):
+                    raise ValueError("status request refused")
+                reply = canonical_json({"schema": SCHEMA, "status": status()})
+                if len(reply) >= MAX_FRAME:
+                    raise ValueError("status reply exceeds frame bound")
+            except Exception:  # noqa: BLE001 - no journal/request details in a refusal
+                reply = canonical_json({"schema": SCHEMA, "refused": True})
+            with suppress(OSError):
+                connection.sendall(reply + b"\n")
+    return requests
 
 
 def serve_connections(

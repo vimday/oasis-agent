@@ -64,6 +64,8 @@ def test_lost_reply_adopts_same_commitment_and_survives_strategy_restart(tmp_pat
         "block",
         "refs",
         "missing",
+        "uncertain_signature",
+        "missing_signature_status",
     ],
 )
 def test_recovery_rejects_foreign_or_incomplete_commitment_without_mutation(
@@ -97,6 +99,10 @@ def test_recovery_rejects_foreign_or_incomplete_commitment_without_mutation(
             state.signing_attempt["wallet_evidence"] = []
         elif fault == "missing":
             public["pending"] = None
+        elif fault == "uncertain_signature":
+            public["signing_unresolved"] = True
+        elif fault == "missing_signature_status":
+            public.pop("signing_unresolved")
         before = deepcopy(state)
         with pytest.raises(ValueError):
             adopt_authority_pending(state, authority.loop.c, public)

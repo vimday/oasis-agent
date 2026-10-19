@@ -175,3 +175,35 @@ key nor socket volume. They consume the original service RPC ledger without
 resetting it. Exit 3 means unresolved; do not clear pending or retry in a loop.
 An uncertain strategy signing attempt still needs separate authority-status
 recovery. These commands do not reopen release gates or establish live acceptance.
+
+### Lost signing replies
+
+If strategy has an unresolved signing attempt, recover its public commitment
+**before** settling the authority's pending receipt. `authority-status` runs
+`--status-only` with no network, no RPC environment and no key volume. It serves
+only the existing configuration-bound journal through the private socket, holds
+the normal authority lock, and exits after 12 connections or 60 seconds. Invalid
+and signing requests consume a connection slot and are refused; slow partial
+frames cannot extend the deadline. Neither a key nor new transaction signature
+is needed to query this status.
+
+```sh
+docker compose -f deploy/live/compose.yaml stop authority strategy
+docker compose -f deploy/live/compose.yaml --profile recovery up -d --no-deps authority-status
+docker compose -f deploy/live/compose.yaml --profile recovery run --rm --no-deps strategy-status-recovery
+docker compose -f deploy/live/compose.yaml stop authority-status
+docker compose -f deploy/live/compose.yaml --profile recovery run --rm --no-deps authority-recovery
+```
+
+Strategy checks the returned account, chain, reserved nonce, target, calldata,
+value, fee bounds and original wallet proof pair before adopting the retained
+transaction hash. An unknown authority signing outcome, missing commitment or
+disagreement preserves the strategy reservation. Adoption does not broadcast;
+strategy must then independently prove the receipt and cash using its existing
+RPC budget. Exit 3 means stop and inspect, not clear or re-sign the reservation.
+If authority already settled and cleared its pending commitment, this endpoint
+does not search historical journal entries; automatic lost-reply recovery stays
+unresolved. The deployment order above preserves the commitment until adoption.
+
+The keyless SIGKILL/restart mechanism and remaining production limitations are
+recorded in [the status recovery verification](../../docs/verification/LIVE_KEYLESS_STATUS_20261019.md).

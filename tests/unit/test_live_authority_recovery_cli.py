@@ -133,3 +133,29 @@ def test_receipt_recovery_retains_cash_proof_and_settles_once(
             assert state.pending is None and state.gas_spent_wei == 218
             assert state.actions_today == 1 and len(state.history) == 1
         assert "confirmed" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        ["--key-file", "unused"],
+        ["--key-env", "unused"],
+        ["--reconcile-only"],
+    ],
+)
+def test_status_mode_rejects_authority_options(tmp_path, monkeypatch, options):
+    directory = setup_cli(tmp_path, monkeypatch, "--status-only", "--socket", "/unused", *options)
+    with pytest.raises(SystemExit) as caught:
+        cli.main()
+    assert caught.value.code == 2 and not list(directory.iterdir())
+
+
+def test_status_mode_refuses_absent_journal_without_rpc_or_key(tmp_path, monkeypatch):
+    directory = setup_cli(tmp_path, monkeypatch, "--status-only", "--socket", "/unused")
+    monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
+    monkeypatch.setattr(cli, "require_live_release", forbidden)
+    with pytest.raises(SystemExit) as caught:
+        cli.main()
+    assert caught.value.code == 3
+    assert not (directory / "state.json").exists()
+    assert not (directory / "state.json.journal.sqlite").exists()

@@ -20,7 +20,7 @@ from oasis_agent.execution.lp_signer_daemon import (
     sign_digest,
 )
 from oasis_agent.live.authority import TransactionAuthority
-from oasis_agent.live.authority_socket import serve_connections
+from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.rpc_profile import LiveRpcProfile
@@ -46,6 +46,12 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--socket", type=Path)
     parser.add_argument(
+        "--status-only",
+        action="store_true",
+        help="Serve public pending metadata without key or RPC",
+    )
+    parser.add_argument("--max-status-requests", type=int, default=12)
+    parser.add_argument(
         "--reconcile-only",
         action="store_true",
         help="Reconcile existing pending without key or socket",
@@ -57,7 +63,12 @@ def main() -> None:
     parser.add_argument("--max-signatures", type=int, default=12)
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
-    if args.reconcile_only:
+    if args.status_only:
+        if args.reconcile_only or args.key_file is not None or args.key_env is not None:
+            parser.error("status-only forbids reconciliation and key options")
+        if args.socket is None:
+            parser.error("status-only requires --socket")
+    elif args.reconcile_only:
         if args.socket is not None or args.key_file is not None or args.key_env is not None:
             parser.error("reconcile-only forbids key and socket options")
     else:
@@ -79,7 +90,29 @@ def main() -> None:
     with (directory / "authority.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         store = StateStore(directory / "state.json")
+        if args.status_only and not store.journal_path.is_file():
+            parser.exit(3, "Status recovery requires an existing authority journal.\n")
         store.bind(sha256_hex(canonical_json(asdict(config))))
+        if args.status_only:
+
+            def public_status():
+                state = store.load("live")
+                return {
+                    "account": config.account,
+                    "chain_id": config.chain_id,
+                    "pending": asdict(state.pending) if state.pending else None,
+                    "signing_unresolved": state.signing_attempt is not None,
+                }
+
+            with prepare_endpoint(args.socket) as server:
+                serve_status_connections(
+                    server,
+                    public_status,
+                    account=config.account,
+                    max_requests=args.max_status_requests,
+                    ttl_seconds=args.ttl_seconds,
+                )
+            return
         if args.reconcile_only:
             state = store.load("live")
             if state.signing_attempt is not None:
