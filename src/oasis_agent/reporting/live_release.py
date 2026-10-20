@@ -31,8 +31,11 @@ def live_release() -> LiveRelease:
         blockers=[
             ReleaseBlocker(
                 code="successful_action_cash_incomplete",
-                title="资金对账及本地 fork 已通过, 待生产双源验收",
-                required=("本地 fork 已通过; 仍需生产双源 trace 与完整 OP 费用验收。"),
+                title="历史双源 trace 与完整费用已验证, 待专用账户验收",
+                required=(
+                    "真实历史交易的 169 帧 trace 及回执双源一致; 完整 OP 费用已另行重放。"
+                    "仍需专用账户资金对账及生产数据源可靠性验收。"
+                ),
             ),
             ReleaseBlocker(
                 code="transaction_policy_not_isolated",

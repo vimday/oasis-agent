@@ -1,6 +1,7 @@
 """Free-provider diagnostics cannot silently retry or reset a spent quota."""
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -71,3 +72,39 @@ def test_arbitrary_private_provider_is_rejected_before_network(tmp_path: Path, m
     monkeypatch.setattr(probe, "_UrlLibPoster", forbidden)
     with pytest.raises(ValueError, match="free endpoints"):
         probe.probe("private", TX, tmp_path / "budget.db")
+
+
+@pytest.mark.parametrize("source", ["quicknode-demo", "onfinality"])
+def test_new_source_stops_after_one_attempt_and_cannot_reuse_partial_budget(
+    tmp_path, monkeypatch, source
+):
+    http = Http(error=True)
+    monkeypatch.setattr(probe, "_UrlLibPoster", lambda *_: http)
+    path = tmp_path / "new-budget.db"
+    result = probe.probe(source, TX, path)
+    assert result["checks"]["refused_or_unavailable"] and len(http.calls) == 1
+    with pytest.raises(ValueError, match="already charged"):
+        probe.probe(source, TX, path)
+    assert len(http.calls) == 1
+
+
+def test_discovery_cli_forbids_budget_override(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "probe",
+            "--provider",
+            "onfinality",
+            "--transaction",
+            TX,
+            "--budget",
+            str(tmp_path / "reset.db"),
+            "--out",
+            str(tmp_path / "out"),
+        ],
+    )
+    with pytest.raises(SystemExit) as caught:
+        probe.main()
+    assert caught.value.code == 2 and not list(tmp_path.iterdir())
+    assert probe.DISCOVERY_BUDGET.is_absolute()

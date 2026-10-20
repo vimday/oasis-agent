@@ -35,6 +35,51 @@ from ..rpc.transport import RpcExchange
 SCHEMA = "oasis.live-provider-acceptance.v1"
 
 
+def replay_trace_capture(
+    exchanges: tuple[RpcExchange, ...], block: BlockRef, transaction: dict[str, Any]
+) -> dict[str, object]:
+    """Replay a four-read capability capture against an independently retained body.
+
+    This does not manufacture a full cost capture from another provider's oracle
+    reads. Full fees and owner cash remain separate evidence requirements.
+    """
+    tx = normalize_hash32(transaction["hash"])
+    if (
+        block.chain_id != 8453
+        or block.timestamp is None
+        or transaction.get("blockHash") != block.block_hash
+        or rpc_quantity(transaction.get("blockNumber")) != block.number
+    ):
+        raise ValueError("trace transaction scope mismatch")
+    expected: list[tuple[str, list[object]]] = [
+        ("eth_chainId", []),
+        ("eth_getTransactionReceipt", [tx]),
+        ("eth_getBlockByNumber", [hex(block.number), False]),
+        extra_requests(block, tx)[1],
+    ]
+    chain, receipt, header, trace = successful_results(exchanges, expected)
+    if (
+        chain != "0x2105"
+        or decode_header(header, chain_id=8453).ref != block
+        or not isinstance(receipt, dict)
+        or receipt.get("transactionHash") != tx
+        or receipt.get("blockHash") != block.block_hash
+        or rpc_quantity(receipt.get("blockNumber")) != block.number
+        or receipt.get("from") != transaction.get("from")
+        or receipt.get("to") != transaction.get("to")
+        or rpc_quantity(receipt.get("status")) != 1
+    ):
+        raise ValueError("trace receipt/chain/block disagreement")
+    return {
+        "block": asdict(block),
+        "transaction": tx,
+        "trace_frames": trace_frames(trace, transaction),
+        "trace_hash": sha256_hex(canonical_json(trace)),
+        "receipt_hash": sha256_hex(canonical_json(receipt)),
+        "execution_eligible": False,
+    }
+
+
 def extra_requests(block: BlockRef, transaction: str) -> list[tuple[str, list[object]]]:
     return [
         ("eth_getTransactionByHash", [transaction]),
