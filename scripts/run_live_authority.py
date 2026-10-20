@@ -23,6 +23,7 @@ from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.recovery import authority_status
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
@@ -96,13 +97,7 @@ def main() -> None:
         if args.status_only:
 
             def public_status():
-                state = store.load("live")
-                return {
-                    "account": config.account,
-                    "chain_id": config.chain_id,
-                    "pending": asdict(state.pending) if state.pending else None,
-                    "signing_unresolved": state.signing_attempt is not None,
-                }
+                return authority_status(store, config)
 
             with prepare_endpoint(args.socket) as server:
                 serve_status_connections(
@@ -111,6 +106,7 @@ def main() -> None:
                     account=config.account,
                     max_requests=args.max_status_requests,
                     ttl_seconds=args.ttl_seconds,
+                    lookup=lambda nonce: authority_status(store, config, nonce),
                 )
             return
         if args.reconcile_only:

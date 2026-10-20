@@ -51,8 +51,11 @@ def live_release() -> LiveRelease:
             ),
             ReleaseBlocker(
                 code="durable_execution_recovery_incomplete",
-                title="双进程回执恢复模拟已验证, 待生产双服务联调",
-                required="完成部署双服务的状态恢复与真实回执对账; 未知签名仍禁止自动重试。",
+                title="双进程及历史承诺恢复已验证, 待生产双服务联调",
+                required=(
+                    "已支持结算后按原 nonce 找回承诺; 仍需部署双服务的真实回执对账。"
+                    "未知签名仍禁止自动重试。"
+                ),
             ),
         ]
     )

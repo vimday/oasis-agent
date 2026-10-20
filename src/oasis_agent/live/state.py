@@ -296,6 +296,17 @@ class StateStore:
         validate_state(state)
         return state
 
+    def historical_pending(self, nonce: int) -> Pending | None:
+        if self.journal is None:
+            raise ValueError("historical lookup requires a bound journal")
+        payload = self.journal.pending_snapshot(nonce)
+        if payload is None:
+            return None
+        state = self._decode(payload, "live")
+        if state.signing_attempt is not None or state.pending is None:
+            raise ValueError("historical signing outcome unresolved")
+        return state.pending
+
     def save(self, state: LoopState) -> None:
         if state.journal_required and not self.journal_path.exists():
             raise ValueError("required execution journal missing")

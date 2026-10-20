@@ -19,6 +19,20 @@ SCHEMA = "oasis.live-transaction-authority.v1"
 MAX_FRAME = 32_768
 
 
+def status_nonce(raw: bytes, account: str) -> int | None:
+    request = json.loads(raw)
+    expected: dict[str, Any] = {"schema": SCHEMA, "account": account, "operation": "status"}
+    nonce: int | None = None
+    if isinstance(request, dict) and "nonce" in request:
+        nonce = request["nonce"]
+        if type(nonce) is not int or not 0 <= nonce < 2**64:
+            raise ValueError("canonical status nonce required")
+        expected["nonce"] = nonce
+    if canonical_json(expected) != raw:
+        raise ValueError("canonical account-bound status request required")
+    return nonce
+
+
 def fields_json(fields: list[object]) -> list[object]:
     if len(fields) != 9 or not isinstance(fields[5], bytes) or not isinstance(fields[7], bytes):
         raise ValueError("unsigned transaction envelope required")
@@ -98,10 +112,13 @@ class TransactionSocketClient:
             raise ValueError("authority reply is malformed")
         return d
 
-    def pending_status(self) -> dict[str, Any]:
-        d = self._exchange(
-            canonical_json({"schema": SCHEMA, "account": self.account, "operation": "status"})
-        )
+    def pending_status(self, nonce: int | None = None) -> dict[str, Any]:
+        request: dict[str, Any] = {"schema": SCHEMA, "account": self.account, "operation": "status"}
+        if nonce is not None:
+            request["nonce"] = nonce
+        raw = canonical_json(request)
+        status_nonce(raw, self.account)  # Reject invalid nonce before socket access.
+        d = self._exchange(raw)
         if set(d) != {"schema", "status"} or not isinstance(d["status"], dict):
             raise ValueError("authority status unavailable")
         return d["status"]
@@ -142,6 +159,8 @@ class TransactionSocketClient:
 class Authority(Protocol):
     def status(self) -> dict[str, Any]: ...
 
+    def status_for_nonce(self, nonce: int) -> dict[str, Any]: ...
+
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes: ...
 
 
@@ -152,6 +171,7 @@ def serve_status_connections(
     account: str,
     max_requests: int,
     ttl_seconds: int,
+    lookup: Callable[[int], dict[str, Any]] | None = None,
 ) -> int:
     """Keyless recovery endpoint: every connection spends a finite request slot.
 
@@ -165,7 +185,6 @@ def serve_status_connections(
         or not 1 <= ttl_seconds <= 86400
     ):
         raise ValueError("status lifetime/request budget invalid")
-    expected = canonical_json({"schema": SCHEMA, "account": account, "operation": "status"})
     deadline, requests = time.monotonic() + ttl_seconds, 0
     while requests < max_requests and time.monotonic() < deadline:
         server.settimeout(min(1, max(0.001, deadline - time.monotonic())))
@@ -177,12 +196,16 @@ def serve_status_connections(
         with connection:
             connection.settimeout(min(5, max(0.001, deadline - time.monotonic())))
             try:
-                if (
-                    read_frame(connection, deadline=deadline) != expected
-                    or time.monotonic() >= deadline
-                ):
+                nonce = status_nonce(read_frame(connection, deadline=deadline), account)
+                if time.monotonic() >= deadline:
                     raise ValueError("status request refused")
-                reply = canonical_json({"schema": SCHEMA, "status": status()})
+                if nonce is None:
+                    public = status()
+                elif lookup is None:
+                    raise ValueError("historical status unavailable")
+                else:
+                    public = lookup(nonce)
+                reply = canonical_json({"schema": SCHEMA, "status": public})
                 if len(reply) >= MAX_FRAME:
                     raise ValueError("status reply exceeds frame bound")
             except Exception:  # noqa: BLE001 - no journal/request details in a refusal
@@ -214,13 +237,12 @@ def serve_connections(
             try:
                 frame = read_frame(connection)
                 parsed = json.loads(frame)
-                if (
-                    isinstance(parsed, dict)
-                    and set(parsed) == {"schema", "account", "operation"}
-                    and parsed == {"schema": SCHEMA, "account": account, "operation": "status"}
-                    and canonical_json(parsed) == frame
-                ):
-                    reply: dict[str, object] = {"schema": SCHEMA, "status": authority.status()}
+                if isinstance(parsed, dict) and parsed.get("operation") == "status":
+                    nonce = status_nonce(frame, account)
+                    public = (
+                        authority.status() if nonce is None else authority.status_for_nonce(nonce)
+                    )
+                    reply: dict[str, object] = {"schema": SCHEMA, "status": public}
                 else:
                     requested, fields, context = parse_request(frame)
                     if requested != account or time.monotonic() >= deadline:

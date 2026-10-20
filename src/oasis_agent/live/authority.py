@@ -15,6 +15,7 @@ from .action_plan import action_call
 from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
 from .intent import SubmittedTransaction, pending_plan_hash
+from .recovery import authority_status
 from .runner import LiveLoop, Market
 from .state import Pending, day_of
 from .valuation import replay_nav
@@ -37,13 +38,10 @@ class TransactionAuthority:
         self.simulation_evidence: tuple[EvidenceRef, EvidenceRef] | None = None
 
     def status(self) -> dict[str, Any]:
-        state = self.loop.store.load("live")
-        return {
-            "account": self.loop.c.account,
-            "chain_id": self.loop.c.chain_id,
-            "pending": asdict(state.pending) if state.pending else None,
-            "signing_unresolved": state.signing_attempt is not None,
-        }
+        return authority_status(self.loop.store, self.loop.c)
+
+    def status_for_nonce(self, nonce: int) -> dict[str, Any]:
+        return authority_status(self.loop.store, self.loop.c, nonce)
 
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes:
         loop, c = self.loop, self.loop.c

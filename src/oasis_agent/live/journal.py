@@ -146,3 +146,24 @@ class LiveJournal:
             )
             db.execute("COMMIT")
             self.revision = digest
+
+    def pending_snapshot(self, nonce: int) -> bytes | None:
+        """Read one unambiguous historical commitment without advancing writer CAS."""
+        if type(nonce) is not int or not 0 <= nonce < 2**64 or self.config_hash is None:
+            raise ValueError("bound journal and canonical nonce required")
+        with closing(self._connect()) as db:
+            db.execute("BEGIN")
+            self._read(db)  # Validate the whole chain, including entries after the match.
+            selected, commitment = None, None
+            for (payload,) in db.execute("SELECT payload FROM events ORDER BY seq"):
+                pending = json.loads(payload).get("pending")
+                if not isinstance(pending, dict) or pending.get("nonce") != nonce:
+                    continue
+                if type(pending["nonce"]) is not int:
+                    raise ValueError("historical commitment nonce invalid")
+                encoded = canonical_json(pending)
+                if commitment is not None and encoded != commitment:
+                    raise ValueError("ambiguous historical commitment for nonce")
+                selected, commitment = payload, encoded
+            db.execute("COMMIT")
+            return selected

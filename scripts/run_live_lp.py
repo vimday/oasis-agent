@@ -240,7 +240,7 @@ def main() -> None:
                         raise ValueError("unresolved signing attempt requires authority status")
                     public = TransactionSocketClient(
                         args.signer_socket, config.account
-                    ).pending_status()
+                    ).pending_status(loop.state.signing_attempt["nonce"])
                     adopt_authority_pending(loop.state, config, public)
                     store.save(loop.state)
                 result = loop._resolve_pending() if loop.state.pending else "no pending transaction"

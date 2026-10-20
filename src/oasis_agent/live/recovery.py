@@ -6,7 +6,19 @@ from typing import Any
 from ..models.common import evidence_ref_from_json
 from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
-from .state import LoopState, Pending
+from .state import LoopState, Pending, StateStore
+
+
+def authority_status(store: StateStore, c: LiveConfig, nonce: int | None = None) -> dict[str, Any]:
+    """Public commitment only; historical lookup does not assert settlement success."""
+    state = store.load("live")
+    pending = state.pending if nonce is None else store.historical_pending(nonce)
+    return {
+        "account": c.account,
+        "chain_id": c.chain_id,
+        "pending": asdict(pending) if pending else None,
+        "signing_unresolved": state.signing_attempt is not None,
+    }
 
 
 def adopt_authority_pending(state: LoopState, c: LiveConfig, status: dict[str, Any]) -> None:

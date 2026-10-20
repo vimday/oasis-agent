@@ -179,7 +179,7 @@ recovery. These commands do not reopen release gates or establish live acceptanc
 ### Lost signing replies
 
 If strategy has an unresolved signing attempt, recover its public commitment
-**before** settling the authority's pending receipt. `authority-status` runs
+by the nonce in its original durable reservation. `authority-status` runs
 `--status-only` with no network, no RPC environment and no key volume. It serves
 only the existing configuration-bound journal through the private socket, holds
 the normal authority lock, and exits after 12 connections or 60 seconds. Invalid
@@ -201,9 +201,16 @@ transaction hash. An unknown authority signing outcome, missing commitment or
 disagreement preserves the strategy reservation. Adoption does not broadcast;
 strategy must then independently prove the receipt and cash using its existing
 RPC budget. Exit 3 means stop and inspect, not clear or re-sign the reservation.
-If authority already settled and cleared its pending commitment, this endpoint
-does not search historical journal entries; automatic lost-reply recovery stays
-unresolved. The deployment order above preserves the commitment until adoption.
+The strategy requests that exact nonce, and the status endpoint validates the
+entire configuration-bound journal before returning its historical commitment.
+This also works if authority already settled and cleared pending, or has a newer
+pending nonce. Conflicting commitments for one nonce, corrupt journal entries,
+unknown signing outcomes and absent commitments fail closed. Lookup does not
+restore authority pending or change counters, and never copies the authority's
+settlement verdict: strategy must still independently prove receipt and cash.
+The legacy status request without a nonce still returns current pending only.
 
 The keyless SIGKILL/restart mechanism and remaining production limitations are
 recorded in [the status recovery verification](../../docs/verification/LIVE_KEYLESS_STATUS_20261019.md).
+Historical lookup is covered in
+[the continuation verification](../../docs/verification/LIVE_HISTORICAL_RECOVERY_20261020.md).

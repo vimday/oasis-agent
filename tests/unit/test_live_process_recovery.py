@@ -106,7 +106,8 @@ def stop(process):
     assert not process.is_alive()
 
 
-def test_lost_reply_survives_sigkill_and_new_process_without_resigning(tmp_path: Path):
+@pytest.mark.parametrize("cleared", [False, True])
+def test_lost_reply_survives_sigkill_and_new_process_without_resigning(tmp_path: Path, cleared):
     # New random fixture key; never read an environment, owner key, or RPC endpoint.
     seed = bytes(Account.create().key)
     ctx = multiprocessing.get_context("spawn")
@@ -141,17 +142,28 @@ def test_lost_reply_survives_sigkill_and_new_process_without_resigning(tmp_path:
             commitment = saved.pending.transaction
         finally:
             stop(first)
+        if cleared:
+            # Model publication after settlement; receipt verification itself is
+            # covered separately with retained synthetic raw proofs.
+            saved.pending = None
+            store.save(saved)
         before = store.journal_path.read_bytes()
         second = ctx.Process(target=status_child, args=(str(tmp_path), str(endpoint), ready))
         second.start()
         try:
             assert ready.get(timeout=10) == "keyless-status-ready"
-            public = TransactionSocketClient(endpoint, account, timeout=5).pending_status()
+            public = TransactionSocketClient(endpoint, account, timeout=5).pending_status(
+                commitment.nonce if cleared else None
+            )
             assert (
                 public["pending"]["transaction"]["transaction_hash"] == commitment.transaction_hash
             )
             assert not public["signing_unresolved"]
-            assert StateStore(store.path).load("live").pending.transaction == commitment
+            recovered = StateStore(store.path).load("live")
+            if cleared:
+                assert recovered.pending is None
+            else:
+                assert recovered.pending.transaction == commitment
             second.join(timeout=5)
             assert second.exitcode == 0 and store.journal_path.read_bytes() == before
         finally:
