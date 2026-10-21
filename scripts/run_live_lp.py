@@ -49,6 +49,7 @@ def receipt_cost_reader(
     secondary_url: str,
     *,
     profile: LiveRpcProfile | None = None,
+    require_existing_budget: bool = False,
 ) -> RetainedReceiptCostReader:
     """Share live endpoints with bounded, raw-recording cost acquisition sessions."""
     if primary_url.rstrip("/") == secondary_url.rstrip("/"):
@@ -58,7 +59,7 @@ def receipt_cost_reader(
     policies = (profile or LiveRpcProfile()).policies(sources)
     budget = state_dir / "live.receipt-budget.db"
     # Validate the durable cap before a loop can sign. Restarts never reset it.
-    with RpcBudget(budget, policies):
+    with RpcBudget(budget, policies, require_existing=require_existing_budget):
         pass
     return RetainedReceiptCostReader(
         store,
@@ -66,7 +67,13 @@ def receipt_cost_reader(
         account=config.account,
         native_decimals=config.decimals0,
         sources=sources,
-        sessions=partial(one_shot_session, urls=urls, policies=policies, budget=budget),
+        sessions=partial(
+            one_shot_session,
+            urls=urls,
+            policies=policies,
+            budget=budget,
+            require_existing_budget=require_existing_budget,
+        ),
     )
 
 
@@ -98,7 +105,7 @@ def main() -> None:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="read-only two-provider operational check; never contacts a signer or saves state",
+        help="two-provider check; spends existing durable RPC quota, never signs or saves state",
     )
     parser.add_argument(
         "--acknowledge-flow",
@@ -176,22 +183,36 @@ def main() -> None:
                     reader = receipt_cost_reader(
                         config,
                         evidence,
-                        directory,
+                        args.state_dir,
                         primary_url,
                         secondary_url,
                         profile=profile,
+                        require_existing_budget=True,
                     )
                     report = check_live(
                         config,
                         StateStore(args.state_dir / "live.state.json"),
-                        BudgetedRpc(primary_url, directory, "live_primary", profile),
-                        BudgetedRpc(secondary_url, directory, "live_secondary", profile),
+                        BudgetedRpc(
+                            primary_url,
+                            args.state_dir,
+                            "live_primary",
+                            profile,
+                            require_existing_budget=True,
+                        ),
+                        BudgetedRpc(
+                            secondary_url,
+                            args.state_dir,
+                            "live_secondary",
+                            profile,
+                            require_existing_budget=True,
+                        ),
                         stop_file=args.state_dir / "STOP",
                         receipt_costs=reader,
                     )
                     # The diagnostic is ephemeral; do not advertise discarded refs as retained.
                     if "observation" in report:
                         report["observation"]["nav_evidence_ephemeral"] = True
+                    report["rpc_budget_persistent"] = True
 
         except (Exception, SystemExit):  # noqa: BLE001 - redact endpoint/configuration failures
             report = {

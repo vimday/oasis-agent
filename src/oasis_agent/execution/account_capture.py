@@ -56,6 +56,7 @@ def one_shot_session(
     urls: Mapping[str, str],
     policies: tuple[BudgetPolicy, ...],
     budget: Path,
+    require_existing_budget: bool = False,
 ) -> RecordedSession:
     """One fresh session for one declared provider, sharing the caller's budget ledger.
 
@@ -64,10 +65,16 @@ def one_shot_session(
     (locating a receipt's block, for example) must not spend the capture's own session.
     """
     recorder = BoundedExchangeRecorder()
+    http = _UrlLibPoster(urls[source], 15)
+    poster = (
+        BudgetedPoster(http, budget, policies, source, require_existing=True)
+        if require_existing_budget
+        else BudgetedPoster(http, budget, policies, source)
+    )
     return (
         JsonRpcTransport(
             "https://unused.invalid",
-            http=BudgetedPoster(_UrlLibPoster(urls[source], 15), budget, policies, source),
+            http=poster,
             retries=0,
             recorder=recorder,
         ),

@@ -28,6 +28,13 @@ identity. Live preparation checks both provider chain IDs before signing.
 does not save loop state or reset latches, and exposes redacted blockers. Passing
 operational checks is separate from execution permission and economic acceptance.
 
+Correction (2026-10-22): “read-only” above refers to chain and loop state, not
+zero-cost execution. The former CLI allocated its RPC quota in a temporary
+directory, so repeated checks could start new request budgets. The
+[persistent precheck budget fix](LIVE_PRECHECK_BUDGET_20261022.md) removes that
+behavior. The historical observation and raw log below remain unchanged; they
+do not establish durable budget enforcement or current production readiness.
+
 ## Observed environment
 
 The read-only command exited 0 against the configured two Base providers at block

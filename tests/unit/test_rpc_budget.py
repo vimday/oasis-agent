@@ -1,6 +1,7 @@
 """Durable observation quotas count failed requests and serialize competing workers."""
 
 import json
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -23,6 +24,37 @@ def test_restart_spacing_and_exhaustion(tmp_path):
         with pytest.raises(ValueError, match="exhausted"):
             budget.reserve("paid", now_ms=20000)
         assert budget.counts()["paid"] == 2
+
+
+@pytest.mark.parametrize("kind", ["missing", "empty", "wrong_policy", "missing_policy"])
+def test_required_existing_budget_never_initializes_or_repairs(tmp_path, kind):
+    path = tmp_path / "budget.db"
+    if kind == "empty":
+        path.touch()
+    elif kind in {"wrong_policy", "missing_policy"}:
+        with RpcBudget(path, policies()) as budget:
+            if kind == "missing_policy":
+                budget.db.execute("DELETE FROM rpc_budget_policy")
+    before = path.read_bytes() if path.exists() else None
+    requested = (BudgetPolicy("different", 1, 0),) if kind == "wrong_policy" else policies()
+    with pytest.raises((ValueError, sqlite3.Error)):
+        RpcBudget(path, requested, require_existing=True)
+    assert (path.read_bytes() if path.exists() else None) == before
+
+
+def test_required_poster_never_recreates_a_disappeared_budget(tmp_path):
+    class Forbidden:
+        def post(self, payload):
+            raise AssertionError("no network without retained quota")
+
+    path = tmp_path / "budget.db"
+    with RpcBudget(path, policies()):
+        pass
+    poster = BudgetedPoster(Forbidden(), path, policies(), "paid", require_existing=True)
+    path.unlink()
+    with pytest.raises(sqlite3.Error):
+        poster.post(b'{"method":"eth_chainId"}')
+    assert not path.exists()
 
 
 def test_changed_policy_or_backwards_clock_fails(tmp_path):

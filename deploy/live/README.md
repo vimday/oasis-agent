@@ -36,6 +36,16 @@ it never falls back to reading the repository `.env`, which may also hold wallet
 keys. Apply the same environment-only setup to direct local shadow/check/recovery
 commands. Do not export a mixed wallet-key file into the strategy environment.
 
+`make live-check` / `run_live_lp --mode live --check` performs network reads and
+spends the existing `--state-dir/live.receipt-budget.db` quota. Direct reads and
+retained acquisition share this same ledger across invocations. Missing, empty,
+changed-policy or exhausted ledgers refuse without obtaining a fresh quota; do
+not create/copy a replacement ledger to retry. The check never saves loop state
+or contacts a signer. Its temporary evidence store does not retain production
+acceptance proofs. Request counts are not a provider dollar-cost guarantee:
+separately verify remaining monetary authorization before any online check.
+Use `--readiness` or `make live-deployment-check` for offline diagnostics.
+
 ```sh
 docker build --target runtime -f deploy/live/Dockerfile -t oasis-live:local .
 .venv/bin/python -m scripts.verify_live_isolation \

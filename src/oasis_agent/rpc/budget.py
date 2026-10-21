@@ -35,7 +35,9 @@ class BudgetPolicy:
 
 
 class RpcBudget:
-    def __init__(self, path: Path, policies: tuple[BudgetPolicy, ...]):
+    def __init__(
+        self, path: Path, policies: tuple[BudgetPolicy, ...], *, require_existing: bool = False
+    ):
         if not policies or len({item.source for item in policies}) != len(policies):
             raise ValueError("distinct RPC budget policies required")
         self.policies = {item.source: item for item in policies}
@@ -43,19 +45,25 @@ class RpcBudget:
             [asdict(item) for item in sorted(policies, key=lambda p: p.source)]
         )
         self.policy_hash = sha256_hex(payload)
-        self.db = sqlite3.connect(path, isolation_level=None, timeout=10)
+        self.db = sqlite3.connect(
+            path.resolve().as_uri() + "?mode=rw" if require_existing else path,
+            uri=require_existing,
+            isolation_level=None,
+            timeout=10,
+        )
         try:
             self.db.execute("PRAGMA synchronous=FULL")
             self.db.execute("BEGIN IMMEDIATE")
-            self.db.execute(
-                "CREATE TABLE IF NOT EXISTS rpc_budget_policy "
-                "(id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
-            )
-            self.db.execute(
-                "CREATE TABLE IF NOT EXISTS rpc_usage "
-                "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
-            )
-            self.db.execute("INSERT OR IGNORE INTO rpc_budget_policy VALUES(1,?)", (payload,))
+            if not require_existing:
+                self.db.execute(
+                    "CREATE TABLE IF NOT EXISTS rpc_budget_policy "
+                    "(id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL)"
+                )
+                self.db.execute(
+                    "CREATE TABLE IF NOT EXISTS rpc_usage "
+                    "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL, digest TEXT NOT NULL)"
+                )
+                self.db.execute("INSERT OR IGNORE INTO rpc_budget_policy VALUES(1,?)", (payload,))
             if self.db.execute("SELECT payload FROM rpc_budget_policy WHERE id=1").fetchone() != (
                 payload,
             ):
@@ -170,10 +178,12 @@ class BudgetedPoster:
         *,
         clock: Callable[[], int] | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        require_existing: bool = False,
     ):
         self.http, self.path, self.policies, self.source = http, path, policies, source
         self.clock = clock or (lambda: time.time_ns() // 1_000_000)
         self.sleep = sleep
+        self.require_existing = require_existing
 
     def post(self, payload: bytes) -> bytes:
         request = json.loads(payload)
@@ -214,7 +224,9 @@ class BudgetedPoster:
             ):
                 raise ValueError("only bounded complete callTracer observation is allowed")
         while True:
-            with RpcBudget(self.path, self.policies) as budget:
+            with RpcBudget(
+                self.path, self.policies, require_existing=self.require_existing
+            ) as budget:
                 wait = budget.reserve(self.source, now_ms=self.clock())
             if not wait:
                 return self.http.post(payload)

@@ -1,5 +1,6 @@
 """Direct live reads share the retained-acquisition quota, without automatic retries."""
 
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -23,22 +24,30 @@ class BudgetedRpc(Rpc):
         directory: Path,
         source: str,
         profile: LiveRpcProfile,
+        *,
+        require_existing_budget: bool = False,
     ) -> None:
         super().__init__(url, retries=1)
         policies = profile.policies(("live_primary", "live_secondary"))
         if source not in {p.source for p in policies}:
             raise ValueError("unknown live RPC source")
         path = directory / "live.receipt-budget.db"
-        with RpcBudget(path, policies):
+        with RpcBudget(path, policies, require_existing=require_existing_budget):
             pass
         self.reads = JsonRpcTransport(
             "https://unused.invalid",
-            http=BudgetedPoster(_UrlLibPoster(url, 10), path, policies, source),
+            http=BudgetedPoster(
+                _UrlLibPoster(url, 10),
+                path,
+                policies,
+                source,
+                require_existing=require_existing_budget,
+            ),
             retries=0,
         )
 
     def call(self, method: str, params: list[Any]) -> Any:
         try:
             return self.reads.request(method, params)
-        except (RpcError, ValueError, OSError):
+        except (RpcError, ValueError, OSError, sqlite3.Error):
             raise ChainError("budgeted live RPC read refused; details redacted") from None

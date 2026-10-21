@@ -1,6 +1,7 @@
 """Direct polling and raw acquisition spend one shared persistent read quota."""
 
 import json
+import sqlite3
 
 import pytest
 
@@ -70,3 +71,31 @@ def test_read_interface_cannot_broadcast(tmp_path, monkeypatch):
     with pytest.raises(ChainError):
         client.call("eth_sendRawTransaction", ["0x00"])
     assert not http.calls
+
+
+def test_existing_only_direct_and_retained_reads_refuse_ledger_removal(tmp_path, monkeypatch):
+    http = Http()
+    monkeypatch.setattr(budget_rpc, "_UrlLibPoster", lambda *_: http)
+    monkeypatch.setattr(account_capture, "_UrlLibPoster", lambda *_: http)
+    profile = LiveRpcProfile(max_requests=1, min_interval_ms=100)
+    policies = profile.policies(("live_primary", "live_secondary"))
+    path = tmp_path / "live.receipt-budget.db"
+    with RpcBudget(path, policies):
+        pass
+    client = budget_rpc.BudgetedRpc(
+        "https://unused.invalid", tmp_path, "live_primary", profile, require_existing_budget=True
+    )
+    session = account_capture.one_shot_session(
+        "live_primary",
+        urls={"live_primary": "https://unused.invalid"},
+        policies=policies,
+        budget=path,
+        require_existing_budget=True,
+    )
+    path.unlink()
+    with pytest.raises(ChainError, match="details redacted"):
+        client.block()
+    # The retained transport must likewise refuse before sending, not rebuild a quota.
+    with pytest.raises(sqlite3.OperationalError):
+        session[0].request("eth_chainId", [])
+    assert not path.exists() and not http.calls

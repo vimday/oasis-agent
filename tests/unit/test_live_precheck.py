@@ -1,5 +1,6 @@
 """Operational checks are observational and cannot clear latches or sign."""
 
+import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -7,11 +8,16 @@ from typing import Any
 
 import pytest
 
+from oasis_agent.execution import account_capture
+from oasis_agent.live import budget_rpc
 from oasis_agent.live.exact_risk import ExactRisk
 from oasis_agent.live.precheck import check_live
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import LoopState, Pending, StateStore
+from oasis_agent.rpc.budget import RpcBudget
 from scripts import run_live_lp as cli
+from tests.unit.test_live_budget_rpc import Http
 from tests.unit.test_live_lp import CONFIG, market
 
 
@@ -106,3 +112,78 @@ def test_checking_new_state_never_persists_observations(
     result = check_live(CONFIG, store, NonceRpc(), NonceRpc(), stop_file=tmp_path / "STOP")
     assert result["operational_checks_passed"] and not store.path.parent.exists()
     assert asdict(store.load("live")) == asdict(LoopState("live"))
+
+
+def setup_budgeted_cli(tmp_path, monkeypatch):
+    profile = LiveRpcProfile(max_requests=2, min_interval_ms=100)
+    http = Http()
+    monkeypatch.setattr(cli.LiveRpcProfile, "load", lambda _: profile)
+    monkeypatch.setattr(cli, "rpc_url", lambda name: "https://" + name + ".invalid")
+    monkeypatch.setattr(budget_rpc, "_UrlLibPoster", lambda *_: http)
+    monkeypatch.setattr(account_capture, "_UrlLibPoster", lambda *_: http)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("diagnostic must never construct a signer")
+
+    monkeypatch.setattr(cli, "TransactionSocketClient", forbidden)
+    monkeypatch.setattr(
+        sys, "argv", ["check", "--mode", "live", "--check", "--state-dir", str(tmp_path)]
+    )
+    return profile, http
+
+
+def test_cli_check_restarts_share_durable_budget_for_all_transports(tmp_path, monkeypatch, capsys):
+    profile, http = setup_budgeted_cli(tmp_path, monkeypatch)
+    path = tmp_path / "live.receipt-budget.db"
+    policies = profile.policies(("live_primary", "live_secondary"))
+    with RpcBudget(path, policies):
+        pass
+    store = StateStore(tmp_path / "live.state.json")
+    store.save(LoopState("live"))
+    before = store.path.read_bytes()
+
+    def check(config, store, primary, secondary, *, stop_file, receipt_costs):
+        primary.call("eth_chainId", [])
+        secondary.call("eth_chainId", [])
+        receipt_costs.sessions("live_primary")[0].request("eth_chainId", [])
+        return {"operational_checks_passed": True, "execution_eligible": False, "observation": {}}
+
+    monkeypatch.setattr(cli, "check_live", check)
+    cli.main()
+    report = json.loads(capsys.readouterr().out)
+    assert report["rpc_budget_persistent"] is True
+    assert report["observation"]["nav_evidence_ephemeral"] is True
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 3
+    assert len(http.calls) == 3  # Second invocation refuses before its first HTTP call.
+    with RpcBudget(path, policies, require_existing=True) as budget:
+        assert budget.counts() == {"live_primary": 2, "live_secondary": 1}
+    assert store.path.read_bytes() == before
+    assert {p.name for p in tmp_path.iterdir()} == {"live.state.json", "live.receipt-budget.db"}
+
+
+@pytest.mark.parametrize("kind", ["missing", "empty", "changed", "exhausted"])
+def test_cli_precheck_has_no_fresh_quota_fallback(tmp_path, monkeypatch, capsys, kind):
+    profile, http = setup_budgeted_cli(tmp_path, monkeypatch)
+    path = tmp_path / "live.receipt-budget.db"
+    policies = profile.policies(("live_primary", "live_secondary"))
+    if kind == "empty":
+        path.touch()
+    elif kind in {"changed", "exhausted"}:
+        with RpcBudget(path, policies) as budget:
+            if kind == "exhausted":
+                budget.reserve("live_primary", now_ms=1000)
+                budget.reserve("live_primary", now_ms=1100)
+        if kind == "changed":
+            monkeypatch.setattr(
+                cli.LiveRpcProfile, "load", lambda _: LiveRpcProfile(max_requests=3)
+            )
+    before = path.read_bytes() if path.exists() else None
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 3
+    assert not http.calls
+    assert (path.read_bytes() if path.exists() else None) == before
+    assert not (tmp_path / "live.state.json").exists()
+    assert "https://" not in capsys.readouterr().out
