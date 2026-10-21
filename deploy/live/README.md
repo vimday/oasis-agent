@@ -6,6 +6,25 @@ Both entry points still refuse new live actions before loading a key.
 
 ## Build and verify
 
+Check the expanded Compose policy without credentials, Docker daemon access or
+RPC calls:
+
+```sh
+make live-deployment-check
+```
+
+This verifies all seven services both with absent RPC variables and with
+synthetic endpoints. It checks private state/key mounts, keyless recovery,
+offline status service, non-root execution and confinement settings. It starts
+no service and grants no release approval. RPC values are passed through only
+to networked services; missing values are rejected by their entry points before
+network/key use. Offline setup/status no longer requires RPC credentials merely
+to parse Compose. The check ignores the host `.env` and does not print endpoints.
+The strategy CLI now resolves RPC URLs only from explicit environment variables;
+it never falls back to reading the repository `.env`, which may also hold wallet
+keys. Apply the same environment-only setup to direct local shadow/check/recovery
+commands. Do not export a mixed wallet-key file into the strategy environment.
+
 ```sh
 docker build --target runtime -f deploy/live/Dockerfile -t oasis-live:local .
 .venv/bin/python -m scripts.verify_live_isolation \

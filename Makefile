@@ -67,7 +67,9 @@ verify-run: check run
 
 # Base canary: live is release-gated; recovery never constructs a signer.
 SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
-.PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile
+.PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile live-deployment-check
+live-deployment-check:
+	$(PYTHON) -m scripts.verify_live_compose
 live-readiness:
 	$(PYTHON) scripts/run_live_lp.py --mode live --readiness
 live-reconcile:

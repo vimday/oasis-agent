@@ -71,13 +71,12 @@ def receipt_cost_reader(
 
 
 def rpc_url(name: str) -> str:
-    if name in os.environ:
-        return os.environ[name]
-    for line in (ROOT / ".env").read_text().splitlines():
-        key, _, value = line.partition("=")
-        if key.strip() == name:
-            return value.strip()
-    raise SystemExit(f"{name} is not set in the environment or .env")
+    # Strategy must never read a mixed credential file that may contain wallet
+    # keys. Operators/Compose pass only the explicitly required RPC variables.
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        raise SystemExit("Required RPC environment variable is missing or empty.")
+    return value
 
 
 def main() -> None:

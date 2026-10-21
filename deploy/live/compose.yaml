@@ -13,9 +13,10 @@ x-common: &common
   mem_limit: 512m
   restart: "no"
   tmpfs: [/tmp:rw,noexec,nosuid,size=16m,mode=1777]
-  environment:
-    BASE_RPC_PRIMARY_ALT: ${BASE_RPC_PRIMARY_ALT:?Set primary RPC in operator environment}
-    BASE_RPC_PRIMARY: ${BASE_RPC_PRIMARY:?Set independent secondary RPC in operator environment}
+  # Resolve only for services that inherit this environment. Required-value
+  # interpolation would also block keyless/offline services during config parsing.
+  # Execution entry points still refuse missing endpoints before any network/key use.
+  environment: [BASE_RPC_PRIMARY_ALT, BASE_RPC_PRIMARY]
 services:
   initialize:
     <<: *common

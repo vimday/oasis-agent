@@ -56,6 +56,18 @@ def test_normal_signing_still_refuses_before_key_or_network(tmp_path, monkeypatc
     assert not list(directory.iterdir())
 
 
+@pytest.mark.parametrize("endpoint", ["", " ", "not-a-url"])
+def test_missing_endpoint_refuses_before_key_even_after_release(tmp_path, monkeypatch, endpoint):
+    directory = setup_cli(tmp_path, monkeypatch, "--socket", "/unused.sock")
+    # Test the endpoint boundary independently of the closed production release.
+    monkeypatch.setattr(cli, "require_live_release", lambda: None)
+    monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", endpoint)
+    monkeypatch.setenv(TEST_CONFIG.secondary_rpc_env, endpoint)
+    with pytest.raises(ValueError, match="HTTP\\(S\\) endpoint"):
+        cli.main()
+    assert not (directory / "live.receipt-budget.db").exists()
+
+
 @pytest.mark.parametrize("option", ["--key-file", "--key-env", "--socket"])
 def test_recovery_rejects_signing_options_before_io(tmp_path, monkeypatch, option):
     directory = setup_cli(tmp_path, monkeypatch, "--reconcile-only", option, "unused")
