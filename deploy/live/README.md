@@ -195,6 +195,15 @@ the tool refuses a renamed output directory. See
 
 ## Recover pending receipts while new actions are blocked
 
+Both recovery commands require an existing, nonempty, configuration-bound execution
+journal. A missing journal or a legacy JSON-only state is an unresolved recovery,
+not "no pending transaction"; recovery never initializes or migrates that history.
+A lost JSON projection is recoverable from an intact journal without resetting
+losses or latches. When the validated journal has no pending or uncertain signature,
+the command returns without requiring RPC endpoints or a budget ledger. Otherwise
+reconciliation requires the existing service RPC budget and refuses a missing or
+changed-policy ledger; do not create a replacement budget to retry.
+
 The authority now has `--reconcile-only`, matching the strategy's existing
 recovery mode. It locks the authority state and binds its existing configuration,
 then reconciles a retained pending transaction with the same two-source

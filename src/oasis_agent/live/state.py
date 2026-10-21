@@ -229,12 +229,18 @@ class StateStore:
     def journal_path(self) -> Path:
         return self.path.with_suffix(self.path.suffix + ".journal.sqlite")
 
-    def bind(self, config_hash: str) -> None:
+    def bind(self, config_hash: str, *, require_existing: bool = False) -> None:
         # Validate any pre-existing journal before allowing writes under this policy.
+        if require_existing and not self.journal_path.is_file():
+            raise ValueError("recovery requires an existing execution journal")
         original = self.load("live")
-        self.journal = LiveJournal(self.journal_path, config_hash)
+        self.journal = LiveJournal(
+            self.journal_path, config_hash, require_existing=require_existing
+        )
         latest = self.journal.load()
         if latest is None:
+            if require_existing:
+                raise ValueError("recovery requires a nonempty execution journal")
             self.journal.append(asdict(original))
             original.journal_required = True
             self.save(original)

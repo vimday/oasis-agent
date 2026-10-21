@@ -9,8 +9,10 @@ import pytest
 
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.receipts import RetainedReceiptCostReader
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.rpc.budget import RpcBudget
 from scripts import run_live_authority as cli
 from tests.unit.test_live_approval_cash import TEST_CONFIG, ApprovalFixture, approval_loop
 from tests.unit.test_live_lp import ScriptedRpc
@@ -76,14 +78,30 @@ def test_recovery_rejects_signing_options_before_io(tmp_path, monkeypatch, optio
     assert caught.value.code == 2 and not list(directory.iterdir())
 
 
-def test_empty_recovery_needs_no_rpc_environment_or_key(tmp_path, monkeypatch, capsys):
+def test_absent_journal_is_not_reported_as_successful_empty_recovery(tmp_path, monkeypatch, capsys):
     directory = setup_cli(tmp_path, monkeypatch, "--reconcile-only")
     monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
     monkeypatch.setattr(cli, "require_live_release", forbidden)
     monkeypatch.delenv("BASE_RPC_PRIMARY_ALT", raising=False)
+    with pytest.raises(SystemExit) as caught:
+        cli.main()
+    assert caught.value.code == 3
+    assert "no pending" not in capsys.readouterr().out
+    assert not (directory / "state.json").exists()
+    assert not (directory / "state.json.journal.sqlite").exists()
+
+
+def test_existing_empty_journal_needs_no_rpc_environment_or_key(tmp_path, monkeypatch, capsys):
+    directory = setup_cli(tmp_path, monkeypatch, "--reconcile-only")
+    store = StateStore(directory / "state.json")
+    store.bind(sha256_hex(canonical_json(asdict(TEST_CONFIG))))
+    before = (store.path.read_bytes(), store.journal_path.read_bytes())
+    monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
+    monkeypatch.delenv("BASE_RPC_PRIMARY_ALT", raising=False)
     cli.main()
     assert "no pending" in capsys.readouterr().out
-    assert StateStore(directory / "state.json").load("live").pending is None
+    assert (store.path.read_bytes(), store.journal_path.read_bytes()) == before
+    assert not (directory / "live.receipt-budget.db").exists()
 
 
 def test_uncertain_signature_never_cleared_by_recovery(tmp_path, monkeypatch):
@@ -113,6 +131,11 @@ def test_receipt_recovery_retains_cash_proof_and_settles_once(
         # Publish the synthetic pending into the authority's own journal.
         store.bind(sha256_hex(canonical_json(asdict(TEST_CONFIG))))
         store.save(original.state)
+    with RpcBudget(
+        directory / "live.receipt-budget.db",
+        LiveRpcProfile().policies(("live_primary", "live_secondary")),
+    ):
+        pass
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", "primary-fixture")
     monkeypatch.setenv(TEST_CONFIG.secondary_rpc_env, "secondary-fixture")
     monkeypatch.setattr(cli, "require_live_release", forbidden)

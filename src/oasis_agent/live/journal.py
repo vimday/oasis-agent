@@ -24,7 +24,9 @@ class JournalConflict(ValueError):
 
 
 class LiveJournal:
-    def __init__(self, path: Path, config_hash: str | None = None) -> None:
+    def __init__(
+        self, path: Path, config_hash: str | None = None, *, require_existing: bool = False
+    ) -> None:
         self.path = path
         if path.is_symlink():
             raise ValueError("journal cannot be a symlink")
@@ -32,15 +34,19 @@ class LiveJournal:
             info = path.stat()
             if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
                 raise ValueError("journal must be an owned regular file")
+        elif require_existing:
+            raise ValueError("required execution journal missing")
         elif config_hash is None:
             raise ValueError("journal creation requires a configuration binding")
         self.config_hash = config_hash
         self.revision: str | None = None
-        if config_hash is not None:
-            if len(config_hash) != 64 or any(c not in "0123456789abcdef" for c in config_hash):
-                raise ValueError("canonical configuration digest required")
+        if config_hash is not None and (
+            len(config_hash) != 64 or any(c not in "0123456789abcdef" for c in config_hash)
+        ):
+            raise ValueError("canonical configuration digest required")
+        if config_hash is not None and not require_existing:
             path.parent.mkdir(parents=True, exist_ok=True)
-            with closing(self._connect()) as db:
+            with closing(self._connect(create=True)) as db:
                 db.execute(
                     "CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY, "
                     "config TEXT NOT NULL, "
@@ -56,8 +62,13 @@ class LiveJournal:
                 )
             path.chmod(0o600)
 
-    def _connect(self) -> sqlite3.Connection:
-        db = sqlite3.connect(self.path, timeout=5, isolation_level=None)
+    def _connect(self, *, create: bool = False) -> sqlite3.Connection:
+        db = sqlite3.connect(
+            self.path if create else self.path.resolve().as_uri() + "?mode=rw",
+            uri=not create,
+            timeout=5,
+            isolation_level=None,
+        )
         db.execute("PRAGMA synchronous=FULL")
         db.execute("PRAGMA journal_mode=DELETE")
         return db

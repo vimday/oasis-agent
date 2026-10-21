@@ -8,6 +8,7 @@ the private socket through the operator's service confinement, never to the key.
 import argparse
 import fcntl
 import os
+import sqlite3
 from contextlib import closing
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -29,6 +30,7 @@ from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_release
+from oasis_agent.rpc.budget import RpcBudget
 from scripts.run_live_lp import receipt_cost_reader
 
 
@@ -91,9 +93,12 @@ def main() -> None:
     with (directory / "authority.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         store = StateStore(directory / "state.json")
-        if args.status_only and not store.journal_path.is_file():
-            parser.exit(3, "Status recovery requires an existing authority journal.\n")
-        store.bind(sha256_hex(canonical_json(asdict(config))))
+        if (args.status_only or args.reconcile_only) and not store.journal_path.is_file():
+            parser.exit(3, "Recovery requires an existing authority journal.\n")
+        store.bind(
+            sha256_hex(canonical_json(asdict(config))),
+            require_existing=args.status_only or args.reconcile_only,
+        )
         if args.status_only:
 
             def public_status():
@@ -116,15 +121,36 @@ def main() -> None:
             if state.pending is None:
                 print("no pending transaction")
                 return
+            try:
+                with RpcBudget(
+                    directory / "live.receipt-budget.db",
+                    profile.policies(("live_primary", "live_secondary")),
+                    require_existing=True,
+                ):
+                    pass
+            except Exception:  # noqa: BLE001 - fixed diagnostic, preserve original state
+                parser.exit(3, "Authority recovery RPC budget unresolved; state preserved.\n")
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
         with closing(EvidenceStore(directory / "evidence.db")) as evidence:
             loop = LiveLoop.recovery(
                 config,
-                BudgetedRpc(primary, directory, "live_primary", profile),
+                BudgetedRpc(
+                    primary,
+                    directory,
+                    "live_primary",
+                    profile,
+                    require_existing_budget=args.reconcile_only,
+                ),
                 store,
                 "live",
             )
-            loop.secondary = BudgetedRpc(secondary, directory, "live_secondary", profile)
+            loop.secondary = BudgetedRpc(
+                secondary,
+                directory,
+                "live_secondary",
+                profile,
+                require_existing_budget=args.reconcile_only,
+            )
             loop.stop_file = directory / "STOP"
             loop.receipt_costs = receipt_cost_reader(
                 config,
@@ -133,6 +159,7 @@ def main() -> None:
                 primary,
                 secondary,
                 profile=profile,
+                require_existing_budget=args.reconcile_only,
             )
             if args.reconcile_only:
                 try:
@@ -160,5 +187,5 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, ValueError, RuntimeError, KeyError):
+    except (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error):
         raise SystemExit("Transaction authority refused or stopped; details redacted.") from None

@@ -7,7 +7,7 @@ and operator fees on success and revert, and refusals must preserve pending.
 import json
 import sys
 from collections.abc import Iterator
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +20,11 @@ from oasis_agent.farming.transaction_costs import replay_transaction_cost
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.positions import replay_position_outcome
 from oasis_agent.live.receipts import RetainedReceiptCostReader
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import TRANSFER_TOPIC, LiveLoop
 from oasis_agent.live.state import LoopState, Pending, Position, StateStore
 from oasis_agent.models.chain import BlockSnapshot
-from oasis_agent.models.common import canonical_json
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
 from scripts import run_live_lp as live_cli
 from scripts.run_live_lp import receipt_cost_reader
@@ -447,10 +448,18 @@ def test_live_cli_wires_raw_cost_producer_without_signing(
     bind_pending(pending)
     state = StateStore(tmp_path / "live.state.json")
     state.save(LoopState(mode="live", pending=pending))
+    state.bind(sha256_hex(canonical_json(asdict(CONFIG))))
+    with RpcBudget(
+        tmp_path / "live.receipt-budget.db",
+        LiveRpcProfile().policies(("live_primary", "live_secondary")),
+    ):
+        pass
     build = sessions({"live_primary": fixture, "live_secondary": replace(fixture)})
     monkeypatch.setattr(live_cli, "one_shot_session", lambda source, **_: build(source))
     monkeypatch.setattr(live_cli, "rpc_url", lambda name: f"https://{name}.invalid")
-    monkeypatch.setattr(live_cli, "BudgetedRpc", lambda *_: ScriptedRpc(receipt=fixture._receipt()))
+    monkeypatch.setattr(
+        live_cli, "BudgetedRpc", lambda *_, **__: ScriptedRpc(receipt=fixture._receipt())
+    )
     monkeypatch.setattr(live_cli, "TransactionSocketClient", lambda *_: NeverSign())
     monkeypatch.setattr(live_cli.time, "sleep", lambda _: None)
     monkeypatch.setattr(

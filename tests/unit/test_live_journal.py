@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from oasis_agent.live.chain import ChainError
-from oasis_agent.live.journal import JournalConflict
-from oasis_agent.live.state import StateStore
+from oasis_agent.live.journal import JournalConflict, LiveJournal
+from oasis_agent.live.state import LoopState, StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from tests.unit.test_live_lp import CONFIG, ScriptedRpc, live_loop
 
@@ -20,6 +20,47 @@ def bound(tmp_path: Path) -> StateStore:
     store = StateStore(tmp_path / "live.json")
     store.bind(CONFIG_HASH)
     return store
+
+
+@pytest.mark.parametrize("fault", ["missing", "json_only", "empty", "foreign"])
+def test_recovery_binding_never_initializes_or_migrates_journal(tmp_path, fault):
+    store = StateStore(tmp_path / "live.json")
+    if fault == "json_only":
+        store.save(LoopState("live"))
+    elif fault == "empty":
+        LiveJournal(store.journal_path, CONFIG_HASH)
+    elif fault == "foreign":
+        store.bind("f" * 64)
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    with pytest.raises(ValueError):
+        StateStore(store.path).bind(CONFIG_HASH, require_existing=True)
+    assert {p.name: p.read_bytes() for p in tmp_path.iterdir()} == before
+
+
+def test_existing_binding_recovers_missing_projection_without_resetting_losses(tmp_path):
+    store = bound(tmp_path)
+    state = store.load("live")
+    state.integer_risk().observe(day="2026-10-22", at=1000, nav=500_000_000)
+    state.integer_risk().observe(day="2026-10-22", at=1001, nav=290_000_000)
+    state.halted = "loss cap"
+    store.save(state)
+    before = store.journal_path.read_bytes()
+    store.path.unlink()
+    recovered = StateStore(store.path)
+    recovered.bind(CONFIG_HASH, require_existing=True)
+    assert recovered.load("live").integer_risk().losses(290_000_000) == (210_000_000, 210_000_000)
+    assert recovered.load("live").halted == "loss cap"
+    assert not store.path.exists() and store.journal_path.read_bytes() == before
+
+
+def test_open_journal_does_not_recreate_file_deleted_before_next_read(tmp_path):
+    store = bound(tmp_path)
+    journal = LiveJournal(store.journal_path, CONFIG_HASH, require_existing=True)
+    journal.load()
+    store.journal_path.unlink()
+    with pytest.raises(sqlite3.OperationalError):
+        journal.load()
+    assert not store.journal_path.exists()
 
 
 def test_crash_after_journal_commit_recovers_without_resetting_losses(

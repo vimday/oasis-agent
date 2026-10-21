@@ -226,6 +226,11 @@ def main() -> None:
         if not report["operational_checks_passed"]:
             raise SystemExit(3)
         return
+    if (
+        args.reconcile_only
+        and not StateStore(args.state_dir / "live.state.json").journal_path.is_file()
+    ):
+        parser.exit(3, "Recovery requires an existing strategy journal.\n")
     args.state_dir.mkdir(parents=True, exist_ok=True)
     # One process per state file: two loops would race on the nonce and the state.
     lock = (args.state_dir / f"{args.mode}.lock").open("w")
@@ -235,17 +240,43 @@ def main() -> None:
         raise SystemExit(f"another {args.mode} loop holds {lock.name}") from None
     store = StateStore(args.state_dir / f"{args.mode}.state.json")
     if args.mode == "live" and not args.report:
-        store.bind(sha256_hex(canonical_json(asdict(config))))
+        store.bind(sha256_hex(canonical_json(asdict(config))), require_existing=args.reconcile_only)
     if args.reconcile_only:
+        state = store.load("live")
+        if state.pending is None and state.signing_attempt is None:
+            print("no pending transaction")
+            return
+        try:
+            # Refuse a lost/fresh quota before any RPC, evidence creation or status adoption.
+            with RpcBudget(
+                args.state_dir / "live.receipt-budget.db",
+                profile.policies(("live_primary", "live_secondary")),
+                require_existing=True,
+            ):
+                pass
+        except Exception:  # noqa: BLE001 - fixed diagnostic, no provider or path details
+            parser.exit(3, "Recovery RPC budget unresolved; state preserved.\n")
         with closing(EvidenceStore(args.state_dir / "live.receipts.db")) as evidence:
             primary_url, secondary_url = rpc_url(args.rpc_env), rpc_url(config.secondary_rpc_env)
             loop = LiveLoop.recovery(
                 config,
-                BudgetedRpc(primary_url, args.state_dir, "live_primary", profile),
+                BudgetedRpc(
+                    primary_url,
+                    args.state_dir,
+                    "live_primary",
+                    profile,
+                    require_existing_budget=True,
+                ),
                 store,
                 "live",
             )
-            loop.secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
+            loop.secondary = BudgetedRpc(
+                secondary_url,
+                args.state_dir,
+                "live_secondary",
+                profile,
+                require_existing_budget=True,
+            )
             loop.receipt_costs = receipt_cost_reader(
                 config,
                 evidence,
@@ -253,6 +284,7 @@ def main() -> None:
                 primary_url,
                 secondary_url,
                 profile=profile,
+                require_existing_budget=True,
             )
             try:
                 if loop.state.signing_attempt is not None:
