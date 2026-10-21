@@ -47,7 +47,10 @@ def live_release() -> LiveRelease:
             ReleaseBlocker(
                 code="exact_nav_accounting_incomplete",
                 title="整数净值及未收手续费已接通, 待真实数据验收",
-                required="验证两种货币的有效 USD 喂价、历史资金基准迁移与完整持仓估值。",
+                required=(
+                    "历史签名价格包已通过离线验真; 仍需新鲜 USD 喂价获取与 NAV 接入、"
+                    "历史资金基准迁移及完整持仓估值。"
+                ),
             ),
             ReleaseBlocker(
                 code="durable_execution_recovery_incomplete",

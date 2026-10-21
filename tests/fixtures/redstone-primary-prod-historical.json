@@ -1,0 +1,126 @@
+{
+  "ETH": [
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "nPWsbIZQSdWWHk8ehWr6est0iURU6ev40l1sMy7B2vwmp6sUcK/aG9KXSl5MsjkyD2u3O5EvpmNvnN+DN4t50hw=",
+      "dataPoints": [
+        {
+          "dataFeedId": "ETH",
+          "value": 3486.563328645609
+        }
+      ],
+      "dataPackageId": "ETH",
+      "signerAddress": "0x51Ce04Be4b3E32572C4Ec9135221d0691Ba7d202"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "W4Ay5Zfp6yCypv5jqEAK2YmPwbieq3sxAur8eWDNcbgfl0PzcU9UFSI5x6MgjPaLqDriEMZk+f1RQR0m/FwEZRs=",
+      "dataPoints": [
+        {
+          "dataFeedId": "ETH",
+          "value": 3486.9628397451065
+        }
+      ],
+      "dataPackageId": "ETH",
+      "signerAddress": "0x8BB8F32Df04c8b654987DAaeD53D6B6091e3B774"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "Uudqk0SpKu7lJ5ZUJ000OhELDeMfwNk0CZ8Zv++Ignx16zJMQ/Z+3v1/7bk+vDXZIrsPPVoJtVuvtyZvflKWVhw=",
+      "dataPoints": [
+        {
+          "dataFeedId": "ETH",
+          "value": 3486.9520348507745
+        }
+      ],
+      "dataPackageId": "ETH",
+      "signerAddress": "0x9c5AE89C4Af6aA32cE58588DBaF90d18a855B6de"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "T56yldWPF/GMx5awBbL6dcAk43L8oEOpFDxpf+xFOm9zGF/UGgPTVogsTxgm6g4O2jEXruQGe/k1zUNJgEDErhs=",
+      "dataPoints": [
+        {
+          "dataFeedId": "ETH",
+          "value": 3486.79
+        }
+      ],
+      "dataPackageId": "ETH",
+      "signerAddress": "0xDD682daEC5A90dD295d14DA4b0bec9281017b5bE"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "WzXfacZgOzIQP1Ek3CbDpNs42xfpcHOglQ2p13l0Y6Q0+4gtv62fwwco/bzxI62PUuSS9yRpU4FKDDkd09mb9Rw=",
+      "dataPoints": [
+        {
+          "dataFeedId": "ETH",
+          "value": 3486.9520348507745
+        }
+      ],
+      "dataPackageId": "ETH",
+      "signerAddress": "0xdEB22f54738d54976C4c0fe5ce6d408E40d88499"
+    }
+  ],
+  "USDC": [
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "vJnS1Moky2RAOIjjPjGsvYH/EsQJcPw8iXe8gsbUBxR9l5hlEiJX+9CZAnDRQRe1SXX97wbVPccu7hTxh8Hr+hw=",
+      "dataPoints": [
+        {
+          "dataFeedId": "USDC",
+          "value": 0.99988697288267
+        }
+      ],
+      "dataPackageId": "USDC",
+      "signerAddress": "0x51Ce04Be4b3E32572C4Ec9135221d0691Ba7d202"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "NRtc0OhqtnP/Tr3ICDb7b1crenESQnvIktEIme+X1MtPRLZH6txi6AFHLgSLOBTKG/iJ0l65qoUGGzpM2VIkCRs=",
+      "dataPoints": [
+        {
+          "dataFeedId": "USDC",
+          "value": 0.99988697288267
+        }
+      ],
+      "dataPackageId": "USDC",
+      "signerAddress": "0x8BB8F32Df04c8b654987DAaeD53D6B6091e3B774"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "iRe51H3iy5xoiuMNZwpiVigG4DaHhDyBhpgSZQeMUc8FIG0Ecl4Deos5jAHnYuiya3v9tszbTxx8arkj43NFLBs=",
+      "dataPoints": [
+        {
+          "dataFeedId": "USDC",
+          "value": 0.99987330599505
+        }
+      ],
+      "dataPackageId": "USDC",
+      "signerAddress": "0x9c5AE89C4Af6aA32cE58588DBaF90d18a855B6de"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "legUp4d0sJkTAhMbsTbZRIl9E7zDy3xHNe412Jg4lzQC1VTCs+h3xRaz81srq2uPwCQGpMH3sgrZtb1JADXvIxs=",
+      "dataPoints": [
+        {
+          "dataFeedId": "USDC",
+          "value": 0.99988697288267
+        }
+      ],
+      "dataPackageId": "USDC",
+      "signerAddress": "0xDD682daEC5A90dD295d14DA4b0bec9281017b5bE"
+    },
+    {
+      "timestampMilliseconds": 1719856900000,
+      "signature": "lXlm00KIOe6+abVaXXicor17yNC94cIgb6lvh8qLfR5/sJxglmkk7KfIg6M8Xn6IrAdnFjt9iATxOiWz5h8xmRw=",
+      "dataPoints": [
+        {
+          "dataFeedId": "USDC",
+          "value": 0.99987330599505
+        }
+      ],
+      "dataPackageId": "USDC",
+      "signerAddress": "0xdEB22f54738d54976C4c0fe5ce6d408E40d88499"
+    }
+  ]
+}
