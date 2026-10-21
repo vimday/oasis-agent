@@ -173,6 +173,84 @@ def replay_signed_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> 
     return capture
 
 
+def verify_signed_nav_quorum(
+    store: EvidenceStore,
+    c: LiveConfig,
+    refs: tuple[EvidenceRef, EvidenceRef],
+    *,
+    sources: tuple[str, str],
+    position: Position | None,
+    now_ms: int,
+) -> dict[str, Any]:
+    """Revalidate both retained candidates and freshness at the consumer's clock.
+
+    Source aliases and declared inventory are expectations, not discovery or proof
+    of provider independence. A passing report is never a production permission.
+    """
+    _validate_mapping(c)
+    if position is not None and any(type(v) is not int for v in asdict(position).values()):
+        raise NavRefusal("signed NAV expected position requires integer fields")
+    if (
+        type(now_ms) is not int
+        or now_ms < 0
+        or len(refs) != 2
+        or len(sources) != 2
+        or not all(isinstance(s, str) and s for s in sources)
+        or sources[0] == sources[1]
+        or tuple(r.source for r in refs) != sources
+        or refs[0].block != refs[1].block
+    ):
+        raise NavRefusal("signed NAV quorum requires expected distinct sources and one block")
+    block = refs[0].block
+    if (
+        block is None
+        or block.timestamp is None
+        or not 0 <= now_ms - block.timestamp * 1000 <= 120_000
+    ):
+        raise NavRefusal("signed NAV account block is stale or future")
+    captures = [replay_signed_nav(store, ref, c) for ref in refs]
+    if any(p.position != position for p in captures):
+        raise NavRefusal("signed NAV quorum omits or changes declared position")
+    if captures[0].price_evidence != captures[1].price_evidence:
+        raise NavRefusal("signed NAV quorum uses different price bindings")
+    price_ref = captures[0].price_evidence
+    binding = replay_prices(store, price_ref, c)
+    if binding["wallets"] != [asdict(p.wallet) for p in captures]:
+        raise NavRefusal("signed NAV quorum does not cover its exact wallet pair")
+    if binding["verified"]["observed_at_ms"] > now_ms:
+        raise NavRefusal("signed NAV capture clock is in the future")
+    # Recheck original signatures/age at consumption, never reuse capture freshness.
+    current_prices = verify_prices(
+        store.get_record(price_ref).raw_response_payload,
+        observed_at_ms=now_ms,
+        max_age_ms=c.oracle_max_age_seconds * 1000,
+    )
+    values = [p.reconstruct(store, c) for p in captures]
+    calls = captures[0]._requests(c, block)
+    if values[0] != values[1] or successful_results(
+        captures[0].exchanges, calls
+    ) != successful_results(captures[1].exchanges, calls):
+        raise NavRefusal("signed NAV quorum raw state disagrees")
+    result: dict[str, Any] = {
+        "schema": "oasis.signed-nav-quorum-verification.v1",
+        "execution_eligible": False,
+        "config_hash": sha256_hex(canonical_json(asdict(c))),
+        "checked_at_ms": now_ms,
+        "block": asdict(block),
+        "account": c.account,
+        "sources": list(sources),
+        "position": asdict(position) if position is not None else None,
+        "value": asdict(values[0]),
+        "evidence": [asdict(ref) for ref in refs],
+        "price_evidence": asdict(price_ref),
+        "current_price_verification": current_prices,
+        "account_age_ms": now_ms - block.timestamp * 1000,
+        "scope": "declared wallet assets and position; not complete account history or release",
+    }
+    result["evidence_hash"] = sha256_hex(canonical_json(result))
+    return result
+
+
 def capture_signed_nav_candidate(
     store: EvidenceStore,
     c: LiveConfig,

@@ -282,3 +282,12 @@ class EvidenceStore:
 
     def close(self) -> None:
         self._connection.close()
+
+
+class ReadOnlyEvidenceStore(EvidenceStore):
+    """One existing read snapshot; no creation, migration or evidence writes."""
+
+    def __init__(self, path: Path) -> None:
+        self._connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        self._connection.execute("PRAGMA query_only = ON")
+        self._connection.execute("BEGIN")

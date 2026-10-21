@@ -48,7 +48,7 @@ def live_release() -> LiveRelease:
                 code="exact_nav_accounting_incomplete",
                 title="整数净值及未收手续费已接通, 待真实数据验收",
                 required=(
-                    "历史签名价格已接入双源钱包/LP 的 NAV 候选重放; 尚未接入生产签名门禁。"
+                    "签名价格 NAV 候选支持双源只读复核及当前时效检查; 尚未接入生产签名门禁。"
                     "仍需新鲜 USD 喂价、生产 NAV 验收、历史资金基准迁移及完整持仓估值。"
                 ),
             ),

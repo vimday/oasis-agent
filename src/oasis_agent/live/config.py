@@ -57,7 +57,11 @@ class LiveConfig:
 
     @staticmethod
     def load(path: Path) -> "LiveConfig":
-        raw: dict[str, Any] = json.loads(path.read_text(), object_pairs_hook=_unique)
+        return LiveConfig.from_json(path.read_bytes())
+
+    @staticmethod
+    def from_json(data: bytes) -> "LiveConfig":
+        raw: dict[str, Any] = json.loads(data, object_pairs_hook=_unique)
         pool = raw.pop("pool")
         if not isinstance(pool, dict) or set(pool) != {
             "currency0",
