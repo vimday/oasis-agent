@@ -67,8 +67,15 @@ Local results are retained in `reports/review-20261021/compose-policy/`.
   subtests, plus syntax checks for eight frontend modules, passed. After removing
   the `.env` fallback, `environment-tests.log` records 93 focused CLI, precheck,
   receipt-cost and environment-boundary tests passing, including five new tests.
-- `final-secrets.log` and `final-bandit.log`: final secret gate passed and Bandit
-  reported no medium/high severity findings. Final Ruff and formatting passed.
+- Correction: `final-secrets.log` records **two unreviewed candidates**, so the
+  earlier statement that this gate passed was incorrect. They are the public
+  `canary-keys` volume name and a `synthetic-marker` test value. The previous
+  multi-command shell returned the later command's success and masked this
+  failure. Preserve that failed log. Exact fingerprint review and a new
+  fail-fast quality run are recorded in
+  [the quality-gate follow-up](LIVE_QUALITY_GATE_20261021.md).
+  `final-bandit.log` reported no medium/high severity findings. Final Ruff and
+  formatting passed.
 
 Fresh USD prices and full account NAV, production provider/simulation evidence,
 and actual canary receipt/cash recovery are still required. No live service was

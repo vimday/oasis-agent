@@ -6,6 +6,17 @@ Both entry points still refuse new live actions before loading a key.
 
 ## Build and verify
 
+Run the complete local development checks with a fresh report directory:
+
+```sh
+make live-quality QUALITY_OUTPUT=reports/runs/my-live-quality-check
+```
+
+This stops on the first failed/timed-out check and records each actual exit code
+and log hash: Python/frontend, secret scanning, Bandit and expanded Compose
+policy. Existing reports are never overwritten. A successful development check
+does not open the production release gate or start services.
+
 Check the expanded Compose policy without credentials, Docker daemon access or
 RPC calls:
 

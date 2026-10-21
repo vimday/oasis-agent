@@ -70,6 +70,10 @@ SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
 .PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile live-deployment-check
 live-deployment-check:
 	$(PYTHON) -m scripts.verify_live_compose
+QUALITY_OUTPUT ?= reports/runs/live-quality
+.PHONY: live-quality
+live-quality:
+	$(PYTHON) -m scripts.check_live_quality --out "$(QUALITY_OUTPUT)"
 live-readiness:
 	$(PYTHON) scripts/run_live_lp.py --mode live --readiness
 live-reconcile:
