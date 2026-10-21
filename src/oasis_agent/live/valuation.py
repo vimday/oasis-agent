@@ -124,6 +124,44 @@ class NavCapture:
     position_evidence: EvidenceRef | None
     exchanges: tuple[RpcExchange, ...]
 
+    def _requests(self, c: LiveConfig, block: BlockRef) -> list[tuple[str, list[object]]]:
+        return requests(c, block, self.position)
+
+    def _prices(
+        self, store: EvidenceStore, c: LiveConfig, block: BlockRef, vals: tuple[object, ...]
+    ) -> list[int]:
+        if block.timestamp is None:
+            raise NavRefusal("NAV block timestamp missing")
+        answers = []
+        for i, description in ((4, "ETH / USD"), (8, "USDC / USD")):
+            require_code_hash(vals[i], FEED_RUNTIME)
+            if _abi(["uint8"], vals[i + 1]) != (8,) or _abi(["string"], vals[i + 2]) != (
+                description,
+            ):
+                raise NavRefusal("NAV feed identity/decimals changed")
+            round_id, answer, started, updated, answered = _abi(
+                ["uint80", "int256", "uint256", "uint256", "uint80"], vals[i + 3]
+            )
+            assert all(isinstance(v, int) for v in (round_id, answer, started, updated, answered))
+            if not (
+                isinstance(answer, int)
+                and isinstance(updated, int)
+                and isinstance(started, int)
+                and isinstance(round_id, int)
+                and isinstance(answered, int)
+            ):
+                raise NavRefusal("invalid feed integers")
+            if (
+                round_id <= 0
+                or answer <= 0
+                or answered < round_id
+                or not 0 < started <= updated
+                or not 0 <= block.timestamp - updated <= c.oracle_max_age_seconds
+            ):
+                raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
+            answers.append(answer)
+        return answers
+
     def reconstruct(self, store: EvidenceStore, c: LiveConfig) -> AccountValue:
         proof = replay_wallet(store, self.wallet)
         wallet = proof.reconstruct()
@@ -161,7 +199,7 @@ class NavCapture:
                 raise NavRefusal("NAV position proof differs from declared holding")
         if sum(len(x.request_payload) + len(x.response_payload) for x in self.exchanges) > 500_000:
             raise NavRefusal("NAV evidence byte budget exceeded")
-        vals = successful_results(self.exchanges, requests(c, block, self.position))
+        vals = successful_results(self.exchanges, self._requests(c, block))
         if (
             rpc_quantity(vals[0]) != c.chain_id
             or decode_header(vals[1], chain_id=c.chain_id) != wallet.header
@@ -173,38 +211,11 @@ class NavCapture:
         assert isinstance(sqrt, int) and isinstance(tick, int)
         if tick >= MAX_TICK or not sqrt_price_at_tick(tick) <= sqrt <= sqrt_price_at_tick(tick + 1):
             raise NavRefusal("NAV pool price/tick inconsistent")
-        answers = []
-        for i, description in ((4, "ETH / USD"), (8, "USDC / USD")):
-            require_code_hash(vals[i], FEED_RUNTIME)
-            if _abi(["uint8"], vals[i + 1]) != (8,) or _abi(["string"], vals[i + 2]) != (
-                description,
-            ):
-                raise NavRefusal("NAV feed identity/decimals changed")
-            round_id, answer, started, updated, answered = _abi(
-                ["uint80", "int256", "uint256", "uint256", "uint80"], vals[i + 3]
-            )
-            assert all(isinstance(v, int) for v in (round_id, answer, started, updated, answered))
-            if not (
-                isinstance(answer, int)
-                and isinstance(updated, int)
-                and isinstance(started, int)
-                and isinstance(round_id, int)
-                and isinstance(answered, int)
-            ):
-                raise NavRefusal("invalid feed integers")
-            if (
-                round_id <= 0
-                or answer <= 0
-                or answered < round_id
-                or not 0 < started <= updated
-                or not 0 <= block.timestamp - updated <= c.oracle_max_age_seconds
-            ):
-                raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
-            answers.append(answer)
+        answers = self._prices(store, c, block, vals)
         principal0 = principal1 = fee0 = fee1 = 0
         if self.position is not None:
-            liquidity, last0, last1 = _abi(["uint128", "uint256", "uint256"], vals[12])
-            growth0, growth1 = _abi(["uint256", "uint256"], vals[13])
+            liquidity, last0, last1 = _abi(["uint128", "uint256", "uint256"], vals[-3])
+            growth0, growth1 = _abi(["uint256", "uint256"], vals[-2])
             if liquidity != self.position.liquidity:
                 raise NavRefusal("manager/core liquidity disagreement")
             assert isinstance(liquidity, int) and isinstance(last0, int) and isinstance(last1, int)
