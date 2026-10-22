@@ -45,6 +45,11 @@ loop state. Exit 0 means the operational snapshot passed; it is not execution
 permission or profitability evidence. See [the live check and settlement
 boundaries](docs/operations/LIVE_START_CHECK.md).
 
+For the signed-price NAV candidate, use the [bounded acquisition entry
+point](docs/verification/SIGNED_NAV_ACQUISITION_20261022.md). It defaults to an
+offline plan; explicit capture reuses an existing RPC budget and produces retained
+candidate evidence for current-clock replay. It does not open the live release gate.
+
 For the retained-input research pipeline:
 
 ```bash
