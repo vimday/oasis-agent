@@ -51,7 +51,7 @@ class TransactionAuthority:
             loop.stop_file is not None and loop.stop_file.exists()
         ):
             raise ValueError("authority expired or stopped")
-        if s.halted or s.signing_attempt or s.legacy_gas_cost_incomplete:
+        if s.halted or s.signing_attempt is not None or s.legacy_gas_cost_incomplete:
             raise ValueError("authority halted or signing outcome unresolved")
         if s.pending:
             loop._resolve_pending()
@@ -100,7 +100,7 @@ class TransactionAuthority:
         # leaves the reservation intact, including a crash after key use.
         if (
             time.monotonic() >= self.expires
-            or int(time.time()) - market.timestamp > 120
+            or not 0 <= int(time.time()) - market.timestamp <= 120
             or (loop.stop_file is not None and loop.stop_file.exists())
         ):
             raise ValueError("authority expired before key use")

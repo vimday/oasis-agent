@@ -187,6 +187,7 @@ def test_authority_rederives_action_and_journals_actual_signature_before_return(
         "loss",
         "halt",
         "unknown",
+        "empty_unknown",
         "expired",
         "l1_fee",
         "l1_disagreement",
@@ -232,7 +233,7 @@ def test_malicious_or_stale_proposals_never_reach_key(
             authority.loop.secondary.fixture.l1_fee = authority.loop.c.gas_reserve_wei
         if fault == "l1_disagreement":
             authority.loop.secondary.fixture.l1_fee = 1
-        if fault in {"loss", "halt", "unknown"}:
+        if fault in {"loss", "halt", "unknown", "empty_unknown"}:
             s = authority.loop.state
             if fault == "loss":
                 s.integer_risk().observe(day="2026-10-15", at=0, nav=2_000_000_000)
@@ -240,10 +241,80 @@ def test_malicious_or_stale_proposals_never_reach_key(
                 s.halted = "operator halt"
             if fault == "unknown":
                 s.signing_attempt = {"nonce": 4}
+            if fault == "empty_unknown":
+                s.signing_attempt = {}
             authority.loop.store.save(s)
         with pytest.raises((ValueError, RuntimeError)):
             authority.sign(fields, context)
         assert key.calls == 0
+        if fault in {"unknown", "empty_unknown"}:
+            saved = authority.loop.store.load("live")
+            assert saved.signing_attempt == ({} if fault == "empty_unknown" else {"nonce": 4})
+            assert saved.pending is None
+
+
+@pytest.mark.parametrize("fault", ["future", "stale", "expired", "stop"])
+def test_authority_rechecks_before_key_after_durable_reservation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fault: str
+) -> None:
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        state_store = authority.loop.store
+        save = state_store.save
+        timestamp = authority.loop.rpc.fixture.timestamp
+        authority.loop.stop_file = tmp_path / "STOP"
+
+        def save_then_change_conditions(state):
+            save(state)
+            if state.signing_attempt is None:
+                return
+            if fault in {"future", "stale"}:
+                now = timestamp + (-1 if fault == "future" else 121)
+                monkeypatch.setattr(authority_module.time, "time", lambda: now)
+            elif fault == "expired":
+                authority.expires = 0
+            else:
+                authority.loop.stop_file.touch()
+
+        monkeypatch.setattr(state_store, "save", save_then_change_conditions)
+        with pytest.raises(ValueError, match="authority expired before key use"):
+            authority.sign(fields, context)
+        assert key.calls == 0
+        reserved = state_store.load("live")
+        assert reserved.pending is None
+        assert reserved.signing_attempt is not None
+        assert len(reserved.signing_attempt["simulation_evidence"]) == 2
+        # Restoring normal conditions must not erase an unresolved reservation.
+        monkeypatch.setattr(authority_module.time, "time", lambda: timestamp)
+        authority.expires = authority_module.time.monotonic() + 60
+        authority.loop.stop_file.unlink(missing_ok=True)
+        monkeypatch.setattr(state_store, "save", save)
+        with pytest.raises(ValueError, match="signing outcome unresolved"):
+            authority.sign(fields, context)
+        assert key.calls == 0
+        assert state_store.load("live").signing_attempt == reserved.signing_attempt
+
+
+@pytest.mark.parametrize("age", [0, 120])
+def test_authority_accepts_final_freshness_boundaries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, age: int
+) -> None:
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        state_store = authority.loop.store
+        save = state_store.save
+        timestamp = authority.loop.rpc.fixture.timestamp
+
+        def save_then_advance_clock(state):
+            save(state)
+            if state.signing_attempt is not None:
+                monkeypatch.setattr(authority_module.time, "time", lambda: timestamp + age)
+
+        monkeypatch.setattr(state_store, "save", save_then_advance_clock)
+        tx = SubmittedTransaction.from_signed(authority.sign(fields, context))
+        assert key.calls == 1 and tx.nonce == fields[1]
+        saved = state_store.load("live")
+        assert saved.pending.transaction == tx and saved.signing_attempt is None
 
 
 def test_key_response_loss_retains_reservation_and_cannot_retry(
