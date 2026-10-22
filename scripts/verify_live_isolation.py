@@ -12,6 +12,100 @@ from pathlib import Path
 
 from oasis_agent.models.common import canonical_json, sha256_hex
 
+BASE_IMAGE = (
+    "python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1"
+)
+BASE_REPO_DIGEST = "python@" + BASE_IMAGE.split("@", 1)[1]
+RUNTIME_COMMAND = ["python", "-m", "scripts.run_live_lp", "--mode", "live", "--readiness"]
+
+
+def environment(values: object) -> dict[str, str]:
+    if not isinstance(values, list) or any(not isinstance(v, str) or "=" not in v for v in values):
+        raise ValueError("image environment malformed")
+    result = {}
+    for value in values:
+        key, content = value.split("=", 1)
+        if not key or key in result:
+            raise ValueError("image environment ambiguous")
+        result[key] = content
+    return result
+
+
+def runtime_contract(runtime: dict, base: dict) -> dict:
+    """Validate image defaults before starting even a synthetic confinement drill.
+
+    The daemon and digest-resolved base image are trusted. This is a configuration
+    check, not proof of application source identity or installed dependency bytes.
+    """
+    config = runtime["Config"]
+    expected_env = environment(base["Config"]["Env"]) | {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "/app/src:/app",
+    }
+    if (
+        config.get("Entrypoint") not in (None, [])
+        or config.get("Cmd") != RUNTIME_COMMAND
+        or config.get("User") != "10001:10001"
+        or config.get("WorkingDir") != "/app"
+        or config.get("Volumes") not in (None, {})
+        or config.get("Healthcheck") is not None
+        or environment(config.get("Env")) != expected_env
+    ):
+        raise ValueError("runtime image configuration differs from deployment contract")
+    layers, base_layers = runtime["RootFS"]["Layers"], base["RootFS"]["Layers"]
+    if (
+        runtime["RootFS"].get("Type") != "layers"
+        or base["RootFS"].get("Type") != "layers"
+        or not isinstance(layers, list)
+        or not isinstance(base_layers, list)
+        or not base_layers
+        or layers[: len(base_layers)] != base_layers
+    ):
+        raise ValueError("runtime image does not descend from pinned base layers")
+    for identity in (runtime.get("Id"), base.get("Id")):
+        if (
+            not isinstance(identity, str)
+            or not identity.startswith("sha256:")
+            or len(identity) != 71
+        ):
+            raise ValueError("immutable image identity required")
+        int(identity[7:], 16)
+    return {
+        "image": runtime["Id"],
+        "base_image": BASE_IMAGE,
+        "base_id": base["Id"],
+        "configuration_hash": sha256_hex(canonical_json(config)),
+        "source_identity_verified": False,
+    }
+
+
+def inspect_image(image: str) -> dict:
+    data = json.loads(docker("image", "inspect", image))
+    if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
+        raise ValueError("one local image required")
+    return data[0]
+
+
+def inspect_base() -> dict:
+    try:
+        base = inspect_image(BASE_IMAGE)
+    except subprocess.CalledProcessError:
+        # Some local stores list tags/digests but resolve only image IDs. The
+        # tag is a locator only: the inspected object's RepoDigests must still
+        # contain the exact pinned digest. Never pull or accept a tag alone.
+        identities = set(
+            docker(
+                "image", "ls", "--quiet", "--no-trunc", "--filter", "reference=python:3.12-slim"
+            ).splitlines()
+        )
+        if len(identities) != 1:
+            raise ValueError("one locally retained pinned base required") from None
+        base = inspect_image(identities.pop())
+    if BASE_REPO_DIGEST not in base.get("RepoDigests", []):
+        raise ValueError("local base repository digest differs from pin")
+    return base
+
 
 def docker(*args: str) -> str:
     result = subprocess.run(  # nosec B603 B607 - fixed Docker CLI; no shell or credentials
@@ -52,9 +146,10 @@ assert Path('/run/oasis').stat().st_mode & 0o777 == 0o700
 
 
 def verify(image: str, output: Path) -> dict[str, object]:
-    image_id = docker("image", "inspect", image, "--format", "{{.Id}}")
-    if not image_id.startswith("sha256:") or len(image_id) != 71:
-        raise ValueError("immutable local image identity required")
+    if output.exists() or output.is_symlink():
+        raise ValueError("output exists; preserve previous isolation evidence")
+    contract = runtime_contract(inspect_image(image), inspect_base())
+    image_id = contract["image"]
     prefix = "oasis-isolation-" + uuid.uuid4().hex
     names = {role: prefix + "-" + role for role in ("authority", "strategy", "socket", "keys")}
     created = []
@@ -143,8 +238,10 @@ print('strategy-confined')
             strategy,
         )
         report = {
-            "schema": "oasis.live-isolation-drill.v1",
+            "schema": "oasis.live-isolation-drill.v2",
             "image": image_id,
+            "runtime_contract": contract,
+            "verifier_hash": sha256_hex(Path(__file__).read_bytes()),
             "authority": authority_result,
             "strategy": strategy_result,
             "network": "none",

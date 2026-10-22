@@ -61,6 +61,21 @@ context is allowlisted: no `.env`, wallet files, runtime state, reports, `.git` 
 host home directory is included. The validation target adds locked test tools;
 it is a separate image and is not used by the production services.
 
+The isolation verifier now inspects image defaults before creating any temporary
+volume or container: no extra entrypoint, healthcheck or implicit volumes; exact
+non-root user, working directory and readiness command; the pinned base's
+environment plus exactly the three declared application variables. Duplicate or
+additional environment entries refuse. The image must descend from the locally
+available digest-pinned base layers; inspection never pulls a missing base.
+The v2 report binds the immutable image/base IDs, configuration hash and verifier
+source hash. This does not attest application source or dependency contents.
+If the local daemon cannot resolve the base's digest reference, the verifier may
+locate its image ID through the local base tag, but still requires that inspected
+object's exact pinned repository digest. It never accepts the tag alone or pulls
+a missing base. The new configuration checks and a current runtime image passed
+real network-disabled isolation validation on 2026-10-23, as recorded in
+[the image-contract report](../../docs/verification/LIVE_IMAGE_CONTRACT_20261023.md).
+
 The isolation drill uses temporary named volumes with **synthetic text markers**,
 no real key and no network. It checks non-root UID 10001, no effective Linux
 capabilities, no-new-privileges, read-only root, separate state, absent host/Docker
