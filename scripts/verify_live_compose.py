@@ -11,6 +11,61 @@ from oasis_agent.models.common import canonical_json, sha256_hex
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "deploy/live/compose.yaml"
 RPC_NAMES = ("BASE_RPC_PRIMARY_ALT", "BASE_RPC_PRIMARY")
+# Independent deployment contract, never derived from the document being checked.
+CONFIG = ["--config", "/app/configs/live.base-eth-usdc.json"]
+PROFILE = ["--rpc-profile", "/app/configs/live.rpc.canary.json"]
+STATE = ["--state-dir", "/state"]
+AUTHORITY = ["python", "-m", "scripts.run_live_authority"]
+STRATEGY = ["python", "-m", "scripts.run_live_lp", "--mode", "live"]
+SOCKET = "/run/oasis/authority.sock"
+COMMANDS = {
+    "initialize": [
+        "python",
+        "-c",
+        (
+            "import os; [(os.chown(p,10001,10001),os.chmod(p,0o700)) "
+            "for p in ('/authority-state','/strategy-state','/socket')]"
+        ),
+    ],
+    "authority": [
+        *AUTHORITY,
+        *CONFIG,
+        *PROFILE,
+        *STATE,
+        "--socket",
+        SOCKET,
+        "--key-file",
+        "/secrets/canary.key",
+        "--max-signatures",
+        "12",
+        "--ttl-seconds",
+        "3600",
+    ],
+    "strategy": [*STRATEGY, *CONFIG, *PROFILE, *STATE, "--signer-socket", SOCKET],
+    "authority-recovery": [*AUTHORITY, "--reconcile-only", *CONFIG, *PROFILE, *STATE],
+    "authority-status": [
+        *AUTHORITY,
+        "--status-only",
+        *CONFIG,
+        *STATE,
+        "--socket",
+        SOCKET,
+        "--max-status-requests",
+        "12",
+        "--ttl-seconds",
+        "60",
+    ],
+    "strategy-status-recovery": [
+        *STRATEGY,
+        "--reconcile-only",
+        *CONFIG,
+        *PROFILE,
+        *STATE,
+        "--signer-socket",
+        SOCKET,
+    ],
+    "strategy-recovery": [*STRATEGY, "--reconcile-only", *CONFIG, *PROFILE, *STATE],
+}
 MOUNTS = {
     "initialize": {
         "/authority-state": "authority-state",
@@ -67,16 +122,13 @@ def verify_services(document: dict, expected_rpc: dict) -> None:
                 raise ValueError("deployment volume access differs")
         if actual != MOUNTS[name]:
             raise ValueError("deployment state/key isolation differs")
-        command = service.get("command", [])
-        if name == "authority-status" and (
-            "--status-only" not in command or any(k in command for k in ("--key-file", "--key-env"))
+        profiles = ["setup"] if setup else [] if name in {"authority", "strategy"} else ["recovery"]
+        if (
+            service.get("command") != COMMANDS[name]
+            or service.get("entrypoint") is not None
+            or service.get("profiles", []) != profiles
         ):
-            raise ValueError("status service gained signing configuration")
-        if name.endswith("recovery") and (
-            "--reconcile-only" not in command
-            or any(k in command for k in ("--key-file", "--key-env"))
-        ):
-            raise ValueError("recovery service gained signing configuration")
+            raise ValueError("deployment command, entrypoint or activation profile differs")
     key_volume = document.get("volumes", {}).get("canary-keys", {})
     if key_volume.get("external") is not True or key_volume.get("name") != "oasis-canary-keys":
         raise ValueError("production key volume must remain external")
@@ -112,9 +164,10 @@ def inspect() -> dict:
         )
         verify_services(json.loads(result.stdout), expected)
     report = {
-        "schema": "oasis.compose-policy-verification.v1",
+        "schema": "oasis.compose-policy-verification.v2",
         "passed": True,
         "compose_hash": sha256_hex(COMPOSE.read_bytes()),
+        "verifier_hash": sha256_hex(Path(__file__).read_bytes()),
         "services": sorted(MOUNTS),
         "cases": ["rpc_absent", "synthetic_rpc_present"],
         "execution_eligible": False,

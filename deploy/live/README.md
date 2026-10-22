@@ -26,7 +26,11 @@ make live-deployment-check
 
 This verifies all seven services both with absent RPC variables and with
 synthetic endpoints. It checks private state/key mounts, keyless recovery,
-offline status service, non-root execution and confinement settings. It starts
+offline status service, non-root execution and confinement settings. It also
+requires each service's exact command/arguments, forbids Compose entrypoint
+overrides and keeps setup/recovery behind their explicit profiles. Command
+changes require a reviewed update to the verifier's independent contract. Its
+v2 report binds both the Compose file and verifier source hashes. It starts
 no service and grants no release approval. RPC values are passed through only
 to networked services; missing values are rejected by their entry points before
 network/key use. Offline setup/status no longer requires RPC credentials merely

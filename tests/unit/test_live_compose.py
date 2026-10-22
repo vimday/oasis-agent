@@ -4,10 +4,12 @@ import copy
 import json
 import os
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from oasis_agent.models.common import sha256_hex
 from scripts import verify_live_compose as cli
 
 
@@ -37,8 +39,12 @@ def document():
                 }
                 for target, source in mounts.items()
             ],
-            "command": ["--status-only"] if name == "authority-status" else ["--reconcile-only"],
+            "command": list(cli.COMMANDS[name]),
         }
+        if setup:
+            service["profiles"] = ["setup"]
+        elif name not in {"authority", "strategy"}:
+            service["profiles"] = ["recovery"]
         if offline:
             service["network_mode"] = "none"
         services[name] = service
@@ -129,3 +135,57 @@ def test_parser_gets_no_host_credentials_or_compose_overrides(document, monkeypa
     report = cli.inspect()
     assert len(calls) == 2 and report["passed"] is True
     assert report["execution_eligible"] is False and report["network_calls"] == 0
+    assert report["schema"] == "oasis.compose-policy-verification.v2"
+    assert report["verifier_hash"] == sha256_hex(Path(cli.__file__).read_bytes())
+
+
+@pytest.mark.parametrize(
+    "fault", ["program", "entrypoint", "init_program", "recovery_program", "default_recovery"]
+)
+def test_replaced_entry_points_and_automatic_recovery_are_refused(document, fault):
+    services = document["services"]
+    if fault == "program":
+        services["authority"]["command"] = ["python", "-c", "print('unexpected program')"]
+    elif fault == "entrypoint":
+        services["strategy"]["entrypoint"] = ["sh", "-c", "exit 0"]
+    elif fault == "init_program":
+        services["initialize"]["command"] = ["python", "-c", "print('unexpected setup')"]
+    elif fault == "recovery_program":
+        services["authority-recovery"]["command"] = [
+            "python",
+            "-c",
+            "print('unexpected recovery')",
+            "--reconcile-only",
+        ]
+    else:
+        services["strategy-recovery"].pop("profiles", None)
+    with pytest.raises(ValueError):
+        cli.verify_services(document, dict.fromkeys(cli.RPC_NAMES))
+
+
+@pytest.mark.parametrize(
+    "service,flag,value",
+    [
+        ("authority", "--max-signatures", "1000"),
+        ("authority", "--ttl-seconds", "86400"),
+        ("authority", "--key-file", "/secrets/other.key"),
+        ("authority", "--rpc-profile", "/app/configs/unbounded.json"),
+        ("authority-status", "--max-status-requests", "1000"),
+        ("authority-status", "--ttl-seconds", "86400"),
+        ("strategy", "--mode", "shadow"),
+        ("strategy", "--config", "/app/configs/other.json"),
+        ("strategy", "--state-dir", "/tmp/fresh-state"),
+        ("strategy-status-recovery", "--signer-socket", "/tmp/other.sock"),
+    ],
+)
+@pytest.mark.parametrize("append_duplicate", [False, True])
+def test_changed_or_duplicated_bound_arguments_refused(
+    document, service, flag, value, append_duplicate
+):
+    command = document["services"][service]["command"]
+    if append_duplicate:
+        command += [flag, value]
+    else:
+        command[command.index(flag) + 1] = value
+    with pytest.raises(ValueError):
+        cli.verify_services(document, dict.fromkeys(cli.RPC_NAMES))
