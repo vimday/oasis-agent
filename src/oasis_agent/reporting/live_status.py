@@ -87,6 +87,7 @@ class _State(BaseModel):
     consecutive_reverts: UInt
     actions_today: UInt
     last_observation: LiveObservation | None = None
+    signing_attempt: dict[str, Any] | None = None
     history: Annotated[list[_Event], Field(max_length=200)]
 
 
@@ -106,12 +107,22 @@ class LiveStatusResponse(BaseModel):
     source: Literal["local_state_declaration"] = "local_state_declaration"
     evidence_replayed: Literal[False] = False
     profitability: Literal["unresolved"] = "unresolved"
-    status: Literal["unconfigured", "missing", "invalid", "halted", "pending", "stale", "observed"]
+    status: Literal[
+        "unconfigured",
+        "missing",
+        "invalid",
+        "signing_unknown",
+        "halted",
+        "pending",
+        "stale",
+        "observed",
+    ]
     blockers: list[str]
     state_hash: str | None = None
     observation_age_seconds: int | None = None
     observation: LiveObservation | None = None
     pending: PendingView | None = None
+    signing_unresolved: bool | None = None
     position: PositionView | None = None
     native_gas_units: str | None = None
     actions_today: int | None = None
@@ -179,6 +190,9 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
         blockers.append("state_halted")
     if state.pending:
         blockers.append("pending_requires_reconciliation")
+    signing_unresolved = state.signing_attempt is not None
+    if signing_unresolved:
+        blockers.append("signing_outcome_unresolved")
     if state.legacy_gas_cost_incomplete or (
         state.legacy_gas_cost_incomplete is None and state.gas_spent_wei > 0
     ):
@@ -197,8 +211,10 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
         for item in reversed(state.history)
         if item.event in {"approve_usdc", "approve_permit2", "swap", "mint", "burn", "reverted"}
     ][:20]
-    status: Literal["halted", "pending", "stale", "observed"] = (
-        "halted"
+    status: Literal["signing_unknown", "halted", "pending", "stale", "observed"] = (
+        "signing_unknown"
+        if signing_unresolved
+        else "halted"
         if state.halted
         else "pending"
         if state.pending
@@ -213,6 +229,7 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
         observation_age_seconds=age,
         observation=observation,
         pending=state.pending,
+        signing_unresolved=signing_unresolved,
         position=state.position,
         native_gas_units=str(state.gas_spent_wei),
         actions_today=state.actions_today,

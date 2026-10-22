@@ -4,6 +4,7 @@ const STATES = {
   unconfigured: ["尚未连接实盘记录", "在服务配置中指定实盘状态文件，即可查看只读快照。"],
   missing: ["尚无实盘记录", "配置的状态文件尚不存在。此页面不会创建钱包或启动交易。"],
   invalid: ["状态记录无法校验", "记录损坏或格式不受支持，已清除数值。请检查本地状态文件。"],
+  signing_unknown: ["签名结果未知，等待恢复核验", "保留当前记录，先核对签名服务的承诺与交易回执；禁止自动重签或重发。"],
   halted: ["已记录停机", "先核查停机原因与资金变化，保留原始记录；不要直接清除停机标记。"],
   pending: ["交易等待对账", "先核对已有交易的回执与资金证据，避免重复提交。"],
   stale: ["观测需要更新", "当前记录不能说明此刻的钱包状态，请运行只读检查并核查观测来源。"],
@@ -19,6 +20,7 @@ const BLOCKERS = {
   recorded_loss_budget_exhausted: "记录中的亏损预算已耗尽",
   state_halted: "实盘循环已记录停机",
   pending_requires_reconciliation: "存在待对账交易",
+  signing_outcome_unresolved: "签名尝试尚未确认结果",
   historical_native_cost_incomplete: "历史 gas 成本不完整",
 };
 const ACTIONS = {approve_usdc: "USDC 授权", approve_permit2: "Permit2 授权", swap: "兑换", mint: "建仓", burn: "撤仓", reverted: "交易回滚"};
@@ -43,7 +45,10 @@ export function liveStatusModel(data) {
       data.release.new_actions_allowed !== false || !Array.isArray(data.release.blockers) ||
       data.release.blockers.length === 0 || data.release.blockers.some(x =>
         !x || typeof x.title !== "string" || typeof x.required !== "string")) return null;
-  if (["unconfigured", "missing", "invalid"].includes(data.status)) return {...data, observation: null, pending: null, position: null, recent_actions: [], native_gas_units: null};
+  if (["unconfigured", "missing", "invalid"].includes(data.status)) return {...data, observation: null, pending: null, signing_unresolved: null, position: null, recent_actions: [], native_gas_units: null};
+  if (typeof data.signing_unresolved !== "boolean" ||
+      data.signing_unresolved !== (data.status === "signing_unknown") ||
+      data.signing_unresolved !== data.blockers.includes("signing_outcome_unresolved")) return null;
   const o = data.observation;
   if (o && (!uint(o.block) || !hash(o.block_hash) || !/^0x[0-9a-f]{40}$/.test(o.account) ||
       !Number.isSafeInteger(o.observed_at) || !Number.isSafeInteger(o.block_timestamp) ||
@@ -86,7 +91,9 @@ export function renderLiveStatus(data) {
     ? `观测于 ${fmtTime(o.observed_at)} · 区块 ${o.block} · 数据年龄 ${model.observation_age_seconds} 秒 · 配置资本上限 ${usd(o.capital_limit_usd)}\n账户 ${o.account}\n区块哈希 ${o.block_hash}`
     : "没有可用账户观测；数值缺失不等于余额或亏损为零。";
   const p = model.pending;
-  $("live-pending").textContent = p
+  $("live-pending").textContent = model.signing_unresolved
+    ? "签名结果未知；尚不能认定交易未签名或未提交。先核对签名服务日志与回执，禁止自动重签或重发。"
+    : p
     ? `${ACTIONS[p.kind] || "待处理操作"} · nonce ${p.nonce}\n${p.tx_hash}\n记录签名时间 ${fmtTime(p.signed_at)}；回执、资金和持仓仍需核验。`
     : ["missing", "invalid", "unconfigured"].includes(model.status) ? "待处理状态未知" : "本地记录无待处理交易；尚未查询链上。";
   const position = model.position;

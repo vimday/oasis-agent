@@ -54,12 +54,26 @@ renderLiveStatus(data);
 assert.match(nodes.get('live-title').textContent, /等待对账/);
 assert.match(nodes.get('live-pending').textContent, /nonce 3/);
 assert.match(nodes.get('live-source').textContent, /未重放/);
+const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
+  blockers: ['signing_outcome_unresolved']};
+assert.equal(liveStatusModel(signing).status, 'signing_unknown');
+renderLiveStatus(signing);
+assert.match(nodes.get('live-title').textContent, /签名结果未知/);
+assert.match(nodes.get('live-next').textContent, /禁止自动重签或重发/);
+assert.match(nodes.get('live-pending').textContent, /不能认定交易未签名或未提交/);
+assert.doesNotMatch(nodes.get('live-pending').textContent, /无待处理交易/);
+renderLiveStatus(data);
+assert.match(nodes.get('live-pending').textContent, /nonce 3/);
+assert.doesNotMatch(nodes.get('live-title').textContent, /签名结果未知/);
 const unknown = {...data, status: 'missing'};
 renderLiveStatus(unknown);
 assert.equal(nodes.get('live-pending').textContent, '待处理状态未知');
 assert.match(nodes.get('live-observation').textContent, /没有可用/);
 for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...data, evidence_replayed: true}, {...data, profitability: 'profitable'},
+  {...signing, signing_unresolved: false}, {...signing, blockers: []},
+  {...signing, status: 'observed'}, {...data, signing_unresolved: undefined},
+  {...data, signing_unresolved: 'false'},
   {...data, status: 'observed', blockers: [] , observation_age_seconds: 121},
   {...data, blockers: ['<script>']}, {...data, recent_actions: [null]},
   {...data, pending: {...data.pending, tx_hash: '<unsafe>'}},

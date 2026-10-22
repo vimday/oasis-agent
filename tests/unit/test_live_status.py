@@ -58,6 +58,38 @@ def test_status_never_infers_freshness_from_file_mtime_or_claims_execution(tmp_p
     assert stale.state_hash == fresh.state_hash and path.read_bytes() == before
 
 
+@pytest.mark.parametrize("halted", [None, "private halt message"])
+@pytest.mark.parametrize("attempt", [{}, {"nonce": 3, "opaque": "private signing data"}])
+def test_uncertain_signature_is_never_presented_as_recent_idle_state(tmp_path, halted, attempt):
+    state = observed_state()
+    state.update(halted=halted, signing_attempt=attempt)
+    path = write_state(tmp_path, state)
+    before = path.read_bytes()
+    report = read_live_status(path, now=NOW)
+    assert report.status == "signing_unknown"
+    assert report.signing_unresolved is True
+    assert "signing_outcome_unresolved" in report.blockers
+    assert report.pending is None and report.execution_eligible is False
+    assert "private" not in report.model_dump_json()
+    assert "signing_attempt" not in report.model_dump_json()
+    assert path.read_bytes() == before
+    state["signing_attempt"] = None
+    state["halted"] = None
+    recovered = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert recovered.status == "observed" and recovered.signing_unresolved is False
+    assert "signing_outcome_unresolved" not in recovered.blockers
+
+
+@pytest.mark.parametrize("attempt", [False, 3, "private signing data", []])
+def test_malformed_signing_reservation_clears_observation(tmp_path, attempt):
+    state = observed_state()
+    state["signing_attempt"] = attempt
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert report.status == "invalid"
+    assert report.signing_unresolved is None and report.observation is None
+    assert "private" not in report.model_dump_json()
+
+
 @pytest.mark.parametrize("change", ["missing", "future", "future_block", "old_block", "loss"])
 def test_missing_clock_stale_and_exhausted_budget_are_explicit(tmp_path: Path, change: str) -> None:
     state = observed_state()
@@ -134,6 +166,14 @@ def test_legacy_nonzero_gas_remains_incomplete(tmp_path: Path) -> None:
     assert "historical_native_cost_incomplete" in report.blockers
 
 
+def test_legacy_state_without_signing_field_remains_a_local_declaration(tmp_path):
+    state = observed_state()
+    state.pop("signing_attempt")
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert report.status == "observed" and report.signing_unresolved is False
+    assert report.evidence_replayed is False and report.execution_eligible is False
+
+
 def test_file_failures_are_redacted_and_never_create_a_state(tmp_path: Path) -> None:
     assert read_live_status(None).status == "unconfigured"
     missing = tmp_path / "absent"
@@ -164,11 +204,22 @@ def test_read_only_endpoint_refreshes_after_atomic_replace_without_leaking_paths
         first = client.get("/api/v1/live/status")
         assert first.status_code == 200
         assert first.json()["observation"]["nav_usd"] == 480
+        uncertain = observed_state()
+        uncertain["signing_attempt"] = {"opaque": "private-reservation-marker"}
+        path.write_text(json.dumps(uncertain))
+        unknown = client.get(
+            "/api/v1/live/status", headers={"If-None-Match": first.headers["etag"]}
+        )
+        assert unknown.status_code == 200 and unknown.json()["status"] == "signing_unknown"
+        assert unknown.json()["signing_unresolved"] is True
+        assert unknown.headers["etag"] != first.headers["etag"]
+        assert "private-reservation-marker" not in unknown.text
         path.write_text("invalid sensitive text")
         response = client.get(
             "/api/v1/live/status", headers={"If-None-Match": first.headers["etag"]}
         )
         assert response.status_code == 200 and response.json()["status"] == "invalid"
+        assert response.json()["signing_unresolved"] is None
         assert response.json()["observation"] is None
         assert str(path) not in response.text and "sensitive text" not in response.text
         assert client.post("/api/v1/live/status").status_code == 405
