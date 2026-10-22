@@ -80,7 +80,7 @@ def test_status_limits_refuse_before_socket_access(count, ttl):
 
 
 def test_partial_frame_cannot_extend_status_deadline(monkeypatch):
-    times = iter([0.2, 0.7, 1.1])
+    times = iter([0.2, 0.3, 0.7, 0.8, 1.1])
     monkeypatch.setattr(authority_socket.time, "monotonic", lambda: next(times))
     timeouts, reads = [], []
 

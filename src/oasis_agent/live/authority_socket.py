@@ -64,15 +64,23 @@ def parse_request(raw: bytes) -> tuple[str, list[object], dict[str, Any]]:
     return normalize_address(d["account"]), f, d["context"]
 
 
-def read_frame(connection: socket.socket, *, deadline: float | None = None) -> bytes:
+def _remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("authority exchange deadline expired")
+    return remaining
+
+
+def read_frame(
+    connection: socket.socket, *, deadline: float | None = None, idle_timeout: float = 5
+) -> bytes:
     result = bytearray()
     while len(result) <= MAX_FRAME:
         if deadline is not None:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError("authority frame deadline expired")
-            connection.settimeout(min(5, remaining))
+            connection.settimeout(min(idle_timeout, _remaining(deadline)))
         chunk = connection.recv(min(4096, MAX_FRAME + 1 - len(result)))
+        if deadline is not None:
+            _remaining(deadline)  # A complete frame arriving at expiry is still too late.
         if not chunk:
             raise ValueError("incomplete authority frame")
         result.extend(chunk)
@@ -85,6 +93,8 @@ def read_frame(connection: socket.socket, *, deadline: float | None = None) -> b
 
 class TransactionSocketClient:
     def __init__(self, endpoint: Path, account: str, timeout: float = 240) -> None:
+        if type(timeout) not in (int, float) or not 0 < timeout <= 240:
+            raise ValueError("authority timeout must be finite and within 240 seconds")
         self.endpoint, self.account, self.timeout = endpoint, normalize_address(account), timeout
 
     def _exchange(self, request: bytes) -> dict[str, Any]:
@@ -102,11 +112,13 @@ class TransactionSocketClient:
             raise ValueError("authority socket must be private and owned")
         if len(request) >= MAX_FRAME:
             raise ValueError("authority request exceeds bound")
+        deadline = time.monotonic() + self.timeout
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
-            conn.settimeout(self.timeout)
+            conn.settimeout(_remaining(deadline))
             conn.connect(str(path))
+            conn.settimeout(_remaining(deadline))
             conn.sendall(request + b"\n")
-            reply = read_frame(conn)
+            reply = read_frame(conn, deadline=deadline, idle_timeout=self.timeout)
         d = json.loads(reply)
         if not isinstance(d, dict) or canonical_json(d) != reply or d.get("schema") != SCHEMA:
             raise ValueError("authority reply is malformed")
@@ -233,10 +245,12 @@ def serve_connections(
         except TimeoutError:
             continue
         with connection:
-            connection.settimeout(min(240, max(1, deadline - time.monotonic())))
             try:
-                frame = read_frame(connection)
+                frame = read_frame(
+                    connection, deadline=min(deadline, time.monotonic() + 240), idle_timeout=240
+                )
                 parsed = json.loads(frame)
+                _remaining(deadline)
                 if isinstance(parsed, dict) and parsed.get("operation") == "status":
                     nonce = status_nonce(frame, account)
                     public = (
@@ -253,5 +267,6 @@ def serve_connections(
             except Exception:  # noqa: BLE001 - never expose request/provider/key errors
                 reply = {"schema": SCHEMA, "refused": True}
             with suppress(OSError):
+                connection.settimeout(min(5, _remaining(deadline)))
                 connection.sendall(canonical_json(reply) + b"\n")
     return signed
