@@ -30,7 +30,7 @@ from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.receipts import RetainedReceiptCostReader
-from oasis_agent.live.recovery import adopt_authority_pending
+from oasis_agent.live.recovery import adopt_authority_pending, require_recovery_wallets
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
@@ -256,6 +256,10 @@ def main() -> None:
                 pass
         except Exception:  # noqa: BLE001 - fixed diagnostic, no provider or path details
             parser.exit(3, "Recovery RPC budget unresolved; state preserved.\n")
+        try:
+            require_recovery_wallets(args.state_dir / "live.receipts.db", state, config)
+        except Exception:  # noqa: BLE001 - no raw evidence or local path in diagnostics
+            parser.exit(3, "Recovery wallet evidence unresolved; state preserved.\n")
         with closing(EvidenceStore(args.state_dir / "live.receipts.db")) as evidence:
             primary_url, secondary_url = rpc_url(args.rpc_env), rpc_url(config.secondary_rpc_env)
             loop = LiveLoop.recovery(

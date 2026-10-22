@@ -1,12 +1,58 @@
 """Recover a lost authority reply using public metadata; never re-sign or broadcast."""
 
+from contextlib import closing
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
+from ..evidence.store import ReadOnlyEvidenceStore
 from ..models.common import evidence_ref_from_json
 from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
 from .state import LoopState, Pending, StateStore
+from .wallet import WalletScope, replay_wallet
+
+
+def require_recovery_wallets(path: Path, state: LoopState, c: LiveConfig) -> None:
+    """Replay local prerequisites before recovery spends RPC quota or creates evidence.
+
+    This is not settlement validation: receipt/cost/cash checks still run later.
+    """
+    if state.mode != "live" or path.absolute() != path.resolve() or not path.is_file():
+        raise ValueError("existing recovery wallet evidence required")
+    nonce: object
+    if state.pending is not None and state.signing_attempt is None:
+        refs = state.pending.wallet_evidence
+        nonce = state.pending.nonce
+    elif state.pending is None and isinstance(state.signing_attempt, dict):
+        attempt = state.signing_attempt
+        refs = tuple(evidence_ref_from_json(r) for r in attempt.get("wallet_evidence", []))
+        nonce = attempt.get("nonce")
+        if any(
+            r.block is None
+            or r.block.number != attempt.get("block")
+            or r.block.block_hash != attempt.get("block_hash")
+            for r in refs
+        ):
+            raise ValueError("recovery wallet differs from signing reservation")
+    else:
+        raise ValueError("one pending or uncertain transaction required")
+    if (
+        len(refs) != 2
+        or refs[0].source == refs[1].source
+        or refs[0].block is None
+        or refs[0].block != refs[1].block
+        or type(nonce) is not int
+        or not 0 <= nonce < 2**64
+    ):
+        raise ValueError("original recovery wallet quorum required")
+    with closing(ReadOnlyEvidenceStore(path)) as evidence:
+        captures = tuple(replay_wallet(evidence, ref) for ref in refs)
+        if any(capture.scope != WalletScope.from_config(c) for capture in captures):
+            raise ValueError("recovery wallet scope differs from configuration")
+        balances = tuple(capture.reconstruct() for capture in captures)
+        if balances[0] != balances[1] or balances[0].nonce != nonce:
+            raise ValueError("recovery wallet balance or nonce disagrees")
 
 
 def authority_status(store: StateStore, c: LiveConfig, nonce: int | None = None) -> dict[str, Any]:

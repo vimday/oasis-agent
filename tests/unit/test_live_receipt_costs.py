@@ -440,7 +440,7 @@ def test_missing_base_l1_cost_is_never_zero(tmp_path: Path, evidence: EvidenceSt
     assert loop.state.pending is not None and loop.state.gas_spent_wei == 0
 
 
-def test_live_cli_wires_raw_cost_producer_without_signing(
+def test_live_cli_refuses_missing_opening_evidence_before_cost_acquisition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fixture = LiveCostFixture()
@@ -454,14 +454,12 @@ def test_live_cli_wires_raw_cost_producer_without_signing(
         LiveRpcProfile().policies(("live_primary", "live_secondary")),
     ):
         pass
-    build = sessions({"live_primary": fixture, "live_secondary": replace(fixture)})
-    monkeypatch.setattr(live_cli, "one_shot_session", lambda source, **_: build(source))
-    monkeypatch.setattr(live_cli, "rpc_url", lambda name: f"https://{name}.invalid")
-    monkeypatch.setattr(
-        live_cli, "BudgetedRpc", lambda *_, **__: ScriptedRpc(receipt=fixture._receipt())
-    )
-    monkeypatch.setattr(live_cli, "TransactionSocketClient", lambda *_: NeverSign())
-    monkeypatch.setattr(live_cli.time, "sleep", lambda _: None)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("missing opening proof must refuse before RPC or signer access")
+
+    for name in ("one_shot_session", "rpc_url", "BudgetedRpc", "TransactionSocketClient"):
+        monkeypatch.setattr(live_cli, name, forbidden)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -479,4 +477,4 @@ def test_live_cli_wires_raw_cost_producer_without_signing(
     assert exc.value.code == 3
     result = state.load("live")
     assert result.pending is not None and result.gas_spent_wei == 0
-    assert (tmp_path / "live.receipts.db").exists()
+    assert not (tmp_path / "live.receipts.db").exists()

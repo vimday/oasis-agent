@@ -24,7 +24,7 @@ from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
-from oasis_agent.live.recovery import authority_status
+from oasis_agent.live.recovery import authority_status, require_recovery_wallets
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
@@ -130,6 +130,10 @@ def main() -> None:
                     pass
             except Exception:  # noqa: BLE001 - fixed diagnostic, preserve original state
                 parser.exit(3, "Authority recovery RPC budget unresolved; state preserved.\n")
+            try:
+                require_recovery_wallets(directory / "evidence.db", state, config)
+            except Exception:  # noqa: BLE001 - no raw evidence or local path in diagnostics
+                parser.exit(3, "Authority recovery wallet evidence unresolved; state preserved.\n")
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
         with closing(EvidenceStore(directory / "evidence.db")) as evidence:
             loop = LiveLoop.recovery(

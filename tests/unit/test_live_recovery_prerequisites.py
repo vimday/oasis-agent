@@ -23,6 +23,8 @@ from tests.unit.test_live_lp import CONFIG
         "missing_budget",
         "empty_budget",
         "foreign_budget",
+        "missing_evidence",
+        "empty_evidence",
         "idle",
         "idle_missing_projection",
     ],
@@ -53,6 +55,11 @@ def test_recovery_requires_history_and_reuses_budget_without_signing(
     elif case == "foreign_budget":
         with RpcBudget(budget, LiveRpcProfile(max_requests=1).policies(("other_a", "other_b"))):
             pass
+    elif case in {"missing_evidence", "empty_evidence"}:
+        with RpcBudget(budget, LiveRpcProfile().policies(("live_primary", "live_secondary"))):
+            pass
+        if case == "empty_evidence":
+            (directory / ("evidence.db" if service == "authority" else "live.receipts.db")).touch()
     before = {p.name: p.read_bytes() for p in directory.iterdir()}
 
     def forbidden(*args, **kwargs):
