@@ -13,10 +13,23 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import NoReturn, Self
 
 from ..models.common import canonical_json, sha256_hex
 from .transport import HttpPoster
+
+
+def _unique_request_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate RPC request field")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(_: str) -> NoReturn:
+    raise ValueError("nonstandard RPC JSON number")
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,7 +199,9 @@ class BudgetedPoster:
         self.require_existing = require_existing
 
     def post(self, payload: bytes) -> bytes:
-        request = json.loads(payload)
+        request = json.loads(
+            payload, object_pairs_hook=_unique_request_fields, parse_constant=_reject_json_constant
+        )
         if not isinstance(request, dict) or request.get("method") not in {
             "eth_chainId",
             "eth_blockNumber",

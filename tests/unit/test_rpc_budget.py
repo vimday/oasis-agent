@@ -187,3 +187,67 @@ def test_transaction_lookup_requires_one_hash_before_budget_or_network(tmp_path,
     with pytest.raises(ValueError, match="canonical transaction"):
         poster.post(json.dumps({"method": "eth_getTransactionByHash", "params": params}).encode())
     assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        b'{"method":"eth_sendRawTransaction","method":"eth_chainId","params":[]}',
+        b'{"method":"eth_sendRawTransaction","meth\\u006fd":"eth_chainId","params":[]}',
+        b'{"method":"eth_chainId","params":["unexpected"],"params":[]}',
+        b'{"method":"eth_call","params":[{"to":"first","to":"second"},"latest"]}',
+        b'{"method":"eth_call","params":[{"value":NaN},"latest"]}',
+        b'{"method":"eth_call","params":[{"value":Infinity},"latest"]}',
+        b'{"method":"eth_call","params":[{"value":-Infinity},"latest"]}',
+    ],
+)
+@pytest.mark.parametrize("existing", [False, True])
+def test_ambiguous_observation_never_reaches_network_or_spends_quota(tmp_path, raw, existing):
+    calls = []
+
+    class Poster:
+        def post(self, payload):
+            calls.append(payload)
+            return b"{}"
+
+    path = tmp_path / "budget.db"
+    policy = (BudgetPolicy("proof", 2, 0),)
+    if existing:
+        with RpcBudget(path, policy) as budget:
+            budget.reserve("proof", now_ms=1)
+    before = path.read_bytes() if existing else None
+    poster = BudgetedPoster(Poster(), path, policy, "proof", clock=lambda: 2)
+    with pytest.raises(ValueError):
+        poster.post(raw)
+    assert calls == []
+    assert (path.read_bytes() if path.exists() else None) == before
+
+
+@pytest.mark.parametrize("field", ["tracer", "timeout", "onlyTopCall"])
+def test_duplicate_trace_options_cannot_override_bounded_trace_policy(tmp_path, field):
+    options = json.dumps(
+        {"tracer": "callTracer", "timeout": "5s", "tracerConfig": {"onlyTopCall": False}}
+    )
+    old, new = {
+        "tracer": ('"tracer": "callTracer"', '"tracer": "custom", "tracer": "callTracer"'),
+        "timeout": ('"timeout": "5s"', '"timeout": "1000s", "timeout": "5s"'),
+        "onlyTopCall": ('"onlyTopCall": false', '"onlyTopCall": true, "onlyTopCall": false'),
+    }[field]
+    options = options.replace(old, new)
+    raw = (
+        '{"jsonrpc":"2.0","id":1,"method":"debug_traceTransaction","params":["0x'
+        + "22" * 32
+        + '",'
+        + options
+        + "]}"
+    ).encode()
+
+    class Forbidden:
+        def post(self, payload):
+            raise AssertionError("ambiguous trace must be refused before network")
+
+    path = tmp_path / "budget.db"
+    poster = BudgetedPoster(Forbidden(), path, (BudgetPolicy("proof", 1, 0),), "proof")
+    with pytest.raises(ValueError, match="duplicate"):
+        poster.post(raw)
+    assert not path.exists()
