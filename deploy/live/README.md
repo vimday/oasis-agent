@@ -151,7 +151,11 @@ that 4096 requests have an acceptable monetary price.
 Use free public services for discovery. The separate diagnostic below permits at
 most four calls per invocation and eight total per provider in its durable ledger,
 with no retry or polling. It accepts only the documented no-key endpoints, never
-private URLs or credentials. Do not replace the ledger to evade an exhausted cap.
+private URLs or credentials. The original repository-relative ledgers must already
+exist; there is no budget override or automatic initialization. A missing, corrupt,
+symlinked or insufficient ledger refuses before network use. Changing output or
+working directories cannot renew quota. A refused diagnostic exits 3, even when it
+successfully writes its report. Do not replace the ledger to evade an exhausted cap.
 
 ```sh
 .venv/bin/python -m scripts.probe_free_base_rpc --provider 1rpc \
