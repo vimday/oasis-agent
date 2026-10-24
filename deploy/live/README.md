@@ -76,6 +76,25 @@ a missing base. The new configuration checks and a current runtime image passed
 real network-disabled isolation validation on 2026-10-23, as recorded in
 [the image-contract report](../../docs/verification/LIVE_IMAGE_CONTRACT_20261023.md).
 
+Before using a newly built runtime, compare its application files with the reviewed
+checkout (use the immutable image ID when the daemon cannot resolve tags):
+
+```sh
+.venv/bin/python -m scripts.verify_live_image_sources \
+  --image IMAGE_ID --out reports/runtime-source-check.json
+```
+
+This creates a stopped, network-disabled container with no mounted volumes, copies
+its `/app` archive without extracting it, checks every regular file against tracked
+local runtime inputs, and removes the container. Old, missing or additional files,
+links, changed local inputs and unexpected image defaults refuse. It never starts
+an image process. The build excludes generated `*.egg-info`, `.DS_Store`, bytecode
+and caches.
+The report binds file hashes and immutable image identity; it checks working-tree
+bytes of tracked files, not Git approval, installed package bytes or production
+eligibility. This is an operator preflight, not enforcement on arbitrary Compose
+invocations. Existing release gates still apply.
+
 The isolation drill uses temporary named volumes with **synthetic text markers**,
 no real key and no network. It checks non-root UID 10001, no effective Linux
 capabilities, no-new-privileges, read-only root, separate state, absent host/Docker
