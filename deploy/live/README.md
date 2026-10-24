@@ -164,6 +164,12 @@ These quotas are per service ledger, not a dollar-denominated aggregate cap.
 A failed live NAV observation now latches a durable halt before another poll;
 operator review is required to resume. Pending receipt recovery remains bounded
 by its existing timeout and request ledger.
+NAV freshness expires at the earliest of the block's 120-second deadline and
+either USD feed's `updatedAt` plus its configured age limit. Observation checks
+the host clock after capture; the authority checks again after simulation and
+durable reservation, immediately before key use. A recent block cannot extend a
+nearly expired feed. Historical checkpoint replay still verifies the old baseline
+without treating it as current admission evidence.
 The fast profile is not evidence that a public endpoint supports that rate or
 that 4096 requests have an acceptable monetary price.
 

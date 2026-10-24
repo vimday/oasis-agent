@@ -45,6 +45,7 @@ class NavRefusal(ValueError):
 USDC_USD_FEED = "0x7e860098f58bbfc8648a4311b374b1d669a2bc6b"
 ETH_USD_FEED = "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70"
 FEED_RUNTIME = "0xbd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2"
+MAX_HEAD_AGE_SECONDS = 120
 
 
 def _abi(types: list[str], raw: object) -> tuple[object, ...]:
@@ -303,6 +304,31 @@ def replay_nav_quorum(
     ) != successful_results(captures[1].exchanges, calls):
         raise NavRefusal("NAV checkpoint raw observations disagree")
     return values[0]
+
+
+def nav_fresh_until(
+    store: EvidenceStore,
+    refs: tuple[EvidenceRef, ...],
+    c: LiveConfig,
+    *,
+    sources: tuple[str, str],
+) -> int:
+    """Derive the last usable second from raw quorum head and both feed clocks.
+
+    Consumers must compare their clock again after slow work and immediately
+    before key use. Historical checkpoint replay deliberately remains timeless.
+    """
+    value = replay_nav_quorum(store, refs, c, sources=sources)
+    block = value.wallet.header.ref
+    assert block.timestamp is not None
+    capture = replay_nav(store, refs[0], c)
+    values = successful_results(capture.exchanges, requests(c, block, capture.position))
+    deadlines = [block.timestamp + MAX_HEAD_AGE_SECONDS]
+    for index in (7, 11):
+        updated = _abi(["uint80", "int256", "uint256", "uint256", "uint80"], values[index])[3]
+        assert isinstance(updated, int)
+        deadlines.append(updated + c.oracle_max_age_seconds)
+    return min(deadlines)
 
 
 def capture_nav(

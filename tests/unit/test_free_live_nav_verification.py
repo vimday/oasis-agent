@@ -125,8 +125,9 @@ def test_budget_disappearance_during_capture_is_not_recreated(
     assert not isolated_budget.exists()
 
 
-def test_successful_capture_spends_original_quota_and_refuses_renamed_output(
-    tmp_path, monkeypatch, isolated_budget
+@pytest.mark.parametrize("expire", [False, True])
+def test_capture_spends_original_quota_and_refuses_renamed_output(
+    tmp_path, monkeypatch, isolated_budget, expire
 ):
     calls = []
     fixture = NavFixture()
@@ -141,8 +142,18 @@ def test_successful_capture_spends_original_quota_and_refuses_renamed_output(
 
     monkeypatch.setattr(account_capture, "_UrlLibPoster", lambda *args: PublicFixture())
     monkeypatch.setattr(probe.time, "time", lambda: fixture.timestamp)
+    if expire:
+        fixture.usdc_age = 1800
+        capture = probe.capture_nav
+
+        def capture_then_advance(*args, **kwargs):
+            result = capture(*args, **kwargs)
+            monkeypatch.setattr(probe.time, "time", lambda: fixture.timestamp + 1)
+            return result
+
+        monkeypatch.setattr(probe, "capture_nav", capture_then_advance)
     report = probe.verify(tmp_path / "first", position_config())
-    assert report["nav_verified"] is True and report["execution_eligible"] is False
+    assert report["nav_verified"] is (not expire) and report["execution_eligible"] is False
     assert report["request_limits"] == {"base_public": 24, "publicnode": 23}
     assert report["request_counts"] == report["request_limits"]
     assert len(calls) == 47

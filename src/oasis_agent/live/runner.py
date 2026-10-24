@@ -46,7 +46,15 @@ from .v4lp import (
     price_from_sqrt,
     range_ticks,
 )
-from .valuation import AccountValue, NavRefusal, capture_nav, replay_nav, replay_nav_quorum
+from .valuation import (
+    MAX_HEAD_AGE_SECONDS,
+    AccountValue,
+    NavRefusal,
+    capture_nav,
+    nav_fresh_until,
+    replay_nav,
+    replay_nav_quorum,
+)
 from .wallet import WalletBalance, capture_wallet, replay_wallet
 
 TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
@@ -56,7 +64,6 @@ PENDING_TIMEOUT = 900
 ORACLE_DECIMALS = 8  # Base ETH/USD feed decimals(), verified on two providers 2026-10-08
 MAX_CONSECUTIVE_REVERTS = 2
 RECEIPT_CONFIRMATIONS = 3
-MAX_HEAD_AGE_SECONDS = 120
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
 
@@ -167,11 +174,12 @@ class LiveLoop:
                     sources=reader.sources,
                     sessions=reader.sessions,
                 )
+                deadline = nav_fresh_until(reader.store, refs, self.c, sources=reader.sources)
             except NavRefusal as exc:
                 raise ChainError("account NAV refused: " + str(exc)) from None
             except Exception:  # noqa: BLE001 - raw provider failures can contain credentials
                 raise ChainError("complete account NAV unresolved (details redacted)") from None
-            if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
+            if not timestamp <= int(time.time()) <= deadline:
                 raise ChainError("retained NAV expired during acquisition")
             return Market(
                 number,

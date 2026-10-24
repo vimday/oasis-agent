@@ -15,6 +15,7 @@ from eth_hash.auto import keccak
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.execution.lp_signer_daemon import prepare_endpoint
 from oasis_agent.live import authority as authority_module
+from oasis_agent.live import runner as runner_module
 from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import (
     SCHEMA,
@@ -23,7 +24,7 @@ from oasis_agent.live.authority_socket import (
     parse_request,
     serve_connections,
 )
-from oasis_agent.live.chain import Rpc, _envelope
+from oasis_agent.live.chain import ChainError, Rpc, _envelope
 from oasis_agent.live.intent import SubmittedTransaction
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.runner import LiveLoop
@@ -101,7 +102,13 @@ class DirectRpc(Rpc):
         return json.loads(raw)["result"]
 
 
-def setup_authority(tmp_path: Path, store: EvidenceStore, monkeypatch: pytest.MonkeyPatch):
+def setup_authority(
+    tmp_path: Path,
+    store: EvidenceStore,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    feed_ages: tuple[int, int] = (10, 10),
+):
     key = Key()
     base = cost_fixtures.position_config()
     pins = {
@@ -117,6 +124,8 @@ def setup_authority(tmp_path: Path, store: EvidenceStore, monkeypatch: pytest.Mo
         native_after=2 * 10**17,
         token_after=0,
         usdc_price=10**8,
+        eth_age=feed_ages[0],
+        usdc_age=feed_ages[1],
     )
     # Test clock is pinned to synthetic raw headers, never a production clock override.
     monkeypatch.setattr(authority_module.time, "time", lambda: f.timestamp)
@@ -149,6 +158,57 @@ def setup_authority(tmp_path: Path, store: EvidenceStore, monkeypatch: pytest.Mo
         "block_hash": f.block_hash,
     }
     return authority, key, fields, context
+
+
+@pytest.mark.parametrize("feed", [0, 1])
+def test_observation_refuses_price_expired_during_capture(tmp_path, monkeypatch, feed):
+    ages = (1800, 10) if feed == 0 else (10, 1800)
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, _, _ = setup_authority(tmp_path, store, monkeypatch, feed_ages=ages)
+        capture = runner_module.capture_nav
+        timestamp = authority.loop.rpc.fixture.timestamp
+
+        def capture_then_advance(*args, **kwargs):
+            result = capture(*args, **kwargs)
+            monkeypatch.setattr(authority_module.time, "time", lambda: timestamp + 1)
+            return result
+
+        monkeypatch.setattr(runner_module, "capture_nav", capture_then_advance)
+        with pytest.raises(ChainError, match="expired"):
+            authority.loop.observe(
+                authority.loop.rpc.call("eth_getBlockByNumber", ["latest", False])
+            )
+        assert key.calls == 0
+
+
+@pytest.mark.parametrize("feed", [0, 1])
+@pytest.mark.parametrize("advance", [1, 2])
+def test_authority_checks_each_feed_at_key_use(tmp_path, monkeypatch, feed, advance):
+    ages = (1799, 10) if feed == 0 else (10, 1799)
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(
+            tmp_path, store, monkeypatch, feed_ages=ages
+        )
+        state_store = authority.loop.store
+        save = state_store.save
+        timestamp = authority.loop.rpc.fixture.timestamp
+
+        def save_then_advance(state):
+            save(state)
+            if state.signing_attempt is not None:
+                monkeypatch.setattr(authority_module.time, "time", lambda: timestamp + advance)
+
+        monkeypatch.setattr(state_store, "save", save_then_advance)
+        if advance == 1:
+            authority.sign(fields, context)
+            assert key.calls == 1
+            assert state_store.load("live").pending is not None
+        else:
+            with pytest.raises(ValueError, match="authority expired before key use"):
+                authority.sign(fields, context)
+            assert key.calls == 0
+            saved = state_store.load("live")
+            assert saved.signing_attempt is not None and saved.pending is None
 
 
 def test_authority_rederives_action_and_journals_actual_signature_before_return(

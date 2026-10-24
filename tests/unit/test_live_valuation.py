@@ -27,6 +27,8 @@ class NavFixture(WalletFixture):
     eth_price: int = 2500 * 10**8
     usdc_price: int = 99_000_000
     age: int = 10
+    eth_age: int | None = None
+    usdc_age: int | None = None
     round_id: int = 2
     answered: int = 2
     feed_decimals: int = 8
@@ -45,6 +47,8 @@ class NavFixture(WalletFixture):
             target, selector = params[0]["to"], params[0]["data"][:10]
             if target in {valuation.ETH_USD_FEED, valuation.USDC_USD_FEED}:
                 eth = target == valuation.ETH_USD_FEED
+                age = self.eth_age if eth else self.usdc_age
+                age = self.age if age is None else age
                 answers = {
                     "decimals()": (["uint8"], [self.feed_decimals]),
                     "description()": (
@@ -56,8 +60,8 @@ class NavFixture(WalletFixture):
                         [
                             self.round_id,
                             self.eth_price if eth else self.usdc_price,
-                            self.timestamp - self.age - 1,
-                            self.timestamp - self.age,
+                            self.timestamp - age - 1,
+                            self.timestamp - age,
                             self.answered,
                         ],
                     ),

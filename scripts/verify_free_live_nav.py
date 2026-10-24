@@ -16,7 +16,7 @@ from oasis_agent.evidence.exact_capture import decode_header, wire_envelope
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.execution.account_capture import one_shot_session
 from oasis_agent.live.config import LiveConfig
-from oasis_agent.live.valuation import capture_nav, replay_nav
+from oasis_agent.live.valuation import capture_nav, nav_fresh_until
 from oasis_agent.live.valuation import requests as nav_requests
 from oasis_agent.live.wallet import WalletScope, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
@@ -88,9 +88,9 @@ def verify(directory: Path, config: LiveConfig) -> dict[str, object]:
             value, refs = capture_nav(
                 store, config, block, None, sources=tuple(URLS), sessions=session
             )
-            for ref in refs:
-                replay_nav(store, ref, config)
-            require_recent_head(block.timestamp)
+            deadline = nav_fresh_until(store, refs, config, sources=tuple(URLS))
+            if block.timestamp is None or not block.timestamp <= int(time.time()) <= deadline:
+                raise ValueError("NAV feed or head expired during verification")
             report.update(
                 nav_verified=True, nav_micros=value.nav_micros, evidence=[asdict(r) for r in refs]
             )

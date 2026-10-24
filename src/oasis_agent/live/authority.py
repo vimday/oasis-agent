@@ -18,7 +18,7 @@ from .intent import SubmittedTransaction, pending_plan_hash
 from .recovery import authority_status
 from .runner import LiveLoop, Market
 from .state import Pending, day_of
-from .valuation import replay_nav
+from .valuation import nav_fresh_until, replay_nav
 
 
 class TransactionAuthority:
@@ -71,6 +71,9 @@ class TransactionAuthority:
         if not isinstance(header, dict) or header.get("hash") != context["block_hash"]:
             raise ValueError("proposed decision block is not canonical")
         market = loop.observe(header)
+        reader = loop.receipt_costs
+        assert reader is not None
+        deadline = nav_fresh_until(reader.store, market.nav_evidence, c, sources=reader.sources)
         try:
             self._admit(market, context)
             self._envelope(fields, market, context)
@@ -78,8 +81,6 @@ class TransactionAuthority:
             # Persist risk latches and observations even when the proposal is refused.
             loop.store.save(s)
             raise
-        reader = loop.receipt_costs
-        assert reader is not None
         opening = tuple(replay_nav(reader.store, ref, c).wallet for ref in market.nav_evidence)
         if len(opening) != 2:
             raise ValueError("authority requires its own opening proof pair")
@@ -100,7 +101,7 @@ class TransactionAuthority:
         # leaves the reservation intact, including a crash after key use.
         if (
             time.monotonic() >= self.expires
-            or not 0 <= int(time.time()) - market.timestamp <= 120
+            or not market.timestamp <= int(time.time()) <= deadline
             or (loop.stop_file is not None and loop.stop_file.exists())
         ):
             raise ValueError("authority expired before key use")
