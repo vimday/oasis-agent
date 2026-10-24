@@ -274,6 +274,37 @@ def replay_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> NavCapt
     return capture
 
 
+def replay_nav_quorum(
+    store: EvidenceStore,
+    refs: tuple[EvidenceRef, ...],
+    c: LiveConfig,
+    *,
+    sources: tuple[str, str],
+) -> AccountValue:
+    """Rebuild an expected historical pair; this does not establish current freshness."""
+    if (
+        len(refs) != 2
+        or len(sources) != 2
+        or not all(isinstance(s, str) and s for s in sources)
+        or sources[0] == sources[1]
+        or tuple(r.source for r in refs) != sources
+        or refs[0].block is None
+        or refs[0].block != refs[1].block
+    ):
+        raise NavRefusal("NAV checkpoint requires its declared source pair and one block")
+    captures = [replay_nav(store, ref, c) for ref in refs]
+    if captures[0].position != captures[1].position:
+        raise NavRefusal("NAV checkpoint position declarations disagree")
+    values = [p.reconstruct(store, c) for p in captures]
+    calls = requests(c, refs[0].block, captures[0].position)
+    # Equal rounded NAV alone can hide different rounds or fee-growth state.
+    if values[0] != values[1] or successful_results(
+        captures[0].exchanges, calls
+    ) != successful_results(captures[1].exchanges, calls):
+        raise NavRefusal("NAV checkpoint raw observations disagree")
+    return values[0]
+
+
 def capture_nav(
     store: EvidenceStore,
     c: LiveConfig,

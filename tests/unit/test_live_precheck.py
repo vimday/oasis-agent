@@ -40,7 +40,7 @@ class NonceRpc:
         ("nonce", "account_nonce_unresolved"),
         ("error", "chain_observation_unresolved"),
         ("signing", "signing_outcome_unresolved"),
-        ("exact_loss", "loss_budget_exhausted"),
+        ("unproven_loss", "chain_observation_unresolved"),
     ],
 )
 def test_precheck_never_changes_state_or_creates_authority(
@@ -56,7 +56,7 @@ def test_precheck_never_changes_state_or_creates_authority(
         state.pending = Pending("swap", "0x" + "ab" * 32, 3, 0)
     if condition == "signing":
         state.signing_attempt = {"nonce": 3}
-    if condition == "exact_loss":
+    if condition == "unproven_loss":
         state.exact_risk = ExactRisk(basis=10_000_000_000, checkpoint=10_000_000_000)
     store.save(state)
     before = store.path.read_bytes()

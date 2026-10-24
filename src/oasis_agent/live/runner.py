@@ -46,7 +46,7 @@ from .v4lp import (
     price_from_sqrt,
     range_ticks,
 )
-from .valuation import AccountValue, NavRefusal, capture_nav, replay_nav
+from .valuation import AccountValue, NavRefusal, capture_nav, replay_nav, replay_nav_quorum
 from .wallet import WalletBalance, capture_wallet, replay_wallet
 
 TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
@@ -473,22 +473,29 @@ class LiveLoop:
         return f"{base} | {self._act(m, action)}"
 
     def _check_nav_checkpoint(self) -> None:
-        if self.mode != "live" or not self.state.nav_evidence:
+        if self.mode != "live":
+            return
+        risk = self.state.exact_risk
+        if not self.state.nav_evidence:
+            if self.state.initial_nav_usd is not None or (
+                risk is not None and (risk.basis is not None or risk.last_nav is not None)
+            ):
+                raise ChainError("retained NAV checkpoint missing for existing risk baseline")
             return
         reader = self.receipt_costs
         if reader is None or len(self.state.nav_evidence) != 2:
             raise ChainError("retained NAV checkpoint missing")
         try:
-            values = [
-                replay_nav(reader.store, ref, self.c).reconstruct(reader.store, self.c)
-                for ref in self.state.nav_evidence
-            ]
+            value = replay_nav_quorum(
+                reader.store, self.state.nav_evidence, self.c, sources=reader.sources
+            )
             if (
-                values[0] != values[1]
-                or self.state.exact_risk is None
-                or values[0].nav_micros != self.state.exact_risk.last_nav
+                risk is None
+                or value.nav_micros != risk.last_nav
+                or value.wallet.header.ref.timestamp != risk.last_at
             ):
                 raise ValueError("risk baseline differs from retained NAV")
+            risk.validate()
         except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
             raise ChainError("retained NAV checkpoint cannot be replayed") from None
 

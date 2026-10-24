@@ -484,14 +484,14 @@ def test_unexplained_wallet_change_halts(tmp_path: Path) -> None:
     assert loop.state.halted is not None and "unexplained wallet change" in loop.state.halted
 
 
-def test_acknowledged_wallet_change_books_external_flow(tmp_path: Path) -> None:
+def test_flow_acknowledgement_cannot_bypass_missing_legacy_nav_proofs(tmp_path: Path) -> None:
     loop = live_loop(tmp_path, ScriptedRpc(), last_units=[10**17, 0, 0], acknowledge_flow=True)
     loop.state.roll_day(T0 - 30, 250.0)
     loop.observe = lambda: market(eth=2 * 10**17, oracle=2500.0)  # type: ignore[method-assign]
     loop._decide = lambda _m: None  # type: ignore[method-assign]
-    assert "hold" in loop.tick()
-    assert loop.state.external_flow_usd == pytest.approx(250.0)
-    assert loop.state.losses(500.0) == (0.0, 0.0) and not loop.state.acknowledge_flow
+    assert "retained NAV checkpoint missing" in loop.tick()
+    assert loop.state.external_flow_usd == 0.0 and loop.state.acknowledge_flow
+    assert loop.state.initial_nav_usd == 250.0
 
 
 def test_receipt_for_another_transaction_never_clears_a_burn(tmp_path: Path) -> None:
