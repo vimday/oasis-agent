@@ -4,6 +4,35 @@ The owner selected local Docker on 2026-10-17. This is a reproducible packaging
 and confinement implementation, not permission to bypass the release gate.
 Both entry points still refuse new live actions before loading a key.
 
+## One-command Docker entry
+
+`make live-docker-readiness` prints the offline release decision. `make live-docker`
+is the guarded startup entry; while the current release blockers exist, it refuses
+before Docker, environment credentials, output-directory creation or state access.
+Neither command opens the release gate. The Python CLI exits 3 for a refusal;
+Make propagates a failed target.
+
+After separately completing production acceptance and operator release, startup
+requires explicit RPC environment variables, the existing four named state/socket/key
+volumes, and a new output directory (`LIVE_START_OUTPUT`, default
+`reports/runs/live-start`). It verifies the local Unix-socket Docker context,
+expanded deployment policy and every tracked application file in `LIVE_IMAGE`
+(default `oasis-live:local`), then uses the verified immutable image ID. It sends a
+fixed two-service Compose document through stdin; no RPC endpoint is saved in a
+report. Only the two RPC variables reach the containers, and the strategy has no
+key mount. All volumes are external to this startup operation: missing state cannot
+silently become fresh journals or budgets. Existing project containers require
+explicit recovery instead of an implicit restart/recreation.
+
+The entry never builds/pulls, initializes state, imports keys or activates setup/
+recovery profiles. It rechecks release and source/config identities immediately
+before one bounded startup command. A persisted attempt precedes that command;
+timeout or partial failure remains unresolved without a retry. A successful Compose
+command is recorded as `start_command_completed`, **not** healthy services, real
+receipt acceptance or execution permission. Resolve an uncertain attempt and inspect
+the services before another operator-directed start. The existing direct host
+`make live` entry is unchanged.
+
 Current NAV capture also verifies the pinned PositionManager's `balanceOf(account)`
 through both providers at the valuation block. Zero declared positions requires zero
 NFTs; one declared position requires exactly one NFT plus its existing ownership and

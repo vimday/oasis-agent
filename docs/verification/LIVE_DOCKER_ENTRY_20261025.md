@@ -1,0 +1,97 @@
+# Guarded Docker startup entry — 2026-10-25
+
+`make live-docker-readiness` exposes the existing offline release decision, and
+`make live-docker` provides one guarded startup attempt for the owner's selected
+local Docker deployment. The current release still refuses before Docker, RPC
+environment reads, output creation or state access. The direct CLI was executed
+with `--start` and exited **3**, without creating its requested attempt directory;
+its refusal is retained in
+`reports/review-20261025/docker-start-development/closed-release.json`.
+
+After a separately completed production release, the entry verifies the local
+Unix-socket context, rejects Docker environment overrides, validates the expanded
+deployment policy and runtime application bytes, and requires existing local
+state/socket/key volumes without driver options. It refuses existing project
+containers rather than implicitly restarting/recreating them. It constructs only
+the authority and strategy services with the verified immutable image ID, fixed
+commands, confinement and private volume layout. No build, pull, setup profile,
+budget initialization, key import or arbitrary Compose override is available.
+
+Only the declared RPC variables reach those services. The generated document goes
+to Compose over stdin; endpoints and arbitrary Docker output are never retained
+in reports. Immediately before startup, release/source/config checks run again.
+An exclusive, flushed and fsynced attempt file precedes the single bounded Compose
+command. Timeout or a nonzero exit leaves the attempt unresolved and is never
+automatically retried. A zero command exit is not service health, receipt recovery
+or trading approval: `services_ready` and `execution_eligible` remain false in the
+launcher report. Service journals remain the execution authority and recovery truth.
+
+The Docker daemon, host, local context configuration and filesystem remain trusted;
+this launcher is not an OS isolation boundary or proof of external data quality.
+Unverified fresh prices, provider independence and dedicated-account receipt/cash
+acceptance still block production. The accepted startup path has been tested only
+with synthetic Docker responses; no production service was started.
+
+## Validation records
+
+Sixteen focused tests passed, including release-first refusal, immutable images,
+fixed service inventory, absent/remote volumes, remote Docker, changed application
+sources, preexisting containers, endpoint redaction and one-attempt handling of
+timeout/partial startup. A generated document with synthetic endpoints parsed
+successfully through the real local Compose parser without daemon/service access:
+`docker-start-development/compose-plan-validation.log` under the review directory.
+
+The first full run passed Python/frontend and secrets, then stopped at Bandit
+(exit 1): B108 interpreted the container-private `/tmp` tmpfs specification as a
+host temporary-file path. A narrowly scoped B108 annotation documents why no host
+temporary file is opened. The attempt file itself is exclusively created in the
+private per-attempt directory. The initial failed report is preserved at
+`reports/review-20261025/docker-start-quality/report.json`.
+
+A second full-check attempt stopped at Ruff because the revised redacted error
+message exceeded the line-length limit. The message was shortened, Ruff and format
+passed, and a fresh full check was run; the failed attempt remains at
+`reports/review-20261025/docker-start-quality-final/report.json`.
+
+The final full quality run passed all four command groups with exit 0, no timeout
+and no launch failure: **3504 tests, 138 subtests**, Python compile/Ruff/format/mypy,
+eight frontend modules, secret scanning, Bandit (89 low, zero medium/high findings)
+and expanded Compose verification. Each log hash and the canonical report hash was
+independently checked. Report:
+`reports/review-20261025/docker-start-quality-verified/report.json`; evidence hash
+`4a4a541491d72a89098327cc03c5a9db032ac8952f107ccbbed5718751c28626`.
+
+The runtime image build exited 0 using the cached locked dependency layer. Both
+`oasis-live:local` and `oasis-live:docker-start-20261025` identify
+`sha256:93b5fd5829277896c82edc2d422b5b0755a41d97e57e25db7b38c55872fb1394`.
+A stopped-container inspection verified **329 tracked application files** against
+the reviewed checkout, without starting any process or mounting a production volume.
+Its `docker-start-development/image-sources.json` report under the review directory
+has evidence hash `f12e1a95095d724a5fbc809fbfe6fa0093a9708eec5708727dc1e2cd846c2e92`
+and manifest hash `bd037e254273773b8238472c272651a50bda0eb0d84b1608ba5c4d357be93117`.
+This is source identity and development validation, not a new production acceptance.
+
+## Synthetic report cleanup
+
+Archived and removed ten loose files from these explicitly synthetic diagnostics:
+
+- `reports/review-20261003/position-account-expenses/synthetic-only`
+- `reports/review-20261004/lp-flow-classification/synthetic-cli-only`
+
+Their retained assessment/CLI records identify synthetic-only inputs, no real keys,
+no new RPC requests and no execution eligibility. Every archived member's SHA-256
+was compared with the source, then the source hash was checked again before removal.
+Tracked files, symlinks and key/budget/nonce/journal-named inputs were excluded.
+The surrounding historical checkpoint manifests, scripts and failure logs remain
+unchanged; recreating those old paths requires the verified archive members.
+
+Original size **1666251 bytes**, archive **110738 bytes**, net reduction before the
+small manifest **1555513 bytes**. Archive:
+`reports/archives/synthetic-inputs-20261003-04.tar.gz`; SHA-256:
+`4a69e5531c8ca7045158a2725b8f41ad66886198b50b2a81da26bcfd89d499e8`.
+Per-file mappings are retained beside it as
+`synthetic-inputs-20261003-04.tar.manifest.json`.
+
+All real chain evidence and request budgets are preserved. This work made zero
+RPC requests, did not read/reimport a production key, and did not sign or broadcast.
+The old one-shot free current-state authorization was not reused.
