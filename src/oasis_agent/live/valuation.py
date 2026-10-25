@@ -6,7 +6,7 @@ USD values floor each asset leg. Raw units and feed answers never pass through f
 """
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from eth_abi.abi import decode, encode
 
@@ -59,7 +59,7 @@ def _abi(types: list[str], raw: object) -> tuple[object, ...]:
 
 
 def requests(
-    c: LiveConfig, block: BlockRef, position: Position | None
+    c: LiveConfig, block: BlockRef, position: Position | None, *, inventory_checked: bool = True
 ) -> list[tuple[str, list[object]]]:
     pin = {"blockHash": block.block_hash, "requireCanonical": True}
     result: list[tuple[str, list[object]]] = [
@@ -73,6 +73,13 @@ def requests(
         result.extend(
             _call(feed, sig, [], [], pin)
             for sig in ("decimals()", "description()", "latestRoundData()")
+        )
+    if inventory_checked:
+        result.extend(
+            [
+                ("eth_getCode", [c.position_manager, pin]),
+                _call(c.position_manager, "balanceOf(address)", ["address"], [c.account], pin),
+            ]
         )
     if position is not None:
         core = position_id(c.position_manager, position.lower, position.upper, position.token_id)
@@ -124,9 +131,10 @@ class NavCapture:
     position: Position | None
     position_evidence: EvidenceRef | None
     exchanges: tuple[RpcExchange, ...]
+    inventory_checked: bool = field(default=True, kw_only=True)
 
     def _requests(self, c: LiveConfig, block: BlockRef) -> list[tuple[str, list[object]]]:
-        return requests(c, block, self.position)
+        return requests(c, block, self.position, inventory_checked=self.inventory_checked)
 
     def _prices(
         self, store: EvidenceStore, c: LiveConfig, block: BlockRef, vals: tuple[object, ...]
@@ -208,6 +216,12 @@ class NavCapture:
         ):
             raise NavRefusal("NAV chain/header changed")
         require_code_hash(vals[2], c.expected_pins["state_view"])
+        if self.inventory_checked:
+            index = -5 if self.position is not None else -3
+            require_code_hash(vals[index], c.expected_pins["position_manager"])
+            count = _abi(["uint256"], vals[index + 1])[0]
+            if count != int(self.position is not None):
+                raise NavRefusal("NAV position inventory differs from declared holding")
         sqrt, tick, _, _ = _abi(["uint160", "int24", "uint24", "uint24"], vals[3])
         assert isinstance(sqrt, int) and isinstance(tick, int)
         if tick >= MAX_TICK or not sqrt_price_at_tick(tick) <= sqrt <= sqrt_price_at_tick(tick + 1):
@@ -242,7 +256,7 @@ class NavCapture:
     def payload(self, store: EvidenceStore, c: LiveConfig) -> bytes:
         return canonical_json(
             {
-                "schema": "oasis.live-nav.v1",
+                "schema": "oasis.live-nav.v2" if self.inventory_checked else "oasis.live-nav.v1",
                 "config_hash": sha256_hex(canonical_json(asdict(c))),
                 "wallet": asdict(self.wallet),
                 "position": asdict(self.position) if self.position else None,
@@ -260,11 +274,14 @@ def replay_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> NavCapt
     if ref.kind != "live_nav" or record.request_payload is None:
         raise NavRefusal("NAV raw proof missing")
     d = json.loads(record.payload)
+    if d.get("schema") not in {"oasis.live-nav.v1", "oasis.live-nav.v2"}:
+        raise NavRefusal("NAV schema unsupported")
     capture = NavCapture(
         evidence_ref_from_json(d["wallet"]),
         Position(**d["position"]) if d["position"] else None,
         evidence_ref_from_json(d["position_evidence"]) if d["position_evidence"] else None,
         restore_exchanges(record.request_payload, record.raw_response_payload),
+        inventory_checked=d["schema"] == "oasis.live-nav.v2",
     )
     if (
         ref.block != capture.wallet.block
@@ -294,10 +311,13 @@ def replay_nav_quorum(
     ):
         raise NavRefusal("NAV checkpoint requires its declared source pair and one block")
     captures = [replay_nav(store, ref, c) for ref in refs]
-    if captures[0].position != captures[1].position:
+    if (
+        captures[0].position != captures[1].position
+        or captures[0].inventory_checked != captures[1].inventory_checked
+    ):
         raise NavRefusal("NAV checkpoint position declarations disagree")
     values = [p.reconstruct(store, c) for p in captures]
-    calls = requests(c, refs[0].block, captures[0].position)
+    calls = captures[0]._requests(c, refs[0].block)
     # Equal rounded NAV alone can hide different rounds or fee-growth state.
     if values[0] != values[1] or successful_results(
         captures[0].exchanges, calls
@@ -322,7 +342,9 @@ def nav_fresh_until(
     block = value.wallet.header.ref
     assert block.timestamp is not None
     capture = replay_nav(store, refs[0], c)
-    values = successful_results(capture.exchanges, requests(c, block, capture.position))
+    if not capture.inventory_checked:
+        raise NavRefusal("NAV historical proof lacks current position inventory")
+    values = successful_results(capture.exchanges, capture._requests(c, block))
     deadlines = [block.timestamp + MAX_HEAD_AGE_SECONDS]
     for index in (7, 11):
         updated = _abi(["uint80", "int256", "uint256", "uint256", "uint80"], values[index])[3]

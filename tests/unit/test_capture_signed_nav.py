@@ -45,7 +45,10 @@ def setup(tmp_path, monkeypatch, *, position=False, capture=True):
     monkeypatch.setattr(cli.time, "time_ns", lambda: TIMESTAMP * 1_000_000)
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", "https://first.invalid/SECRET_A")
     monkeypatch.setenv(config.secondary_rpc_env, "https://second.invalid/SECRET_B")
-    wires = {"first.invalid": fixture(), "second.invalid": fixture()}
+    wires = {
+        "first.invalid": fixture(position_enabled=position),
+        "second.invalid": fixture(position_enabled=position),
+    }
     calls = []
 
     class Poster:
@@ -95,7 +98,7 @@ def run(paths, expected):
 def test_capture_replays_raw_pair_and_preserves_cumulative_quota(tmp_path, monkeypatch, position):
     paths, calls, _, _ = setup(tmp_path, monkeypatch, position=position)
     report = run(paths, 0)
-    count = 26 if position else 15
+    count = 28 if position else 17
     expected = dict(zip(cli.SOURCES, (count + 1, count), strict=True))
     assert report["request_attempts"] == report["request_limits"] == expected
     assert len(calls) == 2 * count + 1
@@ -262,7 +265,7 @@ def test_clock_change_during_final_replay_refuses_publication(tmp_path, monkeypa
 
     monkeypatch.setattr(cli, "verify_signed_nav_quorum", verify)
     report = run(paths, 3)
-    assert report["refusal_stage"] == "current_clock_replay" and len(calls) == 31
+    assert report["refusal_stage"] == "current_clock_replay" and len(calls) == 35
     assert not (paths["out"] / "check-input.json").exists()
 
 
@@ -276,5 +279,5 @@ def test_new_output_reuses_spent_quota(tmp_path, monkeypatch):
     paths["out"] = new_output
     second = run(paths, 0)
     assert second["request_counts_before"] == first["request_counts_after"]
-    assert second["request_counts_after"] == {cli.SOURCES[0]: 33, cli.SOURCES[1]: 30}
-    assert len(calls) == 62
+    assert second["request_counts_after"] == {cli.SOURCES[0]: 37, cli.SOURCES[1]: 34}
+    assert len(calls) == 70

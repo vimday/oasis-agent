@@ -119,6 +119,7 @@ def setup_authority(
     monkeypatch.setattr(cost_fixtures, "CONFIG", config)
     monkeypatch.setattr(wallet_fixtures, "CONFIG", config)
     f = AuthorityFixture(
+        position_enabled=False,
         payer=key.account,
         position_owner=key.account,
         native_after=2 * 10**17,
@@ -158,6 +159,16 @@ def setup_authority(
         "block_hash": f.block_hash,
     }
     return authority, key, fields, context
+
+
+def test_authority_refuses_unreported_position_before_key_or_reservation(tmp_path, monkeypatch):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        authority.loop.secondary.fixture.nft_count = 1
+        with pytest.raises(ChainError, match="position inventory"):
+            authority.sign(fields, context)
+        assert key.calls == 0
+        assert authority.loop.state.signing_attempt is None
 
 
 @pytest.mark.parametrize("feed", [0, 1])

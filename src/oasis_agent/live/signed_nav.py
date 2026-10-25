@@ -132,7 +132,7 @@ class SignedNavCapture(NavCapture):
     price_evidence: EvidenceRef
 
     def _requests(self, c: LiveConfig, block: BlockRef) -> list[tuple[str, list[object]]]:
-        calls = requests(c, block, self.position)
+        calls = requests(c, block, self.position, inventory_checked=self.inventory_checked)
         return calls[:4] + calls[12:]  # Same inventory proof, without Chainlink feed reads.
 
     def _prices(
@@ -145,7 +145,11 @@ class SignedNavCapture(NavCapture):
 
     def payload(self, store: EvidenceStore, c: LiveConfig) -> bytes:
         result = json.loads(NavCapture.payload(self, store, c))
-        result["schema"] = "oasis.signed-nav-candidate.v1"
+        result["schema"] = (
+            "oasis.signed-nav-candidate.v2"
+            if self.inventory_checked
+            else "oasis.signed-nav-candidate.v1"
+        )
         result["price_evidence"] = asdict(self.price_evidence)
         return canonical_json(result)
 
@@ -157,12 +161,15 @@ def replay_signed_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> 
     if record.request_payload is None:
         raise NavRefusal("signed NAV raw proof missing")
     d = json.loads(record.payload)
+    if d.get("schema") not in {"oasis.signed-nav-candidate.v1", "oasis.signed-nav-candidate.v2"}:
+        raise NavRefusal("signed NAV schema unsupported")
     capture = SignedNavCapture(
         evidence_ref_from_json(d["wallet"]),
         Position(**d["position"]) if d["position"] else None,
         evidence_ref_from_json(d["position_evidence"]) if d["position_evidence"] else None,
         restore_exchanges(record.request_payload, record.raw_response_payload),
         evidence_ref_from_json(d["price_evidence"]),
+        inventory_checked=d["schema"] == "oasis.signed-nav-candidate.v2",
     )
     if (
         ref.block != capture.wallet.block
@@ -209,6 +216,8 @@ def verify_signed_nav_quorum(
     ):
         raise NavRefusal("signed NAV account block is stale or future")
     captures = [replay_signed_nav(store, ref, c) for ref in refs]
+    if not all(p.inventory_checked for p in captures):
+        raise NavRefusal("signed NAV historical proof lacks current position inventory")
     if any(p.position != position for p in captures):
         raise NavRefusal("signed NAV quorum omits or changes declared position")
     if captures[0].price_evidence != captures[1].price_evidence:

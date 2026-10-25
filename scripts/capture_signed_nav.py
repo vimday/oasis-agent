@@ -118,8 +118,8 @@ def main():
         prices = verify_prices(
             raw, observed_at_ms=started, max_age_ms=c.oracle_max_age_seconds * 1000
         )
-        # Wallet: 10; core NAV without Chainlink: 5; optional NFT: 9 + fee reads: 2.
-        per_source = 26 if position is not None else 15
+        # Wallet: 10; core/inventory without Chainlink: 7; NFT: 9 + fee reads: 2.
+        per_source = 28 if position is not None else 17
         limits = {SOURCES[0]: per_source + 1, SOURCES[1]: per_source}
         stage = "existing_budget"
         if args.budget.is_symlink() or not args.budget.is_file():

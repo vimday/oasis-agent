@@ -4,6 +4,16 @@ The owner selected local Docker on 2026-10-17. This is a reproducible packaging
 and confinement implementation, not permission to bypass the release gate.
 Both entry points still refuse new live actions before loading a key.
 
+Current NAV capture also verifies the pinned PositionManager's `balanceOf(account)`
+through both providers at the valuation block. Zero declared positions requires zero
+NFTs; one declared position requires exactly one NFT plus its existing ownership and
+liquidity proofs. Missing or additional NFTs halt valuation before a signing reservation.
+This covers the configured manager, not undiscovered tokens or other protocols.
+Version 1 NAV records remain available for historical replay, but cannot satisfy
+current admission; new version 2 proofs add two reads per provider. Existing RPC
+quotas are not increased. Signed-price candidate captures enforce the same inventory
+check and remain excluded from production signing.
+
 ## Build and verify
 
 Run the complete local development checks with a fresh report directory:

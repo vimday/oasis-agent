@@ -24,6 +24,7 @@ from tests.unit.test_lp_receipts import PRIMARY, SECONDARY, sessions
 @dataclass
 class NavFixture(WalletFixture):
     position_enabled: bool = True
+    nft_count: int | None = None
     eth_price: int = 2500 * 10**8
     usdc_price: int = 99_000_000
     age: int = 10
@@ -45,6 +46,15 @@ class NavFixture(WalletFixture):
         value = None
         if method == "eth_call":
             target, selector = params[0]["to"], params[0]["data"][:10]
+            if target == CONFIG.position_manager and selector == "0x70a08231":
+                count = int(self.position_enabled) if self.nft_count is None else self.nft_count
+                return canonical_json(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req["id"],
+                        "result": "0x" + encode(["uint256"], [count]).hex(),
+                    }
+                )
             if target in {valuation.ETH_USD_FEED, valuation.USDC_USD_FEED}:
                 eth = target == valuation.ETH_USD_FEED
                 age = self.eth_age if eth else self.usdc_age
@@ -92,6 +102,9 @@ class NavFixture(WalletFixture):
 def run_nav(
     store: EvidenceStore, f: NavFixture, peer: NavFixture | None = None, position: bool = True
 ):
+    f = replace(f, position_enabled=position)
+    if peer is not None:
+        peer = replace(peer, position_enabled=position)
     return capture_nav(
         store,
         position_config(),

@@ -130,7 +130,7 @@ def test_capture_spends_original_quota_and_refuses_renamed_output(
     tmp_path, monkeypatch, isolated_budget, expire
 ):
     calls = []
-    fixture = NavFixture()
+    fixture = NavFixture(position_enabled=False)
 
     class PublicFixture:
         def post(self, raw):
@@ -154,13 +154,13 @@ def test_capture_spends_original_quota_and_refuses_renamed_output(
         monkeypatch.setattr(probe, "capture_nav", capture_then_advance)
     report = probe.verify(tmp_path / "first", position_config())
     assert report["nav_verified"] is (not expire) and report["execution_eligible"] is False
-    assert report["request_limits"] == {"base_public": 24, "publicnode": 23}
+    assert report["request_limits"] == {"base_public": 26, "publicnode": 25}
     assert report["request_counts"] == report["request_limits"]
-    assert len(calls) == 47
+    assert len(calls) == 51
     second = probe.verify(tmp_path / "renamed", position_config())
     assert second["nav_verified"] is False and second["captures"] == []
     assert second["request_counts"] == report["request_counts"]
-    assert len(calls) == 47
+    assert len(calls) == 51
     assert not (tmp_path / "renamed" / "budget.db").exists()
 
 

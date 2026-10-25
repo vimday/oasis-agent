@@ -37,6 +37,9 @@ def block(f):
 
 def candidate(store, f=None, peer=None, position=True, observed=TIMESTAMP, raw=None):
     f = f or fixture()
+    f = replace(f, position_enabled=position)
+    if peer is not None:
+        peer = replace(peer, position_enabled=position)
     return capture_signed_nav_candidate(
         store,
         position_config(),
@@ -218,7 +221,7 @@ def test_candidate_cannot_be_relabelled_as_production_nav(tmp_path):
 
 def test_legacy_chainlink_path_does_not_fallback_to_signed_candidate(tmp_path, monkeypatch):
     monkeypatch.setattr(valuation, "FEED_RUNTIME", "0x" + keccak(bytes.fromhex("6000")).hex())
-    c, f = position_config(), fixture(age=1801)
+    c, f = position_config(), fixture(age=1801, position_enabled=False)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         candidate(store, f=f, position=False)
         with pytest.raises(ValueError, match="stale"):
