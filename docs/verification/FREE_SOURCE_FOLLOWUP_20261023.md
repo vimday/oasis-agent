@@ -93,3 +93,40 @@ This is development validation, not production acceptance.
 Fresh authenticated ETH/USDC pricing, complete dedicated-account NAV, current
 production two-source simulation/runtime evidence and dedicated-account dual-service
 receipt/cash recovery remain unresolved. This change preserves their release gates.
+
+## Follow-up: separate legacy price API — 2026-10-25
+
+The official [legacy HTTP API documentation](https://github.com/redstone-finance/redstone-api/blob/main/docs/HTTP_API.md)
+also documents a separate unauthenticated `api.redstone.finance/prices/` interface.
+Its older price-object format is not evidence that it serves the current
+PrimaryProd three-signer packages required by this repository. The current SDK
+request interface and gateway configuration linked above still require an API
+key; neither observation establishes whether obtaining a key costs money.
+
+One direct GET to
+`https://api.redstone.finance/prices/?symbols=ETH,USDC&provider=redstone`
+returned **HTTP 500**, with a complete 299-byte HTML error body. The bounded
+diagnostic exited **3**; it used no credential, redirect, retry or RPC request.
+The earlier web-fetch tool could not access the URL and supplied no HTTP response;
+only this directly retained response is used for the HTTP-status conclusion.
+The diagnostic used a 15-second overall deadline, ten-second HTTP timeout and
+one-million-byte response bound. No fresh signed price or NAV was produced.
+This failure does not establish that all public sources are unavailable.
+
+- Diagnostic source: `reports/review-20261025/public-price-source/observe.py`.
+- Raw evidence: `reports/evidence/free-redstone-price-api-20261025/`.
+- Retrieval interval: `1792937994839`–`1792937996385` Unix milliseconds.
+- Raw response SHA-256:
+  `b32ccc77423c80566f051749de1f5c583be7423848d77a753f9124e420aa65cc`.
+- Canonical report hash, excluding its own digest:
+  `47b2df1618224cf14df90ddf036a1d06e57f7ff8e0ed44e4c3000936e1cb7f5b`.
+
+This follow-up changes documentation only. It does not consume or renew the
+terminal one-shot free current-state grant, touch the prior budget ledgers, or
+use paid RPC. Offline signature/NAV candidate validation already exists, but
+production `replay_nav` still accepts only the existing Chainlink-backed proof
+kind. A valid fresh signed-price input would therefore enable candidate capture
+and testing, not automatically authorize production signing. Current production
+two-source runtime/simulation and dedicated-account receipt/cash recovery remain
+separate outstanding requirements. The 1800-second limit and closed release
+gate remain unchanged.
