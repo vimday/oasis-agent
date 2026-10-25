@@ -1,28 +1,55 @@
+# Python / uv
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.venv/
-venv/
-*.sqlite3
-data/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Secrets and signing material (never commit)
 .env
 .env.*
 !.env.example
 *.key
 *.pem
-.claude/settings.local.json
-CLAUDE.local.md
-reports/generated/
+*.keystore
+
+# Local runtime state: journals, budgets, logs
+data/
+*.sqlite3
+*.log
+
+# Generated reports and evidence. Only already-tracked fixtures stay versioned;
+# add a new retained artifact deliberately with `git add -f`.
+reports/*
+!reports/README.md
+
+# Foundry
 contracts/cache/
 contracts/out/
 contracts/broadcast/
 contracts/node_modules/
-.claude/worktrees/
 
-.coverage
-htmlcov/
-.DS_Store
+# Local agent / editor tooling
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+.agents/
+skills-lock.json
+.gstack/
+.superpowers/
+.scratch/
+.trae/
 .trae-html-share-packages/
 oasis-server-frontend-research/
+.idea/
+.vscode/
+.DS_Store
