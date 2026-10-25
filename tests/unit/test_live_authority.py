@@ -31,6 +31,7 @@ from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.live.v4lp import erc20_approve_call
 from oasis_agent.models.common import canonical_json
+from oasis_agent.reporting.live_release import require_live_release
 from tests.unit import test_live_receipt_costs as cost_fixtures
 from tests.unit import test_live_revert_cash as wallet_fixtures
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
@@ -109,6 +110,8 @@ def setup_authority(
     *,
     feed_ages: tuple[int, int] = (10, 10),
 ):
+    # Synthetic admission exercises later policy checks without enabling production.
+    monkeypatch.setattr(authority_module, "require_live_release", lambda: None)
     key = Key()
     base = cost_fixtures.position_config()
     pins = {
@@ -159,6 +162,43 @@ def setup_authority(
         "block_hash": f.block_hash,
     }
     return authority, key, fields, context
+
+
+def test_authority_enforces_real_release_before_state_or_rpc(tmp_path, monkeypatch):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        monkeypatch.setattr(authority_module, "require_live_release", require_live_release)
+
+        def forbidden(*args, **kwargs):
+            pytest.fail("closed release accessed state or RPC")
+
+        monkeypatch.setattr(authority.loop.store, "load", forbidden)
+        monkeypatch.setattr(authority.loop.store, "save", forbidden)
+        monkeypatch.setattr(authority.loop.rpc, "call", forbidden)
+        with pytest.raises(ValueError, match="live release blocked"):
+            authority.sign(fields, context)
+        assert key.calls == 0
+
+
+def test_authority_rechecks_release_after_reservation_before_key(tmp_path, monkeypatch):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        state_store = authority.loop.store
+        save = state_store.save
+
+        def save_then_close_release(state):
+            save(state)
+            if state.signing_attempt is not None:
+                monkeypatch.setattr(authority_module, "require_live_release", require_live_release)
+
+        monkeypatch.setattr(state_store, "save", save_then_close_release)
+        with pytest.raises(ValueError, match="live release blocked"):
+            authority.sign(fields, context)
+        assert key.calls == 0
+        saved = state_store.load("live")
+        assert saved.signing_attempt is not None and saved.pending is None
+        # Read-only recovery is still available while new signing is refused.
+        assert authority.status() is not None
 
 
 def test_authority_refuses_unreported_position_before_key_or_reservation(tmp_path, monkeypatch):

@@ -11,6 +11,7 @@ from fractions import Fraction
 from typing import Any
 
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
+from ..reporting.live_release import require_live_release
 from .action_plan import action_call
 from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
@@ -44,6 +45,9 @@ class TransactionAuthority:
         return authority_status(self.loop.store, self.loop.c, nonce)
 
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes:
+        # The signing boundary must enforce release independently of its caller.
+        # Status and receipt recovery remain available without new signing authority.
+        require_live_release()
         loop, c = self.loop, self.loop.c
         loop.state = loop.store.load("live")
         s = loop.state
@@ -105,6 +109,7 @@ class TransactionAuthority:
             or (loop.stop_file is not None and loop.stop_file.exists())
         ):
             raise ValueError("authority expired before key use")
+        require_live_release()  # Recheck after slow observation/simulation and reservation.
         raw = sign_transaction(self.provider, fields)
         tx = SubmittedTransaction.from_signed(raw)
         s.pending = Pending(

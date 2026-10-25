@@ -95,3 +95,48 @@ Per-file mappings are retained beside it as
 All real chain evidence and request budgets are preserved. This work made zero
 RPC requests, did not read/reimport a production key, and did not sign or broadcast.
 The old one-shot free current-state authorization was not reused.
+
+## Signing-boundary release enforcement — 2026-10-26
+
+The startup CLI already refused a closed release, but the core
+`TransactionAuthority.sign()` method relied on its caller to perform that check.
+A caller constructing the authority directly could therefore reach its admission
+and signing flow without independently enforcing the project's release decision.
+The authority now checks release before state/RPC access and again immediately
+before its key-provider call, after observation, simulation and durable reservation.
+Status lookup and the separate keyless recovery paths remain available.
+
+Regression tests restore the real closed release gate after constructing only
+synthetic fixtures. They verify that an initially closed gate prevents state/RPC
+access and key calls, and that closing it after reservation still prevents key use
+while preserving the reservation and allowing status inspection. Existing synthetic
+admission tests explicitly stub release so they continue exercising later controls;
+this does not add a production override. The focused suite passed 88 cases.
+
+Two redundant files were removed only after byte-for-byte and SHA-256 comparison
+with retained originals: the duplicate position-account-expenses check log and
+the synthetic account-risk-gas-binding repeat report. Their paths, original
+timestamps, hashes and retained replacements are recorded in
+`reports/review-20261026/authority-release-cleanup.json`. This removes 189435 bytes
+without discarding unique historical outcomes or chain evidence.
+
+Unrelated dependency-manifest and lockfile edits in the shared checkout are excluded
+from this increment. No runtime image is rebuilt from those unreviewed edits; the
+earlier image/source verification above describes the earlier revision only and
+does not cover this new authority check. Current source verification must still pass
+before startup. This change is not fresh-price/NAV, production dual-source or
+dedicated-account receipt/cash acceptance, and does not open release. No production
+key access, RPC, signing, broadcasting or service startup is performed.
+
+Full development validation in the shared checkout passed **3506 tests and 138
+subtests**, with the existing websockets deprecation warning. All four command
+groups exited 0 without timeout or launch failure: Python/frontend checks, secret
+scanning, Bandit (89 low, zero medium/high findings), and offline Compose validation.
+Every raw log hash and the canonical report hash was independently checked:
+`reports/review-20261026/authority-release-quality/report.json`, hash
+`428caba1f5baaf25287b66bf5a499de17d77fc74ff61455e67eb8ec2013ee0a1`.
+This does not attest a clean locked-environment rebuild of the unrelated dependency
+edits. After validation, 817 regenerable cache files were removed (30946146 bytes);
+the per-file record is `reports/review-20261026/authority-release-cache-cleanup.json`.
+Together with the two duplicate reports, this increment removes 31135581 bytes
+before its small cleanup manifests. Earlier cleanup totals are not added again.
