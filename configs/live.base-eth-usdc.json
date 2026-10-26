@@ -38,5 +38,6 @@
     "usdc_implementation": "0x0000000000000000000000002ce6311ddae708829bc0784c967b7d77d19fd779"
   },
   "oracle_max_age_seconds": 1800,
+  "usdc_oracle_max_age_seconds": 90000,
   "secondary_rpc_env": "BASE_RPC_PRIMARY"
 }

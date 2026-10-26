@@ -46,6 +46,13 @@ USDC_USD_FEED = "0x7e860098f58bbfc8648a4311b374b1d669a2bc6b"
 ETH_USD_FEED = "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70"
 FEED_RUNTIME = "0xbd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2"
 MAX_HEAD_AGE_SECONDS = 120
+# The USDC/USD round may be up to its own ceiling old; outside this band it never values NAV.
+USDC_STABLE_BAND_BPS = 200
+
+
+def feed_max_age(c: LiveConfig, usdc: bool) -> int:
+    """Per-feed staleness ceiling: ETH/USD keeps the strict limit, USDC/USD its heartbeat."""
+    return c.usdc_oracle_max_age_seconds if usdc else c.oracle_max_age_seconds
 
 
 def _abi(types: list[str], raw: object) -> tuple[object, ...]:
@@ -165,9 +172,12 @@ class NavCapture:
                 or answer <= 0
                 or answered < round_id
                 or not 0 < started <= updated
-                or not 0 <= block.timestamp - updated <= c.oracle_max_age_seconds
+                or not 0 <= block.timestamp - updated <= feed_max_age(c, i == 8)
             ):
                 raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
+            if i == 8 and abs(answer - 10**8) * 10_000 > USDC_STABLE_BAND_BPS * 10**8:
+                # A long-heartbeat stablecoin round is accepted only while it reads near par.
+                raise NavRefusal("NAV USDC / USD answer outside stable band")
             answers.append(answer)
         return answers
 
@@ -346,10 +356,10 @@ def nav_fresh_until(
         raise NavRefusal("NAV historical proof lacks current position inventory")
     values = successful_results(capture.exchanges, capture._requests(c, block))
     deadlines = [block.timestamp + MAX_HEAD_AGE_SECONDS]
-    for index in (7, 11):
+    for index, usdc in ((7, False), (11, True)):
         updated = _abi(["uint80", "int256", "uint256", "uint256", "uint80"], values[index])[3]
         assert isinstance(updated, int)
-        deadlines.append(updated + c.oracle_max_age_seconds)
+        deadlines.append(updated + feed_max_age(c, usdc))
     return min(deadlines)
 
 

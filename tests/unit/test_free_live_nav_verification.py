@@ -143,7 +143,7 @@ def test_capture_spends_original_quota_and_refuses_renamed_output(
     monkeypatch.setattr(account_capture, "_UrlLibPoster", lambda *args: PublicFixture())
     monkeypatch.setattr(probe.time, "time", lambda: fixture.timestamp)
     if expire:
-        fixture.usdc_age = 1800
+        fixture.usdc_age = position_config().usdc_oracle_max_age_seconds
         capture = probe.capture_nav
 
         def capture_then_advance(*args, **kwargs):

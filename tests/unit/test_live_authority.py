@@ -213,7 +213,8 @@ def test_authority_refuses_unreported_position_before_key_or_reservation(tmp_pat
 
 @pytest.mark.parametrize("feed", [0, 1])
 def test_observation_refuses_price_expired_during_capture(tmp_path, monkeypatch, feed):
-    ages = (1800, 10) if feed == 0 else (10, 1800)
+    c = cost_fixtures.CONFIG
+    ages = (c.oracle_max_age_seconds, 10) if feed == 0 else (10, c.usdc_oracle_max_age_seconds)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         authority, key, _, _ = setup_authority(tmp_path, store, monkeypatch, feed_ages=ages)
         capture = runner_module.capture_nav
@@ -235,7 +236,10 @@ def test_observation_refuses_price_expired_during_capture(tmp_path, monkeypatch,
 @pytest.mark.parametrize("feed", [0, 1])
 @pytest.mark.parametrize("advance", [1, 2])
 def test_authority_checks_each_feed_at_key_use(tmp_path, monkeypatch, feed, advance):
-    ages = (1799, 10) if feed == 0 else (10, 1799)
+    c = cost_fixtures.CONFIG
+    ages = (
+        (c.oracle_max_age_seconds - 1, 10) if feed == 0 else (10, c.usdc_oracle_max_age_seconds - 1)
+    )
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         authority, key, fields, context = setup_authority(
             tmp_path, store, monkeypatch, feed_ages=ages

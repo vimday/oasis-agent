@@ -396,3 +396,20 @@ remains False everywhere, including in every retained record this repository pro
   approve → swap → mint → forced out-of-range → burn → swap → mint before any mainnet signature.
 - **Expectation on record:** the replay put the ±5% edge at tens of USD per month at this size; the canary
   tests execution and accounting, not a money machine.
+
+## Amendment 2026-10-27: per-feed oracle age (trial_number = 1, owner-delegated)
+
+- **Decision:** the owner delegated this choice ("usdc usd时效你自己做决定即可"). ETH/USD keeps
+  `oracle_max_age_seconds = 1800`. USDC/USD gets `usdc_oracle_max_age_seconds = 90000` (hard bound
+  90000 in `live/config.py`).
+- **Reason:** Base Chainlink USDC/USD updates on a 24-hour heartbeat or price deviation. Three retained
+  observations were 54910 s, 55972 s and 83186 s old, so the shared 1800 s limit refused NAV almost
+  always, independent of data quality.
+- **Compensating controls:** a USDC/USD answer outside ±200 bps of USD 1.00 refuses NAV
+  (`USDC_STABLE_BAND_BPS`); the unchanged 40 bps pool/oracle deviation check uses
+  ETH/USD ÷ USDC/USD, so a stale USDC round that no longer matches the pool blocks actions; the
+  freshness deadline before key use is the minimum of the head and both per-feed deadlines.
+- **Residual risk accepted:** a USDC depeg smaller than the feed's deviation trigger may be seen up to
+  25 h late. It is bounded by the unchanged USD 500 capital cap and USD 200 / USD 500 loss latch.
+- **Unchanged:** all other parameters, the signed-price path's 1800 s limit, the release gate and the
+  requirement for real dedicated-account receipt/cash acceptance.

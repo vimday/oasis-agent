@@ -249,6 +249,14 @@ The USDC/USD observed round was about 60000 seconds old, beyond the existing
 A suitable fresh price source or a separately reviewed owner-approved feed policy
 is required; no dollar peg or silent freshness relaxation is implemented.
 
+Owner-delegated feed policy (2026-10-27): USDC/USD now has its own
+`usdc_oracle_max_age_seconds` ceiling (90000 s, the feed's 24-hour heartbeat
+plus one hour; hard bound 90000). Its answer must also read within ±200 bps of
+USD 1.00 or NAV refuses. ETH/USD keeps the 1800-second gate. The unchanged
+40 bps pool/oracle deviation check compares the pool against ETH/USD ÷ USDC/USD,
+so a stale USDC round that has drifted from the market still blocks actions.
+The observed round is used as read; no peg is substituted.
+
 ## Verification status
 
 The 2026-10-17 host tests passed for parallel capture, frozen-budget behavior, real socket
