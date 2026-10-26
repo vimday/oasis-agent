@@ -28,8 +28,10 @@ dev = [
     "bandit>=1.9.4",
     "detect-secrets==1.5.0",
     "pip-audit>=2.10.1",
+    # Security floors: CVE-2026-112907 (filelock), GHSA-xmj3-9gf7-h52w (setuptools).
+    "filelock>=4.2.1",
     "slither-analyzer>=0.10",
-    "setuptools>=82",
+    "setuptools>=84.1.0",
     "wheel>=0.46",
 ]
 
