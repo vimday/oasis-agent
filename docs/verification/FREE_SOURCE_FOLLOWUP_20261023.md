@@ -130,3 +130,44 @@ and testing, not automatically authorize production signing. Current production
 two-source runtime/simulation and dedicated-account receipt/cash recovery remain
 separate outstanding requirements. The 1800-second limit and closed release
 gate remain unchanged.
+
+## Newly authorized current-state attempt — 2026-10-26
+
+The owner explicitly authorized a second, separate free read-only attempt in
+reply to `call_dfcbe62df1674b6fa42c9d4761636204`: Blockmachine and QuickNode,
+at most 64 requests each, 120 seconds overall, stop on failure without retry,
+no paid requests, signing or broadcasting. The owner also confirmed **there are
+no real dedicated-account transaction records**. This is not authorization to
+create a transaction merely to obtain a receipt.
+
+The actual command exited **3** after **15478 ms**. At Base block **53117555**,
+hash `0x3b840242aa22e9e87f91fe7ffd0e73d802dfc7f42d14d8c85d16a729715a2187`,
+the first provider's ETH/USD round was 98 seconds old, but its USDC/USD round was
+**5261 seconds old**, above the unchanged 1800-second ceiling. The USDC round's
+update time was `1793019211`; observation time was `1793024472` Unix seconds.
+Feed code/description/decimals were checked, but the failure preceded the closing
+header and second-provider confirmation. This is a refused first-source feed
+observation, not a fresh USD quorum, NAV or production acceptance.
+
+Actual usage: **Blockmachine 11/64, QuickNode 0/64, paid requests 0**. The attempt
+stopped at `feed_preflight`; NAV, runtime and simulation stages were not entered,
+and no NAV evidence database was created. Unspent request allowances do not
+authorize a retry. Original campaign authorization, budget and report hashes were
+checked before and after and remained unchanged.
+
+Raw report/captures and the separate authorization/budget are retained under
+`reports/evidence/authorized-free-current-20261026/`. Canonical report hash:
+`08d617df172893e63eb0326353300718726115bde0601b671e1c42ae929b2b0f`.
+The report, authorization and script hashes were verified offline. The script,
+actual process log, prior-file hash inventory and offline request-count plan are
+under `reports/review-20261026/`. The plan requires 56/55 requests if all checks
+pass, and covers only declared ETH/USDC with zero declared v4 NFTs plus read-only
+approval simulation; it does not establish all-token inventory, full account
+history, upstream provider independence or real receipt recovery.
+
+Local Docker metadata showed only `oasis-canary-keys`, with no `oasis-live` project
+containers or expected authority/strategy state volumes. No volume contents or
+key material were read. Fresh eligible USD pricing remains required before NAV
+acceptance; dedicated-account receipt/cash acceptance also needs a real transaction
+and its original execution/recovery records. None is fabricated or replaced by
+historical third-party or synthetic evidence, and all release gates remain closed.
