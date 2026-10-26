@@ -140,3 +140,44 @@ edits. After validation, 817 regenerable cache files were removed (30946146 byte
 the per-file record is `reports/review-20261026/authority-release-cache-cleanup.json`.
 Together with the two duplicate reports, this increment removes 31135581 bytes
 before its small cleanup manifests. Earlier cleanup totals are not added again.
+
+## Committed-revision image follow-up — 2026-10-26
+
+The image rebuild deferred above is now complete **for committed revision
+`56911bcbf56e8b86b49243e863ff65dc2b317677`**, without adopting the unrelated pending
+dependency upgrades. An allowlisted `git archive` supplied only committed runtime
+sources, the committed hashed dependency lock, two runtime configs and Docker build
+files. No checkout environment file, key, ledger, report or untracked file entered
+the build. The build exited 0; dependencies were installed with `--require-hashes`.
+
+Both `oasis-live:committed-56911bc` and `oasis-live:local` now identify
+`sha256:24b83a7903e0f8cf5f34fba8920a714aa6fc21a06e142da85e093f6285a61ea4`.
+Stopped-container inspection matched all **329 application files** to a freshly
+re-derived archive of that same commit. Manifest hash:
+`6614ed30c910019fe1aa593703b9d6df7ffa5ae00d1ff05d5c53b6a9d0b94267`;
+source-evidence hash:
+`d33e419767e5ecfd7ba31caa51084c03ad6d5bc7af83c388533d7164add08c58`.
+The temporary inspection container had no mounts and was never started.
+
+A separate non-root, read-only, network-disabled, unmounted temporary container
+passed `pip check` and verified that calling the actual authority signing method
+with release closed raises its release refusal before any authority state or key
+provider is constructed. Its process exited 0; the read-only filesystem produced
+only a pip-cache-disabled warning. This is an offline runtime check, not a full
+Linux regression suite, dependency vulnerability assessment or production-service
+acceptance. No strategy, production key volume, RPC or broadcaster was used.
+
+Build/source/offline-check exits and log hashes are retained in
+`reports/review-20261026/committed-runtime/summary.json`, with input manifest,
+verification scripts and raw logs in the same directory. The 3092480-byte temporary
+build archive was removed after verification; it can be reproduced from Git and is
+not counted as additional cleanup of pre-existing files. Eight empty cache
+directories were also removed. Remaining real evidence, budgets and unique
+diagnostics are preserved.
+
+The launcher's working-tree source comparison is unchanged: the candidate image
+matches committed requirements, while the checkout still contains uncommitted
+requirements edits, so those differing bytes must be resolved through reviewed
+work before that comparison can pass. No comparison is bypassed. Fresh NAV,
+current production two-source proofs and dedicated-account receipt/cash recovery
+remain unaccepted; all four release blockers remain closed.
