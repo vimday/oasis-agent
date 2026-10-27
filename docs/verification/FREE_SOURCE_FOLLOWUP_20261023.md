@@ -201,3 +201,40 @@ budget ledgers were not rewritten. Fresh USD/NAV, current production two-source
 validation and dedicated-account receipt/cash recovery remain unaccepted; local
 tests do not replace those requirements. Existing runtime images were not rebuilt
 or promoted by this change and must satisfy the launcher's source matching gate.
+
+## Candidate public oracle route — 2026-10-27 (not captured or accepted)
+
+Pyth's [official sponsored feed documentation](https://docs.pyth.network/pro/sponsored-feeds)
+lists ETH/USD and USDC/USD Solana shard-0 accounts with one-minute heartbeat
+parameters. This is an announced update policy, not evidence that either price is
+currently fresh; the documentation warns updates may be delayed. The official
+[Solana integration guide](https://docs.pyth.network/pro/use-prices-on-blockchain/solana)
+distinguishes fixed price-feed accounts from ephemeral updates and requires feed
+identity and timestamp validation. This candidate would read existing public
+accounts, without requesting authenticated Hermes prices or posting updates.
+
+The complete addresses extracted from the official document are:
+
+- ETH/USD: `42amVS4KgzR9rA28tkVYqVXjq9Qa8dcZQMbH5EYFX6XC`.
+- USDC/USD: `Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX`.
+
+A bounded plan is retained in `reports/review-20261027/pyth-source-docs/plan.json`:
+Solana's public mainnet endpoint and PublicNode, at most three read requests each
+(`getGenesisHash`, `getMultipleAccounts` at finalized commitment, `getBlock` for
+the returned context slot), six total, 60 seconds overall, stop on error, no retry,
+redirect, paid call, signature or broadcast. Its authorization is **pending**;
+no RPC request was made and no prior quota was reused. Plan hash:
+`fcfde2c1a1e0c8b10456c0d5d6cd239b9c23a0bb65f1bde996f8377c45b4d69f`.
+The full public HTML is retained with SHA-256
+`4ff34bd5618e911fd666ed7944e187442b097bead7d819d9edda4beaf27418ce`.
+The initial system-Python document fetch failed CA verification; using the normal
+certifi CA bundle succeeded without disabling TLS verification.
+
+Even successful acquisition would establish only raw source availability. Account
+owner/program and format pins, feed IDs, verification level, confidence bounds,
+freshness, two-source agreement and Base decision/key-use clock bindings still
+need implementation and validation. Solana's `minContextSlot` is not an exact
+historical-account snapshot selector. Neither a recent response nor this source
+plan is complete Base NAV, a production oracle adapter, independent price consensus
+or permission to clear a release blocker. Dedicated-account real receipt/cash
+acceptance remains separate and has no transaction records supplied by the owner.

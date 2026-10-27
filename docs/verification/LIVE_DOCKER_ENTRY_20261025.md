@@ -181,3 +181,34 @@ requirements edits, so those differing bytes must be resolved through reviewed
 work before that comparison can pass. No comparison is bypassed. Fresh NAV,
 current production two-source proofs and dedicated-account receipt/cash recovery
 remain unaccepted; all four release blockers remain closed.
+
+## Strict-feed committed runtime — 2026-10-27
+
+The candidate runtime was rebuilt from allowlisted Git archive inputs at
+`1d22118bd0c0530b4f9d8814ed68c3dd3bdb3f74`, including the committed dependency
+upgrade and restored 1800-second ceilings. No working-tree environment, keys,
+reports, state or untracked files entered the build. The build exited 0 with
+hash-checked dependency installation. Both `oasis-live:committed-1d22118` and
+`oasis-live:local` now identify
+`sha256:9e87656bf7b28adb4846cc9853e330c85d7e7f2c72aef91f0ba2279df75bf80b`.
+
+The standard stopped-container source verifier exited 0 and matched all 329
+application files to the current tracked runtime files; the comparison was also
+checked against the committed input manifest. Manifest hash:
+`b85dedebedb7bfbf8b5026f49117bb7267c66ecb76bf17056f88ca53596d62f1`.
+This resolves the prior application-source mismatch, without bypassing the
+launcher's checks or claiming production acceptance.
+
+An unmounted, non-root, read-only, network-disabled temporary container exited 0
+for `pip check`, the actual authority's closed-release rejection before state/key
+construction, both configured 1800-second feed ceilings, and rejection of 1801
+and 90000-second ceilings. A pip-cache-disabled warning is retained. No key volume,
+strategy service, signing socket, RPC or broadcaster was used. No full Linux test
+suite or dependency vulnerability audit was performed in this runtime check.
+
+Raw build/offline logs, input hashes, source verification and summary are in
+`reports/review-20261027/committed-runtime/`. Summary evidence hash:
+`6e576e410c1d6c0146094f01bcf9b3f75ef8f3a269151dc7d21787d4613a82ff`.
+The temporary build archive was removed after hash verification; Git reproduces
+it. Previous images and all old evidence/budget ledgers remain available. The four
+release blockers remain closed pending actual production evidence.
