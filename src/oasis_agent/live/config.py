@@ -53,8 +53,7 @@ class LiveConfig:
     approval_days: int
     expected_pins: dict[str, str]
     oracle_max_age_seconds: int
-    # USDC/USD updates on a 24h heartbeat or price deviation, so it gets its own ceiling.
-    # A stale answer is still bounded by the stable band and the pool/oracle deviation check.
+    # Both feed ceilings are owner-bounded to 1800 seconds; heartbeat does not waive freshness.
     usdc_oracle_max_age_seconds: int
     secondary_rpc_env: str
 
@@ -158,7 +157,7 @@ class LiveConfig:
             "max_actions_per_day": (1, 12),
             "max_oracle_deviation_bps": (1, 40),
             "oracle_max_age_seconds": (1, 1800),
-            "usdc_oracle_max_age_seconds": (1, 90_000),
+            "usdc_oracle_max_age_seconds": (1, 1800),
             "max_fee_per_gas_wei": (1, 1_000_000_000),
             "priority_fee_wei": (0, 1_000_000),
             "poll_seconds": (1, 3600),

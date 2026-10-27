@@ -397,7 +397,7 @@ remains False everywhere, including in every retained record this repository pro
 - **Expectation on record:** the replay put the ±5% edge at tens of USD per month at this size; the canary
   tests execution and accounting, not a money machine.
 
-## Amendment 2026-10-27: per-feed oracle age (trial_number = 1, owner-delegated)
+## Superseded amendment 2026-10-27: per-feed oracle age (trial_number = 1)
 
 - **Decision:** the owner delegated this choice ("usdc usd时效你自己做决定即可"). ETH/USD keeps
   `oracle_max_age_seconds = 1800`. USDC/USD gets `usdc_oracle_max_age_seconds = 90000` (hard bound
@@ -413,3 +413,15 @@ remains False everywhere, including in every retained record this repository pro
   25 h late. It is bounded by the unchanged USD 500 capital cap and USD 200 / USD 500 loss latch.
 - **Unchanged:** all other parameters, the signed-price path's 1800 s limit, the release gate and the
   requirement for real dedicated-account receipt/cash acceptance.
+
+## Owner correction 2026-10-27: both USD feeds capped at 1800 seconds
+
+The owner's direct reply to `call_d9bf21bd768f44cb8a868c42d3ec1112` was
+“ETH 和 USDC 都保持 1,800 秒”. This supersedes the 90000-second USDC amendment
+above, which remains here as historical decision context, not active authority.
+Both `oracle_max_age_seconds` and `usdc_oracle_max_age_seconds` are configured to
+1800 and validated within 1..1800. A 1801-second round refuses NAV; the signing
+freshness deadline still includes each feed's own update time and ceiling.
+The USDC answer band remains additional validation, not permission to reuse stale
+prices. Original failed captures and RPC budgets remain unchanged. No fresh NAV,
+production dual-source or real dedicated-account receipt acceptance is implied.

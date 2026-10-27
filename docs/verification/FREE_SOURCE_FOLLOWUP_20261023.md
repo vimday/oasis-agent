@@ -171,3 +171,33 @@ key material were read. Fresh eligible USD pricing remains required before NAV
 acceptance; dedicated-account receipt/cash acceptance also needs a real transaction
 and its original execution/recovery records. None is fabricated or replaced by
 historical third-party or synthetic evidence, and all release gates remain closed.
+
+## Owner-confirmed strict feed policy — 2026-10-27
+
+The owner explicitly selected “ETH 和 USDC 都保持 1,800 秒” in reply to
+`call_d9bf21bd768f44cb8a868c42d3ec1112`. Both production configuration fields
+now have a hard maximum of 1800 seconds. The superseded 90000-second USDC setting
+is rejected during configuration validation, and raw NAV regression tests cover
+both feeds at 1800 (accepted boundary) and 1801, 5261 and 90000 seconds (refused).
+Before-key-use deadlines still include both individual feed timestamps. The
+existing USDC answer band remains an additional check, never a freshness waiver.
+The previous amendment is preserved and marked superseded in the experiment lock.
+
+The first focused test command exited 1 because the sandbox refused the Unix
+socket bind in `test_full_transaction_authority_over_private_socket`
+(`PermissionError: [Errno 1] Operation not permitted`); it is not reported as a
+passing run. The subsequent full local quality run permitted test sockets and
+exited 0: **3515 tests and 138 subtests passed**, with one existing websockets
+deprecation warning. Compile, Ruff/format, mypy, eight frontend modules, the
+secret gate, Bandit (89 low findings, zero medium/high) and offline seven-service
+Compose validation passed. Each of the four check groups exited 0 with no timeout
+or launch failure, and all retained raw log hashes were verified.
+
+Evidence: `reports/review-20261027/strict-feed-quality/report.json`; canonical hash
+`d8addb0d7e6cc2f853c673df96aef9881c56b9c0a4a58f7c1fe9815f616e760f`.
+No RPC or credential verification requests, production service start, key-volume
+access, signing or broadcasting were performed. Original refusal evidence and
+budget ledgers were not rewritten. Fresh USD/NAV, current production two-source
+validation and dedicated-account receipt/cash recovery remain unaccepted; local
+tests do not replace those requirements. Existing runtime images were not rebuilt
+or promoted by this change and must satisfy the launcher's source matching gate.

@@ -197,21 +197,23 @@ def test_incomplete_or_disagreeing_nav_never_emits_valuation(tmp_path: Path, fau
         run_nav(store, fixture, peer)
 
 
-def test_usdc_feed_uses_its_own_heartbeat_ceiling(tmp_path: Path) -> None:
+@pytest.mark.parametrize("feed", ["eth_age", "usdc_age"])
+def test_both_feeds_enforce_owner_freshness_ceiling(tmp_path: Path, feed: str) -> None:
     c = position_config()
-    assert c.usdc_oracle_max_age_seconds > c.oracle_max_age_seconds
-    # A USDC round older than the ETH limit but within its own ceiling values NAV.
-    fixture = NavFixture(usdc_age=c.usdc_oracle_max_age_seconds)
+    assert c.usdc_oracle_max_age_seconds == c.oracle_max_age_seconds == 1800
+    fixture = NavFixture(**{feed: 1800})
     with closing(EvidenceStore(tmp_path / "ok.db")) as store:
         value, refs = run_nav(store, fixture, position=False)
         assert value.usdc_answer == fixture.usdc_price
         deadline = valuation.nav_fresh_until(store, refs, c, sources=(PRIMARY, SECONDARY))
-        assert deadline == fixture.timestamp  # USDC ceiling is the binding clock here
-    with closing(EvidenceStore(tmp_path / "usdc.db")) as store, pytest.raises(ValueError):
-        run_nav(store, NavFixture(usdc_age=c.usdc_oracle_max_age_seconds + 1), position=False)
-    # The long ceiling never leaks to ETH/USD.
-    with closing(EvidenceStore(tmp_path / "eth.db")) as store, pytest.raises(ValueError):
-        run_nav(store, NavFixture(eth_age=c.oracle_max_age_seconds + 1), position=False)
+        assert deadline == fixture.timestamp
+    # Include the previously refused live round age and the superseded 25-hour ceiling.
+    for age in (1801, 5261, 90_000):
+        with (
+            closing(EvidenceStore(tmp_path / f"stale-{age}.db")) as store,
+            pytest.raises(ValueError, match="stale"),
+        ):
+            run_nav(store, NavFixture(**{feed: age}), position=False)
 
 
 @pytest.mark.parametrize(
