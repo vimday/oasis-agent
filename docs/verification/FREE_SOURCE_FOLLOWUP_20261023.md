@@ -238,3 +238,61 @@ historical-account snapshot selector. Neither a recent response nor this source
 plan is complete Base NAV, a production oracle adapter, independent price consensus
 or permission to clear a release blocker. Dedicated-account real receipt/cash
 acceptance remains separate and has no transaction records supplied by the owner.
+
+## Authorized Pyth source discovery: fresh single-source fields, peer refused
+
+The owner replied “授权本次 6 次免费只读探测” to
+`call_274aeff5d8c94615bb65bf39b5b8d466`, authorizing exactly the preceding plan.
+The exclusive campaign `reports/evidence/authorized-free-pyth-274aeff5/` retains
+the authorization, a request-reservation journal, raw HTTP/RPC responses and the
+terminal report. No old budget supplies this quota. The runner was checked offline
+with injected six-call success and first-error failure responses before execution;
+those checks made zero network calls.
+
+The actual command exited **3** after **5629 ms**: Solana's public mainnet endpoint
+completed its three reads, then PublicNode's first `getGenesisHash` returned
+**HTTP 403**, with a retained 17-byte response. The campaign stopped immediately.
+Usage was **Solana public 3/3, PublicNode 1/3, total 4/6, paid 0**. The remaining
+two requests do not authorize a retry or a replacement endpoint. Hashes of all
+11 pre-existing evidence budget files matched before and after. No key, signing,
+broadcast or production service was involved.
+
+The public endpoint returned account context slot **462172138**, whose separately
+read block hash was `8CJ8VnttRstf8BwFuvMZgWDKShTfXsTV2FgmPq1s2QFp` and block time
+`1793125718`. The account response was received at `1793125718941` Unix ms.
+Offline field interpretation of its two 134-byte accounts found:
+
+| Field | ETH/USD | USDC/USD |
+|---|---:|---:|
+| Price integer (exponent -8) | 234517299888 | 99981780 |
+| Decimal USD price | 2345.17299888 | 0.99981780 |
+| Confidence integer | 187137750 | 14904 |
+| Publish time (Unix seconds) | 1793125672 | 1793125700 |
+| Age at capture (whole seconds) | 46 | 18 |
+| Posted slot | 462171939 | 462172062 |
+
+The decoder checks the Anchor discriminator, feed IDs, the `Full` enum byte, field
+lengths, positive price/confidence, timestamps and posted slots against the retained
+context. Its layout was compared with the upstream
+[PriceUpdateV2 definition](https://github.com/pyth-network/pyth-crosschain/blob/main/target_chains/solana/pyth_solana_receiver_sdk/src/price_update.rs)
+and [PriceFeedMessage definition](https://github.com/pyth-network/pyth-crosschain/blob/main/pythnet/pythnet_sdk/src/messages.rs).
+These are moving source references, not a pinned deployed-program validation.
+`Full` is an observed account field, not independently verified signature evidence.
+Both accounts report owner `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`; the
+program's deployed code, upgrade authority and PDA derivation were not validated.
+There is no second-provider agreement or proof of account state against a block
+root. Freshness above describes the capture instant, not perpetual eligibility.
+
+Canonical terminal report hash:
+`0554e975a972a9169a196bb66ee491fad1edcdaa823801a3ce64a73ecf8f32ff`.
+Canonical offline interpretation hash:
+`393d85acad735b1d3745aef75d598d3b4f6c2752bf7e7ed0d336e4214d8fc42d`.
+The report hashes and each retained response hash were verified. Runner, decoder,
+process logs and prior-budget hashes remain under
+`reports/review-20261027/pyth-source-docs/`.
+
+This establishes a promising raw public price source, not production oracle,
+Base NAV or receipt acceptance. All `execution_eligible`, `oracle_validated` and
+`nav_verified` flags remain false. Next work is a pinned offline decoder/program
+review and an explicitly bounded replacement-peer acquisition, followed by Base
+clock binding and production integration. No release blocker is cleared here.
