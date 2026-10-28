@@ -150,3 +150,52 @@ def test_authority_does_not_dispatch_a_frame_after_service_deadline(monkeypatch,
 def test_client_rejects_unbounded_or_invalid_timeouts(timeout):
     with pytest.raises(ValueError, match="timeout"):
         protocol.TransactionSocketClient(Endpoint(), CONFIG.account, timeout=timeout)
+
+
+@pytest.mark.parametrize("case", ["slow_status", "slow_lookup", "slow_error", "late_send", "valid"])
+def test_keyless_status_does_not_send_after_read_or_delivery_deadline(monkeypatch, case):
+    clock = Clock()
+    monkeypatch.setattr(protocol.time, "monotonic", clock.monotonic)
+    request = {"schema": protocol.SCHEMA, "account": CONFIG.account, "operation": "status"}
+    if case == "slow_lookup":
+        request["nonce"] = 7
+    connection = Connection(
+        clock,
+        [(0.1, canonical_json(request) + b"\n")],
+        send_delay=0.3 if case == "late_send" else 0,
+    )
+    calls = []
+
+    class Server:
+        def settimeout(self, _):
+            pass
+
+        def accept(self):
+            return connection, None
+
+    def status(nonce=None):
+        calls.append(nonce)
+        clock.now += 1.1 if case.startswith("slow_") else 0.7
+        if case == "slow_error":
+            raise ValueError("synthetic journal failure")
+        return {"pending": None, "signing_unresolved": False}
+
+    count = protocol.serve_status_connections(
+        Server(), status, account=CONFIG.account, max_requests=1, ttl_seconds=1, lookup=status
+    )
+    assert count == 1 and calls == ([7] if case == "slow_lookup" else [None])
+    assert connection.closed
+    if case == "valid":
+        assert connection.sent == [
+            canonical_json(
+                {
+                    "schema": protocol.SCHEMA,
+                    "status": {"pending": None, "signing_unresolved": False},
+                }
+            )
+            + b"\n"
+        ]
+    else:
+        assert connection.sent == []  # Neither a late success nor a late refusal is delivered.
+        if case == "late_send":
+            assert clock.now == pytest.approx(1.0)

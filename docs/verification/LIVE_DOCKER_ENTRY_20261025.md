@@ -254,3 +254,29 @@ archive was removed. Previous images and unique evidence remain. The 11 prior
 budget-file hashes are unchanged. No RPC, production key access, production
 service start, signing or broadcast occurred. This resolves image/source drift
 only; all four production release blockers remain closed.
+
+## Keyless recovery response deadline — 2026-10-29
+
+`serve_status_connections` now rechecks the service's monotonic deadline after
+journal lookup and reply encoding, and limits `sendall` to the remaining time.
+Previously a slow current/historical lookup or exception could send a success
+or refusal after expiry, and delivery could reuse the older receive timeout.
+This does not forcibly cancel a synchronous journal callback or guarantee atomic
+socket delivery; the client must still reject incomplete or expired replies.
+
+The pre-fix regression exited 1 with four failures and one valid-path pass.
+After the fix, all 23 protocol deadline tests passed (exit 0). Original logs are
+in `reports/review-20261028/status-reply-deadline/`. The development quality gate
+exited 0: 3570 tests and 138 subtests, frontend syntax, Ruff, mypy, secret scan,
+Bandit and Compose checks passed. Quality report/log hashes were verified;
+report hash: `ff9c5392feb728f58f0cb6ff40f578628ee881b59aec9d0a01e6294f7038a558`.
+`make contract-check` exited 0 with 70 passing tests; its raw log retains the
+non-fatal Foundry signature-cache write warning. Python retains one websockets
+deprecation warning. These are offline development checks, not live acceptance.
+
+Other worktree edits appeared after this check; the passing result does not
+validate those edits. Only this socket change, its regression test and this
+record belong to this patch. The 11 prior RPC-budget hashes remain unchanged.
+No new RPC request, production key access, signing or broadcast occurred.
+Fresh USD/NAV, production dual-source validation and real dedicated-account
+receipts remain unresolved; this patch grants no release authority.

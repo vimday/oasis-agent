@@ -223,6 +223,9 @@ def serve_status_connections(
             except Exception:  # noqa: BLE001 - no journal/request details in a refusal
                 reply = canonical_json({"schema": SCHEMA, "refused": True})
             with suppress(OSError):
+                # Journal reads and reply encoding consume the same lifetime as
+                # request reception. Do not send even a refusal after expiry.
+                connection.settimeout(min(5, _remaining(deadline)))
                 connection.sendall(reply + b"\n")
     return requests
 
