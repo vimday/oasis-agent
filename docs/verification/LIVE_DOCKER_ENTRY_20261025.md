@@ -212,3 +212,45 @@ Raw build/offline logs, input hashes, source verification and summary are in
 The temporary build archive was removed after hash verification; Git reproduces
 it. Previous images and all old evidence/budget ledgers remain available. The four
 release blockers remain closed pending actual production evidence.
+
+## Candidate decoder runtime refresh — 2026-10-28
+
+The runtime now includes the committed Pyth account decoder and sponsored-account
+write-authority check from revision
+`27a89c863134282e2dde85aaba00ca3338ebc2d0`. Build input was an allowlisted Git
+archive: committed sources/scripts, the hashed dependency lock, two runtime
+configs and Docker build files. No working-tree environment, key, ledger, report
+or untracked document entered the build.
+
+The first build used `--network=none` and exited **1**: the dependency installation
+step missed that build mode's cache and could not reach a package index. This is
+not a passing build; its original `build.log` remains. A subsequent standard
+`--pull=false` build exited **0** and reused the cached hash-checked dependency
+layer (`RUN pip install --require-hashes` was explicitly `CACHED`). Both
+`oasis-live:committed-27a89c8` and `oasis-live:local` now identify
+`sha256:005416539c5fba7cc8ad5ded84d0f2f1d1792c70df8c4399d52bb9a6935f0413`.
+
+Stopped-container source verification exited 0 and matched all **330 application
+files**, including the new decoder, against both the checkout and committed input
+manifest. Manifest hash:
+`d87fe891e309f4d77327aef9e89df053e9dec01ce66247c9c112eb3691d48b6a`.
+The inspection container was never started and had no mounts. Source report hash:
+`a54f3566e8537233595b79993188e5a6b5adf3eca1489cdea3444dfe125f2ca9`.
+
+A separate temporary non-root, read-only, network-disabled container with no
+volume mounts exited 0 for `pip check`, the actual authority's closed-release
+refusal before state/key-provider construction, both 1800-second ceilings and
+rejection of larger values, and the USD 500 / 200 / 500 capital/loss limits.
+It also decoded both historical Pyth samples with validation/eligibility false
+and rejected substituted zero write authorities. The only runtime warning was
+pip's disabled cache on the read-only filesystem. This is a focused offline
+runtime check, not a full Linux suite, vulnerability audit or live-price result.
+
+Inputs, diagnostic script, raw logs and reports are retained in
+`reports/review-20261028/committed-runtime-27a89c8/`. Summary hash:
+`316100c885e8fdc9910c0f85691e6f029a52297df1da475c876b68aa25fab577`.
+Report and log hashes were checked, then the reproducible 3123200-byte build
+archive was removed. Previous images and unique evidence remain. The 11 prior
+budget-file hashes are unchanged. No RPC, production key access, production
+service start, signing or broadcast occurred. This resolves image/source drift
+only; all four production release blockers remain closed.
