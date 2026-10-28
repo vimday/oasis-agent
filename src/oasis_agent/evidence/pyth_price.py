@@ -27,6 +27,15 @@ FEEDS = MappingProxyType(
         ),
     }
 )
+# Public bytes of the allowlisted sponsored accounts. The pinned push-oracle
+# update_price_feed passes that same account as the receiver's write_authority.
+# These pins are not deployed-program, signature or account-state proofs.
+ACCOUNT_BYTES = MappingProxyType(
+    {
+        "ETH": bytes.fromhex("2cfad277afcaa867c7d7fe26e0d51dc899101335879ab63c2aa84876317135bb"),
+        "USDC": bytes.fromhex("be939a8309f56407187fff30ac54b169498be99f6d8e1bfd4244680cd4f7d1e2"),
+    }
+)
 DISCRIMINATOR = hashlib.sha256(b"account:PriceUpdateV2").digest()[:8]
 MAX_AGE_MS = 1_800_000
 
@@ -90,6 +99,8 @@ def decode_pyth_account(
         raise ValueError("Full field and supported padding required")
     if raw[41:73].hex() != feed_id:
         raise ValueError("Pyth feed identity mismatch")
+    if raw[8:40] != ACCOUNT_BYTES[symbol]:
+        raise ValueError("Pyth sponsored account write authority mismatch")
     price, confidence, exponent, published, previous, ema, ema_confidence, posted = struct.unpack(
         "<qQiqqqQQ", raw[73:133]
     )

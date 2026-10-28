@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from oasis_agent.evidence.pyth_price import FEEDS, decode_pyth_account
+from oasis_agent.evidence.pyth_price import ACCOUNT_BYTES, FEEDS, decode_pyth_account
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures/pyth-solana-single-source-historical.json"
 
@@ -138,3 +138,26 @@ def test_old_capture_cannot_be_reused_at_a_later_clock():
     context["observed_at_ms"] += 3_600_000
     with pytest.raises(ValueError, match="stale or future"):
         decode_pyth_account(raw, **context)
+
+
+@pytest.mark.parametrize("symbol", ["ETH", "USDC"])
+@pytest.mark.parametrize("foreign", [False, True])
+def test_sponsored_account_must_be_its_own_write_authority(symbol, foreign):
+    raw, context = observation(symbol)
+    other, _ = observation("USDC" if symbol == "ETH" else "ETH")
+    authority = other[8:40] if foreign else bytes(32)
+    changed = raw[:8] + authority + raw[40:]
+    with pytest.raises(ValueError, match="write authority"):
+        decode_pyth_account(changed, **context)
+
+
+@pytest.mark.parametrize("symbol", ["ETH", "USDC"])
+def test_write_authority_pins_encode_the_allowlisted_public_addresses(symbol):
+    # Independent Base58 encoding binds the new byte pins to the existing address pins.
+    alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    value = int.from_bytes(ACCOUNT_BYTES[symbol], "big")
+    encoded = ""
+    while value:
+        value, digit = divmod(value, 58)
+        encoded = alphabet[digit] + encoded
+    assert encoded == FEEDS[symbol][0]

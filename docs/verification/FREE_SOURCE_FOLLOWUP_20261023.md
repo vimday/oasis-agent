@@ -374,3 +374,77 @@ Docker image has not been rebuilt with this new source file and must pass a fres
 source-match verification before any later launch. Fresh complete NAV, production
 dual-source validation and dedicated-account real receipt/cash recovery remain
 unaccepted; this change clears no production release gate.
+
+## Sponsored-account write authority and PDA review — 2026-10-28
+
+Follow-up review found a missing diagnostic invariant: the decoder accepted a
+changed `write_authority` even though the supported sponsored accounts must name
+themselves. Four negative tests (zero and other-feed authorities for each feed)
+failed before the fix. The decoder now checks the 32-byte authority against the
+allowlisted account's public bytes; independent Base58 encoding tests bind those
+byte pins back to the existing address pins. All 50 focused tests then passed.
+The earlier decoder's write-authority field is therefore no longer merely
+uninterpreted. This is a candidate-parser hardening change; no live consumer or
+release authority was added.
+
+The pinned Pyth commit remains
+`c2b6cf416412b3282831e67f62b43fea496823d8`. Its
+[push-oracle SDK](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/programs/pyth-push-oracle/src/sdk.rs)
+derives the account with a little-endian u16 shard and the 32-byte feed ID. Its
+[update path](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/programs/pyth-push-oracle/src/lib.rs)
+uses that PDA itself as the signed CPI write authority, checks the feed after an
+update and ignores older/equal timestamps. The
+[receiver](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/programs/pyth-solana-receiver/src/lib.rs)
+requires the existing writer (or an uninitialized account), checks the configured
+VAA owner, verified VAA and allowed emitter, verifies the Merkle update and stores
+the writer and price fields. Governance can change the allowed emitters and
+Wormhole address; source-level checks do not establish their current deployed
+values or upgrade authority. `Full` remains an observed field, not locally
+verified signatures.
+
+For both ETH and USDC, the offline calculation matched the documented account
+exactly at shard **0**, bump **255**, under Core push program
+`pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT`. It follows the
+[Solana derivation](https://solana.com/docs/core/pda/pda-derivation): SHA-256 of
+the seeds, bump, program bytes and domain separator. For each resulting compressed
+Edwards y-coordinate, `(y² - 1)/(d*y² + 1)` is a quadratic nonresidue modulo
+`2^255 - 19`, so no x-coordinate exists under
+[RFC 8032 section 5.1.3](https://www.rfc-editor.org/rfc/rfc8032#section-5.1.3).
+Both use the first possible bump, establishing canonical addressing for these
+two exact seed tuples. Basepoint/identity positive controls were also checked.
+This small offline calculation is retained for review, not introduced as a
+general-purpose cryptographic implementation in the live application. Both
+historical account bodies name the matching PDA as their writer.
+
+Evidence is in `reports/review-20261028/pyth-pda-review/`: fixed upstream sources
+and `sources.json`, `check_pda.py`, its raw log and `report.json`, plus the
+before/after regression logs. Report hash:
+`08e10870b0ee17c911b6ba0495199cdd9236a08a3777b68aad5308d70697c0c6`.
+Source SHA-256 values:
+
+- `sdk-pda.rs`: `9aff2e5d7d69e4905e3ec62b543995d6947d3b7478f8ff5af6c422d3ad4fc435`.
+- `push-sdk.rs`: `a1727d5798f26672ca4d13f6acbd77546e29e24480ac02829a0a27335eb14eae`.
+- `push-lib.rs`: `449975b46f8c0df749bb6671abcf55a280db8c631bfa1bda3c03aa3187e188a1`.
+- `receiver-lib.rs`: `554462c221f075e8d7b85f685ea64f3c6ee4d8224a8c475af33c8234d9bc6f8f`.
+
+Remaining acquisition requirements now include both deployed program/data accounts
+and their upgrade authorities, the receiver configuration and configured VAA trust
+source, in addition to fresh price accounts and independent provider agreement.
+None of those reads is covered by an unused part of the terminated discovery
+campaign. No new RPC requests were made. Address derivation does not authenticate
+RPC state, deployed bytecode, configuration or Base-clock freshness, and it cannot
+satisfy NAV or dedicated-account receipt acceptance.
+
+Final validation: `make live-quality` exited 0 with **3565 tests and 138 subtests**,
+compile/Ruff/format/mypy, eight frontend modules, the secret gate, Bandit and
+offline Compose all passing. Every check exit code and raw log hash was verified.
+The only new non-secret baseline entry is the standard Base58 alphabet used in
+the address-pin test. Quality report:
+`reports/review-20261028/pyth-authority-quality/report.json`, hash
+`60e0d7b4faf8c254abcda35572fcc16c220bd09b27c6db10cb4df9872ca6e505`.
+`make contract-check` exited 0 with 70 tests, none failed/skipped, plus
+format/build/lint; its retained log hash is
+`0e53c0496617cfe78a4f2213631f707821a137fda4c74a3aa7ae04bc56680cb2`.
+The existing websockets deprecation and sandbox Foundry signature-cache warning
+remain. All 11 old budget hashes were verified unchanged. No production image
+rebuild, key access, signing, broadcast or release-gate change occurred.
