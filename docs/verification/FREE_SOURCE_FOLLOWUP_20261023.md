@@ -448,3 +448,56 @@ format/build/lint; its retained log hash is
 The existing websockets deprecation and sandbox Foundry signature-cache warning
 remain. All 11 old budget hashes were verified unchanged. No production image
 rebuild, key access, signing, broadcast or release-gate change occurred.
+
+## Replacement-source and deployment discovery prepared — 2026-10-28
+
+**Confirmed:** the previous six-call grant is terminal after four requests, with
+PublicNode HTTP 403. No new RPC grant is inferred from its unused allowance.
+[OnFinality's network page](https://www.onfinality.io/en/networks/solana)
+publishes the credentialless `https://solana.api.onfinality.io/public` endpoint
+and a 5 requests/second public limit. The current
+[Solana RPC page](https://solana.com/docs/rpc) publishes
+`https://api.mainnet.solana.com`; this differs from the older endpoint used by the
+terminated campaign. These are candidate discovery endpoints, not demonstrated
+independent production infrastructure. A separate attempt to retrieve dRPC's
+public chainlist **web page** exited 1 with HTTP 403; it made no RPC request and
+that candidate was not selected.
+
+An executable, authorization-disabled preparation is retained under
+`reports/review-20261028/pyth-acquisition-plan/`. Its `plan.json` content hash is
+`3fc389820918b05b6ab4bddeff0976c2fc62b6694f04a1a32e3b2f0ce4b08939`.
+The proposed new grant is **five read-only calls per source, ten total, 120 seconds,
+zero paid calls/retries/redirects, stop at the first failure**. Each source reads
+mainnet genesis, five finalized accounts (ETH/USDC prices, receiver/push programs
+and receiver configuration), that response's context block, the same five accounts
+plus the two loader-derived ProgramData accounts, then the second context block.
+Full raw responses are bounded and retained; reservations are fsynced before each
+request. An existing campaign directory cannot be reused. The entry point refuses
+before creating a campaign or network client while authorization is absent.
+
+The receiver configuration address derived offline from the pinned SDK's `config`
+seed is `DaWUKXCyXsnzcvLUyeJRWou8KTn7XtadgTsdhJ6RHS7b`, bump 253. Derivation
+inputs are retained in the plan. Unknown loader layouts, wrong owners, changed
+program references/configuration and either price older than 1800 seconds refuse.
+The intended ProgramData capture retains bytecode and upgrade metadata for later
+review; it does not prove that deployed code matches the reviewed Pyth source.
+Configuration bytes are not yet interpreted as an approved trust policy.
+Each response keeps its own context: this acquisition does not mislabel
+`minContextSlot` as an exact snapshot or automatically accept differing price
+observations as a quorum. Source independence, deployed build/trust validation,
+Base decision-clock binding, complete NAV and dedicated-account real receipt/cash
+recovery remain unresolved.
+
+**Offline validation only:** 14 unittest cases passed (exit 0), including failure
+at every one of the ten call positions, exact request shape, stale price and
+changed configuration refusal, budget/deadline rejection, persistence failure,
+HTTP failure retention and refusal to overwrite/restart a campaign. Python
+compilation exited 0. Test transports and program bytes are synthetic; no
+production acceptance is claimed. All 11 old budget hashes and the previous Pyth
+terminal report were verified unchanged. Preparation report hash:
+`df6e42e03fc49e56b4077bb907cb8e470417dae02838538f28fca796fdc39f4c`;
+script hash `f55b930b99d877d1b4e0a5ec35cafb109074fc36d50756b94919fdf02d888896`.
+No new campaign directory, RPC, signature, broadcast or key-volume read occurred.
+Application/runtime files and all live release gates are unchanged; this
+preparation does not require a runtime-image rebuild. Execution awaits an explicit
+new grant for these endpoints and deployment/configuration reads.
