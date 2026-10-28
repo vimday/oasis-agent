@@ -280,3 +280,28 @@ record belong to this patch. The 11 prior RPC-budget hashes remain unchanged.
 No new RPC request, production key access, signing or broadcast occurred.
 Fresh USD/NAV, production dual-source validation and real dedicated-account
 receipts remain unresolved; this patch grants no release authority.
+
+Committed revision `dfe1bd90db94a5cb1cea1d2d4e359536f071b644` was then
+exported independently of the changed checkout: its 23 deadline tests passed
+again. An allowlisted archive built `oasis-live:committed-dfe1bd9` successfully,
+reusing the cached dependency layer. The resulting candidate image is
+`sha256:5a23f5b02679f3592450d3ef89bf6079cb6eb865153c56b3ecebbc62a37a4d61`.
+All 330 application files from a stopped container matched the committed
+revision, with manifest hash
+`c36ebac5ba242bfa5857542fb9ad2da621e1452d229cb5e04b368827284f60fd`.
+Verification used the committed verifier and committed expected manifest, not
+other in-progress worktree changes.
+
+An unmounted, non-root, read-only, network-disabled temporary container passed
+`pip check`, expired-status suppression, the actual closed signing-release gate,
+both 1800-second feed ceilings and USD 500 / 200 / 500 limits (exit 0). The pip
+cache warning remains in its raw log. This was a focused runtime check, not a
+full Linux suite or live evidence. The default `oasis-live:local` tag was not
+changed while other runtime edits were in progress; no production service was
+started. The candidate must not be confused with a verified current checkout.
+
+Build, source and offline logs are retained under
+`reports/review-20261028/status-reply-runtime/`; summary hash:
+`f97fc6916ecabcd9c55050082014c3291184efcaa99a40dac06f2e3099ce14bf`.
+After verifying archive/source hashes, the reproducible build tar was removed.
+The terminal Pyth budget remained unchanged; no unused quota was reused.
