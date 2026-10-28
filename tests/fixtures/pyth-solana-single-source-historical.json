@@ -1,0 +1,49 @@
+{
+  "scope": "Historical single-source RPC fields, not oracle or production acceptance",
+  "campaign_report_hash": "0554e975a972a9169a196bb66ee491fad1edcdaa823801a3ce64a73ecf8f32ff",
+  "responses": [
+    {
+      "body_base64": "eyJqc29ucnBjIjoiMi4wIiwicmVzdWx0Ijp7ImNvbnRleHQiOnsiYXBpVmVyc2lvbiI6IjQuMy4yIiwic2xvdCI6NDYyMTcyMTM4fSwidmFsdWUiOlt7ImRhdGEiOlsiSXZFalk1MSs5TTBzK3RKM3I4cW9aOGZYL2liZzFSM0ltUkFUTlllYXRqd3FxRWgyTVhFMXV3SC9ZVWtha3hFUzNmRzlnVWZORzJRVGRmZWZXQ1VTYldaVWdJZEdOUDBLenJBQ1VwbzJBQUFBMW40bkN3QUFBQUQ0Ly8vL0tPM2dhZ0FBQUFBbjdlQnFBQUFBQUFnTGxKbzJBQUFBSW1tTkRBQUFBQUFqTDR3YkFBQUFBQUE9IiwiYmFzZTY0Il0sImV4ZWN1dGFibGUiOmZhbHNlLCJsYW1wb3J0cyI6MTgyMzgzMSwib3duZXIiOiJyZWM1RUtNR2c2TXhaWWFNZHlCZmd3cDRkNXJCOVQxVlFINXBKdjVMdEZKIiwicmVudEVwb2NoIjoxODQ0Njc0NDA3MzcwOTU1MTYxNSwic3BhY2UiOjEzNH0seyJkYXRhIjpbIkl2RWpZNTErOU0yK2s1cURDZlZrQnhoLy96Q3NWTEZwU1l2cG4yMk9HLzFDUkdnTTFQZlI0Z0hxb0NER0hNUjVjU2dUUmh6aFU0bEtscWJBQ3lIdERQd25tTkg1cWVuSlN0U1o5UVVBQUFBQU9Eb0FBQUFBQUFENC8vLy9STzNnYWdBQUFBQkQ3ZUJxQUFBQUFJRjg5UVVBQUFBQURSc0FBQUFBQUFDZUw0d2JBQUFBQUFBPSIsImJhc2U2NCJdLCJleGVjdXRhYmxlIjpmYWxzZSwibGFtcG9ydHMiOjE4MjM2MzEsIm93bmVyIjoicmVjNUVLTUdnNk14WllhTWR5QmZnd3A0ZDVyQjlUMVZRSDVwSnY1THRGSiIsInJlbnRFcG9jaCI6MTg0NDY3NDQwNzM3MDk1NTE2MTUsInNwYWNlIjoxMzR9XX0sImlkIjoyfQo=",
+      "body_sha256": "494a89d9ee9c06f63b4b390992b244562c3666360e48f2b02f869ae5e53a2bd0",
+      "request": {
+        "id": 2,
+        "jsonrpc": "2.0",
+        "method": "getMultipleAccounts",
+        "params": [
+          [
+            "42amVS4KgzR9rA28tkVYqVXjq9Qa8dcZQMbH5EYFX6XC",
+            "Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"
+          ],
+          {
+            "commitment": "finalized",
+            "encoding": "base64"
+          }
+        ]
+      },
+      "retrieved_at_ms": 1793125718941,
+      "source": "solana_public",
+      "status": 200
+    },
+    {
+      "body_base64": "eyJqc29ucnBjIjoiMi4wIiwicmVzdWx0Ijp7ImJsb2NrSGVpZ2h0Ijo0NDAxOTc3MDUsImJsb2NrVGltZSI6MTc5MzEyNTcxOCwiYmxvY2toYXNoIjoiOENKOFZudHRSc3RmOEJ3RnV2TVpnV0RLU2hUZlhzVFYyRmdtUHExczJRRnAiLCJwYXJlbnRTbG90Ijo0NjIxNzIxMzcsInByZXZpb3VzQmxvY2toYXNoIjoiRXp5N3FCemNWcGt1OTVoa2JuUEZMZnhvM3FqMW9nMU5SVEdKbTNqU001R3MifSwiaWQiOjN9Cg==",
+      "body_sha256": "77d49e5e6bdfd0230145fc80454200b2bcaabd56b2fe6aeaf2ab023015dd6a6b",
+      "request": {
+        "id": 3,
+        "jsonrpc": "2.0",
+        "method": "getBlock",
+        "params": [
+          462172138,
+          {
+            "commitment": "finalized",
+            "maxSupportedTransactionVersion": 0,
+            "rewards": false,
+            "transactionDetails": "none"
+          }
+        ]
+      },
+      "retrieved_at_ms": 1793125720447,
+      "source": "solana_public",
+      "status": 200
+    }
+  ]
+}

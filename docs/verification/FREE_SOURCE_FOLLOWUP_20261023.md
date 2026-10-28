@@ -296,3 +296,81 @@ Base NAV or receipt acceptance. All `execution_eligible`, `oracle_validated` and
 `nav_verified` flags remain false. Next work is a pinned offline decoder/program
 review and an explicitly bounded replacement-peer acquisition, followed by Base
 clock binding and production integration. No release blocker is cleared here.
+
+## Retained Pyth decoder — 2026-10-28 (offline development only)
+
+`evidence/pyth_price.py` now provides a pure, typed decoder of the previously
+captured account bytes. It accepts only the two documented Core shard-0 account /
+feed pairs, the reported Core receiver owner and non-executable accounts, the
+observed 134-byte `PriceUpdateV2` layout, `Full` enum field, exponent -8 and zero
+padding. Price must be positive and greater than confidence; this is a structural
+screen, not an approved production confidence/spread policy. Partial verification,
+foreign feed/owner, unsupported lengths, non-integer context, future/stale times
+and posted slots beyond the reported context are refused. Both feeds retain the
+owner's 1,800-second ceiling, checked in milliseconds without rounding a stale
+observation down. EMA and write-authority fields are retained as uninterpreted
+diagnostics. The result always reports `oracle_validated = false` and
+`execution_eligible = false`; no production consumer imports this decoder.
+
+The format sources are now pinned to upstream commit
+`c2b6cf416412b3282831e67f62b43fea496823d8`, rather than a moving branch:
+
+- [PriceUpdateV2 and verification enum](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/pyth_solana_receiver_sdk/src/price_update.rs),
+  SHA-256 `12d0ce8bc3907ae2949043397eaf3d5bd25deed98450c6969d957be402c807ae`.
+- [PriceFeedMessage](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/pythnet/pythnet_sdk/src/messages.rs),
+  SHA-256 `859f315c9474e694dc5ddb04d1900c5bae8b115a347c4e59746123245cbabc2a`.
+- [Receiver program identifiers](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/pyth_solana_receiver_sdk/src/lib.rs),
+  SHA-256 `738f6e4fa9f5807cf3b1baca3407a4caa110c913fcafa3e3952f88b3332f3ce2`.
+
+The SDK distinguishes Core `rec5…` from pro-compatible `rec2…`; this decoder
+rejects the latter. That source distinction does **not** attest to deployed code,
+upgrade authority, write authority or current consensus verification. The pinned
+source's Wormhole comments alone cannot establish the current deployed trust
+model. PDA derivation, program/code/upgrade validation, raw RPC envelope and chain
+binding, independent sources and a Base decision/key-use clock remain required.
+An account response plus a separately fetched block header is not an account-state
+proof. A decoded historical price remains historical, even when a caller supplies
+its original capture clock.
+
+The original two public RPC responses were retained as the explicitly historical
+fixture `tests/fixtures/pyth-solana-single-source-historical.json`, SHA-256
+`0196c1166b820604c1ff9039401440ab857d2cd280fc4ef1e60031c9e36476b3`.
+Tests verify their body hashes and known field values, then mutate identity,
+layout, signed values, confidence, time and slots; synthetic boundary cases cover
+exactly 1,800 seconds and 1,800 seconds plus one millisecond for each feed. They
+are decoder tests, not signature/quorum/production acceptance.
+
+The official source API lookup failed (sandbox DNS, then public API HTTP 403 rate
+limit). Anonymous read-only Git ref lookup succeeded, and the three raw sources
+were fetched by the resulting immutable commit with normal TLS verification.
+Raw sources and their hash manifest are in
+`reports/review-20261028/pyth-layout-source/`. This made no RPC requests and used
+no credentials. The terminated six-request campaign was not resumed.
+
+Validation: the 44 focused decoder tests passed. Their first combined command
+exited 1 because the format check required docstring indentation; this was fixed.
+The first full development run then passed Python/frontend but failed the secret
+gate on 14 unreviewed public identifiers, hashes and retained response encodings.
+Each was inspected and added individually to the existing non-secret fingerprint
+baseline, with its reason; no scanner rule or scan scope was weakened. That failed
+report remains at `reports/review-20261028/pyth-decoder-quality/report.json`, hash
+`decf836ad14998a67d599549e5bb060d34af9bd9932566da62ca8a5fab485ea6`.
+
+The subsequent full `make live-quality` exited 0: **3559 tests and 138 subtests**,
+compile, Ruff/format, mypy, eight frontend modules, secret scan, Bandit (89 low,
+zero medium/high) and seven-service offline Compose validation passed. All four
+check exit codes, report hash and raw log hashes were verified. Report:
+`reports/review-20261028/pyth-decoder-quality-reviewed/report.json`, hash
+`55ca200652659fb979b7e8fe46993150b9702dac2ff08d009cb7f920030c804a`.
+The existing websockets deprecation warning remains. `make contract-check` also
+exited 0: 70 tests passed, none failed/skipped, plus format/build/lint. Its only
+operational warning was the sandbox refusing a Foundry signature-cache flush;
+raw log hash `3bfc9b7d39054c75df3f789c88d114d0001739fc93da7e8730dba5c6a646641f`
+at `reports/review-20261028/pyth-contract-check.log`.
+
+All 11 pre-existing budget hashes were rechecked unchanged. No RPC, key-volume
+read, signing, broadcast or production start occurred. The previously verified
+Docker image has not been rebuilt with this new source file and must pass a fresh
+source-match verification before any later launch. Fresh complete NAV, production
+dual-source validation and dedicated-account real receipt/cash recovery remain
+unaccepted; this change clears no production release gate.
