@@ -501,3 +501,44 @@ No new campaign directory, RPC, signature, broadcast or key-volume read occurred
 Application/runtime files and all live release gates are unchanged; this
 preparation does not require a runtime-image rebuild. Execution awaits an explicit
 new grant for these endpoints and deployment/configuration reads.
+
+## Authorized deployment discovery stopped at rate limit — 2026-10-28
+
+The owner explicitly approved this exact ten-request plan in response to
+`call_9698fbbcff994c018350799234d0fa4f`: “授权这一次 10 次免费只读采集”.
+Activation changed only the prepared script's `AUTHORIZATION` assignment; AST
+comparison confirmed no executable logic change. The original preparation report
+and its pre-activation script hash remain preserved. The activated script hash is
+`6a166cffa909d3c34058a3531e9687af7a6d0271d23a84855c112c20f6e7dd2e`;
+`activation.json` records both hashes and the exact grant. This supersedes only the
+preceding subsection's pending-authorization status, not its evidence limitations.
+
+**Observed result:** at **2026-10-28 21:59:54 Asia/Shanghai**, OnFinality returned
+HTTP **429** to the first `getGenesisHash` request. Its JSON-RPC error was
+`-32029`, requesting an API key or a higher rate limit. The prepared canonical
+plan iterates `onfinality_public` before `solana_public`; consequently, the latter
+received **zero** requests. The command exited **3** after **1507 ms**, with
+**one free request, zero paid requests, no retry, no signature and no broadcast**.
+This is a provider refusal, not a successful genesis or account observation.
+There was no fallback, endpoint substitution or attempt to consume the remaining
+nine calls; the first-failure stop rule makes this campaign terminal.
+
+Raw response, pre-request durable reservation, authorization, terminal report and
+a subsequent offline audit are retained in
+`reports/evidence/authorized-free-pyth-deployment-20261028/`. The raw body is
+159 bytes, SHA-256
+`2b4817877ae0d96c055f097a31781a628f86f1dbb231a10796319206b2ced46f`.
+Terminal report content hash:
+`2d45ad7db1526cc56929b7e67b6ee088edec56fa0d61509c819b943c39321f3a`.
+Offline audit content hash:
+`3aa46e6add3aed4e3e4d51ff5014acc84e61bf58fb8747294fcf43ae01825c16`.
+The audit checked the wire body hash, request ID, single reservation/counts,
+authorization identity, activated script hash and canonical report hash. All 11
+previously pinned budget hashes were also unchanged. The original command output
+is retained at `reports/review-20261028/pyth-acquisition-plan/authorized-run.log`.
+
+No fresh price, program, ProgramData or configuration observation was acquired.
+Complete fresh USD/NAV, production dual-source validation and dedicated-account
+real receipt/cash recovery remain unaccepted. Runtime code and image were not
+changed, no key volume was read, and all live release gates remain closed.
+The one-shot grant is consumed/terminated; it is not an hourly request allowance.
