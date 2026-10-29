@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.reporting.live_release import live_release, require_live_release
+from oasis_agent.reporting.live_release import live_release, require_live_start
 from scripts import verify_live_compose as compose
 from scripts.verify_live_image_sources import source_manifest, verify
 
@@ -86,7 +86,7 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
 
 
 def start(image: str, output: Path) -> dict:
-    require_live_release()  # Before Docker, environment, output or state access.
+    require_live_start()  # Before Docker, environment, output or state access.
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
     report = {
         "schema": "oasis.live-start.v1",
@@ -130,7 +130,7 @@ def start(image: str, output: Path) -> dict:
         ).strip():
             raise ValueError("existing project containers require explicit recovery")
         stage = "final_recheck"
-        require_live_release()
+        require_live_start()
         if sha256_hex(canonical_json(source_manifest())) != identity["manifest_hash"]:
             raise ValueError("runtime sources changed before start")
         if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
@@ -180,9 +180,12 @@ def main() -> None:
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     release = live_release()
-    if not args.start or not release.new_actions_allowed or release.blockers:
+    startable = release.acceptance_permit is not None or (
+        release.new_actions_allowed and not release.blockers
+    )
+    if not args.start or not startable:
         print(release.model_dump_json())
-        raise SystemExit(3 if not release.new_actions_allowed or release.blockers else 0)
+        raise SystemExit(0 if startable else 3)
     if args.out is None:
         parser.error("--start requires a new --out directory for one retained attempt")
     try:

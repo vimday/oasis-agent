@@ -249,12 +249,18 @@ The USDC/USD observed round was about 60000 seconds old, beyond the existing
 A suitable fresh price source or a separately reviewed owner-approved feed policy
 is required; no dollar peg or silent freshness relaxation is implemented.
 
-Owner-confirmed feed policy (2026-10-27): both ETH/USD and USDC/USD have
-1800-second hard ceilings, including `usdc_oracle_max_age_seconds`. This supersedes
-the earlier 90000-second USDC setting. Configurations with that old value are refused;
-retained observations are not made fresh by changing policy. The USDC ±200 bps
-answer band and 40 bps pool/oracle deviation check remain additional checks, not
-freshness exemptions. No peg is substituted and the release gate remains closed.
+Owner feed policy (2026-10-28, supersedes the 2026-10-27 1800-second USDC
+setting): ETH/USD keeps an 1800-second ceiling; USDC/USD has its own
+`usdc_oracle_max_age_seconds = 90000` (hard bound), because its Base round updates
+on a 24-hour heartbeat and was fresh under 1800 s only about 2% of the day. The USDC
+±200 bps answer band and 40 bps pool/oracle deviation check still apply. No peg is
+substituted.
+
+Acceptance permit (2026-10-28): `ACCEPTANCE_PERMIT` in
+`src/oasis_agent/reporting/live_release.py` lets the services start and admits exactly
+one `approve_usdc` (Permit2, `approval_usdc`) at account nonce 3. Every other action
+kind or nonce still refuses with `live release blocked`; `new_actions_allowed` stays
+false and the four blockers remain until that receipt is reconciled.
 
 ## Verification status
 

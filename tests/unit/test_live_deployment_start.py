@@ -7,6 +7,7 @@ import subprocess
 import pytest
 
 from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.reporting import live_release as release_module
 from scripts import start_live_deployment as cli
 
 IMAGE = "sha256:" + "ab" * 32
@@ -17,6 +18,8 @@ RPC = {name: f"https://source-{i}.invalid/SECRET" for i, name in enumerate(cli.c
 def test_closed_release_precedes_any_external_access(tmp_path, monkeypatch, capsys, start):
     def forbidden(*args, **kwargs):
         pytest.fail("closed release must not access Docker, environment or output")
+
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # closed, no permit
 
     monkeypatch.setattr(cli, "command", forbidden)
     monkeypatch.setattr(cli, "local_environment", forbidden)
@@ -76,7 +79,7 @@ def setup(tmp_path, monkeypatch, fault=None):
     calls = []
     sources = {"src/a.py": "fixed"}
     digest = sha256_hex(canonical_json(sources))
-    monkeypatch.setattr(cli, "require_live_release", lambda: None)  # Synthetic future release only.
+    monkeypatch.setattr(cli, "require_live_start", lambda: None)  # Synthetic future release only.
     monkeypatch.setattr(
         cli.compose,
         "inspect",

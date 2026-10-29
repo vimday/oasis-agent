@@ -104,7 +104,7 @@ def test_only_uninitialized_risk_can_omit_checkpoint_proofs(tmp_path, state):
 def test_bad_checkpoint_stops_both_services_before_fresh_rpc_or_key_use(
     tmp_path, consumer, monkeypatch
 ):
-    monkeypatch.setattr("oasis_agent.live.authority.require_live_release", lambda: None)
+    monkeypatch.setattr("oasis_agent.live.authority.require_live_action", lambda *_: None)
     with closing(EvidenceStore(tmp_path / "proof.db")) as store:
         loop, _ = checkpoint(tmp_path, store)
         ref = loop.state.nav_evidence[0]

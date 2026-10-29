@@ -425,3 +425,23 @@ freshness deadline still includes each feed's own update time and ceiling.
 The USDC answer band remains additional validation, not permission to reuse stale
 prices. Original failed captures and RPC budgets remain unchanged. No fresh NAV,
 production dual-source or real dedicated-account receipt acceptance is implied.
+
+## Owner decision 2026-10-28: per-feed ceiling restored and one acceptance transaction
+
+This supersedes the 2026-10-27 owner correction above. The owner was shown that under a shared
+1800 s limit the Base Chainlink USDC/USD round (86418 s between the last two rounds, read on two
+providers at block ~53204600) is fresh about 2% of the day, and chose "恢复按喂价单独上限".
+
+- **Feeds:** ETH/USD `oracle_max_age_seconds = 1800` (unchanged); USDC/USD
+  `usdc_oracle_max_age_seconds = 90000` (hard bound 90000). Compensating controls are unchanged: the
+  ±200 bps USDC stable band, the 40 bps pool vs ETH/USD ÷ USDC/USD deviation check, and a key-use
+  deadline that is the minimum of the head and both per-feed deadlines.
+- **Acceptance permit:** the owner chose "放行一笔零本金授权". Every release blocker requires a
+  real dedicated-account receipt that a closed release can never produce. `ACCEPTANCE_PERMIT` in
+  `reporting/live_release.py` admits exactly `approve_usdc` (Permit2, `approval_usdc`) at account
+  nonce 3, the nonce observed on two providers at Base block 53204765. It is checked from the
+  proposal before state/RPC and again from the authority's own captured nonce before key use. Any
+  other kind or nonce still raises `live release blocked`; once nonce 3 is consumed the permit can
+  never match. `new_actions_allowed` stays false and all four blockers remain.
+- **Next:** reconcile that receipt through `approval_cash`, record the result, then retire blockers
+  only with that evidence. The USD 500 capital cap and USD 200 / USD 500 loss latch are unchanged.

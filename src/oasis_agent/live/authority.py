@@ -11,7 +11,7 @@ from fractions import Fraction
 from typing import Any
 
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
-from ..reporting.live_release import require_live_release
+from ..reporting.live_release import require_live_action
 from .action_plan import action_call
 from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
@@ -47,7 +47,12 @@ class TransactionAuthority:
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes:
         # The signing boundary must enforce release independently of its caller.
         # Status and receipt recovery remain available without new signing authority.
-        require_live_release()
+        # Before state or RPC, the proposal's own kind/nonce may only match the permit;
+        # the captured account nonce is bound to it again before key use.
+        require_live_action(
+            context.get("kind") if isinstance(context, dict) else None,
+            fields[1] if isinstance(fields, list) and len(fields) == 9 else None,
+        )
         loop, c = self.loop, self.loop.c
         loop.state = loop.store.load("live")
         s = loop.state
@@ -109,7 +114,10 @@ class TransactionAuthority:
             or (loop.stop_file is not None and loop.stop_file.exists())
         ):
             raise ValueError("authority expired before key use")
-        require_live_release()  # Recheck after slow observation/simulation and reservation.
+        # Recheck after slow observation/simulation and reservation, bound to the nonce
+        # the authority itself captured from both providers (enforced in _envelope).
+        assert market.valuation is not None
+        require_live_action(context["kind"], market.valuation.wallet.nonce)
         raw = sign_transaction(self.provider, fields)
         tx = SubmittedTransaction.from_signed(raw)
         s.pending = Pending(

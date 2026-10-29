@@ -197,23 +197,39 @@ def test_incomplete_or_disagreeing_nav_never_emits_valuation(tmp_path: Path, fau
         run_nav(store, fixture, peer)
 
 
-@pytest.mark.parametrize("feed", ["eth_age", "usdc_age"])
-def test_both_feeds_enforce_owner_freshness_ceiling(tmp_path: Path, feed: str) -> None:
+@pytest.mark.parametrize(
+    ("feed", "ceiling", "refused"),
+    [
+        # ETH/USD keeps the strict 1800-second limit, including the observed 5261 s age.
+        ("eth_age", 1800, (1801, 5261, 90_000)),
+        # USDC/USD has its own 24h-heartbeat ceiling (owner choice 2026-10-28).
+        ("usdc_age", 90_000, (90_001,)),
+    ],
+)
+def test_each_feed_enforces_its_own_freshness_ceiling(
+    tmp_path: Path, feed: str, ceiling: int, refused: tuple[int, ...]
+) -> None:
     c = position_config()
-    assert c.usdc_oracle_max_age_seconds == c.oracle_max_age_seconds == 1800
-    fixture = NavFixture(**{feed: 1800})
+    assert (c.oracle_max_age_seconds, c.usdc_oracle_max_age_seconds) == (1800, 90_000)
+    fixture = NavFixture(**{feed: ceiling})
     with closing(EvidenceStore(tmp_path / "ok.db")) as store:
         value, refs = run_nav(store, fixture, position=False)
         assert value.usdc_answer == fixture.usdc_price
         deadline = valuation.nav_fresh_until(store, refs, c, sources=(PRIMARY, SECONDARY))
-        assert deadline == fixture.timestamp
-    # Include the previously refused live round age and the superseded 25-hour ceiling.
-    for age in (1801, 5261, 90_000):
+        assert deadline == fixture.timestamp  # the boundary feed is the binding clock
+    for age in refused:
         with (
             closing(EvidenceStore(tmp_path / f"stale-{age}.db")) as store,
             pytest.raises(ValueError, match="stale"),
         ):
             run_nav(store, NavFixture(**{feed: age}), position=False)
+
+
+def test_observed_usdc_round_ages_value_nav(tmp_path: Path) -> None:
+    # Ages actually observed on Base: 5261, 54910, 55972, 83186 seconds.
+    for age in (5261, 54_910, 55_972, 83_186):
+        with closing(EvidenceStore(tmp_path / f"usdc-{age}.db")) as store:
+            assert run_nav(store, NavFixture(usdc_age=age), position=False)[0].nav_micros > 0
 
 
 @pytest.mark.parametrize(

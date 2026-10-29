@@ -29,7 +29,7 @@ from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.reporting.live_release import require_live_release
+from oasis_agent.reporting.live_release import require_live_start
 from oasis_agent.rpc.budget import RpcBudget
 from scripts.run_live_lp import receipt_cost_reader
 
@@ -77,8 +77,9 @@ def main() -> None:
     else:
         if args.socket is None:
             parser.error("signing authority requires --socket")
-        # New signing always requires release; recovery has no signing capability.
-        require_live_release()
+        # New signing requires release or the acceptance permit; the authority still
+        # gates every signature by action kind and captured nonce.
+        require_live_start()
     config = LiveConfig.load(args.config)
     profile = LiveRpcProfile.load(args.rpc_profile)
     directory = args.state_dir

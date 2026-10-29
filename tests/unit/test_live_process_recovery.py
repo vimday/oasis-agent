@@ -74,7 +74,7 @@ def status_child(directory, endpoint, ready):
             "load_private_key",
             "BudgetedRpc",
             "TransactionAuthority",
-            "require_live_release",
+            "require_live_start",
         ):
             patch.setattr(cli, name, forbidden)
         patch.setattr(cli, "prepare_endpoint", prepared)

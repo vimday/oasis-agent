@@ -35,7 +35,7 @@ from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.reporting.live_release import live_release
+from oasis_agent.reporting.live_release import live_release, require_live_start
 from oasis_agent.rpc.budget import RpcBudget
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -145,6 +145,7 @@ def main() -> None:
         print(live_release().model_dump_json(indent=2))
         raise SystemExit(3)
     # A release failure precedes RPC resolution, lock/state creation and signer construction.
+    # An acceptance permit admits startup; every signing decision is still gated per action.
     if args.mode == "live" and not any(
         (
             args.check,
@@ -155,8 +156,11 @@ def main() -> None:
             args.reconcile_only,
         )
     ):
-        print(live_release().model_dump_json(indent=2))
-        raise SystemExit(3)
+        try:
+            require_live_start()
+        except ValueError:
+            print(live_release().model_dump_json(indent=2))
+            raise SystemExit(3) from None
 
     config = LiveConfig.load(args.config)
     profile = LiveRpcProfile.load(args.rpc_profile)

@@ -205,7 +205,7 @@ def test_wallet_capture_failure_blocks_before_any_signing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Exercise the inner capture boundary; the real release gate has its own refusal tests.
-    monkeypatch.setattr(runner, "require_live_release", lambda: None)
+    monkeypatch.setattr(runner, "require_live_action", lambda *_: None)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         fixture = WalletFixture(account_code="0x6000")
         loop = loop_for(tmp_path, store, fixture)
@@ -230,7 +230,7 @@ def test_action_persists_wallet_before_submission_and_binds_its_nonce(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, nonce: int
 ) -> None:
     # Synthetic inner signing test only, never production release evidence.
-    monkeypatch.setattr(runner, "require_live_release", lambda: None)
+    monkeypatch.setattr(runner, "require_live_action", lambda *_: None)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         fixture = WalletFixture()
         loop = loop_for(tmp_path, store, fixture)

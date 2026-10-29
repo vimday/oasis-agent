@@ -16,6 +16,19 @@ class ReleaseBlocker(BaseModel):
     implementation_status: str = "implemented_pending_integration_validation"
 
 
+class AcceptancePermit(BaseModel):
+    """One owner-authorized zero-principal transaction that produces the first real receipt.
+
+    The release blockers all require a real dedicated-account receipt, which no closed
+    release can produce. This permit admits exactly one action kind at exactly one account
+    nonce. Once any transaction with that nonce lands, the permit can never match again.
+    """
+
+    kind: str
+    account_nonce: int
+    authorized_by: str
+
+
 class LiveRelease(BaseModel):
     schema_version: str = "oasis.live-release.v1"
     new_actions_allowed: bool = False
@@ -23,11 +36,20 @@ class LiveRelease(BaseModel):
     capital_limit_usd: int = 500
     daily_loss_limit_usd: int = 200
     cumulative_loss_limit_usd: int = 500
+    acceptance_permit: AcceptancePermit | None = None
     blockers: list[ReleaseBlocker]
+
+
+# Owner choice 2026-10-28: "放行一笔零本金授权". Nonce 3 was observed on two providers at
+# Base block 53204765 for 0xe653df20a8c525edf381942ffc47704b7bdfe97d.
+ACCEPTANCE_PERMIT: AcceptancePermit | None = AcceptancePermit(
+    kind="approve_usdc", account_nonce=3, authorized_by="owner 2026-10-28"
+)
 
 
 def live_release() -> LiveRelease:
     return LiveRelease(
+        acceptance_permit=ACCEPTANCE_PERMIT,
         blockers=[
             ReleaseBlocker(
                 code="successful_action_cash_incomplete",
@@ -60,7 +82,7 @@ def live_release() -> LiveRelease:
                     "未知签名仍禁止自动重试。"
                 ),
             ),
-        ]
+        ],
     )
 
 
@@ -68,3 +90,26 @@ def require_live_release() -> None:
     report = live_release()
     if not report.new_actions_allowed or report.blockers:
         raise ValueError("live release blocked: " + ", ".join(b.code for b in report.blockers))
+
+
+def acceptance_allows(kind: object, nonce: object) -> bool:
+    """True only for the permitted action kind at the permitted account nonce."""
+    permit = ACCEPTANCE_PERMIT
+    return (
+        permit is not None
+        and kind == permit.kind
+        and type(nonce) is int
+        and nonce == permit.account_nonce
+    )
+
+
+def require_live_action(kind: object, nonce: object) -> None:
+    """Gate one signing decision: the acceptance permit or a complete release."""
+    if not acceptance_allows(kind, nonce):
+        require_live_release()
+
+
+def require_live_start() -> None:
+    """Gate service startup; per-action checks still apply to every signature."""
+    if ACCEPTANCE_PERMIT is None:
+        require_live_release()

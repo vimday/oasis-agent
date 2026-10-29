@@ -31,7 +31,8 @@ from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.live.v4lp import erc20_approve_call
 from oasis_agent.models.common import canonical_json
-from oasis_agent.reporting.live_release import require_live_release
+from oasis_agent.reporting import live_release as release_module
+from oasis_agent.reporting.live_release import require_live_action
 from tests.unit import test_live_receipt_costs as cost_fixtures
 from tests.unit import test_live_revert_cash as wallet_fixtures
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
@@ -111,7 +112,7 @@ def setup_authority(
     feed_ages: tuple[int, int] = (10, 10),
 ):
     # Synthetic admission exercises later policy checks without enabling production.
-    monkeypatch.setattr(authority_module, "require_live_release", lambda: None)
+    monkeypatch.setattr(authority_module, "require_live_action", lambda *_: None)
     key = Key()
     base = cost_fixtures.position_config()
     pins = {
@@ -164,10 +165,16 @@ def setup_authority(
     return authority, key, fields, context
 
 
+def close_release(monkeypatch):
+    """Restore the real gate with no acceptance permit."""
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)
+    monkeypatch.setattr(authority_module, "require_live_action", require_live_action)
+
+
 def test_authority_enforces_real_release_before_state_or_rpc(tmp_path, monkeypatch):
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
-        monkeypatch.setattr(authority_module, "require_live_release", require_live_release)
+        close_release(monkeypatch)
 
         def forbidden(*args, **kwargs):
             pytest.fail("closed release accessed state or RPC")
@@ -189,7 +196,7 @@ def test_authority_rechecks_release_after_reservation_before_key(tmp_path, monke
         def save_then_close_release(state):
             save(state)
             if state.signing_attempt is not None:
-                monkeypatch.setattr(authority_module, "require_live_release", require_live_release)
+                close_release(monkeypatch)
 
         monkeypatch.setattr(state_store, "save", save_then_close_release)
         with pytest.raises(ValueError, match="live release blocked"):
@@ -264,6 +271,29 @@ def test_authority_checks_each_feed_at_key_use(tmp_path, monkeypatch, feed, adva
             assert key.calls == 0
             saved = state_store.load("live")
             assert saved.signing_attempt is not None and saved.pending is None
+
+
+@pytest.mark.parametrize("permit_nonce", [4, 3])
+def test_acceptance_permit_signs_only_at_its_captured_nonce(tmp_path, monkeypatch, permit_nonce):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
+        # Real gate; the fixture account is at nonce 4.
+        monkeypatch.setattr(authority_module, "require_live_action", require_live_action)
+        monkeypatch.setattr(
+            release_module,
+            "ACCEPTANCE_PERMIT",
+            release_module.AcceptancePermit(
+                kind="approve_usdc", account_nonce=permit_nonce, authorized_by="test"
+            ),
+        )
+        if permit_nonce == 4:
+            tx = SubmittedTransaction.from_signed(authority.sign(fields, context))
+            assert tx.nonce == 4 and key.calls == 1
+        else:
+            with pytest.raises(ValueError, match="live release blocked"):
+                authority.sign(fields, context)
+            assert key.calls == 0
+            assert authority.loop.store.load("live").signing_attempt is None
 
 
 def test_authority_rederives_action_and_journals_actual_signature_before_return(

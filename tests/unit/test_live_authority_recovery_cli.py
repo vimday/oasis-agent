@@ -12,6 +12,7 @@ from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.reporting import live_release as release_module
 from oasis_agent.rpc.budget import RpcBudget
 from scripts import run_live_authority as cli
 from tests.unit.test_live_approval_cash import TEST_CONFIG, ApprovalFixture, approval_loop
@@ -51,6 +52,7 @@ def setup_cli(tmp_path, monkeypatch, *options):
 
 
 def test_normal_signing_still_refuses_before_key_or_network(tmp_path, monkeypatch):
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # closed, no permit
     directory = setup_cli(tmp_path, monkeypatch, "--socket", "/unused.sock")
     monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
     with pytest.raises(ValueError, match="live release blocked"):
@@ -62,7 +64,7 @@ def test_normal_signing_still_refuses_before_key_or_network(tmp_path, monkeypatc
 def test_missing_endpoint_refuses_before_key_even_after_release(tmp_path, monkeypatch, endpoint):
     directory = setup_cli(tmp_path, monkeypatch, "--socket", "/unused.sock")
     # Test the endpoint boundary independently of the closed production release.
-    monkeypatch.setattr(cli, "require_live_release", lambda: None)
+    monkeypatch.setattr(cli, "require_live_start", lambda: None)
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", endpoint)
     monkeypatch.setenv(TEST_CONFIG.secondary_rpc_env, endpoint)
     with pytest.raises(ValueError, match="HTTP\\(S\\) endpoint"):
@@ -81,7 +83,7 @@ def test_recovery_rejects_signing_options_before_io(tmp_path, monkeypatch, optio
 def test_absent_journal_is_not_reported_as_successful_empty_recovery(tmp_path, monkeypatch, capsys):
     directory = setup_cli(tmp_path, monkeypatch, "--reconcile-only")
     monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
-    monkeypatch.setattr(cli, "require_live_release", forbidden)
+    monkeypatch.setattr(cli, "require_live_start", forbidden)
     monkeypatch.delenv("BASE_RPC_PRIMARY_ALT", raising=False)
     with pytest.raises(SystemExit) as caught:
         cli.main()
@@ -138,7 +140,7 @@ def test_receipt_recovery_retains_cash_proof_and_settles_once(
         pass
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", "primary-fixture")
     monkeypatch.setenv(TEST_CONFIG.secondary_rpc_env, "secondary-fixture")
-    monkeypatch.setattr(cli, "require_live_release", forbidden)
+    monkeypatch.setattr(cli, "require_live_start", forbidden)
     monkeypatch.setattr(
         cli, "BudgetedRpc", lambda *a, **k: ScriptedRpc(receipt=ApprovalFixture()._receipt())
     )
@@ -188,7 +190,7 @@ def test_status_mode_rejects_authority_options(tmp_path, monkeypatch, options):
 def test_status_mode_refuses_absent_journal_without_rpc_or_key(tmp_path, monkeypatch):
     directory = setup_cli(tmp_path, monkeypatch, "--status-only", "--socket", "/unused")
     monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
-    monkeypatch.setattr(cli, "require_live_release", forbidden)
+    monkeypatch.setattr(cli, "require_live_start", forbidden)
     with pytest.raises(SystemExit) as caught:
         cli.main()
     assert caught.value.code == 3

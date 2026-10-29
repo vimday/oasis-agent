@@ -18,7 +18,7 @@ from eth_hash.auto import keccak
 
 from ..farming.positions import decode_position_info
 from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
-from ..reporting.live_release import require_live_release
+from ..reporting.live_release import require_live_action
 from ..reporting.live_status import LiveObservation
 from .action_cash import reconcile_action
 from .action_plan import action_call
@@ -690,7 +690,7 @@ class LiveLoop:
         if self.mode == "shadow":
             return self._paper(m, kind, args)
         try:
-            require_live_release()
+            require_live_action(kind, m.valuation.wallet.nonce if m.valuation else None)
         except ValueError as exc:
             raise ChainError(str(exc)) from None
         self.c.validate()
