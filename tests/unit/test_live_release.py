@@ -102,6 +102,17 @@ def test_internal_non_permitted_action_refuses_under_permit(tmp_path: Path, kind
     with pytest.raises(ChainError, match="live release blocked"):
         loop._act(market(), (kind, {}))
     assert loop.state.pending is None
+    # A refused action halts instead of re-polling and spending the lifetime RPC budget.
+    assert loop.state.halted is not None and kind in loop.state.halted
+    assert loop.state.history[-1]["event"] == "halt"
+
+
+def test_refused_action_halts_the_tick_loop(tmp_path: Path) -> None:
+    loop = loop_with(tmp_path, ScriptedRpc())
+    loop.mode = "live"
+    with pytest.raises(ChainError):
+        loop._act(market(), ("approve_permit2", {}))
+    assert loop._tick().startswith("halted: release gate refused approve_permit2")
 
 
 def test_without_permit_startup_refuses(monkeypatch: pytest.MonkeyPatch) -> None:

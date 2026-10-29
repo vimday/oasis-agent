@@ -692,6 +692,11 @@ class LiveLoop:
         try:
             require_live_action(kind, m.valuation.wallet.nonce if m.valuation else None)
         except ValueError as exc:
+            # Stop polling: a refused action recurs every tick and would only spend the
+            # lifetime RPC budget. After an acceptance permit is consumed the operator
+            # reconciles its receipt before any further release.
+            s.halted = f"release gate refused {kind}; operator acceptance review required"
+            s.record("halt", reason=s.halted, block=m.block)
             raise ChainError(str(exc)) from None
         self.c.validate()
         if not isinstance(self.signer, TransactionSigner):
