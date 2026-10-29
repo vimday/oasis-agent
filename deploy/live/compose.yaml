@@ -12,7 +12,8 @@ x-common: &common
   pids_limit: 128
   mem_limit: 512m
   restart: "no"
-  tmpfs: [/tmp:rw,noexec,nosuid,size=16m,mode=1777]
+  # Quoted: in a YAML flow list, unquoted commas would split the mount options apart.
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"]
   # Resolve only for services that inherit this environment. Required-value
   # interpolation would also block keyless/offline services during config parsing.
   # Execution entry points still refuse missing endpoints before any network/key use.

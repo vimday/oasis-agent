@@ -189,3 +189,11 @@ def test_changed_or_duplicated_bound_arguments_refused(
         command[command.index(flag) + 1] = value
     with pytest.raises(ValueError):
         cli.verify_services(document, dict.fromkeys(cli.RPC_NAMES))
+
+
+def test_tmpfs_options_stay_one_quoted_entry():
+    # Unquoted, the YAML flow list splits on commas and Docker rejects "noexec"/"mode=1777"
+    # as mount paths, so no service (including initialize) can start.
+    lines = [line.strip() for line in cli.COMPOSE.read_text().splitlines()]
+    tmpfs = [line for line in lines if line.startswith("tmpfs:")]
+    assert tmpfs == ['tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"]']
