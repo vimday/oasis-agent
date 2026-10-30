@@ -99,3 +99,65 @@ def test_existing_only_direct_and_retained_reads_refuse_ledger_removal(tmp_path,
     with pytest.raises(sqlite3.OperationalError):
         session[0].request("eth_chainId", [])
     assert not path.exists() and not http.calls
+
+
+class FlakyHttp(Http):
+    """Drops the first `drops` posts at the transport level, then answers."""
+
+    def __init__(self, drops):
+        super().__init__()
+        self.drops = drops
+
+    def post(self, payload):
+        if self.drops:
+            self.drops -= 1
+            self.calls.append("dropped")
+            raise OSError("synthetic TLS EOF")
+        return super().post(payload)
+
+
+def _session(tmp_path, monkeypatch, http, retries):
+    monkeypatch.setattr(account_capture, "_UrlLibPoster", lambda *_, **__: http)
+    profile = LiveRpcProfile(max_requests=10, min_interval_ms=100)
+    pair = ("live_primary", "live_secondary")
+    path = tmp_path / "live.receipt-budget.db"
+    session = account_capture.one_shot_session(
+        "live_primary",
+        urls={"live_primary": "https://unused.invalid"},
+        policies=profile.policies(pair),
+        budget=path,
+        retries=retries,
+    )
+    return session, path, profile.policies(pair)
+
+
+def test_capture_session_retries_transport_drop_without_extra_exchange(tmp_path, monkeypatch):
+    http = FlakyHttp(drops=1)
+    (transport, recorder, _), path, policies = _session(tmp_path, monkeypatch, http, retries=2)
+    assert transport.request("eth_chainId", []) == "0x1"
+    # The dropped post recorded nothing, so the exact-capture sequence stays one exchange.
+    assert len(recorder.exchanges) == 1 and recorder.exchanges[0].method == "eth_chainId"
+    with RpcBudget(path, policies) as budget:
+        assert budget.counts()["live_primary"] == 2  # every attempt is still charged
+
+
+def test_capture_session_default_never_retries(tmp_path, monkeypatch):
+    http = FlakyHttp(drops=1)
+    (transport, recorder, _), _, _ = _session(tmp_path, monkeypatch, http, retries=0)
+    with pytest.raises(Exception, match="details redacted"):
+        transport.request("eth_chainId", [])
+    assert http.calls == ["dropped"] and recorder.exchanges == ()
+
+
+def test_capture_session_retries_are_bounded(tmp_path, monkeypatch):
+    http = FlakyHttp(drops=3)
+    (transport, recorder, _), _, _ = _session(tmp_path, monkeypatch, http, retries=2)
+    with pytest.raises(Exception, match="details redacted"):
+        transport.request("eth_chainId", [])
+    assert http.calls == ["dropped"] * 3 and recorder.exchanges == ()
+
+
+@pytest.mark.parametrize("retries", [-1, 3, True, 1.0])
+def test_capture_session_rejects_unbounded_retries(tmp_path, monkeypatch, retries):
+    with pytest.raises(ValueError, match="retries"):
+        _session(tmp_path, monkeypatch, Http(), retries=retries)

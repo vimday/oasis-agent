@@ -15,7 +15,7 @@ from eth_abi.abi import decode
 from oasis_agent.live.chain import ChainError, sign_transaction
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.intent import SubmittedTransaction, pending_plan_hash
-from oasis_agent.live.runner import LiveLoop, Market
+from oasis_agent.live.runner import MAX_SETTLEMENT_FAILURES, LiveLoop, Market
 from oasis_agent.live.state import LoopState, Pending, Position, StateStore, day_of
 from oasis_agent.live.v4lp import (
     PoolKey,
@@ -620,3 +620,44 @@ def test_malformed_agreed_receipt_cannot_change_state(
     )
     assert "skip" in loop.tick()
     assert loop.state.pending is not None and loop.state.gas_spent_wei == 0
+
+
+def test_repeated_settlement_failure_halts_instead_of_spending_budget(tmp_path: Path) -> None:
+    tx = "0x" + "ab" * 32
+    loop = loop_with(tmp_path, ScriptedRpc(), pending=Pending("approve_usdc", tx, 3, 0))
+    calls = []
+
+    def failing() -> str:
+        calls.append(1)
+        raise ChainError("approval cash unresolved (details redacted)")
+
+    loop._resolve_pending = failing  # type: ignore[method-assign]
+    limit = MAX_SETTLEMENT_FAILURES
+    for _ in range(limit - 1):
+        assert loop.tick().startswith("skip: approval cash unresolved")
+        assert loop.state.halted is None
+    assert loop.tick().startswith("skip:")
+    assert loop.state.halted is not None and "settlement failed" in loop.state.halted
+    assert loop.state.history[-1]["event"] == "halt"
+    # Halted: later ticks no longer attempt settlement or spend RPC.
+    assert loop.tick().startswith("halted:")
+    assert len(calls) == limit
+    assert loop.state.pending is not None  # recovery, not the loop, clears it
+
+
+def test_settlement_success_resets_failure_count(tmp_path: Path) -> None:
+    tx = "0x" + "ab" * 32
+    loop = loop_with(tmp_path, ScriptedRpc(), pending=Pending("approve_usdc", tx, 3, 0))
+    outcomes = iter([ChainError("transient"), "waiting on receipt"])
+
+    def flaky() -> str:
+        result = next(outcomes)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    loop._resolve_pending = flaky  # type: ignore[method-assign]
+    loop.tick()
+    assert loop.settlement_failures == 1
+    assert loop.tick() == "waiting on receipt"
+    assert loop.settlement_failures == 0 and loop.state.halted is None

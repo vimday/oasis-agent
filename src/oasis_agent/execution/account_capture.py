@@ -57,13 +57,20 @@ def one_shot_session(
     policies: tuple[BudgetPolicy, ...],
     budget: Path,
     require_existing_budget: bool = False,
+    retries: int = 0,
 ) -> RecordedSession:
     """One fresh session for one declared provider, sharing the caller's budget ledger.
 
     An exact capture may not reuse a recorder, so a new transport and a new recorder
     are built for every call: a caller that needs a lookup before the capture itself
     (locating a receipt's block, for example) must not spend the capture's own session.
+
+    `retries` bounds transport-level retries. A failed post records no exchange, so a
+    retried request leaves the exact-capture sequence intact; every attempt is still
+    charged to the budget ledger. A recorded JSON-RPC error still fails the capture.
     """
+    if type(retries) is not int or not 0 <= retries <= 2:
+        raise ValueError("capture session retries must be 0..2")
     recorder = BoundedExchangeRecorder()
     http = _UrlLibPoster(urls[source], 15)
     poster = (
@@ -75,7 +82,7 @@ def one_shot_session(
         JsonRpcTransport(
             "https://unused.invalid",
             http=poster,
-            retries=0,
+            retries=retries,
             recorder=recorder,
         ),
         recorder,

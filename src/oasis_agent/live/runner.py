@@ -63,6 +63,8 @@ USDC_IMPL_SLOT = "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3
 PENDING_TIMEOUT = 900
 ORACLE_DECIMALS = 8  # Base ETH/USD feed decimals(), verified on two providers 2026-10-08
 MAX_CONSECUTIVE_REVERTS = 2
+# Each failed settlement attempt can spend ~100 requests of a 4096 lifetime budget.
+MAX_SETTLEMENT_FAILURES = 5
 RECEIPT_CONFIRMATIONS = 3
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
@@ -140,6 +142,7 @@ class LiveLoop:
             store.bind(sha256_hex(canonical_json(asdict(config))))
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
+        self.settlement_failures = 0
 
     @classmethod
     def recovery(cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str) -> "LiveLoop":
@@ -150,6 +153,7 @@ class LiveLoop:
         loop.receipt_costs = None
         loop.state = store.load(mode)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
+        loop.settlement_failures = 0
         return loop
 
     # ---- observation -------------------------------------------------------------
@@ -368,7 +372,21 @@ class LiveLoop:
             s.halted = "signing outcome unknown; durable nonce reservation requires reconciliation"
             return f"HALT {s.halted}"
         if s.pending is not None:
-            return self._resolve_pending()
+            try:
+                status = self._resolve_pending()
+            except ChainError:
+                # A settlement proof that keeps failing would otherwise re-poll every tick
+                # until the lifetime RPC budget is gone. Halt; recovery runs separately.
+                self.settlement_failures += 1
+                if self.settlement_failures >= MAX_SETTLEMENT_FAILURES:
+                    s.halted = (
+                        f"pending {s.pending.kind} settlement failed "
+                        f"{self.settlement_failures} times; run reconcile-only recovery"
+                    )
+                    s.record("halt", reason=s.halted, tx=s.pending.tx_hash)
+                raise
+            self.settlement_failures = 0
+            return status
         self._check_settlements()
         self._check_nav_checkpoint()
         try:

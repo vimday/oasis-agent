@@ -73,6 +73,8 @@ def receipt_cost_reader(
             policies=policies,
             budget=budget,
             require_existing_budget=require_existing_budget,
+            # A ~110-request interval proof must survive one transient TLS/timeout drop.
+            retries=2,
         ),
     )
 
