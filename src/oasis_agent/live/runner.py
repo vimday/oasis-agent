@@ -74,6 +74,9 @@ MAX_CONSECUTIVE_REVERTS = 2
 MAX_SETTLEMENT_FAILURES = 5
 # Refused proposals released per process before an operator must look at the cause.
 MAX_RELEASED_ATTEMPTS = 3
+# Holding an in-range position runs a cheap two-provider tick/liquidity check; the full
+# NAV, loss-latch, runtime-pin and decision path still runs at least this often.
+FULL_OBSERVATION_SECONDS = 1800
 RECEIPT_CONFIRMATIONS = 3
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
@@ -280,6 +283,54 @@ class LiveLoop:
             liquidity = self._liquidity(rpc, position.token_id, ref)
         return int(slot[0]), int(slot[1]), int(answer), int(updated), eth, usdc, liquidity
 
+    def _light_hold(self) -> str | None:
+        """Cheap two-provider in-range check between full observations; never acts.
+
+        Returns a hold status only when a full NAV observation is under
+        FULL_OBSERVATION_SECONDS old and both providers agree, at one canonical block,
+        that the recorded position's liquidity is unchanged and the pool tick is inside
+        its range. Anything else (no position, stale or missing observation, any
+        disagreement, error or out-of-range tick) returns None so the full observation,
+        loss latch, runtime pins and decision path run instead.
+        """
+        s, p = self.state, self.state.position
+        last = s.last_observation
+        if (
+            self.mode != "live"
+            or p is None
+            or self.secondary is None
+            or s.acknowledge_flow
+            or not isinstance(last, dict)
+            or type(last.get("observed_at")) is not int
+            or not 0 <= int(time.time()) - last["observed_at"] < FULL_OBSERVATION_SECONDS
+        ):
+            return None
+        try:
+            block = self.rpc.block()
+            number, timestamp = int(str(block["number"]), 16), int(str(block["timestamp"]), 16)
+            if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
+                return None
+            ref = {"blockHash": str(block["hash"]), "requireCanonical": True}
+            seen = []
+            for rpc in (self.rpc, self.secondary):
+                slot = rpc.call_abi(
+                    self.c.state_view,
+                    "getSlot0(bytes32)",
+                    ["bytes32"],
+                    [bytes.fromhex(self.c.pool_id[2:])],
+                    ["uint160", "int24", "uint24", "uint24"],
+                    ref,
+                )
+                seen.append((int(slot[1]), self._liquidity(rpc, p.token_id, ref)))
+        except Exception:  # noqa: BLE001 - fall back to the full, fully checked observation
+            return None
+        tick, liquidity = seen[0]
+        if seen[0] != seen[1] or liquidity != p.liquidity or not p.lower <= tick < p.upper:
+            return None
+        return (
+            f"block {number} light hold in range [{p.lower},{p.upper}) tick {tick} id {p.token_id}"
+        )
+
     def _position_identity(self, rpc: Rpc, position: Position, ref: dict[str, Any]) -> None:
         owner = rpc.call_abi(
             self.c.position_manager,
@@ -413,6 +464,9 @@ class LiveLoop:
             return status
         self._check_settlements()
         self._check_nav_checkpoint()
+        light = self._light_hold()
+        if light is not None:
+            return light
         try:
             m = self.observe()
         except ChainError:

@@ -5,6 +5,7 @@ Anvil fork of Base in `.scratch/fork_live_e2e.py`; these tests pin the pure part
 and the fail-closed state machine with a scripted RPC.
 """
 
+import time
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
@@ -15,7 +16,12 @@ from eth_abi.abi import decode
 from oasis_agent.live.chain import ChainError, sign_transaction
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.intent import SubmittedTransaction, pending_plan_hash
-from oasis_agent.live.runner import MAX_SETTLEMENT_FAILURES, LiveLoop, Market
+from oasis_agent.live.runner import (
+    FULL_OBSERVATION_SECONDS,
+    MAX_SETTLEMENT_FAILURES,
+    LiveLoop,
+    Market,
+)
 from oasis_agent.live.state import LoopState, Pending, Position, StateStore, day_of
 from oasis_agent.live.v4lp import (
     PoolKey,
@@ -683,3 +689,92 @@ def test_run_refuses_faster_or_non_integer_polling_before_any_tick(
     monkeypatch.setattr(loop, "tick", lambda: pytest.fail("refused interval must not tick"))
     with pytest.raises(ValueError, match="poll interval"):
         loop.run(max_ticks=1, poll_seconds=interval)
+
+
+class LightRpc:
+    """Serves only the light hold's head, slot0 and liquidity reads."""
+
+    def __init__(self, tick: int, liquidity: int, *, age: int = 2, fail: bool = False) -> None:
+        self.tick, self.liquidity, self.age, self.fail, self.calls = tick, liquidity, age, fail, 0
+
+    def block(self) -> dict[str, Any]:
+        self.calls += 1
+        return {
+            "number": hex(500),
+            "hash": "0x" + "ab" * 32,
+            "timestamp": hex(int(time.time()) - self.age),
+        }
+
+    def call_abi(self, to, signature, types, values, returns, block="latest"):
+        self.calls += 1
+        if self.fail:
+            raise ChainError("provider dropped")
+        if signature == "getSlot0(bytes32)":
+            return (SQRT, self.tick, 0, 500)
+        assert signature == "getPositionLiquidity(uint256)"
+        return (self.liquidity,)
+
+
+HELD = Position(77, TICK - 100, TICK + 100, 5_000, 0)
+
+
+def light_loop(tmp_path: Path, primary: Any, secondary: Any, **state: Any) -> LiveLoop:
+    loop = live_loop(tmp_path, primary, secondary, position=HELD, **state)
+    loop.state.last_observation = {"observed_at": int(time.time()) - 60}
+    loop.observe = lambda *_: pytest.fail("light hold must not run a full observation")  # type: ignore[method-assign]
+    return loop
+
+
+def test_light_hold_spends_only_head_slot0_and_liquidity(tmp_path: Path) -> None:
+    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
+    loop = light_loop(tmp_path, a, b)
+    status = loop._tick()
+    assert status.startswith("block 500 light hold in range") and loop.state.halted is None
+    assert (a.calls, b.calls) == (3, 2)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "out_of_range",
+        "upper_edge",
+        "liquidity_changed",
+        "providers_disagree",
+        "provider_error",
+        "stale_head",
+        "full_observation_due",
+        "no_observation",
+        "no_position",
+        "flow_acknowledgement",
+    ],
+)
+def test_light_hold_falls_back_to_the_full_observation(tmp_path: Path, case: str) -> None:
+    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
+    loop = light_loop(tmp_path, a, b)
+    if case == "out_of_range":
+        a.tick = b.tick = HELD.lower - 1
+    elif case == "upper_edge":
+        a.tick = b.tick = HELD.upper  # upper tick is exclusive
+    elif case == "liquidity_changed":
+        a.liquidity = b.liquidity = HELD.liquidity - 1
+    elif case == "providers_disagree":
+        b.tick = TICK + 1
+    elif case == "provider_error":
+        b.fail = True
+    elif case == "stale_head":
+        a.age = 10_000
+    elif case == "full_observation_due":
+        loop.state.last_observation = {"observed_at": int(time.time()) - FULL_OBSERVATION_SECONDS}
+    elif case == "no_observation":
+        loop.state.last_observation = None
+    elif case == "no_position":
+        loop.state.position = None
+    elif case == "flow_acknowledgement":
+        loop.state.acknowledge_flow = True
+    assert loop._light_hold() is None
+
+
+def test_shadow_mode_never_takes_the_light_path(tmp_path: Path) -> None:
+    loop = loop_with(tmp_path, LightRpc(TICK, HELD.liquidity), position=HELD)
+    loop.state.last_observation = {"observed_at": int(time.time()) - 60}
+    assert loop._light_hold() is None
