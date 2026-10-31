@@ -661,3 +661,25 @@ def test_settlement_success_resets_failure_count(tmp_path: Path) -> None:
     assert loop.settlement_failures == 1
     assert loop.tick() == "waiting on receipt"
     assert loop.settlement_failures == 0 and loop.state.halted is None
+
+
+@pytest.mark.parametrize("interval", [None, 30, 300, 3600])
+def test_run_polls_at_or_slower_than_the_configured_rate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interval: int | None
+) -> None:
+    loop = loop_with(tmp_path, ScriptedRpc())
+    sleeps: list[float] = []
+    monkeypatch.setattr("oasis_agent.live.runner.time.sleep", sleeps.append)
+    monkeypatch.setattr(loop, "tick", lambda: "hold")
+    loop.run(max_ticks=2, poll_seconds=interval)
+    assert sleeps == [CONFIG.poll_seconds if interval is None else interval] * 2
+
+
+@pytest.mark.parametrize("interval", [0, 1, CONFIG.poll_seconds - 1, 3601, 300.0, True, "300"])
+def test_run_refuses_faster_or_non_integer_polling_before_any_tick(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interval: Any
+) -> None:
+    loop = loop_with(tmp_path, ScriptedRpc())
+    monkeypatch.setattr(loop, "tick", lambda: pytest.fail("refused interval must not tick"))
+    with pytest.raises(ValueError, match="poll interval"):
+        loop.run(max_ticks=1, poll_seconds=interval)

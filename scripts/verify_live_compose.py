@@ -41,7 +41,18 @@ COMMANDS = {
         "--ttl-seconds",
         "3600",
     ],
-    "strategy": [*STRATEGY, *CONFIG, *PROFILE, *STATE, "--signer-socket", SOCKET],
+    # Holding observation reads ~40 requests per provider per tick against a lifetime
+    # budget of 4096; 300s polling stretches it to hours. Exit lag is at most one interval.
+    "strategy": [
+        *STRATEGY,
+        *CONFIG,
+        *PROFILE,
+        *STATE,
+        "--signer-socket",
+        SOCKET,
+        "--poll-seconds",
+        "300",
+    ],
     "authority-recovery": [*AUTHORITY, "--reconcile-only", *CONFIG, *PROFILE, *STATE],
     "authority-status": [
         *AUTHORITY,

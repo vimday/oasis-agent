@@ -41,7 +41,7 @@ services:
     volumes:
       - strategy-state:/state
       - authority-socket:/run/oasis
-    command: [python, -m, scripts.run_live_lp, --mode, live, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --signer-socket, /run/oasis/authority.sock]
+    command: [python, -m, scripts.run_live_lp, --mode, live, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --signer-socket, /run/oasis/authority.sock, --poll-seconds, "300"]
   authority-recovery:
     <<: *common
     profiles: [recovery]

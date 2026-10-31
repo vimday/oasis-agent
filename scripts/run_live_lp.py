@@ -106,6 +106,11 @@ def main() -> None:
     )
     parser.add_argument("--hours", type=float, help="stop after this many hours")
     parser.add_argument("--ticks", type=int, help="stop after this many ticks")
+    parser.add_argument(
+        "--poll-seconds",
+        type=int,
+        help="slower polling than the config (never faster); config hash is unchanged",
+    )
     parser.add_argument("--clear-halt", action="store_true")
     parser.add_argument("--report", action="store_true")
     parser.add_argument(
@@ -418,7 +423,7 @@ def main() -> None:
             receipt_costs=costs,
         )
         until = time.time() + args.hours * 3600 if args.hours else None
-        loop.run(max_ticks=args.ticks, until=until)
+        loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
         print(json.dumps(loop.report(), indent=1, default=str))
 
 
