@@ -25,6 +25,15 @@ from scripts import run_live_lp as cli
 from tests.unit.test_live_lp import CONFIG, ScriptedRpc, loop_with, market
 
 
+def close_release(monkeypatch: pytest.MonkeyPatch, permit: AcceptancePermit | None = None) -> None:
+    """The owner's stop switch: closed release, optionally with one acceptance permit."""
+    monkeypatch.setattr(release_module, "RELEASE_OPEN", False)
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", permit)
+
+
+NONCE3 = AcceptancePermit(kind="approve_usdc", account_nonce=3, authorized_by="test")
+
+
 @pytest.mark.parametrize("args", [[], ["--readiness"], ["--signer-socket", "/absent.sock"]])
 def test_release_cli_refuses_before_any_rpc_signer_or_state(
     tmp_path: Path,
@@ -35,8 +44,7 @@ def test_release_cli_refuses_before_any_rpc_signer_or_state(
     def forbidden(*_: Any, **__: Any) -> Any:
         raise AssertionError("release refusal must precede external access")
 
-    # Closed release without an acceptance permit.
-    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)
+    close_release(monkeypatch)
     monkeypatch.setattr(cli, "rpc_url", forbidden)
     monkeypatch.setattr(cli, "TransactionSocketClient", forbidden)
     path = tmp_path / "never-created"
@@ -46,14 +54,15 @@ def test_release_cli_refuses_before_any_rpc_signer_or_state(
     assert exc.value.code == 3 and not path.exists()
     report = json.loads(capsys.readouterr().out)
     assert report == live_release().model_dump()
-    assert len(report["blockers"]) == 4 and report["owner_canary_authorized"] is True
+    assert [b["code"] for b in report["blockers"]] == ["release_closed"]
+    assert report["new_actions_allowed"] is False and report["owner_canary_authorized"] is True
 
 
 @pytest.mark.parametrize("kind", ["swap", "mint", "burn", "approve_usdc", "approve_permit2"])
 def test_internal_action_also_refuses_before_signing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
-    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)
+    close_release(monkeypatch)
     loop = loop_with(tmp_path, ScriptedRpc())
     loop.mode = "live"
     with pytest.raises(ChainError, match="live release blocked"):
@@ -61,15 +70,29 @@ def test_internal_action_also_refuses_before_signing(
     assert loop.state.pending is None
 
 
-def test_committed_acceptance_permit_is_one_zero_principal_approval() -> None:
-    permit = release_module.ACCEPTANCE_PERMIT
-    assert permit == AcceptancePermit(
-        kind="approve_usdc", account_nonce=3, authorized_by="owner 2026-10-28"
-    )
+def test_committed_release_opens_the_bounded_canary_only() -> None:
     report = live_release()
-    # The permit never opens the general release or removes a blocker.
-    assert report.new_actions_allowed is False and len(report.blockers) == 4
-    assert report.acceptance_permit == permit
+    # The consumed nonce-3 permit is retired; the release names its receipt evidence.
+    assert release_module.ACCEPTANCE_PERMIT is None and report.acceptance_permit is None
+    assert report.new_actions_allowed is True and report.blockers == []
+    assert report.release_evidence is not None
+    assert "0xe0363189ebb4e995fa3bedd58e228da7d6bfdc8c10b6f98c3cba3c2b2c5dc4fd" in (
+        report.release_evidence
+    )
+    # Opening never widens the owner's capital or loss limits.
+    assert (report.capital_limit_usd, report.daily_loss_limit_usd) == (500, 200)
+    assert report.cumulative_loss_limit_usd == 500
+    require_live_start()
+    for kind in ("approve_permit2", "swap", "mint", "burn"):
+        require_live_action(kind, 4)
+
+
+def test_closed_permit_admits_exactly_its_nonce(monkeypatch: pytest.MonkeyPatch) -> None:
+    close_release(monkeypatch, NONCE3)
+    report = live_release()
+    # A permit never opens the general release or removes the blocker.
+    assert report.new_actions_allowed is False and len(report.blockers) == 1
+    assert report.acceptance_permit == NONCE3
     require_live_start()
     require_live_action("approve_usdc", 3)
 
@@ -77,7 +100,7 @@ def test_committed_acceptance_permit_is_one_zero_principal_approval() -> None:
 @pytest.mark.parametrize(
     ("kind", "nonce"),
     [
-        ("approve_usdc", 4),  # the permitted nonce has been consumed
+        ("approve_usdc", 4),
         ("approve_usdc", 2),
         ("approve_usdc", True),  # bool is not a nonce
         ("approve_usdc", "3"),
@@ -89,14 +112,20 @@ def test_committed_acceptance_permit_is_one_zero_principal_approval() -> None:
         (None, 3),
     ],
 )
-def test_acceptance_permit_admits_nothing_else(kind: Any, nonce: Any) -> None:
+def test_acceptance_permit_admits_nothing_else(
+    monkeypatch: pytest.MonkeyPatch, kind: Any, nonce: Any
+) -> None:
+    close_release(monkeypatch, NONCE3)
     assert not acceptance_allows(kind, nonce)
     with pytest.raises(ValueError, match="live release blocked"):
         require_live_action(kind, nonce)
 
 
 @pytest.mark.parametrize("kind", ["swap", "mint", "burn", "approve_permit2"])
-def test_internal_non_permitted_action_refuses_under_permit(tmp_path: Path, kind: str) -> None:
+def test_internal_non_permitted_action_refuses_under_permit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    close_release(monkeypatch, NONCE3)
     loop = loop_with(tmp_path, ScriptedRpc())
     loop.mode = "live"
     with pytest.raises(ChainError, match="live release blocked"):
@@ -107,7 +136,10 @@ def test_internal_non_permitted_action_refuses_under_permit(tmp_path: Path, kind
     assert loop.state.history[-1]["event"] == "halt"
 
 
-def test_refused_action_halts_the_tick_loop(tmp_path: Path) -> None:
+def test_refused_action_halts_the_tick_loop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    close_release(monkeypatch, NONCE3)
     loop = loop_with(tmp_path, ScriptedRpc())
     loop.mode = "live"
     with pytest.raises(ChainError):
@@ -116,17 +148,21 @@ def test_refused_action_halts_the_tick_loop(tmp_path: Path) -> None:
 
 
 def test_without_permit_startup_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)
+    close_release(monkeypatch)
     assert live_release().acceptance_permit is None
     with pytest.raises(ValueError, match="live release blocked"):
         require_live_start()
     assert not acceptance_allows("approve_usdc", 3)
 
 
-def test_missing_state_still_exposes_release_blockers(tmp_path: Path) -> None:
+def test_missing_state_still_exposes_release(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     response = read_live_status(tmp_path / "absent")
     assert response.status == "missing"
     assert response.release == live_release()
+    close_release(monkeypatch)
+    response = read_live_status(tmp_path / "absent")
     assert response.release.new_actions_allowed is False
 
 

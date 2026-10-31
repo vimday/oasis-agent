@@ -54,6 +54,17 @@ renderLiveStatus(data);
 assert.match(nodes.get('live-title').textContent, /等待对账/);
 assert.match(nodes.get('live-pending').textContent, /nonce 3/);
 assert.match(nodes.get('live-source').textContent, /未重放/);
+// The committed release is open: limits and receipt evidence, no blocker list.
+assert.equal(data.release.new_actions_allowed, true);
+assert.match(nodes.get('live-release').innerHTML, /USD 500 金丝雀已放行/);
+assert.match(nodes.get('live-release').innerHTML, /0xe0363189/);
+const blocker = {code: 'release_closed', title: '实盘发布已关闭', required: '<b>x</b>'};
+const closed = {...data, release: {...data.release, new_actions_allowed: false,
+  release_evidence: null, blockers: [blocker]}};
+assert.equal(liveStatusModel(closed).status, 'pending');
+renderLiveStatus(closed);
+assert.match(nodes.get('live-release').innerHTML, /新交易启动已阻断 · 1 项/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /<b>/);
 const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
   blockers: ['signing_outcome_unresolved']};
 assert.equal(liveStatusModel(signing).status, 'signing_unknown');
@@ -78,7 +89,12 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...data, blockers: ['<script>']}, {...data, recent_actions: [null]},
   {...data, pending: {...data.pending, tx_hash: '<unsafe>'}},
   {...data, observation: {...data.observation, nav_usd: Infinity}},
-  {...data, observation: {...data.observation, nav_usd: '500'}}]) {
+  {...data, observation: {...data.observation, nav_usd: '500'}},
+  {...data, release: {...data.release, new_actions_allowed: 'true'}},
+  {...data, release: {...data.release, release_evidence: null}},
+  {...data, release: {...data.release, blockers: [blocker]}},
+  {...data, release: {...data.release, new_actions_allowed: false}},
+  {...data, release: {...data.release, new_actions_allowed: false, blockers: [null]}}]) {
   assert.equal(liveStatusModel(invalid), null);
   renderLiveStatus(data);
   renderLiveStatus(invalid);

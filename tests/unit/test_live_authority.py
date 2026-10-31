@@ -166,7 +166,8 @@ def setup_authority(
 
 
 def close_release(monkeypatch):
-    """Restore the real gate with no acceptance permit."""
+    """Restore the real gate, closed by the owner switch, with no acceptance permit."""
+    monkeypatch.setattr(release_module, "RELEASE_OPEN", False)
     monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)
     monkeypatch.setattr(authority_module, "require_live_action", require_live_action)
 
@@ -277,8 +278,9 @@ def test_authority_checks_each_feed_at_key_use(tmp_path, monkeypatch, feed, adva
 def test_acceptance_permit_signs_only_at_its_captured_nonce(tmp_path, monkeypatch, permit_nonce):
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         authority, key, fields, context = setup_authority(tmp_path, store, monkeypatch)
-        # Real gate; the fixture account is at nonce 4.
+        # Real closed gate; the fixture account is at nonce 4.
         monkeypatch.setattr(authority_module, "require_live_action", require_live_action)
+        monkeypatch.setattr(release_module, "RELEASE_OPEN", False)
         monkeypatch.setattr(
             release_module,
             "ACCEPTANCE_PERMIT",

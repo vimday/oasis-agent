@@ -52,7 +52,8 @@ def setup_cli(tmp_path, monkeypatch, *options):
 
 
 def test_normal_signing_still_refuses_before_key_or_network(tmp_path, monkeypatch):
-    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # closed, no permit
+    monkeypatch.setattr(release_module, "RELEASE_OPEN", False)  # closed by owner switch
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # and no permit
     directory = setup_cli(tmp_path, monkeypatch, "--socket", "/unused.sock")
     monkeypatch.setattr(cli, "BudgetedRpc", forbidden)
     with pytest.raises(ValueError, match="live release blocked"):

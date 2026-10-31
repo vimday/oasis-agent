@@ -37,52 +37,46 @@ class LiveRelease(BaseModel):
     daily_loss_limit_usd: int = 200
     cumulative_loss_limit_usd: int = 500
     acceptance_permit: AcceptancePermit | None = None
+    release_evidence: str | None = None
     blockers: list[ReleaseBlocker]
 
 
-# Owner choice 2026-10-28: "放行一笔零本金授权". Nonce 3 was observed on two providers at
-# Base block 53204765 for 0xe653df20a8c525edf381942ffc47704b7bdfe97d.
-ACCEPTANCE_PERMIT: AcceptancePermit | None = AcceptancePermit(
-    kind="approve_usdc", account_nonce=3, authorized_by="owner 2026-10-28"
+# The nonce-3 acceptance permit (owner 2026-10-28) was consumed by approve_usdc
+# 0xe0363189ebb4e995fa3bedd58e228da7d6bfdc8c10b6f98c3cba3c2b2c5dc4fd, included at Base
+# block 53250445 with status 1. The deployed authority settled it read-only from two
+# providers into live_approval_cash evidence with 336424665230 wei of gas equal to the
+# receipt. That receipt is the dedicated-account evidence the former blockers required.
+ACCEPTANCE_PERMIT: AcceptancePermit | None = None
+
+RELEASE_EVIDENCE = (
+    "owner 2026-10-31 opened the USD 500 canary; acceptance receipt "
+    "0xe0363189ebb4e995fa3bedd58e228da7d6bfdc8c10b6f98c3cba3c2b2c5dc4fd at Base block "
+    "53250445 reconciled from two providers by the deployed authority"
+)
+
+
+# Owner decision 2026-10-31. Setting this False restores the closed release below; the
+# closed path stays tested so a later stop needs no new code.
+RELEASE_OPEN = True
+
+CLOSED_BLOCKER = ReleaseBlocker(
+    code="release_closed",
+    title="实盘发布已关闭",
+    required="项目所有者重新放行前不允许新交易。",
+    implementation_status="closed_by_owner",
 )
 
 
 def live_release() -> LiveRelease:
+    # Capital, loss and action limits remain enforced by LiveConfig and the risk state;
+    # opening the release removes no per-action check.
+    if not RELEASE_OPEN:
+        return LiveRelease(acceptance_permit=ACCEPTANCE_PERMIT, blockers=[CLOSED_BLOCKER])
     return LiveRelease(
+        new_actions_allowed=True,
         acceptance_permit=ACCEPTANCE_PERMIT,
-        blockers=[
-            ReleaseBlocker(
-                code="successful_action_cash_incomplete",
-                title="历史双源 trace 与完整费用已验证, 待专用账户验收",
-                required=(
-                    "真实历史交易的 169 帧 trace 及回执双源一致; 完整 OP 费用已另行重放。"
-                    "仍需专用账户资金对账及生产数据源可靠性验收。"
-                ),
-            ),
-            ReleaseBlocker(
-                code="transaction_policy_not_isolated",
-                title="隔离配置及密钥导入已验证, 待生产服务验收",
-                required=(
-                    "核对部署主机的密钥配置并完成生产双源模拟及时效验收; 密钥导入不代表交易授权。"
-                ),
-            ),
-            ReleaseBlocker(
-                code="exact_nav_accounting_incomplete",
-                title="整数净值及未收手续费已接通, 待真实数据验收",
-                required=(
-                    "签名价格 NAV 候选支持双源只读复核及当前时效检查; 尚未接入生产签名门禁。"
-                    "仍需新鲜 USD 喂价、生产 NAV 验收、历史资金基准迁移及完整持仓估值。"
-                ),
-            ),
-            ReleaseBlocker(
-                code="durable_execution_recovery_incomplete",
-                title="双进程及历史承诺恢复已验证, 待生产双服务联调",
-                required=(
-                    "已支持结算后按原 nonce 找回承诺; 仍需部署双服务的真实回执对账。"
-                    "未知签名仍禁止自动重试。"
-                ),
-            ),
-        ],
+        release_evidence=RELEASE_EVIDENCE,
+        blockers=[],
     )
 
 

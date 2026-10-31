@@ -41,10 +41,13 @@ export function liveStatusModel(data) {
       data.profitability !== "unresolved" || !Object.hasOwn(STATES, data.status) ||
       !Array.isArray(data.blockers) || data.blockers.some(x => !Object.hasOwn(BLOCKERS, x)) ||
       !Array.isArray(data.recent_actions)) return null;
-  if (!data.release || data.release.schema_version !== "oasis.live-release.v1" ||
-      data.release.new_actions_allowed !== false || !Array.isArray(data.release.blockers) ||
-      data.release.blockers.length === 0 || data.release.blockers.some(x =>
+  const r = data.release;
+  if (!r || r.schema_version !== "oasis.live-release.v1" || !Array.isArray(r.blockers) ||
+      typeof r.new_actions_allowed !== "boolean" || r.blockers.some(x =>
         !x || typeof x.title !== "string" || typeof x.required !== "string")) return null;
+  // Exactly two coherent shapes: closed with blockers, or open with none and its evidence.
+  if (r.new_actions_allowed ? r.blockers.length !== 0 || typeof r.release_evidence !== "string" ||
+      !r.release_evidence : r.blockers.length === 0) return null;
   if (["unconfigured", "missing", "invalid"].includes(data.status)) return {...data, observation: null, pending: null, signing_unresolved: null, position: null, recent_actions: [], native_gas_units: null};
   if (typeof data.signing_unresolved !== "boolean" ||
       data.signing_unresolved !== (data.status === "signing_unknown") ||
@@ -76,7 +79,10 @@ export function renderLiveStatus(data) {
     renderTable("live-actions", [], [], "记录未验证");
     return;
   }
-  $("live-release").innerHTML = `<strong>新交易启动已阻断 · ${model.release.blockers.length} 项发布验收项</strong><ul>${model.release.blockers.map(item => `<li>${esc(item.title)}：${esc(item.required)}</li>`).join("")}</ul>`;
+  const release = model.release;
+  $("live-release").innerHTML = release.new_actions_allowed
+    ? `<strong>USD ${esc(release.capital_limit_usd)} 金丝雀已放行 · 日亏损上限 USD ${esc(release.daily_loss_limit_usd)} · 累计 USD ${esc(release.cumulative_loss_limit_usd)}</strong><ul><li>${esc(release.release_evidence)}</li></ul>`
+    : `<strong>新交易启动已阻断 · ${release.blockers.length} 项发布验收项</strong><ul>${release.blockers.map(item => `<li>${esc(item.title)}：${esc(item.required)}</li>`).join("")}</ul>`;
   $("live-title").textContent = STATES[model.status][0];
   $("live-next").textContent = STATES[model.status][1];
   $("live-blockers").innerHTML = model.blockers.map(code => `<li>${esc(BLOCKERS[code])}</li>`).join("");

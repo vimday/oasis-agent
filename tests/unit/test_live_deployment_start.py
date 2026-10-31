@@ -19,7 +19,8 @@ def test_closed_release_precedes_any_external_access(tmp_path, monkeypatch, caps
     def forbidden(*args, **kwargs):
         pytest.fail("closed release must not access Docker, environment or output")
 
-    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # closed, no permit
+    monkeypatch.setattr(release_module, "RELEASE_OPEN", False)  # closed by owner switch
+    monkeypatch.setattr(release_module, "ACCEPTANCE_PERMIT", None)  # and no permit
 
     monkeypatch.setattr(cli, "command", forbidden)
     monkeypatch.setattr(cli, "local_environment", forbidden)
