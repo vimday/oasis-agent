@@ -12,7 +12,10 @@ from eth_hash.auto import keccak
 
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.approval_cash import replay_approval_cash
+from oasis_agent.live.chain import ChainError
+from oasis_agent.live.exact_risk import ExactRisk
 from oasis_agent.live.intent import pending_plan_hash
+from oasis_agent.live.state import day_of
 from oasis_agent.live.v4lp import erc20_approve_call, permit2_approve_call
 from oasis_agent.models.common import canonical_json, evidence_ref_from_json
 from oasis_agent.reporting.live_status import read_live_status
@@ -259,3 +262,54 @@ def test_approval_replay_refuses_rewritten_intent_and_foreign_action(tmp_path: P
         )
         with pytest.raises(ValueError, match="approval outcome"):
             replay_approval_cash(store, forged, TEST_CONFIG)
+
+
+def settled_with_baseline(tmp_path: Path, store: EvidenceStore) -> Any:
+    """Live state after a confirmed approval: risk baseline kept, NAV proofs cleared."""
+    a, b = ApprovalFixture(), ApprovalFixture()
+    loop = approval_loop(tmp_path, store, a, b)
+    risk = ExactRisk()
+    at = a.opening.timestamp
+    risk.observe(day=day_of(at), at=at, nav=500_000_000)
+    loop.state.exact_risk, loop.state.initial_nav_usd = risk, 500.0
+    assert "confirmed" in loop.tick()
+    assert loop.state.nav_evidence == () and loop.state.pending is None
+    return loop
+
+
+def test_settled_approval_cash_stands_in_for_cleared_nav_checkpoint(tmp_path: Path) -> None:
+    # Live regression: the first settled transaction blocked every later tick and signature.
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        loop = settled_with_baseline(tmp_path, store)
+        loop.store.save(loop.state)
+        loop.state = loop.store.load("live")
+        before = asdict(loop.state)
+        loop._check_nav_checkpoint()
+        assert asdict(loop.state) == before
+
+
+@pytest.mark.parametrize(
+    "fault", ["units", "observed", "checkpoint", "one_proof", "swapped", "kind", "no_history"]
+)
+def test_settled_cash_stand_in_refuses_any_inconsistency(tmp_path: Path, fault: str) -> None:
+
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
+        loop = settled_with_baseline(tmp_path, store)
+        s = loop.state
+        last = s.history[-1]
+        if fault == "units":
+            s.last_units = [s.last_units[0] + 1, *s.last_units[1:]]
+        elif fault == "observed":
+            s.last_observation = {"pre_action": True}
+        elif fault == "checkpoint":
+            s.checkpoint_at = 1
+        elif fault == "one_proof":
+            last["cash_evidence"] = last["cash_evidence"][:1]
+        elif fault == "swapped":
+            last["cash_evidence"] = last["cash_evidence"][::-1]
+        elif fault == "kind":
+            last["event"] = "approve_permit2"
+        elif fault == "no_history":
+            s.history = []
+        with pytest.raises(ChainError, match=r"NAV checkpoint|settled action cash"):
+            loop._check_nav_checkpoint()

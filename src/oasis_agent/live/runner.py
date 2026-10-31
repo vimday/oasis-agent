@@ -17,12 +17,18 @@ from typing import Any
 from eth_hash.auto import keccak
 
 from ..farming.positions import decode_position_info
-from ..models.common import BlockRef, EvidenceRef, canonical_json, sha256_hex
+from ..models.common import (
+    BlockRef,
+    EvidenceRef,
+    canonical_json,
+    evidence_ref_from_json,
+    sha256_hex,
+)
 from ..reporting.live_release import require_live_action
 from ..reporting.live_status import LiveObservation
-from .action_cash import reconcile_action
+from .action_cash import reconcile_action, replay_action_cash
 from .action_plan import action_call
-from .approval_cash import reconcile_approval
+from .approval_cash import reconcile_approval, replay_approval_cash
 from .chain import (
     ChainError,
     DigestSigner,
@@ -38,7 +44,7 @@ from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
 from .positions import collect_position_outcome, replay_position_outcome
 from .receipts import RetainedReceiptCostReader
-from .revert_cash import reconcile_revert
+from .revert_cash import reconcile_revert, replay_revert_cash
 from .state import Pending, Position, StateStore, day_of
 from .v4lp import (
     liquidity_for_amounts,
@@ -506,7 +512,9 @@ class LiveLoop:
             if self.state.initial_nav_usd is not None or (
                 risk is not None and (risk.basis is not None or risk.last_nav is not None)
             ):
-                raise ChainError("retained NAV checkpoint missing for existing risk baseline")
+                # A settled action clears its pre-action NAV proofs; only that action's own
+                # two retained cash proofs may stand in until the next observation.
+                self._check_settled_cash()
             return
         reader = self.receipt_costs
         if reader is None or len(self.state.nav_evidence) != 2:
@@ -524,6 +532,59 @@ class LiveLoop:
             risk.validate()
         except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
             raise ChainError("retained NAV checkpoint cannot be replayed") from None
+
+    def _check_settled_cash(self) -> None:
+        """Replay the last settled action's two cash proofs against the recorded units."""
+        s, reader = self.state, self.receipt_costs
+        last = s.history[-1] if s.history else None
+        if (
+            reader is None
+            or last is None
+            or s.checkpoint_at != 0
+            or s.last_observation is not None
+            or s.last_units is None
+            or not isinstance(last.get("cash_evidence"), list)
+            or len(last["cash_evidence"]) != 2
+        ):
+            raise ChainError("retained NAV checkpoint missing for existing risk baseline")
+        kind = last.get("kind") if last.get("event") == "reverted" else last.get("event")
+        try:
+            refs = [evidence_ref_from_json(r) for r in last["cash_evidence"]]
+            if [r.source for r in refs] != list(reader.sources):
+                raise ValueError("cash proofs are not the declared provider pair")
+            wallets: list[WalletBalance] = []
+            for ref in refs:
+                if last["event"] == "reverted":
+                    wallets.append(
+                        replay_revert_cash(reader.store, ref, self.c).reconstruct(
+                            reader.store, self.c
+                        )
+                    )
+                elif kind in {"approve_usdc", "approve_permit2"}:
+                    proof = replay_approval_cash(reader.store, ref, self.c)
+                    if proof.kind != kind:
+                        raise ValueError("approval cash proves another action")
+                    wallets.append(proof.reconstruct(reader.store, self.c)[0])
+                elif kind in {"swap", "mint", "burn"}:
+                    action = replay_action_cash(reader.store, ref, self.c)
+                    if action.kind != kind:
+                        raise ValueError("action cash proves another action")
+                    wallets.append(action.reconstruct(reader.store, self.c))
+                else:
+                    raise ValueError("last event is not a settled action")
+            a, b = wallets
+            risk = s.exact_risk
+            if (
+                a.header != b.header
+                or (a.native, a.token) != (b.native, b.token)
+                or [a.native, a.token] != s.last_units[:2]
+                or risk is None
+                or a.header.ref.timestamp is None
+                or a.header.ref.timestamp < risk.last_at
+            ):
+                raise ValueError("settled cash differs from recorded wallet units")
+        except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
+            raise ChainError("settled action cash cannot be replayed") from None
 
     def _check_settlements(self) -> None:
         if self.mode != "live" or not self.state.settled_blocks:
