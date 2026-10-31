@@ -44,6 +44,7 @@ from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
 from .positions import collect_position_outcome, replay_position_outcome
 from .receipts import RetainedReceiptCostReader
+from .recovery import UNKNOWN_SIGNING_HALT, release_unsigned_attempt
 from .revert_cash import reconcile_revert, replay_revert_cash
 from .state import Pending, Position, StateStore, day_of
 from .v4lp import (
@@ -71,6 +72,8 @@ ORACLE_DECIMALS = 8  # Base ETH/USD feed decimals(), verified on two providers 2
 MAX_CONSECUTIVE_REVERTS = 2
 # Each failed settlement attempt can spend ~100 requests of a 4096 lifetime budget.
 MAX_SETTLEMENT_FAILURES = 5
+# Refused proposals released per process before an operator must look at the cause.
+MAX_RELEASED_ATTEMPTS = 3
 RECEIPT_CONFIRMATIONS = 3
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
@@ -149,6 +152,7 @@ class LiveLoop:
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         self.settlement_failures = 0
+        self.released_attempts = 0
 
     @classmethod
     def recovery(cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str) -> "LiveLoop":
@@ -160,6 +164,7 @@ class LiveLoop:
         loop.state = store.load(mode)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         loop.settlement_failures = 0
+        loop.released_attempts = 0
         return loop
 
     # ---- observation -------------------------------------------------------------
@@ -375,8 +380,18 @@ class LiveLoop:
         if s.halted:
             return f"halted: {s.halted}"
         if s.signing_attempt is not None:
-            s.halted = "signing outcome unknown; durable nonce reservation requires reconciliation"
-            return f"HALT {s.halted}"
+            # A refused proposal leaves its reservation; release it only when the authority
+            # and both providers prove no signature exists, otherwise halt for reconciliation.
+            attempt = s.signing_attempt
+            try:
+                self._release_unsigned_attempt()
+            except Exception:  # noqa: BLE001 - authority/provider errors may contain secrets
+                s.halted = UNKNOWN_SIGNING_HALT
+                return f"HALT {s.halted}"
+            return (
+                f"released unsigned {attempt.get('kind')} reservation at nonce "
+                f"{attempt.get('nonce')}; re-proposing next tick"
+            )
         if s.pending is not None:
             try:
                 status = self._resolve_pending()
@@ -532,6 +547,26 @@ class LiveLoop:
             risk.validate()
         except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
             raise ChainError("retained NAV checkpoint cannot be replayed") from None
+
+    def _release_unsigned_attempt(self) -> None:
+        s = self.state
+        status_of = getattr(self.signer, "pending_status", None)
+        if (
+            self.mode != "live"
+            or self.secondary is None
+            or not callable(status_of)
+            or not isinstance(s.signing_attempt, dict)
+            or self.released_attempts >= MAX_RELEASED_ATTEMPTS
+        ):
+            raise ChainError("signing outcome requires operator reconciliation")
+        status = status_of(s.signing_attempt["nonce"])
+        nonces = tuple(
+            rpc.nonce(self.c.account, tag)
+            for rpc in (self.rpc, self.secondary)
+            for tag in ("latest", "pending")
+        )
+        release_unsigned_attempt(s, self.c, status, nonces)
+        self.released_attempts += 1
 
     def _check_settled_cash(self) -> None:
         """Replay the last settled action's two cash proofs against the recorded units."""

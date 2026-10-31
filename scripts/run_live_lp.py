@@ -30,7 +30,11 @@ from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.receipts import RetainedReceiptCostReader
-from oasis_agent.live.recovery import adopt_authority_pending, require_recovery_wallets
+from oasis_agent.live.recovery import (
+    adopt_authority_pending,
+    release_unsigned_attempt,
+    require_recovery_wallets,
+)
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
@@ -303,7 +307,16 @@ def main() -> None:
                     public = TransactionSocketClient(
                         args.signer_socket, config.account
                     ).pending_status(loop.state.signing_attempt["nonce"])
-                    adopt_authority_pending(loop.state, config, public)
+                    if public.get("pending") is None:
+                        # Refused proposal: release only on proof that nothing was signed.
+                        nonces = tuple(
+                            rpc.nonce(config.account, tag)
+                            for rpc in (loop.rpc, loop.secondary)
+                            for tag in ("latest", "pending")
+                        )
+                        release_unsigned_attempt(loop.state, config, public, nonces)
+                    else:
+                        adopt_authority_pending(loop.state, config, public)
                     store.save(loop.state)
                 result = loop._resolve_pending() if loop.state.pending else "no pending transaction"
             except Exception:  # noqa: BLE001 - providers can expose credentials

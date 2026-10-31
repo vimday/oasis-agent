@@ -128,6 +128,39 @@ def adopt_authority_pending(state: LoopState, c: LiveConfig, status: dict[str, A
         refs,
     )
     state.signing_attempt = None
-    if state.halted == "signing outcome unknown; durable nonce reservation requires reconciliation":
+    if state.halted == UNKNOWN_SIGNING_HALT:
         state.halted = None
     state.record("authority_reply_recovered", transaction=asdict(tx))
+
+
+UNKNOWN_SIGNING_HALT = "signing outcome unknown; durable nonce reservation requires reconciliation"
+
+
+def release_unsigned_attempt(
+    state: LoopState, c: LiveConfig, status: dict[str, Any], chain_nonces: tuple[int, ...]
+) -> None:
+    """Release a reservation the authority provably never signed; never signs or sends.
+
+    The authority journals its own signing attempt before key use and a commitment after,
+    so "no unresolved attempt and no commitment at this nonce" plus an unconsumed nonce on
+    every provider (latest and pending) means no signature for the nonce exists.
+    """
+    attempt = state.signing_attempt
+    if state.mode != "live" or state.pending is not None or not isinstance(attempt, dict):
+        raise ValueError("release requires exactly one unresolved signing attempt")
+    nonce = attempt.get("nonce")
+    if (
+        type(nonce) is not int
+        or status.get("account") != c.account
+        or status.get("chain_id") != c.chain_id
+        or status.get("signing_unresolved") is not False
+        or "pending" not in status
+        or status["pending"] is not None
+        or len(chain_nonces) < 4
+        or any(type(n) is not int or n != nonce for n in chain_nonces)
+    ):
+        raise ValueError("authority or chain does not prove the attempt unsigned")
+    state.signing_attempt = None
+    if state.halted == UNKNOWN_SIGNING_HALT:
+        state.halted = None
+    state.record("signing_attempt_released", nonce=nonce, kind=attempt.get("kind"))
