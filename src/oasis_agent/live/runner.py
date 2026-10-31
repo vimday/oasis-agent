@@ -153,6 +153,8 @@ class LiveLoop:
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         self.settlement_failures = 0
         self.released_attempts = 0
+        # Anchors both providers proved finalized; process-local, so a restart re-verifies.
+        self.final_anchors: set[bytes] = set()
 
     @classmethod
     def recovery(cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str) -> "LiveLoop":
@@ -165,6 +167,7 @@ class LiveLoop:
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         loop.settlement_failures = 0
         loop.released_attempts = 0
+        loop.final_anchors = set()
         return loop
 
     # ---- observation -------------------------------------------------------------
@@ -626,7 +629,15 @@ class LiveLoop:
             return
         if self.secondary is None:
             raise ChainError("settlement ancestry requires two providers")
-        for anchor in self.state.settled_blocks:
+        open_anchors = [
+            a for a in self.state.settled_blocks if canonical_json(a) not in self.final_anchors
+        ]
+        if not open_anchors:
+            return
+        # An anchor at or below both providers' finalized head cannot reorg. Verify it once
+        # more against both providers, then stop re-reading it in this process.
+        finalized = min(self._finalized_number(rpc) for rpc in (self.rpc, self.secondary))
+        for anchor in open_anchors:
             for rpc in (self.rpc, self.secondary):
                 block = rpc.call("eth_getBlockByNumber", [hex(anchor["number"]), False])
                 if not isinstance(block, dict) or block.get("hash") != anchor["hash"]:
@@ -640,6 +651,18 @@ class LiveLoop:
                 ):
                     self.state.halted = "settled transaction receipt changed or unavailable"
                     raise ChainError(self.state.halted)
+            if anchor["number"] <= finalized:
+                self.final_anchors.add(canonical_json(anchor))
+
+    @staticmethod
+    def _finalized_number(rpc: Rpc) -> int:
+        block = rpc.call("eth_getBlockByNumber", ["finalized", False])
+        if not isinstance(block, dict):
+            return -1  # No finality claim: every anchor stays under per-tick verification.
+        try:
+            return int(str(block["number"]), 16)
+        except (KeyError, ValueError):
+            return -1
 
     def _range_text(self, m: Market) -> str:
         p = self.state.position

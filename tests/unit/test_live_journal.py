@@ -176,3 +176,75 @@ def test_failed_mint_interpretation_does_not_consume_settlement_anchor(tmp_path:
             cash_evidence=(object(), object()),
         )
     assert asdict(loop.state) == before
+
+
+class FinalityRpc:
+    """Counts settlement reads; `finalized` is this provider's finalized head or None."""
+
+    def __init__(self, anchor: dict, finalized: int | None) -> None:
+        self.anchor, self.finalized, self.reads = anchor, finalized, 0
+
+    def call(self, method: str, params: list) -> object:
+        assert method == "eth_getBlockByNumber"
+        if params[0] == "finalized":
+            return None if self.finalized is None else {"number": hex(self.finalized)}
+        self.reads += 1
+        return {"hash": self.anchor["hash"]}
+
+    def receipt(self, tx_hash: str) -> dict:
+        self.reads += 1
+        return {
+            "blockHash": self.anchor["hash"],
+            "transactionHash": self.anchor["transaction_hash"],
+        }
+
+
+ANCHOR = {"number": 100, "hash": "0x" + "11" * 32, "transaction_hash": "0x" + "22" * 32}
+
+
+@pytest.mark.parametrize(
+    ("finalized", "secondary_finalized", "rechecked"),
+    [
+        (100, 100, False),  # final on both providers: verified once, then skipped
+        (150, 120, False),
+        (99, 150, True),  # not yet final on one provider
+        (150, 99, True),
+        (None, 150, True),  # no finality claim
+        (150, None, True),
+    ],
+)
+def test_settlement_anchor_is_skipped_only_after_both_providers_finalize(
+    tmp_path: Path, finalized: int | None, secondary_finalized: int | None, rechecked: bool
+) -> None:
+    a, b = FinalityRpc(ANCHOR, finalized), FinalityRpc(ANCHOR, secondary_finalized)
+    loop = live_loop(tmp_path, a, b, settled_blocks=[dict(ANCHOR)])
+    loop._check_settlements()
+    assert (a.reads, b.reads) == (2, 2)  # every anchor is verified at least once
+    loop._check_settlements()
+    assert (a.reads, b.reads) == ((4, 4) if rechecked else (2, 2))
+
+
+def test_finalized_anchor_is_reverified_after_restart_and_new_anchor_is_checked(
+    tmp_path: Path,
+) -> None:
+    a, b = FinalityRpc(ANCHOR, 200), FinalityRpc(ANCHOR, 200)
+    loop = live_loop(tmp_path, a, b, settled_blocks=[dict(ANCHOR)])
+    loop._check_settlements()
+    newer = {"number": 300, "hash": ANCHOR["hash"], "transaction_hash": "0x" + "33" * 32}
+    loop.state.settled_blocks.append(newer)
+    a.anchor = b.anchor = newer
+    loop._check_settlements()
+    assert (a.reads, b.reads) == (4, 4)  # only the new, non-final anchor was read
+    restarted = live_loop(tmp_path / "restart", a, b, settled_blocks=[dict(ANCHOR)])
+    a.anchor = b.anchor = ANCHOR
+    restarted._check_settlements()
+    assert (a.reads, b.reads) == (6, 6)  # a new process never trusts a prior skip
+
+
+def test_finalized_anchor_still_halts_on_its_one_verification(tmp_path: Path) -> None:
+    a, b = FinalityRpc(ANCHOR, 200), FinalityRpc(ANCHOR, 200)
+    b.anchor = {**ANCHOR, "hash": "0x" + "44" * 32}
+    loop = live_loop(tmp_path, a, b, settled_blocks=[dict(ANCHOR)])
+    with pytest.raises(ChainError, match="reorged"):
+        loop._check_settlements()
+    assert loop.state.halted is not None and not loop.final_anchors
