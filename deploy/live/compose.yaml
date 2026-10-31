@@ -35,7 +35,7 @@ services:
       - authority-state:/state
       - authority-socket:/run/oasis
       - canary-keys:/secrets:ro
-    command: [python, -m, scripts.run_live_authority, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --socket, /run/oasis/authority.sock, --key-file, /secrets/canary.key, --max-signatures, "12", --ttl-seconds, "3600"]
+    command: [python, -m, scripts.run_live_authority, --config, /app/configs/live.base-eth-usdc.json, --rpc-profile, /app/configs/live.rpc.canary.json, --state-dir, /state, --socket, /run/oasis/authority.sock, --key-file, /secrets/canary.key, --max-signatures, "12", --ttl-seconds, "86400"]
   strategy:
     <<: *common
     volumes:

@@ -167,8 +167,9 @@ def test_replaced_entry_points_and_automatic_recovery_are_refused(document, faul
     "service,flag,value",
     [
         ("authority", "--max-signatures", "1000"),
-        ("authority", "--ttl-seconds", "86400"),
+        ("authority", "--ttl-seconds", "3600"),  # differs from the 86400 contract
         ("authority", "--key-file", "/secrets/other.key"),
+        ("strategy", "--poll-seconds", "30"),
         ("authority", "--rpc-profile", "/app/configs/unbounded.json"),
         ("authority-status", "--max-status-requests", "1000"),
         ("authority-status", "--ttl-seconds", "86400"),

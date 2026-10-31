@@ -38,8 +38,10 @@ COMMANDS = {
         "/secrets/canary.key",
         "--max-signatures",
         "12",
+        # Owner 2026-10-31: 24h so exits and recenters stay possible while the canary holds.
+        # The 12-signature cap and per-action capital/loss checks are unchanged.
         "--ttl-seconds",
-        "3600",
+        "86400",
     ],
     # Holding observation reads ~40 requests per provider per tick against a lifetime
     # budget of 4096; 300s polling stretches it to hours. Exit lag is at most one interval.
