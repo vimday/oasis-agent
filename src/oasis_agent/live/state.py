@@ -95,6 +95,8 @@ class LoopState:
     exact_risk: ExactRisk | None = None
     signing_attempt: dict[str, Any] | None = None
     settled_blocks: list[dict[str, Any]] = field(default_factory=list)
+    # Last cheap in-range check between full observations; display only, never risk input.
+    last_light_check: dict[str, int] | None = None
 
     def integer_risk(self) -> ExactRisk:
         if self.exact_risk is None:
@@ -177,6 +179,16 @@ def validate_state(state: LoopState) -> None:
             raise ValueError("invalid settlement anchor")
     if state.signing_attempt is not None and not isinstance(state.signing_attempt, dict):
         raise ValueError("invalid signing reservation")
+    light = state.last_light_check
+    if light is not None and (
+        not isinstance(light, dict)
+        or set(light) != {"block", "block_timestamp", "observed_at", "tick"}
+        or any(type(v) is not int for v in light.values())
+        or light["block"] < 0
+        or not 0 <= light["block_timestamp"] <= light["observed_at"]
+        or not -887272 <= light["tick"] <= 887272
+    ):
+        raise ValueError("invalid light check record")
     if state.exact_risk is not None:
         state.exact_risk.validate()
     if state.mode not in {"live", "shadow"}:

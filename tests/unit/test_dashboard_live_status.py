@@ -65,6 +65,15 @@ assert.equal(liveStatusModel(closed).status, 'pending');
 renderLiveStatus(closed);
 assert.match(nodes.get('live-release').innerHTML, /新交易启动已阻断 · 1 项/);
 assert.doesNotMatch(nodes.get('live-release').innerHTML, /<b>/);
+const light = {block: data.observation.block + 10,
+  block_timestamp: data.observation.observed_at + 590,
+  observed_at: data.observation.observed_at + 600, tick: -199100};
+const held = {...data, pending: null, status: 'observed', blockers: [],
+  observation_age_seconds: 900, light_check: light};
+assert.equal(liveStatusModel(held).status, 'observed');
+renderLiveStatus(held);
+assert.match(nodes.get('live-observation').textContent, /区间检查于 .* tick -199100/);
+assert.match(nodes.get('live-observation').textContent, /仅确认仍在区间/);
 const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
   blockers: ['signing_outcome_unresolved']};
 assert.equal(liveStatusModel(signing).status, 'signing_unknown');
@@ -94,7 +103,12 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...data, release: {...data.release, release_evidence: null}},
   {...data, release: {...data.release, blockers: [blocker]}},
   {...data, release: {...data.release, new_actions_allowed: false}},
-  {...data, release: {...data.release, new_actions_allowed: false, blockers: [null]}}]) {
+  {...data, release: {...data.release, new_actions_allowed: false, blockers: [null]}},
+  {...held, observation_age_seconds: 4021},
+  {...held, light_check: {...light, block: data.observation.block}},
+  {...held, light_check: {...light, observed_at: data.observation.observed_at - 1}},
+  {...held, light_check: {...light, tick: '-199100'}},
+  {...held, light_check: null, observation_age_seconds: 900}]) {
   assert.equal(liveStatusModel(invalid), null);
   renderLiveStatus(data);
   renderLiveStatus(invalid);

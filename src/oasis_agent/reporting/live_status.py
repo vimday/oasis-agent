@@ -22,6 +22,10 @@ Hash = Annotated[str, Field(pattern=r"^0x[0-9a-f]{64}$")]
 Action = Literal["approve_usdc", "approve_permit2", "swap", "mint", "burn"]
 MAX_STATE_BYTES = 2_000_000
 MAX_OBSERVATION_AGE = 120
+# Mirrors the runner: a full NAV/loss observation at least every 3600s, with light
+# in-range checks every poll (300s deployed) in between. Slack covers one poll plus I/O.
+MAX_FULL_OBSERVATION_AGE = 3600 + 420
+MAX_LIGHT_CHECK_AGE = 420
 
 
 class LiveObservation(BaseModel):
@@ -66,6 +70,16 @@ class PositionView(BaseModel):
     liquidity: UInt
 
 
+class LightCheckView(BaseModel):
+    """Two-provider tick/liquidity hold between full observations; not a NAV or loss check."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    block: UInt
+    block_timestamp: UInt
+    observed_at: UInt
+    tick: Annotated[int, Field(ge=-887272, le=887272)]
+
+
 class _Event(BaseModel):
     model_config = ConfigDict(extra="ignore", strict=True)
     event: Annotated[str, Field(max_length=80)]
@@ -88,6 +102,7 @@ class _State(BaseModel):
     actions_today: UInt
     last_observation: LiveObservation | None = None
     signing_attempt: dict[str, Any] | None = None
+    last_light_check: LightCheckView | None = None
     history: Annotated[list[_Event], Field(max_length=200)]
 
 
@@ -121,6 +136,7 @@ class LiveStatusResponse(BaseModel):
     state_hash: str | None = None
     observation_age_seconds: int | None = None
     observation: LiveObservation | None = None
+    light_check: LightCheckView | None = None
     pending: PendingView | None = None
     signing_unresolved: bool | None = None
     position: PositionView | None = None
@@ -177,9 +193,19 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
     else:
         age = clock - observation.observed_at
         block_age = clock - observation.block_timestamp
+        light = state.last_light_check
         if age < 0 or block_age < 0 or observation.block_timestamp > observation.observed_at:
             blockers.append("observation_clock_invalid")
-        elif max(age, block_age) > MAX_OBSERVATION_AGE:
+        elif max(age, block_age) > MAX_OBSERVATION_AGE and not (
+            # Between full observations the loop holds on a cheap two-provider in-range check.
+            # It counts as fresh only while the full observation it rides on is itself current.
+            light is not None
+            and age <= MAX_FULL_OBSERVATION_AGE
+            and light.block > observation.block
+            and light.observed_at >= observation.observed_at
+            and 0 <= clock - light.observed_at <= MAX_LIGHT_CHECK_AGE
+            and 0 <= clock - light.block_timestamp <= MAX_LIGHT_CHECK_AGE
+        ):
             blockers.append("observation_stale")
         if (
             observation.daily_loss_usd >= observation.daily_loss_limit_usd
@@ -228,6 +254,7 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
         state_hash=sha256_hex(payload),
         observation_age_seconds=age,
         observation=observation,
+        light_check=state.last_light_check if observation is not None else None,
         pending=state.pending,
         signing_unresolved=signing_unresolved,
         position=state.position,

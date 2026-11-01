@@ -57,8 +57,15 @@ export function liveStatusModel(data) {
       !Number.isSafeInteger(o.observed_at) || !Number.isSafeInteger(o.block_timestamp) ||
       ["nav_usd", "daily_loss_usd", "cumulative_loss_usd", "capital_limit_usd", "daily_loss_limit_usd", "cumulative_loss_limit_usd"]
         .some(key => typeof o[key] !== "number" || !Number.isFinite(o[key]) || o[key] < 0))) return null;
+  const l = data.light_check;
+  if (l !== null && l !== undefined && (!o || !uint(l.block) || !Number.isSafeInteger(l.observed_at) ||
+      !Number.isSafeInteger(l.block_timestamp) || !Number.isSafeInteger(l.tick) ||
+      l.block <= o.block || l.observed_at < o.observed_at)) return null;
+  // Fresh means a full observation under 120s, or a newer light in-range check riding on a
+  // full observation under 4020s (the server applies the same rule before clearing blockers).
+  const maxAge = l ? 4020 : 120;
   if (data.status === "observed" && (!o || data.blockers.length ||
-      !Number.isSafeInteger(data.observation_age_seconds) || data.observation_age_seconds < 0 || data.observation_age_seconds > 120)) return null;
+      !Number.isSafeInteger(data.observation_age_seconds) || data.observation_age_seconds < 0 || data.observation_age_seconds > maxAge)) return null;
   if (data.pending && (!Object.hasOwn(ACTIONS, data.pending.kind) || !hash(data.pending.tx_hash) ||
       !uint(data.pending.nonce) || !Number.isSafeInteger(data.pending.signed_at))) return null;
   if (data.position && (!uint(data.position.token_id) || !uint(data.position.liquidity) ||
@@ -94,7 +101,9 @@ export function renderLiveStatus(data) {
     {label: "已记账交易 gas · ETH", value: formatNative(model.native_gas_units)},
   ]);
   $("live-observation").textContent = o
-    ? `观测于 ${fmtTime(o.observed_at)} · 区块 ${o.block} · 数据年龄 ${model.observation_age_seconds} 秒 · 配置资本上限 ${usd(o.capital_limit_usd)}\n账户 ${o.account}\n区块哈希 ${o.block_hash}`
+    ? `完整观测于 ${fmtTime(o.observed_at)} · 区块 ${o.block} · 数据年龄 ${model.observation_age_seconds} 秒 · 配置资本上限 ${usd(o.capital_limit_usd)}` +
+      (model.light_check ? `\n区间检查于 ${fmtTime(model.light_check.observed_at)} · 区块 ${model.light_check.block} · tick ${model.light_check.tick}（双源一致，仅确认仍在区间，不含净值与亏损）` : "") +
+      `\n账户 ${o.account}\n区块哈希 ${o.block_hash}`
     : "没有可用账户观测；数值缺失不等于余额或亏损为零。";
   const p = model.pending;
   $("live-pending").textContent = model.signing_unresolved

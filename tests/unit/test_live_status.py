@@ -252,3 +252,69 @@ def test_loop_records_actual_observation_and_does_not_refresh_it_on_failure(tmp_
     loop.observe = fail
     loop.tick()
     assert loop.state.last_observation == saved
+
+
+def light_state(*, full_age: int, light_age: int, block: int = 200) -> dict:
+    state = observed_state()
+    state["last_observation"]["observed_at"] = NOW - full_age
+    state["last_observation"]["block_timestamp"] = NOW - full_age - 5
+    state["last_light_check"] = {
+        "block": block,
+        "block_timestamp": NOW - light_age - 2,
+        "observed_at": NOW - light_age,
+        "tick": -199_100,
+    }
+    return state
+
+
+def test_recent_light_check_keeps_a_current_full_observation_fresh(tmp_path: Path) -> None:
+    report = read_live_status(
+        write_state(tmp_path, light_state(full_age=900, light_age=60)), now=NOW
+    )
+    assert report.status == "observed" and report.blockers == []
+    assert report.light_check is not None and report.light_check.tick == -199_100
+    assert report.observation_age_seconds == 900  # the full observation's own age is reported
+
+
+@pytest.mark.parametrize(
+    ("full_age", "light_age", "block"),
+    [
+        (4021, 60, 200),  # the full NAV/loss observation itself is overdue
+        (900, 421, 200),  # the light check is too old
+        (900, 60, 123),  # light check is not newer than the full observation
+        (900, -5, 200),  # light check from the future
+    ],
+)
+def test_light_check_never_masks_a_stale_or_inconsistent_observation(
+    tmp_path: Path, full_age: int, light_age: int, block: int
+) -> None:
+    state = light_state(full_age=full_age, light_age=light_age, block=block)
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert report.status == "stale" and "observation_stale" in report.blockers
+
+
+def test_light_check_cannot_hide_loss_latch_or_halt(tmp_path: Path) -> None:
+    state = light_state(full_age=300, light_age=30)
+    state["last_observation"]["daily_loss_usd"] = 200.0
+    state["halted"] = "operator stop"
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert {"recorded_loss_budget_exhausted", "state_halted"} <= set(report.blockers)
+    assert report.status == "halted"
+
+
+@pytest.mark.parametrize(
+    "light",
+    [
+        {"block": 1, "block_timestamp": 2, "observed_at": 1, "tick": 0},  # block after observation
+        {"block": 1, "block_timestamp": 1, "observed_at": 1, "tick": 900_000},
+        {"block": 1, "block_timestamp": 1, "observed_at": 1},
+        {"block": 1, "block_timestamp": 1, "observed_at": 1, "tick": 0, "nav": 1},
+        {"block": True, "block_timestamp": 1, "observed_at": 1, "tick": 0},
+    ],
+)
+def test_corrupt_light_check_record_is_refused(tmp_path: Path, light: dict) -> None:
+    store = StateStore(tmp_path / "state.json")
+    state = LoopState("live")
+    state.last_light_check = light
+    with pytest.raises(ValueError):
+        store.save(state)

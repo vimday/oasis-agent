@@ -76,7 +76,7 @@ MAX_SETTLEMENT_FAILURES = 5
 MAX_RELEASED_ATTEMPTS = 3
 # Holding an in-range position runs a cheap two-provider tick/liquidity check; the full
 # NAV, loss-latch, runtime-pin and decision path still runs at least this often.
-FULL_OBSERVATION_SECONDS = 1800
+FULL_OBSERVATION_SECONDS = 3600
 # Consecutive unresolved (transport-level) full observations before halting for review.
 MAX_OBSERVATION_FAILURES = 3
 RECEIPT_CONFIRMATIONS = 3
@@ -331,6 +331,12 @@ class LiveLoop:
         tick, liquidity = seen[0]
         if seen[0] != seen[1] or liquidity != p.liquidity or not p.lower <= tick < p.upper:
             return None
+        s.last_light_check = {
+            "block": number,
+            "block_timestamp": timestamp,
+            "observed_at": int(time.time()),
+            "tick": tick,
+        }
         return (
             f"block {number} light hold in range [{p.lower},{p.upper}) tick {tick} id {p.token_id}"
         )
@@ -544,6 +550,7 @@ class LiveLoop:
             )
         s.last_units = m.units
         s.nav_evidence = m.nav_evidence
+        s.last_light_check = None  # a full observation supersedes any earlier light check
         s.last_observation = LiveObservation(
             chain_id=self.c.chain_id,  # type: ignore[arg-type]  # validated Base-only config
             account=self.c.account,

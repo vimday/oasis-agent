@@ -778,3 +778,14 @@ def test_shadow_mode_never_takes_the_light_path(tmp_path: Path) -> None:
     loop = loop_with(tmp_path, LightRpc(TICK, HELD.liquidity), position=HELD)
     loop.state.last_observation = {"observed_at": int(time.time()) - 60}
     assert loop._light_hold() is None
+
+
+def test_light_hold_records_its_check_and_full_observation_clears_it(tmp_path: Path) -> None:
+    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
+    loop = light_loop(tmp_path, a, b)
+    loop._tick()
+    light = loop.state.last_light_check
+    assert light is not None and light["block"] == 500 and light["tick"] == TICK
+    a.tick = b.tick = HELD.lower - 1
+    assert loop._light_hold() is None
+    assert loop.state.last_light_check == light  # a refused light check records nothing
