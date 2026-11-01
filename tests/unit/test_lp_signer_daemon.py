@@ -8,6 +8,7 @@ signature over the socket. Every key here is generated inside the test process
 and never written to the repository.
 """
 
+import errno
 import json
 import shutil
 import socket
@@ -23,6 +24,7 @@ import pytest
 from eth_hash.auto import keccak
 from eth_keys import keys
 
+from oasis_agent.execution import lp_signer_daemon as daemon_module
 from oasis_agent.execution.lp_signer_daemon import (
     AUDIT_SCHEMA,
     DIGEST_SIGNING_SCHEMA,
@@ -89,15 +91,25 @@ def running_daemon(
         except Exception as error:  # noqa: BLE001 - surfaced to the assertions below
             errors.append(error)
 
+    # The daemon binds, restricts the endpoint to 0600 and only then listens, so an
+    # existing socket file can still refuse connections. Signal readiness after listen().
+    listening = threading.Event()
+    prepare = daemon_module.prepare_endpoint
+
+    def prepare_and_signal(path: Path) -> socket.socket:
+        server = prepare(path)
+        listening.set()
+        return server
+
+    daemon_module.prepare_endpoint = prepare_and_signal  # type: ignore[assignment]
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    deadline = time.monotonic() + 5
-    while not endpoint.exists() and time.monotonic() < deadline:
-        time.sleep(0.01)
+    listening.wait(timeout=5)
     try:
         yield endpoint, audit_path, signed, errors
     finally:
         thread.join(timeout=10)
+        daemon_module.prepare_endpoint = prepare  # type: ignore[assignment]
         shutil.rmtree(directory, ignore_errors=True)
 
 
@@ -106,7 +118,14 @@ def raw_request(endpoint: Path, payload: bytes) -> bytes:
         client.settimeout(5)
         client.connect(str(endpoint))
         client.sendall(payload)
-        client.shutdown(socket.SHUT_WR)
+        try:
+            client.shutdown(socket.SHUT_WR)
+        except OSError as exc:
+            # The daemon may close a refused connection before this half-close; on macOS
+            # that surfaces as ENOTCONN. It means the same thing: no reply was sent.
+            if exc.errno != errno.ENOTCONN:
+                raise
+            return b""
         return client.recv(4096)
 
 
