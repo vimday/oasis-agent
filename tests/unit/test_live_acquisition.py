@@ -11,11 +11,12 @@ from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.chain import ChainError
 from oasis_agent.live.rpc_profile import LiveRpcProfile
+from oasis_agent.live.runner import MAX_OBSERVATION_FAILURES
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
 from oasis_agent.rpc.transport import JsonRpcTransport
-from tests.unit.test_live_lp import ScriptedRpc, live_loop
+from tests.unit.test_live_lp import ScriptedRpc, live_loop, market
 
 
 class Rendezvous:
@@ -101,3 +102,53 @@ def test_live_observation_failure_stops_rpc_polling_across_restart(tmp_path, mon
     loop.state = StateStore(loop.store.path).load("live")
     assert loop.tick().startswith("halted:")
     assert calls == [1]
+
+
+def test_transient_observation_failures_retry_then_halt(tmp_path, monkeypatch):
+    loop = live_loop(tmp_path, ScriptedRpc())
+    calls = []
+
+    def dropped():
+        calls.append(1)
+        raise ChainError("complete account NAV unresolved (details redacted)")
+
+    monkeypatch.setattr(loop, "observe", dropped)
+    for _ in range(MAX_OBSERVATION_FAILURES - 1):
+        assert loop.tick().startswith("skip:")
+        assert loop.state.halted is None
+    loop.tick()
+    assert loop.state.halted == "live observation refused; operator review required before polling"
+    assert loop.tick().startswith("halted:")
+    assert len(calls) == MAX_OBSERVATION_FAILURES
+
+
+def test_valuation_refusal_halts_immediately(tmp_path, monkeypatch):
+    loop = live_loop(tmp_path, ScriptedRpc())
+
+    def refused():
+        raise ChainError("account NAV refused: NAV ETH / USD feed incomplete, stale or future")
+
+    monkeypatch.setattr(loop, "observe", refused)
+    loop.tick()
+    assert loop.state.halted == "live observation refused; operator review required before polling"
+
+
+def test_successful_observation_resets_the_transient_failure_count(tmp_path, monkeypatch):
+    loop = live_loop(tmp_path, ScriptedRpc())
+    outcomes = iter(["drop", "drop", "ok", "drop", "drop"])
+
+    def observe():
+        if next(outcomes) == "drop":
+            raise ChainError("complete account NAV unresolved (details redacted)")
+        return market()
+
+    def after_observation(_m):
+        raise ChainError("stop after a successful observation")
+
+    monkeypatch.setattr(loop, "observe", observe)
+    monkeypatch.setattr(loop, "nav_usd", after_observation)
+    for _ in range(5):
+        loop.tick()
+    # Two drops, a success that resets the count, then two more drops: never three in a row.
+    assert loop.state.halted is None
+    assert loop.observation_failures == 2
