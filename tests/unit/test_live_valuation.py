@@ -200,17 +200,15 @@ def test_incomplete_or_disagreeing_nav_never_emits_valuation(tmp_path: Path, fau
 @pytest.mark.parametrize(
     ("feed", "ceiling", "refused"),
     [
-        # ETH/USD keeps the strict 1800-second limit, including the observed 5261 s age.
         ("eth_age", 1800, (1801, 5261, 90_000)),
-        # USDC/USD has its own 24h-heartbeat ceiling (owner choice 2026-10-28).
-        ("usdc_age", 90_000, (90_001,)),
+        ("usdc_age", 1800, (1801, 5261, 90_000)),
     ],
 )
 def test_each_feed_enforces_its_own_freshness_ceiling(
     tmp_path: Path, feed: str, ceiling: int, refused: tuple[int, ...]
 ) -> None:
     c = position_config()
-    assert (c.oracle_max_age_seconds, c.usdc_oracle_max_age_seconds) == (1800, 90_000)
+    assert (c.oracle_max_age_seconds, c.usdc_oracle_max_age_seconds) == (1800, 1800)
     fixture = NavFixture(**{feed: ceiling})
     with closing(EvidenceStore(tmp_path / "ok.db")) as store:
         value, refs = run_nav(store, fixture, position=False)
@@ -225,11 +223,14 @@ def test_each_feed_enforces_its_own_freshness_ceiling(
             run_nav(store, NavFixture(**{feed: age}), position=False)
 
 
-def test_observed_usdc_round_ages_value_nav(tmp_path: Path) -> None:
-    # Ages actually observed on Base: 5261, 54910, 55972, 83186 seconds.
+def test_observed_stale_usdc_round_ages_cannot_value_nav(tmp_path: Path) -> None:
+    # Synthetic responses at historically observed ages, not production acceptance.
     for age in (5261, 54_910, 55_972, 83_186):
-        with closing(EvidenceStore(tmp_path / f"usdc-{age}.db")) as store:
-            assert run_nav(store, NavFixture(usdc_age=age), position=False)[0].nav_micros > 0
+        with (
+            closing(EvidenceStore(tmp_path / f"usdc-{age}.db")) as store,
+            pytest.raises(ValueError, match="stale"),
+        ):
+            run_nav(store, NavFixture(usdc_age=age), position=False)
 
 
 @pytest.mark.parametrize(

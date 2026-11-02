@@ -51,7 +51,7 @@ USDC_STABLE_BAND_BPS = 200
 
 
 def feed_max_age(c: LiveConfig, usdc: bool) -> int:
-    """Per-feed staleness ceiling: ETH/USD keeps the strict limit, USDC/USD its heartbeat."""
+    """Per-feed staleness ceiling, each bounded by the owner's 1800-second maximum."""
     return c.usdc_oracle_max_age_seconds if usdc else c.oracle_max_age_seconds
 
 
@@ -176,7 +176,7 @@ class NavCapture:
             ):
                 raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
             if i == 8 and abs(answer - 10**8) * 10_000 > USDC_STABLE_BAND_BPS * 10**8:
-                # A long-heartbeat stablecoin round is accepted only while it reads near par.
+                # Freshness alone never admits a stablecoin answer outside the approved band.
                 raise NavRefusal("NAV USDC / USD answer outside stable band")
             answers.append(answer)
         return answers

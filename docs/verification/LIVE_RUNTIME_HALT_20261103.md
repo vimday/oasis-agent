@@ -76,3 +76,40 @@ write warning remain in the logs. Quality report:
 `reports/review-20261103/runtime-halt-quality/report.json`; every command exit and
 log hash was checked. Diagnostic manifest SHA-256:
 `22d31d0c01dd026f689d6497dd5573fc66a5dff95f9e9c6be10bf9fcd4f9dade`.
+
+## Follow-up: enforce the current owner's two-feed ceiling
+
+The subsequent heartbeat again explicitly required a maximum feed age of 1800
+seconds, consistent with the owner's direct answer that both ETH and USDC keep
+1800 seconds. The committed canary configuration and `LiveConfig.validate()`
+now enforce that limit for USDC as well as ETH. A separate USDC field remains
+available for a stricter limit; a stable-band check is not a freshness exemption.
+The earlier 90000-second observation and replay results above remain historical
+evidence and are not reclassified as passing the stricter policy.
+
+Regression coverage rejects operator-file ceilings of 1801, 5261 and 90000 for
+either feed, rejects zero/non-integer values, and accepts stricter integer limits.
+Synthetic two-provider NAV tests accept an age of exactly 1800 and reject 1801,
+as well as the historically observed stale USDC ages. Before the correction,
+six cases failed (including the committed-policy assertions); the corrected
+151-case focused selection passed with exit 0. Original logs are retained under
+`reports/review-20261103/strict-feed-policy/`.
+
+This changes the configuration digest. An additional regression proves that an
+existing journal bound to the 90000-second policy refuses binding to the stricter
+configuration without modifying its files. No migration, journal reset, budget
+replacement, container restart or image deployment is performed. Resuming an
+existing position still needs an explicitly reviewed configuration transition
+that preserves its history, plus fresh two-provider NAV under both 1800-second
+limits. No RPC, signing or broadcasting is part of this correction.
+
+Full follow-up quality checks exited 0: 3748 Python tests and 138 subtests,
+Ruff/format, mypy, eight frontend modules, secret scan, Bandit and offline Compose
+validation. Contract formatting/build/lint and 70 tests also exited 0. The
+existing websockets deprecation and Foundry cache warning remain in raw logs.
+Report: `reports/review-20261103/strict-feed-quality/report.json`; all command
+exits and log hashes were verified. The focused before/after and contract log
+manifest is `reports/review-20261103/strict-feed-policy/regression.json`, SHA-256
+`71072817d308a04ee6f14aa514a7b66058d3326cf82124044d774cedf4d74361`.
+The stricter parsed configuration digest is
+`9e4ddbdf6d566fae6658043138f461a41808f7429c5ec0cd5c4149aab4de6717`.
