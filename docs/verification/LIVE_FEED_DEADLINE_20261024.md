@@ -80,3 +80,44 @@ The prior verified runtime remains under `oasis-live:source-check-20261024`.
 Changing the local image tag did not restart or deploy production services.
 Application identity is checked; dependency bytes and the Docker daemon remain
 trusted. No new confinement or funded production acceptance is claimed here.
+
+## OKX response-time freshness correction — 2026-11-02
+
+The optional OKX external price guard introduced by `f8b3342` authenticated and
+validated a response using the same pre-request wall-clock sample. A price aged
+299 seconds at request time could arrive two seconds later and still pass a
+300-second ceiling. Conversely, a price produced during a 12-second response
+could be incorrectly refused as future data relative to the request time.
+
+`OkxPriceSource` now samples the clock after transport returns and validates the
+price against that response time. A backwards local clock refuses the result.
+The authentication timestamp remains the request timestamp; the inclusive age
+boundary, provider-skew allowance and configured price-age limit are unchanged.
+This remains a pre-decision external sanity check, not a settlement oracle or an
+independent signer guard. It does not provide freshness through subsequent
+processing or another source read.
+
+The new four-case regression produced three failures and one passing exact-age
+boundary before the fix (exit 1). After the fix, the 121-test selection covering
+OKX prices, price deviation, candles and live-loop behavior passed (exit 0).
+Raw logs are retained under `reports/review-20261102/okx-response-freshness/`.
+These tests use synthetic prices and clocks; no OKX request or chain RPC was made.
+
+The incoming revision already opens the canary release and records an approval
+receipt, and sets USDC's on-chain feed ceiling to 90000 seconds. This patch does
+not change or newly authorize that policy. A read-only Docker status check could
+not connect to the local daemon, even outside the sandbox, so current services,
+image identity and production receipt evidence were not verified in this turn.
+No daemon/service was started, credential read, live setting changed, signature
+requested or transaction broadcast. The earlier sections remain historical
+records, not assertions of the current release state.
+
+Full development checks completed with exit 0: **3721 tests and 138 subtests**,
+Ruff/format, mypy, eight frontend modules, secret scan, Bandit and offline Compose
+validation. All four check logs and the report hash were reverified. Report:
+`reports/review-20261102/okx-freshness-quality/report.json`; evidence hash:
+`3251a084f9f9bcbf4eecb89bcde9e5c1826392955dba36d8812e54304c9ea3f2`.
+`make contract-check` exited 0 with **70 tests** and formatting/build/lint passing.
+The existing websockets deprecation and non-fatal Foundry signature-cache write
+warning remain in the original logs. These checks do not establish runtime image
+or production acceptance; Docker was unavailable and no deployment was attempted.

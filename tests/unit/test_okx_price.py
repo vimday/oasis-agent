@@ -96,3 +96,27 @@ def test_incomplete_credentials_are_refused() -> None:
 def test_bounded_provider_clock_skew_is_tolerated() -> None:
     raw = row(USDC, "1", at=int(NOW * 1000) + 938)
     assert parse_price(raw, 8453, USDC, int(NOW * 1000), 300_000) == Fraction(1)
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "price_age", "accepted"),
+    [(2, 299, False), (1, 299, True), (12, -12, True), (-1, 0, False)],
+)
+def test_freshness_uses_response_time_and_refuses_clock_regression(
+    elapsed: int, price_age: int, accepted: bool
+) -> None:
+    clock = [NOW]
+    requests = []
+
+    def transport(url: str, headers: dict[str, str], body: bytes) -> bytes:
+        requests.append(headers["OK-ACCESS-TIMESTAMP"])
+        clock[0] += elapsed
+        return row(USDC, "1", at=int((NOW - price_age) * 1000))
+
+    source = OkxPriceSource(CREDS, transport=transport, clock=lambda: clock[0])
+    result = source.fetch_usd_price(8453, USDC)
+    assert result == (Fraction(1) if accepted else None)
+    # Authentication still names request time; freshness must name response time.
+    assert requests == [
+        datetime.fromtimestamp(NOW, UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    ]

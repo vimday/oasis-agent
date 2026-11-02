@@ -148,6 +148,11 @@ class OkxPriceSource(ExternalPriceSource):
         except Exception:  # noqa: BLE001 - transport errors may echo headers
             return None
         try:
-            return parse_price(raw, chain_id, token, int(now * 1000), self._max_age_ms)
+            received_at = self._clock()
+            if received_at < now:
+                return None
+            # Transport latency consumes the price's age budget. Authentication
+            # uses request time, but freshness is checked when the response arrives.
+            return parse_price(raw, chain_id, token, int(received_at * 1000), self._max_age_ms)
         except Exception:  # noqa: BLE001 - malformed/stale/foreign rows are unavailable
             return None
