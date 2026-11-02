@@ -28,6 +28,7 @@ from oasis_agent.live.authority_socket import TransactionSocketClient
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.okx_price import CREDENTIAL_NAMES, OkxPriceSource
 from oasis_agent.live.precheck import check_live
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.recovery import (
@@ -110,6 +111,12 @@ def main() -> None:
         "--poll-seconds",
         type=int,
         help="slower polling than the config (never faster); config hash is unchanged",
+    )
+    parser.add_argument(
+        "--external-price-guard-bps",
+        type=int,
+        help="defer swap/mint unless OKX (OKX_API_KEY/OKX_SECRET_KEY/OKX_PASSPHRASE env) "
+        "agrees within this many bps; exits are never gated",
     )
     parser.add_argument("--clear-halt", action="store_true")
     parser.add_argument("--report", action="store_true")
@@ -411,6 +418,14 @@ def main() -> None:
             )
             primary = BudgetedRpc(primary_url, args.state_dir, "live_primary", profile)
             secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
+        external = None
+        guard_bps = 50
+        if args.external_price_guard_bps is not None:
+            # Read only the three query names from the environment, never a credential file.
+            creds = {name: os.environ.get(name, "") for name in CREDENTIAL_NAMES}
+            if not all(value.strip() for value in creds.values()):
+                raise SystemExit("External price guard requires OKX query credentials in env.")
+            external, guard_bps = OkxPriceSource(creds), args.external_price_guard_bps
         loop = LiveLoop(
             config,
             primary,
@@ -421,6 +436,8 @@ def main() -> None:
             log=log,
             secondary=secondary,
             receipt_costs=costs,
+            external_prices=external,
+            max_external_deviation_bps=guard_bps,
         )
         until = time.time() + args.hours * 3600 if args.hours else None
         loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)

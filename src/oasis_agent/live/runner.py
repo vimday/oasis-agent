@@ -43,6 +43,7 @@ from .chain import (
 from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
 from .positions import collect_position_outcome, replay_position_outcome
+from .price_guard import ExternalPriceSource, check_price_deviation
 from .receipts import RetainedReceiptCostReader
 from .recovery import UNKNOWN_SIGNING_HALT, release_unsigned_attempt
 from .revert_cash import reconcile_revert, replay_revert_cash
@@ -131,7 +132,13 @@ class LiveLoop:
         log: Callable[[str], None] = print,
         secondary: Rpc | None = None,
         receipt_costs: RetainedReceiptCostReader | None = None,
+        external_prices: ExternalPriceSource | None = None,
+        max_external_deviation_bps: int = 50,
     ) -> None:
+        if type(max_external_deviation_bps) is not int or not (
+            1 <= max_external_deviation_bps <= 200
+        ):
+            raise ValueError("external deviation threshold must be 1-200 bps")
         if mode not in {"shadow", "live"}:
             raise ValueError("mode must be shadow or live")
         if (mode == "live") != (signer is not None):
@@ -151,6 +158,8 @@ class LiveLoop:
         self.c, self.rpc, self.store, self.mode = config, rpc, store, mode
         self.secondary = secondary
         self.receipt_costs = receipt_costs
+        self.external_prices = external_prices
+        self.max_external_deviation_bps = max_external_deviation_bps
         self.signer, self.stop_file, self.log = signer, stop_file, log
         if mode == "live":
             store.bind(sha256_hex(canonical_json(asdict(config))))
@@ -169,6 +178,7 @@ class LiveLoop:
         loop.c, loop.rpc, loop.store, loop.mode = config, rpc, store, mode
         loop.signer, loop.secondary, loop.stop_file, loop.log = None, None, None, print
         loop.receipt_costs = None
+        loop.external_prices, loop.max_external_deviation_bps = None, 50
         loop.state = store.load(mode)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         loop.settlement_failures = 0
@@ -591,9 +601,34 @@ class LiveLoop:
             return f"{base} | hold{self._range_text(m)}"
         if s.actions_today >= self.c.max_actions_per_day:
             return f"{base} | wait: daily action budget used ({action[0]} deferred)"
+        refused = self._external_price_refusal(m, action[0])
+        if refused is not None:
+            return f"{base} | wait: {refused} ({action[0]} deferred)"
         if not self._pins_ok(m):
             return f"{base} | HALT {s.halted}"
         return f"{base} | {self._act(m, action)}"
+
+    def _external_price_refusal(self, m: Market, kind: str) -> str | None:
+        """Only new allocation (swap/mint) consults the optional independent price."""
+        if self.external_prices is None or kind not in {"swap", "mint"}:
+            return None
+        if m.valuation is not None:
+            eth = Fraction(m.valuation.eth_answer, 10**8)
+            usdc = Fraction(m.valuation.usdc_answer, 10**8)
+        else:
+            eth, usdc = Fraction(str(m.oracle)), Fraction(1)  # paper fixtures only
+        approved, reason = check_price_deviation(
+            self.c.chain_id,
+            self.c.pool.currency0,
+            self.c.pool.currency1,
+            eth,
+            usdc,
+            self.external_prices,
+            self.max_external_deviation_bps,
+        )
+        # The tick log carries the reason; recording every wait would evict halts and
+        # actions from the bounded history.
+        return None if approved else reason
 
     def _check_nav_checkpoint(self) -> None:
         if self.mode != "live":

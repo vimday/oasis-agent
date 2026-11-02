@@ -7,6 +7,7 @@ and the fail-closed state machine with a scripted RPC.
 
 import time
 from dataclasses import asdict, replace
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,7 @@ from eth_abi.abi import decode
 from oasis_agent.live.chain import ChainError, sign_transaction
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.intent import SubmittedTransaction, pending_plan_hash
+from oasis_agent.live.price_guard import ExternalPriceSource
 from oasis_agent.live.runner import (
     FULL_OBSERVATION_SECONDS,
     MAX_SETTLEMENT_FAILURES,
@@ -267,6 +269,73 @@ def test_unbalanced_wallet_swaps_then_mints_on_paper(tmp_path: Path) -> None:
     position = loop.state.position
     assert isinstance(position, Position) and position.lower <= TICK < position.upper
     assert loop.state.paper_eth >= CONFIG.gas_reserve_wei - 10**14
+
+
+class FixedExternalPrice(ExternalPriceSource):
+    def __init__(self, eth: Fraction | None) -> None:
+        self.eth, self.calls = eth, 0
+
+    def fetch_usd_price(self, chain_id: int, currency: str) -> Fraction | None:
+        self.calls += 1
+        return self.eth if currency == CONFIG.pool.currency0 else Fraction(1)
+
+
+def guarded_loop(tmp_path: Path, external: ExternalPriceSource, **state: Any) -> LiveLoop:
+    store = StateStore(tmp_path / "shadow.state.json")
+    loop = LiveLoop(
+        CONFIG, ScriptedRpc(), store, mode="shadow", log=lambda _l: None, external_prices=external
+    )
+    for key, value in state.items():
+        setattr(loop.state, key, value)
+    loop.state.pins = {"x": "y"}
+    loop.runtime_pins = lambda _h=None: dict(CONFIG.expected_pins)  # type: ignore[method-assign]
+    return loop
+
+
+@pytest.mark.parametrize("eth", [Fraction(2400), None])
+def test_external_price_divergence_or_absence_defers_new_allocation(
+    tmp_path: Path, eth: Fraction | None
+) -> None:
+    loop = guarded_loop(tmp_path, FixedExternalPrice(eth))
+    loop.observe = lambda: market(eth=2 * 10**17)  # type: ignore[method-assign]
+    history = len(loop.state.history)
+    line = loop.tick()
+    assert "wait: external price guard" in line and "swap deferred" in line
+    assert loop.state.halted is None and loop.state.position is None
+    assert len(loop.state.history) == history  # waits never evict halts/actions
+
+
+def test_agreeing_external_price_allows_allocation(tmp_path: Path) -> None:
+    external = FixedExternalPrice(Fraction(2501))
+    loop = guarded_loop(tmp_path, external, paper_eth=2 * 10**17)
+    loop.observe = lambda: market(eth=2 * 10**17)  # type: ignore[method-assign]
+    assert "paper swap" in loop.tick()
+    assert external.calls == 2
+
+
+def test_exit_never_consults_external_price(tmp_path: Path) -> None:
+    lower, upper = range_ticks(TICK, 490, 10)
+    external = FixedExternalPrice(None)
+    loop = guarded_loop(
+        tmp_path, external, position=Position(-1, lower, upper, 10**14, 1_791_469_000)
+    )
+    loop.observe = lambda: market(  # type: ignore[method-assign]
+        tick=lower - 50, sqrt_price=sqrt_price_at_tick(lower - 50), position_liquidity=10**14
+    )
+    assert "paper burn" in loop.tick()
+    assert external.calls == 0
+
+
+@pytest.mark.parametrize("bps", [0, 201, True])
+def test_external_deviation_threshold_is_bounded(tmp_path: Path, bps: Any) -> None:
+    with pytest.raises(ValueError, match="1-200 bps"):
+        LiveLoop(
+            CONFIG,
+            ScriptedRpc(),
+            StateStore(tmp_path / "s.json"),
+            mode="shadow",
+            max_external_deviation_bps=bps,
+        )
 
 
 def test_out_of_range_position_burns_after_cooldown(tmp_path: Path) -> None:
