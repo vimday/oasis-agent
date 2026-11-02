@@ -9,6 +9,9 @@ Touch `data/live/STOP` to stop after the current tick. A loss-cap breach, a
 runtime/USDC implementation change, repeated reverts or an unresolved
 submission latch `halted` in the state file; clear it with `--clear-halt`
 only after reviewing the cause.
+
+A run that ends with a latched halt prints its final report and exits 3. A bounded
+run or operator STOP without a halt exits 0; neither exit code proves profitability.
 """
 
 import argparse
@@ -442,6 +445,10 @@ def main() -> None:
         until = time.time() + args.hours * 3600 if args.hours else None
         loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
         print(json.dumps(loop.report(), indent=1, default=str))
+        if loop.state.halted:
+            # Preserve the report and latch, but do not tell supervisors a failed
+            # observation/risk/settlement run completed successfully.
+            raise SystemExit(3)
 
 
 if __name__ == "__main__":
