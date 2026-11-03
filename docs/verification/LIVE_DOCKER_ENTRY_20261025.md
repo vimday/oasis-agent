@@ -305,3 +305,48 @@ Build, source and offline logs are retained under
 `f97fc6916ecabcd9c55050082014c3291184efcaa99a40dac06f2e3099ce14bf`.
 After verifying archive/source hashes, the reproducible build tar was removed.
 The terminal Pyth budget remained unchanged; no unused quota was reused.
+
+## Current strict-feed candidate image — 2026-11-03
+
+Commit `4a8d3c52b92b01723f031e5d69a7ca973ad9c270` was exported with an explicit
+runtime-file allowlist, excluding the working tree's untracked files, credentials,
+reports, state and budgets. The initial `--network=none` build exited 1 because
+the dependency-install layer missed the cache and pip could not resolve packages.
+Its original failure log is retained. A separate standard-network build reused
+the existing hash-locked dependency layer (`CACHED`) and exited 0; no new chain
+request or production service was involved.
+
+Candidate tag: `oasis-live:committed-4a8d3c5`. Immutable image:
+`sha256:6e412c39e1ff74e1501a3eef6ebb371214ef44a9cbf9e524aec8dd30b150f318`.
+The stopped-container verifier checked the pinned-base runtime contract and all
+333 application files against the committed checkout (exit 0). Application
+manifest hash:
+`91d2425f9fb08335c1c6c421924b7d7ef233d5957d6f0146da75f732f3310c8d`.
+This checks application identity; it is not a dependency vulnerability audit.
+
+A separate temporary container ran with network disabled, UID 10001, read-only
+root, zero capabilities, no-new-privileges, and no production/key/socket mounts.
+It passed `pip check`, both 1800-second feed ceilings, rejection of invalid or
+larger ceilings, and the unchanged USD 500/200/500 limits. A real CLI subprocess
+loaded a synthetic shadow HALT, preserved it, printed the final report and exited
+3. The smoke command exited 0. The disabled pip cache warning remains in its log.
+This is a focused Linux smoke check; the earlier 3748-test/138-subtest host quality
+gate remains recorded in `LIVE_RUNTIME_HALT_20261103.md`.
+
+The final read-only container-status check was initially not executed because
+automatic approval review hit a usage limit, not because the operation was judged
+unsafe. After the user requested continuation, a newly reviewed status check
+succeeded (exit 0). Both original services remained stopped on image
+`sha256:0b4f8cb42deb23f066bc9a6e8a2adb85d7b7ea2ab94881f24013faf5d2ce3a18`.
+Their finish times remained `2026-11-02T04:23:37Z` (strategy) and
+`2026-11-02T09:34:41Z` (authority). No service was restarted or replaced.
+
+Evidence is retained in `reports/review-20261103/runtime-4a8d3c5/`: both build
+logs, source report, exact smoke script, smoke log, context provenance and summary.
+All report/log hashes were checked. The 3164160-byte reproducible build archive
+was removed only after verifying its retained digest. Original images, unique
+evidence, journals and budget ledgers were preserved. Fresh two-provider USD/NAV,
+a history-preserving configuration transition and remaining production acceptance
+are still required; this candidate image does not authorize financial execution.
+Summary evidence hash:
+`854881743b318003419486110c218f8a5e45258f5a1a34eb235ee991313d278d`.
