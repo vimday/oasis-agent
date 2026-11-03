@@ -7,10 +7,12 @@ The caller supplies read-only RPCs; no signer, state save or broadcast is used.
 from dataclasses import asdict
 from pathlib import Path
 
+from ..models.common import canonical_json, sha256_hex
 from ..reporting.live_release import live_release
 from .chain import ChainError, Rpc
 from .config import LiveConfig
 from .intent import pending_plan_hash
+from .journal import LiveJournal
 from .receipts import RetainedReceiptCostReader
 from .runner import LiveLoop
 from .state import StateStore
@@ -27,7 +29,23 @@ def check_live(
 ) -> dict[str, object]:
     """Observe the current account and report redacted operational blockers."""
     config.validate()
-    loop = LiveLoop.recovery(config, primary, store, "live")
+    try:
+        if store.journal_path.exists():
+            # Binding is checked during the read, never by initializing/migrating a journal.
+            store.journal = LiveJournal(
+                store.journal_path,
+                sha256_hex(canonical_json(asdict(config))),
+                require_existing=True,
+            )
+        loop = LiveLoop.recovery(config, primary, store, "live", read_only=True)
+    except Exception:  # noqa: BLE001 - retained errors must not disclose local data
+        return {
+            "schema": "oasis.live-operational-precheck.v1",
+            "operational_checks_passed": False,
+            "execution_eligible": False,
+            "signer_contacted": False,
+            "blockers": ["retained_state_unresolved"],
+        }
     loop.secondary = secondary
     loop.receipt_costs = receipt_costs
     state = loop.state

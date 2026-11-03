@@ -193,3 +193,43 @@ in the raw logs. Quality evidence hash:
 `49ca0e7a3fbd2f24ea14a9395294f9913295db53c3800cb8565456a0a5c51500`.
 Regression summary: `reports/review-20261103/release-status/summary.json`, hash
 `d62434dbb7140cffa4deb065e56d02a901f3f455bd4f75e0b1ba376b134c01ef`.
+
+## Operational precheck: preserve journals and verify their configuration
+
+The operational precheck previously loaded an existing journal without supplying
+the target configuration digest and used the writable SQLite read path. An empty
+retained baseline could therefore pass precheck with a foreign configuration;
+the production signing/start path's separate configuration binding still
+refused it. A read-only mounted journal also could not reliably use that path.
+
+Precheck now verifies the full journal against the validated target configuration
+through SQLite `mode=ro`, before any chain observation. Invalid bindings or
+corrupt retained state produce a redacted `retained_state_unresolved` refusal.
+No journal creation, migration, latch clearance or budget reset is performed.
+Other recovery callers retain their existing default connection behavior.
+
+The initial regression run reproduced the configuration and writable-connection
+defects. Its corruption fixture initially violated the digest uniqueness
+constraint before reaching the code under test; that fixture was corrected to
+corrupt exactly one event. The first focused run also hit sandbox denial of the
+existing local Unix socket tests. Both raw failed logs remain under
+`reports/review-20261103/precheck-binding/`; the corrected focused run exited 0
+for 34 tests with the required local socket permission.
+
+A no-network, read-only, non-root temporary container mounted the original
+strategy state volume and four updated source files over the previously verified
+candidate image. The real precheck refused the old configuration before an RPC
+object was needed, exiting 3 as expected; all original file hashes remained
+unchanged. No key, authority socket or writable production volume was mounted.
+This was a source-mounted probe, not a rebuilt or deployed production image.
+It establishes safe refusal, not current NAV, migration readiness or live release.
+
+Full development validation exited 0: 3764 Python tests and 138 subtests,
+Ruff/format, mypy, eight frontend modules, secret scan, Bandit and offline
+Compose checks. All four command exits and log hashes were verified; contract
+checks exited 0 with 70 tests. Existing websockets deprecation and Foundry cache
+warnings remain in the raw logs. Quality report:
+`reports/review-20261103/precheck-binding-quality/report.json`, evidence hash
+`01712719fa7bd7474ac16761e8fb4cea85a3f98bc4801102638d8acc01493c46`.
+The regression and retained-probe summary hash is
+`9a6e46a622261c333a62ac56816a3c14e82b7bd2faf9e73968b58c84b35960d8`.

@@ -1,8 +1,9 @@
 """Operational checks are observational and cannot clear latches or sign."""
 
 import json
+import sqlite3
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from oasis_agent.live.precheck import check_live
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import LoopState, Pending, StateStore
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
 from scripts import run_live_lp as cli
 from tests.unit.test_live_budget_rpc import Http
@@ -27,6 +29,41 @@ class NonceRpc:
 
     def nonce(self, _: str, block: str) -> int:
         return 3 if block == "latest" else self.pending
+
+
+@pytest.mark.parametrize("fault", ["config", "corrupt", "readonly"])
+def test_retained_precheck_checks_binding_before_rpc_without_writes(tmp_path, monkeypatch, fault):
+    config = replace(CONFIG, usdc_oracle_max_age_seconds=90_000) if fault == "config" else CONFIG
+    store = StateStore(tmp_path / "live.state.json")
+    store.bind(sha256_hex(canonical_json(asdict(config))))
+    store.save(LoopState("live"))
+    if fault == "corrupt":
+        with sqlite3.connect(store.journal_path) as db:
+            db.execute("DROP TRIGGER no_update")
+            db.execute("UPDATE events SET digest = ? WHERE seq = 1", ("0" * 64,))
+    before = {p.name: p.read_bytes() for p in tmp_path.iterdir()}
+    connect = sqlite3.connect
+
+    def readonly(database, **kwargs):
+        assert database.endswith("?mode=ro")
+        return connect(database, **kwargs)
+
+    if fault == "readonly":
+        monkeypatch.setattr(sqlite3, "connect", readonly)
+        monkeypatch.setattr(LiveLoop, "observe", lambda _: market())
+        monkeypatch.setattr(LiveLoop, "runtime_pins", lambda *_: CONFIG.expected_pins)
+    else:
+
+        def forbidden(*_):
+            pytest.fail("invalid retained state must refuse before any chain observation")
+
+        monkeypatch.setattr(LiveLoop, "observe", forbidden)
+    result = check_live(CONFIG, store, NonceRpc(), NonceRpc(), stop_file=tmp_path / "STOP")
+    assert result["operational_checks_passed"] == (fault == "readonly")
+    if fault != "readonly":
+        assert result["blockers"] == ["retained_state_unresolved"]
+    assert not result["execution_eligible"] and not result["signer_contacted"]
+    assert before == {p.name: p.read_bytes() for p in tmp_path.iterdir()}
 
 
 @pytest.mark.parametrize(

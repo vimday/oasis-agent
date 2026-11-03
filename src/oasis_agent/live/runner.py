@@ -172,14 +172,16 @@ class LiveLoop:
         self.final_anchors: set[bytes] = set()
 
     @classmethod
-    def recovery(cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str) -> "LiveLoop":
+    def recovery(
+        cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str, *, read_only: bool = False
+    ) -> "LiveLoop":
         """A loop over `mode`'s state that can read chain state but never sign."""
         loop = cls.__new__(cls)
         loop.c, loop.rpc, loop.store, loop.mode = config, rpc, store, mode
         loop.signer, loop.secondary, loop.stop_file, loop.log = None, None, None, print
         loop.receipt_costs = None
         loop.external_prices, loop.max_external_deviation_bps = None, 50
-        loop.state = store.load(mode)
+        loop.state = store.load(mode, read_only=read_only)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         loop.settlement_failures = 0
         loop.observation_failures = 0
