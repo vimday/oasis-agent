@@ -167,3 +167,29 @@ websockets deprecation and Foundry cache warnings remain in the logs. Quality
 report: `reports/review-20261103/offline-state-quality/report.json`; all exits and
 log hashes were checked. The focused/integration evidence manifest hash is
 `1eb2f2a6c6b642ffa0f5fbc3d0d7f434b56bb405a36000ed2a49f9eb6b23bb87`.
+
+## Release authorization is not current runtime readiness
+
+The dashboard previously rendered `金丝雀已放行` whenever the static release
+record was open, including when the same response reported a HALT, stale
+observation, unresolved signature or pending receipt. A Node execution of the
+real renderer reproduced the misleading pending-receipt banner before the fix
+(exit 1, retained in `reports/review-20261103/release-status/before.log`).
+
+The banner now identifies that record as a recorded release authorization and
+leads with unmet runtime conditions for blocked or unavailable observations.
+Even a recent observation explicitly leaves current execution eligibility
+unverified. The recorded USD 500 / 200 / 500 limits and release evidence remain
+visible. This is presentation only: no release flag, signing/broadcast path,
+production service, state journal, RPC budget or feed threshold was changed.
+No live acceptance or recovery is established by this correction.
+
+The corrected focused tests exited 0. Full development checks exited 0 with
+3761 Python tests and 138 subtests, eight frontend modules, Ruff/format, mypy,
+secret scan, Bandit and offline Compose validation; all four quality-check
+exits and log hashes were verified. Contract checks exited 0 with 70 tests.
+The existing websockets deprecation and Foundry cache-permission warnings remain
+in the raw logs. Quality evidence hash:
+`49ca0e7a3fbd2f24ea14a9395294f9913295db53c3800cb8565456a0a5c51500`.
+Regression summary: `reports/review-20261103/release-status/summary.json`, hash
+`d62434dbb7140cffa4deb065e56d02a901f3f455bd4f75e0b1ba376b134c01ef`.

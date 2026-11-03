@@ -54,9 +54,11 @@ renderLiveStatus(data);
 assert.match(nodes.get('live-title').textContent, /等待对账/);
 assert.match(nodes.get('live-pending').textContent, /nonce 3/);
 assert.match(nodes.get('live-source').textContent, /未重放/);
-// The committed release is open: limits and receipt evidence, no blocker list.
+// A recorded release must never be presented as current permission to start.
 assert.equal(data.release.new_actions_allowed, true);
-assert.match(nodes.get('live-release').innerHTML, /USD 500 金丝雀已放行/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+assert.match(nodes.get('live-release').innerHTML, /USD 500 金丝雀发布授权已记录/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行/);
 assert.match(nodes.get('live-release').innerHTML, /0xe0363189/);
 const blocker = {code: 'release_closed', title: '实盘发布已关闭', required: '<b>x</b>'};
 const closed = {...data, release: {...data.release, new_actions_allowed: false,
@@ -72,12 +74,15 @@ const held = {...data, pending: null, status: 'observed', blockers: [],
   observation_age_seconds: 900, light_check: light};
 assert.equal(liveStatusModel(held).status, 'observed');
 renderLiveStatus(held);
+assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行|当前运行条件未满足/);
 assert.match(nodes.get('live-observation').textContent, /区间检查于 .* tick -199100/);
 assert.match(nodes.get('live-observation').textContent, /仅确认仍在区间/);
 const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
   blockers: ['signing_outcome_unresolved']};
 assert.equal(liveStatusModel(signing).status, 'signing_unknown');
 renderLiveStatus(signing);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
 assert.match(nodes.get('live-title').textContent, /签名结果未知/);
 assert.match(nodes.get('live-next').textContent, /禁止自动重签或重发/);
 assert.match(nodes.get('live-pending').textContent, /不能认定交易未签名或未提交/);
@@ -89,6 +94,15 @@ const unknown = {...data, status: 'missing'};
 renderLiveStatus(unknown);
 assert.equal(nodes.get('live-pending').textContent, '待处理状态未知');
 assert.match(nodes.get('live-observation').textContent, /没有可用/);
+for (const [status, blockers] of [
+  ['halted', ['state_halted']], ['stale', ['observation_stale']],
+  ['missing', ['live_state_missing']], ['invalid', ['live_state_invalid']],
+  ['unconfigured', ['live_state_unconfigured']]]) {
+  renderLiveStatus({...data, pending: null, status, blockers});
+  assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+  assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行/);
+  assert.match(nodes.get('live-release').innerHTML, /日亏损上限 USD 200 · 累计 USD 500/);
+}
 for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...data, evidence_replayed: true}, {...data, profitability: 'profitable'},
   {...signing, signing_unresolved: false}, {...signing, blockers: []},

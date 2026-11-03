@@ -87,8 +87,11 @@ export function renderLiveStatus(data) {
     return;
   }
   const release = model.release;
+  // Static release approval says nothing about current service health or admission.
+  const runtimeStatus = model.status === "observed" && model.blockers.length === 0
+    ? "当前执行资格未核验" : "当前运行条件未满足";
   $("live-release").innerHTML = release.new_actions_allowed
-    ? `<strong>USD ${esc(release.capital_limit_usd)} 金丝雀已放行 · 日亏损上限 USD ${esc(release.daily_loss_limit_usd)} · 累计 USD ${esc(release.cumulative_loss_limit_usd)}</strong><ul><li>${esc(release.release_evidence)}</li></ul>`
+    ? `<strong>${runtimeStatus} · USD ${esc(release.capital_limit_usd)} 金丝雀发布授权已记录 · 日亏损上限 USD ${esc(release.daily_loss_limit_usd)} · 累计 USD ${esc(release.cumulative_loss_limit_usd)}</strong><ul><li>${esc(release.release_evidence)}</li><li>启动仍需当前喂价、完整净值及双服务状态通过核验。</li></ul>`
     : `<strong>新交易启动已阻断 · ${release.blockers.length} 项发布验收项</strong><ul>${release.blockers.map(item => `<li>${esc(item.title)}：${esc(item.required)}</li>`).join("")}</ul>`;
   $("live-title").textContent = STATES[model.status][0];
   $("live-next").textContent = STATES[model.status][1];
