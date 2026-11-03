@@ -62,15 +62,20 @@ class LiveJournal:
                 )
             path.chmod(0o600)
 
-    def _connect(self, *, create: bool = False) -> sqlite3.Connection:
+    def _connect(self, *, create: bool = False, read_only: bool = False) -> sqlite3.Connection:
+        if create and read_only:
+            raise ValueError("read-only journal cannot be created")
         db = sqlite3.connect(
-            self.path if create else self.path.resolve().as_uri() + "?mode=rw",
+            self.path
+            if create
+            else self.path.resolve().as_uri() + ("?mode=ro" if read_only else "?mode=rw"),
             uri=not create,
             timeout=5,
             isolation_level=None,
         )
-        db.execute("PRAGMA synchronous=FULL")
-        db.execute("PRAGMA journal_mode=DELETE")
+        if not read_only:
+            db.execute("PRAGMA synchronous=FULL")
+            db.execute("PRAGMA journal_mode=DELETE")
         return db
 
     def _read(self, db: sqlite3.Connection) -> tuple[str, bytes | None]:
@@ -108,8 +113,8 @@ class LiveJournal:
         self.config_hash = binding
         return parent, latest
 
-    def load(self, projection: bytes | None = None) -> bytes | None:
-        with closing(self._connect()) as db:
+    def load(self, projection: bytes | None = None, *, read_only: bool = False) -> bytes | None:
+        with closing(self._connect(read_only=read_only)) as db:
             db.execute("BEGIN")
             self.revision, payload = self._read(db)
             if projection is not None:

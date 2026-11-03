@@ -257,7 +257,7 @@ class StateStore:
             original.journal_required = True
             self.save(original)
 
-    def load(self, mode: str) -> LoopState:
+    def load(self, mode: str, *, read_only: bool = False) -> LoopState:
         projection: bytes | None = None
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -276,7 +276,7 @@ class StateStore:
         if mode == "live" and self.journal_path.exists():
             if self.journal is None:
                 self.journal = LiveJournal(self.journal_path)
-            payload = self.journal.load(projection)
+            payload = self.journal.load(projection, read_only=read_only)
             if payload is None:
                 raise ValueError("live journal is empty")
             return self._decode(payload, mode)

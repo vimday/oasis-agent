@@ -113,3 +113,57 @@ manifest is `reports/review-20261103/strict-feed-policy/regression.json`, SHA-25
 `71072817d308a04ee6f14aa514a7b66058d3326cf82124044d774cedf4d74361`.
 The stricter parsed configuration digest is
 `9e4ddbdf6d566fae6658043138f461a41808f7429c5ec0cd5c4149aab4de6717`.
+
+## Offline inspection entry point
+
+`python -m scripts.inspect_live_state --strategy-state /strategy/live.state.json
+--authority-state /authority/state.json` inspects existing service histories from
+read-only mounts. The two paths must identify different journals. An optional
+`--config` selects the public target configuration; it is validated under the
+current policy, never inferred from a legacy journal. Output contains journal
+tips, configuration hashes, pending/halt flags and position identity hashes,
+not raw signing intents, exception messages or the contents of a halt reason.
+Recorded NAV is explicitly historical. The command does not open a budget,
+RPC connection, signing socket or key; it cannot migrate, clear or release state.
+
+`LiveJournal.load(read_only=True)` and `StateStore.load(..., read_only=True)` use
+SQLite `mode=ro` without writable PRAGMAs. Existing callers retain their default
+behavior. Each journal's full hash chain and state validation are still required;
+a stale but previously committed JSON projection uses the verified journal tip
+without replacing the file. A missing/empty journal or corrupt/foreign projection
+is not accepted as a healthy empty account. The two services are separate read
+transactions, not one atomic cross-service snapshot; run against stopped services
+or independently quiesced volumes.
+
+CLI exit 3 denotes malformed/unavailable evidence or a listed blocker. Exit 0
+means only that the inspected histories match the supplied configuration with no
+listed blocker. Every report has `execution_eligible: false`, and neither exit
+proves current chain state, current NAV, receipt replay or economic acceptance.
+
+The focused tests initially exited 1 because the SQLite test double's parameter
+name collided with its `uri` keyword, not because the production read path failed.
+The original log was preserved. After correcting the test double, 57 focused
+tests passed (exit 0), covering read-only connection/SQL enforcement, byte
+preservation, stale projection recovery, missing/deleted/corrupt journals, old
+configuration binding, pending/signing/legacy-cost flags and position mismatch.
+
+The new source files were then mounted read-only into the previously verified
+candidate image for an integration probe (this was not a rebuilt image). The
+temporary container had no network or key/socket mount and read the two original
+state volumes read-only. Both journals verified, both position hashes agreed and
+both had no pending transaction or signing attempt. The command exited **3** with
+`strategy_halted`, `strategy_configuration_mismatch` and
+`authority_configuration_mismatch`, as expected. It did not claim readiness.
+Its report hash is
+`0054a07366ad6616dfc9f2b7986a816b04b89c0fcd7ef9c7dae717bf398116f0`.
+Original outputs are under `reports/review-20261103/offline-state/`. This makes
+the migration blockers reproducibly inspectable but does not perform a migration
+or acquire fresh NAV. No live service, journal or budget was changed.
+
+Full development validation exited 0: 3761 Python tests and 138 subtests,
+Ruff/format, mypy, eight frontend modules, secret scan, Bandit and offline Compose
+checks. Contract formatting/build/lint and 70 tests also exited 0. Existing
+websockets deprecation and Foundry cache warnings remain in the logs. Quality
+report: `reports/review-20261103/offline-state-quality/report.json`; all exits and
+log hashes were checked. The focused/integration evidence manifest hash is
+`1eb2f2a6c6b642ffa0f5fbc3d0d7f434b56bb405a36000ed2a49f9eb6b23bb87`.
