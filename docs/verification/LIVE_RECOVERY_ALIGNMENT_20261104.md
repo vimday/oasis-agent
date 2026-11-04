@@ -268,3 +268,20 @@ This follow-up made zero RPC requests and accessed no original volume, budget or
 key. The preceding real historical replay remains a historical result. Current
 free entitlement, the new one-shot read scope and fresh production acceptance
 remain unresolved; this fix grants no execution or spending authority.
+
+Implementation `42bf5bced7fb92b3f8526bf52546898a49f7cc67` was committed and
+SSH-pushed to `main` with exit 0. Its committed runtime-only archive built image
+`sha256:4b87e10c1195cc6f77f73eef49abf55a4a679b3985f9e070812f842d5181b2f9`
+with the cached locked dependencies. Build and stopped-image source verification
+both exited 0: **347** application files matched, manifest hash
+`c2d90b18abc69a3bf17a567ed90f1d60bf595bbdd3722d918ee11f6db3f0ca5b`.
+The network-disabled, keyless, unprivileged smoke container also exited 0 after
+checking exact successful bytes, RPC-error rejection, endpoint-reflection refusal,
+strict feed/capital limits and dependency consistency. No original volume was
+mounted. The two production containers remain exited on image `0b4f8cb42deb`.
+
+All command exits and referenced log hashes were checked. Candidate artifacts:
+`reports/review-20261104/runtime-42bf5bc/`, summary evidence hash
+`769906fd7bc1124174acd8b7a75ebc99271b7ad698ff8738ce8a78c08871290c`.
+This replaces the older image as the reviewed privacy-fix candidate; it was not
+deployed and adds no fresh production acceptance evidence.
