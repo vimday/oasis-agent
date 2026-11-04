@@ -294,6 +294,11 @@ transition are still required. Do not fill these entries from fixtures or replac
 the original journals. See the
 [gas-oracle implementation and real capture record](../../docs/verification/LIVE_GAS_ORACLE_RUNTIME_20261104.md).
 
+`python -m scripts.review_live_gas_oracle` can replay two already-retained raw
+six-read captures and write a fingerprint/config proposal in a new review
+directory. It makes zero RPC requests and cannot approve or apply that proposal;
+the wire format and remaining acceptance steps are documented in that record.
+
 Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
 capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical
 90000-second USDC evidence remains replayable only in its original configuration

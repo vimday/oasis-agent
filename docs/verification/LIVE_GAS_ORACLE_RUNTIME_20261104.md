@@ -128,6 +128,86 @@ The secondary source's HTTP refusal, fresh complete strict USD/NAV, current
 runtime/simulation, complete NFT unwind and operational restart acceptance remain
 unresolved. The failed capture supplies no release or profitability evidence.
 
+## Offline discovery and candidate review
+
+`live/gas_oracle_evidence.py` supplies the retained-proof producer for the missing
+three fingerprints. It accepts two complete raw captures at one explicit,
+timestamped Base block. Each source must contain exactly these six reads, with
+one attempt per read:
+
+1. `eth_chainId`;
+2. the opening header at the explicit block number;
+3. proxy `eth_getCode` at the block hash;
+4. proxy `eth_getStorageAt` at the EIP-1967 implementation slot and block hash;
+5. `eth_getCode` at the address derived from that storage reply, at the same hash;
+6. the closing header at the same number.
+
+All three state reads require EIP-1898 `requireCanonical: true`. Opening/closing
+block identities and parent hashes must agree across both sources, as must the proxy code, canonical
+nonzero implementation word and implementation code fingerprints. Missing,
+extra, retried, cross-block or substituted requests refuse before the first
+accepted proof record is written. Reopening the store re-derives the exact
+summary from each source's wire bytes; rehashed summaries cannot substitute for
+raw proof.
+
+The producer has **no network acquisition capability**. Its twelve-read template
+excludes head discovery and does not authorize requests or extend the terminated
+197-request campaign. A future collector still needs an explicitly authorized,
+budgeted scope and valid provider access. Provider independence remains a
+declaration to verify operationally; two different aliases alone do not prove it.
+
+The offline command is:
+
+```sh
+python -m scripts.review_live_gas_oracle \
+  --wire /review/gas-wire.json \
+  --config configs/live.base-eth-usdc.json \
+  --out /review/gas-discovery-review
+```
+
+Its wire JSON has exactly `block` (the complete `BlockRef`) and `providers`
+(two objects with exactly `source`, `request`, `response`). Each request/response
+is the existing `hex_exact_bytes` envelope containing the six exchanges. The
+default declared pair is `live_primary` / `live_secondary`; `--sources` makes a
+different pair explicit. Inputs are bounded regular files opened without
+following a final symlink, and output requires a new private directory.
+
+Only a successful replay and a block no more than 1800 seconds old produces
+`candidate.json`, with original and proposed config hashes and both complete
+evidence references. The source must keep both 1800-second feed ceilings and
+the original five-pin shape. The proposal adds only the observed three entries;
+every other config field stays identical. This discovery-block expiry is not
+USD-feed freshness or complete NAV evidence. An exit of 0 means only
+`candidate_requires_review`, with `runtime_approved`, `configuration_applied`,
+`state_write_supported` and `execution_eligible` all false. Refusals exit 3,
+publish no candidate and retain a fixed, redacted report. Existing output is
+never overwritten.
+
+No real capture has supplied these twelve exchanges. Production config,
+journals, budgets, STOP files and services were not modified by this follow-up.
+Source review/approval and a history-preserving five-to-eight-pin configuration
+transition remain unresolved.
+
+The follow-up adds 57 synthetic-only tests, covering raw request substitution,
+chain/header/parent disagreements, malformed storage/code, retries, forged
+summaries, source scope, expiry boundaries, exclusive output, redaction and CLI
+exit status. The first full check retained 10 failures / 4247 passes because its
+minimal PATH omitted Node.js (eight failures) and Foundry `cast` (two failures).
+Only that test environment was corrected; no test or source was changed to
+bypass those failures. The corrected `make live-quality` exited 0: **4257
+tests, 138 subtests**, 245 mypy sources and eight frontend modules passed, with
+all four quality subprocesses exiting 0. The four existing warnings remain.
+All log/report hashes and the five locked source/config hashes were verified.
+
+```text
+reports/review-20261104/gas-discovery-quality-v1/report.json
+failed evidence_hash: 7803d49932fe6d40d48afef8124ed500ff74f1e18c1427b538069e1f79406596
+reports/review-20261104/gas-discovery-quality-v2/report.json
+passed evidence_hash: 48be7ccc49f6db7521d53c22180a5d0513bab48c1ed3c6ab3622683b78556c31
+reports/review-20261104/gas-discovery/manual-review.json
+evidence_hash: fdb2bc5cb4452e1f2b493d8bc3a98ec7d2c6df77e8e3be4ce0719f7fa8bf1a96
+```
+
 ## Committed immutable candidate
 
 Implementation commit `85b39ec4556289bacc238600a677080881366772` built candidate
