@@ -8,20 +8,22 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from contextlib import closing, suppress
 from dataclasses import asdict, replace
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import Request
 
 import pytest
 
+from oasis_agent.errors import RpcError
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.state import LoopState, Position, StateStore, day_of
 from oasis_agent.live.valuation import capture_nav, replay_nav_quorum
 from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
+from oasis_agent.rpc.transport import _NoRedirect
 from scripts import capture_live_recovery as cli
 from tests.unit.test_live_receipt_costs import position_config
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
@@ -319,8 +321,9 @@ def test_request_cap_does_not_spend_an_extra_reservation(tmp_path):
         control.wire.close()
 
 
-def test_poster_has_no_redirects_and_caps_body(monkeypatch):
+def test_shared_poster_caps_one_read_and_keeps_redirect_guard(monkeypatch):
     calls = []
+    bodies = []
 
     class Response(io.BytesIO):
         def read(self, size=-1):
@@ -331,20 +334,19 @@ def test_poster_has_no_redirects_and_caps_body(monkeypatch):
         def open(self, request, timeout):
             assert request.full_url == "https://declared.invalid"
             assert timeout == 0.25
-            return Response(b"x" * (cli.MAX_RESPONSE + 2))
+            body = Response(b"x" * (cli.MAX_RESPONSE + 2))
+            bodies.append(body)
+            return body
 
-    def build(handler):
-        assert isinstance(handler, cli.NoRedirect)
-        with pytest.raises(ValueError, match="redirect"):
-            handler.redirect_request(
-                Request("https://declared.invalid"), None, 302, "Found", {}, "https://other.invalid"
-            )
+    def build(*handlers):
+        assert any(isinstance(handler, _NoRedirect) for handler in handlers)
+        assert any(isinstance(handler, urllib.request.HTTPSHandler) for handler in handlers)
         return Opener()
 
-    monkeypatch.setattr(cli, "build_opener", build)
-    with pytest.raises(ValueError, match="bounded response"):
+    monkeypatch.setattr(urllib.request, "build_opener", build)
+    with pytest.raises(RpcError, match="byte limit"):
         cli.BoundedPoster("https://declared.invalid", 0.25).post(b"{}")
-    assert calls == [cli.MAX_RESPONSE + 1]
+    assert calls == [cli.MAX_RESPONSE + 1] and len(bodies) == 1 and bodies[0].closed
 
 
 def test_supervisor_kills_stuck_worker_and_descendant_no_late_publication(tmp_path):

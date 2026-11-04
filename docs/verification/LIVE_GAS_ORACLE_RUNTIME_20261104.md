@@ -127,6 +127,9 @@ configuration binding or initialize replacement state to activate it.
 The secondary source's HTTP refusal, fresh complete strict USD/NAV, current
 runtime/simulation, complete NFT unwind and operational restart acceptance remain
 unresolved. The failed capture supplies no release or profitability evidence.
+The later [single-secondary retry](#owner-requested-single-secondary-retry)
+confirmed one current Base chain-ID reply through the shared HTTPS client; the
+full campaign remains unaccepted and the earlier 403 cause is not isolated.
 
 ## Offline discovery and candidate review
 
@@ -335,4 +338,72 @@ The production configuration remained byte-identical and no deployment occurred.
 ```text
 reports/review-20261104/runtime-eb2f534/summary.json
 evidence_hash: e026396304abd9cbf5be8f27c92b2159c2b94655b5a0db27843e50bcfa115aac
+```
+
+## Owner-requested single-secondary retry
+
+The owner answered the access-status question with `可以重试一下`. This was
+executed as one new, narrowly bounded `eth_chainId` request to the original
+`live_secondary` / `BASE_RPC_PRIMARY` endpoint: no credential or endpoint
+replacement, no redirect/retry, 10-second request timeout, 30-second worker
+limit, and no key/socket mount. It used the already verified `eb2f534` image's
+existing shared HTTPS client. The original 197-request campaign was not reopened.
+
+The retry **succeeded**, returning Base chain ID **8453**. Worker and Docker
+exits were 0, with about 4.76 seconds including container overhead. Raw request
+and successful response bytes were replayed offline against the result hashes.
+The original strategy budget appended exactly one reservation: primary stayed
+903, secondary advanced **744 to 745**. Authority stayed **974/955** with its
+history tip unchanged. Both original state projections, execution journals,
+evidence stores, locks and STOP markers remained byte-identical; the strategy
+budget's original device/inode was preserved. There was no signature,
+broadcast, migration or service start. The new single-request authorization is
+terminal and supplies no recurring polling or full-campaign permission.
+
+The incremental cost is declared zero under the owner's free-quota statement;
+provider billing was not queried or independently verified. The earlier eight
+paid requests and cumulative USD 0.10 ceiling remain unchanged and unresolved.
+The provider's identity/independence and availability of the full pinned-method
+set have not been established by this chain-ID response.
+
+This is a successful transport/read diagnostic, **not** current USD/NAV,
+runtime, simulation, receipt, unwind or production acceptance. Client profile
+and observation time both differ from the failed attempt, so this result alone
+does not prove the cause of the earlier HTTP 403.
+
+```text
+reports/review-20261104/secondary-retry-once/attempt-1/summary.json
+evidence_hash: cc6741efe5314b1f1689f271a90f3820c120a6a96a55885ed60fc03d4f22f949
+reports/review-20261104/secondary-retry-once/attempt-1/reviewed-result.json
+evidence_hash: d71b4457a5ad4719d95dec5057e0cd6f15ff6a3df6c8970456782a320fc68e23
+```
+
+The recovery collector now delegates to that same shared `_UrlLibPoster`,
+removing its duplicate HTTP/redirect implementation. This supplies the existing
+User-Agent profile and certifi-backed TLS, closes HTTP error responses without
+consuming their bodies, forbids redirects and caps each response at 1,000,000
+bytes. Its outer cancellation, original budgets, zero retries, 197-request cap
+and 120-second supervisor remain unchanged. The offline capture plan names
+`shared_https_no_redirect_single_attempt.v1` before hashing, so a review identifies
+the chosen client. No further production RPC was made while aligning the code.
+
+Three before-change regressions failed: the collector lacked the shared client
+profile and left HTTP-error bodies open for 403/429. These are offline test
+findings, not proof of the real provider's 403 cause. The focused suite then
+passed 77 tests. Its first run retained one missing synthetic-feed-fixture
+failure; the fixture import was corrected without relaxing raw-proof checks.
+Two lint import-placement findings were also corrected and retained.
+
+The full `make live-quality` exited 0: **4296 tests, 138 subtests**, ten new cases,
+246 mypy sources and eight frontend modules. Python/frontend, secrets, Bandit
+and Compose each exited 0 without timeout or launch failure. All log/report
+hashes and six locked source/config hashes were verified. Four existing warnings
+remain. The shared transport's source bytes are unchanged from the successful
+probe's image; this change makes the collector reuse that implementation.
+
+```text
+reports/review-20261104/recovery-transport-quality-v1/report.json
+evidence_hash: eb1a03d78f0b0d98e07bf8908de8f5e8e37b2de9c006e8d939d28cf0fcdb71f7
+reports/review-20261104/recovery-transport/manual-review.json
+evidence_hash: 42ae9cc3f316bc5015ff1bc74a9634eccfb01c3d9f5a86f1e5a556b4e0704486
 ```

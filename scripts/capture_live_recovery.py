@@ -21,7 +21,6 @@ from dataclasses import asdict
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import parse_qsl, unquote, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from oasis_agent.evidence.exact_capture import decode_header
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
@@ -48,14 +47,16 @@ from oasis_agent.live.wallet import WalletScope, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from oasis_agent.models.v4 import PoolKey
 from oasis_agent.rpc.budget import RpcBudget
-from oasis_agent.rpc.transport import JsonRpcTransport, RpcExchange
+from oasis_agent.rpc.transport import MAX_RESPONSE_BYTES, JsonRpcTransport, RpcExchange
+from oasis_agent.rpc.transport import _UrlLibPoster as BoundedPoster
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = ("strategy", "authority")
 RPC_ENV = ("BASE_RPC_PRIMARY_ALT", "BASE_RPC_PRIMARY")
 MAX_SECONDS = 120
 MAX_REQUESTS = 197
-MAX_RESPONSE = 1_000_000
+MAX_RESPONSE = MAX_RESPONSE_BYTES
+TRANSPORT_PROFILE = "shared_https_no_redirect_single_attempt.v1"
 
 
 def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
@@ -145,28 +146,6 @@ def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
         )
     ):
         raise ValueError("fresh loss budget exhausted")
-
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise ValueError("redirect outside declared request scope")
-
-
-class BoundedPoster:
-    """One HTTPS request, no redirects/retries; CLI supervisor enforces hard cutoff."""
-
-    def __init__(self, url, timeout):
-        self.url, self.timeout = url, timeout
-
-    def post(self, payload):
-        request = Request(
-            self.url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
-        )
-        with build_opener(NoRedirect()).open(request, timeout=self.timeout) as response:
-            raw = response.read(MAX_RESPONSE + 1)
-            if len(raw) > MAX_RESPONSE:
-                raise ValueError("bounded response required")
-            return raw
 
 
 def _identity(path):
@@ -318,6 +297,7 @@ def prepared(strategy, authority, config, profile):
             "total_requests": sum(sum(values.values()) for values in limits.values()),
             "max_seconds": MAX_SECONDS,
             "retries": 0,
+            "transport_profile": TRANSPORT_PROFILE,
         }
         plan["plan_hash"] = sha256_hex(canonical_json(plan))
 

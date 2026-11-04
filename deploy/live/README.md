@@ -301,6 +301,10 @@ the wire format and remaining acceptance steps are documented in that record.
 Historical cash/checkpoint replay can now recognize the corresponding original
 five-pin configuration by its exact hash. This does not change journal bindings
 or apply a runtime-policy migration; new NAV still needs the target policy.
+One owner-authorized secondary `eth_chainId` retry succeeded through the shared
+HTTPS client. The collector now uses that same client, and its hashed plan
+names the transport profile. This single read does not reopen the terminated
+197-request campaign or establish complete source/NAV/receipt acceptance.
 
 Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
 capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical
