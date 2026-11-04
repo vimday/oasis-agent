@@ -285,3 +285,44 @@ All command exits and referenced log hashes were checked. Candidate artifacts:
 `769906fd7bc1124174acd8b7a75ebc99271b7ad698ff8738ce8a78c08871290c`.
 This replaces the older image as the reviewed privacy-fix candidate; it was not
 deployed and adds no fresh production acceptance evidence.
+
+## Follow-up: worker deadline survives supervisor termination
+
+Two offline subprocess regressions reproduced a gap in the hard deadline: after
+SIGKILL terminated the CLI supervisor, its blocked worker could continue beyond
+the authorized window. The second case inherited an ignored and blocked SIGALRM.
+Both cases failed against the preceding implementation by observing a late marker
+written after supervisor death. Their original exit-1 log remains at
+`reports/review-20261104/recovery-worker-deadline/before.log`.
+
+Before constructing any network capability, the forked worker now arms its own
+POSIX real-time timer for only the unused part of the supervisor's original
+window. It restores SIGALRM's default terminating action and unblocks that signal,
+so an inherited handler or mask cannot disable this deadline. Kernel termination
+does not depend on a Python handler running after blocked DNS or HTTP returns.
+The live supervisor still terminates the worker's process group and publishes
+references only after a timely successful exit. The production capture worker
+creates no descendant processes; arbitrary caller-created descendants are outside this
+orphan-worker safeguard.
+
+The expanded collector suite passed **33 tests**, including forced supervisor
+death under both signal states and the existing full captures, cancellation,
+privacy and publication checks. No request quota was increased or refunded.
+The production 120-second ceiling and its earlier feed/head deadlines remain;
+SIGALRM termination is an unsuccessful, possibly partial attempt, never a permit
+to repeat a request or open a release gate. This follow-up uses synthetic local
+processes only and has made no RPC request or original-state/budget change.
+
+The full `make live-quality` gate exited **0**: **4064 tests, 138 subtests** and
+eight frontend modules passed. Type, secret, Bandit and Compose checks all exited
+0 with no launch failure or timeout. Their log hashes, report hash and unchanged
+two-file source lock were re-derived after completion; the four existing warnings
+remain recorded. No contract source changed, and no production acceptance was
+inferred from these tests.
+
+```text
+reports/review-20261104/recovery-worker-deadline-quality/report.json
+evidence_hash: 7237741212790bd4ad5d1ae9be49359f3cae6d3f9904610cc6f6c30a5ddc2107
+reports/review-20261104/recovery-worker-deadline/summary.json
+evidence_hash: 3248ea1686f670a3c07fd3cd004789520e4283b2d2a21c75910f9cbe85650f35
+```

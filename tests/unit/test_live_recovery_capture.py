@@ -4,10 +4,13 @@ import io
 import json
 import os
 import signal
+import subprocess
+import sys
 import threading
 import time
-from contextlib import closing
+from contextlib import closing, suppress
 from dataclasses import asdict, replace
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request
 
@@ -533,3 +536,66 @@ def test_successful_wire_bytes_keep_spacing_and_short_routing_values_do_not_matc
     request = canonical_json({"jsonrpc": "2.0", "id": 1, "method": "eth_getBalance", "params": []})
     raw = b'{ "jsonrpc" : "2.0", "id" : 1, "result" : "0x1" }\n'
     assert cli.successful_response(request, raw, "https://fixture.invalid/rpc?chain=1") is raw
+
+
+@pytest.mark.parametrize("inherited_alarm_blocked", [False, True])
+def test_worker_deadline_survives_supervisor_sigkill(tmp_path, inherited_alarm_blocked):
+    out, marker, late = tmp_path / "attempt", tmp_path / "worker.pid", tmp_path / "late"
+    code = """
+import os, signal, sys, time
+from pathlib import Path
+from scripts.capture_live_recovery import supervise
+out, marker, late = map(Path, sys.argv[1:4])
+if sys.argv[4] == '1':
+    signal.signal(signal.SIGALRM, signal.SIG_IGN)
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGALRM})
+def blocked_request():
+    out.mkdir()
+    marker.write_text(str(os.getpid()))
+    time.sleep(0.9)
+    late.touch()
+    time.sleep(10)
+supervise(blocked_request, out, seconds=0.3)
+"""
+    root = Path(cli.__file__).resolve().parents[1]
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            code,
+            str(out),
+            str(marker),
+            str(late),
+            str(int(inherited_alarm_blocked)),
+        ],
+        cwd=root,
+        env={"PATH": os.environ.get("PATH", ""), "PYTHONPATH": f"{root / 'src'}{os.pathsep}{root}"},
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    worker = None
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                worker = int(marker.read_text())
+                break
+            except (FileNotFoundError, ValueError):
+                if process.poll() is not None:
+                    break
+                time.sleep(0.01)
+        assert worker is not None and process.poll() is None
+        process.kill()
+        assert process.wait(timeout=3) == -signal.SIGKILL
+        time.sleep(1.1)
+        assert not late.exists(), (
+            "worker continued after its authorized window with supervisor gone"
+        )
+        assert not (out / "references.json").exists()
+    finally:
+        if process.poll() is None:
+            process.kill()
+        process.wait(timeout=3)
+        if worker is not None:
+            with suppress(ProcessLookupError):
+                os.killpg(worker, signal.SIGKILL)

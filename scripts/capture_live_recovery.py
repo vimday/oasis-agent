@@ -724,6 +724,16 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
     pid = os.fork()
     if pid == 0:
         try:
+            # A supervisor killed by SIGTERM/SIGKILL cannot run its finally block.
+            # A default-action kernel alarm still terminates this worker and all
+            # its threads even while DNS/HTTP is blocked. Never extend the parent
+            # window, and do not inherit an ignored or blocked alarm from it.
+            remaining = seconds - (time.monotonic() - started)
+            if remaining <= 0:
+                os._exit(3)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+            signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGALRM})
+            signal.setitimer(signal.ITIMER_REAL, remaining)
             os.setsid()
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
             allowed = {
