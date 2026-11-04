@@ -333,6 +333,15 @@ HTTPS client. The collector now uses that same client, and its hashed plan
 names the transport profile. This single read does not reopen the terminated
 197-request campaign or establish complete source/NAV/receipt acceptance.
 
+`python -m scripts.review_live_runtime_transition --strategy-dir STRATEGY_DIR
+--authority-dir AUTHORITY_DIR --config PROPOSED_PLAIN_CONFIG
+--references RUNTIME_REVIEW_REFS --gas-evidence GAS_EVIDENCE_DB` performs a
+read-only five-to-eight-pin upgrade preflight. It requires same-block gas/NAV
+proofs and both original halted service journals with STOP files. It prints
+JSON only; even exit 0 leaves runtime approval, migration and execution false.
+The coordinated same-block acquisition and paired runtime epoch writer remain
+required. See the [runtime upgrade preflight record](../../docs/verification/LIVE_RUNTIME_TRANSITION_REVIEW_20261105.md).
+
 Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
 capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical
 90000-second USDC evidence remains replayable only in its original configuration

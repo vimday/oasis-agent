@@ -126,14 +126,14 @@ def retain_discovery_quorum(
     return refs[0], refs[1]
 
 
-def replay_discovery_quorum(
+def replay_discovery_observation(
     store: EvidenceStore,
     refs: tuple[EvidenceRef, EvidenceRef],
     block: BlockRef,
     *,
     sources: tuple[str, str],
-) -> dict[str, str]:
-    """Reconstruct observed fingerprints from wire bytes, without acquisition."""
+) -> tuple[BlockSnapshot, dict[str, str]]:
+    """Return the full agreed header and observed pins, without acquisition."""
     _sources(sources)
     if len(refs) != 2 or tuple(ref.source for ref in refs) != sources:
         raise ValueError("gas-oracle discovery provider scope differs")
@@ -154,7 +154,18 @@ def replay_discovery_quorum(
         observations.append(observation)
     if observations[0] != observations[1]:
         raise ValueError("independent gas-oracle captures disagree")
-    return observations[0][1]
+    return observations[0]
+
+
+def replay_discovery_quorum(
+    store: EvidenceStore,
+    refs: tuple[EvidenceRef, EvidenceRef],
+    block: BlockRef,
+    *,
+    sources: tuple[str, str],
+) -> dict[str, str]:
+    """Preserve the fingerprint-only replay API over the same raw verifier."""
+    return replay_discovery_observation(store, refs, block, sources=sources)[1]
 
 
 def candidate_configuration(
@@ -210,6 +221,7 @@ def candidate_configuration(
 __all__ = [
     "candidate_configuration",
     "discovery_requests",
+    "replay_discovery_observation",
     "replay_discovery_quorum",
     "retain_discovery_quorum",
 ]
