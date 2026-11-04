@@ -2,9 +2,11 @@ import json
 import random
 import ssl
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -43,6 +45,7 @@ _USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
 )
+MAX_RESPONSE_BYTES = 1_000_000
 
 
 class _UrlLibPoster:
@@ -69,8 +72,20 @@ class _UrlLibPoster:
             headers={"Content-Type": "application/json", "User-Agent": _USER_AGENT},
             method="POST",
         )
-        with self._opener.open(request, timeout=self.timeout) as response:
-            return cast(bytes, response.read())
+        try:
+            with self._opener.open(request, timeout=self.timeout) as response:
+                raw = cast(bytes, response.read(MAX_RESPONSE_BYTES + 1))
+                if len(raw) > MAX_RESPONSE_BYTES:
+                    # A provider that exceeds the cap is not a transient read
+                    # failure; never retry or retain an accepted partial reply.
+                    raise RpcError("RPC response exceeds byte limit")
+                return raw
+        except urllib.error.HTTPError as error:
+            # open() raises before entering the response context manager. Close
+            # its socket without consuming or reflecting a hostile error body.
+            with suppress(OSError):
+                error.close()
+            raise
 
 
 _RETRYABLE_METHODS = frozenset(

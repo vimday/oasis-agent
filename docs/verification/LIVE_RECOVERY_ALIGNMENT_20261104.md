@@ -520,3 +520,53 @@ chain acceptance or deployment. No external RPC or real financial action occurre
 The latest SSH delivery attempt and exit records belong under
 `reports/review-20261104/ssh-delivery-followup/`; a local commit or image must not
 be treated as successful remote publication.
+
+## Follow-up: bounded HTTP reads and error response closure
+
+The budgeted reader's shared urllib poster still used unbounded `response.read()`.
+It could accept a valid JSON response of arbitrary byte size before strict decoding.
+A retained public exception also kept an HTTP error response stream open: `open()`
+raises before its response context manager is entered. The in-memory HTTP handler
+regressions reproduced 14 failures and five existing redirect passes.
+
+The shared poster now reads at most 1,000,001 bytes and rejects responses above
+1,000,000 bytes, matching the direct live POST and recovery collector limits. An
+oversize response raises a terminal `RpcError` before any accepted exchange is
+recorded or decoded, so configured read retries cannot repeat it. HTTP errors
+explicitly close their response without consuming the body; their existing
+bounded transport retry policy remains. The production budgeted reader still
+configures zero retries, and every failed reserved attempt remains spent across
+restart. Responses exactly at the limit preserve their exact raw bytes.
+
+This cap also applies to larger historical queries through the shared poster;
+those queries need bounded ranges. It is a byte limit, not a new hard wall-clock
+guarantee. Socket timeouts and the recovery collector's process deadline retain
+their separate meanings. No chain, release, capital, loss or feed policy changed.
+
+The 19 new tests exercise actual urllib error/redirect handling with in-memory
+HTTPS bodies, exact size boundaries, misleading length metadata, raw evidence
+retention, explicit bounded retries and a synthetic persistent one-request budget.
+The combined focused suite passed **126 tests**. The initial formatting check
+exited 1; after formatting, lint, format and mypy each exited 0. Original logs
+remain in `reports/review-20261104/read-http-boundary/`.
+
+Full `make live-quality` exited **0**: **4166 tests, 138 subtests**, 243 mypy
+source files and eight frontend modules passed. Python/frontend, secrets, Bandit
+and Compose each exited 0 without timeout or launch failure. Every log/report hash
+and both unchanged source hashes were checked after completion. The four existing
+warnings remain recorded. No contract source changed.
+
+```text
+reports/review-20261104/read-http-quality/report.json
+evidence_hash: 741dd2e77983b7abd59dad5f3fdfe25dff8c9b398f061b16e457593a39b62537
+reports/review-20261104/read-http-boundary/summary.json
+evidence_hash: eea96b45323203643495269fd05369d37a7d8044a332d65dcc70303f335073f1
+```
+
+No external chain RPC, original state/budget volume, production key, signing or
+broadcast operation was used. Fresh strict USD/NAV, current two-source runtime/
+simulation, complete unwind and operational restart acceptance remain unresolved.
+The pending free entitlement and one-shot 197-request scope were not renewed.
+SSH's read-only remote-head check again exited 128, this time with a closed
+port-443 connection; the original log and hash remain in
+`reports/review-20261104/ssh-delivery-1126/`. Remote publication is still unverified.
