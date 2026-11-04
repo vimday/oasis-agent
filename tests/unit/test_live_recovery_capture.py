@@ -297,10 +297,11 @@ def test_request_cap_does_not_spend_an_extra_reservation(tmp_path):
 
     class Reply:
         def post(self, payload):
-            return b"{}"
+            return canonical_json({"jsonrpc": "2.0", "id": 1, "result": "0x2105"})
 
     try:
-        control.post("strategy", SOURCES[0], b"{}", "https://fixture.invalid", lambda *_: Reply())
+        payload = canonical_json({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []})
+        control.post("strategy", SOURCES[0], payload, "https://fixture.invalid", lambda *_: Reply())
         with pytest.raises(ValueError, match="allowance"):
             control.post(
                 "strategy",
@@ -444,3 +445,91 @@ def test_http_failure_status_is_retained_without_endpoint_or_error_text(
     assert records[0]["phase"] == "request_started"
     assert records[-1]["http_status"] == status
     assert records[-1]["failure_category"] == "http_error"
+
+
+@pytest.mark.parametrize("fault", ["rpc_error", "invalid_json", "wrong_id", "ambiguous"])
+def test_error_bodies_cannot_persist_reflected_rpc_credentials(tmp_path, monkeypatch, fault):
+    data = setup(tmp_path, monkeypatch)
+    private_text = "https://synthetic.invalid/?key=synthetic-rpc-credential"
+    responses = []
+
+    class Reply:
+        def post(self, payload):
+            request = json.loads(payload)
+            body = {"jsonrpc": "2.0", "id": request["id"]}
+            if fault == "invalid_json":
+                raw = private_text.encode()
+            elif fault == "wrong_id":
+                raw = canonical_json(body | {"id": request["id"] + 1, "result": private_text})
+            else:
+                body["error"] = {"code": -32005, "message": private_text}
+                if fault == "ambiguous":
+                    body["result"] = "0x2105"
+                raw = canonical_json(body)
+            responses.append(raw)
+            return raw
+
+    report = run(tmp_path, data, transport=lambda *_: Reply())
+    assert not report["capture_passed"] and len(responses) == 1
+    records = [
+        json.loads(line) for line in (tmp_path / "attempt/wire.jsonl").read_bytes().splitlines()
+    ]
+    finished = records[-1]
+    assert finished["response_hex"] is None
+    assert private_text not in json.dumps(records)
+    assert finished["response_hash"] == sha256_hex(responses[0])
+    assert finished["response_size"] == len(responses[0])
+    assert finished["failure_category"] == (
+        "rpc_error" if fault == "rpc_error" else "rpc_protocol_error"
+    )
+    assert finished["rpc_error_code"] == (-32005 if fault == "rpc_error" else None)
+    assert report["request_counts"]["strategy"][SOURCES[0]] == 1
+    assert not (tmp_path / "attempt/candidate-references.json").exists()
+
+
+@pytest.mark.parametrize("reflection", ["url", "query_value", "path_value", "host_value"])
+def test_success_envelope_cannot_retain_its_own_endpoint_credentials(
+    tmp_path, monkeypatch, reflection
+):
+    data = setup(tmp_path, monkeypatch)
+    private = "synthetic-rpc-credential"
+    url = (
+        "https://primary.invalid/" + private
+        if reflection == "path_value"
+        else ("https://primary.invalid/?key=" + private)
+    )
+    if reflection == "host_value":
+        private += ".invalid"
+        url = "https://" + private
+    monkeypatch.setenv(cli.RPC_ENV[0], url)
+    scope = data[2]
+    body = json.loads(scope.read_bytes())
+    body["endpoint_hashes"][SOURCES[0]] = sha256_hex(url.encode())
+    scope.write_bytes(canonical_json(body))
+    responses = []
+
+    class Reply:
+        def post(self, payload):
+            request = json.loads(payload)
+            # Even an otherwise successful envelope can contain an invalid result
+            # or extra result metadata that reflects a private endpoint component.
+            value = url if reflection == "url" else {"provider_note": private}
+            raw = canonical_json({"jsonrpc": "2.0", "id": request["id"], "result": value})
+            responses.append(raw)
+            return raw
+
+    report = run(tmp_path, data, transport=lambda *_: Reply())
+    assert not report["capture_passed"] and len(responses) == 1
+    wire = (tmp_path / "attempt/wire.jsonl").read_bytes()
+    records = [json.loads(line) for line in wire.splitlines()]
+    assert records[-1]["response_hex"] is None
+    assert private not in wire.decode() and private.encode().hex() not in wire.decode()
+    assert records[-1]["response_hash"] == sha256_hex(responses[0])
+    assert records[-1]["failure_category"] == "rpc_response_reflected_endpoint"
+    assert not (tmp_path / "attempt/candidate-references.json").exists()
+
+
+def test_successful_wire_bytes_keep_spacing_and_short_routing_values_do_not_match_quantities():
+    request = canonical_json({"jsonrpc": "2.0", "id": 1, "method": "eth_getBalance", "params": []})
+    raw = b'{ "jsonrpc" : "2.0", "id" : 1, "result" : "0x1" }\n'
+    assert cli.successful_response(request, raw, "https://fixture.invalid/rpc?chain=1") is raw

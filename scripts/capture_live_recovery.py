@@ -20,12 +20,12 @@ from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from oasis_agent.evidence.exact_capture import decode_header
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
-from oasis_agent.evidence.rpc_validation import strict_digest, strict_json_object
+from oasis_agent.evidence.rpc_validation import decode_exchange, strict_digest, strict_json_object
 from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.config import LiveConfig
@@ -47,7 +47,7 @@ from oasis_agent.live.wallet import WalletScope, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from oasis_agent.models.v4 import PoolKey
 from oasis_agent.rpc.budget import RpcBudget
-from oasis_agent.rpc.transport import JsonRpcTransport
+from oasis_agent.rpc.transport import JsonRpcTransport, RpcExchange
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = ("strategy", "authority")
@@ -383,6 +383,56 @@ def _scope(path, approved_hash, plan, now):
     return scope
 
 
+class ResponseRefused(ValueError):
+    """Fixed diagnostics only; provider error text must never enter retained output."""
+
+    def __init__(self, category, *, code=None):
+        super().__init__(category)
+        self.category, self.code = category, code
+
+
+def endpoint_reflected(value, url):
+    parsed = urlsplit(url)
+    components = {url, unquote(url)}
+    if parsed.hostname:
+        components.add(parsed.hostname)
+    components.update(unquote(part) for part in parsed.path.split("/") if part)
+    components.update(part for _, part in parse_qsl(parsed.query) if part)
+    pending = [value]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, dict):
+            pending.extend(item)
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
+        elif isinstance(item, str):
+            # Short routing components compare as whole fields; substring scans
+            # would otherwise confuse a routing value like "1" with hex quantities.
+            decoded = unquote(item)
+            if any(part == decoded or (len(part) >= 8 and part in decoded) for part in components):
+                return True
+    return False
+
+
+def successful_response(payload, raw, url):
+    """Keep exact successful bytes; failed/malformed bodies may reflect credentials."""
+    try:
+        request, response = strict_json_object(payload), strict_json_object(raw)
+        if set(response) not in ({"jsonrpc", "id", "result"}, {"jsonrpc", "id", "error"}):
+            raise ValueError("exact RPC response envelope required")
+        _, response = decode_exchange(
+            RpcExchange(request["method"], request["id"], payload, raw, 1)
+        )
+    except (ValueError, TypeError, KeyError, RecursionError):
+        raise ResponseRefused("rpc_protocol_error") from None
+    if "error" in response:
+        raise ResponseRefused("rpc_error", code=response["error"]["code"])
+    if endpoint_reflected(response["result"], url):
+        raise ResponseRefused("rpc_response_reflected_endpoint")
+    return raw
+
+
 class CaptureControl:
     def __init__(
         self, plan, budgets, profile, out, *, clock=time.time, monotonic=time.monotonic, sleep=None
@@ -413,6 +463,7 @@ class CaptureControl:
         response, spent, outcome = None, False, "refused"
         failure = None
         http_status = None
+        response_hash = response_size = rpc_error_code = None
         try:
             self.remaining()
             if self.counts[role][source] >= self.plan["request_limits"][role][source]:
@@ -449,14 +500,20 @@ class CaptureControl:
                 )
                 self.wire.flush()
                 os.fsync(self.wire.fileno())
-            response = transport(url, min(15.0, self.remaining())).post(payload)
+            raw = transport(url, min(15.0, self.remaining())).post(payload)
+            if not isinstance(raw, bytes) or len(raw) > MAX_RESPONSE:
+                raise ResponseRefused("rpc_protocol_error")
+            response_hash, response_size = sha256_hex(raw), len(raw)
+            response = successful_response(payload, raw, url)
             self.remaining()
             outcome = "response_received"
             return response
         except BaseException as exc:
             self.cancelled.set()
             failure = (
-                "http_error"
+                exc.category
+                if isinstance(exc, ResponseRefused)
+                else "http_error"
                 if isinstance(exc, HTTPError)
                 else "timeout"
                 if isinstance(exc, TimeoutError)
@@ -464,6 +521,8 @@ class CaptureControl:
             )
             if isinstance(exc, HTTPError) and type(exc.code) is int and 100 <= exc.code <= 599:
                 http_status = exc.code
+            if isinstance(exc, ResponseRefused):
+                rpc_error_code = exc.code
             raise
         finally:
             with self.lock:
@@ -475,9 +534,12 @@ class CaptureControl:
                             "source": source,
                             "sequence": self.counts[role][source],
                             "http_status": http_status,
+                            "rpc_error_code": rpc_error_code,
                             "failure_category": failure,
                             "request_hex": payload.hex(),
                             "response_hex": response.hex() if response is not None else None,
+                            "response_hash": response_hash,
+                            "response_size": response_size,
                             "budget_spent": spent,
                             "outcome": outcome,
                         }

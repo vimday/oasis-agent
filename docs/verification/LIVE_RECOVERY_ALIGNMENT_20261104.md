@@ -218,3 +218,53 @@ was not deployed. Fresh strict-feed NAV, current dual-source/runtime evidence,
 full unwind and operational restart remain unaccepted. Current provider free
 entitlement and the new bounded read-only scope have been requested from the
 owner; no RPC was sent while those requirements remain unresolved.
+
+## Follow-up: refuse provider error and endpoint reflections before retention
+
+Offline review reproduced a privacy defect in the recovery collector: an HTTP 200
+JSON-RPC error, malformed JSON, mismatched response ID or ambiguous result/error
+envelope was written to `wire.jsonl` before the RPC decoder rejected it. Provider
+error text could therefore reflect a private RPC endpoint or credential into the
+retained hex body despite the outer fixed refusal message. Four new regression
+cases failed against the preceding implementation, as did three direct endpoint
+reflection cases against the first fix. All stimuli used synthetic credentials;
+no real endpoint or original budget was accessed.
+
+The collector now validates a strict, unambiguous request/response envelope before
+returning or retaining any response body. A rejected body contributes only its
+SHA-256, size, fixed failure category and a validated integer RPC error code when
+available. Provider messages and malformed bodies are not retained. A successful
+envelope also refuses direct or percent-decoded reflections of its own full URL,
+hostname, path components or query values before the recorder or evidence store
+can receive it. Short routing components compare as whole fields; longer components
+also match inside strings. This covers the tested reflection paths, not arbitrary
+obfuscation by a hostile provider. Raw successful bytes keep their exact spacing
+and encoding for deterministic evidence replay.
+
+The refusal cancels further calls, preserves the spent original reservation and
+does not publish accepted references. The 197-request/120-second limits, no-retry
+policy, original-ledger requirement and release gates are unchanged. The expanded
+collector suite passed **31 tests**, including both complete 197-request paths,
+HTTP failure diagnostics, eight privacy refusal cases and exact-byte preservation.
+Initial regression failures and format diagnostics remain under
+`reports/review-20261104/recovery-response-privacy/`. The first full-gate attempt
+stopped at a newly added test's formatting check; that log and exit 2 are retained.
+Only the corrected final gate can establish the current repository result.
+
+The final `make live-quality` exited **0**: **4062 tests, 138 subtests** and eight
+frontend modules passed; type checks, secret scanning, Bandit and Compose checks
+all exited 0 without timeout or launch failure. All referenced log hashes and the
+two-file source lock were re-derived after completion. The four known dependency/
+fork warnings remain warnings; no check was skipped.
+
+```text
+reports/review-20261104/recovery-response-privacy-quality-locked/report.json
+evidence_hash: 1bbe13b071b5a648c35ab978d03470e628246c8f3178016b98d85064c1da7d82
+reports/review-20261104/recovery-response-privacy/summary.json
+evidence_hash: c925af9fbeca2c38461c90442e3d3f1a7833bf18f08673defa22a1b1fe5d7438
+```
+
+This follow-up made zero RPC requests and accessed no original volume, budget or
+key. The preceding real historical replay remains a historical result. Current
+free entitlement, the new one-shot read scope and fresh production acceptance
+remain unresolved; this fix grants no execution or spending authority.
