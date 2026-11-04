@@ -137,3 +137,34 @@ log hash, canonical report hash and all 627 frozen runtime/test inputs.
 This is internal self-review and offline engineering evidence. Production
 volumes, canary keys and repository `.env` were not accessed; production RPC,
 signatures, broadcasts, state migrations and service startups were zero.
+
+## Committed candidate image
+
+Implementation `830f22a4e404b70b29fa2149f8b2eb757c2cfc59` was the exclusive
+Git-archive build context. Build (`--pull=false`), stopped-image source
+verification, isolated Linux smoke and the enclosing builder all exited 0.
+
+- Image: `sha256:6f32b3bea21947a41955b6666c8e204662a7fab5c7d21d7cc4aa477c7c85eb70`.
+- Application manifest:
+  `33a83955d4b7d83046a87b0cff20027edd8c0b95aa27fc4adc41346e083ea40f`.
+- Candidate evidence, `reports/review-20261105/runtime-830f22a/summary.json`:
+  `3f3a9cd0a1aca6498fd2dc355718ff674a3546ab5ebcb21ffd96188bcd526b19`.
+- Independent reverification:
+  `55a09b5d8f55f5321a520ef69fe0e662ae70f93e31673e676aa495bf0a01dc92`.
+
+All 357 application files matched both committed and local bytes; all 359
+archive files, including the Docker build files, matched that commit. Every
+log, script, archive, manifest and canonical report hash was rechecked, along
+with all 627 frozen inputs. A first host reverification invocation exited 1
+because it omitted the project root from `PYTHONPATH`; its traceback remains
+in the tool transcript and its refusal metadata is retained. The corrected
+invocation exited 0. No candidate failure was counted as a pass.
+
+The UID 10001 smoke used `--network=none`, a read-only root, dropped
+capabilities, `no-new-privileges`, bounded PID/scratch limits and **no mounts**.
+Both synthetic policy epochs completed 209 simulated reads using one head;
+parent replay passed and expired publication refused. Disposable synthetic
+budget inodes and exact charges were checked. Original synthetic state,
+journals and STOP stayed unchanged. This is not production deployment or real
+RPC acceptance. Dependencies, the base runtime and the Docker daemon remain
+trusted; source verification covers application bytes.
