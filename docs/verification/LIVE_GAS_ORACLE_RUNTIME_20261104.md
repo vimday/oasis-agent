@@ -127,3 +127,29 @@ configuration binding or initialize replacement state to activate it.
 The secondary source's HTTP refusal, fresh complete strict USD/NAV, current
 runtime/simulation, complete NFT unwind and operational restart acceptance remain
 unresolved. The failed capture supplies no release or profitability evidence.
+
+## Committed immutable candidate
+
+Implementation commit `85b39ec4556289bacc238600a677080881366772` built candidate
+`sha256:0f7a2f70cb7e2a79bdb8548f92dc11789956134e9898c8b23b5c2013044e5c3e`
+from its committed runtime-only archive, with the locked dependency layer cached.
+Build and stopped-image source verification exited 0. All **349** application
+files matched, manifest hash
+`0d234d2f28e2d04874d0763a2d5f475a6bece829147deb2c59ed2e8c9df9175a`.
+
+The unprivileged, network-disabled immutable image passed its Linux smoke with
+exit 0: all three execution entrypoints refused the shipped unapproved policy,
+and fourteen synthetic wire exchanges reconstructed the v3 simulation. No source,
+production state, key or socket was mounted; only temporary tmpfs was writable.
+Every exit and log/script/report hash was re-derived before recording:
+
+```text
+reports/review-20261104/runtime-85b39ec/summary.json
+evidence_hash: d773718005f3fc5dd5d34c13fd4b4783bf8d49e197285abb1f2246a6a3cbddf2
+```
+
+This candidate was not deployed. Both original service containers were rechecked
+as exited on image `0b4f8cb42deb`. The separate real capture's head response was
+retrieved within the bounded host-observed interval from 2026-11-04T13:08:10.354000+00:00 to 2026-11-04T13:08:15.787400+00:00
+(scope declaration before launch through recorded process exit). This is an
+acquisition interval, not the block's timestamp or a two-source acceptance claim.
