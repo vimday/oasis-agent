@@ -407,3 +407,27 @@ evidence_hash: eb1a03d78f0b0d98e07bf8908de8f5e8e37b2de9c006e8d939d28cf0fcdb71f7
 reports/review-20261104/recovery-transport/manual-review.json
 evidence_hash: 42ae9cc3f316bc5015ff1bc74a9634eccfb01c3d9f5a86f1e5a556b4e0704486
 ```
+
+Committed collector change `cea40ea00e7b456ad3b25a9e66d7fdcf9e7654cd`
+built candidate
+`sha256:8872e4bf89d9d81fbab9044b6b184b041d367b565040d1b706ff8261e444d81f`.
+Build, stopped-image source verification and Linux smoke each exited 0, without
+timeout. All **352** application files matched the committed archive and local
+source bytes; manifest hash
+`2646e5e7a0310cc9f6b2ae4e5a73bf1ee02855b4b85562a02570d71940d072ea`.
+Archive, scripts, logs, report hashes and six locked source/config hashes were
+independently re-derived after completion. The Linux smoke used the shared
+client with in-memory success, redirect, HTTP-error and oversize responses,
+checking one post per case, redirect refusal and response closure. It ran
+unprivileged with network disabled, a read-only root, dropped capabilities and
+temporary tmpfs, without production/source/key/socket mounts. It made **zero**
+RPC requests. This verifies the collector's candidate application bytes and
+offline client behavior; dependencies, base runtime and Docker remain trusted.
+The candidate was not deployed, and no production state or configuration was
+migrated. The one successful secondary chain-ID request remains the only new
+production request in this retry scope; complete fresh acceptance is unresolved.
+
+```text
+reports/review-20261104/runtime-cea40ea/summary.json
+evidence_hash: fc3be77d1351fbf817bd181748d61ae376ea4972021549a8f8e4b11915396b59
+```
