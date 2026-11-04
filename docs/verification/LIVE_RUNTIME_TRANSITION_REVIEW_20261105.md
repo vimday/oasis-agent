@@ -64,6 +64,12 @@ remains unimplemented. Existing startup, signing and journal-binding gates
 continue to refuse an unapplied policy. The committed production config remains
 five-pin, and the owner's USD 500/200/500 limits and 1800-second ceilings remain.
 
+Subsequent implementation: the [joint acquisition
+mode](JOINT_RUNTIME_RECOVERY_CAPTURE_20261105.md) now addresses that acquisition
+coordination gap in code. Its separate 209-read scope has not been executed
+against production. The original validation evidence below remains unchanged;
+the paired runtime epoch writer and real acceptance are still outstanding.
+
 ## Validation
 
 Twenty-two new tests cover both original feed epochs, five/eight-pin scope,

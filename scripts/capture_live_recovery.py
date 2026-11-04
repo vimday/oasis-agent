@@ -4,6 +4,8 @@ Default mode is offline and does not read RPC environment variables. --capture
 requires an exact approved plan hash and a retained zero-cost scope declaration.
 Those declarations record external review; this tool cannot verify provider billing
 or create authorization. It never creates budgets, changes state/STOP, or signs.
+--discover-gas-oracle selects a separate, at-most-209-read scope that proposes
+three observed gas fingerprints and captures both services at that same head.
 """
 
 import argparse
@@ -16,7 +18,6 @@ import threading
 import time
 from collections import Counter
 from contextlib import ExitStack, closing, contextmanager, suppress
-from copy import deepcopy
 from dataclasses import asdict
 from pathlib import Path
 from urllib.error import HTTPError
@@ -24,131 +25,62 @@ from urllib.parse import parse_qsl, unquote, urlsplit
 
 from oasis_agent.evidence.exact_capture import decode_header
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
-from oasis_agent.evidence.rpc_validation import decode_exchange, strict_digest, strict_json_object
+from oasis_agent.evidence.rpc_validation import (
+    decode_exchange,
+    rpc_quantity,
+    strict_digest,
+    strict_json_object,
+)
 from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.config import LiveConfig
-from oasis_agent.live.config_epochs import retained_config
-from oasis_agent.live.feed_transition import _no_acquisition, _service_lock
+from oasis_agent.live.feed_transition import _service_lock
+from oasis_agent.live.gas_oracle import (
+    LEGACY_PIN_NAMES,
+    ORACLE,
+    implementation_address,
+    runtime_hash,
+)
+from oasis_agent.live.gas_oracle_evidence import (
+    candidate_configuration,
+    discovery_requests,
+    retain_discovery_quorum,
+)
 from oasis_agent.live.positions import PositionOutcomeScope, outcome_requests
 from oasis_agent.live.rearm_settlements import (
     SettlementHeadCapture,
     persist_settlement_head,
     settlement_requests,
 )
-from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.rpc_profile import LiveRpcProfile
-from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.startup_state import SOURCES, _position_identity, paths, require_file
-from oasis_agent.live.state import StateStore, day_of, validate_state
-from oasis_agent.live.valuation import capture_nav, nav_fresh_until, replay_nav, replay_nav_quorum
+from oasis_agent.live.state import StateStore
+from oasis_agent.live.valuation import capture_nav, nav_fresh_until
 from oasis_agent.live.valuation import requests as nav_requests
-from oasis_agent.live.wallet import WalletScope, require_wallet_continuity, wallet_requests
-from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
+from oasis_agent.live.wallet import WalletScope, wallet_requests
+from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json, sha256_hex
 from oasis_agent.models.v4 import PoolKey
 from oasis_agent.rpc.budget import RpcBudget
 from oasis_agent.rpc.transport import MAX_RESPONSE_BYTES, JsonRpcTransport, RpcExchange
 from oasis_agent.rpc.transport import _UrlLibPoster as BoundedPoster
+from scripts.live_recovery_checkpoint import review_checkpoint
+from scripts.review_live_runtime_transition import review as review_runtime_transition
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = ("strategy", "authority")
 RPC_ENV = ("BASE_RPC_PRIMARY_ALT", "BASE_RPC_PRIMARY")
 MAX_SECONDS = 120
 MAX_REQUESTS = 197
+RUNTIME_MAX_REQUESTS = MAX_REQUESTS + 12
+RUNTIME_PUBLICATIONS = (
+    "fresh-nav.json",
+    "references.json",
+    "runtime-target.json",
+    "runtime-references.json",
+    "runtime-review.json",
+)
 MAX_RESPONSE = MAX_RESPONSE_BYTES
 TRANSPORT_PROFILE = "shared_https_no_redirect_single_attempt.v1"
-
-
-def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
-    """Replay original policy bytes, including the exact prior five-pin shape."""
-    previous = retained_config(config, binding)
-    validate_state(state)
-    risk = state.exact_risk
-    if (
-        state.mode != "live"
-        or (previous is config and not state.halted)
-        or state.pending is not None
-        or state.signing_attempt is not None
-        or state.legacy_gas_cost_incomplete
-        or state.acknowledge_flow
-        or risk is None
-        or risk.basis is None
-        or risk.last_nav is None
-        or state.last_units is None
-        or risk.day != day_of(risk.last_at)
-        or not 0 < risk.checkpoint_at <= risk.last_at
-    ):
-        raise ValueError("complete halted integer baseline required")
-    if any(
-        value >= limit * 1_000_000
-        for value, limit in zip(
-            risk.losses(risk.last_nav),
-            (config.max_daily_loss_usd, config.max_cumulative_loss_usd),
-            strict=True,
-        )
-    ):
-        raise ValueError("existing loss latch cannot be recovered by capture")
-    loop = object.__new__(LiveLoop)
-    loop.mode, loop.c, loop.state = "live", previous, deepcopy(state)
-    loop.receipt_costs = RetainedReceiptCostReader(
-        evidence,
-        chain_id=previous.chain_id,
-        account=previous.account,
-        native_decimals=previous.decimals0,
-        sources=SOURCES,
-        sessions=_no_acquisition,
-    )
-    anchor = loop._check_nav_checkpoint()
-    if anchor is None:
-        raise ValueError("verified original wallet anchor required")
-    if state.nav_evidence:
-        prior = replay_nav_quorum(evidence, state.nav_evidence, previous, sources=SOURCES)
-        prior_position = replay_nav(evidence, state.nav_evidence[0], previous).position
-        if (
-            _position_identity(prior_position) != _position_identity(state.position)
-            or [
-                prior.wallet.native,
-                prior.wallet.token,
-                prior_position.liquidity if prior_position else 0,
-            ]
-            != state.last_units
-        ):
-            raise ValueError("historical holdings differ from checkpoint")
-    if not fresh:
-        return
-    value = replay_nav_quorum(evidence, fresh, config, sources=SOURCES)
-    try:
-        require_wallet_continuity(anchor, value.wallet, allow_same_block=True)
-    except ValueError:
-        raise ValueError("fresh NAV does not reconcile original inventory or nonce") from None
-    position = replay_nav(evidence, fresh[0], config).position
-    block = value.wallet.header.ref
-    if (
-        block.timestamp is None
-        or not risk.last_at
-        < block.timestamp
-        <= now
-        <= nav_fresh_until(evidence, fresh, config, sources=SOURCES)
-        or _position_identity(position) != _position_identity(state.position)
-        or [value.wallet.native, value.wallet.token, position.liquidity if position else 0]
-        != state.last_units
-        or any(
-            a["number"] > block.number
-            or (a["number"] == block.number and a["hash"] != block.block_hash)
-            for a in state.settled_blocks
-        )
-    ):
-        raise ValueError("fresh NAV does not reconcile original inventory or nonce")
-    losses = deepcopy(risk).observe(
-        day=day_of(block.timestamp), at=block.timestamp, nav=value.nav_micros, checkpoint=True
-    )
-    if any(
-        value >= limit * 1_000_000
-        for value, limit in zip(
-            losses, (config.max_daily_loss_usd, config.max_cumulative_loss_usd), strict=True
-        )
-    ):
-        raise ValueError("fresh loss budget exhausted")
 
 
 def _identity(path):
@@ -165,9 +97,11 @@ def _unchanged(path):
 
 
 @contextmanager
-def prepared(strategy, authority, config, profile):
+def prepared(strategy, authority, config, profile, *, discover_gas_oracle=False):
     """Hold original EX locks/STOP, and inspect originals without initializing any file."""
     config.validate()
+    if discover_gas_oracle and set(config.expected_pins) != LEGACY_PIN_NAMES:
+        raise ValueError("joint discovery requires the original five-pin configuration")
     if (
         config.oracle_max_age_seconds,
         config.usdc_oracle_max_age_seconds,
@@ -212,6 +146,8 @@ def prepared(strategy, authority, config, profile):
                     raise ValueError("SQLite recovery files require separate inspection")
             checks.append(stack.enter_context(_service_lock(store, directory / "STOP", role)))
             state = store.load("live", read_only=True)
+            if discover_gas_oracle and not state.halted:
+                raise ValueError("joint discovery requires both original services halted")
             binding = store.journal.config_hash
             # Release SQLite's read transaction before any original evidence append.
             with closing(ReadOnlyEvidenceStore(evidence_path)) as retained:
@@ -277,7 +213,11 @@ def prepared(strategy, authority, config, profile):
         )
         limits = {role: {source: len(calls) for source in SOURCES} for role in ROLES}
         limits["strategy"][SOURCES[0]] += 1  # shared initial head lookup
-        if sum(sum(values.values()) for values in limits.values()) > MAX_REQUESTS or any(
+        if discover_gas_oracle:
+            for source in SOURCES:
+                limits["strategy"][source] += 6
+        maximum = RUNTIME_MAX_REQUESTS if discover_gas_oracle else MAX_REQUESTS
+        if sum(sum(values.values()) for values in limits.values()) > maximum or any(
             services[role]["budget_counts"][source] + limits[role][source] > profile.max_requests
             for role in ROLES
             for source in SOURCES
@@ -302,6 +242,21 @@ def prepared(strategy, authority, config, profile):
             "retries": 0,
             "transport_profile": TRANSPORT_PROFILE,
         }
+        if discover_gas_oracle:
+            plan.update(
+                schema="oasis.live-runtime-recovery-capture-plan.v1",
+                purpose="same_block_gas_discovery_and_two_service_nav_receipts",
+                gas_oracle=ORACLE,
+                gas_reads_per_source={
+                    "eth_chainId": 1,
+                    "eth_getBlockByNumber": 2,
+                    "eth_getCode": 2,
+                    "eth_getStorageAt": 1,
+                },
+                runtime_target="exact_source_config_plus_three_observed_gas_pins",
+                runtime_approved=False,
+                configuration_applied=False,
+            )
         plan["plan_hash"] = sha256_hex(canonical_json(plan))
 
         def verify():
@@ -543,6 +498,49 @@ class CaptureControl:
         return rpc, recorder, source
 
 
+def _capture_gas_candidate(control, urls, transport, header, config, out, verify):
+    """Use the shared head and original strategy budgets; never approve the proposal."""
+    block, captures, observed = header.ref, [], []
+    for source in SOURCES:
+        verify()
+        control.remaining()
+        rpc, recorder, _ = control.session("strategy", source, urls, transport)
+        values = []
+        for index, (method, params) in enumerate(discovery_requests(block, ORACLE)[:4]):
+            value = rpc.request(method, params)
+            if index == 0 and rpc_quantity(value) != config.chain_id:
+                raise ValueError("gas discovery chain differs")
+            if index == 1 and decode_header(value, chain_id=config.chain_id) != header:
+                raise ValueError("gas discovery opening header differs")
+            if index == 2:
+                runtime_hash(value)
+            if index == 3:
+                implementation_address(value)
+            if observed and index >= 2 and value != observed[0][index]:
+                raise ValueError("gas discovery providers disagree")
+            values.append(value)
+        implementation = implementation_address(values[3])
+        tail = discovery_requests(block, implementation)[4:]
+        code = rpc.request(*tail[0])
+        runtime_hash(code)
+        if observed and code != observed[0][4]:
+            raise ValueError("gas implementation providers disagree")
+        if decode_header(rpc.request(*tail[1]), chain_id=config.chain_id) != header:
+            raise ValueError("gas discovery closing header differs")
+        observed.append([*values, code])
+        captures.append(recorder.exchanges)
+    verify()
+    control.remaining()
+    with closing(EvidenceStore(out / "gas-evidence.db")) as evidence:
+        refs = retain_discovery_quorum(evidence, block, (captures[0], captures[1]), sources=SOURCES)
+        candidate = candidate_configuration(
+            evidence, refs, block, config, sources=SOURCES, now=int(control.clock())
+        )
+    with (out / "gas-candidate.json").open("xb") as handle:
+        handle.write(canonical_json(candidate))
+    return LiveConfig.from_json(canonical_json(candidate["candidate_config"])), refs
+
+
 def capture(
     strategy,
     authority,
@@ -552,6 +550,7 @@ def capture(
     approved_hash,
     scope_path,
     *,
+    discover_gas_oracle=False,
     clock=time.time,
     monotonic=time.monotonic,
     sleep=None,
@@ -575,7 +574,9 @@ def capture(
     }
     control = None
     try:
-        with prepared(strategy, authority, config, profile) as (
+        with prepared(
+            strategy, authority, config, profile, discover_gas_oracle=discover_gas_oracle
+        ) as (
             plan,
             states,
             evidence_paths,
@@ -583,6 +584,8 @@ def capture(
             verify,
         ):
             report["plan"] = plan
+            if discover_gas_oracle:
+                report.update(runtime_approved=False, configuration_applied=False)
             scope = _scope(scope_path, approved_hash, plan, clock())
             report["cost_scope_hash"] = sha256_hex(canonical_json(scope))
             report["cost_scope_status"] = "operator_declaration_not_provider_billing_verification"
@@ -607,11 +610,17 @@ def capture(
             control.deadline = min(control.deadline, scope["valid_until_ms"] / 1000)
             head_session = control.session("strategy", SOURCES[0], urls, transport)
             header = head_session[0].request("eth_getBlockByNumber", ["latest", False])
-            head = decode_header(header, chain_id=config.chain_id).ref
+            header = decode_header(header, chain_id=config.chain_id)
+            head = header.ref
             if head.timestamp is None or not 0 <= clock() - head.timestamp <= 120:
                 raise ValueError("fresh pinned head required")
             control.deadline = min(control.deadline, head.timestamp + 120)
             report["head"] = asdict(head)
+            if discover_gas_oracle:
+                config, gas_refs = _capture_gas_candidate(
+                    control, urls, transport, header, config, out, verify
+                )
+                report["target_config_hash"] = sha256_hex(canonical_json(asdict(config)))
             references, values = {}, []
             for role in ROLES:
                 verify()
@@ -631,6 +640,8 @@ def capture(
                         sources=SOURCES,
                         sessions=session,
                     )
+                    if discover_gas_oracle and value.wallet.header != header:
+                        raise ValueError("gas and NAV full headers differ")
                     control.deadline = min(
                         control.deadline, nav_fresh_until(evidence, refs, config, sources=SOURCES)
                     )
@@ -671,6 +682,14 @@ def capture(
                     }:
                         raise ValueError("original budget changed outside this attempt")
             (out / "candidate-references.json").write_bytes(canonical_json(references))
+            if discover_gas_oracle:
+                runtime_refs = {
+                    "schema": "oasis.runtime-transition-inputs.v1",
+                    "nav": {role: references[role]["nav"] for role in ROLES},
+                    "gas": [asdict(ref) for ref in gas_refs],
+                }
+                with (out / "candidate-runtime-references.json").open("xb") as handle:
+                    handle.write(canonical_json(runtime_refs))
             report.update(
                 capture_passed=True,
                 status="raw_capture_requires_offline_rearm_review",
@@ -700,6 +719,50 @@ def _nav_publications(out, worker):
         "fresh-nav.json": canonical_json({role: refs[role]["nav"] for role in ROLES}),
         "references.json": refs_raw,
     }
+
+
+def _runtime_publications(out, worker, config):
+    publications = _nav_publications(out, worker)
+    refs_raw = (out / "candidate-runtime-references.json").read_bytes()
+    refs = strict_json_object(refs_raw)
+    candidate = strict_json_object((out / "gas-candidate.json").read_bytes())
+    target = LiveConfig.from_json(canonical_json(candidate["candidate_config"]))
+    gas_refs = tuple(evidence_ref_from_json(ref) for ref in refs["gas"])
+    with closing(ReadOnlyEvidenceStore(out / "gas-evidence.db")) as evidence:
+        expected = candidate_configuration(
+            evidence,
+            gas_refs,
+            gas_refs[0].block,
+            config,
+            sources=SOURCES,
+            now=candidate["reviewed_at"],
+        )
+    if (
+        candidate != expected
+        or refs["nav"] != strict_json_object(publications["fresh-nav.json"])
+        or worker["head"] != candidate["block"]
+        or worker["target_config_hash"] != candidate["candidate_config_hash"]
+        or worker["plan"]["config_hash"] != candidate["source_config_hash"]
+        or worker["plan"]["schema"] != "oasis.live-runtime-recovery-capture-plan.v1"
+    ):
+        raise ValueError("joint capture publication scope differs")
+    report = review_runtime_transition(
+        *(Path(worker["plan"]["services"][role]["directory"]) for role in ROLES),
+        target,
+        refs,
+        out / "gas-evidence.db",
+        now=int(time.time()),
+    )
+    if not report["block"]["timestamp"] <= int(time.time()) <= report["valid_until"]:
+        raise ValueError("joint capture expired before publication")
+    publications.update(
+        {
+            "runtime-target.json": canonical_json(asdict(target)),
+            "runtime-references.json": refs_raw,
+            "runtime-review.json": canonical_json(report),
+        }
+    )
+    return publications
 
 
 def supervise(
@@ -874,6 +937,11 @@ def main():
     parser.add_argument("--config", type=Path, default=ROOT / "configs/live.base-eth-usdc.json")
     parser.add_argument("--rpc-profile", type=Path, default=ROOT / "configs/live.rpc.canary.json")
     parser.add_argument("--capture", action="store_true")
+    parser.add_argument(
+        "--discover-gas-oracle",
+        action="store_true",
+        help="separately authorized joint gas discovery/NAV scope (at most 209 reads)",
+    )
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approved-plan-hash")
     parser.add_argument("--zero-cost-scope", type=Path)
@@ -902,11 +970,26 @@ def main():
                     args.out,
                     args.approved_plan_hash,
                     args.zero_cost_scope,
+                    discover_gas_oracle=args.discover_gas_oracle,
                 ),
                 args.out,
+                **(
+                    {
+                        "publisher": lambda out, worker: _runtime_publications(out, worker, config),
+                        "publication_names": RUNTIME_PUBLICATIONS,
+                    }
+                    if args.discover_gas_oracle
+                    else {}
+                ),
             )
         else:
-            with prepared(args.strategy_dir, args.authority_dir, config, profile) as prepared_scope:
+            with prepared(
+                args.strategy_dir,
+                args.authority_dir,
+                config,
+                profile,
+                discover_gas_oracle=args.discover_gas_oracle,
+            ) as prepared_scope:
                 report = prepared_scope[0]
         print(json.dumps(report, indent=2))
         raise SystemExit(report.get("exit_code", 0))

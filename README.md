@@ -50,6 +50,13 @@ point](docs/verification/SIGNED_NAV_ACQUISITION_20261022.md). It defaults to an
 offline plan; explicit capture reuses an existing RPC budget and produces retained
 candidate evidence for current-clock replay. It does not open the live release gate.
 
+For stopped-service recovery, the [joint Gas/NAV acquisition
+mode](docs/verification/JOINT_RUNTIME_RECOVERY_CAPTURE_20261105.md) plans one
+separately authorized window of at most 209 reads. It shares one block across
+gas discovery, both services' NAV and retained receipt anchors, then runs the
+read-only runtime preflight before publishing. It does not apply the candidate
+configuration, migrate journals, rearm services or authorize trading.
+
 For the retained-input research pipeline:
 
 ```bash

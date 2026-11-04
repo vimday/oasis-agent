@@ -25,7 +25,7 @@ from oasis_agent.live.startup_state import _position_identity, paths, require_fi
 from oasis_agent.live.state import StateStore, day_of
 from oasis_agent.live.valuation import nav_fresh_until, replay_nav, replay_nav_quorum
 from oasis_agent.models.common import canonical_json, evidence_ref_from_json, sha256_hex
-from scripts.capture_live_recovery import review_checkpoint
+from scripts.live_recovery_checkpoint import review_checkpoint
 from scripts.review_live_gas_oracle import _read
 
 ROLES = ("strategy", "authority")

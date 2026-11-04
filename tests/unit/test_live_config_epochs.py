@@ -15,6 +15,7 @@ from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from scripts import capture_live_recovery as capture_cli
+from scripts import live_recovery_checkpoint as checkpoint_cli
 from tests.unit import test_live_approval_cash as approval
 from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_feed_transition import CONFIG as FEED_CONFIG
@@ -144,7 +145,7 @@ def test_strict_five_pin_cash_proofs_also_replay_at_their_original_hash(tmp_path
 def test_checkpoint_uses_original_proof_but_fresh_nav_requires_current_policy(
     tmp_path, monkeypatch, fresh_under_old_policy
 ):
-    monkeypatch.setattr(capture_cli, "SOURCES", SOURCES)
+    monkeypatch.setattr(checkpoint_cli, "SOURCES", SOURCES)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as evidence:
         state, fixture, old_fresh = checkpoint_setup(evidence)
         target = replace(

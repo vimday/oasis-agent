@@ -14,6 +14,7 @@ from oasis_agent.live.state import day_of
 from oasis_agent.live.valuation import capture_nav
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from scripts import capture_live_recovery as capture_cli
+from scripts import live_recovery_checkpoint as checkpoint_cli
 from tests.unit import test_live_approval_cash as approval
 from tests.unit import test_live_rearm as rearm_fixture
 from tests.unit.test_live_authority import setup_authority
@@ -172,7 +173,7 @@ def test_recovery_replays_settled_cash_nonce_even_without_nav_checkpoint(
     tmp_path, monkeypatch, nonce_delta
 ):
     sources = (PRIMARY, SECONDARY)
-    monkeypatch.setattr(capture_cli, "SOURCES", sources)
+    monkeypatch.setattr(checkpoint_cli, "SOURCES", sources)
     target = replace(
         approval.TEST_CONFIG,
         expected_pins=approval.TEST_CONFIG.expected_pins
