@@ -1,4 +1,25 @@
-# Direct Base canary release boundary — 2026-10-17
+# Direct Base canary release boundary
+
+## Current status — 2026-11-04
+
+The recorded owner release approval dated 2026-10-31 is distinct from current
+runtime readiness. Both production services remain stopped. Their historical
+journals still bind the earlier USDC age policy; the current ETH/USD and USDC/USD
+ceilings are both 1800 seconds. A fresh, complete two-source NAV is required before
+the explicit configuration migration can proceed. Migration preserves HALT and
+does not start either service or authorize a transaction.
+
+See [strict-feed migration](STRICT_FEED_MIGRATION.md),
+[current alignment verification](../verification/LIVE_ALIGNMENT_20261104.md), and
+[the OKX OnchainOS boundary](OKX_ONCHAINOS.md). Complete real-receipt/unwind
+acceptance and current production observations remain outstanding. Historical
+release approval, prior receipts and passing offline tests do not satisfy them.
+
+## Historical release snapshot — 2026-10-17
+
+The following records the then-current implementation and closed release gate;
+its statements about missing provisioning and approval are historical, not a
+replacement for the current status above. Original evidence references are kept.
 
 **New live transactions remain blocked.** The four missing controls now have
 implementations and executable tests. Production acceptance is incomplete;

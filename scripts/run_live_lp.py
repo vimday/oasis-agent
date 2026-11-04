@@ -31,8 +31,10 @@ from oasis_agent.live.authority_socket import TransactionSocketClient
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.okx_budget import OkxPriceReadBudget, OkxPriceReadGrant
 from oasis_agent.live.okx_price import CREDENTIAL_NAMES, OkxPriceSource
 from oasis_agent.live.precheck import check_live
+from oasis_agent.live.precheck_evidence import precheck_evidence
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.recovery import (
     adopt_authority_pending,
@@ -121,6 +123,8 @@ def main() -> None:
         help="defer swap/mint unless OKX (OKX_API_KEY/OKX_SECRET_KEY/OKX_PASSPHRASE env) "
         "agrees within this many bps; exits are never gated",
     )
+    parser.add_argument("--okx-price-grant", type=Path, help="retained free-only OKX read grant")
+    parser.add_argument("--okx-price-budget", type=Path, help="original frozen OKX request ledger")
     parser.add_argument("--clear-halt", action="store_true")
     parser.add_argument("--report", action="store_true")
     parser.add_argument(
@@ -145,6 +149,28 @@ def main() -> None:
         help="reconcile pending once; optional public authority status only",
     )
     args = parser.parse_args()
+    if args.external_price_guard_bps is None:
+        if args.okx_price_grant is not None or args.okx_price_budget is not None:
+            parser.error("OKX grant and budget require --external-price-guard-bps")
+    elif (
+        not 0 <= args.external_price_guard_bps <= 10_000
+        or args.okx_price_grant is None
+        or args.okx_price_budget is None
+        or any(
+            (
+                args.check,
+                args.readiness,
+                args.report,
+                args.clear_halt,
+                args.acknowledge_flow,
+                args.drop_pending,
+                args.reconcile_only,
+            )
+        )
+    ):
+        parser.error(
+            "OKX guard requires a normal run, 0-10000 bps, retained grant and original budget"
+        )
     if (args.readiness or args.reconcile_only) and (
         args.mode != "live"
         or sum((args.readiness, args.reconcile_only)) != 1
@@ -184,6 +210,27 @@ def main() -> None:
             raise SystemExit(3) from None
 
     config = LiveConfig.load(args.config)
+    external, guard_bps = None, 50
+    if args.external_price_guard_bps is not None:
+        try:
+            # Only explicit query variables; never a mixed credential/key file.
+            creds = {name: os.environ.get(name, "") for name in CREDENTIAL_NAMES}
+            grant = OkxPriceReadGrant.load(args.okx_price_grant)
+            okx_budget = OkxPriceReadBudget(args.okx_price_budget, grant)
+            okx_budget.require_available(
+                creds["OKX_API_KEY"],
+                config.chain_id,
+                (config.pool.currency0, config.pool.currency1),
+                int(time.time() * 1000),
+            )
+            external = OkxPriceSource(creds, budget=okx_budget)
+            guard_bps = args.external_price_guard_bps
+        except Exception:  # noqa: BLE001 - never echo query credentials or grant contents
+            parser.exit(
+                3,
+                "OKX guard refused: query credentials, free pricing grant "
+                "or original budget unresolved.\n",
+            )
     profile = LiveRpcProfile.load(args.rpc_profile)
     if args.check:
         if args.mode != "live" or any(
@@ -204,7 +251,11 @@ def main() -> None:
                 raise ValueError("duplicate provider")
             with TemporaryDirectory(prefix="oasis-live-check-") as temp:
                 directory = Path(temp)
-                with closing(EvidenceStore(directory / "evidence.db")) as evidence:
+                with precheck_evidence(
+                    directory / "evidence.db",
+                    args.state_dir / "live.receipts.db",
+                    args.state_dir / "live.lock",
+                ) as evidence:
                     reader = receipt_cost_reader(
                         config,
                         evidence,
@@ -421,14 +472,6 @@ def main() -> None:
             )
             primary = BudgetedRpc(primary_url, args.state_dir, "live_primary", profile)
             secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
-        external = None
-        guard_bps = 50
-        if args.external_price_guard_bps is not None:
-            # Read only the three query names from the environment, never a credential file.
-            creds = {name: os.environ.get(name, "") for name in CREDENTIAL_NAMES}
-            if not all(value.strip() for value in creds.values()):
-                raise SystemExit("External price guard requires OKX query credentials in env.")
-            external, guard_bps = OkxPriceSource(creds), args.external_price_guard_bps
         loop = LiveLoop(
             config,
             primary,

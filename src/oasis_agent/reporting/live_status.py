@@ -22,10 +22,6 @@ Hash = Annotated[str, Field(pattern=r"^0x[0-9a-f]{64}$")]
 Action = Literal["approve_usdc", "approve_permit2", "swap", "mint", "burn"]
 MAX_STATE_BYTES = 2_000_000
 MAX_OBSERVATION_AGE = 120
-# Mirrors the runner: a full NAV/loss observation at least every 3600s, with light
-# in-range checks every poll (300s deployed) in between. Slack covers one poll plus I/O.
-MAX_FULL_OBSERVATION_AGE = 3600 + 420
-MAX_LIGHT_CHECK_AGE = 420
 
 
 class LiveObservation(BaseModel):
@@ -193,19 +189,11 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
     else:
         age = clock - observation.observed_at
         block_age = clock - observation.block_timestamp
-        light = state.last_light_check
         if age < 0 or block_age < 0 or observation.block_timestamp > observation.observed_at:
             blockers.append("observation_clock_invalid")
-        elif max(age, block_age) > MAX_OBSERVATION_AGE and not (
-            # Between full observations the loop holds on a cheap two-provider in-range check.
-            # It counts as fresh only while the full observation it rides on is itself current.
-            light is not None
-            and age <= MAX_FULL_OBSERVATION_AGE
-            and light.block > observation.block
-            and light.observed_at >= observation.observed_at
-            and 0 <= clock - light.observed_at <= MAX_LIGHT_CHECK_AGE
-            and 0 <= clock - light.block_timestamp <= MAX_LIGHT_CHECK_AGE
-        ):
+        elif max(age, block_age) > MAX_OBSERVATION_AGE:
+            # A recent in-range tick check supplies no new wallet, USD feed or NAV proof.
+            # Keep it visible separately, without renewing the account observation's age.
             blockers.append("observation_stale")
         if (
             observation.daily_loss_usd >= observation.daily_loss_limit_usd

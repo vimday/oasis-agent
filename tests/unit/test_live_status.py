@@ -267,13 +267,14 @@ def light_state(*, full_age: int, light_age: int, block: int = 200) -> dict:
     return state
 
 
-def test_recent_light_check_keeps_a_current_full_observation_fresh(tmp_path: Path) -> None:
+@pytest.mark.parametrize("full_age", [121, 900, 1801, 4020])
+def test_recent_tick_check_never_refreshes_account_nav(tmp_path: Path, full_age: int) -> None:
     report = read_live_status(
-        write_state(tmp_path, light_state(full_age=900, light_age=60)), now=NOW
+        write_state(tmp_path, light_state(full_age=full_age, light_age=60)), now=NOW
     )
-    assert report.status == "observed" and report.blockers == []
+    assert report.status == "stale" and report.blockers == ["observation_stale"]
     assert report.light_check is not None and report.light_check.tick == -199_100
-    assert report.observation_age_seconds == 900  # the full observation's own age is reported
+    assert report.observation_age_seconds == full_age
 
 
 @pytest.mark.parametrize(

@@ -70,14 +70,22 @@ assert.doesNotMatch(nodes.get('live-release').innerHTML, /<b>/);
 const light = {block: data.observation.block + 10,
   block_timestamp: data.observation.observed_at + 590,
   observed_at: data.observation.observed_at + 600, tick: -199100};
-const held = {...data, pending: null, status: 'observed', blockers: [],
+const held = {...data, pending: null, status: 'stale', blockers: ['observation_stale'],
   observation_age_seconds: 900, light_check: light};
-assert.equal(liveStatusModel(held).status, 'observed');
+assert.equal(liveStatusModel(held).status, 'stale');
 renderLiveStatus(held);
-assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
-assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行|当前运行条件未满足/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+assert.match(nodes.get('live-title').textContent, /观测需要更新/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行/);
 assert.match(nodes.get('live-observation').textContent, /区间检查于 .* tick -199100/);
 assert.match(nodes.get('live-observation').textContent, /仅确认仍在区间/);
+assert.match(nodes.get('live-observation').textContent, /不更新净值或喂价时效/);
+const recent = {...data, pending: null, status: 'observed', blockers: [],
+  observation_age_seconds: 0};
+assert.equal(liveStatusModel(recent).status, 'observed');
+renderLiveStatus(recent);
+assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行|当前运行条件未满足/);
 const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
   blockers: ['signing_outcome_unresolved']};
 assert.equal(liveStatusModel(signing).status, 'signing_unknown');
@@ -118,11 +126,12 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...data, release: {...data.release, blockers: [blocker]}},
   {...data, release: {...data.release, new_actions_allowed: false}},
   {...data, release: {...data.release, new_actions_allowed: false, blockers: [null]}},
-  {...held, observation_age_seconds: 4021},
+  {...held, status: 'observed', blockers: []},
+  {...held, status: 'observed', blockers: [], observation_age_seconds: 4021},
   {...held, light_check: {...light, block: data.observation.block}},
   {...held, light_check: {...light, observed_at: data.observation.observed_at - 1}},
   {...held, light_check: {...light, tick: '-199100'}},
-  {...held, light_check: null, observation_age_seconds: 900}]) {
+  {...held, status: 'observed', blockers: [], light_check: null, observation_age_seconds: 900}]) {
   assert.equal(liveStatusModel(invalid), null);
   renderLiveStatus(data);
   renderLiveStatus(invalid);

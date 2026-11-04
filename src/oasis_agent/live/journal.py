@@ -9,11 +9,13 @@ import json
 import os
 import sqlite3
 import stat
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
+from .feed_epoch import transition_snapshot
 
 ZERO = "0" * 64
 MAX_SNAPSHOT = 2_000_000
@@ -81,27 +83,29 @@ class LiveJournal:
     def _read(self, db: sqlite3.Connection) -> tuple[str, bytes | None]:
         parent = ZERO
         latest = None
-        binding = self.config_hash
+        binding = None
+        transitions = {}
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='config_transitions'"
+        ).fetchone():
+            rows = db.execute("SELECT seq, payload FROM config_transitions LIMIT 2").fetchall()
+            if len(rows) != 1:
+                raise ValueError("exactly one supported configuration transition required")
+            transitions = dict(rows)
         for expected, row in enumerate(
             db.execute("SELECT seq, config, parent, digest, payload FROM events ORDER BY seq"), 1
         ):
             seq, config, previous, digest, payload = row
+            if (
+                not isinstance(config, str)
+                or len(config) != 64
+                or any(c not in "0123456789abcdef" for c in config)
+            ):
+                raise ValueError("invalid journal configuration digest")
             if binding is None:
                 binding = config
             if not isinstance(payload, bytes) or len(payload) > MAX_SNAPSHOT:
                 raise ValueError("invalid journal payload")
-            actual = sha256_hex(
-                canonical_json(
-                    {
-                        "seq": seq,
-                        "config": config,
-                        "parent": previous,
-                        "state_hash": sha256_hex(payload),
-                    }
-                )
-            )
-            if seq != expected or config != binding or previous != parent or digest != actual:
-                raise ValueError("journal chain or configuration changed")
             raw = json.loads(payload)
             if (
                 canonical_json(raw) != payload
@@ -109,9 +113,98 @@ class LiveJournal:
                 or raw.get("mode") != "live"
             ):
                 raise ValueError("invalid canonical live journal state")
+            commitment = {
+                "seq": seq,
+                "config": config,
+                "parent": previous,
+                "state_hash": sha256_hex(payload),
+            }
+            transition = transitions.pop(seq, None)
+            if config != binding:
+                if (
+                    latest is None
+                    or not isinstance(transition, bytes)
+                    or len(transition) > MAX_SNAPSHOT
+                ):
+                    raise ValueError("configuration change lacks its transition record")
+                record = json.loads(transition)
+                if canonical_json(record) != transition:
+                    raise ValueError("noncanonical transition record")
+                target, snapshot = transition_snapshot(
+                    json.loads(latest), record, binding=binding, parent=parent
+                )
+                if target != config or canonical_json(snapshot) != payload:
+                    raise ValueError("transition state or configuration differs")
+                commitment["transition_hash"] = sha256_hex(transition)
+                binding = target
+            elif transition is not None:
+                raise ValueError("unexpected transition record")
+            actual = sha256_hex(canonical_json(commitment))
+            if seq != expected or previous != parent or digest != actual:
+                raise ValueError("journal chain or configuration changed")
             parent, latest = digest, payload
-        self.config_hash = binding
+        if transitions or (
+            self.config_hash is not None and binding not in (None, self.config_hash)
+        ):
+            raise ValueError(
+                "journal configuration changed; terminal configuration mismatch "
+                "or orphan transition"
+            )
+        if binding is not None:
+            self.config_hash = binding
         return parent, latest
+
+    def transition(self, record: dict[str, Any]) -> bytes:
+        """Append one reviewed strict-feed epoch atomically; never update old events.
+
+        The caller must first replay raw proofs with feed_transition.apply_service.
+        This storage operation cannot clear HALT and does not touch RPC budgets.
+        """
+        if self.config_hash is None or self.revision is None:
+            raise ValueError("transition requires a loaded, bound journal")
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            parent, latest = self._read(db)
+            if parent != self.revision or latest is None or record["source_tip"] != parent:
+                raise JournalConflict("transition source changed")
+            if db.execute("SELECT 1 FROM sqlite_master WHERE name='config_transitions'").fetchone():
+                raise ValueError("a transition already exists; no repeat or replacement")
+            target, state = transition_snapshot(
+                json.loads(latest), record, binding=self.config_hash, parent=parent
+            )
+            payload, encoded = canonical_json(state), canonical_json(record)
+            if max(len(payload), len(encoded)) > MAX_SNAPSHOT:
+                raise ValueError("transition exceeds byte bound")
+            seq = db.execute("SELECT COUNT(*) FROM events").fetchone()[0] + 1
+            digest = sha256_hex(
+                canonical_json(
+                    {
+                        "seq": seq,
+                        "config": target,
+                        "parent": parent,
+                        "state_hash": sha256_hex(payload),
+                        "transition_hash": sha256_hex(encoded),
+                    }
+                )
+            )
+            db.execute(
+                "CREATE TABLE config_transitions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
+            )
+            for operation in ("UPDATE", "DELETE"):
+                db.execute(
+                    f"CREATE TRIGGER transition_no_{operation.lower()} BEFORE {operation} "
+                    "ON config_transitions BEGIN SELECT RAISE(ABORT, 'append only'); END"
+                )
+            db.execute("INSERT INTO config_transitions VALUES (?, ?)", (seq, encoded))
+            db.execute(
+                "INSERT INTO events VALUES (?, ?, ?, ?, ?)", (seq, target, parent, digest, payload)
+            )
+            fresh = record["review"]["fresh_nav"]
+            if not fresh["block"]["timestamp"] <= int(time.time()) <= fresh["valid_until"]:
+                raise ValueError("transition proof expired while acquiring journal lock")
+            db.execute("COMMIT")
+        self.config_hash, self.revision = target, digest
+        return payload
 
     def load(self, projection: bytes | None = None, *, read_only: bool = False) -> bytes | None:
         with closing(self._connect(read_only=read_only)) as db:

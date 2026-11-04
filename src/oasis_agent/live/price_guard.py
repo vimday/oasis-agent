@@ -21,6 +21,16 @@ class ExternalPriceSource(ABC):
     def fetch_usd_price(self, chain_id: int, currency: str) -> Fraction | None:
         """USD per whole `currency` token on `chain_id`; None if unavailable or stale."""
 
+    def fetch_usd_prices(
+        self, chain_id: int, currencies: tuple[str, str]
+    ) -> tuple[Fraction, Fraction] | None:
+        """Sources with a batch API should validate both prices at one receive time."""
+        first = self.fetch_usd_price(chain_id, currencies[0])
+        if first is None:
+            return None
+        second = self.fetch_usd_price(chain_id, currencies[1])
+        return None if second is None else (first, second)
+
 
 def check_price_deviation(
     chain_id: int,
@@ -37,15 +47,26 @@ def check_price_deviation(
     """
     if type(max_deviation_bps) is not int or not 0 <= max_deviation_bps <= 10_000:
         raise ValueError("deviation threshold must be 0-10000 bps")
-    if reference0_usd <= 0 or reference1_usd <= 0:
-        raise ValueError("reference prices must be positive")
+    if (
+        type(reference0_usd) is not Fraction
+        or type(reference1_usd) is not Fraction
+        or reference0_usd <= 0
+        or reference1_usd <= 0
+    ):
+        raise ValueError("reference prices must be positive exact fractions")
     try:
-        external0 = external.fetch_usd_price(chain_id, currency0)
-        external1 = external.fetch_usd_price(chain_id, currency1)
+        prices = external.fetch_usd_prices(chain_id, (currency0, currency1))
     except Exception:  # noqa: BLE001 - provider errors may contain credentials
         return False, "external price guard: source failed (details redacted)"
-    if external0 is None or external1 is None:
+    if prices is None:
         return False, "external price guard: price unavailable"
+    if (
+        not isinstance(prices, tuple)
+        or len(prices) != 2
+        or any(type(value) is not Fraction for value in prices)
+    ):
+        return False, "external price guard: exact price pair required"
+    external0, external1 = prices
     if external0 <= 0 or external1 <= 0:
         return False, "external price guard: fetched price is not positive"
     reference_ratio = reference0_usd / reference1_usd

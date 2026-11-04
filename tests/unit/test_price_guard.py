@@ -132,3 +132,22 @@ def test_zero_threshold_refuses_any_nonzero_deviation() -> None:
     )
     assert not approved
     assert "exceeds 0 bps" in reason
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), True, 2500.0])
+def test_non_exact_external_prices_cannot_pass_through_nan_comparisons(bad):
+    source = FakeExternalSource({(8453, ETH): bad, (8453, USDC): Fraction(1)})
+    approved, reason = check_price_deviation(
+        8453, ETH, USDC, Fraction(2500), Fraction(1), source, 50
+    )
+    assert not approved and "exact price pair" in reason
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), True, 2500.0])
+def test_non_exact_reference_refuses_before_provider_is_contacted(bad):
+    class NoQuery(ExternalPriceSource):
+        def fetch_usd_price(self, *_):
+            pytest.fail("invalid reference must not acquire external prices")
+
+    with pytest.raises(ValueError, match="positive exact fractions"):
+        check_price_deviation(8453, ETH, USDC, bad, Fraction(1), NoQuery(), 50)

@@ -1,19 +1,26 @@
-"""Offline evidence review for the historical 90000s -> 1800s feed transition.
+"""Evidence review and explicit halted 90000s -> 1800s configuration transition.
 
-Produces a reviewable risk preview only. No state writer, RPC acquisition,
-configuration rebinding, halt clearance or execution permit is exposed.
+Review is read-only. Application requires a stopped service and valid new raw
+proofs; it always preserves HALT. Neither path acquires RPC data or can trade.
 """
 
+import fcntl
+import os
+import stat
+import time
+from collections.abc import Iterator, Mapping
+from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from dataclasses import asdict, replace
-from typing import Any, NoReturn
+from pathlib import Path
+from typing import Any, Literal, NoReturn
 
 from ..evidence.store import EvidenceStore
 from ..models.common import EvidenceRef, canonical_json, sha256_hex
 from .config import LiveConfig
 from .receipts import RetainedReceiptCostReader
 from .runner import LiveLoop
-from .state import LoopState, Position, day_of, validate_state
+from .state import LoopState, Position, StateStore, day_of, validate_state
 from .valuation import nav_fresh_until, replay_nav, replay_nav_quorum
 
 
@@ -161,3 +168,169 @@ def review_service(
     except Exception:  # noqa: BLE001 - no raw provider or evidence diagnostics
         report["blockers"].append("fresh_nav_or_continuity_unresolved")
     return report
+
+
+def apply_service(
+    store: StateStore,
+    target: LiveConfig,
+    evidence: EvidenceStore,
+    *,
+    sources: tuple[str, str],
+    fresh: tuple[EvidenceRef, ...],
+    expected_tip: str,
+    stop_file: Path,
+    role: Literal["strategy", "authority"],
+) -> dict[str, Any]:
+    """Explicit stopped-service migration; always remains halted after application.
+
+    This is not service startup or a release approval. The operator must stop both
+    services and retain their STOP files. A partial two-service migration stays
+    closed and must be inspected; no automatic retry or reversal is performed.
+    """
+    with _service_lock(store, stop_file, role):
+        return _apply_service(
+            store,
+            target,
+            evidence,
+            sources=sources,
+            fresh=fresh,
+            expected_tip=expected_tip,
+            stop_file=stop_file,
+        )
+
+
+@contextmanager
+def _service_lock(
+    store: StateStore, stop_file: Path, role: Literal["strategy", "authority"]
+) -> Iterator[None]:
+    if (
+        role not in {"strategy", "authority"}
+        or stop_file.absolute() != (store.path.parent / "STOP").absolute()
+    ):
+        raise ValueError("service role and its own STOP path required")
+    lock_path = store.path.parent / ("live.lock" if role == "strategy" else "authority.lock")
+    fd = os.open(lock_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as lock:
+        info = os.fstat(lock.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            raise ValueError("existing owned service lock required")
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if not stop_file.is_file() or stop_file.is_symlink():
+            raise ValueError("an existing regular STOP file is required")
+        yield
+
+
+def apply_pair(
+    strategy: StateStore,
+    authority: StateStore,
+    target: LiveConfig,
+    evidence: Mapping[str, EvidenceStore],
+    fresh: Mapping[str, tuple[EvidenceRef, ...]],
+    *,
+    sources: tuple[str, str],
+    expected_tips: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Lock both stopped services, review a common NAV, then append halted epochs.
+
+    The two SQLite commits are not atomic together. Any interruption requires
+    inspection; committed state remains HALTed and no automatic retry is made.
+    """
+    if strategy.journal_path.samefile(authority.journal_path):
+        raise ValueError("distinct service journals required")
+    stores = {"strategy": strategy, "authority": authority}
+    with ExitStack() as locks:
+        for name, store in stores.items():
+            locks.enter_context(_service_lock(store, store.path.parent / "STOP", name))  # type: ignore[arg-type]
+        reviews, tips, states = {}, {}, {}
+        for name, store in stores.items():
+            state = store.load("live", read_only=True)
+            journal = store.journal
+            if journal is None or journal.config_hash is None:
+                raise ValueError("retained service journal required")
+            if expected_tips is not None and journal.revision != expected_tips[name]:
+                raise ValueError("service journal differs from retained attempt scope")
+            reviews[name] = review_service(
+                target,
+                state,
+                journal.config_hash,
+                evidence[name],
+                sources=sources,
+                fresh=fresh[name],
+                now=int(time.time()),
+            )
+            tips[name], states[name] = journal.revision, state
+        if any(r["blockers"] for r in reviews.values()):
+            raise ValueError("both services need a passing fresh evidence review")
+        a, b = reviews["strategy"]["fresh_nav"], reviews["authority"]["fresh_nav"]
+        if (a["block"], a["nav_usd_micros"]) != (b["block"], b["nav_usd_micros"]) or _identity(
+            states["strategy"].position
+        ) != _identity(states["authority"].position):
+            raise ValueError("services disagree on position or current NAV")
+        result = {}
+        for name, store in stores.items():
+            tip = tips[name]
+            assert tip is not None
+            result[name] = _apply_service(
+                store,
+                target,
+                evidence[name],
+                sources=sources,
+                fresh=fresh[name],
+                expected_tip=tip,
+                stop_file=store.path.parent / "STOP",
+            )
+        return {"execution_eligible": False, "migration_applied": True, "services": result}
+
+
+def _apply_service(
+    store: StateStore,
+    target: LiveConfig,
+    evidence: EvidenceStore,
+    *,
+    sources: tuple[str, str],
+    fresh: tuple[EvidenceRef, ...],
+    expected_tip: str,
+    stop_file: Path,
+) -> dict[str, Any]:
+    if not stop_file.is_file() or stop_file.is_symlink():
+        raise ValueError("an existing regular STOP file is required")
+    state = store.load("live", read_only=True)
+    journal = store.journal
+    if journal is None or journal.revision != expected_tip or journal.config_hash is None:
+        raise ValueError("existing journal and exact reviewed tip required")
+    review = review_service(
+        target,
+        state,
+        journal.config_hash,
+        evidence,
+        sources=sources,
+        fresh=fresh,
+        now=int(time.time()),
+    )
+    if review["blockers"]:
+        raise ValueError("transition evidence remains unresolved")
+    raw = journal.load(read_only=True)
+    if raw is None or journal.revision != expected_tip:
+        raise ValueError("journal changed during evidence review")
+    record = {
+        "schema": "oasis.strict-feed-epoch.v1",
+        "source_tip": expected_tip,
+        "source_state_hash": sha256_hex(raw),
+        "target_config": asdict(target),
+        "review": review,
+    }
+    if not stop_file.is_file() or stop_file.is_symlink():
+        raise ValueError("STOP file changed during evidence review")
+    payload = journal.transition(record)
+    migrated = StateStore._decode(payload, "live")
+    store.save(migrated)  # Journal already committed; a projection failure is recoverable.
+    return {
+        "schema": "oasis.strict-feed-migration.v1",
+        "execution_eligible": False,
+        "migration_applied": True,
+        "halted": True,
+        "source_tip": expected_tip,
+        "journal_tip": journal.revision,
+        "transition_hash": sha256_hex(canonical_json(record)),
+        "state_hash": sha256_hex(canonical_json(asdict(migrated))),
+    }
