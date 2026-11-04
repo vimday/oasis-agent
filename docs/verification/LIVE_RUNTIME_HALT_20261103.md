@@ -233,3 +233,73 @@ warnings remain in the raw logs. Quality report:
 `01712719fa7bd7474ac16761e8fb4cea85a3f98bc4801102638d8acc01493c46`.
 The regression and retained-probe summary hash is
 `9a6e46a622261c333a62ac56816a3c14e82b7bd2faf9e73968b58c84b35960d8`.
+
+## 2026-11-04: offline evidence review for the strict-feed transition
+
+The old service journals remain bound to their historical USDC 90,000-second
+configuration. `scripts/review_live_feed_transition.py` now reviews the evidence
+needed before migrating that binding, without changing either journal. It
+recognizes exactly that one historical configuration difference; the target
+must keep both ETH/USD and USDC/USD at 1,800 seconds. Other configuration
+changes are refused. Historical replay does not relax the current live gate.
+
+The command verifies both journal chains through read-only SQLite snapshots,
+replays each service's retained NAV or last settled cash checkpoint, and checks
+matching position identities. When supplied with new retained NAV references,
+it requires current two-provider proofs under the strict target, unchanged
+wallet units and position, and the same block and valuation across services.
+The loss preview preserves the funded basis and external flows, applies the
+existing conservative daily/checkpoint convention, and refuses exhausted loss
+budgets. It never clears a halt, applies a migration, acquires data, signs or
+broadcasts. A successful evidence review is not a release permit. Current
+settlement finality and full receipt/unwind acceptance remain separate gates.
+
+Example, with original volumes mounted read-only at `/strategy` and `/authority`:
+
+```sh
+python -m scripts.review_live_feed_transition \
+  --strategy-state /strategy/live.state.json \
+  --authority-state /authority/state.json \
+  --strategy-evidence /strategy/live.receipts.db \
+  --authority-evidence /authority/evidence.db
+```
+
+Optional `--fresh-nav` names JSON with `strategy` and `authority` reference
+arrays, each pointing to raw proofs already retained in its own evidence store.
+There is deliberately no apply flag. Missing fresh evidence exits 3.
+
+**Confirmed retained result:** the updated source was mounted read-only over
+the previously verified candidate image, in a non-root temporary container with
+no network, keys or signing socket. Both production services were stopped.
+Strategy's retained NAV checkpoint and authority's last settled cash checkpoint
+replayed successfully. The review then exited **3**, with only
+`strategy_fresh_strict_nav_required` and `authority_fresh_strict_nav_required`
+as its evidence-review blockers. These are not an exhaustive production-release
+checklist: configuration application, HALT review, current finality and unwind
+remain unresolved. All 13 original volume files, including the budget ledgers,
+kept the same hashes. No production image or service was changed. The report
+hash is `70ec8dbf24f84d293d95980355057e1bfab63bf7b3398201eaf71cb8c2e8efe3`;
+raw outputs are under `reports/review-20261104/feed-transition/`.
+
+The first focused run failed because the new test module did not import the
+existing synthetic feed-runtime fixture; it reached the real runtime pin and
+correctly refused fixture bytecode. Initial mypy checks also identified missing
+annotations. Both were corrected, without changing production feed pins.
+The corrected focused run exited 0 for 45 tests, including the retained-state
+and checkpoint suites, cross-service head disagreement, same-day/day-boundary
+loss continuity, stale proofs, pending signatures and unchanged source files.
+The initial failure log remains preserved as `focused-initial.log`. Synthetic
+tests establish code behavior, not current USD/NAV or funded live acceptance.
+
+Full development validation exited 0: 3,782 Python tests and 138 subtests,
+eight frontend modules, Ruff/format, mypy, secret scan, Bandit and offline
+Compose checks. All four quality-check exits and retained log hashes were
+verified. Contract formatting/build/lint and 70 tests exited 0. Existing
+websockets deprecation and Foundry cache-permission warnings remain in the
+logs. Quality evidence hash:
+`a98a1bf1be20f9f4c200698d3657a6ba8c99b6e881be0d39c9e1c7bb4765bab5`.
+The per-command evidence manifest is
+`reports/review-20261104/feed-transition/summary.json`; the initial focused
+failure is retained as a failed log with an unavailable original tool exit
+code, rather than inventing that exit code. No RPC request, signature or
+broadcast was made during this work.
