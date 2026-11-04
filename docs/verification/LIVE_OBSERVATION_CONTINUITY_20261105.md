@@ -90,6 +90,43 @@ canonical report and all 623 frozen runtime/test files; its record hash is
 `f2780fe924f88af694b68aca80449541ad620fb291e5fd0aedf47445c2f26e6f`.
 This is internal self-review, not an external audit or a capital-moving release.
 
+## Committed Docker candidate
+
+Commit `9de4f561fe06846c2fb1b3c8f305d4dde1f5c90e` was built exclusively from
+its Git archive with `--pull=false` and the cached hash-locked dependency layer.
+Build, stopped-image source verification, Linux replay and the enclosing builder
+each exited 0.
+
+- Image: `sha256:958f8ddbfdaa00d141e6750f6e2dafc2fd239a779e11df211650313bfc9ab50e`.
+- Source manifest: `4e06cec823d9a15da02df803d8e7aff4876d58bd28e2b643eaf9f8a03b02d294`.
+- `reports/review-20261105/runtime-9de4f56/summary.json` evidence hash:
+  `63a7bc846fe004697dabd31496933cdfed9c310b0cf302b5b401380d30d5e066`.
+- Independent reverification hash:
+  `2e729e0c7b8ad92444191859d67641c6ae1521ad0a41c0412ffb8564f55424b8`.
+
+All 355 application files matched both committed and local bytes; all 357
+archive files, including the two Docker build files, matched the commit. Logs,
+scripts, archive, canonical reports and manifest hashes were rechecked, together
+with all 623 frozen inputs. Installed dependencies, the base runtime and local
+Docker daemon remain trusted inputs; this verifies application bytes only.
+
+The UID 10001 replay used no network, a read-only root, dropped capabilities,
+`no-new-privileges`, a bounded PID count and temporary scratch space. No source,
+production, socket or key volume was mounted. It replayed nine synthetic
+retained-proof cases. Six anomalies (nonce advance/regression, equal/regressed
+height, wrong adjacent parent and non-advancing timestamp) persisted HALT in
+scratch authority/strategy journals before decision or key-provider contact,
+without replacing risk. The next authority request refused without further
+synthetic header reads. Exact same-block, correct direct-child and newer
+observations succeeded only as observations. Key-provider calls were zero.
+
+The harness stubbed acquisition with independently replayed retained proofs,
+overrode feed pins and time only inside its disposable synthetic process, and
+used a provider that refuses every call and owns no key. These substitutions
+are explicit in its output; they are not production RPC, oracle, simulation or
+signer acceptance. The candidate was not deployed and grants no execution
+eligibility or authority to modify the original services.
+
 No production volume, canary key or repository `.env` was opened; no original budget was reset,
 copied or replaced. Production RPC, signatures and broadcasts were zero. USD
 500 total capital, USD 200 daily loss, USD 500 cumulative loss and both
