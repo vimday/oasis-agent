@@ -602,3 +602,29 @@ evidence_hash: aef92c856dbc4f46f11a7595b571fd5ebf4874529d190c671389e0a3025a1033
 reports/review-20261104/read-http-boundary/summary-v3.json
 evidence_hash: a34642ff8d89b1ad17803b67bffe108ff7fcea0a3605b483f96df98212584123
 ```
+
+The corrected implementation commit
+`fe2eecf2ef4bdacce2a2a199507a62d9108718c5` built immutable candidate
+`sha256:80c47874655f11e2e97cdb85d464934db217ba52b746098e739a2720ce0e0e16`
+from its committed runtime-only archive, with the locked dependency-install layer
+cached. Build and stopped-image source verification exited 0. All **348**
+application files matched, manifest hash
+`acd69c499ccbd1c3d67bd3da3d8997e6d14c5f0efea3822a30f0f3fa95d441e6`.
+
+The same Linux smoke then passed all **14 in-memory HTTP requests** with exit 0
+on that immutable image: network disabled, UID 10001, no capabilities, no source
+file/key/production mounts, and only temporary tmpfs for synthetic budgets. All
+log, script and report hashes were checked before writing the candidate summary:
+
+```text
+reports/review-20261104/runtime-fe2eecf/summary.json
+evidence_hash: 7d4eacd21aa5a272a9c87b5e4c603d1f44e4d9aece8edc0de6ff29c7be5c5a9d
+```
+
+Both original production containers were rechecked as exited on image
+`0b4f8cb42deb`. No production data, original budget, canary key or external chain
+RPC was accessed. Current free entitlement, the one-shot acquisition scope,
+fresh complete NAV, current runtime/simulation and full unwind/restart acceptance
+remain unresolved. This candidate was not deployed. SSH delivery records for
+this continuation remain under `reports/review-20261104/ssh-delivery-1126/`;
+publication requires a successful push result, not a local commit or image.
