@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
 
 from ..models.common import sha256_hex
 from .live_release import LiveRelease, live_release
+from .live_startup import LiveStartupReadiness, read_local_startup_readiness
 
 UInt = Annotated[int, Field(strict=True, ge=0, lt=2**256)]
 Usd = Annotated[FiniteFloat, Field(ge=0)]
@@ -117,6 +118,7 @@ class ActionView(BaseModel):
 
 class LiveStatusResponse(BaseModel):
     release: LiveRelease = Field(default_factory=live_release)
+    startup: LiveStartupReadiness
     schema_: Literal["oasis.live-status.v1"] = Field(default="oasis.live-status.v1", alias="schema")
     execution_eligible: Literal[False] = False
     source: Literal["local_state_declaration"] = "local_state_declaration"
@@ -175,15 +177,26 @@ def _read(path: Path) -> bytes:
 
 def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatusResponse:
     """Read one atomic local snapshot; missing/corrupt inputs never become zero NAV."""
+    release = live_release()
+    startup = read_local_startup_readiness(release=release)
     if path is None:
-        return LiveStatusResponse(status="unconfigured", blockers=["live_state_unconfigured"])
+        return LiveStatusResponse(
+            release=release,
+            startup=startup,
+            status="unconfigured",
+            blockers=["live_state_unconfigured"],
+        )
     try:
         payload = _read(path)
         state = _State.model_validate(json.loads(payload, object_pairs_hook=_unique))
     except FileNotFoundError:
-        return LiveStatusResponse(status="missing", blockers=["live_state_missing"])
+        return LiveStatusResponse(
+            release=release, startup=startup, status="missing", blockers=["live_state_missing"]
+        )
     except (OSError, ValueError, TypeError, RecursionError, ValidationError):
-        return LiveStatusResponse(status="invalid", blockers=["live_state_invalid"])
+        return LiveStatusResponse(
+            release=release, startup=startup, status="invalid", blockers=["live_state_invalid"]
+        )
     clock = int(time.time()) if now is None else now
     observation = state.last_observation
     blockers = []
@@ -256,6 +269,8 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
         else "observed"
     )
     return LiveStatusResponse(
+        release=release,
+        startup=startup,
         status=status,
         blockers=blockers,
         state_hash=sha256_hex(payload),

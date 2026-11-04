@@ -8,9 +8,9 @@ from dataclasses import dataclass
 
 from eth_abi.abi import encode
 
+from ..evm.calldata import calldata
 from ..models.common import normalize_address
 from ..uniswap_v4.liquidity_math import amounts_for_liquidity, sqrt_price_at_tick
-from .chain import calldata
 
 Q96 = 1 << 96
 ZERO = "0x" + "0" * 40

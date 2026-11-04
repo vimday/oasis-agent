@@ -3,12 +3,16 @@
 import json
 import os
 import subprocess
+from dataclasses import asdict, replace
 
 import pytest
 
+from oasis_agent.live.gas_oracle import LEGACY_PIN_NAMES
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting import live_release as release_module
 from scripts import start_live_deployment as cli
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
+from tests.unit.test_live_lp import CONFIG
 
 IMAGE = "sha256:" + "ab" * 32
 RPC = {name: f"https://source-{i}.invalid/SECRET" for i, name in enumerate(cli.compose.RPC_NAMES)}
@@ -211,7 +215,10 @@ def test_ambient_docker_override_refuses(tmp_path, monkeypatch):
     assert report["failure_stage"] == "local_context" and not calls
 
 
-def test_open_release_offline_readiness_does_not_inspect_docker(monkeypatch, capsys):
+@pytest.mark.parametrize("complete_policy", [False, True])
+def test_open_release_offline_readiness_does_not_inspect_docker(
+    tmp_path, monkeypatch, capsys, complete_policy
+):
     def forbidden(*args, **kwargs):
         pytest.fail("offline readiness must not inspect Docker or production state")
 
@@ -220,7 +227,21 @@ def test_open_release_offline_readiness_does_not_inspect_docker(monkeypatch, cap
     monkeypatch.setattr(cli, "state_preflight", forbidden)
     monkeypatch.setattr(cli, "local_environment", forbidden)
     monkeypatch.setattr("sys.argv", ["start"])
+    config = (
+        replace(CONFIG, expected_pins=CONFIG.expected_pins | synthetic_gas_pins())
+        if complete_policy
+        else replace(
+            CONFIG,
+            expected_pins={k: v for k, v in CONFIG.expected_pins.items() if k in LEGACY_PIN_NAMES},
+        )
+    )
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs/live.base-eth-usdc.json").write_bytes(canonical_json(asdict(config)))
+    monkeypatch.setattr(cli.compose, "ROOT", tmp_path)
     with pytest.raises(SystemExit) as exc:
         cli.main()
-    assert exc.value.code == 0
-    assert json.loads(capsys.readouterr().out)["new_actions_allowed"] is True
+    assert exc.value.code == (0 if complete_policy else 3)
+    result = json.loads(capsys.readouterr().out)
+    assert result["new_actions_allowed"] is True
+    assert result["startup"]["local_guards_passed"] is complete_policy
+    assert result["startup"]["startup_prerequisites_passed"] is False

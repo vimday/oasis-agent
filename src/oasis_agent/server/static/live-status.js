@@ -27,10 +27,60 @@ const BLOCKERS = {
   historical_native_cost_incomplete: "历史 gas 成本不完整",
 };
 const ACTIONS = {approve_usdc: "USDC 授权", approve_permit2: "Permit2 授权", swap: "兑换", mint: "建仓", burn: "撤仓", reverted: "交易回滚"};
+const START_BLOCKERS = {
+  release_gate_closed: "发布门禁未通过，本地待启动配置未检查",
+  live_configuration_unconfigured: "未指定本地待启动配置",
+  live_configuration_missing: "本地待启动配置不存在",
+  live_configuration_invalid: "本地待启动配置无法校验",
+  gas_oracle_runtime_pins_missing: "本地待启动配置缺少 Gas 预言机运行时指纹",
+};
+const GAS_ROLES = {
+  gas_oracle_proxy: "Gas 预言机代理代码",
+  gas_oracle_implementation: "Gas 预言机实现地址",
+  gas_oracle_implementation_code: "Gas 预言机实现代码",
+};
+const UNVERIFIED = {
+  runtime_image_identity: "实际镜像与代码身份",
+  original_service_state: "双服务原始状态与配置迁移",
+  stop_controls: "STOP 与停机控制状态",
+  fresh_usd_nav: "新鲜 USD 喂价及完整净值",
+  dual_source_runtime_simulation: "双源运行时与交易模拟",
+  receipt_fund_recovery: "真实回执、资金及撤仓恢复",
+  state_configuration_binding: "当前记录与待启动配置的绑定",
+};
 const uint = value => Number.isSafeInteger(value) && value >= 0 || typeof value === "string" && /^(0|[1-9][0-9]{0,77})$/.test(value);
 const hash = value => typeof value === "string" && /^0x[0-9a-f]{64}$/.test(value);
 const usd = value => typeof value === "number" && Number.isFinite(value) && value >= 0
   ? "$" + value.toLocaleString("zh-CN", {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "未观测";
+
+function startupValid(p, release) {
+  if (!p || p.schema !== "oasis.live-startup-readiness.v1" ||
+      p.source !== "local_start_configuration" || p.execution_eligible !== false ||
+      p.startup_prerequisites_passed !== false || p.evidence_replayed !== false || p.rpc_requests !== 0 ||
+      !Array.isArray(p.blockers) || p.blockers.some(x => !Object.hasOwn(START_BLOCKERS, x)) ||
+      !Array.isArray(p.missing_runtime_roles) || p.missing_runtime_roles.some(x => !Object.hasOwn(GAS_ROLES, x)) ||
+      new Set(p.missing_runtime_roles).size !== p.missing_runtime_roles.length ||
+      !Array.isArray(p.unverified_checks) || p.unverified_checks.length !== Object.keys(UNVERIFIED).length ||
+      p.unverified_checks.some(x => !Object.hasOwn(UNVERIFIED, x)) ||
+      new Set(p.unverified_checks).size !== p.unverified_checks.length) return false;
+  const permit = release.acceptance_permit;
+  if (permit != null && (!Object.hasOwn(ACTIONS, permit.kind) || !uint(permit.account_nonce) ||
+      typeof permit.authorized_by !== "string" || !permit.authorized_by)) return false;
+  const releasePassed = permit != null || release.new_actions_allowed && release.blockers.length === 0;
+  if (p.release_gate_passed !== releasePassed ||
+      p.local_guards_passed !== (releasePassed && p.configuration_status === "declared_execution_policy")) return false;
+  const empty = p.configuration_hash === null && p.configured_runtime_roles === null && p.missing_runtime_roles.length === 0;
+  if (!releasePassed) return p.configuration_status === "not_checked" && empty &&
+    p.blockers.length === 1 && p.blockers[0] === "release_gate_closed";
+  const unknown = {unconfigured: "live_configuration_unconfigured", missing: "live_configuration_missing", invalid: "live_configuration_invalid"};
+  if (Object.hasOwn(unknown, p.configuration_status)) return empty && p.blockers.length === 1 &&
+    p.blockers[0] === unknown[p.configuration_status];
+  if (typeof p.configuration_hash !== "string" || !/^[0-9a-f]{64}$/.test(p.configuration_hash)) return false;
+  if (p.configuration_status === "legacy_runtime_policy") return p.configured_runtime_roles === 5 &&
+    p.missing_runtime_roles.length === 3 && p.blockers.length === 1 && p.blockers[0] === "gas_oracle_runtime_pins_missing";
+  return p.configuration_status === "declared_execution_policy" && p.configured_runtime_roles === 8 &&
+    p.missing_runtime_roles.length === 0 && p.blockers.length === 0;
+}
 
 export function formatNative(raw) {
   if (typeof raw !== "string" || !/^(0|[1-9][0-9]*)$/.test(raw) || raw.length > 78) return "未记录";
@@ -51,6 +101,7 @@ export function liveStatusModel(data) {
   // Exactly two coherent shapes: closed with blockers, or open with none and its evidence.
   if (r.new_actions_allowed ? r.blockers.length !== 0 || typeof r.release_evidence !== "string" ||
       !r.release_evidence : r.blockers.length === 0) return null;
+  if (!startupValid(data.startup, r)) return null;
   if (["unconfigured", "missing", "invalid"].includes(data.status)) return {...data, observation: null, pending: null, signing_unresolved: null, position: null, recent_actions: [], native_gas_units: null};
   if (typeof data.signing_unresolved !== "boolean" ||
       data.signing_unresolved !== (data.status === "signing_unknown") ||
@@ -90,11 +141,18 @@ export function renderLiveStatus(data) {
   if (!model) {
     $("live-title").textContent = "实盘状态暂不可用";
     $("live-next").textContent = "连接或数据校验失败，已清除旧结果；恢复后刷新。";
-    for (const id of ["live-stats", "live-release", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
+    for (const id of ["live-stats", "live-release", "live-startup", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
     renderTable("live-actions", [], [], "记录未验证");
     return;
   }
   const release = model.release;
+  const startup = model.startup;
+  $("live-startup").innerHTML = `<strong>${startup.local_guards_passed ? "本地静态检查通过 · 执行资格未核验" : "本地静态检查未通过"}</strong>` +
+    (startup.configured_runtime_roles === null ? "" : `<p>本地待启动配置指纹 ${startup.configured_runtime_roles} / 8 · 配置摘要 ${esc(startup.configuration_hash.slice(0, 12))}</p>`) +
+    `<ul>${startup.blockers.map(code => `<li>${esc(START_BLOCKERS[code])}</li>`).join("")}` +
+    startup.missing_runtime_roles.map(role => `<li>缺少：${esc(GAS_ROLES[role])}</li>`).join("") + `</ul>` +
+    `<details><summary>仍未核验的运行条件</summary><ul>${startup.unverified_checks.map(code => `<li>${esc(UNVERIFIED[code])}</li>`).join("")}</ul></details>` +
+    `<p>这里只读取本地待启动配置；不代表生产镜像、链上状态或交易许可。</p>`;
   // Static release approval says nothing about current service health or admission.
   const runtimeStatus = model.status === "observed" && model.blockers.length === 0
     ? "当前执行资格未核验" : "当前运行条件未满足";

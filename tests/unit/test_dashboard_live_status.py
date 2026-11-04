@@ -62,11 +62,37 @@ assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行/);
 assert.match(nodes.get('live-release').innerHTML, /0xe0363189/);
 const blocker = {code: 'release_closed', title: '实盘发布已关闭', required: '<b>x</b>'};
 const closed = {...data, release: {...data.release, new_actions_allowed: false,
-  release_evidence: null, blockers: [blocker]}};
+  release_evidence: null, blockers: [blocker]}, startup: {...data.startup,
+    release_gate_passed: false, local_guards_passed: false, configuration_status: 'not_checked',
+    configuration_hash: null, configured_runtime_roles: null, missing_runtime_roles: [],
+    blockers: ['release_gate_closed']}};
 assert.equal(liveStatusModel(closed).status, 'pending');
 renderLiveStatus(closed);
 assert.match(nodes.get('live-release').innerHTML, /新交易启动已阻断 · 1 项/);
 assert.doesNotMatch(nodes.get('live-release').innerHTML, /<b>/);
+assert.match(nodes.get('live-startup').innerHTML, /发布门禁未通过/);
+const legacyStartup = {...data.startup, release_gate_passed: true, local_guards_passed: false,
+  configuration_status: 'legacy_runtime_policy', configuration_hash: 'ab'.repeat(32),
+  configured_runtime_roles: 5,
+  missing_runtime_roles: ['gas_oracle_proxy', 'gas_oracle_implementation',
+    'gas_oracle_implementation_code'],
+  blockers: ['gas_oracle_runtime_pins_missing']};
+renderLiveStatus({...data, startup: legacyStartup});
+assert.match(nodes.get('live-startup').innerHTML, /本地静态检查未通过/);
+assert.match(nodes.get('live-startup').innerHTML, /本地待启动配置指纹 5 \/ 8/);
+assert.match(nodes.get('live-startup').innerHTML, /Gas 预言机代理代码/);
+assert.match(nodes.get('live-startup').innerHTML, /Gas 预言机实现地址/);
+assert.match(nodes.get('live-startup').innerHTML, /Gas 预言机实现代码/);
+assert.match(nodes.get('live-startup').innerHTML, /STOP 与停机控制状态/);
+assert.match(nodes.get('live-startup').innerHTML, /新鲜 USD 喂价及完整净值/);
+assert.match(nodes.get('live-startup').innerHTML, /不代表生产镜像、链上状态或交易许可/);
+const fullStartup = {...legacyStartup, local_guards_passed: true,
+  configuration_status: 'declared_execution_policy', configured_runtime_roles: 8,
+  missing_runtime_roles: [], blockers: []};
+renderLiveStatus({...data, startup: fullStartup});
+assert.match(nodes.get('live-startup').innerHTML, /本地静态检查通过 · 执行资格未核验/);
+assert.match(nodes.get('live-startup').innerHTML, /仍未核验的运行条件/);
+assert.doesNotMatch(nodes.get('live-startup').innerHTML, /已放行|可以实盘|交易已启动/);
 const light = {block: data.observation.block + 10,
   block_timestamp: data.observation.observed_at + 590,
   observed_at: data.observation.observed_at + 600, tick: -199100};
@@ -135,6 +161,18 @@ for (const [status, blockers] of [
   assert.match(nodes.get('live-release').innerHTML, /日亏损上限 USD 200 · 累计 USD 500/);
 }
 for (const invalid of [null, {}, {...data, execution_eligible: true},
+  {...data, startup: null}, {...data, startup: {...legacyStartup, local_guards_passed: true}},
+  {...data, startup: {...fullStartup, execution_eligible: true}},
+  {...data, startup: {...fullStartup, startup_prerequisites_passed: true}},
+  {...data, startup: {...fullStartup, evidence_replayed: true}},
+  {...data, startup: {...fullStartup, unverified_checks: []}},
+  {...data, startup: {...fullStartup, rpc_requests: 1}},
+  {...data, startup: {...legacyStartup, missing_runtime_roles: ['gas_oracle_proxy']}},
+  {...data, startup: {...legacyStartup,
+    missing_runtime_roles: ['gas_oracle_proxy', 'gas_oracle_proxy', 'gas_oracle_proxy']}},
+  {...data, startup: {...legacyStartup, configuration_hash: '<script>'}},
+  {...data, startup: {...fullStartup, configured_runtime_roles: 5}},
+  {...data, startup: {...fullStartup, release_gate_passed: false}},
   {...data, evidence_replayed: true}, {...data, profitability: 'profitable'},
   {...signing, signing_unresolved: false}, {...signing, blockers: []},
   {...signing, status: 'observed'}, {...data, signing_unresolved: undefined},
@@ -169,6 +207,7 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   assert.equal(nodes.get('live-pending').textContent, '');
   assert.equal(nodes.get('live-observation').textContent, '');
   assert.equal(nodes.get('live-stats').textContent, '');
+  assert.equal(nodes.get('live-startup').textContent, '');
 }
 """
     )

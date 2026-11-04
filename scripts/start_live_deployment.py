@@ -17,6 +17,7 @@ from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
+from oasis_agent.reporting.live_startup import read_local_startup_readiness
 from scripts import verify_live_compose as compose
 from scripts.verify_live_image_sources import source_manifest, verify
 
@@ -247,8 +248,18 @@ def main() -> None:
         release.new_actions_allowed and not release.blockers
     )
     if not args.start or not startable:
-        print(release.model_dump_json())
-        raise SystemExit(0 if startable else 3)
+        readiness = read_local_startup_readiness(
+            compose.ROOT / "configs/live.base-eth-usdc.json", release=release
+        )
+        print(
+            json.dumps(
+                {
+                    **release.model_dump(),
+                    "startup": readiness.model_dump(by_alias=True),
+                }
+            )
+        )
+        raise SystemExit(0 if readiness.local_guards_passed else 3)
     if args.out is None:
         parser.error("--start requires a new --out directory for one retained attempt")
     try:

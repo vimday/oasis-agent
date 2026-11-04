@@ -7,12 +7,27 @@ cost and recovery checks must still pass before new live actions.
 
 ## One-command Docker entry
 
-`make live-docker-readiness` prints the offline owner-release decision; it does not
-validate current runtime readiness. `make live-docker` is the guarded startup
+`make live-docker-readiness` prints the offline owner-release decision and the
+same local configuration declaration shown by `/api/v1/live/status` and the
+dashboard. Its `startup` object reports missing gas-oracle pins, invalid/missing
+configuration and the still-unverified live prerequisites. Python exits 3 when
+these local guards fail. Exit 0 means only `local_guards_passed: true`:
+`startup_prerequisites_passed`, `execution_eligible` and `evidence_replayed`
+remain false, including with all eight configured runtime roles. This default
+does not inspect Docker, original state, STOP, keys, environment values or RPC.
+`make live-docker` is the guarded startup
 entry. A closed owner release refuses before Docker, credentials, output creation
 or state access. An open owner release still requires the original-state and
 runtime checks below. Neither command changes the release decision. The Python
 CLI exits 3 for a refusal; Make propagates a failed target.
+
+The dashboard labels these as the **local start configuration**, independently
+of the observed state record. Complete configured pins do not establish approved
+deployed bytecode. Image identity, original dual-service state, STOP controls,
+fresh USD/NAV, runtime/simulation, receipt/fund recovery and binding the record to
+the start configuration remain visibly unverified. No start/rearm operation was
+added to the API or dashboard. See the
+[read-only startup diagnostic record](../../docs/verification/LIVE_STARTUP_READINESS_20261105.md).
 
 After completing current production acceptance under the recorded owner release, startup
 requires explicit RPC environment variables, the existing four named state/socket/key
