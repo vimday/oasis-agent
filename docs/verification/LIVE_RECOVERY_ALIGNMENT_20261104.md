@@ -628,3 +628,21 @@ fresh complete NAV, current runtime/simulation and full unwind/restart acceptanc
 remain unresolved. This candidate was not deployed. SSH delivery records for
 this continuation remain under `reports/review-20261104/ssh-delivery-1126/`;
 publication requires a successful push result, not a local commit or image.
+
+### SSH delivery confirmed
+
+The bounded SSH push subsequently exited **0**, acknowledging the fast-forward
+of remote `main` from `15a8ed9` to
+`d59f41621e28630d900e27adc72ecf44b39b4835`. That delivered all seven previously
+unpublished task commits, including the corrected implementation and its candidate
+record. The locally tracked `origin/main` matches the acknowledged commit. This
+supersedes the earlier unresolved-delivery status; all failed SSH logs remain.
+No SSH configuration, key file or agent state was changed, and no force push was
+used. Push exit and log hashes were checked before recording:
+
+```text
+reports/review-20261104/ssh-delivery-1126/summary.json
+evidence_hash: 91f96857462ffa9fbd798e80876b9877951acb065d277844f547c1924ff10d10
+```
+
+Remote publication does not alter the still-closed production acceptance gates or start either service.
