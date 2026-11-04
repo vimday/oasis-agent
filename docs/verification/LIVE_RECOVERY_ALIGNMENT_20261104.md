@@ -402,3 +402,32 @@ evidence_hash: b7eec1f56c149692fd59b5079ea9db30fd22625223e20d6ee07573d42ffafb5d
 reports/review-20261104/live-post-boundary/summary.json
 evidence_hash: e7d89ef7a9b7f9f6c38f910e962e78da71ab1355e734f5d9339240ac5329e36c
 ```
+
+Implementation was committed locally as
+`b19278649ba68ad8bb0703ec8ee98a2dc499c968`. Its runtime-only committed archive
+built image `sha256:2b14d7c80598de9d9fa9ff4d8286ac464cccf726e39114aad663202dfea9f2b6`
+with cached locked dependencies. Build and stopped-image source verification
+exited 0: **347** application files matched, manifest hash
+`9e2ebe10f2e772a1c27dce959ff63a5e8271425cf8b4a595f3fddc927ca384f1`.
+The unprivileged, network-disabled Linux smoke container exercised actual urllib
+processing over **15 in-memory HTTP requests**, using invalid non-transaction
+bytes. It passed redirects, malformed/rejected responses, hash acknowledgment and
+typed-read checks with exit 0. No valid transaction, key or original volume was
+involved. Candidate summary:
+`reports/review-20261104/runtime-b192786/summary.json`, evidence hash
+`a002652f634c0624583f96dd080be84020ffeb0aefab945d00c4a89d68677e07`.
+
+**SSH publication is unresolved.** The first push exited 128 with a public-key
+refusal while the agent had no identities. A per-command existing Git identity
+authenticated, but GitHub rejected that push with Internal Server Error (exit 1).
+One bounded retry then timed out connecting on port 22 (exit 128); a read-only
+remote-head check using the existing port-443 configuration also timed out (exit
+128). All four original logs and exit records remain in `live-post-boundary/`.
+No SSH configuration or agent state was changed. The remote head has not been
+newly verified; the last locally tracked `origin/main` is
+`15a8ed9bf2ab0b6c50345b213bc0afdcd77a1b38`. A later continuation must recheck
+remote state before completing the authorized SSH push; no force push is allowed.
+
+Both production containers remain exited on image `0b4f8cb42deb`. This candidate
+has not been deployed. Current free entitlement, the one-shot acquisition scope,
+fresh complete NAV and production runtime/unwind acceptance remain unresolved.
