@@ -316,3 +316,23 @@ evidence_hash: fb9e874c76ac986879759a4d4c1c1d43751d75f650c5df664e6190017bf72923
 reports/review-20261104/config-epoch-replay/manual-review.json
 evidence_hash: 24546c4600daaf7d0f59e3524af8b0d7a5c23f8bddd1c04505dba0bf68390b9c
 ```
+
+Committed implementation `eb2f53435eeceb9b1a0e61ef6d6f62face60bffc` built
+candidate
+`sha256:f10623909ea2a26e0034e4baad41c9e05c55c4b007b2953d88419489095acbe7`.
+Build, stopped-image source verification and synthetic Linux smoke each exited
+0. All **352** application files matched, manifest hash
+`45d4aa5eaf0c23a7f86d53025bc5920e6f6386eb2952b5de57fd667b21be4d2b`.
+Archive, scripts, logs and report hashes were independently re-derived after
+completion. The unprivileged image ran with network disabled, a read-only root,
+dropped capabilities, only temporary tmpfs and no production/source/key/socket
+mounts. Its synthetic local journal kept its original binding: historical lookup
+succeeded, while normal new-hash binding and feed-only pin expansion refused.
+This Linux smoke checks recognition and journal isolation; the retained raw
+cash/NAV cases are covered by the host test suite, not by a production capture.
+The production configuration remained byte-identical and no deployment occurred.
+
+```text
+reports/review-20261104/runtime-eb2f534/summary.json
+evidence_hash: e026396304abd9cbf5be8f27c92b2159c2b94655b5a0db27843e50bcfa115aac
+```
