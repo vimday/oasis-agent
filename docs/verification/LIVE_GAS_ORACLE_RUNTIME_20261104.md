@@ -262,3 +262,57 @@ This is development and artifact evidence. Current dual-source fingerprints,
 runtime approval, policy-epoch migration, strict USD/NAV and funded recovery
 acceptance remain required; the secondary RPC's unresolved HTTP 403 and the
 terminated one-shot authorization remain unchanged.
+
+## Retained configuration replay follow-up
+
+`live/config_epochs.py` now resolves original configuration hashes for historical
+cash and NAV replay. Previously, an eight-pin target could recognize only its
+own shape and that shape's old USDC age. Both existing five-pin settlement
+history and stopped-service checkpoint planning then refused before a runtime
+upgrade could be reviewed. Two synthetic regressions reproduced those failures
+before the change.
+
+The recognized replay recipes are exact:
+
+| Current target | Permitted retained shapes |
+| --- | --- |
+| Five pins | The same five-pin policy; its historical 90000-second USDC variant |
+| Eight pins | The same eight-pin policy; its historical USDC variant; the corresponding five-pin shapes with either USDC age |
+
+These are hash-checked replay recipes, not evidence that each shape has been
+used on chain. Apart from removing exactly the three new gas-oracle entries and
+recognizing the already-supported historical USDC age, every field must remain
+identical: account, original five runtime pins, pool, gas, capital, loss and
+execution bounds. An old eight-pin policy with a different gas runtime is not a
+known epoch. Missing, foreign or noncanonical digests have no fallback. The
+90000-second objects remain invalid under current live-policy validation.
+
+`rearm_history.replay_history` still uses each event's **first** journaled epoch
+to replay its raw cash proof, even after a later bounded projection drops that
+event. Relabelling an old proof with the target hash refuses. The recovery
+collector's local checkpoint review likewise replays the original checkpoint
+under its own policy; any fresh NAV must carry the target policy's own proof.
+Its state, risk, holdings and complete gas checks remain in place. Planning
+under another target produces another plan hash and creates no RPC permission.
+
+No journal transition or authority was added. A normal execution journal bound
+to the new hash still refuses the old journal, and feed-only migration still
+refuses five-to-eight-pin expansion. The paired, history-preserving runtime
+policy transition remains required before deployment. Production config,
+journals, budgets, STOP files, release approval and both stopped services were
+not changed; this follow-up made zero production RPC requests.
+
+The two before-change regressions failed as expected. The related focused suite
+passed 81 tests. The full `make live-quality` exited 0: **4286 tests, 138
+subtests**, including 29 new cases, 246 mypy sources and eight frontend modules.
+Python/frontend, secret scanning, Bandit and Compose each exited 0, and all log,
+report and six locked source/config hashes were rechecked. Four existing
+warnings remain. Early import-order and missing-type-annotation failures were
+corrected, with their original logs retained.
+
+```text
+reports/review-20261104/config-epoch-quality-v1/report.json
+evidence_hash: fb9e874c76ac986879759a4d4c1c1d43751d75f650c5df664e6190017bf72923
+reports/review-20261104/config-epoch-replay/manual-review.json
+evidence_hash: 24546c4600daaf7d0f59e3524af8b0d7a5c23f8bddd1c04505dba0bf68390b9c
+```

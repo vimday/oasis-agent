@@ -1,17 +1,17 @@
 """Offline replay of every journaled settlement before an operator rearm."""
 
 import json
-from dataclasses import asdict, replace
 from typing import Any
 
 from ..evidence.exact_capture import decode_header
 from ..evidence.rpc_validation import decode_exchange, restore_exchanges
 from ..evidence.store import EvidenceStore
 from ..farming.transaction_costs import replay_transaction_cost
-from ..models.common import canonical_json, evidence_ref_from_json, sha256_hex
+from ..models.common import evidence_ref_from_json
 from .action_cash import ActionCashCapture, replay_action_cash
 from .approval_cash import ApprovalCashCapture, replay_approval_cash
 from .config import LiveConfig
+from .config_epochs import retained_configurations
 from .intent import SubmittedTransaction
 from .revert_cash import RevertCashCapture, replay_revert_cash
 from .state import LoopState
@@ -34,10 +34,7 @@ def replay_history(
     A repeated event must be byte-identical; no transaction may be charged twice.
     Cash records are replayed under their first journaled configuration epoch.
     """
-    configurations = {
-        sha256_hex(canonical_json(asdict(c))): c
-        for c in (config, replace(config, usdc_oracle_max_age_seconds=90_000))
-    }
+    configurations = retained_configurations(config)
     events: dict[str, tuple[dict[str, Any], LiveConfig]] = {}
     for binding, payload in rows:
         if binding not in configurations:

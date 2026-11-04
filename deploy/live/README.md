@@ -298,6 +298,9 @@ the original journals. See the
 six-read captures and write a fingerprint/config proposal in a new review
 directory. It makes zero RPC requests and cannot approve or apply that proposal;
 the wire format and remaining acceptance steps are documented in that record.
+Historical cash/checkpoint replay can now recognize the corresponding original
+five-pin configuration by its exact hash. This does not change journal bindings
+or apply a runtime-policy migration; new NAV still needs the target policy.
 
 Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
 capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical

@@ -29,7 +29,8 @@ from oasis_agent.evidence.rpc_validation import decode_exchange, strict_digest, 
 from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.config import LiveConfig
-from oasis_agent.live.feed_transition import _no_acquisition, _service_lock, historical_config
+from oasis_agent.live.config_epochs import retained_config
+from oasis_agent.live.feed_transition import _no_acquisition, _service_lock
 from oasis_agent.live.positions import PositionOutcomeScope, outcome_requests
 from oasis_agent.live.rearm_settlements import (
     SettlementHeadCapture,
@@ -58,12 +59,8 @@ MAX_RESPONSE = 1_000_000
 
 
 def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
-    """Replay only the exact strict policy or legacy USDC age, preserving all risk."""
-    previous = (
-        config
-        if binding == sha256_hex(canonical_json(asdict(config)))
-        else historical_config(config, binding)
-    )
+    """Replay original policy bytes, including the exact prior five-pin shape."""
+    previous = retained_config(config, binding)
     validate_state(state)
     risk = state.exact_risk
     if (
