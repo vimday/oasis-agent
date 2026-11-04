@@ -98,6 +98,38 @@ AST review confirms that only the two checkpoint-verification methods and the
 feed-transition review function changed. This is internal self-review, not an
 independent security audit or operator approval of a capital-moving release.
 
+## Committed Linux image verification
+
+Implementation commit `e5a69daa1b055b29e0cabbf154a6982a49a5c8a1` was built
+exclusively from its Git archive with `--pull=false` and the cached hash-locked
+dependency layer. Build, stopped-image source verification, the keyless Linux
+smoke harness and the enclosing builder each exited 0.
+
+- Image: `sha256:56eb8798be883c01611d3a5749bb57ce82f4c7a4c76997033ea1bcce64d1242f`.
+- Source manifest: `aed7d89a1ce3b74d924cbaa9dc691f806e4009b6147b29925aca62e384f7a783`.
+- `reports/review-20261105/runtime-e5a69da/summary.json` evidence hash:
+  `3e7da6671a85f3d8dc20d9c10047c641d97c649b85994e83609aac9f71f46f2b`.
+- Independent artifact reverification hash:
+  `4b305225c06c506901d93604cb3a8667c82eea5e0392e05e40841e74b8f82073`.
+
+All 355 application files matched both committed and local bytes. All 357
+archived files, including the two Docker build files, matched the implementation
+commit. Log, script, archive, source-manifest and canonical report hashes were
+independently checked. Dependencies, base runtime and the local Docker daemon
+remain trusted inputs; application source identity is not their verification.
+
+The smoke used UID 10001, no network, a read-only root, no capabilities,
+`no-new-privileges`, a bounded PID count and temporary scratch space. It mounted
+no source, production, key or socket volume. Six explicitly synthetic retained
+raw-NAV scenarios were replayed from a scratch SQLite store: nonce advance and
+regression, equal and regressed heights, wrong direct-child parent and a valid
+direct child. The first five refused; the valid case produced only a preview.
+Both state and evidence bytes stayed unchanged. Its feed pin override belongs
+only to the disposable synthetic verification process; production pins were
+unchanged. Settled-cash and timestamp boundaries were covered by the host suite,
+not this six-case image smoke. All outputs keep execution eligibility false.
+This is an image candidate, not production deployment or real chain acceptance.
+
 No new RPC authorization was consumed, no original production volume was opened,
 and no service, key, configuration, budget, STOP, signature or transaction was
 changed. The existing USD 500 capital, USD 200 daily loss, USD 500 cumulative loss
