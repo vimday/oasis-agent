@@ -86,6 +86,29 @@ assert.equal(liveStatusModel(recent).status, 'observed');
 renderLiveStatus(recent);
 assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
 assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行|当前运行条件未满足/);
+assert.match(nodes.get('live-observation').textContent, /记录 NAV 有效至/);
+assert.match(nodes.get('live-observation').textContent, /ETH \/ USDC 喂价上限 1800 \/ 1800 秒/);
+const expired = {...recent, status: 'stale', blockers: ['nav_validity_expired'],
+  observation_age_seconds: 2, observation: {...recent.observation,
+    nav_valid_until: recent.observation.observed_at + 1}};
+assert.equal(liveStatusModel(expired).status, 'stale');
+renderLiveStatus(expired);
+assert.match(nodes.get('live-blockers').innerHTML, /完整 NAV 已到期/);
+assert.match(nodes.get('live-release').innerHTML, /发布授权已记录/);
+const historical = {...recent, status: 'stale', blockers: ['nav_validity_unverified'],
+  observation: {...recent.observation, nav_valid_until: null,
+    eth_feed_max_age_seconds: null, usdc_feed_max_age_seconds: null}};
+assert.equal(liveStatusModel(historical).status, 'stale');
+renderLiveStatus(historical);
+assert.match(nodes.get('live-observation').textContent, /记录 NAV 有效至 未记录/);
+const oldPolicy = {...recent, status: 'stale', blockers: ['usd_feed_policy_mismatch'],
+  observation: {...recent.observation, usdc_feed_max_age_seconds: 90000}};
+assert.equal(liveStatusModel(oldPolicy).status, 'stale');
+renderLiveStatus(oldPolicy);
+assert.match(nodes.get('live-blockers').innerHTML, /配置迁移/);
+assert.match(nodes.get('live-observation').textContent, /1800 \/ 90000 秒/);
+assert.equal(liveStatusModel({...recent, observation: {...recent.observation,
+  eth_feed_max_age_seconds: 900, usdc_feed_max_age_seconds: 60}}).status, 'observed');
 const signing = {...data, pending: null, status: 'signing_unknown', signing_unresolved: true,
   blockers: ['signing_outcome_unresolved']};
 assert.equal(liveStatusModel(signing).status, 'signing_unknown');
@@ -131,6 +154,13 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   {...held, light_check: {...light, block: data.observation.block}},
   {...held, light_check: {...light, observed_at: data.observation.observed_at - 1}},
   {...held, light_check: {...light, tick: '-199100'}},
+  {...expired, status: 'observed', blockers: []},
+  {...historical, status: 'observed', blockers: []},
+  {...oldPolicy, status: 'observed', blockers: []},
+  {...recent, observation: {...recent.observation, nav_valid_until: Infinity}},
+  {...recent, observation: {...recent.observation,
+    nav_valid_until: recent.observation.block_timestamp + 121}},
+  {...recent, observation: {...recent.observation, eth_feed_max_age_seconds: true}},
   {...held, status: 'observed', blockers: [], light_check: null, observation_age_seconds: 900}]) {
   assert.equal(liveStatusModel(invalid), null);
   renderLiveStatus(data);

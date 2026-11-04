@@ -123,7 +123,7 @@ def main() -> None:
         "--external-price-guard-bps",
         type=int,
         help="defer swap/mint unless OKX (OKX_API_KEY/OKX_SECRET_KEY/OKX_PASSPHRASE env) "
-        "agrees within this many bps; exits are never gated",
+        "agrees within 1-200 bps; exits are never gated",
     )
     parser.add_argument("--okx-price-grant", type=Path, help="retained free-only OKX read grant")
     parser.add_argument("--okx-price-budget", type=Path, help="original frozen OKX request ledger")
@@ -170,7 +170,7 @@ def main() -> None:
         if args.okx_price_grant is not None or args.okx_price_budget is not None:
             parser.error("OKX grant and budget require --external-price-guard-bps")
     elif (
-        not 0 <= args.external_price_guard_bps <= 10_000
+        not 1 <= args.external_price_guard_bps <= 200
         or args.okx_price_grant is None
         or args.okx_price_budget is None
         or any(
@@ -186,7 +186,7 @@ def main() -> None:
         )
     ):
         parser.error(
-            "OKX guard requires a normal run, 0-10000 bps, retained grant and original budget"
+            "OKX guard requires a normal run, 1-200 bps, retained grant and original budget"
         )
     if (args.readiness or args.reconcile_only) and (
         args.mode != "live"

@@ -4,11 +4,9 @@ Review is read-only. Application requires a stopped service and valid new raw
 proofs; it always preserves HALT. Neither path acquires RPC data or can trade.
 """
 
-import fcntl
 import os
-import stat
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from dataclasses import asdict, replace
@@ -20,6 +18,7 @@ from ..models.common import EvidenceRef, canonical_json, sha256_hex
 from .config import LiveConfig
 from .receipts import RetainedReceiptCostReader
 from .runner import LiveLoop
+from .startup_state import acquire_existing_lock, require_file
 from .state import LoopState, Position, StateStore, day_of, validate_state
 from .valuation import nav_fresh_until, replay_nav, replay_nav_quorum
 
@@ -187,7 +186,7 @@ def apply_service(
     services and retain their STOP files. A partial two-service migration stays
     closed and must be inspected; no automatic retry or reversal is performed.
     """
-    with _service_lock(store, stop_file, role):
+    with _service_lock(store, stop_file, role) as verify_stopped:
         return _apply_service(
             store,
             target,
@@ -196,28 +195,53 @@ def apply_service(
             fresh=fresh,
             expected_tip=expected_tip,
             stop_file=stop_file,
+            verify_stopped=verify_stopped,
         )
 
 
 @contextmanager
 def _service_lock(
     store: StateStore, stop_file: Path, role: Literal["strategy", "authority"]
-) -> Iterator[None]:
+) -> Iterator[Callable[[], None]]:
     if (
         role not in {"strategy", "authority"}
         or stop_file.absolute() != (store.path.parent / "STOP").absolute()
     ):
         raise ValueError("service role and its own STOP path required")
     lock_path = store.path.parent / ("live.lock" if role == "strategy" else "authority.lock")
-    fd = os.open(lock_path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    with os.fdopen(fd, "rb") as lock:
-        info = os.fstat(lock.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
-            raise ValueError("existing owned service lock required")
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        if not stop_file.is_file() or stop_file.is_symlink():
-            raise ValueError("an existing regular STOP file is required")
-        yield
+
+    def stop_info() -> os.stat_result:
+        try:
+            return require_file(stop_file)
+        except OSError as exc:
+            raise ValueError("an existing owned regular STOP file is required") from exc
+
+    with acquire_existing_lock(lock_path, exclusive=True) as lock:
+        expected_stop = stop_info()
+        expected_lock = os.fstat(lock.fileno())
+
+        def verify_stopped() -> None:
+            current_lock = require_file(lock_path)
+            current_stop = stop_info()
+            if (current_lock.st_dev, current_lock.st_ino) != (
+                expected_lock.st_dev,
+                expected_lock.st_ino,
+            ) or any(
+                getattr(current_stop, field) != getattr(expected_stop, field)
+                for field in (
+                    "st_dev",
+                    "st_ino",
+                    "st_mode",
+                    "st_uid",
+                    "st_size",
+                    "st_mtime_ns",
+                    "st_ctime_ns",
+                )
+            ):
+                raise ValueError("service lock or STOP changed during evidence review")
+
+        verify_stopped()
+        yield verify_stopped
 
 
 def apply_pair(
@@ -239,8 +263,16 @@ def apply_pair(
         raise ValueError("distinct service journals required")
     stores = {"strategy": strategy, "authority": authority}
     with ExitStack() as locks:
+        stopped = {}
         for name, store in stores.items():
-            locks.enter_context(_service_lock(store, store.path.parent / "STOP", name))  # type: ignore[arg-type]
+            stopped[name] = locks.enter_context(
+                _service_lock(store, store.path.parent / "STOP", name)  # type: ignore[arg-type]
+            )
+
+        def verify_stopped() -> None:
+            for check in stopped.values():
+                check()
+
         reviews, tips, states = {}, {}, {}
         for name, store in stores.items():
             state = store.load("live", read_only=True)
@@ -278,6 +310,7 @@ def apply_pair(
                 fresh=fresh[name],
                 expected_tip=tip,
                 stop_file=store.path.parent / "STOP",
+                verify_stopped=verify_stopped,
             )
         return {"execution_eligible": False, "migration_applied": True, "services": result}
 
@@ -291,7 +324,9 @@ def _apply_service(
     fresh: tuple[EvidenceRef, ...],
     expected_tip: str,
     stop_file: Path,
+    verify_stopped: Callable[[], None],
 ) -> dict[str, Any]:
+    verify_stopped()
     if not stop_file.is_file() or stop_file.is_symlink():
         raise ValueError("an existing regular STOP file is required")
     state = store.load("live", read_only=True)
@@ -319,8 +354,7 @@ def _apply_service(
         "target_config": asdict(target),
         "review": review,
     }
-    if not stop_file.is_file() or stop_file.is_symlink():
-        raise ValueError("STOP file changed during evidence review")
+    verify_stopped()
     payload = journal.transition(record)
     migrated = StateStore._decode(payload, "live")
     store.save(migrated)  # Journal already committed; a projection failure is recoverable.

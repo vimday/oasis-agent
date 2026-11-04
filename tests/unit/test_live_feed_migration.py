@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from oasis_agent.evidence.store import EvidenceStore
+from oasis_agent.live import feed_transition
 from oasis_agent.live.feed_epoch import HALT
 from oasis_agent.live.feed_transition import apply_pair, apply_service
 from oasis_agent.live.journal import LiveJournal
@@ -316,3 +317,103 @@ def test_operator_command_defaults_to_readonly(tmp_path, monkeypatch, capsys, do
         assert events(store)[: len(before[role])] == before[role]
         if not do_apply:
             assert events(store) == before[role]
+
+
+def test_replaced_lock_during_acquisition_refuses_before_evidence(tmp_path, monkeypatch):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as evidence:
+        store, _, refs, stop = prepare(tmp_path, evidence, monkeypatch)
+        before = events(store)
+        lock_path = tmp_path / "authority.lock"
+        flock = fcntl.flock
+
+        def replace_locked_descriptor(fd, flags):
+            flock(fd, flags)
+            lock_path.rename(tmp_path / "old.lock")
+            lock_path.touch()
+
+        def forbidden(*args, **kwargs):
+            pytest.fail("replaced service lock must refuse before proof review")
+
+        monkeypatch.setattr(fcntl, "flock", replace_locked_descriptor)
+        monkeypatch.setattr(feed_transition, "review_service", forbidden)
+        with pytest.raises(ValueError, match="lock changed"):
+            apply(store, refs, stop, evidence)
+        assert events(store) == before
+
+
+def replace_control_file(root, fault):
+    path = root / ("authority.lock" if fault == "lock_replaced" else "STOP")
+    if fault == "stop_modified":
+        path.write_text("operator changed STOP during review")
+    else:
+        path.rename(path.with_suffix(".previous"))
+        path.touch()
+
+
+@pytest.mark.parametrize("fault", ["lock_replaced", "stop_replaced", "stop_modified"])
+def test_control_identity_change_after_proof_review_refuses(tmp_path, monkeypatch, fault):
+    with closing(EvidenceStore(tmp_path / "evidence.db")) as evidence:
+        store, _, refs, stop = prepare(tmp_path, evidence, monkeypatch)
+        before = events(store)
+        review = feed_transition.review_service
+
+        def interrupted(*args, **kwargs):
+            result = review(*args, **kwargs)
+            replace_control_file(tmp_path, fault)
+            return result
+
+        monkeypatch.setattr(feed_transition, "review_service", interrupted)
+        with pytest.raises(ValueError, match="lock or STOP changed"):
+            apply(store, refs, stop, evidence)
+        assert events(store) == before
+        assert StateStore(store.path).load("live", read_only=True).halted
+
+
+@pytest.mark.parametrize("fault", ["lock_replaced", "stop_replaced", "stop_modified"])
+@pytest.mark.parametrize("after_first_commit", [False, True])
+def test_pair_rechecks_both_control_identities_before_each_commit(
+    tmp_path, monkeypatch, fault, after_first_commit
+):
+    stores, evidence, fresh = {}, {}, {}
+    with ExitStack() as resources:
+        for role in ("strategy", "authority"):
+            root = tmp_path / role
+            root.mkdir()
+            evidence[role] = resources.enter_context(closing(EvidenceStore(root / "proof.db")))
+            store, _, refs, _ = prepare(root, evidence[role], monkeypatch)
+            (root / "live.lock").touch()
+            stores[role], fresh[role] = store, refs
+        before = {role: events(store) for role, store in stores.items()}
+        if after_first_commit:
+            transition = LiveJournal.transition
+
+            def changed_after_commit(self, record):
+                result = transition(self, record)
+                replace_control_file(tmp_path / "authority", fault)
+                return result
+
+            monkeypatch.setattr(LiveJournal, "transition", changed_after_commit)
+        else:
+            review = feed_transition.review_service
+
+            def changed_after_review(*args, **kwargs):
+                result = review(*args, **kwargs)
+                # Mutate the peer during the first service's review.
+                if not (tmp_path / "mutated").exists():
+                    (tmp_path / "mutated").touch()
+                    replace_control_file(tmp_path / "authority", fault)
+                return result
+
+            monkeypatch.setattr(feed_transition, "review_service", changed_after_review)
+        with pytest.raises(ValueError, match="lock or STOP changed"):
+            apply_pair(
+                stores["strategy"], stores["authority"], CONFIG, evidence, fresh, sources=SOURCES
+            )
+        for role, store in stores.items():
+            loaded = store.load("live", read_only=True)
+            changed = after_first_commit and role == "strategy"
+            assert loaded.halted
+            assert store.journal.config_hash == (TARGET_HASH if changed else OLD_HASH)
+            assert events(store)[: len(before[role])] == before[role]
+            if not changed:
+                assert events(store) == before[role]

@@ -584,6 +584,16 @@ class LiveLoop:
             nav_micros=str(m.valuation.nav_micros) if m.valuation else None,
             uncollected_native_units=str(m.valuation.fee0) if m.valuation else None,
             uncollected_usdc_units=str(m.valuation.fee1) if m.valuation else None,
+            nav_valid_until=nav_fresh_until(
+                self.receipt_costs.store,
+                m.nav_evidence,
+                self.c,
+                sources=self.receipt_costs.sources,
+            )
+            if m.valuation is not None and self.receipt_costs is not None
+            else None,
+            eth_feed_max_age_seconds=self.c.oracle_max_age_seconds,
+            usdc_feed_max_age_seconds=self.c.usdc_oracle_max_age_seconds,
         ).model_dump()
         base = (
             f"block {m.block} px {m.price:.2f} oracle {m.oracle:.2f} nav ${nav:.2f} "

@@ -2,17 +2,24 @@
 
 import json
 import os
+from contextlib import closing
 from dataclasses import asdict, replace
 from pathlib import Path
 
 import pytest
 
+from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.chain import ChainError
+from oasis_agent.live.receipts import RetainedReceiptCostReader
+from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import LoopState, StateStore
 from oasis_agent.reporting.live_status import MAX_STATE_BYTES, read_live_status
 from oasis_agent.server.config import load_server_config
 from tests.unit.server_helpers import make_server_config
 from tests.unit.test_live_lp import CONFIG, ScriptedRpc, live_loop, market
+from tests.unit.test_live_precheck_evidence import SOURCES, capture
+from tests.unit.test_live_receipt_costs import position_config
+from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
 from tests.unit.test_server_api import client_for
 
 NOW = 1_791_470_000
@@ -35,6 +42,10 @@ def observed_state() -> dict:
         "capital_limit_usd": 500.0,
         "daily_loss_limit_usd": 200.0,
         "cumulative_loss_limit_usd": 500.0,
+        "valuation_basis": "two_feed_principal_and_fees",
+        "nav_valid_until": NOW + 115,
+        "eth_feed_max_age_seconds": 1800,
+        "usdc_feed_max_age_seconds": 1800,
     }
     return state
 
@@ -56,6 +67,105 @@ def test_status_never_infers_freshness_from_file_mtime_or_claims_execution(tmp_p
     stale = read_live_status(path, now=NOW + 121)
     assert stale.status == "stale" and "observation_stale" in stale.blockers
     assert stale.state_hash == fresh.state_hash and path.read_bytes() == before
+
+
+def test_nav_feed_deadline_expires_before_recent_block(tmp_path: Path) -> None:
+    state = observed_state()
+    state["last_observation"]["nav_valid_until"] = NOW + 1
+    path = write_state(tmp_path, state)
+    assert read_live_status(path, now=NOW + 1).status == "observed"
+    expired = read_live_status(path, now=NOW + 2)
+    assert expired.status == "stale"
+    assert expired.blockers == ["nav_validity_expired"]
+    assert expired.observation_age_seconds == 2
+    assert expired.release.new_actions_allowed and not expired.execution_eligible
+
+
+@pytest.mark.parametrize("fault", ["missing", "legacy", "eth_policy", "usdc_policy", "deadline"])
+def test_recent_nav_requires_recorded_strict_feed_freshness(tmp_path: Path, fault: str) -> None:
+    state = observed_state()
+    observation = state["last_observation"]
+    if fault == "missing":
+        for field in ("nav_valid_until", "eth_feed_max_age_seconds", "usdc_feed_max_age_seconds"):
+            observation.pop(field)
+        blocker = "nav_validity_unverified"
+    elif fault == "legacy":
+        observation["valuation_basis"] = "legacy_principal_only"
+        blocker = "nav_validity_unverified"
+    elif fault == "deadline":
+        observation["nav_valid_until"] = observation["block_timestamp"] + 121
+        blocker = "nav_validity_unverified"
+    else:
+        observation[
+            "eth_feed_max_age_seconds" if fault == "eth_policy" else "usdc_feed_max_age_seconds"
+        ] = 90_000
+        blocker = "usd_feed_policy_mismatch"
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert report.status == "stale" and blocker in report.blockers
+    assert report.observation is not None and report.release.new_actions_allowed
+    assert report.evidence_replayed is False and report.execution_eligible is False
+
+
+def test_tighter_feed_limits_are_reported_without_being_widened(tmp_path: Path) -> None:
+    state = observed_state()
+    state["last_observation"].update(eth_feed_max_age_seconds=900, usdc_feed_max_age_seconds=60)
+    report = read_live_status(write_state(tmp_path, state), now=NOW)
+    assert report.status == "observed"
+    assert report.observation.eth_feed_max_age_seconds == 900
+    assert report.observation.usdc_feed_max_age_seconds == 60
+
+
+@pytest.mark.parametrize("eth_limit,usdc_limit", [(1800, 1800), (900, 60), (1800, 90_000)])
+def test_runtime_records_retained_feed_deadline_without_refreshing_it(
+    tmp_path, monkeypatch, eth_limit, usdc_limit
+):
+    config = replace(
+        position_config(),
+        oracle_max_age_seconds=eth_limit,
+        usdc_oracle_max_age_seconds=usdc_limit,
+    )
+    fixture = NavFixture(
+        position_enabled=False,
+        native_after=10**17,
+        token_after=100_000_000,
+        usdc_price=100_000_000,
+        usdc_age=usdc_limit - 1,
+    )
+    store = StateStore(tmp_path / "state.json")
+    loop = LiveLoop.recovery(config, ScriptedRpc(), store, "live")
+    monkeypatch.setattr("oasis_agent.live.runner.time.time", lambda: fixture.timestamp)
+    with closing(EvidenceStore(tmp_path / "proof.db")) as evidence:
+        value, refs = capture(evidence, config, fixture)
+
+        def forbidden(*_):
+            raise AssertionError("recording status must replay proof without network")
+
+        loop.receipt_costs = RetainedReceiptCostReader(
+            evidence,
+            chain_id=config.chain_id,
+            account=config.account,
+            native_decimals=config.decimals0,
+            sources=SOURCES,
+            sessions=forbidden,
+        )
+        loop.observe = lambda: market(
+            block=fixture.block_number,
+            block_hash=fixture.block_hash,
+            timestamp=fixture.timestamp,
+            eth=value.wallet.native,
+            usdc=value.wallet.token,
+            valuation=value,
+            nav_evidence=refs,
+        )
+        loop._decide = lambda _: None
+        loop.tick()
+    saved = store.load("live").last_observation
+    assert saved["nav_valid_until"] == fixture.timestamp + 1
+    assert saved["eth_feed_max_age_seconds"] == eth_limit
+    assert saved["usdc_feed_max_age_seconds"] == usdc_limit
+    expected = "observed" if usdc_limit <= 1800 else "stale"
+    assert read_live_status(store.path, now=fixture.timestamp + 1).status == expected
+    assert read_live_status(store.path, now=fixture.timestamp + 2).status == "stale"
 
 
 @pytest.mark.parametrize("halted", [None, "private halt message"])
@@ -258,6 +368,7 @@ def light_state(*, full_age: int, light_age: int, block: int = 200) -> dict:
     state = observed_state()
     state["last_observation"]["observed_at"] = NOW - full_age
     state["last_observation"]["block_timestamp"] = NOW - full_age - 5
+    state["last_observation"]["nav_valid_until"] = NOW - full_age + 115
     state["last_light_check"] = {
         "block": block,
         "block_timestamp": NOW - light_age - 2,
@@ -272,7 +383,7 @@ def test_recent_tick_check_never_refreshes_account_nav(tmp_path: Path, full_age:
     report = read_live_status(
         write_state(tmp_path, light_state(full_age=full_age, light_age=60)), now=NOW
     )
-    assert report.status == "stale" and report.blockers == ["observation_stale"]
+    assert report.status == "stale" and "observation_stale" in report.blockers
     assert report.light_check is not None and report.light_check.tick == -199_100
     assert report.observation_age_seconds == full_age
 

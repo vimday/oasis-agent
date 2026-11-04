@@ -4,6 +4,7 @@ import json
 import os
 import sys
 from dataclasses import asdict, replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -197,4 +198,50 @@ def test_cli_refuses_unconfigured_guard_before_rpc_or_state(tmp_path, monkeypatc
     with pytest.raises(SystemExit) as caught:
         cli.main()
     assert caught.value.code == (3 if flags else 2)
+    assert not state.exists()
+
+
+@pytest.mark.parametrize("mode", ["live", "shadow"])
+@pytest.mark.parametrize("bps", [0, 201])
+def test_cli_refuses_invalid_guard_range_before_any_runtime_access(
+    tmp_path, monkeypatch, capsys, mode, bps
+):
+    state = tmp_path / "state"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_live_lp",
+            "--mode",
+            mode,
+            "--state-dir",
+            str(state),
+            "--external-price-guard-bps",
+            str(bps),
+            "--okx-price-grant",
+            str(tmp_path / "grant.json"),
+            "--okx-price-budget",
+            str(tmp_path / "budget.db"),
+        ],
+    )
+
+    def forbidden(*_, **__):
+        pytest.fail("invalid OKX threshold must refuse before runtime access")
+
+    monkeypatch.setattr(cli, "os", SimpleNamespace(environ=SimpleNamespace(get=forbidden)))
+    monkeypatch.setattr(cli.LiveConfig, "load", forbidden)
+    monkeypatch.setattr(cli.LiveRpcProfile, "load", forbidden)
+    monkeypatch.setattr(cli.OkxPriceReadGrant, "load", forbidden)
+    for name in (
+        "require_live_start",
+        "OkxPriceReadBudget",
+        "rpc_url",
+        "StateStore",
+        "TransactionSocketClient",
+    ):
+        monkeypatch.setattr(cli, name, forbidden)
+    with pytest.raises(SystemExit) as caught:
+        cli.main()
+    assert caught.value.code == 2
+    assert "1-200 bps" in capsys.readouterr().err
     assert not state.exists()

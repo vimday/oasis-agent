@@ -137,17 +137,31 @@ class RpcBudget:
             sequence, previous = seq, digest
         return counts, last, sequence, previous
 
-    def reserve(self, source: str, *, now_ms: int) -> int:
+    def reserve(
+        self,
+        source: str,
+        *,
+        now_ms: int,
+        admission: Callable[[], None] | None = None,
+    ) -> int:
         """Return wait milliseconds, or spend one request and return zero.
 
         A positive result reserves nothing. Recheck after waiting; another worker
         may have spent the next slot. No caller may send without a zero result.
+
+        An optional admission guard can enforce a caller's existing deadline or
+        cancellation scope. It runs after acquiring the write lock and verifying
+        the entire history, then again immediately before commit. A refusal
+        rolls back the reservation; this does not extend the caller's deadline
+        or replace a process-level deadline for blocked I/O.
         """
         if type(now_ms) is not int or now_ms < 0 or source not in self.policies:
             raise ValueError("valid source and integer wall clock required")
         self.db.execute("BEGIN IMMEDIATE")
         try:
             counts, last, seq, previous = self._read()
+            if admission is not None:
+                admission()
             policy = self.policies[source]
             if counts[source] >= policy.max_requests:
                 raise ValueError("RPC request budget exhausted")
@@ -167,9 +181,11 @@ class RpcBudget:
                 self.db.execute(
                     "INSERT INTO rpc_usage VALUES(?,?,?)", (seq + 1, raw, sha256_hex(raw))
                 )
+            if admission is not None:
+                admission()
             self.db.commit()
             return wait
-        except Exception:
+        except BaseException:
             self.db.rollback()
             raise
 

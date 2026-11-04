@@ -17,6 +17,9 @@ const BLOCKERS = {
   observation_missing: "缺少账户观测，或交易后尚未重新估值",
   observation_clock_invalid: "观测时间不一致",
   observation_stale: "完整账户观测超过 120 秒；区间检查不会更新净值",
+  nav_validity_unverified: "记录缺少完整 NAV 有效期；历史观测不能确认当前 USD 喂价时效",
+  usd_feed_policy_mismatch: "记录的 ETH 或 USDC 喂价上限不符合 1,800 秒要求；需核查配置迁移",
+  nav_validity_expired: "记录的完整 NAV 已到期；较新的区块或区间检查不能延长 USD 喂价有效期",
   recorded_loss_budget_exhausted: "记录中的亏损预算已耗尽",
   state_halted: "实盘循环已记录停机",
   pending_requires_reconciliation: "存在待对账交易",
@@ -57,13 +60,20 @@ export function liveStatusModel(data) {
       !Number.isSafeInteger(o.observed_at) || !Number.isSafeInteger(o.block_timestamp) ||
       ["nav_usd", "daily_loss_usd", "cumulative_loss_usd", "capital_limit_usd", "daily_loss_limit_usd", "cumulative_loss_limit_usd"]
         .some(key => typeof o[key] !== "number" || !Number.isFinite(o[key]) || o[key] < 0))) return null;
+  if (o && ["nav_valid_until", "eth_feed_max_age_seconds", "usdc_feed_max_age_seconds"].some(key =>
+    o[key] !== null && o[key] !== undefined && (!Number.isSafeInteger(o[key]) || o[key] < 0))) return null;
   const l = data.light_check;
   if (l !== null && l !== undefined && (!o || !uint(l.block) || !Number.isSafeInteger(l.observed_at) ||
       !Number.isSafeInteger(l.block_timestamp) || !Number.isSafeInteger(l.tick) ||
       l.block <= o.block || l.observed_at < o.observed_at)) return null;
   // Tick-only activity does not renew wallet, USD-feed or full NAV freshness.
   if (data.status === "observed" && (!o || data.blockers.length ||
-      !Number.isSafeInteger(data.observation_age_seconds) || data.observation_age_seconds < 0 || data.observation_age_seconds > 120)) return null;
+      !Number.isSafeInteger(data.observation_age_seconds) || data.observation_age_seconds < 0 || data.observation_age_seconds > 120 ||
+      o.valuation_basis !== "two_feed_principal_and_fees" || !Number.isSafeInteger(o.nav_valid_until) ||
+      o.nav_valid_until < o.block_timestamp || o.nav_valid_until > o.block_timestamp + 120 ||
+      o.observed_at + data.observation_age_seconds > o.nav_valid_until ||
+      [o.eth_feed_max_age_seconds, o.usdc_feed_max_age_seconds].some(limit =>
+        !Number.isSafeInteger(limit) || limit < 1 || limit > 1800))) return null;
   if (data.pending && (!Object.hasOwn(ACTIONS, data.pending.kind) || !hash(data.pending.tx_hash) ||
       !uint(data.pending.nonce) || !Number.isSafeInteger(data.pending.signed_at))) return null;
   if (data.position && (!uint(data.position.token_id) || !uint(data.position.liquidity) ||
@@ -103,6 +113,7 @@ export function renderLiveStatus(data) {
   ]);
   $("live-observation").textContent = o
     ? `完整观测于 ${fmtTime(o.observed_at)} · 区块 ${o.block} · 数据年龄 ${model.observation_age_seconds} 秒 · 配置资本上限 ${usd(o.capital_limit_usd)}` +
+      `\n记录 NAV 有效至 ${o.nav_valid_until == null ? "未记录" : fmtTime(o.nav_valid_until)} · ETH / USDC 喂价上限 ${o.eth_feed_max_age_seconds ?? "未记录"} / ${o.usdc_feed_max_age_seconds ?? "未记录"} 秒（原始喂价未重放）` +
       (model.light_check ? `\n区间检查于 ${fmtTime(model.light_check.observed_at)} · 区块 ${model.light_check.block} · tick ${model.light_check.tick}（双源一致，仅确认仍在区间，不更新净值或喂价时效）` : "") +
       `\n账户 ${o.account}\n区块哈希 ${o.block_hash}`
     : "没有可用账户观测；数值缺失不等于余额或亏损为零。";

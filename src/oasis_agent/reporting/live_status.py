@@ -48,6 +48,10 @@ class LiveObservation(BaseModel):
     nav_micros: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
     uncollected_native_units: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
     uncollected_usdc_units: Annotated[str, Field(pattern=r"^(0|[1-9][0-9]{0,77})$")] | None = None
+    # Recorded from the same retained proof used by execution, never renewed by display time.
+    nav_valid_until: UInt | None = None
+    eth_feed_max_age_seconds: UInt | None = None
+    usdc_feed_max_age_seconds: UInt | None = None
 
 
 class PendingView(BaseModel):
@@ -195,6 +199,21 @@ def read_live_status(path: Path | None, *, now: int | None = None) -> LiveStatus
             # A recent in-range tick check supplies no new wallet, USD feed or NAV proof.
             # Keep it visible separately, without renewing the account observation's age.
             blockers.append("observation_stale")
+        limits = (observation.eth_feed_max_age_seconds, observation.usdc_feed_max_age_seconds)
+        deadline = observation.nav_valid_until
+        if (
+            observation.valuation_basis != "two_feed_principal_and_fees"
+            or deadline is None
+            or None in limits
+            or not observation.block_timestamp
+            <= deadline
+            <= observation.block_timestamp + MAX_OBSERVATION_AGE
+        ):
+            blockers.append("nav_validity_unverified")
+        elif any(limit is not None and not 1 <= limit <= 1800 for limit in limits):
+            blockers.append("usd_feed_policy_mismatch")
+        elif clock > deadline:
+            blockers.append("nav_validity_expired")
         if (
             observation.daily_loss_usd >= observation.daily_loss_limit_usd
             or observation.cumulative_loss_usd >= observation.cumulative_loss_limit_usd

@@ -80,20 +80,35 @@ class LiveJournal:
             db.execute("PRAGMA journal_mode=DELETE")
         return db
 
-    def _read(self, db: sqlite3.Connection) -> tuple[str, bytes | None]:
+    def _read(self, db: sqlite3.Connection, *, schema: str = "main") -> tuple[str, bytes | None]:
+        # The paired offline rearm validates both original chains inside one
+        # ATTACH transaction. Never accept an operator-controlled SQL identifier.
+        if schema not in {"main", "peer"}:
+            raise ValueError("unsupported journal schema")
         parent = ZERO
         latest = None
         binding = None
         transitions = {}
         if db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='config_transitions'"
+            "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='config_transitions'"
+            if schema == "main"
+            else "SELECT 1 FROM peer.sqlite_master WHERE type='table' AND name='config_transitions'"
         ).fetchone():
-            rows = db.execute("SELECT seq, payload FROM config_transitions LIMIT 2").fetchall()
+            rows = db.execute(
+                "SELECT seq, payload FROM main.config_transitions LIMIT 2"
+                if schema == "main"
+                else "SELECT seq, payload FROM peer.config_transitions LIMIT 2"
+            ).fetchall()
             if len(rows) != 1:
                 raise ValueError("exactly one supported configuration transition required")
             transitions = dict(rows)
         for expected, row in enumerate(
-            db.execute("SELECT seq, config, parent, digest, payload FROM events ORDER BY seq"), 1
+            db.execute(
+                "SELECT seq, config, parent, digest, payload FROM main.events ORDER BY seq"
+                if schema == "main"
+                else "SELECT seq, config, parent, digest, payload FROM peer.events ORDER BY seq"
+            ),
+            1,
         ):
             seq, config, previous, digest, payload = row
             if (

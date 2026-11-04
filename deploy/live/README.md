@@ -2,17 +2,19 @@
 
 The owner selected local Docker on 2026-10-17. This is a reproducible packaging
 and confinement implementation, not permission to bypass the release gate.
-Both entry points still refuse new live actions before loading a key.
+The October 31 owner release is recorded; current runtime evidence, accounting,
+cost and recovery checks must still pass before new live actions.
 
 ## One-command Docker entry
 
-`make live-docker-readiness` prints the offline release decision. `make live-docker`
-is the guarded startup entry; while the current release blockers exist, it refuses
-before Docker, environment credentials, output-directory creation or state access.
-Neither command opens the release gate. The Python CLI exits 3 for a refusal;
-Make propagates a failed target.
+`make live-docker-readiness` prints the offline owner-release decision; it does not
+validate current runtime readiness. `make live-docker` is the guarded startup
+entry. A closed owner release refuses before Docker, credentials, output creation
+or state access. An open owner release still requires the original-state and
+runtime checks below. Neither command changes the release decision. The Python
+CLI exits 3 for a refusal; Make propagates a failed target.
 
-After separately completing production acceptance and operator release, startup
+After completing current production acceptance under the recorded owner release, startup
 requires explicit RPC environment variables, the existing four named state/socket/key
 volumes, and a new output directory (`LIVE_START_OUTPUT`, default
 `reports/runs/live-start`). It verifies the local Unix-socket Docker context,
@@ -266,20 +268,89 @@ The USDC/USD observed round was about 60000 seconds old, beyond the existing
 A suitable fresh price source or a separately reviewed owner-approved feed policy
 is required; no dollar peg or silent freshness relaxation is implemented.
 
-Owner feed policy (2026-10-28, supersedes the 2026-10-27 1800-second USDC
-setting): ETH/USD keeps an 1800-second ceiling; USDC/USD has its own
+Historical owner feed policy (2026-10-28, now superseded by the current
+1800/1800-second policy): ETH/USD kept an 1800-second ceiling; USDC/USD had its own
 `usdc_oracle_max_age_seconds = 90000` (hard bound), because its Base round updates
 on a 24-hour heartbeat and was fresh under 1800 s only about 2% of the day. The USDC
 ±200 bps answer band and 40 bps pool/oracle deviation check still apply. No peg is
 substituted.
 
-Acceptance permit (2026-10-28): `ACCEPTANCE_PERMIT` in
+Historical acceptance permit (2026-10-28, superseded by the October 31 owner
+release): `ACCEPTANCE_PERMIT` in
 `src/oasis_agent/reporting/live_release.py` lets the services start and admits exactly
 one `approve_usdc` (Permit2, `approval_usdc`) at account nonce 3. Every other action
 kind or nonce still refuses with `live release blocked`; `new_actions_allowed` stays
-false and the four blockers remain until that receipt is reconciled.
+false and the four blockers remained until that receipt was reconciled. This
+describes the former permit, not today's release state.
 
-## Verification status
+## Current stopped-service recovery
+
+Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
+capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical
+90000-second USDC evidence remains replayable only in its original configuration
+epoch. The dashboard also expires NAV at the earlier of its 120-second block
+deadline and either feed's own deadline; a recent block does not refresh a feed.
+Old observations without this metadata display as stale.
+
+The recovery tools operate on both original private service directories, existing
+lock files, STOP files, journals, evidence stores and budget ledgers. They must
+run as the owner of those files in a controlled, keyless environment. No command
+below starts services, removes STOP, signs, broadcasts, replenishes quota or reads
+a repository `.env`. Use the original volumes, never copies of the budget ledgers.
+
+1. `python -m scripts.capture_live_recovery --strategy-dir STRATEGY_DIR
+   --authority-dir AUTHORITY_DIR --rpc-profile PROFILE`
+   prints an offline plan from the original state. Its exact request counts and
+   hash bind both journal tips and original budget histories. The separate
+   `--capture --approved-plan-hash HASH --zero-cost-scope SCOPE --out NEW_CAPTURE_DIR`
+   mode requires
+   a verified, unexpired zero-cost scope for the two explicit RPC endpoints.
+   It has a 120-second process deadline, makes no retries and refuses redirects.
+   Scope declarations do not verify provider billing or create user authorization.
+   A consumed plan cannot be reused by changing the output directory. Failure
+   preserves raw attempted evidence and charged requests; it provides no rearm
+   acceptance. No new online scope has been executed by this implementation.
+2. For an original journal still bound to the old USDC policy, review then apply
+   `python -m scripts.migrate_live_feed_transition
+   --strategy-state STRATEGY_DIR/live.state.json
+   --strategy-evidence STRATEGY_DIR/live.receipts.db
+   --authority-state AUTHORITY_DIR/state.json
+   --authority-evidence AUTHORITY_DIR/evidence.db --fresh-nav FRESH_NAV_JSON`.
+   Use the successful capture's `fresh-nav.json`; add `--apply --out NEW_ATTEMPT_DIR`
+   only for the explicit application. Migration preserves basis, losses, STOP and HALT.
+   Its two halted journal commits are separate: an interrupted migration requires
+   inspection of both original journals before continuing.
+3. `python -m scripts.rearm_live_services --strategy-dir STRATEGY_DIR
+   --authority-dir AUTHORITY_DIR --rpc-profile PROFILE --references REFERENCES`
+   performs offline review of the successful capture's `references.json` against
+   both current strict-policy journals. Only an exact reviewed hash can be applied
+   with `--apply --approved-review-hash HASH --out NEW_ATTEMPT_DIR`. It replays
+   every original settlement's cash and complete gas, checks current two-provider
+   receipts, nonce continuity and fresh full NAV, and only admits the explicitly
+   supported observation/migration halts. An arbitrary risk or uncertain-execution
+   halt requires its own recovery procedure.
+4. Rearm uses one SQLite transaction across both original DELETE-mode journals.
+   It preserves STOP, historical counters and risk basis; it never clears a loss
+   latch. SQLite locking, filesystem durability, host clock and retained provider
+   provenance remain trusted. Exit 3 after an attempted apply means inspect both
+   originals, including surviving SQLite recovery files. A committed rearm with
+   an incomplete JSON projection also exits 3 and must not be blindly repeated.
+   Freshness is rechecked before commit; expired inputs require a new authorized
+   capture, never a wider feed limit.
+
+STOP removal and reviewed runtime activation are separate operations after all
+current evidence and cost gates pass. The existing one-command startup rechecks
+both original states. These recovery commands are implementation and synthetic
+regression evidence; they do not establish production recovery, a full NFT unwind,
+an economic edge or profitability. The optional OKX price guard accepts 1–200 bps
+and needs its own verified free entitlement; it is not an execution or NAV service.
+
+## Historical verification status
+
+The dated results below remain historical evidence. The original two service
+journals now contain five real settlements and NFT 3183370 still has liquidity;
+current NAV, full unwind and stopped-service recovery remain separate acceptance
+requirements. See the [current recovery follow-up](../../docs/verification/LIVE_RECOVERY_ALIGNMENT_20261104.md).
 
 The 2026-10-17 host tests passed for parallel capture, frozen-budget behavior, real socket
 SIGKILL/restart with an ephemeral test key, and public-only probe request limits.

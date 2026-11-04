@@ -3,6 +3,7 @@
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 
@@ -251,3 +252,95 @@ def test_duplicate_trace_options_cannot_override_bounded_trace_policy(tmp_path, 
     with pytest.raises(ValueError, match="duplicate"):
         poster.post(raw)
     assert not path.exists()
+
+
+@pytest.mark.parametrize("phase", ["after_lock", "before_commit"])
+def test_admission_expiry_never_commits_reserved_quota(tmp_path, phase):
+    path = tmp_path / "budget.db"
+    with RpcBudget(path, policies()) as budget:
+        budget.reserve("paid", now_ms=1000)
+        before = path.read_bytes()
+        checked = []
+
+        def admit():
+            assert budget.db.in_transaction
+            checked.append(budget.counts()["paid"])
+            if phase == "after_lock" or len(checked) == 2:
+                raise TimeoutError("original capture deadline expired")
+
+        with pytest.raises(TimeoutError, match="deadline"):
+            budget.reserve("paid", now_ms=5000, admission=admit)
+        assert checked == ([1] if phase == "after_lock" else [1, 2])
+        assert not budget.db.in_transaction
+        assert budget.counts()["paid"] == 1
+        assert path.read_bytes() == before
+    with RpcBudget(path, policies(), require_existing=True) as reopened:
+        assert reopened.counts()["paid"] == 1
+
+
+def test_admission_rechecks_after_real_sqlite_write_lock_wait(tmp_path):
+    path = tmp_path / "budget.db"
+    with RpcBudget(path, policies()) as initial:
+        initial.reserve("paid", now_ms=1000)
+    ready, start, waiting = Event(), Event(), Event()
+    expired = Event()
+
+    def worker():
+        with RpcBudget(path, policies(), require_existing=True) as budget:
+            budget.db.set_trace_callback(
+                lambda sql: waiting.set() if sql == "BEGIN IMMEDIATE" else None
+            )
+            ready.set()
+            assert start.wait(5)
+
+            def admit():
+                assert budget.db.in_transaction
+                if expired.is_set():
+                    raise TimeoutError("deadline elapsed during SQLite lock wait")
+
+            with pytest.raises(TimeoutError, match="lock wait"):
+                budget.reserve("paid", now_ms=5000, admission=admit)
+            assert not budget.db.in_transaction
+            return budget.counts()
+
+    with (
+        ThreadPoolExecutor(max_workers=1) as pool,
+        sqlite3.connect(path, isolation_level=None) as holder,
+    ):
+        result = pool.submit(worker)
+        assert ready.wait(5)
+        holder.execute("BEGIN IMMEDIATE")
+        start.set()
+        assert waiting.wait(5)
+        expired.set()
+        holder.execute("COMMIT")
+        assert result.result(timeout=5) == {"public": 0, "paid": 1}
+
+
+@pytest.mark.parametrize("wait_expected", [0, 2000])
+def test_optional_guard_preserves_frozen_policy_and_pacing(tmp_path, wait_expected):
+    with RpcBudget(tmp_path / "budget.db", policies()) as budget:
+        budget.reserve("paid", now_ms=1000)
+        checks = []
+        wait = budget.reserve(
+            "paid",
+            now_ms=2000 if wait_expected else 4000,
+            admission=lambda: checks.append(budget.db.in_transaction),
+        )
+        assert wait == wait_expected and checks == [True, True]
+        assert budget.counts()["paid"] == (1 if wait_expected else 2)
+
+
+def test_guard_cancellation_rolls_back_even_base_exception(tmp_path):
+    class Cancelled(BaseException):
+        pass
+
+    with RpcBudget(tmp_path / "budget.db", policies()) as budget:
+
+        def cancel():
+            if budget.counts()["paid"]:
+                raise Cancelled()
+
+        with pytest.raises(Cancelled):
+            budget.reserve("paid", now_ms=1000, admission=cancel)
+        assert not budget.db.in_transaction and budget.counts()["paid"] == 0
