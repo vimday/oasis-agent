@@ -348,3 +348,57 @@ Every referenced exit and log/report hash was checked. The candidate was not
 deployed; both production containers remain exited on image `0b4f8cb42deb`.
 Free entitlement and the one-shot acquisition authorization remain unresolved;
 there was no external RPC, original-volume, key or budget access in this follow-up.
+
+## Follow-up: strict single-attempt live POST boundary
+
+Offline tests exercised the real urllib redirect/error processors with in-memory
+HTTPS responses. The direct live RPC path followed HTTP 301/302/303 redirects;
+urllib changes those POSTs to GETs at the Location endpoint. It also accepted
+unmatched/noncanonical RPC IDs, ambiguous or missing result fields and arbitrary
+send acknowledgments, and could expose a provider rejection message. A malformed
+response after submission could escape as a preflight-style error or enter receipt
+polling instead of immediately returning to pending reconciliation.
+
+The direct transport now forbids redirects, caps response reads at 1,000,000 bytes
+and reuses the strict raw request/response validator. A send acknowledgment must
+equal the locally computed hash of the exact submitted bytes. Any rejection,
+transport failure, malformed reply or mismatched acknowledgment after the send
+attempt is `SubmissionUnknown`, with fixed redacted diagnostics. The commitment
+still publishes before the single POST; the caller retains it for independent
+pending reconciliation rather than resending or immediately probing nonce/receipt
+from inside the failed submission path. Normal receipt waiting after a matching
+acknowledgment remains unchanged.
+
+The same adapter now requires canonical hex quantities and distinguishes a
+malformed receipt from an explicit null receipt. Legitimate zero balances and
+null receipts keep their separate meanings. This rejects malformed inputs without
+echoing a returned value into parser errors. The production read adapter continues
+to use its existing frozen budget and zero-retry observation transport; this change
+does not add budget accounting to the separate broadcast operation or authorize it.
+
+Initial tests retained `17 failed, 4 passed`; after refining the post-attempt
+uncertainty contract they retained `21 failed, 1 passed`. The additional typed-read
+regressions retained `11 failed, 1 passed`. All original logs remain under
+`reports/review-20261104/live-post-boundary/`. The final focused run passed **178
+tests**, including all **34** new HTTP/protocol/typed-read cases and existing
+authority, nonce, budget, pending-state and LP regressions. Scoped lint, format and
+mypy checks exited 0. The HTTPS handler never opens a socket; signatures used by
+the commitment tests are ephemeral synthetic fixtures, never the dedicated key.
+
+This is implementation verification. No external RPC, original state volume,
+budget or canary key was accessed. Fresh complete USD/NAV, current two-source
+runtime/simulation evidence, full unwind and operational restart remain unresolved;
+the outstanding free-entitlement and one-shot read authorization are not renewed.
+
+The full `make live-quality` exited **0** with **4098 tests, 138 subtests** and
+eight frontend modules passed. All four subprocesses (Python/frontend, secrets,
+Bandit, Compose) exited 0 without timeout or launch failure. Report/log hashes and
+the unchanged two-file source lock were re-derived after completion. The existing
+four warnings remain recorded; no check was skipped and no contract source changed.
+
+```text
+reports/review-20261104/live-post-boundary-quality/report.json
+evidence_hash: b7eec1f56c149692fd59b5079ea9db30fd22625223e20d6ee07573d42ffafb5d
+reports/review-20261104/live-post-boundary/summary.json
+evidence_hash: e7d89ef7a9b7f9f6c38f910e962e78da71ab1355e734f5d9339240ac5329e36c
+```

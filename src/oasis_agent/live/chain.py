@@ -21,11 +21,14 @@ from eth_account import Account
 from eth_hash.auto import keccak
 from rlp import encode as rlp_encode  # type: ignore[import-untyped]
 
+from ..evidence.rpc_validation import decode_exchange, rpc_quantity
 from ..models.common import normalize_address
+from ..rpc.transport import RpcExchange
 from .intent import SubmittedTransaction
 
 USER_AGENT = "oasis-agent/0.1"
 SECP256K1_HALF = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+MAX_RPC_RESPONSE_BYTES = 1_000_000
 
 
 class ChainError(RuntimeError):
@@ -48,6 +51,13 @@ class SubmissionUnknown(RuntimeError):
     """A signed transaction may or may not be on chain: latch, do not retry."""
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str
+    ) -> None:
+        raise OSError("RPC redirects are forbidden")
+
+
 def selector(signature: str) -> bytes:
     return keccak(signature.encode())[:4]
 
@@ -65,27 +75,33 @@ class Rpc:
             raise ValueError("RPC requires an HTTP(S) endpoint")
         self._url, self._timeout, self._retries = url, timeout, retries
         self._context = ssl.create_default_context(cafile=certifi.where())
+        self._opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=self._context), _NoRedirect()
+        )
         self._id = 0
 
     def _post(self, method: str, params: list[Any]) -> Any:
         self._id += 1
+        request_id = self._id
         body = json.dumps(
-            {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
+            {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
         ).encode()
         request = urllib.request.Request(
             self._url,
             body,
             {"Content-Type": "application/json", "User-Agent": USER_AGENT},
         )
-        with urllib.request.urlopen(  # nosec B310
-            request, timeout=self._timeout, context=self._context
-        ) as response:
-            data = json.loads(response.read())
-        if not isinstance(data, dict):
-            raise ChainError(f"{method}: malformed response")
+        try:
+            with self._opener.open(request, timeout=self._timeout) as response:
+                raw = response.read(MAX_RPC_RESPONSE_BYTES + 1)
+            if len(raw) > MAX_RPC_RESPONSE_BYTES:
+                raise ValueError("RPC response exceeds byte limit")
+            _, data = decode_exchange(RpcExchange(method, request_id, body, raw, 1))
+        except (ValueError, TypeError, RecursionError):
+            raise ChainError(f"{method}: malformed response (details redacted)") from None
         if "error" in data:
-            raise RpcRejected(f"{method}: {str(data['error'])[:200]}")
-        return data.get("result")
+            raise RpcRejected(f"{method}: provider rejected request (details redacted)")
+        return data["result"]
 
     def call(self, method: str, params: list[Any]) -> Any:
         last: Exception | None = None
@@ -99,9 +115,16 @@ class Rpc:
                 time.sleep(0.5 * (attempt + 1))
         raise ChainError(f"{method}: {type(last).__name__}")
 
-    def send_raw(self, raw: bytes) -> Any:
+    def send_raw(self, raw: bytes) -> str:
         """Exactly one attempt: a lost response must not trigger a resend."""
-        return self._post("eth_sendRawTransaction", ["0x" + raw.hex()])
+        try:
+            result = self._post("eth_sendRawTransaction", ["0x" + raw.hex()])
+        except (ChainError, OSError, ValueError, TypeError):
+            raise SubmissionUnknown("broadcast outcome unresolved; details redacted") from None
+        expected = "0x" + keccak(raw).hex()
+        if result != expected:
+            raise SubmissionUnknown("broadcast acknowledgment differs from submitted transaction")
+        return expected
 
     def eth_call(self, to: str, data: bytes, block: str | dict[str, Any] = "latest") -> bytes:
         result = self.call("eth_call", [{"to": to, "data": "0x" + data.hex()}, block])
@@ -120,7 +143,10 @@ class Rpc:
         return tuple(decode(returns, data))
 
     def uint(self, method: str, params: list[Any]) -> int:
-        return int(str(self.call(method, params)), 16)
+        try:
+            return rpc_quantity(self.call(method, params))
+        except (ValueError, TypeError):
+            raise ChainError(f"{method}: invalid quantity (details redacted)") from None
 
     def balance(self, account: str) -> int:
         return self.uint("eth_getBalance", [account, "latest"])
@@ -135,7 +161,9 @@ class Rpc:
 
     def receipt(self, tx_hash: str) -> dict[str, Any] | None:
         value = self.call("eth_getTransactionReceipt", [tx_hash])
-        return value if isinstance(value, dict) else None
+        if value is None or isinstance(value, dict):
+            return value
+        raise ChainError("transaction receipt is malformed (details redacted)")
 
     def block(self) -> dict[str, Any]:
         value = self.call("eth_getBlockByNumber", ["latest", False])
@@ -254,12 +282,10 @@ def send_transaction(
     on_signed(commitment)
     try:
         rpc.send_raw(raw)
-    except RpcRejected as exc:
-        # The node refused the bytes; confirm it is not on chain anyway.
-        if rpc.receipt(tx_hash) is None and rpc.nonce(account, "latest") == nonce:
-            raise SubmissionUnknown(f"broadcast rejected: {exc}") from exc
-    except (OSError, ValueError, urllib.error.URLError) as exc:
-        raise SubmissionUnknown(f"broadcast outcome unknown: {type(exc).__name__}") from exc
+    except (ChainError, OSError, ValueError, TypeError):
+        # Even a node rejection can mean "already known". Keep the published
+        # commitment and let the independent pending-receipt path reconcile it.
+        raise SubmissionUnknown("broadcast outcome unresolved; details redacted") from None
     deadline = time.monotonic() + receipt_timeout
     while time.monotonic() < deadline:
         try:
