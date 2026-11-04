@@ -170,3 +170,51 @@ history. NFT 3183370 remains invested in that retained evidence. Fresh full USD/
 current dual-source/runtime acceptance, full unwind and an operational restart
 are unresolved. The existing eight paid requests and unresolved cumulative cost
 remain unchanged; no prior one-shot free grant is renewed by this work.
+
+## Committed candidate and original-volume history
+
+Implementation commit `c845695c9a5d8e02d779e3b84f1cc839db87c75c` was pushed to
+`main` over SSH with exit 0. Its runtime-only committed archive built candidate
+`sha256:3717c40012f97f8ee7f175328fa14f491082c05fc466df8476c8cf1376dd68ff`
+with exit 0 using the cached locked-dependency layer. The stopped-image source
+verifier exited 0: all **347** application files matched, manifest hash
+`3067abd147069323a3790d093904f01edd4719c3723beaf619f33bd1e084b9ad`.
+A network-disabled, keyless, read-only smoke container exited 0, including the
+new CLI imports and expected missing-original-state refusals (child exit 3).
+
+The candidate then replayed both original service volumes read-only, with no
+network, RPC environment, key or socket mount. The first auxiliary inspector
+exited 3: it incorrectly required a standalone NAV record in authority, whose
+supported terminal checkpoint is a settled mint. A narrowly scoped read-only
+diagnostic confirmed no pending/signing uncertainty or legacy-gas flag; the
+authority has complete retained action cash and position evidence, and no
+standalone post-mint NAV references. The application's checkpoint/recovery
+rules were not changed to satisfy this inspection.
+
+A separate corrected inspector reused the committed collector's checkpoint
+review, independently replayed authority's two-source mint cash and NFT position
+proofs, then ran `replay_history` over every original journaled settlement. It
+exited **0**. Both services agree on all **five** original receipts, wallet units,
+account nonce **8**, NFT **3183370** and total native gas **3471950532706 wei**.
+The agreed historical receipt hash is
+`ca219b0937d5a4334d646fee01bb5c28cf341bc0e5fc9753d3b3c6dff19394ab`.
+The strategy's older complete NAV remains historical; authority's action cash
+checkpoint is explicitly reported with no complete NAV value. Neither proves
+current prices or today's receipt canonicality.
+
+All **13** original file hashes match before/after both inspections and the prior
+retained-volume audit, including the active and retired request ledgers. No STOP
+file was created or removed. The first inspector, exit-3 report and diagnostic
+remain intact beside the corrected v2 output. The v2 evidence hash is
+`e2601302d9d2c0f5c5514a88dea82893a108cd7375ef2680b01a34fa65c59d4c`.
+
+Artifacts: `reports/review-20261104/runtime-c845695/`. Verified summary hash:
+`399783b81343087174c5966a8a762b0565a541cfff6b4b6bda2304ee22e6e14b`.
+Build, source verification, smoke, diagnostic and both inspection exits and their
+retained log/report hashes were checked. Independent internal review also
+re-derived the full quality report, source lock and candidate source comparison.
+Both production containers remain exited on image `0b4f8cb42deb`; this candidate
+was not deployed. Fresh strict-feed NAV, current dual-source/runtime evidence,
+full unwind and operational restart remain unaccepted. Current provider free
+entitlement and the new bounded read-only scope have been requested from the
+owner; no RPC was sent while those requirements remain unresolved.
