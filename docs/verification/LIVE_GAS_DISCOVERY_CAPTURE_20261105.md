@@ -94,3 +94,49 @@ reports/review-20261105/gas-capture/unready-regression-before.log
 reports/review-20261105/gas-capture-quality-v2/report.json
 passed evidence_hash: 4428650d3f6235b69d5e682521acfb2855357833254665d760969d55802c476c
 ```
+
+## Immutable candidate and original-volume offline plan
+
+Implementation commit `3033895681c53c8700fb73e36c45b0380b2ae563` built
+candidate
+`sha256:073437286336d840099d426f592193310d922714da17a1ee07c8619fda2cffcb`.
+Build, stopped-image source verification and synthetic Linux smoke each exited
+0, without timeout. All **353** application files matched both the committed
+archive and local source bytes, with manifest hash
+`97da50deaede8b26c25851948a8b0b8f492d1e8068d814934eb6bf776094188d`.
+All archive/script/log/report hashes were independently re-derived. This checks
+application bytes; dependencies, base runtime and the Docker daemon remain
+trusted. The smoke exercised process-group readiness, unready-child refusal and
+the separate discovery publication inventory. Its artifact bytes were explicitly
+synthetic, and it did not simulate or accept a production gas-oracle quorum.
+It ran unprivileged with network disabled, a read-only root, dropped capabilities
+and temporary tmpfs, without production/source/key/socket mounts, making zero
+RPC requests.
+
+A separate read-only container then generated the actual 13-request proposal
+from both original service volumes with networking disabled. The first wrapper
+failed with `IndexError` because it reused the recovery context's five-element
+tuple index for discovery's three-element context. That local wrapper was
+corrected; its first failure/logs were retained, and production source was not
+changed. The corrected run exited 0. All **12** original file hashes and
+device/inode/mode/owner/size/mtime/ctime fields matched before/after and the
+previous recovery plan snapshot. Original budgets remain strategy **903/745**,
+authority **974/955**. Both original containers were confirmed exited on their
+original image. STOP was retained, with no key access, state migration or start.
+
+The discovery plan hash is
+`e993306a0ca8c80e71c0bbc2e119d416425d2c7a20d80c3eab9611289dda98f6`.
+Its underlying recovery plan hash is still
+`62fe2be6f2500a53f47bb93e0b4e07de882c7bbb0f159630cf9eba52af6a60f2`.
+Generating either proposal is not authorization to execute it. No real gas
+discovery, NAV or receipt acquisition was performed in this follow-up, and this
+candidate was not deployed.
+
+```text
+reports/review-20261105/gas-capture/manual-review.json
+evidence_hash: 4cfe207f6719dfb79bc0bf688d72b7c32d61fc0df90d661d7c1ff6e144755d8f
+reports/review-20261105/runtime-3033895/summary.json
+evidence_hash: 89ac018614b08e2b239941d15565d48ab6552bce1dd08e57cd1303b34ca5e77e
+reports/review-20261105/gas-discovery-plan-v2/plan.stdout
+evidence_hash: 587b6cf20b907782a041f8bf001ea8e1e57978a56b91f1d3f9aa27e2d558ce54
+```
