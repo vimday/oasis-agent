@@ -326,3 +326,25 @@ evidence_hash: 7237741212790bd4ad5d1ae9be49359f3cae6d3f9904610cc6f6c30a5ddc2107
 reports/review-20261104/recovery-worker-deadline/summary.json
 evidence_hash: 3248ea1686f670a3c07fd3cd004789520e4283b2d2a21c75910f9cbe85650f35
 ```
+
+Implementation `8de2e9bc97893763d784e889ce8e77853fb22945` was committed and
+SSH-pushed to `main` with exit 0. The committed runtime-only archive built image
+`sha256:86db8ac9e24ab26185f8b99e9623bb061b5edd632d028b210c9c743a110e890a`
+with the cached locked dependency layer. Build and source verification exited 0;
+all **347** application files matched, manifest hash
+`42986c2eeb76d57a73ad9ee97ffa3f718725ce27968a4fec8928ab47f431e0fb`.
+
+A network-disabled Linux container, UID 10001 with no capabilities, no key or
+original-state mounts and only a temporary tmpfs, executed the PID-1 test harness
+`recovery-worker-deadline/linux_orphan_smoke.py`. The harness killed its separate
+test supervisor and reaped the orphan worker itself. In both normal and inherited
+ignored/blocked-alarm cases, the worker exited by **SIGALRM (-14)** rather than
+writing its late marker. The smoke command exited 0. This tests candidate runtime
+failure handling; it is not a fresh chain observation or real-account acceptance.
+
+Artifacts: `reports/review-20261104/runtime-8de2e9b/`. Summary evidence hash:
+`93561fcef1bb2fbb79308728ae0b3f4b9dc4ef1657aec5c1b3a48429e64ed2ed`.
+Every referenced exit and log/report hash was checked. The candidate was not
+deployed; both production containers remain exited on image `0b4f8cb42deb`.
+Free entitlement and the one-shot acquisition authorization remain unresolved;
+there was no external RPC, original-volume, key or budget access in this follow-up.
