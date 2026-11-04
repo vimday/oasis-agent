@@ -98,3 +98,38 @@ Independent exit/log/canonical-report and 625-file lock verification hash:
 This is internal self-review, not external audit or capital-moving approval.
 No original production volume, canary key or repository `.env` was accessed.
 Production RPC, signatures, broadcasts and production state changes were zero.
+
+## Committed image verification
+
+Implementation commit `2c6af6eeedad16d4aaa01225034fa87e3dbd2cc5` was archived
+as the exclusive Docker build context, using `--pull=false` and the cached
+hash-locked dependency layer. Build, stopped-image source verification, Linux
+smoke and the enclosing builder each exited 0.
+
+- Image: `sha256:009c9c58a8785ff255c016aac565e604bd7309f0daea48073672de4d2f9c3a64`.
+- Source manifest: `0310e755f7c1bd7cf87689261ab7ca29f64407a7fad65998fe689064d1daeb2e`.
+- `reports/review-20261105/runtime-2c6af6e/summary.json` evidence hash:
+  `406a06cbf0794dda8223f843c9346c573b9fcb567cb2bd7ae5b625f7ea4a3f7c`.
+- Independent reverification hash:
+  `158b8f36b743b8bc845e0fe9e2885d076d7f5cd3c7256db853ad3e29ab74470e`.
+
+All 356 application files matched committed and local bytes; all 358 archive
+files, including the two Docker build files, matched the implementation commit.
+Log, script, archive, canonical-report and manifest hashes were rechecked along
+with all 625 locked inputs. Dependencies, base runtime and the local Docker
+daemon remain trusted; this verifies application bytes only.
+
+The UID 10001 smoke used no network, a read-only root, dropped capabilities,
+`no-new-privileges`, a bounded PID count and scratch space. No source, production,
+socket, key or budget volume was mounted. Two synthetic packets each contained
+exactly eleven journal/proof/control files and omitted every budget ledger.
+They covered strict and historical-USDC originals. With state save, epoch
+transition, evidence put, budget initialization and RPC request methods forbidden,
+both read-only reviews and actual CLI calls passed (CLI exit 0); stale and
+missing proofs refused, and original synthetic bytes remained unchanged.
+
+Only the disposable verifier process overrides its synthetic feed pin and clock.
+Those substitutions are explicit in the output. The packet SHA-256 is
+`415e658e9bb6b8660613947005e9f61bb7a3d1000f3664c36711cdcafed15018`.
+This is keyless image validation, not real NAV, runtime approval, migration,
+deployment or live acceptance. All execution/approval/write flags remain false.
