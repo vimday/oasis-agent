@@ -113,7 +113,11 @@ def main():
                         name: state["journal_tip"] for name, state in scope["services"].items()
                     },
                 )
-                result["status"] = "both_migrated_halted"
+                result["status"] = (
+                    "both_migrated_halted"
+                    if result["projection_complete"]
+                    else "both_migrated_halted_projection_incomplete"
+                )
     except Exception:  # noqa: BLE001 - preserve original artifacts; fixed redacted outcome
         result = {
             "execution_eligible": False,

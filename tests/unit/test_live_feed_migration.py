@@ -230,7 +230,7 @@ def test_concurrent_journal_append_after_review_cannot_be_overwritten(tmp_path, 
 
 
 @pytest.mark.parametrize("fault", [None, "nav_disagreement", "second_commit_interrupted"])
-def test_pair_reviews_both_before_writing_and_keeps_partial_commit_halted(
+def test_pair_reviews_both_and_rolls_back_both_on_second_staging_failure(
     tmp_path, monkeypatch, fault
 ):
     stores, evidence, fresh = {}, {}, {}
@@ -247,16 +247,16 @@ def test_pair_reviews_both_before_writing_and_keeps_partial_commit_halted(
             stores[role], fresh[role] = store, refs
         before = {role: events(s) for role, s in stores.items()}
         if fault == "second_commit_interrupted":
-            transition = LiveJournal.transition
+            transition = LiveJournal._transition_in_transaction
             calls = []
 
-            def interrupted(self, record):
+            def interrupted(self, db, record, *, schema="main"):
                 calls.append(1)
                 if len(calls) == 2:
                     raise OSError("synthetic second-service interruption")
-                return transition(self, record)
+                return transition(self, db, record, schema=schema)
 
-            monkeypatch.setattr(LiveJournal, "transition", interrupted)
+            monkeypatch.setattr(LiveJournal, "_transition_in_transaction", interrupted)
         if fault:
             with pytest.raises((ValueError, OSError)):
                 apply_pair(
@@ -275,15 +275,19 @@ def test_pair_reviews_both_before_writing_and_keeps_partial_commit_halted(
         for role, store in stores.items():
             state = store.load("live", read_only=True)
             assert state.halted
-            changed = fault is None or (fault == "second_commit_interrupted" and role == "strategy")
+            changed = fault is None
             assert store.journal.config_hash == (TARGET_HASH if changed else OLD_HASH)
             assert events(store)[: len(before[role])] == before[role]
             if not changed:
                 assert events(store) == before[role]
 
 
-@pytest.mark.parametrize("do_apply", [False, True])
-def test_operator_command_defaults_to_readonly(tmp_path, monkeypatch, capsys, do_apply):
+@pytest.mark.parametrize(
+    "do_apply,projection_failure", [(False, False), (True, False), (True, True)]
+)
+def test_operator_command_defaults_to_readonly(
+    tmp_path, monkeypatch, capsys, do_apply, projection_failure
+):
     argv = ["migrate_live_feed_transition"]
     fresh, stores = {}, {}
     for role in ("strategy", "authority"):
@@ -303,13 +307,22 @@ def test_operator_command_defaults_to_readonly(tmp_path, monkeypatch, capsys, do
     before = {role: events(store) for role, store in stores.items()}
     if do_apply:
         argv += ["--apply", "--out", str(tmp_path / "attempt")]
+    if projection_failure:
+
+        def failed_projection(*_):
+            raise OSError("synthetic projection failure")
+
+        monkeypatch.setattr(StateStore, "save", failed_projection)
     monkeypatch.setattr(sys, "argv", argv)
     with pytest.raises(SystemExit) as finished:
         cli.main()
-    assert finished.value.code == 0
+    assert finished.value.code == (3 if projection_failure else 0)
     result = json.loads(capsys.readouterr().out)
     assert result["execution_eligible"] is False
     assert result["migration_applied"] is do_apply
+    if projection_failure:
+        assert result["projection_complete"] is False
+        assert result["status"] == "both_migrated_halted_projection_incomplete"
     for role, store in stores.items():
         reopened = StateStore(store.path)
         assert reopened.load("live").halted
@@ -370,9 +383,9 @@ def test_control_identity_change_after_proof_review_refuses(tmp_path, monkeypatc
 
 
 @pytest.mark.parametrize("fault", ["lock_replaced", "stop_replaced", "stop_modified"])
-@pytest.mark.parametrize("after_first_commit", [False, True])
-def test_pair_rechecks_both_control_identities_before_each_commit(
-    tmp_path, monkeypatch, fault, after_first_commit
+@pytest.mark.parametrize("after_first_staging", [False, True])
+def test_pair_rechecks_both_controls_before_its_shared_commit(
+    tmp_path, monkeypatch, fault, after_first_staging
 ):
     stores, evidence, fresh = {}, {}, {}
     with ExitStack() as resources:
@@ -384,15 +397,15 @@ def test_pair_rechecks_both_control_identities_before_each_commit(
             (root / "live.lock").touch()
             stores[role], fresh[role] = store, refs
         before = {role: events(store) for role, store in stores.items()}
-        if after_first_commit:
-            transition = LiveJournal.transition
+        if after_first_staging:
+            transition = LiveJournal._transition_in_transaction
 
-            def changed_after_commit(self, record):
-                result = transition(self, record)
+            def changed_after_staging(self, db, record, *, schema="main"):
+                result = transition(self, db, record, schema=schema)
                 replace_control_file(tmp_path / "authority", fault)
                 return result
 
-            monkeypatch.setattr(LiveJournal, "transition", changed_after_commit)
+            monkeypatch.setattr(LiveJournal, "_transition_in_transaction", changed_after_staging)
         else:
             review = feed_transition.review_service
 
@@ -411,9 +424,6 @@ def test_pair_rechecks_both_control_identities_before_each_commit(
             )
         for role, store in stores.items():
             loaded = store.load("live", read_only=True)
-            changed = after_first_commit and role == "strategy"
             assert loaded.halted
-            assert store.journal.config_hash == (TARGET_HASH if changed else OLD_HASH)
-            assert events(store)[: len(before[role])] == before[role]
-            if not changed:
-                assert events(store) == before[role]
+            assert store.journal.config_hash == OLD_HASH
+            assert events(store) == before[role]

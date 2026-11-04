@@ -5,9 +5,10 @@ proofs; it always preserves HALT. Neither path acquires RPC data or can trade.
 """
 
 import os
+import sqlite3
 import time
 from collections.abc import Callable, Iterator, Mapping
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, closing, contextmanager
 from copy import deepcopy
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -254,14 +255,31 @@ def apply_pair(
     sources: tuple[str, str],
     expected_tips: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Lock both stopped services, review a common NAV, then append halted epochs.
+    """Commit both halted epochs in one ATTACH rollback-journal transaction.
 
-    The two SQLite commits are not atomic together. Any interruption requires
-    inspection; committed state remains HALTed and no automatic retry is made.
+    Both originals must already use DELETE, on the same filesystem, without
+    recovery sidecars. FULL synchronization is checked on both. This relies on
+    correct SQLite/VFS locking and fsync, as does paired rearm. A failed or
+    interrupted attempt requires inspection; there is no automatic retry.
     """
     if strategy.journal_path.samefile(authority.journal_path):
         raise ValueError("distinct service journals required")
     stores = {"strategy": strategy, "authority": authority}
+    identities: dict[Path, tuple[int, int]] = {}
+    for store in stores.values():
+        for path in (store.path, store.journal_path):
+            info = require_file(path)
+            identity = info.st_dev, info.st_ino
+            if identity in identities.values():
+                raise ValueError("distinct original state and journal files required")
+            identities[path] = identity
+        if any(
+            os.path.lexists(str(store.journal_path) + suffix)
+            for suffix in ("-wal", "-shm", "-journal")
+        ):
+            raise ValueError("journal recovery sidecars require separate inspection")
+    if len({identity[0] for identity in identities.values()}) != 1:
+        raise ValueError("paired migration requires one filesystem")
     with ExitStack() as locks:
         stopped = {}
         for name, store in stores.items():
@@ -272,6 +290,10 @@ def apply_pair(
         def verify_stopped() -> None:
             for check in stopped.values():
                 check()
+            for path, identity in identities.items():
+                info = require_file(path)
+                if (info.st_dev, info.st_ino) != identity:
+                    raise ValueError("original migration artifact changed")
 
         reviews, tips, states = {}, {}, {}
         for name, store in stores.items():
@@ -298,21 +320,95 @@ def apply_pair(
             states["strategy"].position
         ) != _identity(states["authority"].position):
             raise ValueError("services disagree on position or current NAV")
-        result = {}
+        records = {}
         for name, store in stores.items():
             tip = tips[name]
             assert tip is not None
-            result[name] = _apply_service(
-                store,
-                target,
-                evidence[name],
-                sources=sources,
-                fresh=fresh[name],
-                expected_tip=tip,
-                stop_file=store.path.parent / "STOP",
-                verify_stopped=verify_stopped,
-            )
-        return {"execution_eligible": False, "migration_applied": True, "services": result}
+            journal = store.journal
+            assert journal is not None
+            raw = journal.load(read_only=True)
+            if raw is None or journal.revision != tip:
+                raise ValueError("journal changed during paired proof review")
+            records[name] = {
+                "schema": "oasis.strict-feed-epoch.v1",
+                "source_tip": tip,
+                "source_state_hash": sha256_hex(raw),
+                "target_config": asdict(target),
+                "review": reviews[name],
+            }
+        verify_stopped()
+        main = strategy.journal_path.resolve().as_uri() + "?mode=rw"
+        peer = authority.journal_path.resolve().as_uri() + "?mode=rw"
+        staged = {}
+        with closing(sqlite3.connect(main, uri=True, timeout=5, isolation_level=None)) as db:
+            db.execute("ATTACH DATABASE ? AS peer", (peer,))
+            for schema in ("main", "peer"):
+                if db.execute(f"PRAGMA {schema}.journal_mode").fetchone() != ("delete",):
+                    raise ValueError("DELETE rollback mode required; no automatic conversion")
+                db.execute(f"PRAGMA {schema}.synchronous=FULL")
+                if db.execute(f"PRAGMA {schema}.synchronous").fetchone() != (2,):
+                    raise ValueError("FULL durability required")
+            db.execute("BEGIN IMMEDIATE")
+            try:
+                for name, schema in zip(stores, ("main", "peer"), strict=True):
+                    verify_stopped()
+                    journal = stores[name].journal
+                    assert journal is not None
+                    staged[name] = journal._transition_in_transaction(
+                        db, records[name], schema=schema
+                    )
+                verify_stopped()
+                now = int(time.time())
+                if any(
+                    not review["fresh_nav"]["block"]["timestamp"]
+                    <= now
+                    <= review["fresh_nav"]["valid_until"]
+                    for review in reviews.values()
+                ):
+                    raise ValueError("paired transition proof expired before commit")
+                db.execute("COMMIT")
+            except BaseException:
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
+                raise
+        # Both authoritative chains are committed before either projection can
+        # change. A stale projection is a retained historical snapshot, not a
+        # reason to repeat a migration or replace a journal.
+        result = {}
+        for name, store in stores.items():
+            binding, tip, payload = staged[name]
+            assert store.journal is not None
+            store.journal.config_hash, store.journal.revision = binding, tip
+            result[name] = {
+                "schema": "oasis.strict-feed-migration.v1",
+                "execution_eligible": False,
+                "migration_applied": True,
+                "halted": True,
+                "source_tip": tips[name],
+                "journal_tip": tip,
+                "transition_hash": sha256_hex(canonical_json(records[name])),
+                "state_hash": sha256_hex(payload),
+            }
+        projection_complete = True
+        for name, store in stores.items():
+            try:
+                migrated = store.load("live", read_only=True)
+                if (
+                    store.journal is None
+                    or store.journal.revision != staged[name][1]
+                    or not migrated.halted
+                ):
+                    raise ValueError("committed halted migration changed before projection")
+                store.save(migrated)
+            except (OSError, ValueError, sqlite3.Error):
+                projection_complete = False
+        return {
+            "execution_eligible": False,
+            "migration_applied": True,
+            "atomic_pair": True,
+            "projection_complete": projection_complete,
+            "services": result,
+        }
 
 
 def _apply_service(

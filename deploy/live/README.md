@@ -351,8 +351,12 @@ a repository `.env`. Use the original volumes, never copies of the budget ledger
    --authority-evidence AUTHORITY_DIR/evidence.db --fresh-nav FRESH_NAV_JSON`.
    Use the successful capture's `fresh-nav.json`; add `--apply --out NEW_ATTEMPT_DIR`
    only for the explicit application. Migration preserves basis, losses, STOP and HALT.
-   Its two halted journal commits are separate: an interrupted migration requires
-   inspection of both original journals before continuing.
+   Both halted journal epochs now commit in one SQLite ATTACH transaction, using
+   existing DELETE journals on one filesystem with FULL synchronization. An
+   interruption still requires inspection of both originals; recovery sidecars
+   are refused rather than removed. A committed pair with incomplete JSON
+   projections reports `projection_complete: false` and exits 3. See the
+   [atomic feed migration record](../../docs/verification/LIVE_FEED_PAIR_ATOMIC_20261105.md).
 3. `python -m scripts.rearm_live_services --strategy-dir STRATEGY_DIR
    --authority-dir AUTHORITY_DIR --rpc-profile PROFILE --references REFERENCES`
    performs offline review of the successful capture's `references.json` against

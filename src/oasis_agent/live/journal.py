@@ -179,47 +179,87 @@ class LiveJournal:
             raise ValueError("transition requires a loaded, bound journal")
         with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
-            parent, latest = self._read(db)
-            if parent != self.revision or latest is None or record["source_tip"] != parent:
-                raise JournalConflict("transition source changed")
-            if db.execute("SELECT 1 FROM sqlite_master WHERE name='config_transitions'").fetchone():
-                raise ValueError("a transition already exists; no repeat or replacement")
-            target, state = transition_snapshot(
-                json.loads(latest), record, binding=self.config_hash, parent=parent
-            )
-            payload, encoded = canonical_json(state), canonical_json(record)
-            if max(len(payload), len(encoded)) > MAX_SNAPSHOT:
-                raise ValueError("transition exceeds byte bound")
-            seq = db.execute("SELECT COUNT(*) FROM events").fetchone()[0] + 1
-            digest = sha256_hex(
-                canonical_json(
-                    {
-                        "seq": seq,
-                        "config": target,
-                        "parent": parent,
-                        "state_hash": sha256_hex(payload),
-                        "transition_hash": sha256_hex(encoded),
-                    }
-                )
-            )
-            db.execute(
-                "CREATE TABLE config_transitions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
-            )
-            for operation in ("UPDATE", "DELETE"):
-                db.execute(
-                    f"CREATE TRIGGER transition_no_{operation.lower()} BEFORE {operation} "
-                    "ON config_transitions BEGIN SELECT RAISE(ABORT, 'append only'); END"
-                )
-            db.execute("INSERT INTO config_transitions VALUES (?, ?)", (seq, encoded))
-            db.execute(
-                "INSERT INTO events VALUES (?, ?, ?, ?, ?)", (seq, target, parent, digest, payload)
-            )
-            fresh = record["review"]["fresh_nav"]
-            if not fresh["block"]["timestamp"] <= int(time.time()) <= fresh["valid_until"]:
-                raise ValueError("transition proof expired while acquiring journal lock")
+            target, digest, payload = self._transition_in_transaction(db, record)
             db.execute("COMMIT")
         self.config_hash, self.revision = target, digest
         return payload
+
+    def _transition_in_transaction(
+        self, db: sqlite3.Connection, record: dict[str, Any], *, schema: str = "main"
+    ) -> tuple[str, str, bytes]:
+        """Stage the same sole supported epoch; the owner commits and binds later.
+
+        Only main/peer are possible. Paired application uses one ATTACH rollback
+        transaction, so neither staged binding escapes if its peer fails.
+        """
+        if (
+            schema not in {"main", "peer"}
+            or not db.in_transaction
+            or self.config_hash is None
+            or self.revision is None
+        ):
+            raise ValueError("loaded journal and active supported transaction required")
+        parent, latest = self._read(db, schema=schema)
+        if parent != self.revision or latest is None or record["source_tip"] != parent:
+            raise JournalConflict("transition source changed")
+        if db.execute(
+            "SELECT 1 FROM main.sqlite_master WHERE name='config_transitions'"
+            if schema == "main"
+            else "SELECT 1 FROM peer.sqlite_master WHERE name='config_transitions'"
+        ).fetchone():
+            raise ValueError("a transition already exists; no repeat or replacement")
+        target, state = transition_snapshot(
+            json.loads(latest), record, binding=self.config_hash, parent=parent
+        )
+        payload, encoded = canonical_json(state), canonical_json(record)
+        if max(len(payload), len(encoded)) > MAX_SNAPSHOT:
+            raise ValueError("transition exceeds byte bound")
+        seq = (
+            db.execute(
+                "SELECT COUNT(*) FROM main.events"
+                if schema == "main"
+                else "SELECT COUNT(*) FROM peer.events"
+            ).fetchone()[0]
+            + 1
+        )
+        digest = sha256_hex(
+            canonical_json(
+                {
+                    "seq": seq,
+                    "config": target,
+                    "parent": parent,
+                    "state_hash": sha256_hex(payload),
+                    "transition_hash": sha256_hex(encoded),
+                }
+            )
+        )
+        db.execute(
+            "CREATE TABLE main.config_transitions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
+            if schema == "main"
+            else "CREATE TABLE peer.config_transitions "
+            "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
+        )
+        for operation in ("UPDATE", "DELETE"):
+            db.execute(
+                f"CREATE TRIGGER {schema}.transition_no_{operation.lower()} BEFORE {operation} "
+                "ON config_transitions BEGIN SELECT RAISE(ABORT, 'append only'); END"
+            )
+        db.execute(
+            "INSERT INTO main.config_transitions VALUES (?, ?)"
+            if schema == "main"
+            else "INSERT INTO peer.config_transitions VALUES (?, ?)",
+            (seq, encoded),
+        )
+        db.execute(
+            "INSERT INTO main.events VALUES (?, ?, ?, ?, ?)"
+            if schema == "main"
+            else "INSERT INTO peer.events VALUES (?, ?, ?, ?, ?)",
+            (seq, target, parent, digest, payload),
+        )
+        fresh = record["review"]["fresh_nav"]
+        if not fresh["block"]["timestamp"] <= int(time.time()) <= fresh["valid_until"]:
+            raise ValueError("transition proof expired while acquiring journal lock")
+        return target, digest, payload
 
     def load(self, projection: bytes | None = None, *, read_only: bool = False) -> bytes | None:
         with closing(self._connect(read_only=read_only)) as db:
