@@ -5,7 +5,6 @@ from dataclasses import asdict
 from typing import Any
 
 from eth_abi.abi import decode
-from eth_hash.auto import keccak
 
 from ..evidence.exact_capture import (
     decode_header,
@@ -27,9 +26,13 @@ from ..rpc.transport import RpcExchange
 from .acquisition import acquire_pair
 from .chain import calldata
 from .config import LiveConfig
+from .gas_oracle import (
+    IMPLEMENTATION_SLOT,
+    ORACLE,
+    require_gas_oracle_pins,
+    validate_gas_oracle_proof,
+)
 from .receipts import RetainedReceiptCostReader
-
-ORACLE = "0x420000000000000000000000000000000000000f"
 
 
 def _requests(
@@ -42,6 +45,7 @@ def _requests(
     maximum: int,
 ) -> list[tuple[str, list[object]]]:
     c.validate()
+    implementation = require_gas_oracle_pins(c.expected_pins)
     if block.chain_id != c.chain_id or block.timestamp is None:
         raise ValueError("simulation requires the configured chain and a timestamped block")
     if any(type(v) is not int or not 0 <= v < 2**256 for v in (nonce, gas, maximum)):
@@ -107,6 +111,8 @@ def _requests(
             ],
         ),
         ("eth_getTransactionCount", [c.account, "pending"]),
+        ("eth_getStorageAt", [ORACLE, IMPLEMENTATION_SLOT, pin]),
+        ("eth_getCode", [implementation, pin]),
         ("eth_getBlockByNumber", [hex(block.number), False]),
     ]
     return calls
@@ -134,9 +140,7 @@ def _validate(
     expected_return = "0x" + f"{1:064x}" if tx["to"] == c.pool.currency1 else "0x"
     if values[5] != expected_return or not 0 < rpc_quantity(values[6]) <= gas:
         raise ValueError("simulation failed or exceeds envelope")
-    code = values[7]
-    if not isinstance(code, str) or not code.startswith("0x") or not bytes.fromhex(code[2:]):
-        raise ValueError("Base fee oracle code missing")
+    validate_gas_oracle_proof(c.expected_pins, values[7], values[11], values[12])
     extras = []
     for raw in values[8:10]:
         if not isinstance(raw, str) or len(raw) != 66 or not raw.startswith("0x"):
@@ -159,14 +163,16 @@ def _payload(
 ) -> bytes:
     return canonical_json(
         {
-            "schema": "oasis.live-authority-simulation.v2",
+            "schema": "oasis.live-authority-simulation.v3",
             "block": asdict(block),
             "config_hash": sha256_hex(canonical_json(asdict(c))),
             "transaction": tx,
             "nonce": nonce,
             "gas": gas,
             "maximum": maximum,
-            "gas_oracle_runtime_hash": "0x" + keccak(bytes.fromhex(str(values[7])[2:])).hex(),
+            "gas_oracle_pins": validate_gas_oracle_proof(
+                c.expected_pins, values[7], values[11], values[12]
+            ),
             "results": values,
             "execution_eligible": False,
         }

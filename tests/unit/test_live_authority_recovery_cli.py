@@ -3,7 +3,7 @@
 import json
 import sys
 from contextlib import closing
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import pytest
 
@@ -15,6 +15,7 @@ from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting import live_release as release_module
 from oasis_agent.rpc.budget import RpcBudget
 from scripts import run_live_authority as cli
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_approval_cash import TEST_CONFIG, ApprovalFixture, approval_loop
 from tests.unit.test_live_lp import ScriptedRpc
 from tests.unit.test_lp_receipts import PRIMARY, SECONDARY, sessions
@@ -64,6 +65,8 @@ def test_normal_signing_still_refuses_before_key_or_network(tmp_path, monkeypatc
 @pytest.mark.parametrize("endpoint", ["", " ", "not-a-url"])
 def test_missing_endpoint_refuses_before_key_even_after_release(tmp_path, monkeypatch, endpoint):
     directory = setup_cli(tmp_path, monkeypatch, "--socket", "/unused.sock")
+    config = replace(TEST_CONFIG, expected_pins=TEST_CONFIG.expected_pins | synthetic_gas_pins())
+    (tmp_path / "config.json").write_bytes(canonical_json(asdict(config)))
     # Test the endpoint boundary independently of the closed production release.
     monkeypatch.setattr(cli, "require_live_start", lambda: None)
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", endpoint)

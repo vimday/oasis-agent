@@ -285,6 +285,15 @@ describes the former permit, not today's release state.
 
 ## Current stopped-service recovery
 
+New execution additionally requires the approved GasPriceOracle proxy code hash,
+implementation storage word and implementation code hash, alongside the original
+five pins. The committed five-pin configuration remains for historical replay and
+read-only recovery; normal execution and one-command start now refuse it before
+RPC or key use. Real fingerprints and a history-preserving runtime-policy epoch
+transition are still required. Do not fill these entries from fixtures or replace
+the original journals. See the
+[gas-oracle implementation and real capture record](../../docs/verification/LIVE_GAS_ORACLE_RUNTIME_20261104.md).
+
 Both USD feeds now require an age of at most **1800 seconds**, with USD 500 total
 capital, USD 200 daily loss and USD 500 cumulative loss limits. Historical
 90000-second USDC evidence remains replayable only in its original configuration

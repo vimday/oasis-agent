@@ -15,6 +15,7 @@ from ..reporting.live_release import require_live_action
 from .action_plan import action_call
 from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
+from .gas_oracle import require_gas_oracle_pins
 from .intent import SubmittedTransaction, pending_plan_hash
 from .recovery import authority_status
 from .runner import LiveLoop, Market
@@ -69,6 +70,7 @@ class TransactionAuthority:
                 raise ValueError("previous authority transaction unresolved")
         loop._check_settlements()
         loop._check_nav_checkpoint()
+        require_gas_oracle_pins(c.expected_pins)
         if (
             set(context) != {"kind", "intent", "block", "block_hash"}
             or type(context["block"]) is not int

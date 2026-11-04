@@ -17,6 +17,7 @@ from oasis_agent.live.intent import SubmittedTransaction
 from oasis_agent.live.revert_cash import replay_revert_cash
 from oasis_agent.live.wallet import capture_wallet, replay_wallet
 from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_lp import CONFIG, bind_pending, market
 from tests.unit.test_live_receipt_costs import LiveCostFixture, loop_for
 from tests.unit.test_lp_receipts import PRIMARY, SECONDARY, sessions
@@ -208,7 +209,8 @@ def test_wallet_capture_failure_blocks_before_any_signing(
     monkeypatch.setattr(runner, "require_live_action", lambda *_: None)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         fixture = WalletFixture(account_code="0x6000")
-        loop = loop_for(tmp_path, store, fixture)
+        config = replace(CONFIG, expected_pins=CONFIG.expected_pins | synthetic_gas_pins())
+        loop = loop_for(tmp_path, store, fixture, config=config)
         loop.state.pending = None
 
         class ReadChain:
@@ -233,7 +235,8 @@ def test_action_persists_wallet_before_submission_and_binds_its_nonce(
     monkeypatch.setattr(runner, "require_live_action", lambda *_: None)
     with closing(EvidenceStore(tmp_path / "evidence.db")) as store:
         fixture = WalletFixture()
-        loop = loop_for(tmp_path, store, fixture)
+        config = replace(CONFIG, expected_pins=CONFIG.expected_pins | synthetic_gas_pins())
+        loop = loop_for(tmp_path, store, fixture, config=config)
         loop.state.pending = None
 
         class ReadChain:

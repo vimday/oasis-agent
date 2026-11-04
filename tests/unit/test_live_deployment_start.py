@@ -81,6 +81,7 @@ def setup(tmp_path, monkeypatch, fault=None):
     sources = {"src/a.py": "fixed"}
     digest = sha256_hex(canonical_json(sources))
     monkeypatch.setattr(cli, "require_live_start", lambda: None)  # Synthetic future release only.
+    monkeypatch.setattr(cli, "require_local_runtime_policy", lambda: None)  # Separate pin tests.
     monkeypatch.setattr(
         cli.compose,
         "inspect",

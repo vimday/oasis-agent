@@ -646,3 +646,9 @@ evidence_hash: 91f96857462ffa9fbd798e80876b9877951acb065d277844f547c1924ff10d10
 ```
 
 Remote publication does not alter the still-closed production acceptance gates or start either service.
+
+The subsequent [fee-oracle runtime follow-up](LIVE_GAS_ORACLE_RUNTIME_20261104.md)
+records the additional approved-code boundary and the owner's newly authorized
+197-request campaign. That campaign consumed four requests and terminated on
+the secondary source's HTTP 403; no fresh NAV or current receipt quorum passed.
+The two explicitly authorized STOP markers remain in the original volumes.

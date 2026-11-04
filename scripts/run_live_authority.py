@@ -24,6 +24,7 @@ from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.live.recovery import authority_status, require_recovery_wallets
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
@@ -85,6 +86,11 @@ def main() -> None:
         # gates every signature by action kind and captured nonce.
         require_live_start()
     config = LiveConfig.load(args.config)
+    if not (args.status_only or args.reconcile_only):
+        try:
+            require_gas_oracle_pins(config.expected_pins)
+        except ValueError:
+            parser.exit(3, "Approved gas oracle runtime pins unresolved; no execution started.\n")
     profile = LiveRpcProfile.load(args.rpc_profile)
     directory = args.state_dir
     if (

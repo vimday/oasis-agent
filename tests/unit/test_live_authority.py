@@ -25,6 +25,7 @@ from oasis_agent.live.authority_socket import (
     serve_connections,
 )
 from oasis_agent.live.chain import ChainError, Rpc, _envelope
+from oasis_agent.live.gas_oracle import IMPLEMENTATION_SLOT, ORACLE
 from oasis_agent.live.intent import SubmittedTransaction
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.runner import LiveLoop
@@ -35,6 +36,7 @@ from oasis_agent.reporting import live_release as release_module
 from oasis_agent.reporting.live_release import require_live_action
 from tests.unit import test_live_receipt_costs as cost_fixtures
 from tests.unit import test_live_revert_cash as wallet_fixtures
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
 from tests.unit.test_lp_receipts import PRIMARY, SECONDARY, sessions
 
@@ -59,12 +61,21 @@ class AuthorityFixture(NavFixture):
     bad_simulation: bool = False
     stale_nonce: bool = False
     l1_fee: int = 0
+    gas_proxy_code: str = "0x6000"
+    gas_impl_code: str = "0x6000"
+    gas_impl_word: str = "0x" + "00" * 12 + "ab" * 20
 
     def post(self, payload: bytes) -> bytes:
         req = json.loads(payload)
         method, params = req["method"], req["params"]
         result = None
-        if method == "eth_estimateGas":
+        if method == "eth_getCode" and params[0] == ORACLE:
+            result = self.gas_proxy_code
+        elif method == "eth_getStorageAt" and params[:2] == [ORACLE, IMPLEMENTATION_SLOT]:
+            result = self.gas_impl_word
+        elif method == "eth_getCode" and params[0] == "0x" + "ab" * 20:
+            result = self.gas_impl_code
+        elif method == "eth_estimateGas":
             result = hex(80_000)
         elif method == "eth_call" and "from" in params[0]:
             result = "0xdead" if self.bad_simulation else "0x" + f"{1:064x}"
@@ -119,6 +130,7 @@ def setup_authority(
         name: (value if name == "usdc_implementation" else "0x" + keccak(b"\x60\x00").hex())
         for name, value in base.expected_pins.items()
     }
+    pins.update(synthetic_gas_pins())
     config = replace(base, account=key.account, expected_pins=pins)
     monkeypatch.setattr(cost_fixtures, "CONFIG", config)
     monkeypatch.setattr(wallet_fixtures, "CONFIG", config)

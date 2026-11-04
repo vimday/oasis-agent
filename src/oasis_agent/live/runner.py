@@ -41,6 +41,13 @@ from .chain import (
     send_transaction,
 )
 from .config import LiveConfig
+from .gas_oracle import (
+    GAS_PIN_NAMES,
+    IMPLEMENTATION_SLOT,
+    ORACLE,
+    observed_gas_oracle_pins,
+    require_gas_oracle_pins,
+)
 from .intent import SubmittedTransaction, pending_plan_hash
 from .positions import collect_position_outcome, replay_position_outcome
 from .price_guard import ExternalPriceSource, check_price_deviation
@@ -432,6 +439,21 @@ class LiveLoop:
             seen["usdc_implementation"] = str(
                 rpc.call("eth_getStorageAt", [self.c.pool.currency1, USDC_IMPL_SLOT, ref])
             )
+            if set(self.c.expected_pins) >= GAS_PIN_NAMES:
+                implementation = require_gas_oracle_pins(self.c.expected_pins)
+                pin = (
+                    {"blockHash": block_hash, "requireCanonical": True} if block_hash else "latest"
+                )
+                try:
+                    seen.update(
+                        observed_gas_oracle_pins(
+                            rpc.call("eth_getCode", [ORACLE, pin]),
+                            rpc.call("eth_getStorageAt", [ORACLE, IMPLEMENTATION_SLOT, pin]),
+                            rpc.call("eth_getCode", [implementation, pin]),
+                        )
+                    )
+                except (ValueError, TypeError):
+                    raise ChainError("gas oracle runtime proof malformed") from None
             if pins and seen != pins:
                 raise ChainError("providers disagree on runtime code")
             pins = seen
@@ -958,6 +980,12 @@ class LiveLoop:
         self.c.validate()
         if not isinstance(self.signer, TransactionSigner):
             raise ChainError("live action requires full transaction authority")
+        try:
+            require_gas_oracle_pins(self.c.expected_pins)
+        except ValueError:
+            s.halted = "gas oracle runtime pins unresolved"
+            s.record("halt", reason=s.halted, block=m.block)
+            raise ChainError(s.halted) from None
         to, data, value = self._transaction(m, kind, args)
 
         # A provider on another chain must not supply simulation or nonce inputs

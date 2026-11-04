@@ -47,7 +47,7 @@ def test_reopens_and_replays_without_sessions_or_keys(proof, tmp_path):
         values = simulation.replay_simulation_quorum(
             reopened, refs, authority.loop.c, block, tx, **scope
         )
-    assert len(values) == 12 and key.calls == 0
+    assert len(values) == 14 and key.calls == 0
 
 
 @pytest.mark.parametrize(
@@ -80,6 +80,7 @@ def test_foreign_scope_or_repeated_source_is_not_a_quorum(proof, fault):
         "request",
         "missing",
         "legacy",
+        "legacy_v2",
         "eligible",
     ],
 )
@@ -111,8 +112,12 @@ def test_rehashed_forgery_still_fails_raw_reconstruction(proof, fault):
     elif fault == "missing":
         request["exchanges"].pop()
         response["exchanges"].pop()
-    elif fault == "legacy":
-        payload["schema"] = "oasis.live-authority-simulation.v1"
+    elif fault in ("legacy", "legacy_v2"):
+        payload["schema"] = (
+            "oasis.live-authority-simulation.v1"
+            if fault == "legacy"
+            else "oasis.live-authority-simulation.v2"
+        )
     else:
         interpretation["execution_eligible"] = True
     forged = store.put(

@@ -31,6 +31,7 @@ from oasis_agent.live.authority_socket import TransactionSocketClient
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.live.okx_budget import OkxPriceReadBudget, OkxPriceReadGrant
 from oasis_agent.live.okx_price import CREDENTIAL_NAMES, OkxPriceSource
 from oasis_agent.live.precheck import check_live
@@ -210,7 +211,7 @@ def main() -> None:
         raise SystemExit(3)
     # A release failure precedes RPC resolution, lock/state creation and signer construction.
     # An acceptance permit admits startup; every signing decision is still gated per action.
-    if args.mode == "live" and not any(
+    normal_live = args.mode == "live" and not any(
         (
             args.check,
             args.report,
@@ -219,7 +220,8 @@ def main() -> None:
             args.acknowledge_flow,
             args.reconcile_only,
         )
-    ):
+    )
+    if normal_live:
         try:
             require_live_start()
         except ValueError:
@@ -227,6 +229,11 @@ def main() -> None:
             raise SystemExit(3) from None
 
     config = LiveConfig.load(args.config)
+    if normal_live:
+        try:
+            require_gas_oracle_pins(config.expected_pins)
+        except ValueError:
+            parser.exit(3, "Approved gas oracle runtime pins unresolved; no execution started.\n")
     profile = LiveRpcProfile.load(args.rpc_profile)
     if args.require_existing_runtime:
         try:

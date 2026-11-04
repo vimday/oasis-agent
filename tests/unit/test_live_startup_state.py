@@ -25,14 +25,17 @@ from oasis_agent.live.state import Pending, StateStore, day_of
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
 from scripts import inspect_live_startup, run_live_authority, run_live_lp
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_precheck_evidence import capture
 from tests.unit.test_live_receipt_costs import position_config
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
 
 
-def prepare(directory, role):
+def prepare(directory, role, *, execution=False):
     directory.mkdir(mode=0o700)
     config, profile = position_config(), LiveRpcProfile(max_requests=3, min_interval_ms=100)
+    if execution:
+        config = replace(config, expected_pins=config.expected_pins | synthetic_gas_pins())
     state_path, evidence_path, lock_path = paths(directory, role)
     fixture = NavFixture(
         position_enabled=False, native_after=10**17, token_after=100_000_000, usdc_price=100_000_000
@@ -222,7 +225,7 @@ def test_production_cli_checks_before_rpc_environment_key_or_signer(
     tmp_path, monkeypatch, role, fault
 ):
     directory = tmp_path / role
-    config, profile, store = prepare(directory, role)
+    config, profile, store = prepare(directory, role, execution=True)
     module = run_live_lp if role == "strategy" else run_live_authority
     config_path, profile_path = tmp_path / "config.json", tmp_path / "profile.json"
     config_path.write_bytes(canonical_json(asdict(config)))

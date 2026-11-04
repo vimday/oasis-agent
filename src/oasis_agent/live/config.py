@@ -9,6 +9,7 @@ from typing import Any, Literal
 from ..models.common import normalize_address, normalize_hash32
 from ..models.v4 import PoolKey as CanonicalPoolKey
 from ..uniswap_v4.pool_id import pool_id_from_key
+from .gas_oracle import EXECUTION_PIN_NAMES, LEGACY_PIN_NAMES, require_gas_oracle_pins
 from .v4lp import PoolKey
 
 Mode = Literal["shadow", "live"]
@@ -120,18 +121,13 @@ class LiveConfig:
         for name, value in self._typed_ints():
             if type(value) is not int or value < 0:
                 raise ValueError(f"{name} must be a nonnegative integer")
-        pin_names = {
-            "state_view",
-            "position_manager",
-            "universal_router",
-            "permit2",
-            "usdc_implementation",
-        }
-        if set(self.expected_pins) != pin_names:
-            raise ValueError(f"expected_pins must name exactly {sorted(pin_names)}")
+        if set(self.expected_pins) not in (LEGACY_PIN_NAMES, EXECUTION_PIN_NAMES):
+            raise ValueError("expected_pins must name the legacy or full execution runtime policy")
         object.__setattr__(
             self, "expected_pins", {k: normalize_hash32(v) for k, v in self.expected_pins.items()}
         )
+        if set(self.expected_pins) == EXECUTION_PIN_NAMES:
+            require_gas_oracle_pins(self.expected_pins)
         if self.chain_id != 8453:
             raise ValueError("live loop is pinned to Base (8453)")
         if (self.decimals0, self.decimals1) != (18, 6) or self.pool.currency1 != BASE_USDC:

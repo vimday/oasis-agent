@@ -13,6 +13,8 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
 from scripts import verify_live_compose as compose
@@ -132,8 +134,14 @@ def state_preflight(image: str, env: dict[str, str]) -> dict:
     return result
 
 
+def require_local_runtime_policy() -> None:
+    config = LiveConfig.load(compose.ROOT / "configs/live.base-eth-usdc.json")
+    require_gas_oracle_pins(config.expected_pins)
+
+
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
+    require_local_runtime_policy()
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
     report = {
         "schema": "oasis.live-start.v1",
@@ -245,6 +253,8 @@ def main() -> None:
         parser.error("--start requires a new --out directory for one retained attempt")
     try:
         result = start(args.image, args.out)
+    except ValueError:
+        parser.exit(3, "Startup refused: release or approved gas oracle runtime pins unresolved.\n")
     except Exception:  # noqa: BLE001 - no raw exception diagnostics
         parser.exit(
             3,

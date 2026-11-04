@@ -2,6 +2,7 @@
 
 import json
 import sys
+from dataclasses import asdict, replace
 from types import SimpleNamespace
 
 import pytest
@@ -9,11 +10,16 @@ import pytest
 from oasis_agent.live.runner import LiveLoop
 from oasis_agent.live.state import LoopState, StateStore
 from scripts import run_live_lp as cli
+from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
+from tests.unit.test_live_lp import CONFIG
 
 
 @pytest.mark.parametrize("mode", ["live", "shadow"])
 @pytest.mark.parametrize("outcome", ["halt", "already_halted", "bounded", "stop_file"])
 def test_run_exit_reflects_persisted_halt(tmp_path, monkeypatch, capsys, mode, outcome):
+    config = replace(CONFIG, expected_pins=CONFIG.expected_pins | synthetic_gas_pins())
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps(asdict(config)))
     state = StateStore(tmp_path / f"{mode}.state.json")
     reason = "live observation refused; operator review required before polling"
     if outcome == "already_halted":
@@ -21,7 +27,17 @@ def test_run_exit_reflects_persisted_halt(tmp_path, monkeypatch, capsys, mode, o
     monkeypatch.setattr(
         sys,
         "argv",
-        ["run_live_lp", "--mode", mode, "--state-dir", str(tmp_path), "--ticks", "1"]
+        [
+            "run_live_lp",
+            "--config",
+            str(config_path),
+            "--mode",
+            mode,
+            "--state-dir",
+            str(tmp_path),
+            "--ticks",
+            "1",
+        ]
         + (["--signer-socket", str(tmp_path / "unused.sock")] if mode == "live" else []),
     )
     monkeypatch.setenv("BASE_RPC_PRIMARY_ALT", "https://primary.invalid")
