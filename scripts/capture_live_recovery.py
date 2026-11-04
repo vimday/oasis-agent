@@ -43,7 +43,7 @@ from oasis_agent.live.startup_state import SOURCES, _position_identity, paths, r
 from oasis_agent.live.state import StateStore, day_of, validate_state
 from oasis_agent.live.valuation import capture_nav, nav_fresh_until, replay_nav, replay_nav_quorum
 from oasis_agent.live.valuation import requests as nav_requests
-from oasis_agent.live.wallet import WalletScope, wallet_requests
+from oasis_agent.live.wallet import WalletScope, require_wallet_continuity, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from oasis_agent.models.v4 import PoolKey
 from oasis_agent.rpc.budget import RpcBudget
@@ -98,8 +98,9 @@ def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
         sources=SOURCES,
         sessions=_no_acquisition,
     )
-    loop._check_nav_checkpoint()
-    prior_nonce = None
+    anchor = loop._check_nav_checkpoint()
+    if anchor is None:
+        raise ValueError("verified original wallet anchor required")
     if state.nav_evidence:
         prior = replay_nav_quorum(evidence, state.nav_evidence, previous, sources=SOURCES)
         prior_position = replay_nav(evidence, state.nav_evidence[0], previous).position
@@ -113,10 +114,13 @@ def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
             != state.last_units
         ):
             raise ValueError("historical holdings differ from checkpoint")
-        prior_nonce = prior.wallet.nonce
     if not fresh:
         return
     value = replay_nav_quorum(evidence, fresh, config, sources=SOURCES)
+    try:
+        require_wallet_continuity(anchor, value.wallet, allow_same_block=True)
+    except ValueError:
+        raise ValueError("fresh NAV does not reconcile original inventory or nonce") from None
     position = replay_nav(evidence, fresh[0], config).position
     block = value.wallet.header.ref
     if (
@@ -128,7 +132,6 @@ def review_checkpoint(config, state, binding, evidence, *, fresh=(), now):
         or _position_identity(position) != _position_identity(state.position)
         or [value.wallet.native, value.wallet.token, position.liquidity if position else 0]
         != state.last_units
-        or (prior_nonce is not None and prior_nonce != value.wallet.nonce)
         or any(
             a["number"] > block.number
             or (a["number"] == block.number and a["hash"] != block.block_hash)

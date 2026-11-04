@@ -136,3 +136,8 @@ changed. The existing USD 500 capital, USD 200 daily loss, USD 500 cumulative lo
 and both 1800-second feed ceilings remain unchanged. The planned runtime-policy
 upgrade review/application, fresh USD/NAV, three real gas-oracle pins, production
 simulation and current receipt/unwind/restart acceptance remain outstanding.
+
+The subsequent [observation continuity follow-up](LIVE_OBSERVATION_CONTINUITY_20261105.md)
+makes full observation, recovery and rearm consume this verified anchor too.
+Statements above about other callers discarding the return describe the
+implementation at `e5a69da`, not that later follow-up.

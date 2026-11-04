@@ -22,6 +22,7 @@ from .runner import LiveLoop
 from .startup_state import acquire_existing_lock, require_file
 from .state import LoopState, Position, StateStore, day_of, validate_state
 from .valuation import nav_fresh_until, replay_nav, replay_nav_quorum
+from .wallet import require_wallet_continuity
 
 
 def historical_config(target: LiveConfig, binding: str) -> LiveConfig:
@@ -133,17 +134,7 @@ def review_service(
         block = value.wallet.header.ref
         if block.timestamp is None or not risk.last_at < block.timestamp <= now <= deadline:
             raise ValueError("new current NAV required")
-        if (
-            value.wallet.nonce != anchor.nonce
-            or block.number <= anchor.header.ref.number
-            or anchor.header.ref.timestamp is None
-            or block.timestamp <= anchor.header.ref.timestamp
-            or (
-                block.number == anchor.header.ref.number + 1
-                and value.wallet.header.parent_hash != anchor.header.ref.block_hash
-            )
-        ):
-            raise ValueError("fresh NAV contradicts historical wallet nonce or block")
+        require_wallet_continuity(anchor, value.wallet)
         position = replay_nav(evidence, fresh[0], target).position
 
         if _identity(position) != _identity(state.position):

@@ -70,7 +70,13 @@ from .valuation import (
     replay_nav,
     replay_nav_quorum,
 )
-from .wallet import WalletBalance, capture_wallet, replay_wallet
+from .wallet import (
+    CONTINUITY_HALT,
+    WalletBalance,
+    capture_wallet,
+    replay_wallet,
+    require_wallet_continuity,
+)
 
 TRANSFER_TOPIC = "0x" + keccak(b"Transfer(address,address,uint256)").hex()
 # FiatToken proxies keep the implementation at the zeppelinos slot.
@@ -210,6 +216,7 @@ class LiveLoop:
             if reader is None:
                 raise ChainError("live observation requires retained NAV evidence")
             try:
+                anchor = self._check_nav_checkpoint()
                 value, refs = capture_nav(
                     reader.store,
                     self.c,
@@ -218,6 +225,15 @@ class LiveLoop:
                     sources=reader.sources,
                     sessions=reader.sessions,
                 )
+                if anchor is not None:
+                    try:
+                        require_wallet_continuity(anchor, value.wallet, allow_same_block=True)
+                    except ValueError:
+                        self.state.halted = CONTINUITY_HALT
+                        self.state.record(
+                            "observation_halted", reason=CONTINUITY_HALT, block=number
+                        )
+                        raise NavRefusal(CONTINUITY_HALT) from None
                 deadline = nav_fresh_until(reader.store, refs, self.c, sources=reader.sources)
             except NavRefusal as exc:
                 raise ChainError("account NAV refused: " + str(exc)) from None
@@ -518,7 +534,7 @@ class LiveLoop:
                 # A dropped provider read is retried on later ticks (each tick spends its
                 # own budget). A valuation refusal, or repeated failure, halts for review.
                 self.observation_failures += 1
-                if (
+                if not s.halted and (
                     str(exc).startswith("account NAV refused")
                     or self.observation_failures >= MAX_OBSERVATION_FAILURES
                 ):

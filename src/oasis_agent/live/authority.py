@@ -81,7 +81,12 @@ class TransactionAuthority:
         header = loop.rpc.call("eth_getBlockByNumber", [hex(context["block"]), False])
         if not isinstance(header, dict) or header.get("hash") != context["block_hash"]:
             raise ValueError("proposed decision block is not canonical")
-        market = loop.observe(header)
+        try:
+            market = loop.observe(header)
+        except ChainError:
+            if s.halted:
+                loop.store.save(s)
+            raise
         reader = loop.receipt_costs
         assert reader is not None
         deadline = nav_fresh_until(reader.store, market.nav_evidence, c, sources=reader.sources)

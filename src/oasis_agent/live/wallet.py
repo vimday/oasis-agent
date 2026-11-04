@@ -67,6 +67,38 @@ class WalletBalance:
     token_runtime_hash: str
 
 
+CONTINUITY_HALT = "live account nonce or block continuity unresolved"
+
+
+def require_wallet_continuity(
+    anchor: WalletBalance, current: WalletBalance, *, allow_same_block: bool = False
+) -> None:
+    """Compare already replayed wallets for one unchanged account/policy scope.
+
+    No acquisition or ancestry proof is performed. Callers must independently
+    bind both wallets to their account, asset and declared provider pair. Exact
+    same-block replay is optional; otherwise height and time must both advance.
+    """
+    before, after = anchor.header.ref, current.header.ref
+    if (
+        type(allow_same_block) is not bool
+        or any(type(n) is not int or n < 0 for n in (anchor.nonce, current.nonce))
+        or before.chain_id != after.chain_id
+        or anchor.nonce != current.nonce
+    ):
+        raise ValueError(CONTINUITY_HALT)
+    if allow_same_block and anchor == current:
+        return
+    if (
+        after.number <= before.number
+        or before.timestamp is None
+        or after.timestamp is None
+        or after.timestamp <= before.timestamp
+        or (after.number == before.number + 1 and current.header.parent_hash != before.block_hash)
+    ):
+        raise ValueError(CONTINUITY_HALT)
+
+
 def wallet_requests(scope: WalletScope, block: BlockRef) -> list[tuple[str, list[object]]]:
     pin = {"blockHash": block.block_hash, "requireCanonical": True}
     return [

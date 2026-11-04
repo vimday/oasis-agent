@@ -38,6 +38,7 @@ from .startup_state import (
 )
 from .state import LoopState, StateStore, day_of, validate_state
 from .valuation import nav_fresh_until, replay_nav, replay_nav_quorum
+from .wallet import require_wallet_continuity
 
 ALLOWED_HALTS = frozenset(
     {HALT, "live observation refused; operator review required before polling"}
@@ -223,22 +224,22 @@ def _service(
         sources=SOURCES,
         sessions=_no_network,
     )
-    loop._check_nav_checkpoint()
-    prior_nonce = None
-    if state.nav_evidence:
-        prior_nonce = replay_nav_quorum(
-            evidence, state.nav_evidence, config, sources=SOURCES
-        ).wallet.nonce
+    anchor = loop._check_nav_checkpoint()
+    if anchor is None:
+        raise ValueError("verified original wallet anchor required")
     if set(refs) != {"nav", "settlements"}:
         raise ValueError("exact NAV and settlement reference pairs required")
     value = replay_nav_quorum(evidence, refs["nav"], config, sources=SOURCES)
+    try:
+        require_wallet_continuity(anchor, value.wallet, allow_same_block=True)
+    except ValueError:
+        raise ValueError("fresh NAV does not reconcile original inventory") from None
     position = replay_nav(evidence, refs["nav"][0], config).position
     head = value.wallet.header.ref
     deadline = nav_fresh_until(evidence, refs["nav"], config, sources=SOURCES)
     if (
         head.timestamp is None
         or not risk.last_at <= head.timestamp <= now <= deadline
-        or (prior_nonce is not None and value.wallet.nonce != prior_nonce)
         or _position_identity(position) != _position_identity(state.position)
         or state.last_units
         != [value.wallet.native, value.wallet.token, position.liquidity if position else 0]

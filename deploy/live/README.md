@@ -378,6 +378,12 @@ a repository `.env`. Use the original volumes, never copies of the budget ledger
    also name that checkpoint as its parent. An unexplained nonce or conflicting
    block refuses before either migration write; see the
    [continuity regression record](../../docs/verification/LIVE_TRANSITION_CONTINUITY_20261105.md).
+   Full live observation and signing admission compare against the verified
+   wallet anchor and latch unexplained nonce or block changes before risk
+   updates, decisions or key use. Recovery capture and rearm refuse the same
+   inconsistencies; ordinary rearm does not clear this halt. Exact same-block recapture requires an
+   identical wallet and header. See the
+   [observation continuity record](../../docs/verification/LIVE_OBSERVATION_CONTINUITY_20261105.md).
 3. `python -m scripts.rearm_live_services --strategy-dir STRATEGY_DIR
    --authority-dir AUTHORITY_DIR --rpc-profile PROFILE --references REFERENCES`
    performs offline review of the successful capture's `references.json` against
