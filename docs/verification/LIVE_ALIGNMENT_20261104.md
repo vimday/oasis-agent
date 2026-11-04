@@ -186,3 +186,37 @@ evidence hash `fab1b7446cc140fb47b95588e9a6f86ec56be8a9ec03d58d97a410f1bee2ef57`
 clarified a lock docstring (shared readers may coexist); its Ruff check also exited
 0. No contract source changed; the earlier 70-contract-test result remains the
 contract validation for this unchanged tree.
+
+### Follow-up candidate and original-volume refusal
+
+Implementation commit `d993e929b71f95be3c52f3b0d844533e698780da` was pushed to
+`main` by SSH with exit 0. Its clean runtime-only archive built image
+`sha256:3733941953db4598a795dc88e604c47b1b7638c59db95d951401c6ecfcdf2b83`
+with exit 0, using the cached hash-locked dependency layer. The first invocation
+did not execute because automatic permission review timed out; the tool-permitted
+single retry completed. This was not a failed Docker build or a policy rejection.
+
+The stopped-image source verifier exited 0: all **342** application files matched,
+with manifest hash
+`38bd8fffd6bb1faf901068710860c0132361d6c1a19f56b48802555f05e7b62b`.
+The keyless, network-disabled smoke container exited 0 with the same UID,
+capability, dependency, strict-feed and capital-limit assertions described above.
+The only pip diagnostic was a non-writable cache warning; dependency checking
+reported no broken requirements.
+
+The new startup inspector then ran against both original service volumes mounted
+read-only, without keys, sockets, network or source overlays. It correctly exited
+**3** with `original_runtime_state_unresolved`; the wrapper asserting that refusal
+exited **0**. All **13** retained file hashes were unchanged both during the check
+and against the preceding candidate's retained-volume report. This verifies the
+real blocked-start behavior, not successful startup, fresh NAV, full receipt/unwind
+acceptance or available RPC fees. Both production containers remained exited on
+image `0b4f8cb42deb`; no migration, rearming, signing or broadcasting occurred.
+
+Artifacts: `reports/review-20261104/runtime-d993e92/`. Summary evidence hash:
+`0a2634b6aa7ac32df197dd65a3a119d4e444c28692ace59267709e9f99800c0c`.
+All subprocess exits and referenced log hashes were checked. An independent
+internal agent also rechecked the full-quality and focused reports, their logs
+and the acceptance wording with no discrepancy. This follow-up used zero RPC
+requests and performed no financial action; the remaining live gates above are
+unchanged.
