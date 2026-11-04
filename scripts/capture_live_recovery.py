@@ -688,19 +688,54 @@ def capture(
     return report
 
 
-def supervise(operation, out, *, seconds=MAX_SECONDS):
+def _nav_publications(out, worker):
+    refs_raw = (out / "candidate-references.json").read_bytes()
+    refs = strict_json_object(refs_raw)
+    if set(refs) != set(ROLES):
+        raise ValueError("complete raw capture required")
+    return {
+        "fresh-nav.json": canonical_json({role: refs[role]["nav"] for role in ROLES}),
+        "references.json": refs_raw,
+    }
+
+
+def supervise(
+    operation,
+    out,
+    *,
+    seconds=MAX_SECONDS,
+    publisher=_nav_publications,
+    publication_names=("fresh-nav.json", "references.json"),
+):
     """POSIX CLI boundary: terminate the entire request worker at the hard deadline.
 
     The parent starts its clock before fork. It publishes reference files only after
     an exit-zero worker has completed inside that window. Failed/late evidence is
     retained for inspection, never promoted to a successful capture report.
     """
-    if not 0 < seconds <= MAX_SECONDS or os.path.lexists(out):
+    if (
+        not 0 < seconds <= MAX_SECONDS
+        or os.path.lexists(out)
+        or not publication_names
+        or len(set(publication_names)) != len(publication_names)
+        or any(
+            not isinstance(name, str) or not name or name in {".", ".."} or Path(name).name != name
+            for name in publication_names
+        )
+    ):
         raise ValueError("fresh attempt directory and bounded deadline required")
     started = time.monotonic()
-    pid = os.fork()
+    ready_read, ready_write = os.pipe()
+    os.set_blocking(ready_read, False)
+    try:
+        pid = os.fork()
+    except OSError:
+        os.close(ready_read)
+        os.close(ready_write)
+        raise
     if pid == 0:
         try:
+            os.close(ready_read)
             # A supervisor killed by SIGTERM/SIGKILL cannot run its finally block.
             # A default-action kernel alarm still terminates this worker and all
             # its threads even while DNS/HTTP is blocked. Never extend the parent
@@ -713,6 +748,10 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
             signal.setitimer(signal.ITIMER_REAL, remaining)
             os.setsid()
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            # No acquisition can start before the parent can identify this
+            # child's exclusive process group, even if the leader exits early.
+            os.write(ready_write, b"1")
+            os.close(ready_write)
             allowed = {
                 name: os.environ[name]
                 for name in (*RPC_ENV, "PATH", "PYTHONPATH")
@@ -726,9 +765,18 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
             )
         except BaseException:  # noqa: BLE001 - worker errors never expose credentials
             os._exit(3)
-    status, timed_out = None, False
+    os.close(ready_write)
+    status, timed_out, group_ready, cleanup_refused = None, False, False, False
+
+    def confirm_group():
+        nonlocal group_ready
+        if not group_ready:
+            with suppress(BlockingIOError):
+                group_ready = os.read(ready_read, 1) == b"1"
+
     try:
         while True:
+            confirm_group()
             done, candidate = os.waitpid(pid, os.WNOHANG)
             if time.monotonic() - started >= seconds:
                 timed_out = True
@@ -742,17 +790,30 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
         # A reaped leader can leave descendants; terminate its group in either case.
         # The worker calls setsid before any network capability is constructed.
         for sig in (signal.SIGTERM, signal.SIGKILL):
+            confirm_group()
             try:
-                os.killpg(pid, sig)
+                if group_ready:
+                    os.killpg(pid, sig)
+                elif status is None:
+                    # Before readiness, the child has no acquisition capability
+                    # or descendants. Target only our still-unreaped child PID.
+                    os.kill(pid, sig)
             except ProcessLookupError:
                 if status is None:
                     with suppress(ProcessLookupError):
+                        os.kill(pid, sig)
+            except PermissionError:
+                # A denied group kill cannot count as successful supervision.
+                cleanup_refused = True
+                if status is None:
+                    with suppress(ProcessLookupError, PermissionError):
                         os.kill(pid, sig)
             if sig == signal.SIGTERM and status is None:
                 time.sleep(0.05)
         if status is None:
             _, status = os.waitpid(pid, 0)
-    accepted = not timed_out and os.waitstatus_to_exitcode(status) == 0
+        os.close(ready_read)
+    accepted = not timed_out and not cleanup_refused and os.waitstatus_to_exitcode(status) == 0
     report = {
         "schema": "oasis.live-recovery-supervision.v1",
         "execution_eligible": False,
@@ -760,6 +821,8 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
         "exit_code": 3,
         "status": "hard_deadline_refused" if timed_out else "worker_refused",
         "worker_exit_code": os.waitstatus_to_exitcode(status),
+        "worker_group_ready": group_ready,
+        "cleanup_refused": cleanup_refused,
         "max_seconds": seconds,
         "elapsed_seconds": time.monotonic() - started,
     }
@@ -768,24 +831,24 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
         try:
             raw = (out / "report.json").read_bytes()
             worker = strict_json_object(raw)
-            refs_raw = (out / "candidate-references.json").read_bytes()
-            refs = strict_json_object(refs_raw)
-            if not worker["capture_passed"] or worker["exit_code"] != 0 or set(refs) != set(ROLES):
+            if not worker["capture_passed"] or worker["exit_code"] != 0:
                 raise ValueError("complete raw capture required")
+            publications = publisher(out, worker)
+            if set(publications) != set(publication_names) or any(
+                not isinstance(raw, bytes) for raw in publications.values()
+            ):
+                raise ValueError("exact bounded publication inventory required")
             report.update(
                 capture_passed=True,
                 exit_code=0,
                 status="raw_capture_requires_offline_rearm_review",
                 worker_report_hash=sha256_hex(raw),
             )
-            if time.monotonic() - started >= seconds:
-                raise TimeoutError("capture publication deadline reached")
-            with (out / "fresh-nav.json").open("xb") as handle:
-                handle.write(canonical_json({role: refs[role]["nav"] for role in ROLES}))
-            if time.monotonic() - started >= seconds:
-                raise TimeoutError("capture publication deadline reached")
-            with (out / "references.json").open("xb") as handle:
-                handle.write(refs_raw)
+            for name in publication_names:
+                if time.monotonic() - started >= seconds:
+                    raise TimeoutError("capture publication deadline reached")
+                with (out / name).open("xb") as handle:
+                    handle.write(publications[name])
         except Exception:  # noqa: BLE001 - leave artifacts and report refusal
             report.update(capture_passed=False, exit_code=3, status="worker_artifacts_unresolved")
     report["elapsed_seconds"] = time.monotonic() - started
@@ -793,7 +856,7 @@ def supervise(operation, out, *, seconds=MAX_SECONDS):
         report.update(capture_passed=False, exit_code=3, status="hard_deadline_refused")
     if not report["capture_passed"]:
         # Remove only this attempt's incomplete publication; raw/candidate evidence stays.
-        for name in ("references.json", "fresh-nav.json"):
+        for name in publication_names:
             (out / name).unlink(missing_ok=True)
     report["evidence_hash"] = sha256_hex(canonical_json(report))
     with (out / "supervisor.json").open("xb") as handle:

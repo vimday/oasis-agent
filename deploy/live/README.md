@@ -298,6 +298,18 @@ the original journals. See the
 six-read captures and write a fingerprint/config proposal in a new review
 directory. It makes zero RPC requests and cannot approve or apply that proposal;
 the wire format and remaining acceptance steps are documented in that record.
+`python -m scripts.capture_live_gas_oracle --strategy-dir STRATEGY_DIR
+--authority-dir AUTHORITY_DIR --rpc-profile PROFILE` now prints a separate offline
+discovery plan. Its opt-in capture mode requires its own exact approved plan and
+current zero-cost scope, using the same capture flags as recovery. It permits at
+most 13 requests (strategy primary 7, secondary 6, authority 0), including one
+head lookup, with zero retries and a 120-second hard cutoff. It keeps both
+original service locks and STOP files, appends only to the original strategy
+budget, and never changes production state or evidence. A successful parent
+replay exports `gas-wire.json`, a new local `evidence.db` and `candidate.json`;
+none is a runtime approval or configuration migration. This separate grant is
+not included in a 197-request NAV/receipt grant. See the
+[bounded discovery capture record](../../docs/verification/LIVE_GAS_DISCOVERY_CAPTURE_20261105.md).
 Historical cash/checkpoint replay can now recognize the corresponding original
 five-pin configuration by its exact hash. This does not change journal bindings
 or apply a runtime-policy migration; new NAV still needs the target policy.
