@@ -11,6 +11,7 @@ from typing import Protocol, cast
 import certifi
 
 from ..errors import RpcError
+from .protocol import response_envelope
 
 
 class HttpPoster(Protocol):
@@ -130,19 +131,18 @@ class JsonRpcTransport:
                     self._recorder.record(
                         RpcExchange(method, request_id, payload, raw_response, attempt + 1)
                     )
-                decoded = json.loads(raw_response)
             except (ValueError, TypeError, OSError):
                 last_error = RpcError("RPC transport failure (details redacted)")
                 if attempt + 1 < attempts:
                     self._sleep(attempt, deadline)
                     continue
                 raise last_error from None
-            if not isinstance(decoded, Mapping):
-                raise RpcError("invalid JSON-RPC response: top level must be an object")
-            response = decoded
-            if response.get("id") != request_id or response.get("jsonrpc") != "2.0":
-                raise RpcError("invalid JSON-RPC response")
-            if response.get("error") is not None:
+            try:
+                response = response_envelope(raw_response, request_id)
+            except (ValueError, TypeError):
+                # Protocol ambiguity is terminal, even for retryable reads.
+                raise RpcError("invalid JSON-RPC response (details redacted)") from None
+            if "error" in response:
                 error = response["error"]
                 code = error.get("code") if isinstance(error, Mapping) else None
                 last_error = RpcError(
@@ -152,8 +152,6 @@ class JsonRpcTransport:
                     self._sleep(attempt, deadline)
                     continue
                 raise last_error
-            if "result" not in response:
-                raise RpcError("JSON-RPC response has no result")
             return response["result"]
         raise last_error or RpcError("RPC request failed")
 

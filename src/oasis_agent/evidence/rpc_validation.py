@@ -5,36 +5,12 @@ Nothing fetches, and a malformed, ambiguous or unexpectedly typed field raises
 instead of becoming a permissive default.
 """
 
-import json
 import re
 from typing import cast
 
+from ..rpc.protocol import response_envelope
+from ..rpc.protocol import strict_json_object as _object
 from ..rpc.transport import RpcExchange
-
-
-def _unique_fields(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("RPC evidence contains duplicate JSON fields")
-        result[key] = value
-    return result
-
-
-def _reject_constant(value: str) -> object:
-    raise ValueError("RPC evidence contains non-finite JSON numbers")
-
-
-def _object(payload: bytes) -> dict[str, object]:
-    try:
-        value = json.loads(
-            payload, object_pairs_hook=_unique_fields, parse_constant=_reject_constant
-        )
-    except (ValueError, UnicodeError) as exc:
-        raise ValueError("RPC evidence contains invalid or ambiguous JSON") from exc
-    if not isinstance(value, dict):
-        raise TypeError("RPC evidence envelope must be an object")
-    return cast(dict[str, object], value)
 
 
 def strict_json_object(payload: bytes) -> dict[str, object]:
@@ -97,32 +73,21 @@ def rpc_quantity(value: object) -> int:
 def decode_exchange(exchange: RpcExchange) -> tuple[list[object], dict[str, object]]:
     """Validate a request/response pair; callers decide how to handle valid errors."""
     request = _object(exchange.request_payload)
-    response = _object(exchange.response_payload)
     for value in (exchange.request_id, exchange.attempt):
         if type(value) is not int or value <= 0:
             raise ValueError("RPC evidence request ID and attempt must be positive integers")
-    for envelope in (request, response):
-        if (
-            envelope.get("jsonrpc") != "2.0"
-            or type(envelope.get("id")) is not int
-            or envelope["id"] != exchange.request_id
-        ):
-            raise ValueError("RPC evidence version or request/response ID mismatch")
+    if (
+        request.get("jsonrpc") != "2.0"
+        or type(request.get("id")) is not int
+        or request["id"] != exchange.request_id
+    ):
+        raise ValueError("RPC evidence version or request/response ID mismatch")
+    response = response_envelope(exchange.response_payload, exchange.request_id)
     if request.get("method") != exchange.method:
         raise ValueError("RPC evidence method label does not match request")
     params = request.get("params")
     if not isinstance(params, list):
         raise TypeError("RPC evidence requires positional parameters")
-    if ("result" in response) == ("error" in response):
-        raise ValueError("RPC evidence must contain exactly one result or error")
-    if "error" in response:
-        error = response["error"]
-        if (
-            not isinstance(error, dict)
-            or type(error.get("code")) is not int
-            or not isinstance(error.get("message"), str)
-        ):
-            raise ValueError("RPC evidence error object is malformed")
     return params, response
 
 

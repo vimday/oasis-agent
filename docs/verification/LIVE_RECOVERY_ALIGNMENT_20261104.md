@@ -431,3 +431,60 @@ remote state before completing the authorized SSH push; no force push is allowed
 Both production containers remain exited on image `0b4f8cb42deb`. This candidate
 has not been deployed. Current free entitlement, the one-shot acquisition scope,
 fresh complete NAV and production runtime/unwind acceptance remain unresolved.
+
+## Follow-up: shared strict protocol boundary for budgeted reads
+
+The direct POST fix did not cover `BudgetedRpc.call`: that production reader
+uses `JsonRpcTransport`, whose separate JSON parser accepted boolean/float IDs,
+duplicate fields, ambiguous result/error envelopes and non-finite values. The
+retained evidence decoder rejected most of these later, but an unretained
+head/nonce/runtime read could reach its caller before that decoder ran.
+
+A pure `rpc/protocol.py` now supplies the same response validation to the online
+transport and offline evidence decoder. Integer IDs must match exactly; every
+object rejects duplicate keys, every response has exactly one result or valid
+error, and non-finite literals or overflowing floats refuse. Malformed protocol
+responses are terminal even with read retries configured. Valid transient RPC
+errors and transport failures retain their existing bounded retry policy; the
+production reader still configures zero retries. Exact response bytes remain
+recorded before interpretation. Null, false, zero and finite JSON results remain
+valid at this protocol boundary; domain-specific validation still applies later.
+
+The 49 new synthetic regressions exercise the actual budgeted live reader and
+shared transport/replay path. A malformed response spends its one reserved request;
+restarting the client cannot refund that request or send again. The focused suite
+passed 107 tests, and scoped lint/format/mypy each exited 0.
+
+The first before-change run retained 29 failures and 22 passes. Two of those
+assertions incorrectly assumed a valid 1500-level JSON array must exceed the
+interpreter recursion limit. The initial focused and premature full runs each
+failed only those two assertions; the full run retained 4147 passes and 138 subtest
+passes. Those two non-protocol expectations were removed, with the original logs,
+source lock and failed report preserved. The attempted cancellation matched no
+process group and terminated nothing. No passing result is attributed to that run.
+
+The corrected full `make live-quality` exited 0: **4147 tests, 138 subtests**,
+243 mypy source files, and eight frontend modules passed. All four subprocesses
+(Python/frontend, secrets, Bandit, Compose) exited 0 without timeout or launch
+failure. Every log/report hash and the unchanged four-file source lock were
+re-derived after completion. The four existing warnings remain recorded. No
+contract source changed; this does not replace real-chain acceptance.
+
+```text
+reports/review-20261104/read-protocol-quality-v2/report.json
+evidence_hash: 7febeb3909679dfd0c9e0881527decfcfc11147bb35220b47048338301ad66c7
+reports/review-20261104/read-protocol-boundary/summary.json
+evidence_hash: 60d18bd069106c66fb4ebc48b2827e75ad0197826f48a3366009bc28587afd48
+```
+
+No external RPC, original state volume, original budget ledger or canary key
+was accessed. Current free entitlement and the pending one-shot 197-request
+acquisition scope remain unresolved. Fresh strict USD/NAV, current two-source
+runtime/simulation, full unwind and operational restart acceptance remain closed.
+
+The SSH follow-up read succeeded and verified remote `main` at
+`15a8ed9bf2ab0b6c50345b213bc0afdcd77a1b38`. The authorized push of local
+`d835698` then timed out on port 443 (exit 128); one bounded port-22 fallback
+also timed out (exit 128). All raw logs and exit/hash records are retained under
+`reports/review-20261104/ssh-delivery-followup/`. No global SSH or agent state
+was changed. Remote delivery remains unresolved; no force push was attempted.
