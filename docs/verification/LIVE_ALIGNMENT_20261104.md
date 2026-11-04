@@ -101,3 +101,33 @@ The recorded October 31 owner approval remains distinct from today's closed
 runtime gates. No prior failed or stale evidence has been promoted to acceptance.
 Final internal review additionally requested persistence of the attempt directory's
 parent before migration; that improvement was implemented before final validation.
+
+## Committed Docker candidate
+
+Implementation commit `30f13db80692265e39ca4bd15688c75dbd842bd5` was pushed to
+`main` by SSH with exit 0. Its clean `git archive` runtime-only context produced
+candidate image
+`sha256:41355e93da5059ac7aae2709b0d136ce615827e544c86aab11a4c94dc41b6fd7`.
+All **340** application files in the stopped image matched committed local bytes;
+source verifier exit 0, manifest hash
+`32eac214c96f6f0a98a1041c270f0324c184b089f0ae1a6abdd07bd978cdb008`.
+
+A keyless, network-disabled, read-only smoke container exited 0. It checked UID
+10001, no effective capabilities, no-new-privileges, absent production/key/socket
+mounts, dependency consistency, the 1800/1800-second ceilings, USD 500/200/500
+limits and the expected HALT CLI refusal (child exit 3). This does not exercise
+the live signing path.
+
+The same unmodified image then replayed the original two service volumes read-only,
+without source overlays, key or network. The historical checks passed and all
+13 files remained unchanged; missing fresh NAV correctly produced exit 3. Its
+review hash is `fc0492cf6365f88d10c0fa7586744dbf92c6f7312d644b30aa3be50aa4c8e9c3`.
+The production containers were still exited on image `0b4f8cb42deb`; the candidate
+was not deployed. Artifacts are under `reports/review-20261104/runtime-30f13db/`.
+
+The first build with `--network=none` exited 1 because its dependency-install layer
+had no cache for that network mode. Its original log is retained. The second build
+used the same context and hash-locked dependencies under the normal build mode;
+the dependency layer was cached and the build exited 0. No paid RPC was called.
+Installed dependencies, base image and Docker daemon remain trusted inputs; the
+source comparison verifies application bytes, not their entire supply chain.
