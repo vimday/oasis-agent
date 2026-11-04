@@ -357,7 +357,8 @@ a repository `.env`. Use the original volumes, never copies of the budget ledger
    Scope declarations do not verify provider billing or create user authorization.
    A consumed plan cannot be reused by changing the output directory. Failure
    preserves raw attempted evidence and charged requests; it provides no rearm
-   acceptance. No new online scope has been executed by this implementation.
+   acceptance. The prior terminated campaign remains closed; printing a new
+   offline plan does not authorize another attempt.
 2. For an original journal still bound to the old USDC policy, review then apply
    `python -m scripts.migrate_live_feed_transition
    --strategy-state STRATEGY_DIR/live.state.json
@@ -372,6 +373,11 @@ a repository `.env`. Use the original volumes, never copies of the budget ledger
    are refused rather than removed. A committed pair with incomplete JSON
    projections reports `projection_complete: false` and exits 3. See the
    [atomic feed migration record](../../docs/verification/LIVE_FEED_PAIR_ATOMIC_20261105.md).
+   The fresh wallet must retain the nonce of its verified historical NAV or
+   settled-cash checkpoint and advance its block height and timestamp. A direct child must
+   also name that checkpoint as its parent. An unexplained nonce or conflicting
+   block refuses before either migration write; see the
+   [continuity regression record](../../docs/verification/LIVE_TRANSITION_CONTINUITY_20261105.md).
 3. `python -m scripts.rearm_live_services --strategy-dir STRATEGY_DIR
    --authority-dir AUTHORITY_DIR --rpc-profile PROFILE --references REFERENCES`
    performs offline review of the successful capture's `references.json` against

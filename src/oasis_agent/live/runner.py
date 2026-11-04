@@ -664,9 +664,10 @@ class LiveLoop:
         # actions from the bounded history.
         return None if approved else reason
 
-    def _check_nav_checkpoint(self) -> None:
+    def _check_nav_checkpoint(self) -> WalletBalance | None:
+        """Verify the original epoch and return its proven wallet continuity anchor."""
         if self.mode != "live":
-            return
+            return None
         risk = self.state.exact_risk
         if not self.state.nav_evidence:
             if self.state.initial_nav_usd is not None or (
@@ -674,8 +675,8 @@ class LiveLoop:
             ):
                 # A settled action clears its pre-action NAV proofs; only that action's own
                 # two retained cash proofs may stand in until the next observation.
-                self._check_settled_cash()
-            return
+                return self._check_settled_cash()
+            return None
         reader = self.receipt_costs
         if reader is None or len(self.state.nav_evidence) != 2:
             raise ChainError("retained NAV checkpoint missing")
@@ -690,6 +691,7 @@ class LiveLoop:
             ):
                 raise ValueError("risk baseline differs from retained NAV")
             risk.validate()
+            return value.wallet
         except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
             raise ChainError("retained NAV checkpoint cannot be replayed") from None
 
@@ -713,7 +715,7 @@ class LiveLoop:
         release_unsigned_attempt(s, self.c, status, nonces)
         self.released_attempts += 1
 
-    def _check_settled_cash(self) -> None:
+    def _check_settled_cash(self) -> WalletBalance:
         """Replay the last settled action's two cash proofs against the recorded units."""
         s, reader = self.state, self.receipt_costs
         last = s.history[-1] if s.history else None
@@ -757,12 +759,14 @@ class LiveLoop:
             if (
                 a.header != b.header
                 or (a.native, a.token) != (b.native, b.token)
+                or a.nonce != b.nonce
                 or [a.native, a.token] != s.last_units[:2]
                 or risk is None
                 or a.header.ref.timestamp is None
                 or a.header.ref.timestamp < risk.last_at
             ):
                 raise ValueError("settled cash differs from recorded wallet units")
+            return a
         except Exception:  # noqa: BLE001 - evidence diagnostics can contain provider data
             raise ChainError("settled action cash cannot be replayed") from None
 

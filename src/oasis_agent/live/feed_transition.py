@@ -104,7 +104,9 @@ def review_service(
         sessions=_no_acquisition,
     )
     try:
-        loop._check_nav_checkpoint()
+        anchor = loop._check_nav_checkpoint()
+        if anchor is None:
+            raise ValueError("verified historical wallet anchor required")
         if state.nav_evidence:
             prior = replay_nav_quorum(evidence, state.nav_evidence, previous, sources=sources)
             prior_position = replay_nav(evidence, state.nav_evidence[0], previous).position
@@ -131,6 +133,17 @@ def review_service(
         block = value.wallet.header.ref
         if block.timestamp is None or not risk.last_at < block.timestamp <= now <= deadline:
             raise ValueError("new current NAV required")
+        if (
+            value.wallet.nonce != anchor.nonce
+            or block.number <= anchor.header.ref.number
+            or anchor.header.ref.timestamp is None
+            or block.timestamp <= anchor.header.ref.timestamp
+            or (
+                block.number == anchor.header.ref.number + 1
+                and value.wallet.header.parent_hash != anchor.header.ref.block_hash
+            )
+        ):
+            raise ValueError("fresh NAV contradicts historical wallet nonce or block")
         position = replay_nav(evidence, fresh[0], target).position
 
         if _identity(position) != _identity(state.position):
