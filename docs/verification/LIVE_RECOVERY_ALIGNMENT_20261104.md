@@ -570,3 +570,35 @@ The pending free entitlement and one-shot 197-request scope were not renewed.
 SSH's read-only remote-head check again exited 128, this time with a closed
 port-443 connection; the original log and hash remain in
 `reports/review-20261104/ssh-delivery-1126/`. Remote publication is still unverified.
+
+### Correction: retain exceptions when checking redirect response closure
+
+The first immutable candidate for `fa1e2ac` built successfully but its Linux
+smoke exited **1** at the response-closure assertion. No candidate pass is claimed
+for that image; its original stdout, stderr, exit and hash records remain under
+`reports/review-20261104/runtime-fa1e2ac/`.
+
+The host redirect test had released its expected exception before checking the
+stream, allowing garbage collection to close a response the handler left open.
+Retaining the exception reproduced **five failures, 14 passes** against that
+committed handler. The corrected handler explicitly closes the redirect response
+before refusing, and the regression now keeps the exception alive while checking
+closure. This corrects the earlier test's evidence boundary without removing the
+old passing quality report or failed candidate evidence.
+
+All **126** focused tests and scoped lint/format/mypy passed again. An early Linux
+diagnostic using one read-only task source mount over the failed image passed all
+14 in-memory HTTP requests; it mounted no production data or key. This diagnostic
+is separate from the immutable candidate acceptance that must follow the fix commit.
+
+The corrected full `make live-quality` also exited **0**: **4166 tests, 138
+subtests**, 243 mypy source files and eight frontend modules passed. All four
+subprocess exits, their log hashes, the report hash and both unchanged source
+hashes were verified after completion. The four existing warnings remain.
+
+```text
+reports/review-20261104/read-http-quality-v3/report.json
+evidence_hash: aef92c856dbc4f46f11a7595b571fd5ebf4874529d190c671389e0a3025a1033
+reports/review-20261104/read-http-boundary/summary-v3.json
+evidence_hash: a34642ff8d89b1ad17803b67bffe108ff7fcea0a3605b483f96df98212584123
+```

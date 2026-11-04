@@ -98,8 +98,11 @@ def test_forbidden_redirect_closes_body_without_reading_or_following(monkeypatch
         status=status,
         headers={"Location": "https://other.invalid/"},
     )
-    with pytest.raises(RpcError, match="redirects are forbidden"):
+    with pytest.raises(RpcError, match="redirects are forbidden") as error:
         JsonRpcTransport(URL, retries=2).request("eth_chainId", [])
+    # Keep the exception/traceback alive, as BudgetedRpc does when translating
+    # failures. Garbage collection must not be what closes the response.
+    assert "credential" not in str(error.value)
     assert len(calls) == 1 and streams[0].closed
     assert streams[0].read_sizes == []
 

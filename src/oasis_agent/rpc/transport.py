@@ -35,6 +35,8 @@ class RpcExchangeRecorder(Protocol):
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        with suppress(OSError):
+            fp.close()
         raise RpcError("RPC redirects are forbidden")
 
 
