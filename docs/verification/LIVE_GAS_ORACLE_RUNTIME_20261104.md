@@ -233,3 +233,32 @@ as exited on image `0b4f8cb42deb`. The separate real capture's head response was
 retrieved within the bounded host-observed interval from 2026-11-04T13:08:10.354000+00:00 to 2026-11-04T13:08:15.787400+00:00
 (scope declaration before launch through recorded process exit). This is an
 acquisition interval, not the block's timestamp or a two-source acceptance claim.
+
+## Offline-discovery immutable candidate
+
+Follow-up implementation commit `b4ff7484c953df22b753034b4ccef27367520b40`
+built candidate
+`sha256:391ae39ea89c5e6d2eb4a49c8d6cbba547d70c50eb11acf8d30b7a2166b29699`
+from its committed runtime-only archive. Build, stopped-image source verification
+and Linux smoke each exited 0. The dependency installation layer was cached.
+All **351** application files matched, manifest hash
+`137ce55d3caeb7f759dda34f90b57ca4077e81b01c680543e40a7e969dc00345`.
+
+The immutable Linux image ran as UID 10001, with network disabled, a read-only
+root, dropped capabilities and no production state, source, key or socket
+mounts. Its synthetic twelve-exchange fixture produced only an unapproved
+candidate; substituting `latest` into a hash-pinned request refused and produced
+no candidate. The shipped production configuration remained byte-identical.
+There were zero production RPC requests, signatures, broadcasts, migrations or
+service starts. Both original containers were separately rechecked as exited on
+image `0b4f8cb42deb`; the new candidate was not deployed.
+
+```text
+reports/review-20261104/runtime-b4ff748/summary.json
+evidence_hash: 3bf9281d52aad7ff7305536229d51f1862b6cd633e50675a8ea9fc74ed0e6118
+```
+
+This is development and artifact evidence. Current dual-source fingerprints,
+runtime approval, policy-epoch migration, strict USD/NAV and funded recovery
+acceptance remain required; the secondary RPC's unresolved HTTP 403 and the
+terminated one-shot authorization remain unchanged.
