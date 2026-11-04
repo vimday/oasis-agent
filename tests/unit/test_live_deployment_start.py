@@ -124,6 +124,29 @@ def setup(tmp_path, monkeypatch, fault=None):
             )
         if args[0] == "ps":
             return b"existing" if fault == "existing" else b""
+        if args[0] == "run":
+            assert "--network=none" in args and "--read-only" in args
+            assert "--pull=never" in args and IMAGE in args
+            assert "scripts.inspect_live_startup" in args
+            mounts = [args[i + 1] for i, x in enumerate(args) if x == "--mount"]
+            assert mounts == [
+                "type=volume,src=oasis-live_strategy-state,dst=/strategy,readonly,volume-nocopy",
+                "type=volume,src=oasis-live_authority-state,dst=/authority,readonly,volume-nocopy",
+            ]
+            assert not any(
+                x in " ".join(args) for x in ("canary-keys", "authority-socket", "SECRET")
+            )
+            if fault == "state_refused":
+                raise subprocess.CalledProcessError(3, args, output=b"SECRET")
+            return canonical_json(
+                {
+                    "schema": "oasis.live-startup-state.v1",
+                    "startup_prerequisites_passed": fault != "state_bad_report",
+                    "historical_only": True,
+                    "execution_eligible": False,
+                    "services": {"strategy": {}, "authority": {}},
+                }
+            )
         assert args[0] == "compose" and args[-2:] == ["authority", "strategy"]
         assert "--no-build" in args and args[args.index("--pull") + 1] == "never"
         assert args[args.index("--env-file") + 1] == os.devnull
@@ -144,7 +167,16 @@ def setup(tmp_path, monkeypatch, fault=None):
 
 
 @pytest.mark.parametrize(
-    "fault", ["remote", "missing_volume", "volume_driver", "existing", "changed_sources"]
+    "fault",
+    [
+        "remote",
+        "missing_volume",
+        "volume_driver",
+        "existing",
+        "changed_sources",
+        "state_refused",
+        "state_bad_report",
+    ],
 )
 def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     calls = setup(tmp_path, monkeypatch, fault)
@@ -176,3 +208,18 @@ def test_ambient_docker_override_refuses(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCKER_HOST", "tcp://remote:2375")
     report = cli.start(IMAGE, tmp_path / "attempt")
     assert report["failure_stage"] == "local_context" and not calls
+
+
+def test_open_release_offline_readiness_does_not_inspect_docker(monkeypatch, capsys):
+    def forbidden(*args, **kwargs):
+        pytest.fail("offline readiness must not inspect Docker or production state")
+
+    monkeypatch.setattr(release_module, "RELEASE_OPEN", True)
+    monkeypatch.setattr(cli, "command", forbidden)
+    monkeypatch.setattr(cli, "state_preflight", forbidden)
+    monkeypatch.setattr(cli, "local_environment", forbidden)
+    monkeypatch.setattr("sys.argv", ["start"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 0
+    assert json.loads(capsys.readouterr().out)["new_actions_allowed"] is True

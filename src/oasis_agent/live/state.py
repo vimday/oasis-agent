@@ -233,8 +233,9 @@ def validate_state(state: LoopState) -> None:
 
 
 class StateStore:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, require_existing: bool = False) -> None:
         self.path = path
+        self.require_existing = require_existing
         self.journal: LiveJournal | None = None
 
     @property
@@ -242,6 +243,7 @@ class StateStore:
         return self.path.with_suffix(self.path.suffix + ".journal.sqlite")
 
     def bind(self, config_hash: str, *, require_existing: bool = False) -> None:
+        require_existing = require_existing or self.require_existing
         # Validate any pre-existing journal before allowing writes under this policy.
         if require_existing and not self.journal_path.is_file():
             raise ValueError("recovery requires an existing execution journal")
@@ -258,6 +260,10 @@ class StateStore:
             self.save(original)
 
     def load(self, mode: str, *, read_only: bool = False) -> LoopState:
+        if self.require_existing and (
+            mode != "live" or not self.path.is_file() or not self.journal_path.is_file()
+        ):
+            raise ValueError("production startup requires original state and journal")
         projection: bytes | None = None
         try:
             fd = os.open(self.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -326,6 +332,10 @@ class StateStore:
         return state.pending
 
     def save(self, state: LoopState) -> None:
+        if self.require_existing and (
+            state.mode != "live" or not self.path.is_file() or not self.journal_path.is_file()
+        ):
+            raise ValueError("production state or journal disappeared")
         if state.journal_required and not self.journal_path.exists():
             raise ValueError("required execution journal missing")
         validate_state(state)

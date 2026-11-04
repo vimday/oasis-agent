@@ -198,3 +198,10 @@ def test_tmpfs_options_stay_one_quoted_entry():
     lines = [line.strip() for line in cli.COMPOSE.read_text().splitlines()]
     tmpfs = [line for line in lines if line.startswith("tmpfs:")]
     assert tmpfs == ['tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"]']
+
+
+@pytest.mark.parametrize("service", ["strategy", "authority"])
+def test_production_cannot_drop_original_runtime_requirement(document, service):
+    document["services"][service]["command"].remove("--require-existing-runtime")
+    with pytest.raises(ValueError, match="command"):
+        cli.verify_services(document, dict.fromkeys(cli.RPC_NAMES))

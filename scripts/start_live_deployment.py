@@ -85,6 +85,53 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
     }
 
 
+def state_preflight(image: str, env: dict[str, str]) -> dict:
+    """Run verified code with only original state volumes, read-only and offline."""
+    result = json.loads(
+        command(
+            [
+                "run",
+                "--rm",
+                "--pull=never",
+                "--network=none",
+                "--read-only",
+                "--user",
+                "10001:10001",
+                "--cap-drop=ALL",
+                "--security-opt=no-new-privileges:true",
+                "--pids-limit",
+                "128",
+                "--memory",
+                "512m",
+                "--mount",
+                f"type=volume,src={VOLUMES['strategy-state']},dst=/strategy,readonly,volume-nocopy",
+                "--mount",
+                f"type=volume,src={VOLUMES['authority-state']},dst=/authority,readonly,volume-nocopy",
+                image,
+                "python",
+                "-m",
+                "scripts.inspect_live_startup",
+                "--strategy-dir",
+                "/strategy",
+                "--authority-dir",
+                "/authority",
+                *compose.CONFIG,
+                *compose.PROFILE,
+            ],
+            env,
+        )
+    )
+    if (
+        result.get("schema") != "oasis.live-startup-state.v1"
+        or result.get("startup_prerequisites_passed") is not True
+        or result.get("execution_eligible") is not False
+        or result.get("historical_only") is not True
+        or set(result.get("services", {})) != {"strategy", "authority"}
+    ):
+        raise ValueError("original runtime state preflight refused")
+    return result
+
+
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
@@ -129,6 +176,8 @@ def start(image: str, output: Path) -> dict:
             ["ps", "-aq", "--filter", "label=com.docker.compose.project=oasis-live"], env
         ).strip():
             raise ValueError("existing project containers require explicit recovery")
+        stage = "original_runtime_state"
+        report["state_preflight"] = state_preflight(identity["image"], env)
         stage = "final_recheck"
         require_live_start()
         if sha256_hex(canonical_json(source_manifest())) != identity["manifest_hash"]:
@@ -142,6 +191,12 @@ def start(image: str, output: Path) -> dict:
             handle.write(canonical_json(report))
             handle.flush()
             os.fsync(handle.fileno())
+        for directory in (output, output.parent):
+            fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
         command(
             [
                 "compose",

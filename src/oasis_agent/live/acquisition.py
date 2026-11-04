@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 from ..evidence.exact_capture import RecordedSession, validate_session_pair
 
@@ -12,14 +13,22 @@ def acquire_pair(
 ) -> None:
     """Only transport/recorder work runs in threads; evidence writes stay with caller.
 
-    Both workers are joined even if one fails. A caller may validate and persist
-    only after both complete; failures never return a partial accepted quorum.
+    A worker stops before its next read once it observes a peer's failure. A read
+    already past that check may still complete; cancellation does not interrupt
+    transport. Both workers are joined, and failures never accept a partial quorum.
     """
     validate_session_pair(*pair)
+    cancelled = Event()
 
     def acquire(session: RecordedSession) -> None:
         for method, params in calls:
-            session[0].request(method, params)
+            if cancelled.is_set():
+                return
+            try:
+                session[0].request(method, params)
+            except BaseException:
+                cancelled.set()
+                raise
 
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix="live-rpc") as executor:
         futures = [executor.submit(acquire, session) for session in pair]

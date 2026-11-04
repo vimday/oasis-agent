@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+import oasis_agent.live.acquisition as acquisition
+from oasis_agent.errors import RpcError
 from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.chain import ChainError
@@ -59,6 +61,47 @@ def test_sources_run_concurrently_but_each_call_sequence_stays_ordered(fail):
         assert first.methods == second.methods == [c[0] for c in calls]
         assert len(pair[0][1].exchanges) == len(pair[1][1].exchanges) == 2
     assert second.done.is_set()
+
+
+@pytest.mark.parametrize("failed_source", [0, 1])
+@pytest.mark.parametrize("failed_call", [1, 2])
+def test_provider_failure_cancels_later_reads_and_joins_inflight_peer(
+    monkeypatch, failed_source, failed_call
+):
+    barrier = threading.Barrier(2)
+    cancelled, peer_completed = threading.Event(), threading.Event()
+    monkeypatch.setattr(acquisition, "Event", lambda: cancelled)
+
+    class ControlledProvider:
+        def __init__(self, index):
+            self.index, self.methods = index, []
+
+        def post(self, payload):
+            req = json.loads(payload)
+            self.methods.append(req["method"])
+            barrier.wait(timeout=3)
+            if len(self.methods) == failed_call:
+                if self.index == failed_source:
+                    raise ValueError("synthetic provider refusal")
+                # Keep the peer request in flight until the failure has been
+                # signalled, independent of which worker the caller joins first.
+                assert cancelled.wait(timeout=3)
+                peer_completed.set()
+            return canonical_json({"jsonrpc": "2.0", "id": req["id"], "result": "0x1"})
+
+    providers = ControlledProvider(0), ControlledProvider(1)
+    pair = session(providers[0], "a"), session(providers[1], "b")
+    calls = [
+        ("eth_chainId", []),
+        ("eth_getBlockByNumber", ["0x1", False]),
+        ("eth_getCode", ["0x" + "11" * 20, "0x1"]),
+    ]
+    with pytest.raises(RpcError, match="transport failure"):
+        acquire_pair(pair, calls)
+    assert cancelled.is_set() and peer_completed.is_set()
+    assert providers[0].methods == providers[1].methods == [c[0] for c in calls[:failed_call]]
+    assert len(pair[failed_source][1].exchanges) == failed_call - 1
+    assert len(pair[1 - failed_source][1].exchanges) == failed_call
 
 
 @pytest.mark.parametrize("value", [0, True, 4097, -1, 2.0])

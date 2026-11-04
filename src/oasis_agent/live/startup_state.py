@@ -1,0 +1,221 @@
+"""Keyless, offline admission of existing production state. Never initializes files."""
+
+import fcntl
+import os
+import stat
+from collections.abc import Iterator
+from contextlib import ExitStack, closing, contextmanager
+from dataclasses import asdict
+from pathlib import Path
+from typing import Any, BinaryIO, Literal, NoReturn
+
+from ..evidence.store import ReadOnlyEvidenceStore
+from ..models.common import canonical_json, sha256_hex
+from ..rpc.budget import RpcBudget
+from .config import LiveConfig
+from .receipts import RetainedReceiptCostReader
+from .rpc_profile import LiveRpcProfile
+from .runner import LiveLoop
+from .state import Position, StateStore
+from .valuation import replay_nav, replay_nav_quorum
+
+SOURCES = ("live_primary", "live_secondary")
+Role = Literal["strategy", "authority"]
+
+
+def _position_identity(position: Position | None) -> tuple[int, int, int, int] | None:
+    return (
+        (position.token_id, position.lower, position.upper, position.liquidity)
+        if position
+        else None
+    )
+
+
+def require_file(path: Path) -> os.stat_result:
+    info = path.lstat()
+    if (
+        path.resolve() != path.absolute()
+        or not stat.S_ISREG(info.st_mode)
+        or info.st_uid != os.getuid()
+        or info.st_mode & 0o022
+    ):
+        raise ValueError("existing owned regular runtime file required")
+    return info
+
+
+def paths(directory: Path, role: Role) -> tuple[Path, Path, Path]:
+    if role not in {"strategy", "authority"}:
+        raise ValueError("explicit service role required")
+    return (
+        directory / ("live.state.json" if role == "strategy" else "state.json"),
+        directory / ("live.receipts.db" if role == "strategy" else "evidence.db"),
+        directory / ("live.lock" if role == "strategy" else "authority.lock"),
+    )
+
+
+@contextmanager
+def startup_locks(directories: dict[Role, Path]) -> Iterator[None]:
+    """Hold both locks shared; refuse service writers, permit concurrent readers."""
+    with ExitStack() as resources:
+        for role in ("strategy", "authority"):
+            lock_path = paths(directories[role], role)[2]
+            resources.enter_context(acquire_existing_lock(lock_path, exclusive=False))
+        yield
+
+
+def acquire_existing_lock(path: Path, *, exclusive: bool) -> BinaryIO:
+    expected = require_file(path)
+    lock = os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb")
+    try:
+        fcntl.flock(lock, (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB)
+        actual, current = os.fstat(lock.fileno()), require_file(path)
+        if len({(info.st_dev, info.st_ino) for info in (expected, actual, current)}) != 1:
+            raise ValueError("service lock changed while opening")
+        return lock
+    except BaseException:
+        lock.close()
+        raise
+
+
+def _no_network(*_: object) -> NoReturn:
+    raise ValueError("startup inspection cannot acquire data")
+
+
+def inspect_service(
+    directory: Path, role: Role, config: LiveConfig, profile: LiveRpcProfile
+) -> dict[str, Any]:
+    """Caller holds the service lock. Reads original evidence without migration.
+
+    Historical checkpoint replay is a prerequisite, not fresh chain acceptance.
+    Every live action still requires its independent current on-chain checks.
+    """
+    config.validate()
+    info = directory.lstat()
+    if (
+        directory.resolve() != directory.absolute()
+        or not stat.S_ISDIR(info.st_mode)
+        or info.st_uid != os.getuid()
+        or info.st_mode & 0o077
+    ):
+        raise ValueError("existing private owned service directory required")
+    state_path, evidence_path, lock_path = paths(directory, role)
+    store = StateStore(state_path, require_existing=True)
+    for path in (state_path, store.journal_path, evidence_path, lock_path):
+        require_file(path)
+    budget_path = directory / "live.receipt-budget.db"
+    require_file(budget_path)
+    if os.path.lexists(directory / "STOP"):
+        raise ValueError("service STOP must be resolved before startup")
+    state = store.load("live", read_only=True)
+    expected = sha256_hex(canonical_json(asdict(config)))
+    if store.journal is None or store.journal.config_hash != expected:
+        raise ValueError("service configuration migration required")
+    if (
+        state.halted
+        or state.pending is not None
+        or state.signing_attempt is not None
+        or state.acknowledge_flow
+        or state.legacy_gas_cost_incomplete
+    ):
+        raise ValueError("service halt or reconciliation unresolved")
+    risk = state.exact_risk
+    if risk is None or risk.basis is None or risk.last_nav is None or state.last_units is None:
+        raise ValueError("existing complete integer risk baseline required")
+    daily, cumulative = risk.losses(risk.last_nav)
+    if (
+        daily >= config.max_daily_loss_usd * 1_000_000
+        or cumulative >= config.max_cumulative_loss_usd * 1_000_000
+    ):
+        raise ValueError("existing service loss budget exhausted")
+    policies = profile.policies(SOURCES)
+    with RpcBudget(budget_path, policies, read_only=True) as budget:
+        counts = budget.counts()
+        if any(not 0 < counts[p.source] < p.max_requests for p in policies):
+            raise ValueError("original nonempty unexhausted RPC history required")
+    with closing(ReadOnlyEvidenceStore(evidence_path)) as evidence:
+        evidence.validate_existing_schema()
+        loop = object.__new__(LiveLoop)
+        loop.mode, loop.c, loop.state = "live", config, state
+        loop.receipt_costs = RetainedReceiptCostReader(
+            evidence,
+            chain_id=config.chain_id,
+            account=config.account,
+            native_decimals=config.decimals0,
+            sources=SOURCES,
+            sessions=_no_network,
+        )
+        loop._check_nav_checkpoint()
+        if state.nav_evidence:
+            value = replay_nav_quorum(evidence, state.nav_evidence, config, sources=SOURCES)
+            position = replay_nav(evidence, state.nav_evidence[0], config).position
+
+            if _position_identity(position) != _position_identity(
+                state.position
+            ) or state.last_units != [
+                value.wallet.native,
+                value.wallet.token,
+                position.liquidity if position else 0,
+            ]:
+                raise ValueError("retained inventory differs from checkpoint")
+    return {
+        "config_hash": expected,
+        "journal_tip": store.journal.revision,
+        "position_identity_hash": sha256_hex(
+            canonical_json(
+                [
+                    state.position.token_id,
+                    state.position.lower,
+                    state.position.upper,
+                    state.position.liquidity,
+                ]
+                if state.position
+                else None
+            )
+        ),
+        "rpc_remaining": {p.source: p.max_requests - counts[p.source] for p in policies},
+        "checkpoint_verified": True,
+    }
+
+
+def inspect_pair(
+    strategy: Path, authority: Path, config: LiveConfig, profile: LiveRpcProfile
+) -> dict[str, Any]:
+    if strategy.samefile(authority):
+        raise ValueError("distinct original state volumes required")
+    directories: dict[Role, Path] = {"strategy": strategy, "authority": authority}
+    with startup_locks(directories):
+        identities = set()
+        for role, directory in directories.items():
+            state_path, evidence_path, _ = paths(directory, role)
+            for path in (
+                state_path,
+                StateStore(state_path).journal_path,
+                evidence_path,
+                directory / "live.receipt-budget.db",
+            ):
+                info = require_file(path)
+                identity = (info.st_dev, info.st_ino)
+                if identity in identities:
+                    raise ValueError("distinct original service files required")
+                identities.add(identity)
+        services = {
+            role: inspect_service(directory, role, config, profile)
+            for role, directory in directories.items()
+        }
+        if (
+            services["strategy"]["position_identity_hash"]
+            != services["authority"]["position_identity_hash"]
+        ):
+            raise ValueError("service positions disagree")
+    return {
+        "schema": "oasis.live-startup-state.v1",
+        "startup_prerequisites_passed": True,
+        "execution_eligible": False,
+        "historical_only": True,
+        "limitations": [
+            "no_current_chain_or_nav_acceptance",
+            "no_service_start_or_execution_permit",
+            "host_operator_and_original_volume_identity_remain_trusted",
+        ],
+        "services": services,
+    }

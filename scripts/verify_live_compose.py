@@ -29,6 +29,7 @@ COMMANDS = {
     ],
     "authority": [
         *AUTHORITY,
+        "--require-existing-runtime",
         *CONFIG,
         *PROFILE,
         *STATE,
@@ -47,6 +48,7 @@ COMMANDS = {
     # budget of 4096; 300s polling stretches it to hours. Exit lag is at most one interval.
     "strategy": [
         *STRATEGY,
+        "--require-existing-runtime",
         *CONFIG,
         *PROFILE,
         *STATE,

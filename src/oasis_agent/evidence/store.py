@@ -28,9 +28,47 @@ def _envelope_bytes(value: object) -> bytes:
 
 
 class EvidenceStore:
-    def __init__(self, path: Path) -> None:
-        self._connection = sqlite3.connect(path)
-        self._migrate()
+    def __init__(self, path: Path, *, require_existing: bool = False) -> None:
+        self._connection = sqlite3.connect(
+            path.resolve().as_uri() + "?mode=rw" if require_existing else path,
+            uri=require_existing,
+        )
+        try:
+            if require_existing:
+                self.validate_existing_schema()
+            else:
+                self._migrate()
+        except Exception:
+            self._connection.close()
+            raise
+
+    def validate_existing_schema(self) -> None:
+        """Refuse lost or legacy runtime evidence; never repair it during startup."""
+        expected = {
+            "evidence_key",
+            "content_hash",
+            "kind",
+            "payload",
+            "chain_id",
+            "block_number",
+            "block_hash",
+            "source",
+            "retrieved_at",
+            "request_hash",
+            "raw_response_hash",
+            "interpretation_hash",
+            "request_payload",
+            "raw_response_payload",
+            "interpretation_payload",
+            "schema_version",
+        }
+        columns = self._connection.execute("PRAGMA table_info(evidence)").fetchall()
+        if (
+            {row[1] for row in columns} != expected
+            or not any(row[1] == "evidence_key" and row[5] == 1 for row in columns)
+            or self._connection.execute("PRAGMA quick_check").fetchall() != [("ok",)]
+        ):
+            raise ValueError("existing runtime evidence schema or integrity unresolved")
 
     def _migrate(self) -> None:
         columns = {

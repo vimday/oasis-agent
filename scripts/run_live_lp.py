@@ -43,6 +43,7 @@ from oasis_agent.live.recovery import (
 )
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
+from oasis_agent.live.startup_state import acquire_existing_lock, inspect_service
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
@@ -105,6 +106,7 @@ def main() -> None:
     parser.add_argument("--mode", choices=["shadow", "live"], required=True)
     parser.add_argument("--config", type=Path, default=ROOT / "configs/live.base-eth-usdc.json")
     parser.add_argument("--state-dir", type=Path, default=ROOT / "data/live")
+    parser.add_argument("--require-existing-runtime", action="store_true")
     parser.add_argument("--rpc-env", default="BASE_RPC_PRIMARY_ALT")
     parser.add_argument("--signer-socket", type=Path)
     parser.add_argument(
@@ -149,6 +151,21 @@ def main() -> None:
         help="reconcile pending once; optional public authority status only",
     )
     args = parser.parse_args()
+    if args.require_existing_runtime and (
+        args.mode != "live"
+        or any(
+            (
+                args.check,
+                args.readiness,
+                args.report,
+                args.clear_halt,
+                args.acknowledge_flow,
+                args.drop_pending,
+                args.reconcile_only,
+            )
+        )
+    ):
+        parser.error("--require-existing-runtime requires a normal live production run")
     if args.external_price_guard_bps is None:
         if args.okx_price_grant is not None or args.okx_price_budget is not None:
             parser.error("OKX grant and budget require --external-price-guard-bps")
@@ -210,6 +227,12 @@ def main() -> None:
             raise SystemExit(3) from None
 
     config = LiveConfig.load(args.config)
+    profile = LiveRpcProfile.load(args.rpc_profile)
+    if args.require_existing_runtime:
+        try:
+            inspect_service(args.state_dir, "strategy", config, profile)
+        except Exception:  # noqa: BLE001 - refuse before environment/RPC/signer access
+            parser.exit(3, "Original production runtime state unresolved.\n")
     external, guard_bps = None, 50
     if args.external_price_guard_bps is not None:
         try:
@@ -231,7 +254,6 @@ def main() -> None:
                 "OKX guard refused: query credentials, free pricing grant "
                 "or original budget unresolved.\n",
             )
-    profile = LiveRpcProfile.load(args.rpc_profile)
     if args.check:
         if args.mode != "live" or any(
             (
@@ -307,14 +329,24 @@ def main() -> None:
         and not StateStore(args.state_dir / "live.state.json").journal_path.is_file()
     ):
         parser.exit(3, "Recovery requires an existing strategy journal.\n")
-    args.state_dir.mkdir(parents=True, exist_ok=True)
+    if not args.require_existing_runtime:
+        args.state_dir.mkdir(parents=True, exist_ok=True)
     # One process per state file: two loops would race on the nonce and the state.
-    lock = (args.state_dir / f"{args.mode}.lock").open("w")
+    lock_path = args.state_dir / f"{args.mode}.lock"
+    lock = (
+        acquire_existing_lock(lock_path, exclusive=True)
+        if args.require_existing_runtime
+        else lock_path.open("w")
+    )
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         raise SystemExit(f"another {args.mode} loop holds {lock.name}") from None
-    store = StateStore(args.state_dir / f"{args.mode}.state.json")
+    if args.require_existing_runtime:
+        inspect_service(args.state_dir, "strategy", config, profile)
+    store = StateStore(
+        args.state_dir / f"{args.mode}.state.json", require_existing=args.require_existing_runtime
+    )
     if args.mode == "live" and not args.report:
         store.bind(sha256_hex(canonical_json(asdict(config))), require_existing=args.reconcile_only)
     if args.reconcile_only:
@@ -460,7 +492,9 @@ def main() -> None:
         costs = None
         if args.mode == "live":
             secondary_url = rpc_url(config.secondary_rpc_env)
-            evidence = EvidenceStore(args.state_dir / "live.receipts.db")
+            evidence = EvidenceStore(
+                args.state_dir / "live.receipts.db", require_existing=args.require_existing_runtime
+            )
             resources.callback(evidence.close)
             costs = receipt_cost_reader(
                 config,
@@ -469,9 +503,22 @@ def main() -> None:
                 primary_url,
                 secondary_url,
                 profile=profile,
+                require_existing_budget=args.require_existing_runtime,
             )
-            primary = BudgetedRpc(primary_url, args.state_dir, "live_primary", profile)
-            secondary = BudgetedRpc(secondary_url, args.state_dir, "live_secondary", profile)
+            primary = BudgetedRpc(
+                primary_url,
+                args.state_dir,
+                "live_primary",
+                profile,
+                require_existing_budget=args.require_existing_runtime,
+            )
+            secondary = BudgetedRpc(
+                secondary_url,
+                args.state_dir,
+                "live_secondary",
+                profile,
+                require_existing_budget=args.require_existing_runtime,
+            )
         loop = LiveLoop(
             config,
             primary,

@@ -49,7 +49,12 @@ class BudgetPolicy:
 
 class RpcBudget:
     def __init__(
-        self, path: Path, policies: tuple[BudgetPolicy, ...], *, require_existing: bool = False
+        self,
+        path: Path,
+        policies: tuple[BudgetPolicy, ...],
+        *,
+        require_existing: bool = False,
+        read_only: bool = False,
     ):
         if not policies or len({item.source for item in policies}) != len(policies):
             raise ValueError("distinct RPC budget policies required")
@@ -58,15 +63,18 @@ class RpcBudget:
             [asdict(item) for item in sorted(policies, key=lambda p: p.source)]
         )
         self.policy_hash = sha256_hex(payload)
+        require_existing = require_existing or read_only
         self.db = sqlite3.connect(
-            path.resolve().as_uri() + "?mode=rw" if require_existing else path,
+            path.resolve().as_uri() + ("?mode=ro" if read_only else "?mode=rw")
+            if require_existing
+            else path,
             uri=require_existing,
             isolation_level=None,
             timeout=10,
         )
         try:
-            self.db.execute("PRAGMA synchronous=FULL")
-            self.db.execute("BEGIN IMMEDIATE")
+            self.db.execute("PRAGMA query_only=ON" if read_only else "PRAGMA synchronous=FULL")
+            self.db.execute("BEGIN" if read_only else "BEGIN IMMEDIATE")
             if not require_existing:
                 self.db.execute(
                     "CREATE TABLE IF NOT EXISTS rpc_budget_policy "
@@ -82,7 +90,8 @@ class RpcBudget:
             ):
                 raise ValueError("RPC budget policy changed; refusing reset or increased cap")
             self._read()
-            self.db.commit()
+            if not read_only:
+                self.db.commit()
         except Exception:
             self.db.rollback()
             self.db.close()

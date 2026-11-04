@@ -27,6 +27,7 @@ from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.recovery import authority_status, require_recovery_wallets
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
+from oasis_agent.live.startup_state import acquire_existing_lock, inspect_service
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_start
@@ -47,6 +48,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, required=True)
+    parser.add_argument("--require-existing-runtime", action="store_true")
     parser.add_argument("--socket", type=Path)
     parser.add_argument(
         "--status-only",
@@ -66,6 +68,8 @@ def main() -> None:
     parser.add_argument("--max-signatures", type=int, default=12)
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
+    if args.require_existing_runtime and (args.status_only or args.reconcile_only):
+        parser.error("--require-existing-runtime requires a normal production authority")
     if args.status_only:
         if args.reconcile_only or args.key_file is not None or args.key_env is not None:
             parser.error("status-only forbids reconciliation and key options")
@@ -91,9 +95,21 @@ def main() -> None:
         parser.exit(3, "Authority state directory must be an existing private directory.\n")
     if directory.stat().st_uid != os.getuid():
         parser.exit(3, "Authority state directory must be owned by this service identity.\n")
-    with (directory / "authority.lock").open("a") as lock:
+    if args.require_existing_runtime:
+        try:
+            inspect_service(directory, "authority", config, profile)
+        except Exception:  # noqa: BLE001 - before environment/RPC/key access
+            parser.exit(3, "Original production runtime state unresolved.\n")
+    lock_path = directory / "authority.lock"
+    with (
+        acquire_existing_lock(lock_path, exclusive=True)
+        if args.require_existing_runtime
+        else lock_path.open("a")
+    ) as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        store = StateStore(directory / "state.json")
+        if args.require_existing_runtime:
+            inspect_service(directory, "authority", config, profile)
+        store = StateStore(directory / "state.json", require_existing=args.require_existing_runtime)
         if (args.status_only or args.reconcile_only) and not store.journal_path.is_file():
             parser.exit(3, "Recovery requires an existing authority journal.\n")
         store.bind(
@@ -136,7 +152,9 @@ def main() -> None:
             except Exception:  # noqa: BLE001 - no raw evidence or local path in diagnostics
                 parser.exit(3, "Authority recovery wallet evidence unresolved; state preserved.\n")
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
-        with closing(EvidenceStore(directory / "evidence.db")) as evidence:
+        with closing(
+            EvidenceStore(directory / "evidence.db", require_existing=args.require_existing_runtime)
+        ) as evidence:
             loop = LiveLoop.recovery(
                 config,
                 BudgetedRpc(
@@ -144,7 +162,7 @@ def main() -> None:
                     directory,
                     "live_primary",
                     profile,
-                    require_existing_budget=args.reconcile_only,
+                    require_existing_budget=args.reconcile_only or args.require_existing_runtime,
                 ),
                 store,
                 "live",
@@ -154,7 +172,7 @@ def main() -> None:
                 directory,
                 "live_secondary",
                 profile,
-                require_existing_budget=args.reconcile_only,
+                require_existing_budget=args.reconcile_only or args.require_existing_runtime,
             )
             loop.stop_file = directory / "STOP"
             loop.receipt_costs = receipt_cost_reader(
@@ -164,7 +182,7 @@ def main() -> None:
                 primary,
                 secondary,
                 profile=profile,
-                require_existing_budget=args.reconcile_only,
+                require_existing_budget=args.reconcile_only or args.require_existing_runtime,
             )
             if args.reconcile_only:
                 try:

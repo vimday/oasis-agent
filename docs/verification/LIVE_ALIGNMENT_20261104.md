@@ -131,3 +131,58 @@ used the same context and hash-locked dependencies under the normal build mode;
 the dependency layer was cached and the build exited 0. No paid RPC was called.
 Installed dependencies, base image and Docker daemon remain trusted inputs; the
 source comparison verifies application bytes, not their entire supply chain.
+
+## Follow-up: preserve original runtime state before startup
+
+The one-click launcher previously checked that its named Docker volumes existed,
+while the service entry points could initialize missing state or request ledgers.
+An existing volume with lost files could therefore become a new accounting or
+request-budget baseline. Production Compose commands now require
+`--require-existing-runtime`; that requirement persists through later `StateStore`
+rebinding, evidence opens and every budgeted acquisition. Missing originals are
+refused rather than created, and an existing evidence schema is checked without
+automatic migration.
+
+Before Compose starts either production service, the verified candidate runs
+`scripts.inspect_live_startup` with no network, RPC environment, key or socket,
+and only the two original state volumes mounted read-only. Both existing locks
+are held shared; a service writer refuses, while concurrent read-only inspections
+may coexist. Missing/empty/corrupt/shared files, a foreign configuration, STOP,
+HALT, pending signing/transactions, unresolved accounting or exhausted budgets
+refuse. Each production service repeats its check under its exclusive lock before
+RPC or key access. Opening and locking a replaced lock file is also refused by
+comparing the original path, locked descriptor and current path identities.
+
+This validates retained prerequisites, not current NAV or available dollar spend.
+Existing host/volume identity remains trusted. Manual research initialization
+remains separate; the production flag cannot be silently ignored by reporting,
+readiness, recovery or state-edit commands. A missing JSON projection requires
+explicit journal recovery before production startup.
+
+Two-provider acquisition now cooperatively cancels remaining calls after a worker
+observes the other worker's failure. A request already past its cancellation check
+may finish; both workers are joined and no partial quorum is accepted. The change
+adds no retry and does not refund, recreate or expand any budget.
+
+Internal focused checks passed 281 cases, followed by two additional lock-race
+cases; the cancellation suite passed 16 cases. The initial focused failures were
+test defects: two corrupt-evidence assertions omitted the production `ChainError`
+type, and a lock-replacement injector recursively invoked its patched `os.open`.
+Both were corrected without weakening the refusal behavior; failed and passing
+logs remain under `reports/review-20261104/startup-preservation/`. Its reviewed
+summary hash is `9c9ad9cdafdaa9af4966f16c98b80d7d93d2c3d80a42bef3c66de9b5689f092f`.
+
+An additional remaining implementation gap is explicit authority rearming after
+the strict-feed migration: migration deliberately sets/preserves HALT, and the
+authority CLI currently has no evidence-constrained rearm operation. The existing
+strategy clear-halt command is not a substitute for that authority operation.
+This follow-up implements neither rearming nor automatic STOP/HALT removal.
+
+The follow-up full `make live-quality` gate exited 0: **3940 tests and 138
+subtests passed**, with mypy, eight frontend modules, secret scanning, Bandit and
+Compose checks also successful. Each subprocess exit and retained log hash was
+verified. Report: `reports/review-20261104/startup-preservation-quality/report.json`,
+evidence hash `fab1b7446cc140fb47b95588e9a6f86ec56be8a9ec03d58d97a410f1bee2ef57`. The only source edit after this gate started
+clarified a lock docstring (shared readers may coexist); its Ruff check also exited
+0. No contract source changed; the earlier 70-contract-test result remains the
+contract validation for this unchanged tree.

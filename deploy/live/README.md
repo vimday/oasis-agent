@@ -24,6 +24,23 @@ key mount. All volumes are external to this startup operation: missing state can
 silently become fresh journals or budgets. Existing project containers require
 explicit recovery instead of an implicit restart/recreation.
 
+Before Compose starts either service, the verified candidate image checks both
+original state volumes with no network, key/socket mount or RPC environment. The
+volumes are read-only, both existing service locks are held shared, and missing,
+empty, corrupt, shared or configuration-mismatched state/evidence/budget files
+refuse. STOP, HALT, pending/signing uncertainty and unresolved accounting also
+refuse. This checks retained startup prerequisites, not current NAV or execution
+eligibility. It neither applies a feed migration nor clears a halt.
+
+Production service commands require `--require-existing-runtime`. Each service
+rechecks its original files under its exclusive lock and uses existing-only journal,
+evidence and request-budget opens throughout execution; losing a file after the
+precheck cannot silently initialize a replacement. Normal manual research setup
+without this production flag retains its explicit initialization behavior. The flag
+cannot be combined with reporting, readiness, reconciliation or state-edit commands.
+An absent JSON projection needs a separate journal recovery operation before a
+production start, even though read-only recovery can inspect the surviving journal.
+
 The entry never builds/pulls, initializes state, imports keys or activates setup/
 recovery profiles. It rechecks release and source/config identities immediately
 before one bounded startup command. A persisted attempt precedes that command;
