@@ -99,6 +99,39 @@ ASTs for every non-`main` CLI function against the previous commit and confirms
 the actual `start` implementation is unchanged. This is internal self-review,
 not an external audit or a new operator release approval.
 
+## Committed Docker candidate
+
+Implementation commit `f4b972efa4511ac5bd943791648b3fa21bdf4432` was archived as
+the exclusive build context and built with `--pull=false`; the hash-locked
+dependency-install layer was cached. Build, stopped-image source verification
+and the Linux smoke harness each exited 0, as did the enclosing builder.
+
+- Image: `sha256:5ed0028b471a05c3ae0cf5dfa72daab361a435b0126bc395d2154c9cd947f2fe`.
+- Application source manifest: `7416e66950fb2a1a9394c07a733f59650fe0239f85106f433e9ed4892f306518`.
+- Candidate report: `reports/review-20261105/runtime-f4b972e/summary.json`,
+  canonical evidence hash `98cabb05e0f8dcd1f981625e35e001790bcfb0f1cd5caf2db42cfade3fc8d55a`.
+- Independent artifact reverification: `runtime-f4b972e/reverification.json`,
+  hash `1e252c13950cfce881712270746eff69f9895824073e282582a4dd8627a219ce`.
+
+All 355 application files were independently compared to both committed and
+local bytes. All 357 archived files (application plus two Docker build files)
+were compared to the implementation commit. Canonical report/manifest hashes,
+script/archive hashes, all three log hashes and archive exit 0 were rechecked.
+Source verification covers application bytes; installed dependencies, base image
+and the local Docker daemon remain trusted inputs.
+
+The smoke process ran as UID 10001 with no network, a read-only root, dropped
+capabilities, `no-new-privileges`, a bounded PID count and temporary scratch
+space. No source, production state, socket or key volume was mounted. It refused
+execution-module imports and confirmed that CLI/API use the same local
+declaration. The committed five-pin CLI returned the expected refusal code 3
+without creating its output directory; this is an assertion inside the passing
+smoke harness, not a successful real startup. A synthetic eight-pin policy in
+scratch space passed only local guards, retaining all seven unverified live
+prerequisites and false execution eligibility. The canonical ERC-20 calldata
+vector also matched. This is a tested image candidate, not deployment or chain
+acceptance. No production configuration, STOP, budget or service state changed.
+
 This work performs zero production RPC, original-volume access, key access,
 configuration application, service starts, signatures or broadcasts. The USD
 500/200/500 capital/loss caps and both 1800-second feed ceilings are unchanged.
