@@ -488,3 +488,35 @@ The SSH follow-up read succeeded and verified remote `main` at
 also timed out (exit 128). All raw logs and exit/hash records are retained under
 `reports/review-20261104/ssh-delivery-followup/`. No global SSH or agent state
 was changed. Remote delivery remains unresolved; no force push was attempted.
+
+Implementation commit `531e2bee2e49f9c1750cf0a434ad7b94dd700833` produced
+candidate image
+`sha256:89461ed6a9233de23e83be7b21fde58462a24f772bd0a5431f2d19c88560e98b`
+from its clean committed runtime-only archive. The first `--network=none` build
+exited 1: that network setting missed the existing dependency-install cache and
+pip could not resolve hosts. Its original failure remains in `build.log` and
+`build.json`. Repeating with the repository's normal build setting exited 0;
+the locked dependency-install step was explicitly `CACHED` in `build-v2.log`.
+No dependency version was changed or installed in the successful build.
+
+The stopped-image source verifier exited 0 with all **348** application files
+matched, manifest hash
+`7ab855b2384ea6eaad10544cada03c5fe03f7a5f22173a8f017a3f0e808e7783`.
+An unprivileged network-disabled Linux container with no capabilities, no key or
+production mounts and only temporary tmpfs executed the actual urllib processing
+path over **12 in-memory HTTP requests** and synthetic budget directories. The
+malformed replies refused, restart did not renew their quota, and valid falsy
+results retained their protocol meaning. Smoke exited 0. Every exit and log/hash
+binding was verified before the candidate summary was written:
+
+```text
+reports/review-20261104/runtime-531e2be/summary.json
+evidence_hash: d6e2b355d092d684eef5d3937cd5daaf741f01f1203d70f1627b5fb28ebafa66
+```
+
+Both production containers were rechecked as exited on the unchanged original
+image `0b4f8cb42deb`. This is candidate implementation evidence, not present-day
+chain acceptance or deployment. No external RPC or real financial action occurred.
+The latest SSH delivery attempt and exit records belong under
+`reports/review-20261104/ssh-delivery-followup/`; a local commit or image must not
+be treated as successful remote publication.
