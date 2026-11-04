@@ -92,3 +92,33 @@ reports/review-20261105/feed-pair-atomic/regression-before.log
 reports/review-20261105/feed-pair-quality-v1/report.json
 passed evidence_hash: 5077351044fb74f7632fb009e7bb8caf43d8b9c1b110c85e73219ee47c2cd21c
 ```
+
+## Immutable Linux candidate
+
+Implementation commit `cc6ded2b7269edb024bce5b3309ff13847cee5f3` built
+candidate
+`sha256:36716bfd6c74ca40fee7b68242b10c106f27c2978f17f2e36a93e5c359337323`.
+Build, stopped-image source verification and Linux storage smoke each exited 0,
+without timeout. All **353** application files matched the committed archive and
+local source bytes; manifest hash
+`a2c275e04886a506fdbea88adaff662c6e5874a415cfe6b5f66b216ce4274a93`.
+Archive, script, log and report hashes were independently re-derived, and all
+ten locked source/config hashes still matched after the run.
+
+The unprivileged smoke ran with network disabled, a read-only root, dropped
+capabilities and temporary tmpfs, without production/source/key/socket mounts.
+It used two synthetic SQLite journals, a deliberately rejected peer insert,
+rollback and then a successful paired commit whose two chains reopened halted.
+DELETE/FULL settings were checked. This exercises storage staging/replay only:
+the raw-proof admission gate was explicitly not exercised by this Linux smoke,
+and tmpfs does not establish physical durability of the original production
+volumes. Complete raw-proof and SIGKILL cases belong to the host test suite.
+Dependencies, base runtime, Docker, filesystem locking and flush behavior remain
+trusted. This candidate was not deployed and no production volume was opened.
+
+```text
+reports/review-20261105/feed-pair-atomic/manual-review.json
+evidence_hash: 04ce3ab42884d9b311437f133ac0be903100523eec8c54c9cb6d086da5f4378d
+reports/review-20261105/runtime-cc6ded2/summary.json
+evidence_hash: 9188a45be00431f97877c5dc39cd8f8aeb51b5b80dafc118606566a4017b02cd
+```
