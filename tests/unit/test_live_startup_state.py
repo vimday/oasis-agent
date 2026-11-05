@@ -64,6 +64,47 @@ def snapshot(directory):
     }
 
 
+@pytest.mark.parametrize(
+    "database,suffix",
+    [("journal", "-journal"), ("evidence", "-wal"), ("budget", "-shm")],
+)
+@pytest.mark.parametrize("fault", ["wal_mode", "sidecar"])
+def test_startup_refuses_sqlite_recovery_artifacts_before_connecting(
+    tmp_path, monkeypatch, database, suffix, fault
+):
+    directory = tmp_path / "strategy"
+    config, profile, store = prepare(directory, "strategy")
+    database_path = {
+        "journal": store.journal_path,
+        "evidence": paths(directory, "strategy")[1],
+        "budget": directory / "live.receipt-budget.db",
+    }[database]
+    sidecar = database_path.with_name(database_path.name + suffix)
+    if fault == "wal_mode":
+        with closing(sqlite3.connect(database_path)) as db:
+            assert db.execute("PRAGMA journal_mode=WAL").fetchone() == ("wal",)
+        assert not any(
+            os.path.lexists(str(database_path) + s) for s in ("-wal", "-shm", "-journal")
+        )
+    else:
+        sidecar.symlink_to("missing-recovery-file")
+    before = snapshot(directory)
+    connect = sqlite3.connect
+    opened = []
+
+    def record_connection(*args, **kwargs):
+        opened.append(args[0])
+        return connect(*args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", record_connection)
+    with pytest.raises(ValueError, match=r"SQLite (recovery|rollback)"):
+        inspect_service(directory, "strategy", config, profile)
+    assert not opened
+    assert snapshot(directory) == before
+    if fault == "sidecar":
+        assert os.readlink(sidecar) == "missing-recovery-file"
+
+
 @pytest.mark.parametrize("role", ["strategy", "authority"])
 @pytest.mark.parametrize(
     "fault",

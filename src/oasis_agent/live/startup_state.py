@@ -82,6 +82,22 @@ def _no_network(*_: object) -> NoReturn:
     raise ValueError("startup inspection cannot acquire data")
 
 
+def _require_clean_databases(paths: tuple[Path, ...]) -> None:
+    """Require rollback-format SQLite files before opening a SQLite connection."""
+    for path in paths:
+        if any(os.path.lexists(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal")):
+            raise ValueError("SQLite recovery artifacts require separate inspection")
+        expected = require_file(path)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as handle:
+            opened = os.fstat(handle.fileno())
+            if (opened.st_dev, opened.st_ino) != (expected.st_dev, expected.st_ino):
+                raise ValueError("SQLite startup file changed while opening")
+            header = handle.read(20)
+        if header[:16] != b"SQLite format 3\x00" or header[18:20] != b"\x01\x01":
+            raise ValueError("SQLite rollback format required for startup")
+
+
 def _journal_history(store: StateStore, state: LoopState) -> list[tuple[str, bytes]]:
     """Return only rows verified at the checkpoint's own unchanged journal tip."""
     journal = store.journal
@@ -122,12 +138,13 @@ def inspect_service(
         raise ValueError("existing private owned service directory required")
     state_path, evidence_path, lock_path = paths(directory, role)
     store = StateStore(state_path, require_existing=True)
-    for path in (state_path, store.journal_path, evidence_path, lock_path):
+    for path in (state_path, lock_path):
         require_file(path)
     budget_path = directory / "live.receipt-budget.db"
-    require_file(budget_path)
     if os.path.lexists(directory / "STOP"):
         raise ValueError("service STOP must be resolved before startup")
+    databases = (store.journal_path, evidence_path, budget_path)
+    _require_clean_databases(databases)
     state = store.load("live", read_only=True)
     expected = sha256_hex(canonical_json(asdict(config)))
     if store.journal is None or store.journal.config_hash != expected:
@@ -209,6 +226,7 @@ def inspect_service(
                 }
             )
         )
+    _require_clean_databases(databases)
     return {
         "config_hash": expected,
         "journal_tip": store.journal.revision,
