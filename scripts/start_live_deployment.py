@@ -40,8 +40,7 @@ MAX_STATE_REPORT_BYTES = 4096
 
 
 def local_environment() -> dict[str, str]:
-    # Source/image verification uses the same default Docker context. Refuse
-    # ambient overrides instead of inspecting one daemon and starting on another.
+    # Resolve the operator's selected context without ambient overrides.
     if any(k.startswith("DOCKER_") for k in os.environ):
         raise ValueError("Docker environment overrides are not allowed")
     return {k: os.environ[k] for k in ("PATH", "HOME") if k in os.environ}
@@ -245,6 +244,13 @@ def require_local_runtime_policy() -> tuple[str, int]:
     return sha256_hex(canonical_json(asdict(config))), profile.max_requests
 
 
+def _require_no_existing_services(env: dict[str, str]) -> None:
+    if command(
+        ["ps", "-aq", "--filter", "label=com.docker.compose.project=oasis-live"], env
+    ).strip():
+        raise ValueError("existing project containers require explicit recovery")
+
+
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
     config_hash, rpc_max_requests = require_local_runtime_policy()
@@ -260,14 +266,22 @@ def start(image: str, output: Path) -> dict:
     try:
         env = local_environment()
         contexts = json.loads(command(["context", "inspect"], env))
-        if len(contexts) != 1 or not contexts[0]["Endpoints"]["docker"]["Host"].startswith(
-            "unix://"
+        if not isinstance(contexts, list) or len(contexts) != 1:
+            raise ValueError("local Unix-socket Docker context required")
+        host = contexts[0]["Endpoints"]["docker"]["Host"]
+        if (
+            not isinstance(host, str)
+            or re.fullmatch(r"unix:///(?!/)[^?#\x00-\x1f\x7f]+", host) is None
         ):
             raise ValueError("local Unix-socket Docker context required")
+        # Pin every daemon-bound subprocess to this endpoint. The selected
+        # Docker context may change while preflight is running.
+        env = env | {"DOCKER_HOST": host}
+        report["docker_host_hash"] = sha256_hex(host.encode())
         stage = "deployment_policy"
         policy = compose.inspect()
         stage = "image_sources"
-        identity = verify(image, output / "image-sources.json")
+        identity = verify(image, output / "image-sources.json", env=env)
         report.update(
             image=identity["image"],
             manifest_hash=identity["manifest_hash"],
@@ -285,10 +299,7 @@ def start(image: str, output: Path) -> dict:
         ):
             raise ValueError("existing local volumes without remote driver options required")
         stage = "existing_services"
-        if command(
-            ["ps", "-aq", "--filter", "label=com.docker.compose.project=oasis-live"], env
-        ).strip():
-            raise ValueError("existing project containers require explicit recovery")
+        _require_no_existing_services(env)
         stage = "original_runtime_state"
         preflight = state_preflight(
             identity["image"], env, config_hash=config_hash, rpc_max_requests=rpc_max_requests
@@ -303,6 +314,8 @@ def start(image: str, output: Path) -> dict:
             raise ValueError("runtime sources changed before start")
         if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
             raise ValueError("deployment configuration changed before start")
+        stage = "existing_services_recheck"
+        _require_no_existing_services(env)
         stage = "compose_start"
         report["start_attempted"] = True
         report["status"] = "unresolved"  # Persist before the only state-changing command.

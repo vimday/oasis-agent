@@ -79,12 +79,23 @@ def test_stale_extra_or_ambiguous_image_contents_refuse(fault):
 def test_stopped_immutable_container_cleanup_and_report(tmp_path, monkeypatch, fault):
     image, base = images()
     calls = []
+    pinned_env = {"DOCKER_HOST": "unix:///test.sock"}
     manifests = [EXPECTED, EXPECTED if fault != "changed_during_check" else {}]
     monkeypatch.setattr(cli, "source_manifest", lambda: manifests.pop(0))
-    monkeypatch.setattr(cli, "inspect_image", lambda _: image)
-    monkeypatch.setattr(cli, "inspect_base", lambda: base)
 
-    def docker(*args):
+    def inspect_image(_, *, env):
+        assert env == pinned_env
+        return image
+
+    def inspect_base(*, env):
+        assert env == pinned_env
+        return base
+
+    monkeypatch.setattr(cli, "inspect_image", inspect_image)
+    monkeypatch.setattr(cli, "inspect_base", inspect_base)
+
+    def docker(*args, env):
+        assert env == pinned_env
         calls.append(args)
         assert args[0] in {"create", "rm"}
         if args[0] == "create":
@@ -99,6 +110,7 @@ def test_stopped_immutable_container_cleanup_and_report(tmp_path, monkeypatch, f
         assert command[2].startswith("oasis-source-check-")
         assert command[2].endswith(":/app/.") and command[-1] == "-"
         assert kwargs["timeout"] == 60
+        assert kwargs["env"] == pinned_env
         if fault == "copy":
             raise OSError("copy failed")
         kwargs["stdout"].write(archive({} if fault == "content" else None).getvalue())
@@ -108,10 +120,10 @@ def test_stopped_immutable_container_cleanup_and_report(tmp_path, monkeypatch, f
     out = tmp_path / "report.json"
     if fault:
         with pytest.raises((OSError, ValueError)):
-            cli.verify("mutable-tag", out)
+            cli.verify("mutable-tag", out, env=pinned_env)
         assert not out.exists()
     else:
-        report = cli.verify("mutable-tag", out)
+        report = cli.verify("mutable-tag", out, env=pinned_env)
         assert report["application_sources_verified"] and not report["execution_eligible"]
         assert not report["container_started"] and report["files"] == EXPECTED
         assert json.loads(out.read_text()) == report

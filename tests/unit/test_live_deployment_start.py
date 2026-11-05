@@ -15,6 +15,7 @@ from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_lp import CONFIG
 
 IMAGE = "sha256:" + "ab" * 32
+DOCKER_SOCKET = "unix:///test.sock"
 CONFIG_HASH = "11" * 32
 RPC_MAX_REQUESTS = 37
 LIMITATIONS = [
@@ -116,7 +117,7 @@ def test_document_refuses_ambiguous_image_or_endpoints(image, rpc):
         cli.runtime_document(image, rpc)
 
 
-def setup(tmp_path, monkeypatch, fault=None):
+def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
     for name in tuple(os.environ):
         if name.startswith("DOCKER_"):
             monkeypatch.delenv(name)
@@ -137,17 +138,27 @@ def setup(tmp_path, monkeypatch, fault=None):
         "inspect",
         lambda: {"compose_hash": sha256_hex(cli.compose.COMPOSE.read_bytes())},
     )
-    monkeypatch.setattr(cli, "verify", lambda *_: {"image": IMAGE, "manifest_hash": digest})
+
+    def verify(*_, env=None):
+        if observed_envs is not None:
+            observed_envs.append(env or {})
+        return {"image": IMAGE, "manifest_hash": digest}
+
+    monkeypatch.setattr(cli, "verify", verify)
     monkeypatch.setattr(
         cli, "source_manifest", lambda: {} if fault == "changed_sources" else sources
     )
 
     def command(args, env, *, payload=None):
-        if args[0] == "compose":
-            assert set(env) <= {"PATH", "HOME", *RPC}
+        if observed_envs is not None:
+            observed_envs.append(env)
+        if args[:2] == ["context", "inspect"]:
+            assert set(env) <= {"PATH", "HOME"}
+        elif args[0] == "compose":
+            assert set(env) <= {"PATH", "HOME", "DOCKER_HOST", *RPC}
             assert {name: env[name] for name in RPC} == RPC
         else:
-            assert set(env) <= {"PATH", "HOME"}
+            assert set(env) <= {"PATH", "HOME", "DOCKER_HOST"}
             assert all("SECRET" not in value for value in env.values())
         calls.append((args, payload))
         if args[:2] == ["context", "inspect"]:
@@ -158,7 +169,9 @@ def setup(tmp_path, monkeypatch, fault=None):
                             "docker": {
                                 "Host": "tcp://remote:2375"
                                 if fault == "remote"
-                                else "unix:///test.sock"
+                                else "unix://relative.sock"
+                                if fault == "relative_socket"
+                                else DOCKER_SOCKET
                             }
                         }
                     }
@@ -178,7 +191,8 @@ def setup(tmp_path, monkeypatch, fault=None):
                 ]
             )
         if args[0] == "ps":
-            return b"existing" if fault == "existing" else b""
+            late = fault == "late_existing" and any(a[0] == "run" for a, _ in calls)
+            return b"existing" if fault == "existing" or late else b""
         if args[0] == "run":
             assert "--network=none" in args and "--read-only" in args
             assert "--pull=never" in args and IMAGE in args
@@ -289,9 +303,11 @@ def setup(tmp_path, monkeypatch, fault=None):
     "fault",
     [
         "remote",
+        "relative_socket",
         "missing_volume",
         "volume_driver",
         "existing",
+        "late_existing",
         "changed_sources",
         "state_refused",
         "state_extra",
@@ -328,11 +344,14 @@ def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     assert "SECRET" not in json.dumps(report)
     assert not (output / "attempt.json").exists()
     assert json.loads((output / "report.json").read_bytes()) == report
-    if fault == "changed_sources":
+    if fault in {"changed_sources", "late_existing"}:
         assert report["state_preflight_exit_code"] == 0
     else:
         assert "state_preflight" not in report
         assert "state_preflight_exit_code" not in report
+    if fault == "late_existing":
+        assert report["failure_stage"] == "existing_services_recheck"
+        assert sum(args[0] == "ps" for args, _ in calls) == 2
 
 
 @pytest.mark.parametrize(
@@ -352,7 +371,8 @@ def test_preflight_retains_expected_refusal_without_starting(tmp_path, monkeypat
 
 @pytest.mark.parametrize("fault", [None, "timeout", "partial_failure"])
 def test_one_start_attempt_preserves_uncertainty_and_redacts_secrets(tmp_path, monkeypatch, fault):
-    calls = setup(tmp_path, monkeypatch, fault)
+    envs = []
+    calls = setup(tmp_path, monkeypatch, fault, observed_envs=envs)
     report = cli.start(IMAGE, tmp_path / "attempt")
     assert report["status"] == ("unresolved" if fault else "start_command_completed")
     assert (
@@ -361,6 +381,11 @@ def test_one_start_attempt_preserves_uncertainty_and_redacts_secrets(tmp_path, m
         and not report["execution_eligible"]
     )
     assert sum(args[0] == "compose" for args, _ in calls) == 1
+    assert envs and "DOCKER_HOST" not in envs[0]
+    assert all(env.get("DOCKER_HOST") == DOCKER_SOCKET for env in envs[1:])
+    assert [args[0] for args, _ in calls][-3:] == ["run", "ps", "compose"]
+    assert report["docker_host_hash"] == sha256_hex(DOCKER_SOCKET.encode())
+    assert DOCKER_SOCKET not in json.dumps(report)
     assert "SECRET" not in json.dumps(report)
     with pytest.raises(FileExistsError):
         cli.start(IMAGE, tmp_path / "attempt")

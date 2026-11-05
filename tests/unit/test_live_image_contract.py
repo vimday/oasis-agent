@@ -76,7 +76,8 @@ def test_image_defaults_refuse_before_creating_any_resource(tmp_path, monkeypatc
     image["Config"][field] = value
     calls = []
 
-    def docker(*args):
+    def docker(*args, env=None):
+        assert env is None
         calls.append(args)
         assert args[:2] == ("image", "inspect"), "invalid image must not start a container"
         if "--format" in args:
@@ -136,7 +137,8 @@ def test_good_contract_binds_report_and_runs_only_immutable_image(tmp_path, monk
     originals = copy.deepcopy((image, base))
     calls = []
 
-    def docker(*args):
+    def docker(*args, env=None):
+        assert env is None
         calls.append(args)
         if args[:2] == ("image", "inspect"):
             return json.dumps([base if args[2] == cli.BASE_IMAGE else image])
@@ -180,8 +182,10 @@ def test_base_id_lookup_requires_exact_repository_digest(monkeypatch, fault):
     elif fault == "missing_digest":
         base.pop("RepoDigests")
     calls = []
+    pinned_env = {"DOCKER_HOST": "unix:///test.sock"}
 
-    def docker(*args):
+    def docker(*args, env):
+        assert env == pinned_env
         calls.append(args)
         if args == ("image", "inspect", cli.BASE_IMAGE):
             raise subprocess.CalledProcessError(1, ["docker", *args])
@@ -197,8 +201,8 @@ def test_base_id_lookup_requires_exact_repository_digest(monkeypatch, fault):
 
     monkeypatch.setattr(cli, "docker", docker)
     if fault is None:
-        assert cli.inspect_base() == base
+        assert cli.inspect_base(env=pinned_env) == base
     else:
         with pytest.raises(ValueError):
-            cli.inspect_base()
+            cli.inspect_base(env=pinned_env)
     assert all(a[0] == "image" for a in calls)

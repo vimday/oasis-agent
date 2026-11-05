@@ -34,12 +34,15 @@ requires explicit RPC environment variables, the existing four named state/socke
 volumes, and a new output directory (`LIVE_START_OUTPUT`, default
 `reports/runs/live-start`). It verifies the local Unix-socket Docker context,
 expanded deployment policy and every tracked application file in `LIVE_IMAGE`
-(default `oasis-live:local`), then uses the verified immutable image ID. It sends a
+(default `oasis-live:local`), then uses the verified immutable image ID. Image,
+volume, state and startup commands use the Unix socket selected at the beginning
+of the attempt. The report records a digest of that endpoint. It sends a
 fixed two-service Compose document through stdin; no RPC endpoint is saved in a
 report. Only the two RPC variables reach the containers, and the strategy has no
 key mount. All volumes are external to this startup operation: missing state cannot
 silently become fresh journals or budgets. Existing project containers require
-explicit recovery instead of an implicit restart/recreation.
+explicit recovery. The launcher checks their inventory again after preflight and
+before recording a start attempt.
 
 Before Compose starts either service, the verified candidate image checks both
 original state volumes with no network, key/socket mount or RPC environment. The

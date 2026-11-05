@@ -80,36 +80,42 @@ def runtime_contract(runtime: dict, base: dict) -> dict:
     }
 
 
-def inspect_image(image: str) -> dict:
-    data = json.loads(docker("image", "inspect", image))
+def inspect_image(image: str, *, env: dict[str, str] | None = None) -> dict:
+    data = json.loads(docker("image", "inspect", image, env=env))
     if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
         raise ValueError("one local image required")
     return data[0]
 
 
-def inspect_base() -> dict:
+def inspect_base(*, env: dict[str, str] | None = None) -> dict:
     try:
-        base = inspect_image(BASE_IMAGE)
+        base = inspect_image(BASE_IMAGE, env=env)
     except subprocess.CalledProcessError:
         # Some local stores list tags/digests but resolve only image IDs. The
         # tag is a locator only: the inspected object's RepoDigests must still
         # contain the exact pinned digest. Never pull or accept a tag alone.
         identities = set(
             docker(
-                "image", "ls", "--quiet", "--no-trunc", "--filter", "reference=python:3.12-slim"
+                "image",
+                "ls",
+                "--quiet",
+                "--no-trunc",
+                "--filter",
+                "reference=python:3.12-slim",
+                env=env,
             ).splitlines()
         )
         if len(identities) != 1:
             raise ValueError("one locally retained pinned base required") from None
-        base = inspect_image(identities.pop())
+        base = inspect_image(identities.pop(), env=env)
     if BASE_REPO_DIGEST not in base.get("RepoDigests", []):
         raise ValueError("local base repository digest differs from pin")
     return base
 
 
-def docker(*args: str) -> str:
+def docker(*args: str, env: dict[str, str] | None = None) -> str:
     result = subprocess.run(  # nosec B603 B607 - fixed Docker CLI; no shell or credentials
-        ["docker", *args], check=True, capture_output=True, text=True, timeout=60
+        ["docker", *args], env=env, check=True, capture_output=True, text=True, timeout=60
     )
     return result.stdout.strip()
 

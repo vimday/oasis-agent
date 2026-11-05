@@ -84,19 +84,22 @@ def verify_archive(stream: BinaryIO, expected: dict[str, str]) -> dict[str, str]
     return observed
 
 
-def verify(image: str, output: Path) -> dict:
+def verify(image: str, output: Path, *, env: dict[str, str] | None = None) -> dict:
     if output.exists() or output.is_symlink():
         raise ValueError("output exists; preserve previous evidence")
     expected = source_manifest()
-    contract = runtime_contract(inspect_image(image), inspect_base())
+    contract = runtime_contract(inspect_image(image, env=env), inspect_base(env=env))
     name = "oasis-source-check-" + uuid.uuid4().hex
     created = False
     try:
-        docker("create", "--name", name, "--network=none", "--read-only", contract["image"])
+        docker(
+            "create", "--name", name, "--network=none", "--read-only", contract["image"], env=env
+        )
         created = True
         with TemporaryFile() as archive:
             subprocess.run(  # nosec B603 B607 - fixed Docker copy from stopped temporary container
                 ["docker", "cp", name + ":/app/.", "-"],
+                env=env,
                 check=True,
                 stdout=archive,
                 stderr=subprocess.PIPE,
@@ -125,7 +128,7 @@ def verify(image: str, output: Path) -> dict:
         }
     finally:
         if created:
-            docker("rm", name)
+            docker("rm", name, env=env)
     report["evidence_hash"] = sha256_hex(canonical_json(report))
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("x") as handle:
