@@ -13,10 +13,11 @@ from ..evidence.store import ReadOnlyEvidenceStore
 from ..models.common import canonical_json, sha256_hex
 from ..rpc.budget import RpcBudget
 from .config import LiveConfig
+from .rearm_history import replay_history
 from .receipts import RetainedReceiptCostReader
 from .rpc_profile import LiveRpcProfile
 from .runner import LiveLoop
-from .state import Position, StateStore
+from .state import LoopState, Position, StateStore
 from .valuation import replay_nav, replay_nav_quorum
 
 SOURCES = ("live_primary", "live_secondary")
@@ -79,6 +80,27 @@ def acquire_existing_lock(path: Path, *, exclusive: bool) -> BinaryIO:
 
 def _no_network(*_: object) -> NoReturn:
     raise ValueError("startup inspection cannot acquire data")
+
+
+def _journal_history(store: StateStore, state: LoopState) -> list[tuple[str, bytes]]:
+    """Return only rows verified at the checkpoint's own unchanged journal tip."""
+    journal = store.journal
+    if journal is None or journal.revision is None:
+        raise ValueError("loaded original journal required")
+    expected = journal.revision
+    with closing(journal._connect(read_only=True)) as db:
+        db.execute("BEGIN")
+        tip, payload = journal._read(db)
+        if (
+            tip != expected
+            or payload is None
+            or canonical_json(asdict(store._decode(payload, "live")))
+            != canonical_json(asdict(state))
+        ):
+            raise ValueError("original checkpoint changed before history replay")
+        rows = db.execute("SELECT config, payload FROM events ORDER BY seq").fetchall()
+        db.execute("COMMIT")
+    return rows
 
 
 def inspect_service(
@@ -144,7 +166,9 @@ def inspect_service(
             sources=SOURCES,
             sessions=_no_network,
         )
-        loop._check_nav_checkpoint()
+        anchor = loop._check_nav_checkpoint()
+        if anchor is None:
+            raise ValueError("verified original wallet anchor required")
         if state.nav_evidence:
             value = replay_nav_quorum(evidence, state.nav_evidence, config, sources=SOURCES)
             position = replay_nav(evidence, state.nav_evidence[0], config).position
@@ -157,6 +181,34 @@ def inspect_service(
                 position.liquidity if position else 0,
             ]:
                 raise ValueError("retained inventory differs from checkpoint")
+        rows = _journal_history(store, state)
+        try:
+            historical = replay_history(
+                rows,
+                state,
+                config,
+                evidence,
+                SOURCES,
+                current_nonce=anchor.nonce,
+            )
+        except Exception:  # noqa: BLE001 - retained wire diagnostics can contain provider data
+            raise ValueError("retained complete settlement history cannot be replayed") from None
+        history_hash = sha256_hex(canonical_json(historical))
+        continuity_hash = sha256_hex(
+            canonical_json(
+                {
+                    "schema": "oasis.startup-financial-continuity.v1",
+                    "config_hash": expected,
+                    "basis": risk.basis,
+                    "external": risk.external,
+                    "native_gas_units": state.gas_spent_wei,
+                    "settled_history_hash": history_hash,
+                    "wallet_nonce": anchor.nonce,
+                    "last_units": state.last_units,
+                    "position": _position_identity(state.position),
+                }
+            )
+        )
     return {
         "config_hash": expected,
         "journal_tip": store.journal.revision,
@@ -174,6 +226,10 @@ def inspect_service(
         ),
         "rpc_remaining": {p.source: p.max_requests - counts[p.source] for p in policies},
         "checkpoint_verified": True,
+        "settled_history_replayed": True,
+        "settlement_count": len(historical),
+        "settled_history_hash": history_hash,
+        "financial_continuity_hash": continuity_hash,
     }
 
 
@@ -207,6 +263,9 @@ def inspect_pair(
             != services["authority"]["position_identity_hash"]
         ):
             raise ValueError("service positions disagree")
+        for field in ("settlement_count", "settled_history_hash", "financial_continuity_hash"):
+            if services["strategy"][field] != services["authority"][field]:
+                raise ValueError("services disagree on original capital or settled history")
     return {
         "schema": "oasis.live-startup-state.v1",
         "startup_prerequisites_passed": True,
@@ -216,6 +275,7 @@ def inspect_pair(
             "no_current_chain_or_nav_acceptance",
             "no_service_start_or_execution_permit",
             "host_operator_and_original_volume_identity_remain_trusted",
+            "journaled_history_only_no_account_transaction_discovery",
         ],
         "services": services,
     }

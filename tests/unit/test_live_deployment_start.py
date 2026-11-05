@@ -143,13 +143,44 @@ def setup(tmp_path, monkeypatch, fault=None):
             )
             if fault == "state_refused":
                 raise subprocess.CalledProcessError(3, args, output=b"SECRET")
+            service = {
+                "checkpoint_verified": True,
+                "settled_history_replayed": True,
+                "settlement_count": 0,
+                "config_hash": "11" * 32,
+                "journal_tip": "22" * 32,
+                "position_identity_hash": "33" * 32,
+                "settled_history_hash": "44" * 32,
+                "financial_continuity_hash": "55" * 32,
+            }
+            authority = dict(service)
+            if fault == "history_missing":
+                authority.pop("settled_history_replayed")
+            elif fault == "history_false":
+                authority["settled_history_replayed"] = False
+            elif fault == "history_hash_invalid":
+                authority["settled_history_hash"] = "invalid SECRET"
+            elif fault == "history_count_bool":
+                authority["settlement_count"] = False
+            elif fault == "history_count_large":
+                authority["settlement_count"] = 10_001
+            elif fault == "history_count_negative":
+                authority["settlement_count"] = -1
+            elif fault == "history_disagreement":
+                authority["settled_history_hash"] = "66" * 32
+            elif fault == "capital_disagreement":
+                authority["financial_continuity_hash"] = "66" * 32
+            elif fault == "config_disagreement":
+                authority["config_hash"] = "66" * 32
+            elif fault == "checkpoint_unverified":
+                authority["checkpoint_verified"] = False
             return canonical_json(
                 {
                     "schema": "oasis.live-startup-state.v1",
                     "startup_prerequisites_passed": fault != "state_bad_report",
                     "historical_only": True,
                     "execution_eligible": False,
-                    "services": {"strategy": {}, "authority": {}},
+                    "services": {"strategy": dict(service), "authority": authority},
                 }
             )
         assert args[0] == "compose" and args[-2:] == ["authority", "strategy"]
@@ -181,6 +212,16 @@ def setup(tmp_path, monkeypatch, fault=None):
         "changed_sources",
         "state_refused",
         "state_bad_report",
+        "history_missing",
+        "history_false",
+        "history_hash_invalid",
+        "history_count_bool",
+        "history_count_large",
+        "history_count_negative",
+        "history_disagreement",
+        "capital_disagreement",
+        "config_disagreement",
+        "checkpoint_unverified",
     ],
 )
 def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):

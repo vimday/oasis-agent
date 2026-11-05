@@ -1,4 +1,4 @@
-"""Offline replay of every journaled settlement before an operator rearm."""
+"""Offline replay of every journaled settlement before startup or operator rearm."""
 
 import json
 from typing import Any

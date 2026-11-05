@@ -125,13 +125,45 @@ def state_preflight(image: str, env: dict[str, str]) -> dict:
         )
     )
     if (
-        result.get("schema") != "oasis.live-startup-state.v1"
+        not isinstance(result, dict)
+        or result.get("schema") != "oasis.live-startup-state.v1"
         or result.get("startup_prerequisites_passed") is not True
         or result.get("execution_eligible") is not False
         or result.get("historical_only") is not True
+        or not isinstance(result.get("services"), dict)
         or set(result.get("services", {})) != {"strategy", "authority"}
     ):
         raise ValueError("original runtime state preflight refused")
+    services = result["services"]
+    for service in services.values():
+        if (
+            not isinstance(service, dict)
+            or service.get("checkpoint_verified") is not True
+            or service.get("settled_history_replayed") is not True
+            or type(service.get("settlement_count")) is not int
+            or not 0 <= service["settlement_count"] <= 10_000
+            or any(
+                not isinstance(service.get(field), str)
+                or re.fullmatch(r"[0-9a-f]{64}", service[field]) is None
+                for field in (
+                    "config_hash",
+                    "journal_tip",
+                    "position_identity_hash",
+                    "settled_history_hash",
+                    "financial_continuity_hash",
+                )
+            )
+        ):
+            raise ValueError("complete original financial history report required")
+    for field in (
+        "config_hash",
+        "position_identity_hash",
+        "settlement_count",
+        "settled_history_hash",
+        "financial_continuity_hash",
+    ):
+        if services["strategy"][field] != services["authority"][field]:
+            raise ValueError("original financial history reports disagree")
     return result
 
 
