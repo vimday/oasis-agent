@@ -48,6 +48,83 @@ const UNVERIFIED = {
   receipt_fund_recovery: "真实回执、资金及撤仓恢复",
   state_configuration_binding: "当前记录与待启动配置的绑定",
 };
+const PAIR_STATES = {
+  unconfigured: "未配置双服务离线检查摘要",
+  missing: "双服务检查摘要不存在",
+  invalid: "双服务检查摘要无法校验",
+  stale: "双服务检查摘要已过期",
+  configuration_mismatch: "检查记录与待启动配置不一致",
+  projection_incomplete: "日志已验证，JSON 投影尚未同步",
+  aligned: "检查时双服务配置与投影一致",
+};
+const PAIR_BLOCKERS = {
+  pair_inspection_unconfigured: "请先导出原始双服务离线检查摘要",
+  pair_inspection_missing: "配置的检查摘要不存在",
+  pair_inspection_invalid: "摘要格式、字段或内容哈希无法校验",
+  pair_inspection_clock_invalid: "摘要检查时间在未来",
+  pair_inspection_stale: "离线检查已超过 300 秒；页面刷新不会更新检查时间",
+  start_configuration_unverified: "待启动配置未验证",
+  start_configuration_mismatch: "检查目标与本地待启动配置不同",
+  service_configuration_disagreement: "两服务绑定的配置不同",
+  service_position_disagreement: "两服务记录的持仓不同",
+};
+for (const [role, label] of [["strategy", "策略"], ["authority", "签名服务"]]) {
+  for (const [code, text] of Object.entries({configuration_mismatch: "绑定与检查目标不同",
+    projection_incomplete: "JSON 投影落后于已验证日志", halted: "仍保留停机标记",
+    has_pending: "存在待对账交易", has_signing_attempt: "签名结果未知",
+    legacy_gas_cost_incomplete: "历史 gas 成本不完整"})) PAIR_BLOCKERS[`${role}_${code}`] = `${label}：${text}`;
+}
+const digest = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+
+function pairValid(p, startup) {
+  if (!p || p.schema !== "oasis.live-pair-status.v1" ||
+      p.source !== "local_pair_inspection_declaration" || p.execution_eligible !== false ||
+      p.evidence_replayed !== false || p.rpc_requests !== 0 || !Object.hasOwn(PAIR_STATES, p.status) ||
+      !Array.isArray(p.blockers) || p.blockers.some(code => !Object.hasOwn(PAIR_BLOCKERS, code))) return false;
+  if (["unconfigured", "missing", "invalid"].includes(p.status)) {
+    const codes = {unconfigured: ["pair_inspection_unconfigured"], missing: ["pair_inspection_missing"],
+      invalid: ["pair_inspection_invalid", "pair_inspection_clock_invalid"]};
+    return p.inspection === null && p.inspection_age_seconds === null &&
+      p.blockers.length === 1 && codes[p.status].includes(p.blockers[0]);
+  }
+  const r = p.inspection;
+  if (!r || r.schema !== "oasis.live-pair-inspection.v1" || r.execution_eligible !== false ||
+      r.historical_only !== true || r.rpc_requests !== 0 || !digest(r.expected_config_hash) || !digest(r.evidence_hash) ||
+      !Number.isSafeInteger(r.inspected_at) || r.inspected_at < 0 ||
+      !Number.isSafeInteger(p.inspection_age_seconds) || p.inspection_age_seconds < 0 ||
+      !r.services || Object.keys(r.services).sort().join() !== "authority,strategy") return false;
+  const blockers = [];
+  for (const role of ["strategy", "authority"]) {
+    const s = r.services[role];
+    if (!s || ["config_hash", "journal_tip", "state_hash", "projection_hash", "position_identity_hash"].some(key => !digest(s[key])) ||
+        ["projection_current", "runtime_epoch_present", "halted", "has_pending", "has_signing_attempt", "legacy_gas_cost_incomplete"].some(key => typeof s[key] !== "boolean") ||
+        s.projection_current !== (s.state_hash === s.projection_hash)) return false;
+    if (s.config_hash !== r.expected_config_hash) blockers.push(`${role}_configuration_mismatch`);
+    if (!s.projection_current) blockers.push(`${role}_projection_incomplete`);
+    for (const flag of ["halted", "has_pending", "has_signing_attempt", "legacy_gas_cost_incomplete"]) if (s[flag]) blockers.push(`${role}_${flag}`);
+  }
+  const a = r.services.strategy, b = r.services.authority;
+  if (a.config_hash !== b.config_hash) blockers.push("service_configuration_disagreement");
+  if (a.position_identity_hash !== b.position_identity_hash) blockers.push("service_position_disagreement");
+  if (startup.configuration_hash === null) blockers.push("start_configuration_unverified");
+  else if (startup.configuration_hash !== r.expected_config_hash) blockers.push("start_configuration_mismatch");
+  let status = blockers.some(code => code.includes("configuration_mismatch") || code.includes("configuration_disagreement"))
+    ? "configuration_mismatch" : a.projection_current && b.projection_current ? "aligned" : "projection_incomplete";
+  if (p.inspection_age_seconds > 300) { status = "stale"; blockers.push("pair_inspection_stale"); }
+  return p.status === status && JSON.stringify(p.blockers) === JSON.stringify(blockers);
+}
+
+function renderPair(p) {
+  const r = p.inspection;
+  $("live-pair").innerHTML = `<strong>${PAIR_STATES[p.status]}</strong>` +
+    (r ? `<p>检查于 ${fmtTime(r.inspected_at)} · 检查年龄 ${p.inspection_age_seconds} 秒 · 摘要 ${esc(r.evidence_hash.slice(0, 12))}</p>` +
+      ["strategy", "authority"].map(role => {
+        const s = r.services[role];
+        return `<p>${role === "strategy" ? "策略" : "签名服务"}：配置 ${esc(s.config_hash.slice(0, 12))} · 日志 ${esc(s.journal_tip.slice(0, 12))} · ${s.projection_current ? "投影一致" : "投影落后"} · ${s.runtime_epoch_present ? "已记录运行时迁移" : "未记录运行时迁移"}</p>`;
+      }).join("") : "") +
+    `<ul>${p.blockers.map(code => `<li>${esc(PAIR_BLOCKERS[code])}</li>`).join("")}</ul>` +
+    `<p>仅展示本地离线检查声明；服务器未重放日志或链上证据。检查时间不能更新 USD 喂价或 NAV 时效，不解除停机或授予交易许可。</p>`;
+}
 const uint = value => Number.isSafeInteger(value) && value >= 0 || typeof value === "string" && /^(0|[1-9][0-9]{0,77})$/.test(value);
 const hash = value => typeof value === "string" && /^0x[0-9a-f]{64}$/.test(value);
 const usd = value => typeof value === "number" && Number.isFinite(value) && value >= 0
@@ -101,7 +178,7 @@ export function liveStatusModel(data) {
   // Exactly two coherent shapes: closed with blockers, or open with none and its evidence.
   if (r.new_actions_allowed ? r.blockers.length !== 0 || typeof r.release_evidence !== "string" ||
       !r.release_evidence : r.blockers.length === 0) return null;
-  if (!startupValid(data.startup, r)) return null;
+  if (!startupValid(data.startup, r) || !pairValid(data.pair, data.startup)) return null;
   if (["unconfigured", "missing", "invalid"].includes(data.status)) return {...data, observation: null, pending: null, signing_unresolved: null, position: null, recent_actions: [], native_gas_units: null};
   if (typeof data.signing_unresolved !== "boolean" ||
       data.signing_unresolved !== (data.status === "signing_unknown") ||
@@ -141,12 +218,13 @@ export function renderLiveStatus(data) {
   if (!model) {
     $("live-title").textContent = "实盘状态暂不可用";
     $("live-next").textContent = "连接或数据校验失败，已清除旧结果；恢复后刷新。";
-    for (const id of ["live-stats", "live-release", "live-startup", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
+    for (const id of ["live-stats", "live-release", "live-startup", "live-pair", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
     renderTable("live-actions", [], [], "记录未验证");
     return;
   }
   const release = model.release;
   const startup = model.startup;
+  renderPair(model.pair);
   $("live-startup").innerHTML = `<strong>${startup.local_guards_passed ? "本地静态检查通过 · 执行资格未核验" : "本地静态检查未通过"}</strong>` +
     (startup.configured_runtime_roles === null ? "" : `<p>本地待启动配置指纹 ${startup.configured_runtime_roles} / 8 · 配置摘要 ${esc(startup.configuration_hash.slice(0, 12))}</p>`) +
     `<ul>${startup.blockers.map(code => `<li>${esc(START_BLOCKERS[code])}</li>`).join("")}` +

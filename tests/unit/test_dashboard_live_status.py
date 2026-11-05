@@ -5,8 +5,107 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from oasis_agent.reporting.live_pair import read_pair_status
 from oasis_agent.reporting.live_status import read_live_status
+from scripts.inspect_live_state import export_pair_status
+from tests.unit.test_live_lp import CONFIG
+from tests.unit.test_live_offline_inspection import pair
 from tests.unit.test_live_status import NOW, observed_state, write_state
+
+
+def test_pair_dashboard_shows_projection_and_configuration_conflicts(tmp_path, monkeypatch):
+    node = shutil.which("node")
+    assert node is not None
+    root = Path(__file__).resolve().parents[2] / "src/oasis_agent/server/static"
+    for name in ("core.js", "live-status.js"):
+        shutil.copy(root / name, tmp_path / name)
+    (tmp_path / "package.json").write_text('{"type":"module"}')
+    monkeypatch.setattr("scripts.inspect_live_state.time.time", lambda: NOW)
+    a, b = pair(tmp_path)
+    old = a.path.read_bytes()
+    state = a.load("live")
+    state.halted = "private diagnostic"
+    a.save(state)
+    a.path.write_bytes(old)
+    report = export_pair_status(a.path, b.path, CONFIG)
+    artifact = tmp_path / "inspection.json"
+    artifact.write_text(json.dumps(report))
+    data = read_live_status(write_state(tmp_path, observed_state()), now=NOW).model_dump(
+        by_alias=True
+    )
+    data["startup"]["configuration_hash"] = report["expected_config_hash"]
+    cases = {
+        name: read_pair_status(artifact, now=NOW + age, startup_config_hash=target).model_dump(
+            by_alias=True
+        )
+        for name, age, target in (
+            ("projection", 0, report["expected_config_hash"]),
+            ("mismatch", 0, "ab" * 32),
+            ("stale", 301, report["expected_config_hash"]),
+        )
+    }
+    program = (
+        "import {liveStatusModel, renderLiveStatus} from './live-status.js';\n"
+        "const data = "
+        + json.dumps(data)
+        + ";\nconst cases = "
+        + json.dumps(cases)
+        + ";\n"
+        + r"""
+import assert from 'node:assert/strict';
+const nodes = new Map();
+class Element {
+  constructor() { this.innerHTML = ''; this.children = []; }
+  set textContent(value) { this.innerHTML = ''; this.text = value; }
+  get textContent() { return this.text || ''; }
+  append(...nodes) { this.children.push(...nodes); }
+  appendChild(node) { this.children.push(node); }
+  replaceChildren(...nodes) { this.children = nodes; }
+}
+globalThis.document = {
+  getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); },
+  createElement() { return new Element(); }, createDocumentFragment() { return new Element(); }
+};
+const model = {...data, pair: cases.projection};
+assert.equal(liveStatusModel(model).pair.status, 'projection_incomplete');
+renderLiveStatus(model);
+assert.match(nodes.get('live-pair').innerHTML, /日志已验证.*JSON 投影尚未同步/);
+assert.match(nodes.get('live-pair').innerHTML, /策略.*仍保留停机标记/);
+assert.match(nodes.get('live-pair').innerHTML, /服务器未重放日志或链上证据/);
+assert.match(nodes.get('live-pair').innerHTML, /不能更新 USD 喂价或 NAV 时效/);
+assert.doesNotMatch(nodes.get('live-pair').innerHTML, /private diagnostic|可以实盘|交易已启动/);
+renderLiveStatus({...data, pair: cases.stale});
+assert.match(nodes.get('live-pair').innerHTML, /摘要已过期/);
+assert.match(nodes.get('live-pair').innerHTML, /页面刷新不会更新检查时间/);
+renderLiveStatus({...data, startup: {...data.startup, configuration_hash: 'ab'.repeat(32)},
+  pair: cases.mismatch});
+assert.match(nodes.get('live-pair').innerHTML, /待启动配置不一致/);
+for (const mutate of [
+  p => p.execution_eligible = true, p => p.evidence_replayed = true,
+  p => p.rpc_requests = false, p => p.status = 'aligned', p => p.blockers = [],
+  p => p.inspection.services.strategy.projection_current = true,
+  p => p.inspection.services.strategy.config_hash = '<img src=x>',
+  p => p.inspection.inspected_at = -1, p => p.inspection_age_seconds = 301,
+  p => p.inspection.services.strategy.runtime_epoch_present = 'yes',
+]) {
+  const p = structuredClone(cases.projection); mutate(p);
+  assert.equal(liveStatusModel({...data, pair: p}), null);
+  renderLiveStatus(model); renderLiveStatus({...data, pair: p});
+  assert.equal(nodes.get('live-pair').innerHTML, '');
+  assert.equal(nodes.get('live-pending').textContent, '');
+}
+"""
+    )
+    completed = subprocess.run(
+        [node, "--input-type=module"],
+        input=program,
+        cwd=tmp_path,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
 
 
 def test_live_dashboard_rejects_malformed_data_and_clears_old_results(tmp_path: Path) -> None:

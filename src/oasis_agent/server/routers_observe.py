@@ -52,7 +52,12 @@ _SERVER_NAME = "oasis-agent-observation-server"
 
 @router.get("/live/status", response_model=LiveStatusResponse)
 async def live_status(state: State) -> LiveStatusResponse:
-    return await state.reader.run(lambda _: read_live_status(state.config.databases.live_state))
+    return await state.reader.run(
+        lambda _: read_live_status(
+            state.config.databases.live_state,
+            pair_inspection=state.config.databases.live_pair_inspection,
+        )
+    )
 
 
 @router.get("/metrics")

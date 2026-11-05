@@ -27,6 +27,7 @@ class ServerDatabaseConfig:
     ops: Path = Path("data/server_ops.db")
     readiness_manifest: Path | None = None
     live_state: Path | None = None
+    live_pair_inspection: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,7 +142,16 @@ _ROOT_KEYS = frozenset(
     }
 )
 _DATABASE_KEYS = frozenset(
-    {"shadow", "launch", "evidence", "execution", "ops", "readiness_manifest", "live_state"}
+    {
+        "shadow",
+        "launch",
+        "evidence",
+        "execution",
+        "ops",
+        "readiness_manifest",
+        "live_state",
+        "live_pair_inspection",
+    }
 )
 _RUNNER_KEYS = frozenset({"command", "timeout_seconds", "max_concurrent"})
 _CHAIN_KEYS = frozenset(
@@ -202,6 +212,9 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
             databases_raw.get("readiness_manifest"), "databases.readiness_manifest"
         ),
         live_state=_strict_path(databases_raw.get("live_state"), "databases.live_state"),
+        live_pair_inspection=_strict_path(
+            databases_raw.get("live_pair_inspection"), "databases.live_pair_inspection"
+        ),
     )
     for name, value in (
         ("databases.shadow", databases.shadow),

@@ -25,6 +25,7 @@ alert_gate_warn_hours = 24
 ops = "data/server_ops.db"
 # Read-only projection; absent files show "missing" and are never created here.
 live_state = "data/live/live.state.json"
+live_pair_inspection = "data/live/pair-inspection.json"
 
 # Optional when real journals exist; uncomment and point at them.
 # shadow = "data/shadow.db"

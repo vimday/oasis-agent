@@ -195,6 +195,12 @@ measured reliability budgets, actionable operations, and immutable CI dependenci
 
 ## SQLite paired journal durability
 
+- [SQLite URI parameters](https://www.sqlite.org/uri.html#uriimmutable): immutable
+  readers are read-only and skip locking/change detection. The offline pair-status
+  exporter refuses WAL/recovery sidecars and changed original file identities
+  across both complete journal replays; this is diagnostic output, not a live lease
+  or permission to use mutable inputs for capital admission.
+
 - [SQLite database file format](https://www.sqlite.org/fileformat2.html): persistent
   read/write format bytes distinguish rollback journals from WAL before opening a reader.
 - [SQLite atomic commit](https://www.sqlite.org/atomiccommit.html): rollback and super-journal
