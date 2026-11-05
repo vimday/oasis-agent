@@ -22,6 +22,12 @@ from .state import LoopState, Position, StateStore
 from .valuation import replay_nav, replay_nav_quorum
 
 SOURCES = ("live_primary", "live_secondary")
+STARTUP_LIMITATIONS = (
+    "no_current_chain_or_nav_acceptance",
+    "no_service_start_or_execution_permit",
+    "host_operator_and_original_volume_identity_remain_trusted",
+    "journaled_history_only_no_account_transaction_discovery",
+)
 Role = Literal["strategy", "authority"]
 
 
@@ -332,11 +338,6 @@ def inspect_pair(
         "startup_prerequisites_passed": True,
         "execution_eligible": False,
         "historical_only": True,
-        "limitations": [
-            "no_current_chain_or_nav_acceptance",
-            "no_service_start_or_execution_permit",
-            "host_operator_and_original_volume_identity_remain_trusted",
-            "journaled_history_only_no_account_transaction_discovery",
-        ],
+        "limitations": list(STARTUP_LIMITATIONS),
         "services": services,
     }

@@ -10,13 +10,20 @@ import json
 import os
 import re
 import subprocess
+from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from oasis_agent.evidence.rpc_validation import strict_json_object
+from oasis_agent.evidence.rpc_validation import strict_digest, strict_json_object, strict_object
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
-from oasis_agent.live.startup_state import StartupBlocker, refusal_report
+from oasis_agent.live.rpc_profile import LiveRpcProfile
+from oasis_agent.live.startup_state import (
+    SOURCES,
+    STARTUP_LIMITATIONS,
+    StartupBlocker,
+    refusal_report,
+)
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
 from oasis_agent.reporting.live_startup import read_local_startup_readiness
@@ -29,6 +36,7 @@ VOLUMES = {
     "authority-socket": "oasis-live_authority-socket",
     "canary-keys": "oasis-canary-keys",
 }
+MAX_STATE_REPORT_BYTES = 4096
 
 
 def local_environment() -> dict[str, str]:
@@ -100,7 +108,11 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
 
 
 def _state_refusal(error: subprocess.CalledProcessError) -> dict:
-    if error.returncode != 3 or not isinstance(error.output, bytes) or len(error.output) > 4096:
+    if (
+        error.returncode != 3
+        or not isinstance(error.output, bytes)
+        or len(error.output) > MAX_STATE_REPORT_BYTES
+    ):
         raise ValueError("original runtime state inspection failed")
     result = strict_json_object(error.output)
     blockers = result.get("blockers")
@@ -119,7 +131,9 @@ def _state_refusal(error: subprocess.CalledProcessError) -> dict:
     return expected
 
 
-def state_preflight(image: str, env: dict[str, str]) -> dict:
+def state_preflight(
+    image: str, env: dict[str, str], *, config_hash: str, rpc_max_requests: int
+) -> dict:
     """Run verified code with only original state volumes, read-only and offline."""
     try:
         output = command(
@@ -156,40 +170,64 @@ def state_preflight(image: str, env: dict[str, str]) -> dict:
         )
     except subprocess.CalledProcessError as error:
         return _state_refusal(error)
-    result = json.loads(output)
+    if len(output) > MAX_STATE_REPORT_BYTES:
+        raise ValueError("original runtime state report exceeds size limit")
+    result = strict_json_object(output)
     if (
-        not isinstance(result, dict)
+        set(result)
+        != {
+            "schema",
+            "startup_prerequisites_passed",
+            "execution_eligible",
+            "historical_only",
+            "limitations",
+            "services",
+        }
         or result.get("schema") != "oasis.live-startup-state.v1"
         or result.get("startup_prerequisites_passed") is not True
         or result.get("execution_eligible") is not False
         or result.get("historical_only") is not True
-        or not isinstance(result.get("services"), dict)
-        or set(result.get("services", {})) != {"strategy", "authority"}
+        or result.get("limitations") != list(STARTUP_LIMITATIONS)
     ):
         raise ValueError("original runtime state preflight refused")
-    services = result["services"]
+    raw_services = strict_object(result["services"], "original services")
+    if set(raw_services) != {"strategy", "authority"}:
+        raise ValueError("exact original service roles required")
+    services = {
+        name: strict_object(data, "original service") for name, data in raw_services.items()
+    }
+    digests = {
+        "config_hash",
+        "journal_tip",
+        "position_identity_hash",
+        "settled_history_hash",
+        "financial_continuity_hash",
+    }
+    service_fields = digests | {
+        "rpc_remaining",
+        "checkpoint_verified",
+        "settled_history_replayed",
+        "settlement_count",
+    }
     for service in services.values():
         if (
-            not isinstance(service, dict)
+            set(service) != service_fields
             or service.get("checkpoint_verified") is not True
             or service.get("settled_history_replayed") is not True
             or type(service.get("settlement_count")) is not int
             or not 0 <= service["settlement_count"] <= 10_000
-            or any(
-                not isinstance(service.get(field), str)
-                or re.fullmatch(r"[0-9a-f]{64}", service[field]) is None
-                for field in (
-                    "config_hash",
-                    "journal_tip",
-                    "position_identity_hash",
-                    "settled_history_hash",
-                    "financial_continuity_hash",
-                )
-            )
+            or service.get("config_hash") != config_hash
         ):
             raise ValueError("complete original financial history report required")
+        for field in digests:
+            strict_digest(service[field], field)
+        remaining = strict_object(service["rpc_remaining"], "remaining RPC quotas")
+        if set(remaining) != set(SOURCES) or any(
+            type(count) is not int or not 0 < count < rpc_max_requests
+            for count in remaining.values()
+        ):
+            raise ValueError("original nonempty unexhausted RPC quotas required")
     for field in (
-        "config_hash",
         "position_identity_hash",
         "settlement_count",
         "settled_history_hash",
@@ -200,14 +238,16 @@ def state_preflight(image: str, env: dict[str, str]) -> dict:
     return result
 
 
-def require_local_runtime_policy() -> None:
+def require_local_runtime_policy() -> tuple[str, int]:
     config = LiveConfig.load(compose.ROOT / "configs/live.base-eth-usdc.json")
     require_gas_oracle_pins(config.expected_pins)
+    profile = LiveRpcProfile.load(compose.ROOT / "configs/live.rpc.canary.json")
+    return sha256_hex(canonical_json(asdict(config))), profile.max_requests
 
 
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
-    require_local_runtime_policy()
+    config_hash, rpc_max_requests = require_local_runtime_policy()
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
     report = {
         "schema": "oasis.live-start.v1",
@@ -250,7 +290,9 @@ def start(image: str, output: Path) -> dict:
         ).strip():
             raise ValueError("existing project containers require explicit recovery")
         stage = "original_runtime_state"
-        preflight = state_preflight(identity["image"], env)
+        preflight = state_preflight(
+            identity["image"], env, config_hash=config_hash, rpc_max_requests=rpc_max_requests
+        )
         report["state_preflight"] = preflight
         report["state_preflight_exit_code"] = 0 if preflight["startup_prerequisites_passed"] else 3
         if preflight["startup_prerequisites_passed"] is not True:

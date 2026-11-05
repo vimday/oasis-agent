@@ -15,6 +15,14 @@ from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_lp import CONFIG
 
 IMAGE = "sha256:" + "ab" * 32
+CONFIG_HASH = "11" * 32
+RPC_MAX_REQUESTS = 37
+LIMITATIONS = [
+    "no_current_chain_or_nav_acceptance",
+    "no_service_start_or_execution_permit",
+    "host_operator_and_original_volume_identity_remain_trusted",
+    "journaled_history_only_no_account_transaction_discovery",
+]
 RPC = {
     name: f"https://source-{i}.invalid/SECRET-$HOME?literal=$${{UNSET:-token}}"
     for i, name in enumerate(cli.compose.RPC_NAMES)
@@ -121,7 +129,9 @@ def setup(tmp_path, monkeypatch, fault=None):
     sources = {"src/a.py": "fixed"}
     digest = sha256_hex(canonical_json(sources))
     monkeypatch.setattr(cli, "require_live_start", lambda: None)  # Synthetic future release only.
-    monkeypatch.setattr(cli, "require_local_runtime_policy", lambda: None)  # Separate pin tests.
+    monkeypatch.setattr(
+        cli, "require_local_runtime_policy", lambda: (CONFIG_HASH, RPC_MAX_REQUESTS)
+    )  # Separate pin tests.
     monkeypatch.setattr(
         cli.compose,
         "inspect",
@@ -197,9 +207,10 @@ def setup(tmp_path, monkeypatch, fault=None):
                 "checkpoint_verified": True,
                 "settled_history_replayed": True,
                 "settlement_count": 0,
-                "config_hash": "11" * 32,
+                "config_hash": CONFIG_HASH,
                 "journal_tip": "22" * 32,
                 "position_identity_hash": "33" * 32,
+                "rpc_remaining": {"live_primary": 1, "live_secondary": RPC_MAX_REQUESTS - 1},
                 "settled_history_hash": "44" * 32,
                 "financial_continuity_hash": "55" * 32,
             }
@@ -222,17 +233,38 @@ def setup(tmp_path, monkeypatch, fault=None):
                 authority["financial_continuity_hash"] = "66" * 32
             elif fault == "config_disagreement":
                 authority["config_hash"] = "66" * 32
+            elif fault == "wrong_local_config":
+                service["config_hash"] = authority["config_hash"] = "66" * 32
             elif fault == "checkpoint_unverified":
                 authority["checkpoint_verified"] = False
-            return canonical_json(
-                {
-                    "schema": "oasis.live-startup-state.v1",
-                    "startup_prerequisites_passed": fault != "state_bad_report",
-                    "historical_only": True,
-                    "execution_eligible": False,
-                    "services": {"strategy": dict(service), "authority": authority},
-                }
-            )
+            elif fault == "state_service_extra":
+                authority["debug"] = "SECRET"
+            elif fault == "state_rpc_missing_source":
+                authority["rpc_remaining"] = {"live_primary": 1}
+            elif fault == "state_rpc_boolean":
+                authority["rpc_remaining"] = {"live_primary": True, "live_secondary": 1}
+            elif fault == "state_rpc_exhausted":
+                authority["rpc_remaining"] = {"live_primary": 0, "live_secondary": 1}
+            elif fault == "state_rpc_unused":
+                authority["rpc_remaining"] = {"live_primary": RPC_MAX_REQUESTS, "live_secondary": 1}
+            result = {
+                "schema": "oasis.live-startup-state.v1",
+                "startup_prerequisites_passed": fault != "state_bad_report",
+                "historical_only": True,
+                "execution_eligible": False,
+                "limitations": LIMITATIONS,
+                "services": {"strategy": service, "authority": authority},
+            }
+            if fault == "state_success_extra":
+                result["debug"] = "SECRET"
+            if fault == "state_limitations":
+                result["limitations"] = ["SECRET"]
+            raw = canonical_json(result)
+            if fault == "state_duplicate":
+                raw = b'{"execution_eligible":true,' + raw[1:]
+            if fault == "state_oversized":
+                raw += b" " * 4096
+            return raw
         assert args[0] == "compose" and args[-2:] == ["authority", "strategy"]
         assert "--no-build" in args and args[args.index("--pull") + 1] == "never"
         assert args[args.index("--env-file") + 1] == os.devnull
@@ -265,6 +297,15 @@ def setup(tmp_path, monkeypatch, fault=None):
         "state_extra",
         "state_wrong_exit",
         "state_bad_report",
+        "state_success_extra",
+        "state_service_extra",
+        "state_limitations",
+        "state_duplicate",
+        "state_oversized",
+        "state_rpc_missing_source",
+        "state_rpc_boolean",
+        "state_rpc_exhausted",
+        "state_rpc_unused",
         "history_missing",
         "history_false",
         "history_hash_invalid",
@@ -274,15 +315,19 @@ def setup(tmp_path, monkeypatch, fault=None):
         "history_disagreement",
         "capital_disagreement",
         "config_disagreement",
+        "wrong_local_config",
         "checkpoint_unverified",
     ],
 )
 def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     calls = setup(tmp_path, monkeypatch, fault)
-    report = cli.start(IMAGE, tmp_path / "attempt")
+    output = tmp_path / "attempt"
+    report = cli.start(IMAGE, output)
     assert report["status"] == "refused" and not report["start_attempted"]
     assert not any(args[0] == "compose" for args, _ in calls)
     assert "SECRET" not in json.dumps(report)
+    assert not (output / "attempt.json").exists()
+    assert json.loads((output / "report.json").read_bytes()) == report
     if fault == "changed_sources":
         assert report["state_preflight_exit_code"] == 0
     else:
@@ -359,3 +404,11 @@ def test_open_release_offline_readiness_does_not_inspect_docker(
     assert result["new_actions_allowed"] is True
     assert result["startup"]["local_guards_passed"] is complete_policy
     assert result["startup"]["startup_prerequisites_passed"] is False
+    if complete_policy:
+        (tmp_path / "configs/live.rpc.canary.json").write_bytes(
+            canonical_json({"max_requests": RPC_MAX_REQUESTS, "min_interval_ms": 3000})
+        )
+        assert cli.require_local_runtime_policy() == (
+            result["startup"]["configuration_hash"],
+            RPC_MAX_REQUESTS,
+        )

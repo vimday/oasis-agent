@@ -24,7 +24,7 @@ from oasis_agent.live.startup_state import (
 from oasis_agent.live.state import Pending, StateStore, day_of
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
-from scripts import inspect_live_startup, run_live_authority, run_live_lp
+from scripts import inspect_live_startup, run_live_authority, run_live_lp, start_live_deployment
 from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_precheck_evidence import capture
 from tests.unit.test_live_receipt_costs import position_config
@@ -372,7 +372,15 @@ def test_inspector_cli_is_readonly_and_redacts_refusal(tmp_path, monkeypatch, ca
     with pytest.raises(SystemExit) as exc:
         inspect_live_startup.main()
     assert exc.value.code == 0
-    assert json.loads(capsys.readouterr().out)["execution_eligible"] is False
+    raw = capsys.readouterr().out.encode()
+    monkeypatch.setattr(start_live_deployment, "command", lambda *_: raw)
+    validated = start_live_deployment.state_preflight(
+        "synthetic-image",
+        {},
+        config_hash=sha256_hex(canonical_json(asdict(config))),
+        rpc_max_requests=profile.max_requests,
+    )
+    assert validated == json.loads(raw) and validated["execution_eligible"] is False
     assert (snapshot(a), snapshot(b)) == before
     (b / "STOP").write_text("private operator text")
     before = snapshot(a), snapshot(b)
