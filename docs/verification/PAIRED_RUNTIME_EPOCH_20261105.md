@@ -211,3 +211,32 @@ zero. Fresh real USD/NAV/gas evidence, production runtime/simulation acceptance,
 full current receipt recovery and unwind/restart still remain required. The
 eight historical paid requests' costs remain unresolved and the cumulative
 $0.10 cap is unchanged. This implementation neither spends nor renews a grant.
+
+## Corrected committed image
+
+Correction commit `2298fa7cf68e1ecd2f3b1588e8a0eedc099df4be` was the exclusive
+Git-archive build context. Build (`--pull=false`), stopped-image source
+verification, Linux smoke and the enclosing builder each exited 0.
+
+- Image: `sha256:1060b51f234457166850b97cf69f6ece295c008d9a19705604a0b000234f9073`.
+- Application manifest:
+  `ec3f4874c8d563c8bbaf065589d5d267f0c96e37bd24d6c825ead4a179db38ff`.
+- `reports/review-20261105/runtime-2298fa7/summary.json` evidence hash:
+  `d7aba46178b111d5c70d776c6621d3e64c7a4d18a376274c5064eb56380709dc`.
+- Independent reverification:
+  `b08344e4798831d76b99737ceaf5fbe1c2bd93f65c0a445e6cacd75f7fbb9080`.
+
+All 359 application files and all 361 archive files, including Docker build
+inputs, matched committed and local bytes. Log, archive, script, manifest and
+canonical report hashes were independently rechecked with all 632 frozen
+runtime/test inputs. Dependencies, the base runtime and Docker daemon remain
+trusted; source verification covers application bytes.
+
+The UID 10001 smoke used no network, a read-only root, dropped capabilities,
+`no-new-privileges`, bounded PIDs/scratch space and **no mounts**. The original
+three synthetic packets are reused; no budget file is serialized or copied.
+CLI exits `0, 3, 0, 3` are the expected outcomes described above. The new fourth
+case uses a real second SQLite connection, refuses before any epoch write,
+preserves event/projection/budget data and leaves WAL for inspection. The
+deliberate projection failure remains a committed-but-incomplete exit 3.
+This candidate was not deployed and no production epoch was applied.
