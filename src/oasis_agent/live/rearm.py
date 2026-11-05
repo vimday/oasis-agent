@@ -22,6 +22,7 @@ from ..rpc.budget import RpcBudget
 from .config import LiveConfig
 from .feed_epoch import HALT
 from .journal import MAX_SNAPSHOT, JournalConflict, LiveJournal
+from .quiesce import MAINTENANCE_HALT
 from .rearm_history import replay_history
 from .rearm_settlements import require_current_settlements
 from .receipts import RetainedReceiptCostReader
@@ -41,7 +42,7 @@ from .valuation import nav_fresh_until, replay_nav, replay_nav_quorum
 from .wallet import require_wallet_continuity
 
 ALLOWED_HALTS = frozenset(
-    {HALT, "live observation refused; operator review required before polling"}
+    {HALT, MAINTENANCE_HALT, "live observation refused; operator review required before polling"}
 )
 ROLES: tuple[Role, Role] = ("strategy", "authority")
 SCHEMAS = ("main", "peer")
