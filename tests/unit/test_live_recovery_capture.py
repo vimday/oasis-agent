@@ -12,6 +12,7 @@ import urllib.request
 from contextlib import closing, suppress
 from dataclasses import asdict, replace
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.error import HTTPError
 
 import pytest
@@ -417,19 +418,45 @@ def test_supervisor_refuses_late_artifact_validation_and_kills_exited_leaders_ch
         )
         return {"capture_passed": True, "exit_code": 0}
 
+    elapsed = 0.0
     original = cli.strict_json_object
+    killpg = os.killpg
+    cleanup_signals = []
 
-    def slow(raw):
-        time.sleep(0.2)
+    def record_cleanup(group, sig):
+        cleanup_signals.append(sig)
+        killpg(group, sig)
+
+    def cross_deadline(raw):
+        nonlocal elapsed
+        elapsed = 1.1
         return original(raw)
 
-    monkeypatch.setattr(cli, "strict_json_object", slow)
-    report = cli.supervise(operation, out, seconds=0.1)
-    assert not report["capture_passed"] and report["status"] == "hard_deadline_refused"
+    monkeypatch.setattr(cli, "time", SimpleNamespace(monotonic=lambda: elapsed, sleep=time.sleep))
+    monkeypatch.setattr(os, "killpg", record_cleanup)
+    monkeypatch.setattr(cli, "strict_json_object", cross_deadline)
+    report = cli.supervise(operation, out, seconds=1)
+    assert report["worker_exit_code"] == 0 and report["worker_group_ready"], report
+    assert cleanup_signals == [signal.SIGKILL]
+    assert not report["capture_passed"] and report["status"] == "hard_deadline_refused", report
     assert not (out / "references.json").exists()
     assert not (out / "fresh-nav.json").exists()
     time.sleep(0.55)
     assert not late.exists()
+
+
+def test_supervisor_handles_deadline_crossing_at_poll_boundary(tmp_path, monkeypatch):
+    out = tmp_path / "attempt"
+    supervisor_pid = os.getpid()
+    samples = iter((0.0, 0.49))
+
+    def monotonic():
+        return next(samples, 0.51) if os.getpid() == supervisor_pid else 0.0
+
+    monkeypatch.setattr(cli, "time", SimpleNamespace(monotonic=monotonic, sleep=time.sleep))
+    report = cli.supervise(lambda: time.sleep(2), out, seconds=0.5)
+    assert report["status"] == "hard_deadline_refused" and not report["capture_passed"], report
+    assert not (out / "references.json").exists() and not (out / "fresh-nav.json").exists()
 
 
 @pytest.mark.parametrize("status", [403, 429])

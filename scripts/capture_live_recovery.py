@@ -844,18 +844,20 @@ def supervise(
         while True:
             confirm_group()
             done, candidate = os.waitpid(pid, os.WNOHANG)
-            if time.monotonic() - started >= seconds:
+            remaining = seconds - (time.monotonic() - started)
+            if remaining <= 0:
                 timed_out = True
                 status = candidate if done else None
                 break
             if done:
                 status = candidate
                 break
-            time.sleep(min(0.02, seconds - (time.monotonic() - started)))
+            time.sleep(min(0.02, remaining))
     finally:
-        # A reaped leader can leave descendants; terminate its group in either case.
-        # The worker calls setsid before any network capability is constructed.
-        for sig in (signal.SIGTERM, signal.SIGKILL):
+        # A reaped leader can leave descendants. Use one SIGKILL for that group
+        # instead of sending consecutive signals with no grace interval.
+        signals = (signal.SIGTERM, signal.SIGKILL) if status is None else (signal.SIGKILL,)
+        for sig in signals:
             confirm_group()
             try:
                 if group_ready:
