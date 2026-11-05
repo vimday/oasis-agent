@@ -83,3 +83,41 @@ this is local engineering verification, not independent/external audit approval.
 - Retained earlier failures and corrected local checks:
   `reports/review-20261105/retained-snapshot/local-checks.json`, hash
   `f94cd5d3650a070c8d9efba1dfb6cbde7eb6fc71a8e2dcf0be678d6381e43d70`.
+
+## Verified candidate image
+
+Implementation commit: `cc6ea8406493b4799edcfb901854597b81857198`.
+Candidate image:
+`sha256:be6143dda7e57c13baf777e7d715376614be6c74a881ca22e14b633fc06ea856`.
+The stopped-image verifier and separate archive checker matched all **362**
+application files and **364** archive inputs to Git and local bytes. Manifest:
+`41a8cc9ec1379e361ca86f0565824f887c7f1315278bac18cc0b3ee8a40063ef`.
+
+Build, source verification and corrected Linux smoke each exited 0. The UID
+10001 worker ran with networking disabled, a read-only root, dropped capabilities,
+no-new-privileges and no mounts. Both strict-feed and historical 90,000-second
+source configurations migrated to the same strict 1,800-second target in
+**disposable synthetic paired journals**. Normalized-hash approval was rejected;
+old journal rows, retained proofs and untouched synthetic budget markers were
+preserved. A distinct raw snapshot with equal decoded values caused a revision
+conflict, and verification refusal did not refresh the stale writer's revision.
+No budget ledger was exported or copied in the synthetic fixture packet.
+
+The first Linux smoke exited 1 because its competing writer appended exactly
+the existing bytes, which the journal correctly treats as an idempotent no-op.
+The corrected harness removes the optional default field to create distinct
+bytes with equal decoded values and asserts that the tip actually changes.
+The original failed script, exit record and log are retained; log hash
+`12e4c1e45d4957f60c76f28e3dc7775af5d443d4894422e79ba27afc1e7a99e8`.
+Only the changed smoke was rerun, using the already verified image; the successful
+build and source checks were not repeated or relabeled.
+
+- Candidate report: `reports/review-20261105/retained-snapshot-cc6ea84/summary.json`,
+  hash `b742638fcefebc3e489feaaa3c7264989e465a4f2e8fb9cf309422457682317a`.
+- Separate local result check:
+  `reports/review-20261105/retained-snapshot-cc6ea84/reverification.json`, hash
+  `822c8b493949d95308e7522355950707bc0352ea2fcde14f33cb7d9d643eacff`.
+
+These are development and image-compatibility results. The candidate was not
+installed on either production service, and the original authority maintenance
+HALT approval and fresh production acceptance requirements remain outstanding.
