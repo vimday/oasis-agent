@@ -84,3 +84,41 @@ engineering verification, not independent/external audit approval.
   `7df06b95853bc3884714f441e69698648075624bc9b1c9c9c730fb9616aceb28`.
 - Earlier regression/local checks: `rearm-durability/local-checks.json`, hash
   `2e24864a499211af14bb6229a3ffb497872e33e5e8ea2ff76e57c92d57feb3a6`.
+
+## Verified image and crash boundaries
+
+Implementation commit: `0e3b1b3cb7dfde225be2bd5c20e8dbfd7e6f336f`.
+Candidate image:
+`sha256:3014497bc83f928cf4948f5d72ccc3ffe94a1e79cc76b06af3d80a38ba835a29`.
+All **362** application files and **364** archive inputs match Git and local
+bytes; manifest
+`b365f43f7c6c30c9099f0590f80c27defdbcf5e044b885be7ac487bffb9cc05c`.
+Build, stopped-image source verification and Linux smoke each exited 0.
+
+The mount-free UID 10001 Linux worker used a read-only root, no network, dropped
+capabilities and no-new-privileges. Six synthetic cases passed: ordinary paired
+rearm, a real pre-lock WAL switch on either journal, and SIGKILL after the first
+append, both appends, or the commit before JSON projection. The three killed
+children exited **-9**. Before commit both original HALTs survived with no new
+committed row; after commit both journals contained the rearm while original JSON
+projections remained unchanged. Both WAL switches were refused before staging,
+with the changed WAL mode retained rather than converted back. STOP files,
+original journal row prefixes, retained proofs and synthetic budget bytes were
+preserved in every case.
+
+After a pre-commit SIGKILL, the production entry first refused the hot recovery
+sidecars. The harness then explicitly modeled operator inspection with both
+**temporary synthetic** originals available so SQLite could recover them. It
+did not add automatic recovery, sidecar removal or a production retry. These
+specific SIGKILL boundaries do not prove power-loss behavior or an arbitrary VFS;
+paired durability still assumes a correct same-filesystem SQLite/VFS/fsync setup.
+No real service was rearmed by this test.
+
+- Candidate: `reports/review-20261105/rearm-durability-0e3b1b3/summary.json`, hash
+  `b4adb0a60b480ae754133589b6f328afe12b12a6bf18313463392a5dca81ad38`.
+- Separate local result verification:
+  `reports/review-20261105/rearm-durability-0e3b1b3/reverification.json`, hash
+  `4a2150d376d69f1aeee18e70d23a5595d51f5ca91c38a7e00bd20f131706426e`.
+
+The image is a checked candidate only. Fresh production evidence, the separate
+maintenance-HALT approval and all subsequent rearm/start gates remain required.
