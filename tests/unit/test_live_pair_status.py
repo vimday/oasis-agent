@@ -82,6 +82,58 @@ def test_export_replays_both_originals_without_state_budget_or_sqlite_writes(tmp
     assert status.evidence_replayed is False
 
 
+@pytest.mark.parametrize("kind", ["file", "broken_symlink"])
+def test_pair_cli_refuses_start_with_stop_on_one_service(tmp_path, monkeypatch, capsys, kind):
+    strategy_dir, authority_dir = tmp_path / "strategy", tmp_path / "authority"
+    strategy_dir.mkdir()
+    authority_dir.mkdir()
+    a, _ = pair(strategy_dir)
+    _, b = pair(authority_dir)
+    stop = authority_dir / "STOP"
+    if kind == "file":
+        stop.write_text("private operator text")
+    else:
+        stop.symlink_to("unresolved-target")
+    before = snapshot(strategy_dir), snapshot(authority_dir)
+    output = tmp_path / "inspection.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "inspect",
+            "--strategy-state",
+            str(a.path),
+            "--authority-state",
+            str(b.path),
+            "--pair-status-out",
+            str(output),
+        ],
+    )
+    with pytest.raises(SystemExit) as caught:
+        cli.main()
+    raw = capsys.readouterr().out
+    view = json.loads(raw)
+    assert caught.value.code == 3 and view["blockers"] == ["authority_stop_present"]
+    assert view["status"] == "aligned" and view["execution_eligible"] is False
+    assert view["inspection"]["services"]["authority"]["stop_present"] is True
+    assert view["inspection"]["services"]["strategy"]["stop_present"] is False
+    assert "private operator text" not in raw and "unresolved-target" not in raw
+    assert (snapshot(strategy_dir), snapshot(authority_dir)) == before
+    if kind == "broken_symlink":
+        assert os.readlink(stop) == "unresolved-target"
+
+
+def test_legacy_pair_report_keeps_digest_and_marks_stop_unverified(tmp_path, monkeypatch):
+    _, _, report = exported(tmp_path, monkeypatch)
+    for service in report["services"].values():
+        service.pop("stop_present", None)
+    path = retain(tmp_path, reseal(report))
+    status = read_pair_status(path, now=NOW, startup_config_hash=report["expected_config_hash"])
+    assert status.status == "aligned"
+    assert status.blockers == ["strategy_stop_unverified", "authority_stop_unverified"]
+    assert status.inspection.model_dump(by_alias=True) == report
+
+
 @pytest.mark.parametrize("legacy", [False, True])
 def test_real_paired_epoch_and_stale_projection_are_distinguished(tmp_path, monkeypatch, legacy):
     data, review = prepare(tmp_path, monkeypatch, legacy=legacy)
@@ -106,7 +158,9 @@ def test_real_paired_epoch_and_stale_projection_are_distinguished(tmp_path, monk
     assert status.blockers == [
         "strategy_projection_incomplete",
         "strategy_halted",
+        "strategy_stop_present",
         "authority_halted",
+        "authority_stop_present",
     ]
     assert all(
         p.read_bytes() == before[str(p)]
@@ -118,7 +172,18 @@ def test_real_paired_epoch_and_stale_projection_are_distinguished(tmp_path, monk
 
 @pytest.mark.parametrize(
     "fault",
-    ["chain", "projection", "hardlink", "symlink", "permissions", "wal", "sidecar", "same", "race"],
+    [
+        "chain",
+        "projection",
+        "hardlink",
+        "symlink",
+        "permissions",
+        "wal",
+        "sidecar",
+        "same",
+        "race",
+        "stop_race",
+    ],
 )
 def test_export_refuses_unresolved_originals_without_repair(tmp_path, monkeypatch, fault):
     a, b = pair(tmp_path)
@@ -144,22 +209,25 @@ def test_export_refuses_unresolved_originals_without_repair(tmp_path, monkeypatc
         (tmp_path / (a.journal_path.name + "-journal")).write_bytes(b"unresolved")
     elif fault == "same":
         b = a
-    elif fault == "race":
+    elif fault in {"race", "stop_race"}:
         original = LiveJournal._read
 
         def advance(self, db, **kwargs):
             result = original(self, db, **kwargs)
             if self.path == a.journal_path:
-                state = b.load("live")
-                state.halted = "advanced"
-                b.save(state)
+                if fault == "stop_race":
+                    (b.path.parent / "STOP").touch()
+                else:
+                    state = b.load("live")
+                    state.halted = "advanced"
+                    b.save(state)
             return result
 
         monkeypatch.setattr(LiveJournal, "_read", advance)
     before = snapshot(tmp_path)
     with pytest.raises((ValueError, sqlite3.Error)):
         cli.export_pair_status(a.path, b.path, CONFIG)
-    if fault != "race":
+    if fault not in {"race", "stop_race"}:
         assert snapshot(tmp_path) == before
 
 
@@ -177,6 +245,7 @@ def test_export_refuses_unresolved_originals_without_repair(tmp_path, monkeypatc
         "projection",
         "services",
         "raw_error",
+        "null_stop",
     ],
 )
 def test_reader_rejects_corrupt_or_incoherent_declarations(tmp_path, monkeypatch, fault):
@@ -201,6 +270,8 @@ def test_reader_rejects_corrupt_or_incoherent_declarations(tmp_path, monkeypatch
         report["services"]["third"] = deepcopy(report["services"]["strategy"])
     elif fault == "raw_error":
         report["services"]["strategy"]["halted"] = "private diagnostic"
+    elif fault == "null_stop":
+        report["services"]["strategy"]["stop_present"] = None
     if fault != "hash":
         reseal(report)
     path = retain(tmp_path, report)

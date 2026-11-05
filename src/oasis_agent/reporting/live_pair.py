@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..models.common import canonical_json, sha256_hex
 
@@ -39,10 +39,18 @@ class ServiceInspection(BaseModel):
     projection_current: bool
     runtime_epoch_present: bool
     halted: bool
+    stop_present: bool | None = Field(default=None, exclude_if=lambda value: value is None)
     has_pending: bool
     has_signing_attempt: bool
     legacy_gas_cost_incomplete: bool
     position_identity_hash: Digest
+
+    @field_validator("stop_present", mode="before")
+    @classmethod
+    def explicit_stop_must_be_boolean(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("STOP flag must be boolean when present")
+        return value
 
     @model_validator(mode="after")
     def coherent_projection(self) -> "ServiceInspection":
@@ -154,6 +162,10 @@ def read_pair_status(
             )
             if getattr(service, flag)
         )
+        if service.stop_present is None:
+            blockers.append(f"{name}_stop_unverified")
+        elif service.stop_present:
+            blockers.append(f"{name}_stop_present")
     a, b = report.services.strategy, report.services.authority
     if a.config_hash != b.config_hash:
         blockers.append("service_configuration_disagreement")

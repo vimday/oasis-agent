@@ -22,18 +22,36 @@ def test_pair_dashboard_shows_projection_and_configuration_conflicts(tmp_path, m
     (tmp_path / "package.json").write_text('{"type":"module"}')
     monkeypatch.setattr("scripts.inspect_live_state.time.time", lambda: NOW)
     a, b = pair(tmp_path)
+    clean = export_pair_status(a.path, b.path, CONFIG)
+    artifact = tmp_path / "inspection.json"
+    artifact.write_text(json.dumps(clean))
+    aligned = read_pair_status(
+        artifact, now=NOW, startup_config_hash=clean["expected_config_hash"]
+    ).model_dump(by_alias=True)
+    (tmp_path / "STOP").touch()
+    stopped = export_pair_status(a.path, b.path, CONFIG)
+    artifact.write_text(json.dumps(stopped))
+    blocked = read_pair_status(
+        artifact, now=NOW, startup_config_hash=stopped["expected_config_hash"]
+    ).model_dump(by_alias=True)
     old = a.path.read_bytes()
     state = a.load("live")
     state.halted = "private diagnostic"
     a.save(state)
     a.path.write_bytes(old)
     report = export_pair_status(a.path, b.path, CONFIG)
-    artifact = tmp_path / "inspection.json"
     artifact.write_text(json.dumps(report))
     data = read_live_status(write_state(tmp_path, observed_state()), now=NOW).model_dump(
         by_alias=True
     )
-    data["startup"]["configuration_hash"] = report["expected_config_hash"]
+    data["startup"].update(
+        configuration_hash=report["expected_config_hash"],
+        configuration_status="declared_execution_policy",
+        configured_runtime_roles=8,
+        local_guards_passed=True,
+        missing_runtime_roles=[],
+        blockers=[],
+    )
     cases = {
         name: read_pair_status(artifact, now=NOW + age, startup_config_hash=target).model_dump(
             by_alias=True
@@ -44,6 +62,7 @@ def test_pair_dashboard_shows_projection_and_configuration_conflicts(tmp_path, m
             ("stale", 301, report["expected_config_hash"]),
         )
     }
+    cases.update(aligned=aligned, blocked=blocked)
     program = (
         "import {liveStatusModel, renderLiveStatus} from './live-status.js';\n"
         "const data = "
@@ -67,6 +86,20 @@ globalThis.document = {
   createElement() { return new Element(); }, createDocumentFragment() { return new Element(); }
 };
 const model = {...data, pair: cases.projection};
+renderLiveStatus({...data, pair: cases.aligned});
+assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
+renderLiveStatus({...data, pair: cases.blocked});
+assert.match(nodes.get('live-pair').innerHTML, /签名服务.*检查时存在 STOP 文件/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
+const legacy = structuredClone(cases.aligned);
+for (const role of ['strategy', 'authority']) {
+  delete legacy.inspection.services[role].stop_present;
+  legacy.blockers.push(`${role}_stop_unverified`);
+}
+renderLiveStatus({...data, pair: legacy});
+assert.match(nodes.get('live-pair').innerHTML, /摘要未记录 STOP 文件状态/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
 assert.equal(liveStatusModel(model).pair.status, 'projection_incomplete');
 renderLiveStatus(model);
 assert.match(nodes.get('live-pair').innerHTML, /日志已验证.*JSON 投影尚未同步/);
@@ -87,6 +120,8 @@ for (const mutate of [
   p => p.inspection.services.strategy.config_hash = '<img src=x>',
   p => p.inspection.inspected_at = -1, p => p.inspection_age_seconds = 301,
   p => p.inspection.services.strategy.runtime_epoch_present = 'yes',
+  p => p.inspection.services.strategy.stop_present = 1,
+  p => p.inspection.services.authority.stop_present = false,
 ]) {
   const p = structuredClone(cases.projection); mutate(p);
   assert.equal(liveStatusModel({...data, pair: p}), null);
@@ -209,8 +244,8 @@ const recent = {...data, pending: null, status: 'observed', blockers: [],
   observation_age_seconds: 0};
 assert.equal(liveStatusModel(recent).status, 'observed');
 renderLiveStatus(recent);
-assert.match(nodes.get('live-release').innerHTML, /当前执行资格未核验/);
-assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行|当前运行条件未满足/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+assert.doesNotMatch(nodes.get('live-release').innerHTML, /已放行/);
 assert.match(nodes.get('live-observation').textContent, /记录 NAV 有效至/);
 assert.match(nodes.get('live-observation').textContent, /ETH \/ USDC 喂价上限 1800 \/ 1800 秒/);
 const expired = {...recent, status: 'stale', blockers: ['nav_validity_expired'],

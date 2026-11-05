@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def export_pair_status(strategy: Path, authority: Path, config: LiveConfig) -> dict:
     """Export a bounded declaration from unchanged, replayed local histories.
 
-    No state/budget/evidence store is written. File identities span both reads;
+    STOP presence is sampled beside each state file. File identities span both reads;
     an advancing writer causes refusal rather than a mixed pair report. This is
     a past inspection, not a live lease, raw-RPC replay or execution admission.
     """
@@ -65,9 +65,21 @@ def export_pair_status(strategy: Path, authority: Path, config: LiveConfig) -> d
     if len(frozen) != 4 or len({value[:2] for value in frozen.values()}) != 4:
         raise ValueError("distinct original state files and journals required")
 
+    def stop_signature(path):
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            return None
+        return info.st_dev, info.st_ino, info.st_mode, info.st_ctime_ns
+
+    stop_paths = {name: store.path.parent / "STOP" for name, store in stores.items()}
+    frozen_stops = {path: stop_signature(path) for path in stop_paths.values()}
+
     def unchanged():
         if any(signature(path) != value for path, value in frozen.items()):
             raise ValueError("original histories changed during inspection")
+        if any(stop_signature(path) != value for path, value in frozen_stops.items()):
+            raise ValueError("STOP controls changed during inspection")
         for store in stores.values():
             if any(
                 Path(str(store.journal_path) + suffix).exists()
@@ -136,6 +148,7 @@ def export_pair_status(strategy: Path, authority: Path, config: LiveConfig) -> d
                 "projection_current": projection == payload,
                 "runtime_epoch_present": "oasis.runtime-epoch.v1" in epochs,
                 "halted": bool(state.halted),
+                "stop_present": frozen_stops[stop_paths[name]] is not None,
                 "has_pending": state.pending is not None,
                 "has_signing_attempt": state.signing_attempt is not None,
                 "legacy_gas_cost_incomplete": state.legacy_gas_cost_incomplete,

@@ -71,6 +71,7 @@ const PAIR_BLOCKERS = {
 for (const [role, label] of [["strategy", "策略"], ["authority", "签名服务"]]) {
   for (const [code, text] of Object.entries({configuration_mismatch: "绑定与检查目标不同",
     projection_incomplete: "JSON 投影落后于已验证日志", halted: "仍保留停机标记",
+    stop_present: "检查时存在 STOP 文件", stop_unverified: "摘要未记录 STOP 文件状态",
     has_pending: "存在待对账交易", has_signing_attempt: "签名结果未知",
     legacy_gas_cost_incomplete: "历史 gas 成本不完整"})) PAIR_BLOCKERS[`${role}_${code}`] = `${label}：${text}`;
 }
@@ -98,10 +99,13 @@ function pairValid(p, startup) {
     const s = r.services[role];
     if (!s || ["config_hash", "journal_tip", "state_hash", "projection_hash", "position_identity_hash"].some(key => !digest(s[key])) ||
         ["projection_current", "runtime_epoch_present", "halted", "has_pending", "has_signing_attempt", "legacy_gas_cost_incomplete"].some(key => typeof s[key] !== "boolean") ||
+        (s.stop_present !== undefined && typeof s.stop_present !== "boolean") ||
         s.projection_current !== (s.state_hash === s.projection_hash)) return false;
     if (s.config_hash !== r.expected_config_hash) blockers.push(`${role}_configuration_mismatch`);
     if (!s.projection_current) blockers.push(`${role}_projection_incomplete`);
     for (const flag of ["halted", "has_pending", "has_signing_attempt", "legacy_gas_cost_incomplete"]) if (s[flag]) blockers.push(`${role}_${flag}`);
+    if (s.stop_present === undefined) blockers.push(`${role}_stop_unverified`);
+    else if (s.stop_present) blockers.push(`${role}_stop_present`);
   }
   const a = r.services.strategy, b = r.services.authority;
   if (a.config_hash !== b.config_hash) blockers.push("service_configuration_disagreement");
@@ -233,7 +237,8 @@ export function renderLiveStatus(data) {
     `<details><summary>仍未核验的运行条件</summary><ul>${startup.unverified_checks.map(code => `<li>${esc(UNVERIFIED[code])}</li>`).join("")}</ul></details>` +
     `<p>这里只读取本地待启动配置；不代表生产镜像、链上状态或交易许可。</p>`;
   // Static release approval says nothing about current service health or admission.
-  const runtimeStatus = model.status === "observed" && model.blockers.length === 0
+  const runtimeStatus = model.status === "observed" && startup.local_guards_passed &&
+      model.pair.status === "aligned" && model.pair.blockers.length === 0
     ? "当前执行资格未核验" : "当前运行条件未满足";
   $("live-release").innerHTML = release.new_actions_allowed
     ? `<strong>${runtimeStatus} · USD ${esc(release.capital_limit_usd)} 金丝雀发布授权已记录 · 日亏损上限 USD ${esc(release.daily_loss_limit_usd)} · 累计 USD ${esc(release.cumulative_loss_limit_usd)}</strong><ul><li>${esc(release.release_evidence)}</li><li>启动仍需当前喂价、完整净值及双服务状态通过核验。</li></ul>`
