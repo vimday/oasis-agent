@@ -48,12 +48,19 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
     if re.fullmatch(r"sha256:[0-9a-f]{64}", image) is None or set(rpc) != set(compose.RPC_NAMES):
         raise ValueError("immutable image and exact RPC variable pair required")
     urls = [urlsplit(v) for v in rpc.values()]
+    hosts = {u.hostname.rstrip(".") for u in urls if u.hostname}
     if (
         any(
-            u.scheme != "https" or not u.hostname or u.username or u.password or u.fragment
+            u.scheme != "https"
+            or not u.hostname
+            or "$" in u.hostname
+            or u.username
+            or u.password
+            or u.fragment
             for u in urls
         )
-        or urls[0].hostname == urls[1].hostname
+        or "" in hosts
+        or len(hosts) != 2
     ):
         raise ValueError("two distinct HTTPS RPC hosts required")
     services = {}
@@ -69,7 +76,9 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
             "restart": "no",
             # Container-private tmpfs specification, not a host temporary file.
             "tmpfs": ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"],  # nosec B108
-            "environment": rpc,
+            # Compose interpolates document values. Import the validated RPC
+            # strings by name so dollar signs in credentials stay literal.
+            "environment": list(compose.RPC_NAMES),
             "command": compose.COMMANDS[name],
             "volumes": [
                 {
@@ -201,9 +210,8 @@ def start(image: str, output: Path) -> dict:
             compose_hash=policy["compose_hash"],
         )
         stage = "rpc_environment"
-        document = runtime_document(
-            identity["image"], {n: os.environ[n] for n in compose.RPC_NAMES}
-        )
+        rpc = {name: os.environ[name] for name in compose.RPC_NAMES}
+        document = runtime_document(identity["image"], rpc)
         stage = "existing_volumes"
         volumes = json.loads(command(["volume", "inspect", *VOLUMES.values()], env))
         if (
@@ -256,7 +264,7 @@ def start(image: str, output: Path) -> dict:
                 "authority",
                 "strategy",
             ],
-            env,
+            env | rpc,
             payload=canonical_json(document),
         )
         # Compose success says nothing about service health, receipts or profitability.

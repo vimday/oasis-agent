@@ -15,7 +15,10 @@ from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_lp import CONFIG
 
 IMAGE = "sha256:" + "ab" * 32
-RPC = {name: f"https://source-{i}.invalid/SECRET" for i, name in enumerate(cli.compose.RPC_NAMES)}
+RPC = {
+    name: f"https://source-{i}.invalid/SECRET-$HOME?literal=$${{UNSET:-token}}"
+    for i, name in enumerate(cli.compose.RPC_NAMES)
+}
 
 
 @pytest.mark.parametrize("start", [False, True])
@@ -46,9 +49,10 @@ def test_runtime_document_has_only_bound_services_image_and_existing_volumes():
     assert all(v["external"] is True for v in doc["volumes"].values())
     for name, service in doc["services"].items():
         assert service["image"] == IMAGE and "build" not in service
-        assert service["environment"] == RPC
+        assert service["environment"] == list(cli.compose.RPC_NAMES)
         assert service["command"] == cli.compose.COMMANDS[name]
         assert service["restart"] == "no"
+    assert all(value not in json.dumps(doc) for value in RPC.values())
     assert not any(m["target"] == "/secrets" for m in doc["services"]["strategy"]["volumes"])
     assert doc["services"]["authority"]["volumes"][-1]["read_only"] is True
 
@@ -59,6 +63,26 @@ def test_runtime_document_has_only_bound_services_image_and_existing_volumes():
         ("oasis-live:local", RPC),
         (IMAGE, {}),
         (IMAGE, dict.fromkeys(cli.compose.RPC_NAMES, "https://same.invalid")),
+        (
+            IMAGE,
+            dict(
+                zip(
+                    cli.compose.RPC_NAMES,
+                    ("https://same.invalid", "https://SAME.invalid."),
+                    strict=True,
+                )
+            ),
+        ),
+        (
+            IMAGE,
+            dict(
+                zip(
+                    cli.compose.RPC_NAMES,
+                    ("https://same.invalid", "https://${UNSET:-same}.invalid"),
+                    strict=True,
+                )
+            ),
+        ),
         (
             IMAGE,
             dict(
@@ -97,8 +121,12 @@ def setup(tmp_path, monkeypatch, fault=None):
     )
 
     def command(args, env, *, payload=None):
-        assert set(env) <= {"PATH", "HOME"}
-        assert "SECRET" not in env.values()
+        if args[0] == "compose":
+            assert set(env) <= {"PATH", "HOME", *RPC}
+            assert {name: env[name] for name in RPC} == RPC
+        else:
+            assert set(env) <= {"PATH", "HOME"}
+            assert all("SECRET" not in value for value in env.values())
         calls.append((args, payload))
         if args[:2] == ["context", "inspect"]:
             return canonical_json(
@@ -188,6 +216,7 @@ def setup(tmp_path, monkeypatch, fault=None):
         assert args[args.index("--env-file") + 1] == os.devnull
         doc = json.loads(payload)
         assert doc == cli.runtime_document(IMAGE, RPC)
+        assert b"SECRET" not in payload
         assert (
             json.loads((tmp_path / "attempt" / "attempt.json").read_bytes())["status"]
             == "unresolved"
