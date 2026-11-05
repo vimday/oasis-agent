@@ -13,8 +13,10 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
+from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
 from oasis_agent.reporting.live_startup import read_local_startup_readiness
@@ -97,10 +99,30 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
     }
 
 
+def _state_refusal(error: subprocess.CalledProcessError) -> dict:
+    if error.returncode != 3 or not isinstance(error.output, bytes) or len(error.output) > 4096:
+        raise ValueError("original runtime state inspection failed")
+    result = strict_json_object(error.output)
+    blockers = result.get("blockers")
+    if not isinstance(blockers, list) or len(blockers) != 1:
+        raise ValueError("invalid runtime state refusal")
+    code = StartupBlocker(blockers[0])
+    role = result.get("blocked_service")
+    if code is StartupBlocker.UNRESOLVED:
+        expected = refusal_report(code)
+    elif role in ("strategy", "authority"):
+        expected = refusal_report(code, role)
+    else:
+        raise ValueError("invalid runtime state refusal service")
+    if canonical_json(result) != canonical_json(expected):
+        raise ValueError("invalid runtime state refusal envelope")
+    return expected
+
+
 def state_preflight(image: str, env: dict[str, str]) -> dict:
     """Run verified code with only original state volumes, read-only and offline."""
-    result = json.loads(
-        command(
+    try:
+        output = command(
             [
                 "run",
                 "--rm",
@@ -132,7 +154,9 @@ def state_preflight(image: str, env: dict[str, str]) -> dict:
             ],
             env,
         )
-    )
+    except subprocess.CalledProcessError as error:
+        return _state_refusal(error)
+    result = json.loads(output)
     if (
         not isinstance(result, dict)
         or result.get("schema") != "oasis.live-startup-state.v1"
@@ -226,7 +250,11 @@ def start(image: str, output: Path) -> dict:
         ).strip():
             raise ValueError("existing project containers require explicit recovery")
         stage = "original_runtime_state"
-        report["state_preflight"] = state_preflight(identity["image"], env)
+        preflight = state_preflight(identity["image"], env)
+        report["state_preflight"] = preflight
+        report["state_preflight_exit_code"] = 0 if preflight["startup_prerequisites_passed"] else 3
+        if preflight["startup_prerequisites_passed"] is not True:
+            raise ValueError("original runtime state preflight refused")
         stage = "final_recheck"
         require_live_start()
         if sha256_hex(canonical_json(source_manifest())) != identity["manifest_hash"]:

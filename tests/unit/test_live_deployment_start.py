@@ -19,6 +19,18 @@ RPC = {
     name: f"https://source-{i}.invalid/SECRET-$HOME?literal=$${{UNSET:-token}}"
     for i, name in enumerate(cli.compose.RPC_NAMES)
 }
+STOP_REFUSAL = {
+    "schema": "oasis.live-startup-state.v1",
+    "startup_prerequisites_passed": False,
+    "execution_eligible": False,
+    "historical_only": True,
+    "blockers": ["stop_present"],
+    "blocked_service": "authority",
+}
+GENERIC_REFUSAL = {
+    **{key: value for key, value in STOP_REFUSAL.items() if key != "blocked_service"},
+    "blockers": ["original_runtime_state_unresolved"],
+}
 
 
 @pytest.mark.parametrize("start", [False, True])
@@ -171,6 +183,16 @@ def setup(tmp_path, monkeypatch, fault=None):
             )
             if fault == "state_refused":
                 raise subprocess.CalledProcessError(3, args, output=b"SECRET")
+            if fault in {"state_stop", "state_generic", "state_extra", "state_wrong_exit"}:
+                refusal = dict(GENERIC_REFUSAL if fault == "state_generic" else STOP_REFUSAL)
+                if fault == "state_extra":
+                    refusal["debug"] = "SECRET"
+                raise subprocess.CalledProcessError(
+                    1 if fault == "state_wrong_exit" else 3,
+                    args,
+                    output=canonical_json(refusal),
+                    stderr=b"SECRET",
+                )
             service = {
                 "checkpoint_verified": True,
                 "settled_history_replayed": True,
@@ -240,6 +262,8 @@ def setup(tmp_path, monkeypatch, fault=None):
         "existing",
         "changed_sources",
         "state_refused",
+        "state_extra",
+        "state_wrong_exit",
         "state_bad_report",
         "history_missing",
         "history_false",
@@ -257,6 +281,26 @@ def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     calls = setup(tmp_path, monkeypatch, fault)
     report = cli.start(IMAGE, tmp_path / "attempt")
     assert report["status"] == "refused" and not report["start_attempted"]
+    assert not any(args[0] == "compose" for args, _ in calls)
+    assert "SECRET" not in json.dumps(report)
+    if fault == "changed_sources":
+        assert report["state_preflight_exit_code"] == 0
+    else:
+        assert "state_preflight" not in report
+        assert "state_preflight_exit_code" not in report
+
+
+@pytest.mark.parametrize(
+    "fault,refusal", [("state_stop", STOP_REFUSAL), ("state_generic", GENERIC_REFUSAL)]
+)
+def test_preflight_retains_expected_refusal_without_starting(tmp_path, monkeypatch, fault, refusal):
+    calls = setup(tmp_path, monkeypatch, fault)
+    output = tmp_path / "attempt"
+    report = cli.start(IMAGE, output)
+    assert report["status"] == "refused" and report["failure_stage"] == "original_runtime_state"
+    assert report["state_preflight"] == refusal and report["state_preflight_exit_code"] == 3
+    assert json.loads((output / "report.json").read_bytes()) == report
+    assert not report["start_attempted"] and not (output / "attempt.json").exists()
     assert not any(args[0] == "compose" for args, _ in calls)
     assert "SECRET" not in json.dumps(report)
 

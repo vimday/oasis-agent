@@ -6,6 +6,7 @@ import stat
 from collections.abc import Iterator
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import asdict
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn
 
@@ -22,6 +23,34 @@ from .valuation import replay_nav, replay_nav_quorum
 
 SOURCES = ("live_primary", "live_secondary")
 Role = Literal["strategy", "authority"]
+
+
+class StartupBlocker(StrEnum):
+    UNRESOLVED = "original_runtime_state_unresolved"
+    STOP_PRESENT = "stop_present"
+    SQLITE_RECOVERY = "sqlite_recovery_required"
+    CONFIGURATION_MISMATCH = "configuration_mismatch"
+    RECONCILIATION_REQUIRED = "halt_or_reconciliation_unresolved"
+
+
+class StartupRefused(ValueError):
+    def __init__(self, code: StartupBlocker, role: Role, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.role = role
+
+
+def refusal_report(code: StartupBlocker, role: Role | None = None) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "schema": "oasis.live-startup-state.v1",
+        "startup_prerequisites_passed": False,
+        "execution_eligible": False,
+        "historical_only": True,
+        "blockers": [code.value],
+    }
+    if role is not None:
+        report["blocked_service"] = role
+    return report
 
 
 def _position_identity(position: Position | None) -> tuple[int, int, int, int] | None:
@@ -82,11 +111,15 @@ def _no_network(*_: object) -> NoReturn:
     raise ValueError("startup inspection cannot acquire data")
 
 
-def _require_clean_databases(paths: tuple[Path, ...]) -> None:
+def _require_clean_databases(paths: tuple[Path, ...], role: Role) -> None:
     """Require rollback-format SQLite files before opening a SQLite connection."""
     for path in paths:
         if any(os.path.lexists(str(path) + suffix) for suffix in ("-wal", "-shm", "-journal")):
-            raise ValueError("SQLite recovery artifacts require separate inspection")
+            raise StartupRefused(
+                StartupBlocker.SQLITE_RECOVERY,
+                role,
+                "SQLite recovery artifacts require separate inspection",
+            )
         expected = require_file(path)
         fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(fd, "rb") as handle:
@@ -95,7 +128,9 @@ def _require_clean_databases(paths: tuple[Path, ...]) -> None:
                 raise ValueError("SQLite startup file changed while opening")
             header = handle.read(20)
         if header[:16] != b"SQLite format 3\x00" or header[18:20] != b"\x01\x01":
-            raise ValueError("SQLite rollback format required for startup")
+            raise StartupRefused(
+                StartupBlocker.SQLITE_RECOVERY, role, "SQLite rollback format required for startup"
+            )
 
 
 def _journal_history(store: StateStore, state: LoopState) -> list[tuple[str, bytes]]:
@@ -142,13 +177,17 @@ def inspect_service(
         require_file(path)
     budget_path = directory / "live.receipt-budget.db"
     if os.path.lexists(directory / "STOP"):
-        raise ValueError("service STOP must be resolved before startup")
+        raise StartupRefused(
+            StartupBlocker.STOP_PRESENT, role, "service STOP must be resolved before startup"
+        )
     databases = (store.journal_path, evidence_path, budget_path)
-    _require_clean_databases(databases)
+    _require_clean_databases(databases, role)
     state = store.load("live", read_only=True)
     expected = sha256_hex(canonical_json(asdict(config)))
     if store.journal is None or store.journal.config_hash != expected:
-        raise ValueError("service configuration migration required")
+        raise StartupRefused(
+            StartupBlocker.CONFIGURATION_MISMATCH, role, "service configuration migration required"
+        )
     if (
         state.halted
         or state.pending is not None
@@ -156,7 +195,11 @@ def inspect_service(
         or state.acknowledge_flow
         or state.legacy_gas_cost_incomplete
     ):
-        raise ValueError("service halt or reconciliation unresolved")
+        raise StartupRefused(
+            StartupBlocker.RECONCILIATION_REQUIRED,
+            role,
+            "service halt or reconciliation unresolved",
+        )
     risk = state.exact_risk
     if risk is None or risk.basis is None or risk.last_nav is None or state.last_units is None:
         raise ValueError("existing complete integer risk baseline required")
@@ -226,7 +269,7 @@ def inspect_service(
                 }
             )
         )
-    _require_clean_databases(databases)
+    _require_clean_databases(databases, role)
     return {
         "config_hash": expected,
         "journal_tip": store.journal.revision,

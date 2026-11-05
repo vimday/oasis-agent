@@ -6,7 +6,12 @@ from pathlib import Path
 
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.rpc_profile import LiveRpcProfile
-from oasis_agent.live.startup_state import inspect_pair
+from oasis_agent.live.startup_state import (
+    StartupBlocker,
+    StartupRefused,
+    inspect_pair,
+    refusal_report,
+)
 
 
 def main() -> None:
@@ -23,14 +28,10 @@ def main() -> None:
             LiveConfig.load(args.config),
             LiveRpcProfile.load(args.rpc_profile),
         )
+    except StartupRefused as exc:
+        result = refusal_report(exc.code, exc.role)
     except Exception:  # noqa: BLE001 - fixed report, no local/provider diagnostics
-        result = {
-            "schema": "oasis.live-startup-state.v1",
-            "startup_prerequisites_passed": False,
-            "execution_eligible": False,
-            "historical_only": True,
-            "blockers": ["original_runtime_state_unresolved"],
-        }
+        result = refusal_report(StartupBlocker.UNRESOLVED)
     print(json.dumps(result))
     raise SystemExit(0 if result["startup_prerequisites_passed"] else 3)
 

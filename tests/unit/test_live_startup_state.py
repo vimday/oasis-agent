@@ -374,6 +374,17 @@ def test_inspector_cli_is_readonly_and_redacts_refusal(tmp_path, monkeypatch, ca
     assert exc.value.code == 0
     assert json.loads(capsys.readouterr().out)["execution_eligible"] is False
     assert (snapshot(a), snapshot(b)) == before
+    (b / "STOP").write_text("private operator text")
+    before = snapshot(a), snapshot(b)
+    with pytest.raises(SystemExit) as exc:
+        inspect_live_startup.main()
+    raw = capsys.readouterr().out
+    refusal = json.loads(raw)
+    assert exc.value.code == 3 and refusal["blockers"] == ["stop_present"]
+    assert refusal["blocked_service"] == "authority"
+    assert refusal["startup_prerequisites_passed"] is refusal["execution_eligible"] is False
+    assert "private operator text" not in raw
+    assert (snapshot(a), snapshot(b)) == before
 
 
 def test_stale_projection_cannot_hide_newer_journal_halt(tmp_path):
