@@ -21,7 +21,12 @@ from ..models.common import EvidenceRef, canonical_json, sha256_hex
 from ..rpc.budget import RpcBudget
 from .config import LiveConfig
 from .feed_epoch import HALT
-from .journal import MAX_SNAPSHOT, JournalConflict, LiveJournal
+from .journal import (
+    MAX_SNAPSHOT,
+    JournalConflict,
+    LiveJournal,
+    require_paired_rollback_transaction,
+)
 from .quiesce import MAINTENANCE_HALT
 from .rearm_history import replay_history
 from .rearm_settlements import require_current_settlements
@@ -433,6 +438,7 @@ def apply_pair(
                     raise ValueError("FULL durability required")
             db.execute("BEGIN IMMEDIATE")
             try:
+                require_paired_rollback_transaction(db)
                 report, states = _evaluate(
                     scope,
                     {role: (db, schema) for role, schema in zip(ROLES, SCHEMAS, strict=True)},
@@ -453,6 +459,7 @@ def apply_pair(
                     )
                 scope.verify_files()
                 _fresh(report)
+                require_paired_rollback_transaction(db)
                 db.execute("COMMIT")
             except BaseException:
                 if db.in_transaction:
