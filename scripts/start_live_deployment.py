@@ -37,6 +37,7 @@ VOLUMES = {
     "canary-keys": "oasis-canary-keys",
 }
 MAX_STATE_REPORT_BYTES = 4096
+STARTUP_GUARD_NAME = "oasis-live-start-guard"
 
 
 def local_environment() -> dict[str, str]:
@@ -251,6 +252,30 @@ def _require_no_existing_services(env: dict[str, str]) -> None:
         raise ValueError("existing project containers require explicit recovery")
 
 
+def _acquire_startup_guard(image: str, env: dict[str, str]) -> str:
+    """Reserve one daemon-wide name with a stopped, isolated container."""
+    identity = command(
+        [
+            "create",
+            "--name",
+            STARTUP_GUARD_NAME,
+            "--pull=never",
+            "--network=none",
+            "--read-only",
+            "--user=10001:10001",
+            "--cap-drop=ALL",
+            "--security-opt=no-new-privileges:true",
+            "--entrypoint",
+            "/bin/false",
+            image,
+        ],
+        env,
+    ).strip()
+    if re.fullmatch(rb"[0-9a-f]{64}", identity) is None:
+        raise ValueError("exact startup guard identity required")
+    return identity.decode("ascii")
+
+
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
     config_hash, rpc_max_requests = require_local_runtime_policy()
@@ -262,6 +287,7 @@ def start(image: str, output: Path) -> dict:
         "services_ready": False,
         "execution_eligible": False,
     }
+    guard = None
     stage = "local_context"
     try:
         env = local_environment()
@@ -314,13 +340,18 @@ def start(image: str, output: Path) -> dict:
             raise ValueError("runtime sources changed before start")
         if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
             raise ValueError("deployment configuration changed before start")
+        stage = "startup_guard"
+        report.update(
+            startup_guard_name=STARTUP_GUARD_NAME, startup_guard_status="creation_unresolved"
+        )
+        guard = _acquire_startup_guard(identity["image"], env)
+        report.update(startup_guard_id=guard, startup_guard_status="retained_for_recovery")
         stage = "existing_services_recheck"
         _require_no_existing_services(env)
-        stage = "compose_start"
-        report["start_attempted"] = True
-        report["status"] = "unresolved"  # Persist before the only state-changing command.
+        stage = "attempt_record"
+        attempt = report | {"start_attempted": True, "status": "unresolved"}
         with (output / "attempt.json").open("xb") as handle:
-            handle.write(canonical_json(report))
+            handle.write(canonical_json(attempt))
             handle.flush()
             os.fsync(handle.fileno())
         for directory in (output, output.parent):
@@ -329,6 +360,8 @@ def start(image: str, output: Path) -> dict:
                 os.fsync(fd)
             finally:
                 os.close(fd)
+        stage = "compose_start"
+        report.update(attempt)
         command(
             [
                 "compose",
@@ -354,6 +387,15 @@ def start(image: str, output: Path) -> dict:
         report["status"] = "start_command_completed"
     except Exception:  # noqa: BLE001 - never echo endpoints, Docker output or credentials
         report["failure_stage"] = stage
+    if guard is not None and (
+        not report["start_attempted"] or report["status"] == "start_command_completed"
+    ):
+        try:
+            command(["rm", guard], env)
+        except Exception:  # noqa: BLE001 - preserve uncertain cleanup without Docker diagnostics
+            report["startup_guard_status"] = "release_unresolved"
+        else:
+            report["startup_guard_status"] = "released"
     report["evidence_hash"] = sha256_hex(canonical_json(report))
     with (output / "report.json").open("x") as handle:
         json.dump(report, handle, indent=2)
@@ -395,7 +437,11 @@ def main() -> None:
             "Startup outcome unavailable; preserve the attempt directory and inspect services.\n",
         )
     print(json.dumps(result))
-    raise SystemExit(0 if result["status"] == "start_command_completed" else 3)
+    completed = (
+        result["status"] == "start_command_completed"
+        and result["startup_guard_status"] == "released"
+    )
+    raise SystemExit(0 if completed else 3)
 
 
 if __name__ == "__main__":

@@ -36,13 +36,17 @@ volumes, and a new output directory (`LIVE_START_OUTPUT`, default
 expanded deployment policy and every tracked application file in `LIVE_IMAGE`
 (default `oasis-live:local`), then uses the verified immutable image ID. Image,
 volume, state and startup commands use the Unix socket selected at the beginning
-of the attempt. The report records a digest of that endpoint. It sends a
+of the attempt. The report records a digest of that endpoint. The launcher sends a
 fixed two-service Compose document through stdin; no RPC endpoint is saved in a
 report. Only the two RPC variables reach the containers, and the strategy has no
 key mount. All volumes are external to this startup operation: missing state cannot
 silently become fresh journals or budgets. Existing project containers require
 explicit recovery. The launcher checks their inventory again after preflight and
-before recording a start attempt.
+before recording a start attempt. That last check and Compose start run under a
+daemon-wide guard named `oasis-live-start-guard`. The guard is a stopped container
+with networking disabled, no mounts and no RPC variables. A second invocation
+on the same daemon cannot acquire the guard, including with a different output
+directory.
 
 Before Compose starts either service, the verified candidate image checks both
 original state volumes with no network, key/socket mount or RPC environment. The
@@ -63,11 +67,14 @@ production start, even though read-only recovery can inspect the surviving journ
 
 The entry never builds/pulls, initializes state, imports keys or activates setup/
 recovery profiles. It rechecks release and source/config identities immediately
-before one bounded startup command. A persisted attempt precedes that command;
-timeout or partial failure remains unresolved without a retry. A successful Compose
-command is recorded as `start_command_completed`, **not** healthy services, real
-receipt acceptance or execution permission. Resolve an uncertain attempt and inspect
-the services before another operator-directed start. The existing direct host
+before one bounded startup command. The attempt record stores the guard container
+ID before Compose. A timeout or partial failure retains the guard for recovery.
+If guard creation times out or removal fails, inspect the guard and project
+containers on the original Docker daemon and reconcile the attempt before removing
+the verified guard by ID. The launcher never force-removes a guard or reuses an
+unresolved attempt. A successful Compose command records `start_command_completed`.
+Service health, receipt acceptance and execution eligibility have separate checks.
+The existing direct host
 `make live` entry is unchanged.
 
 Current NAV capture also verifies the pinned PositionManager's `balanceOf(account)`

@@ -15,6 +15,7 @@ from tests.unit.gas_oracle_fixtures import synthetic_gas_pins
 from tests.unit.test_live_lp import CONFIG
 
 IMAGE = "sha256:" + "ab" * 32
+GUARD_ID = "ba" * 32
 DOCKER_SOCKET = "unix:///test.sock"
 CONFIG_HASH = "11" * 32
 RPC_MAX_REQUESTS = 37
@@ -117,7 +118,7 @@ def test_document_refuses_ambiguous_image_or_endpoints(image, rpc):
         cli.runtime_document(image, rpc)
 
 
-def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
+def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None):
     for name in tuple(os.environ):
         if name.startswith("DOCKER_"):
             monkeypatch.delenv(name)
@@ -127,6 +128,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
     monkeypatch.setenv("COMPOSE_FILE", "SECRET")
     monkeypatch.setenv("COMPOSE_PROFILES", "setup,recovery")
     calls = []
+    guard_exists = False
     sources = {"src/a.py": "fixed"}
     digest = sha256_hex(canonical_json(sources))
     monkeypatch.setattr(cli, "require_live_start", lambda: None)  # Synthetic future release only.
@@ -150,6 +152,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
     )
 
     def command(args, env, *, payload=None):
+        nonlocal guard_exists
         if observed_envs is not None:
             observed_envs.append(env)
         if args[:2] == ["context", "inspect"]:
@@ -193,6 +196,23 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
         if args[0] == "ps":
             late = fault == "late_existing" and any(a[0] == "run" for a, _ in calls)
             return b"existing" if fault == "existing" or late else b""
+        if args[0] == "create":
+            assert args[args.index("--name") + 1] == "oasis-live-start-guard"
+            assert args[args.index("--entrypoint") + 1] == "/bin/false" and args[-1] == IMAGE
+            assert {"--pull=never", "--network=none", "--read-only"} <= set(args)
+            assert not {"--mount", "--volume", "--env", "--env-file"} & set(args)
+            if guard_exists:
+                raise subprocess.CalledProcessError(1, args, stderr=b"SECRET conflict")
+            guard_exists = True
+            if fault == "guard_create_timeout":
+                raise subprocess.TimeoutExpired(args, 60, output=b"SECRET")
+            return (GUARD_ID + "\n").encode()
+        if args[0] == "rm":
+            assert guard_exists and args == ["rm", GUARD_ID]
+            if fault == "guard_cleanup":
+                raise subprocess.CalledProcessError(1, args, stderr=b"SECRET cleanup")
+            guard_exists = False
+            return GUARD_ID.encode()
         if args[0] == "run":
             assert "--network=none" in args and "--read-only" in args
             assert "--pull=never" in args and IMAGE in args
@@ -289,6 +309,8 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None):
             json.loads((tmp_path / "attempt" / "attempt.json").read_bytes())["status"]
             == "unresolved"
         )
+        if overlap is not None and sum(a[0] == "compose" for a, _ in calls) == 1:
+            overlap()
         if fault == "timeout":
             raise subprocess.TimeoutExpired(args, 60, output=b"SECRET")
         if fault == "partial_failure":
@@ -383,13 +405,76 @@ def test_one_start_attempt_preserves_uncertainty_and_redacts_secrets(tmp_path, m
     assert sum(args[0] == "compose" for args, _ in calls) == 1
     assert envs and "DOCKER_HOST" not in envs[0]
     assert all(env.get("DOCKER_HOST") == DOCKER_SOCKET for env in envs[1:])
-    assert [args[0] for args, _ in calls][-3:] == ["run", "ps", "compose"]
+    order = [args[0] for args, _ in calls]
+    assert order[order.index("run") :] == ["run", "create", "ps", "compose"] + (
+        [] if fault else ["rm"]
+    )
+    assert report["startup_guard_status"] == ("retained_for_recovery" if fault else "released")
+    assert report["startup_guard_id"] == GUARD_ID
+    assert (
+        json.loads((tmp_path / "attempt/attempt.json").read_bytes())["startup_guard_id"] == GUARD_ID
+    )
     assert report["docker_host_hash"] == sha256_hex(DOCKER_SOCKET.encode())
     assert DOCKER_SOCKET not in json.dumps(report)
     assert "SECRET" not in json.dumps(report)
     with pytest.raises(FileExistsError):
         cli.start(IMAGE, tmp_path / "attempt")
     assert sum(args[0] == "compose" for args, _ in calls) == 1
+
+
+def test_start_guard_blocks_overlapping_and_post_timeout_attempts(tmp_path, monkeypatch):
+    overlapped = []
+    calls = setup(
+        tmp_path,
+        monkeypatch,
+        "timeout",
+        overlap=lambda: overlapped.append(cli.start(IMAGE, tmp_path / "parallel")),
+    )
+    first = cli.start(IMAGE, tmp_path / "attempt")
+    later = cli.start(IMAGE, tmp_path / "later")
+    assert (
+        first["status"] == "unresolved" and first["startup_guard_status"] == "retained_for_recovery"
+    )
+    for folder, report in (("parallel", overlapped[0]), ("later", later)):
+        assert report["status"] == "refused" and report["failure_stage"] == "startup_guard"
+        assert (
+            report["startup_guard_status"] == "creation_unresolved"
+            and not report["start_attempted"]
+        )
+        assert "startup_guard_id" not in report and "SECRET" not in json.dumps(report)
+        assert not (tmp_path / folder / "attempt.json").exists()
+    assert [args[0] for args, _ in calls].count("compose") == 1
+    assert all(args[0] != "rm" for args, _ in calls)
+
+
+@pytest.mark.parametrize("fault", ["guard_create_timeout", "guard_cleanup"])
+def test_start_guard_uncertainty_is_redacted_and_requires_recovery(
+    tmp_path, monkeypatch, capsys, fault
+):
+    calls = setup(tmp_path, monkeypatch, fault)
+    output = tmp_path / "attempt"
+    monkeypatch.setattr("sys.argv", ["start", "--start", "--image", IMAGE, "--out", str(output)])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 3
+    report = json.loads(capsys.readouterr().out)
+    assert "SECRET" not in json.dumps(report)
+    if fault == "guard_create_timeout":
+        assert report["status"] == "refused" and report["failure_stage"] == "startup_guard"
+        assert (
+            report["startup_guard_status"] == "creation_unresolved"
+            and not report["start_attempted"]
+        )
+        assert "startup_guard_id" not in report and not (output / "attempt.json").exists()
+        assert not any(args[0] in {"compose", "rm"} for args, _ in calls)
+    else:
+        assert (
+            report["status"] == "start_command_completed"
+            and report["startup_guard_status"] == "release_unresolved"
+        )
+        assert report["startup_guard_id"] == GUARD_ID and report["start_attempted"]
+        assert (output / "attempt.json").is_file()
+        assert [args[0] for args, _ in calls][-2:] == ["compose", "rm"]
 
 
 def test_ambient_docker_override_refuses(tmp_path, monkeypatch):
