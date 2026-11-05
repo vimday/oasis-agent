@@ -68,7 +68,10 @@ The header guard follows the published [SQLite file format](https://www.sqlite.o
 After raw replay, the writer obtains both exclusive nonblocking service locks
 and checks the approved source tips/states again. It uses one SQLite `ATTACH`
 transaction, requires DELETE rollback mode and FULL synchronization on both,
-and refuses journals on different filesystems. Each source is re-read under
+and refuses journals on different filesystems. Modes and synchronization are
+rechecked **after BEGIN IMMEDIATE has obtained the write locks**, before the
+first epoch write, and again before COMMIT. An unlocked preliminary PRAGMA is
+not sufficient. Each source is re-read under
 the transaction before staging. Freshness, original artifacts, target/ref hashes
 and both staged record hashes are checked again before a single COMMIT.
 Either both epochs commit or neither does under SQLite's rollback protocol.
@@ -108,6 +111,53 @@ Retain both original proof stores, the separate gas-evidence database and the
 input/attempt records. The journal's content-addressed references and review
 hash do not replace their raw proof. Migration copies or deletes none of them.
 
+## Mode-lock correction before promotion
+
+Final review of the initial candidate `ac417f7` found an uncovered mode-switch
+window. A real second connection changed the peer to WAL after the unlocked
+mode probe and before BEGIN. The transaction then used DELETE/WAL through
+COMMIT, appended one event in each journal and still reported `atomic_pair:
+true`. No production file or key was involved. The original normal-case
+4491-test gate and candidate image remain retained, but they are superseded as
+promotion evidence. WAL does not provide atomicity across attached databases
+as a set. [SQLite WAL documentation](https://www.sqlite.org/wal.html).
+
+The first diagnostic inspected only final modes, which were both DELETE. The
+second added observations inside the transaction and confirmed the mixed-mode
+window; final-mode inspection alone was insufficient. Its retained evidence is
+`reports/review-20261105/runtime-epoch/mode-race-reproducer-v2.json`, hash
+`57e1ceabfc12ba7fd618e90de4503c566295282944012dc56dd18f19206c5bbf`.
+Both original diagnostic records and scripts remain unchanged.
+
+The correction adds one shared locked-transaction guard to both runtime and
+historical feed migration. It checks active transaction, DELETE and FULL on
+both databases immediately after taking the SQLite locks and before any epoch
+write, and repeats the guard before commit. Runtime migration also rechecks
+the complete original signatures before staging. Two real second-connection
+regressions confirm both paths refuse, preserve events/projections and leave
+the externally selected WAL mode visible for inspection. No automatic
+conversion or retry is added. The related suite passes 125 tests, exit 0.
+
+The corrected complete gate, `runtime-epoch-quality-v2`, passes **4493 tests,
+138 subtests**, 249 typed sources and eight frontend modules. All four check
+exits and outer Make are 0, with the same ten warnings and 98 low / zero
+medium/high Bandit findings. All 632 final runtime/test inputs remain frozen.
+Together the feature adds 39 cases. The four-case host smoke expects CLI exits
+`0, 3, 0, 3`: complete strict migration, committed projection failure, complete
+prior-feed migration and mode-race refusal before any epoch write. The latter
+preserves original events/projections/budgets and leaves WAL for inspection.
+
+- Corrected quality evidence:
+  `3ba7e3ec9e9d9fb110b405107ab03dfb9d806f3f7e74f790472a89a669d51f68`.
+- Corrected independent reverification:
+  `590bd16d87162359997e459ae7fd1d4d22e47895a0f7e43b5bd96f31beee977d`.
+
+The earlier image `sha256:5cf78308b93948e0a3d2de7ad14c67aa37eae8ea13c47f7eab4f909b0035af18`
+and its `runtime-ac417f7/summary.json` evidence hash
+`b80f54d44fd3b1bb53c35220685d1bca816b7e26a4954ff27d6414388a9923e6`
+remain historical, superseded candidates. They were never deployed. Original
+logs, archives, scripts, packets and reports are retained without replacement.
+
 ## Validation and limitations
 
 Thirty-seven new cases and 123 related tests passed, exit 0. They cover both
@@ -131,7 +181,7 @@ staging because the child omitted its synthetic feed-runtime override. That
 fixture was corrected explicitly; no production pin was changed. All original
 failure logs remain under `reports/review-20261105/runtime-epoch/`.
 
-The full gate passed all four checks and outer Make with exit 0, no timeout or
+The initial implementation gate passed all four checks and outer Make with exit 0, no timeout or
 launch failure: **4491 tests, 138 subtests**, 249 typed source files and eight
 frontend modules. Ten existing WebSockets/multithreaded-fork deprecation warnings
 remain. Bandit reports zero medium/high and 98 low findings, with no scanner
@@ -147,7 +197,7 @@ hash, canonical report and all 631 frozen runtime/test inputs were rechecked.
   serialized budget files**:
   `f8eb8427e818238eed6a94fc3b238f8eb00cb65cedfbb4095ee3dbd724edbae9`.
 
-The host smoke uses explicit synthetic feed/clock substitutions and disposable
+The initial host smoke uses explicit synthetic feed/clock substitutions and disposable
 test budgets. During migration, real network, RPC, evidence writes and budget
 opening are forbidden. Strict and prior-feed cases return CLI 0; the deliberately
 failed historical projection returns the expected CLI 3 while both journals

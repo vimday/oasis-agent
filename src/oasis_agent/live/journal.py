@@ -41,6 +41,21 @@ def epoch_deadline(record: dict[str, Any]) -> tuple[int, int]:
     return fresh["block"]["timestamp"], fresh["valid_until"]
 
 
+def require_paired_rollback_transaction(db: sqlite3.Connection) -> None:
+    """Check both modes after write locks exist, before staging any epoch.
+
+    A peer can switch to WAL between an unlocked PRAGMA and BEGIN IMMEDIATE.
+    Never convert that peer back or claim cross-file atomicity in mixed modes.
+    """
+    if not db.in_transaction:
+        raise ValueError("active paired write transaction required")
+    for schema in ("main", "peer"):
+        if db.execute(f"PRAGMA {schema}.journal_mode").fetchone() != ("delete",) or db.execute(
+            f"PRAGMA {schema}.synchronous"
+        ).fetchone() != (2,):
+            raise ValueError("locked paired DELETE/FULL journal modes required")
+
+
 class JournalConflict(ValueError):
     pass
 

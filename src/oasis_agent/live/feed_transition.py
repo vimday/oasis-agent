@@ -17,6 +17,7 @@ from typing import Any, Literal, NoReturn
 from ..evidence.store import EvidenceStore
 from ..models.common import EvidenceRef, canonical_json, sha256_hex
 from .config import LiveConfig
+from .journal import require_paired_rollback_transaction
 from .receipts import RetainedReceiptCostReader
 from .runner import LiveLoop
 from .startup_state import acquire_existing_lock, require_file
@@ -354,6 +355,7 @@ def apply_pair(
                     raise ValueError("FULL durability required")
             db.execute("BEGIN IMMEDIATE")
             try:
+                require_paired_rollback_transaction(db)
                 for name, schema in zip(stores, ("main", "peer"), strict=True):
                     verify_stopped()
                     journal = stores[name].journal
@@ -361,6 +363,7 @@ def apply_pair(
                     staged[name] = journal._transition_in_transaction(
                         db, records[name], schema=schema
                     )
+                require_paired_rollback_transaction(db)
                 verify_stopped()
                 now = int(time.time())
                 if any(

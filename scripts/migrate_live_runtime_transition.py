@@ -17,7 +17,7 @@ from pathlib import Path
 from oasis_agent.evidence.rpc_validation import strict_digest, strict_json_object
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.feed_transition import _service_lock
-from oasis_agent.live.journal import epoch_deadline
+from oasis_agent.live.journal import epoch_deadline, require_paired_rollback_transaction
 from oasis_agent.live.runtime_epoch import SCHEMA
 from oasis_agent.live.startup_state import paths
 from oasis_agent.live.state import StateStore
@@ -164,11 +164,14 @@ def apply_pair(strategy, authority, target, references, gas_evidence, retained, 
                     raise ValueError("FULL paired durability required")
             db.execute("BEGIN IMMEDIATE")
             try:
+                require_paired_rollback_transaction(db)
+                unchanged()
                 for name, schema in zip(ROLES, ("main", "peer"), strict=True):
                     unchanged(staging=True)
                     staged[name] = stores[name].journal._transition_in_transaction(
                         db, records[name], schema=schema
                     )
+                require_paired_rollback_transaction(db)
                 unchanged(staging=True)
                 if target_hash != sha256_hex(
                     canonical_json(asdict(target))

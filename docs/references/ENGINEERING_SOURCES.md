@@ -193,6 +193,24 @@ and universal APR/loss shortcuts, and validates every claim independently before
 Adopted practice: concise always-on context, domain rules loaded by path, evidence-based review,
 measured reliability budgets, actionable operations, and immutable CI dependencies.
 
+## SQLite paired journal durability
+
+- [SQLite database file format](https://www.sqlite.org/fileformat2.html): persistent
+  read/write format bytes distinguish rollback journals from WAL before opening a reader.
+- [SQLite atomic commit](https://www.sqlite.org/atomiccommit.html): rollback and super-journal
+  protocol for attached databases, with explicit filesystem/locking/flush assumptions.
+- [SQLite WAL](https://www.sqlite.org/wal.html): attached WAL transactions do not provide
+  all-database atomicity as a set.
+
+Adopted practice: paired halted migrations require original same-filesystem journals, DELETE
+and FULL, checked after BEGIN IMMEDIATE holds the write locks and before the first epoch write,
+then again before commit. An unlocked mode probe can race with another connection. Preserve hot
+artifacts for explicit inspection rather than automatically converting or retrying. Enforcement
+is `live/journal.require_paired_rollback_transaction` in both feed and runtime migration; real
+second-connection regressions are in `tests/unit/test_live_paired_mode_lock.py`, with retained
+reproducer evidence described in `docs/verification/PAIRED_RUNTIME_EPOCH_20261105.md`. These controls
+do not certify storage hardware or replace retained raw on-chain proof.
+
 ## Translation rule
 
 Sources are not collected for prestige. Each adopted practice must map to a project control, code or
