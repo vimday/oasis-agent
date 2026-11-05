@@ -52,6 +52,7 @@ def review(strategy, authority, evidence_paths, config, fresh, sources, now):
                 state,
                 prior["config_hash"],
                 evidence,
+                source_payload=store.retained_payload(state),
                 sources=sources,
                 fresh=tuple(evidence_ref_from_json(r) for r in fresh.get(name, [])),
                 now=now,

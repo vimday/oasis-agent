@@ -26,7 +26,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from ..models.common import EvidenceRef, evidence_ref_from_json
+from ..models.common import EvidenceRef, canonical_json, evidence_ref_from_json
 from .exact_risk import ExactRisk, legacy_ceiling
 from .intent import SubmittedTransaction
 from .journal import LiveJournal
@@ -290,6 +290,37 @@ class StateStore:
         if state.journal_required:
             raise ValueError("required execution journal missing")
         return state
+
+    def retained_payload(self, state: LoopState) -> bytes:
+        """Return the verified bytes of this loaded state without refreshing its CAS.
+
+        Decoding an older snapshot adds optional defaults. Approval hashes must
+        still name the original journal bytes, not a new serialization of them.
+        A separate reader keeps a changed tip from advancing this writer's CAS.
+        """
+        journal = self.journal
+        if (
+            state.mode != "live"
+            or journal is None
+            or journal.config_hash is None
+            or journal.revision is None
+            or journal.path != self.journal_path
+        ):
+            raise ValueError("loaded live journal snapshot required")
+        revision, binding = journal.revision, journal.config_hash
+        reader = LiveJournal(self.journal_path, binding, require_existing=True)
+        payload = reader.load(read_only=True)
+        if (
+            payload is None
+            or (reader.revision, reader.config_hash) != (revision, binding)
+            or self.journal is not journal
+            or (journal.revision, journal.config_hash) != (revision, binding)
+        ):
+            raise ValueError("retained journal snapshot changed")
+        validate_state(state)
+        if canonical_json(asdict(self._decode(payload, "live"))) != canonical_json(asdict(state)):
+            raise ValueError("state differs from retained journal snapshot")
+        return payload
 
     @staticmethod
     def _decode(payload: bytes, mode: str) -> LoopState:

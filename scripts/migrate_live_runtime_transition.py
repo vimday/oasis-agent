@@ -133,7 +133,7 @@ def apply_pair(strategy, authority, target, references, gas_evidence, retained, 
             if journal is None or (
                 journal.config_hash,
                 journal.revision,
-                sha256_hex(canonical_json(asdict(state))),
+                sha256_hex(store.retained_payload(state)),
             ) != (service["source_config_hash"], service["journal_tip"], service["state_hash"]):
                 raise ValueError("original runtime journal differs from approved preflight")
             tips[name] = journal.revision

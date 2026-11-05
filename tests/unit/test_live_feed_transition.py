@@ -95,7 +95,14 @@ def test_proof_bound_review_preserves_state_and_evidence(tmp_path, fault):
             sources = (SECONDARY, PRIMARY)
         before, raw = deepcopy(state), path.read_bytes()
         result = review_service(
-            CONFIG, state, OLD_HASH, evidence, sources=sources, fresh=fresh, now=now
+            CONFIG,
+            state,
+            OLD_HASH,
+            evidence,
+            source_payload=canonical_json(asdict(state)),
+            sources=sources,
+            fresh=fresh,
+            now=now,
         )
         assert state == before and path.read_bytes() == raw
         assert not result["execution_eligible"] and result["halt_preserved"]
@@ -162,7 +169,14 @@ def test_preview_preserves_funded_basis_and_conservative_loss_convention(tmp_pat
         value, refs = capture(evidence, CONFIG, new)
         before = deepcopy(state)
         result = review_service(
-            CONFIG, state, OLD_HASH, evidence, sources=SOURCES, fresh=refs, now=new.timestamp
+            CONFIG,
+            state,
+            OLD_HASH,
+            evidence,
+            source_payload=canonical_json(asdict(state)),
+            sources=SOURCES,
+            fresh=refs,
+            now=new.timestamp,
         )
         assert not result["blockers"] and state == before
         preview = result["risk_preview"]

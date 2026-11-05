@@ -4,6 +4,7 @@ Review is read-only. Application requires a stopped service and valid new raw
 proofs; it always preserves HALT. Neither path acquires RPC data or can trade.
 """
 
+import json
 import os
 import sqlite3
 import time
@@ -52,11 +53,12 @@ def review_service(
     binding: str,
     evidence: EvidenceStore,
     *,
+    source_payload: bytes,
     sources: tuple[str, str],
     fresh: tuple[EvidenceRef, ...] = (),
     now: int,
 ) -> dict[str, Any]:
-    """The caller must obtain state and binding from one verified journal snapshot.
+    """The caller must obtain raw bytes and binding from one verified journal snapshot.
 
     Old risk is replayed under its recorded policy. Only new proofs are evaluated
     under the current policy. Missing fresh proofs never produce a risk preview.
@@ -67,11 +69,19 @@ def review_service(
     validate_state(state)
     if state.mode != "live":
         raise ValueError("live state required")
+    if (
+        not isinstance(source_payload, bytes)
+        or len(source_payload) > 2_000_000
+        or canonical_json(asdict(StateStore._decode(source_payload, "live")))
+        != canonical_json(asdict(state))
+        or canonical_json(json.loads(source_payload)) != source_payload
+    ):
+        raise ValueError("canonical retained bytes must describe the reviewed state")
     blockers: list[str] = []
     report: dict[str, Any] = {
         "schema": "oasis.feed-transition-service-review.v1",
         "execution_eligible": False,
-        "state_hash": sha256_hex(canonical_json(asdict(state))),
+        "state_hash": sha256_hex(source_payload),
         "source_config_hash": binding,
         "target_config_hash": sha256_hex(canonical_json(asdict(target))),
         "historical_checkpoint_verified": False,
@@ -313,6 +323,7 @@ def apply_pair(
                 state,
                 journal.config_hash,
                 evidence[name],
+                source_payload=store.retained_payload(state),
                 sources=sources,
                 fresh=fresh[name],
                 now=int(time.time()),
@@ -331,8 +342,8 @@ def apply_pair(
             assert tip is not None
             journal = store.journal
             assert journal is not None
-            raw = journal.load(read_only=True)
-            if raw is None or journal.revision != tip:
+            raw = store.retained_payload(states[name])
+            if journal.revision != tip:
                 raise ValueError("journal changed during paired proof review")
             records[name] = {
                 "schema": "oasis.strict-feed-epoch.v1",
@@ -441,14 +452,15 @@ def _apply_service(
         state,
         journal.config_hash,
         evidence,
+        source_payload=store.retained_payload(state),
         sources=sources,
         fresh=fresh,
         now=int(time.time()),
     )
     if review["blockers"]:
         raise ValueError("transition evidence remains unresolved")
-    raw = journal.load(read_only=True)
-    if raw is None or journal.revision != expected_tip:
+    raw = store.retained_payload(state)
+    if journal.revision != expected_tip:
         raise ValueError("journal changed during evidence review")
     record = {
         "schema": "oasis.strict-feed-epoch.v1",

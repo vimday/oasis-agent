@@ -190,7 +190,7 @@ def review(strategy, authority, target, references, gas_evidence, *, now):
             report["services"][role] = {
                 "journal_tip": tip,
                 "source_config_hash": binding,
-                "state_hash": sha256_hex(canonical_json(asdict(state))),
+                "state_hash": sha256_hex(store.retained_payload(state)),
                 "nav_usd_micros": value.nav_micros,
                 "nav_raw_results_hash": wire_hash,
                 "risk_preview": asdict(risk),

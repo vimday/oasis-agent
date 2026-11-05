@@ -2,7 +2,7 @@
 
 from contextlib import ExitStack, closing
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 
@@ -10,7 +10,7 @@ from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.feed_transition import apply_pair, review_service
 from oasis_agent.live.state import day_of
 from oasis_agent.live.valuation import capture_nav
-from oasis_agent.models.common import BlockRef
+from oasis_agent.models.common import BlockRef, canonical_json
 from oasis_agent.rpc.transport import JsonRpcTransport
 from tests.unit import test_live_approval_cash as approval
 from tests.unit.test_live_feed_migration import apply, prepare
@@ -112,7 +112,14 @@ def test_review_refuses_unexplained_nonce_or_block_change_without_writing(
             JsonRpcTransport, "request", lambda *_: pytest.fail("offline review attempted RPC")
         )
         result = review_service(
-            target, state, binding, evidence, sources=SOURCES, fresh=fresh, now=new.timestamp
+            target,
+            state,
+            binding,
+            evidence,
+            source_payload=canonical_json(asdict(state)),
+            sources=SOURCES,
+            fresh=fresh,
+            now=new.timestamp,
         )
         assert state == before and path.read_bytes() == raw
         assert result["historical_checkpoint_verified"]
