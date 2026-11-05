@@ -57,6 +57,11 @@ gas discovery, both services' NAV and retained receipt anchors, then runs the
 read-only runtime preflight before publishing. It does not apply the candidate
 configuration, migrate journals, rearm services or authorize trading.
 
+The [paired runtime epoch command](docs/verification/PAIRED_RUNTIME_EPOCH_20261105.md)
+defaults to read-only preflight. Its separate explicit apply mode replays an
+approved retained review and atomically appends both journals while preserving
+HALT, history and budgets. It does not start services or authorize trading.
+
 For the retained-input research pipeline:
 
 ```bash

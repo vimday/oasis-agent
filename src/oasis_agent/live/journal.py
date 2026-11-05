@@ -15,10 +15,30 @@ from pathlib import Path
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
-from .feed_epoch import transition_snapshot
+from .feed_epoch import transition_snapshot as feed_snapshot
+from .runtime_epoch import SCHEMA as RUNTIME_EPOCH
+from .runtime_epoch import transition_snapshot as runtime_snapshot
 
 ZERO = "0" * 64
 MAX_SNAPSHOT = 2_000_000
+FEED_EPOCH = "oasis.strict-feed-epoch.v1"
+EPOCH_SEQUENCES = {(FEED_EPOCH,), (RUNTIME_EPOCH,), (FEED_EPOCH, RUNTIME_EPOCH)}
+
+
+def _epoch_snapshot(
+    prior: dict[str, Any], record: dict[str, Any], *, binding: str, parent: str
+) -> tuple[str, dict[str, Any]]:
+    if record.get("schema") == FEED_EPOCH:
+        return feed_snapshot(prior, record, binding=binding, parent=parent)
+    if record.get("schema") == RUNTIME_EPOCH:
+        return runtime_snapshot(prior, record, binding=binding, parent=parent)
+    raise ValueError("unsupported configuration epoch")
+
+
+def epoch_deadline(record: dict[str, Any]) -> tuple[int, int]:
+    review = record["review"]
+    fresh = review if record["schema"] == RUNTIME_EPOCH else review["fresh_nav"]
+    return fresh["block"]["timestamp"], fresh["valid_until"]
 
 
 class JournalConflict(ValueError):
@@ -89,18 +109,19 @@ class LiveJournal:
         latest = None
         binding = None
         transitions = {}
+        epoch_kinds: tuple[str, ...] = ()
         if db.execute(
             "SELECT 1 FROM main.sqlite_master WHERE type='table' AND name='config_transitions'"
             if schema == "main"
             else "SELECT 1 FROM peer.sqlite_master WHERE type='table' AND name='config_transitions'"
         ).fetchone():
             rows = db.execute(
-                "SELECT seq, payload FROM main.config_transitions LIMIT 2"
+                "SELECT seq, payload FROM main.config_transitions ORDER BY seq LIMIT 3"
                 if schema == "main"
-                else "SELECT seq, payload FROM peer.config_transitions LIMIT 2"
+                else "SELECT seq, payload FROM peer.config_transitions ORDER BY seq LIMIT 3"
             ).fetchall()
-            if len(rows) != 1:
-                raise ValueError("exactly one supported configuration transition required")
+            if not 1 <= len(rows) <= 2:
+                raise ValueError("one or two bounded configuration transitions required")
             transitions = dict(rows)
         for expected, row in enumerate(
             db.execute(
@@ -145,7 +166,10 @@ class LiveJournal:
                 record = json.loads(transition)
                 if canonical_json(record) != transition:
                     raise ValueError("noncanonical transition record")
-                target, snapshot = transition_snapshot(
+                epoch_kinds = (*epoch_kinds, record.get("schema"))
+                if epoch_kinds not in EPOCH_SEQUENCES:
+                    raise ValueError("configuration epoch sequence is unsupported")
+                target, snapshot = _epoch_snapshot(
                     json.loads(latest), record, binding=binding, parent=parent
                 )
                 if target != config or canonical_json(snapshot) != payload:
@@ -170,9 +194,9 @@ class LiveJournal:
         return parent, latest
 
     def transition(self, record: dict[str, Any]) -> bytes:
-        """Append one reviewed strict-feed epoch atomically; never update old events.
+        """Append one supported reviewed epoch atomically; never update old events.
 
-        The caller must first replay raw proofs with feed_transition.apply_service.
+        The explicit caller must first replay the epoch's retained raw proofs.
         This storage operation cannot clear HALT and does not touch RPC budgets.
         """
         if self.config_hash is None or self.revision is None:
@@ -187,7 +211,7 @@ class LiveJournal:
     def _transition_in_transaction(
         self, db: sqlite3.Connection, record: dict[str, Any], *, schema: str = "main"
     ) -> tuple[str, str, bytes]:
-        """Stage the same sole supported epoch; the owner commits and binds later.
+        """Stage a bounded epoch; the owner commits and binds later.
 
         Only main/peer are possible. Paired application uses one ATTACH rollback
         transaction, so neither staged binding escapes if its peer fails.
@@ -202,13 +226,22 @@ class LiveJournal:
         parent, latest = self._read(db, schema=schema)
         if parent != self.revision or latest is None or record["source_tip"] != parent:
             raise JournalConflict("transition source changed")
-        if db.execute(
+        exists = db.execute(
             "SELECT 1 FROM main.sqlite_master WHERE name='config_transitions'"
             if schema == "main"
             else "SELECT 1 FROM peer.sqlite_master WHERE name='config_transitions'"
-        ).fetchone():
-            raise ValueError("a transition already exists; no repeat or replacement")
-        target, state = transition_snapshot(
+        ).fetchone()
+        kinds: tuple[str, ...] = ()
+        if exists:
+            rows = db.execute(
+                "SELECT payload FROM main.config_transitions ORDER BY seq LIMIT 3"
+                if schema == "main"
+                else "SELECT payload FROM peer.config_transitions ORDER BY seq LIMIT 3"
+            ).fetchall()
+            kinds = tuple(json.loads(row[0])["schema"] for row in rows)
+        if (*kinds, record.get("schema")) not in EPOCH_SEQUENCES:
+            raise ValueError("a transition already exists; no repeat, replacement or reversal")
+        target, state = _epoch_snapshot(
             json.loads(latest), record, binding=self.config_hash, parent=parent
         )
         payload, encoded = canonical_json(state), canonical_json(record)
@@ -233,17 +266,16 @@ class LiveJournal:
                 }
             )
         )
-        db.execute(
-            "CREATE TABLE main.config_transitions (seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
-            if schema == "main"
-            else "CREATE TABLE peer.config_transitions "
-            "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
-        )
-        for operation in ("UPDATE", "DELETE"):
+        if not exists:
             db.execute(
-                f"CREATE TRIGGER {schema}.transition_no_{operation.lower()} BEFORE {operation} "
-                "ON config_transitions BEGIN SELECT RAISE(ABORT, 'append only'); END"
+                f"CREATE TABLE {schema}.config_transitions "
+                "(seq INTEGER PRIMARY KEY, payload BLOB NOT NULL)"
             )
+            for operation in ("UPDATE", "DELETE"):
+                db.execute(
+                    f"CREATE TRIGGER {schema}.transition_no_{operation.lower()} BEFORE {operation} "
+                    "ON config_transitions BEGIN SELECT RAISE(ABORT, 'append only'); END"
+                )
         db.execute(
             "INSERT INTO main.config_transitions VALUES (?, ?)"
             if schema == "main"
@@ -256,8 +288,8 @@ class LiveJournal:
             else "INSERT INTO peer.events VALUES (?, ?, ?, ?, ?)",
             (seq, target, parent, digest, payload),
         )
-        fresh = record["review"]["fresh_nav"]
-        if not fresh["block"]["timestamp"] <= int(time.time()) <= fresh["valid_until"]:
+        start, end = epoch_deadline(record)
+        if not start <= int(time.time()) <= end:
             raise ValueError("transition proof expired while acquiring journal lock")
         return target, digest, payload
 

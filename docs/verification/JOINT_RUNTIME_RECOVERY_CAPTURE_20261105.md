@@ -79,6 +79,11 @@ activity is read-only **on chain**, not a claim of zero local evidence writes.
 Never point the ordinary startup command at `runtime-target.json` before the
 history-preserving paired runtime transition is implemented and approved.
 
+Subsequent implementation: the [paired epoch
+command](PAIRED_RUNTIME_EPOCH_20261105.md) supplies the local writer. Its default
+is read-only, and applying a production epoch still requires its own explicit
+approval and current retained proof. No production migration was performed.
+
 ## Validation boundary
 
 Seventeen new tests and 104 related tests passed with exit 0. They exercise the

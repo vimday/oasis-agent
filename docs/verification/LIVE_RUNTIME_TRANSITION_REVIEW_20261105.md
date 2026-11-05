@@ -70,6 +70,11 @@ coordination gap in code. Its separate 209-read scope has not been executed
 against production. The original validation evidence below remains unchanged;
 the paired runtime epoch writer and real acceptance are still outstanding.
 
+Later implementation: the [paired epoch
+command](PAIRED_RUNTIME_EPOCH_20261105.md) now supplies an explicitly approved,
+halt-preserving writer. Its mechanism validation does not apply a production
+epoch or establish real acceptance. This preflight still writes nothing.
+
 ## Validation
 
 Twenty-two new tests cover both original feed epochs, five/eight-pin scope,

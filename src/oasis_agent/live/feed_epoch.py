@@ -53,7 +53,20 @@ def transition_snapshot(
         or prior.get("legacy_gas_cost_incomplete") is not False
     ):
         raise ValueError("transition evidence review or prior state is unresolved")
-    fresh = review["fresh_nav"]
+    return target_hash, checkpoint_snapshot(
+        prior, target, review["fresh_nav"], review["risk_preview"], halt_reason=HALT
+    )
+
+
+def checkpoint_snapshot(
+    prior: dict[str, Any],
+    target: LiveConfig,
+    fresh: dict[str, Any],
+    risk_preview: dict[str, Any],
+    *,
+    halt_reason: str,
+) -> dict[str, Any]:
+    """Apply the existing integer checkpoint delta without changing capital/history."""
     stamp, nav = fresh["block"]["timestamp"], fresh["nav_usd_micros"]
     risk = ExactRisk(**prior["exact_risk"])
     if type(stamp) is not int or stamp <= risk.last_at or risk.basis is None:
@@ -62,7 +75,7 @@ def transition_snapshot(
     day = datetime.fromtimestamp(stamp, UTC).astimezone(timezone(timedelta(hours=8))).date()
     daily, cumulative = risk.observe(day=day.isoformat(), at=stamp, nav=nav, checkpoint=True)
     if (
-        asdict(risk) != review["risk_preview"]
+        asdict(risk) != risk_preview
         or daily >= target.max_daily_loss_usd * 1_000_000
         or cumulative >= target.max_cumulative_loss_usd * 1_000_000
     ):
@@ -71,7 +84,7 @@ def transition_snapshot(
     result.update(
         exact_risk=asdict(risk),
         nav_evidence=fresh["evidence"],
-        halted=prior.get("halted") or HALT,
+        halted=prior.get("halted") or halt_reason,
         last_observation=None,
         last_light_check=None,
         initial_nav_usd=risk.basis / 1_000_000,
@@ -85,4 +98,4 @@ def transition_snapshot(
     )
     # Day/action rollover follows the runtime convention. Gas, position, inventory,
     # history and every other field remain unchanged; migration never clears HALT.
-    return target_hash, result
+    return result

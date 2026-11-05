@@ -134,7 +134,7 @@ def review(strategy, authority, target, references, gas_evidence, *, now):
             "current_full_receipt_history_simulation_and_unwind_still_required",
             "no_budget_or_cost_scope_admission",
             "same_block_gas_and_nav_acquisition_must_be_supplied_separately",
-            "history_preserving_runtime_epoch_writer_still_required",
+            "separate_explicit_paired_epoch_application_required",
         ],
     }
     with startup_locks(directories), ExitStack() as resources:
