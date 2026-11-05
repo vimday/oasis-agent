@@ -124,7 +124,7 @@ def test_live_dashboard_rejects_malformed_data_and_clears_old_results(tmp_path: 
     }
     model = read_live_status(write_state(tmp_path, record), now=NOW).model_dump(by_alias=True)
     program = (
-        "import {liveStatusModel, renderLiveStatus, formatNative} from "
+        "import {liveStatusModel, renderLiveStatus, formatNative, loadLiveStatus} from "
         + json.dumps((tmp_path / "live-status.js").as_uri())
         + ";\nconst data = "
         + json.dumps(model)
@@ -308,6 +308,66 @@ for (const invalid of [null, {}, {...data, execution_eligible: true},
   assert.equal(nodes.get('live-stats').textContent, '');
   assert.equal(nodes.get('live-startup').textContent, '');
 }
+
+// Model time advances independently of the next polling response.
+let clock = 0, nextTimer = 0, requests = 0, respond;
+const timers = new Map();
+Object.defineProperty(globalThis, 'performance', {value: {now: () => clock}});
+globalThis.setTimeout = (callback, delay) => {
+  const id = ++nextTimer;
+  timers.set(id, {callback, at: clock + delay});
+  return id;
+};
+globalThis.clearTimeout = id => timers.delete(id);
+globalThis.fetch = (path) => {
+  assert.equal(path, '/api/v1/live/status');
+  requests++;
+  return new Promise(resolve => {
+    respond = payload => resolve({
+      status: 200, ok: true, text: async () => JSON.stringify(payload),
+    });
+  });
+};
+function advanceTo(ms) {
+  clock = ms;
+  for (const [id, timer] of timers) {
+    if (timer.at > clock) continue;
+    timers.delete(id);
+    timer.callback();
+  }
+}
+const nearExpiry = {...recent, observation: {...recent.observation,
+  nav_valid_until: recent.observation.observed_at + 2}};
+const firstRead = loadLiveStatus();
+advanceTo(250);
+respond(nearExpiry);
+await firstRead;
+assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
+advanceTo(1999);
+assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
+const waiting = loadLiveStatus();
+const concurrent = loadLiveStatus();
+assert.equal(requests, 2);
+advanceTo(2000);
+assert.match(nodes.get('live-title').textContent, /观测需要更新/);
+assert.match(nodes.get('live-blockers').innerHTML, /完整 NAV 已到期/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+assert.match(nodes.get('live-observation').textContent, /记录 NAV 有效至/);
+assert.equal(requests, 2);
+advanceTo(4100);
+respond(nearExpiry);
+await Promise.all([waiting, concurrent]);
+assert.match(nodes.get('live-title').textContent, /观测需要更新/);
+
+const replacement = loadLiveStatus();
+respond(nearExpiry);
+await replacement;
+const newer = loadLiveStatus();
+advanceTo(4200);
+respond(recent);
+await newer;
+advanceTo(6100);
+assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
 """
     )
     result = subprocess.run(

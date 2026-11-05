@@ -21,7 +21,15 @@ import time
 from collections.abc import Sequence
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
 from ..models.common import sha256_hex
 from ..reporting.live_status import LiveStatusResponse, read_live_status
@@ -51,7 +59,8 @@ _SERVER_NAME = "oasis-agent-observation-server"
 
 
 @router.get("/live/status", response_model=LiveStatusResponse)
-async def live_status(state: State) -> LiveStatusResponse:
+async def live_status(state: State, response: Response) -> LiveStatusResponse:
+    response.headers["Cache-Control"] = "no-store"
     return await state.reader.run(
         lambda _: read_live_status(
             state.config.databases.live_state,

@@ -198,6 +198,7 @@ export function liveStatusModel(data) {
   if (data.status === "observed" && (!o || data.blockers.length ||
       !Number.isSafeInteger(data.observation_age_seconds) || data.observation_age_seconds < 0 || data.observation_age_seconds > 120 ||
       o.valuation_basis !== "two_feed_principal_and_fees" || !Number.isSafeInteger(o.nav_valid_until) ||
+      o.block_timestamp > o.observed_at ||
       o.nav_valid_until < o.block_timestamp || o.nav_valid_until > o.block_timestamp + 120 ||
       o.observed_at + data.observation_age_seconds > o.nav_valid_until ||
       [o.eth_feed_max_age_seconds, o.usdc_feed_max_age_seconds].some(limit =>
@@ -269,7 +270,39 @@ export function renderLiveStatus(data) {
   ]), "暂无已记账动作");
 }
 
-export async function loadLiveStatus() {
-  try { renderLiveStatus(await apiGet("/api/v1/live/status")); }
-  catch { renderLiveStatus(null); }
+let liveRead = null;
+let navExpiry = null;
+
+export function loadLiveStatus() {
+  if (liveRead) return liveRead;
+  const requestedAt = performance.now();
+  liveRead = apiGet("/api/v1/live/status").then(data => {
+    clearTimeout(navExpiry);
+    const model = liveStatusModel(data);
+    if (model?.status !== "observed") {
+      renderLiveStatus(model);
+      return;
+    }
+    const o = model.observation;
+    const age = model.observation_age_seconds;
+    // Use server-reported age and charge the entire read against the deadline.
+    // An in-flight refresh leaves the displayed snapshot's timer active.
+    const remaining = (o.nav_valid_until - o.observed_at - age) * 1000 -
+      (performance.now() - requestedAt);
+    const expire = () => renderLiveStatus({
+      ...model,
+      status: "stale",
+      blockers: ["nav_validity_expired"],
+      observation_age_seconds: age + Math.floor((performance.now() - requestedAt) / 1000),
+    });
+    if (remaining <= 0) expire();
+    else {
+      renderLiveStatus(model);
+      navExpiry = setTimeout(expire, remaining);
+    }
+  }).catch(() => {
+    clearTimeout(navExpiry);
+    renderLiveStatus(null);
+  }).finally(() => { liveRead = null; });
+  return liveRead;
 }

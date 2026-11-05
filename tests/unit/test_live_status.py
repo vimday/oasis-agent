@@ -313,6 +313,7 @@ def test_read_only_endpoint_refreshes_after_atomic_replace_without_leaking_paths
         replacement.replace(path)
         first = client.get("/api/v1/live/status")
         assert first.status_code == 200
+        assert first.headers["cache-control"] == "no-store"
         assert first.json()["observation"]["nav_usd"] == 480
         uncertain = observed_state()
         uncertain["signing_attempt"] = {"opaque": "private-reservation-marker"}
