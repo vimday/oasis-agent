@@ -106,3 +106,43 @@ No Solidity or financial policy was changed.
 
 The separate verification script is a local result checker, not an external
 security audit or a claim that another reviewer approved this change.
+
+## Immutable image acceptance
+
+Implementation commit: `88f92889b1d2218ffdfa0c28763d76d2adbba34b`.
+Candidate image:
+`sha256:099b90f83cf1a9551e91ff71af8db98149de5c3d069e326f00bd0ba3f8484b9f`.
+All **360** application files and **362** archived Git inputs match that commit
+and local bytes. Source manifest hash:
+`f93bac9ff44a0f350ec563c8869743b3c3fc4008922e78f4d3ac645e70e70b2c`.
+Build (`--pull=false`, existing hash-locked dependencies), stopped-image source
+verification and the Linux smoke wrapper each exited 0.
+
+The smoke ran as UID 10001, with network disabled, read-only root, all
+capabilities dropped, no-new-privileges, bounded tmpfs/pids and **no mounts**.
+Its six actual inspection CLI cases exited **[0, 3, 3, 3, 3, 3]**: complete
+historical proof; then gas, original basis, unexplained nonce, missing raw cost,
+and missing anchor. Every original fixture state, journal, evidence file and
+new disposable fixture budget remained byte-identical through the inspection.
+The accepted report passed the actual Docker adapter parser, while removing its
+history-replayed field made that parser refuse before any start command.
+
+This harness explicitly overrides the feed runtime with a synthetic fixture pin;
+the override is not a production feed/source approval or a changed image file.
+Its six serialized packets contain **zero budget files**. New disposable usage
+ledgers are constructed locally for the test and no real ledger is read/copied.
+Packet hash: `f8591b4cd36b6ececfa43d3142bf842ddfcf96c6eb3bde59a13458c1befa60e8`.
+The full quality gate also retained the existing strict/legacy five-pin receipt
+replay under an expanded eight-pin policy and its negative relabeling tests in
+`test_live_config_epochs.py`; original cash proofs keep their first policy hash.
+
+- Candidate report: `reports/review-20261105/startup-history-88f9288/summary.json`,
+  hash `c30782193b3b7ddc05b571dc498f48025eeb88e2cd5c201b03f8a458ae305ff9`.
+- Separate local archive/source/log/exit/smoke verification:
+  `reports/review-20261105/startup-history-88f9288/reverification.json`,
+  hash `46d3b1fc7e72ac6eaa90a5c1de53d17f37cad434eb907cc0b3935371e75646cb`.
+
+The documentation-only follow-up changes no tested runtime, configuration or
+test bytes. The four unrelated untracked verification documents are preserved
+and excluded. The candidate was not deployed and none of these synthetic results
+substitutes for the remaining current production acceptance.
