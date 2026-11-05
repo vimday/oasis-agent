@@ -79,7 +79,7 @@ The corrected `make live-quality` run exited 0, as did each recorded check:
 Python/frontend, secrets, Bandit and Compose. Python reported **4,527 passed,
 138 subtests passed**, with the same ten known fixture/fork deprecation warnings;
 Mypy checked 250 source files and the frontend syntax gate checked eight local
-modules. The independent reviewer rechecked every command exit, timeout flag,
+modules. A separate local verification script rechecked every command exit, timeout flag,
 canonical report hash, log hash and all **663** frozen runtime/test/config bytes.
 No frozen byte changed during or after this run.
 
@@ -94,3 +94,42 @@ No frozen byte changed during or after this run.
 The independent check is a second local verification of retained results, not
 another human/AI reviewer or an external security audit. These checks establish
 the offline implementation boundary, not current production acceptance.
+
+## Immutable candidate verification
+
+Implementation commit: `5147fb88823b05ddcbda138311e2b701a3919c8c`.
+The checked candidate is
+`sha256:8cdaecc6273e4a2b552ccdca539fc93d84744574b8fda5a2410aca68df88f5d3`.
+All **360** application files match the tracked local bytes and that commit;
+all **362** regular Git archive inputs match the commit and local bytes too.
+Source manifest hash:
+`a5d8785219ebaf988ff2d32ac78d00605b2dd3b727fa6815cbdb9652bebb0373`.
+
+The local Linux container ran as UID 10001 with network disabled, a read-only
+root, dropped capabilities, no-new-privileges, bounded tmpfs/pids and no mounts.
+It created only disposable synthetic journals. The actual export CLI returned
+**3 as expected** for retained HALTs and a lagging strategy JSON; the encompassing
+smoke verifier exited 0 after checking that refusal, both original journal/JSON
+bytes, stale/configuration/invalid views, redaction and zero budget files.
+The build, stopped-image source verifier and smoke wrapper each exited 0.
+This candidate was not deployed and is not evidence of live profitability.
+
+The initial build with build-time `--network=none` failed, exit 1, when the pip
+dependency layer missed cache and DNS was unavailable. Its original archive,
+script and logs remain at `reports/review-20261105/pair-console-5147fb8/`;
+build log hash `1dde7a52ad637c4c4932f004cd201cd96a0f1d42a368cd7c6102847f7e19b3a4`.
+The corrected build used the existing Dockerfile's ordinary dependency build
+with `--require-hashes` and `--pull=false`; its execution smoke still had no
+network. No runtime source, lockfile or production RPC policy was changed for
+the build. Dependency build traffic is not production RPC acceptance.
+
+- Candidate: `reports/review-20261105/pair-console-5147fb8-v2/summary.json`,
+  hash `982bbd25471e1fcad5f6680cdff7e24317c0a593e93c8c05ec51fb7fd102ac30`.
+- Separate local re-verification of archive/commit/source, every log and exit,
+  expected refusal and all 663 frozen inputs:
+  `reports/review-20261105/pair-console-5147fb8-v2/reverification.json`,
+  hash `6fef0448d2f96c306844c1b7c2ba8e75e8084cb0089f4257aa440f2f0415832d`.
+
+The documentation-only follow-up changes no tested runtime, test or configuration
+bytes. The four unrelated untracked verification documents remain unmodified
+and excluded from this task's commits.
