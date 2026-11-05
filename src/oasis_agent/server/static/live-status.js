@@ -48,6 +48,7 @@ const UNVERIFIED = {
   receipt_fund_recovery: "真实回执、资金及撤仓恢复",
   state_configuration_binding: "当前记录与待启动配置的绑定",
 };
+const PAIR_MAX_AGE = 300;
 const PAIR_STATES = {
   unconfigured: "未配置双服务离线检查摘要",
   missing: "双服务检查摘要不存在",
@@ -114,7 +115,7 @@ function pairValid(p, startup) {
   else if (startup.configuration_hash !== r.expected_config_hash) blockers.push("start_configuration_mismatch");
   let status = blockers.some(code => code.includes("configuration_mismatch") || code.includes("configuration_disagreement"))
     ? "configuration_mismatch" : a.projection_current && b.projection_current ? "aligned" : "projection_incomplete";
-  if (p.inspection_age_seconds > 300) { status = "stale"; blockers.push("pair_inspection_stale"); }
+  if (p.inspection_age_seconds > PAIR_MAX_AGE) { status = "stale"; blockers.push("pair_inspection_stale"); }
   return p.status === status && JSON.stringify(p.blockers) === JSON.stringify(blockers);
 }
 
@@ -276,37 +277,49 @@ export function renderLiveStatus(data) {
 }
 
 let liveRead = null;
-let navExpiry = null;
+let statusExpiry = null;
 
 export function loadLiveStatus() {
   if (liveRead) return liveRead;
   const requestedAt = performance.now();
   liveRead = apiGet("/api/v1/live/status").then(data => {
-    clearTimeout(navExpiry);
+    clearTimeout(statusExpiry);
     const model = liveStatusModel(data);
-    if (model?.status !== "observed") {
-      renderLiveStatus(model);
+    if (!model) {
+      renderLiveStatus(null);
       return;
     }
-    const o = model.observation;
-    const age = model.observation_age_seconds;
-    // Use server-reported age and charge the entire read against the deadline.
-    // An in-flight refresh leaves the displayed snapshot's timer active.
-    const remaining = (o.nav_valid_until - o.observed_at - age) * 1000 -
-      (performance.now() - requestedAt);
-    const expire = () => renderLiveStatus({
-      ...model,
-      status: "stale",
-      blockers: ["nav_validity_expired"],
-      observation_age_seconds: age + Math.floor((performance.now() - requestedAt) / 1000),
-    });
-    if (remaining <= 0) expire();
-    else {
-      renderLiveStatus(model);
-      navExpiry = setTimeout(expire, remaining);
-    }
+    const {observation: o, observation_age_seconds: age, pair} = model;
+    // Age both declarations from the start of the read. An in-flight refresh
+    // leaves the displayed snapshot's expiry active.
+    const navDeadline = model.status === "observed"
+      ? (o.nav_valid_until - o.observed_at - age) * 1000 : Infinity;
+    // The API reports whole seconds and marks the pair stale above the limit.
+    const pairDeadline = pair.inspection && pair.status !== "stale"
+      ? (PAIR_MAX_AGE + 1 - pair.inspection_age_seconds) * 1000 : Infinity;
+    const renderSnapshot = () => {
+      const elapsed = performance.now() - requestedAt;
+      const seconds = Math.floor(elapsed / 1000);
+      const snapshot = {...model};
+      if (elapsed >= navDeadline) {
+        snapshot.status = "stale";
+        snapshot.blockers = ["nav_validity_expired"];
+        snapshot.observation_age_seconds = age + seconds;
+      }
+      if (elapsed >= pairDeadline) {
+        snapshot.pair = {...pair, status: "stale", inspection_age_seconds: pair.inspection_age_seconds + seconds,
+          blockers: [...pair.blockers, "pair_inspection_stale"]};
+      }
+      renderLiveStatus(snapshot);
+      const next = Math.min(elapsed < navDeadline ? navDeadline : Infinity,
+        elapsed < pairDeadline ? pairDeadline : Infinity);
+      if (Number.isFinite(next)) {
+        statusExpiry = setTimeout(renderSnapshot, Math.max(0, requestedAt + next - performance.now()));
+      }
+    };
+    renderSnapshot();
   }).catch(() => {
-    clearTimeout(navExpiry);
+    clearTimeout(statusExpiry);
     renderLiveStatus(null);
   }).finally(() => { liveRead = null; });
   return liveRead;

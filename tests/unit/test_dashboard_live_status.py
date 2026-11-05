@@ -143,7 +143,9 @@ for (const mutate of [
     assert completed.returncode == 0, completed.stderr
 
 
-def test_live_dashboard_rejects_malformed_data_and_clears_old_results(tmp_path: Path) -> None:
+def test_live_dashboard_rejects_malformed_data_and_clears_old_results(
+    tmp_path, monkeypatch
+) -> None:
     node = shutil.which("node")
     assert node is not None, "Node.js is required for frontend behavior tests"
     root = Path(__file__).resolve().parents[2] / "src/oasis_agent/server/static"
@@ -158,11 +160,21 @@ def test_live_dashboard_rejects_malformed_data_and_clears_old_results(tmp_path: 
         "signed_at": NOW,
     }
     model = read_live_status(write_state(tmp_path, record), now=NOW).model_dump(by_alias=True)
+    monkeypatch.setattr("scripts.inspect_live_state.time.time", lambda: NOW)
+    strategy, authority = pair(tmp_path)
+    inspection = export_pair_status(strategy.path, authority.path, CONFIG)
+    artifact = tmp_path / "inspection.json"
+    artifact.write_text(json.dumps(inspection))
+    inspected = read_pair_status(
+        artifact, now=NOW + 298, startup_config_hash=inspection["expected_config_hash"]
+    ).model_dump(by_alias=True)
     program = (
         "import {liveStatusModel, renderLiveStatus, formatNative, loadLiveStatus} from "
         + json.dumps((tmp_path / "live-status.js").as_uri())
         + ";\nconst data = "
         + json.dumps(model)
+        + ";\nconst inspected = "
+        + json.dumps(inspected)
         + ";\n"
         + r"""
 import assert from 'node:assert/strict';
@@ -403,6 +415,52 @@ respond(recent);
 await newer;
 advanceTo(6100);
 assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
+
+const startConfig = {...fullStartup, configuration_hash: inspected.inspection.expected_config_hash};
+const withPair = {...nearExpiry, startup: startConfig, pair: inspected};
+const both = loadLiveStatus();
+advanceTo(6200);
+respond(withPair);
+await both;
+const readsBeforeExpiry = requests;
+assert.match(nodes.get('live-pair').innerHTML, /检查时双服务配置与投影一致/);
+advanceTo(8100);
+assert.match(nodes.get('live-title').textContent, /观测需要更新/);
+assert.match(nodes.get('live-pair').innerHTML, /检查时双服务配置与投影一致/);
+advanceTo(9099);
+assert.match(nodes.get('live-pair').innerHTML, /检查时双服务配置与投影一致/);
+advanceTo(9100);
+assert.match(nodes.get('live-pair').innerHTML, /摘要已过期/);
+assert.match(nodes.get('live-pair').innerHTML, /检查年龄 301 秒/);
+assert.match(nodes.get('live-blockers').innerHTML, /完整 NAV 已到期/);
+assert.equal(requests, readsBeforeExpiry);
+
+const pairFirst = {...withPair, pair: {...inspected, inspection_age_seconds: 300}};
+const refresh = loadLiveStatus();
+respond(pairFirst);
+await refresh;
+const pendingRefresh = loadLiveStatus();
+advanceTo(10100);
+assert.match(nodes.get('live-pair').innerHTML, /摘要已过期/);
+assert.match(nodes.get('live-title').textContent, /已取得近期观测/);
+assert.match(nodes.get('live-release').innerHTML, /当前运行条件未满足/);
+advanceTo(11100);
+assert.match(nodes.get('live-title').textContent, /观测需要更新/);
+respond({...data, startup: startConfig, pair: {...inspected, inspection_age_seconds: 300}});
+await pendingRefresh;
+assert.match(nodes.get('live-pair').innerHTML, /摘要已过期/);
+assert.match(nodes.get('live-title').textContent, /等待对账/);
+assert.match(nodes.get('live-pending').textContent, /nonce 3/);
+assert.equal(timers.size, 0);
+
+const pendingSnapshot = loadLiveStatus();
+respond({...data, startup: startConfig, pair: {...inspected, inspection_age_seconds: 300}});
+await pendingSnapshot;
+assert.match(nodes.get('live-pair').innerHTML, /检查时双服务配置与投影一致/);
+advanceTo(12100);
+assert.match(nodes.get('live-pair').innerHTML, /摘要已过期/);
+assert.match(nodes.get('live-pending').textContent, /nonce 3/);
+assert.equal(timers.size, 0);
 """
     )
     result = subprocess.run(
