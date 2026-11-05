@@ -5,8 +5,11 @@
 The verified startup-history candidate was used in a local, network-disabled,
 UID 10001 container with only the two original state volumes mounted read-only.
 Both project services were exited. Default joint gas/NAV planning refused with
-exit 3: `joint discovery requires both original services halted`. At least the
-strategy journal has no HALT, even though the existing STOP file is present.
+exit 3: `joint discovery requires both original services halted`. The subsequent
+original-volume quiesce plan identifies **authority** as missing HALT, with the
+strategy's existing HALT preserved. Early commentary inferred the strategy role
+from the refusal location; that inference was incorrect and is superseded by the
+explicit per-service plan below. The existing STOP files are present.
 This is the previously retained original state, not a newly cleared halt.
 
 The initial refusal and its diagnostic remain separate under
@@ -101,3 +104,57 @@ proof requirement. All application tests use disposable synthetic originals.
 Current real USD/NAV, gas/runtime/simulation, receipts/funds/unwind and restart
 acceptance remain outstanding. The USD 500 / 200 daily / 500 cumulative and
 both 1,800-second feed limits are unchanged; production RPC remains zero here.
+
+## Checked image and original approval plan
+
+Implementation commit: `b0f4c596705bf3f91a86940b8d7b0d349ad96a8c`.
+Candidate image:
+`sha256:cb6d5d7ee931d1f9f9fcf8be9c4cc3585e1fe04fb9dc306a073c8f0ea964b3dc`.
+All **362** application files and **364** Git archive inputs match that commit
+and local bytes. Source manifest:
+`9478a33395073f459d3d210347bfea088656cc08daf1e8bb3d6b15aea996a1db`.
+Build, stopped-image source verification and synthetic Linux smoke wrapper each
+exited 0. The mount-free UID 10001 smoke used a network-disabled/read-only root,
+dropped capabilities and no-new-privileges. Six actual CLI exits were
+**[0, 0, 0, 3, 3, 3]** for missing, existing, no-op, wrong approval, partial
+commit and a second-connection WAL race. Only missing HALTs changed; projections,
+STOP and locks stayed unchanged; existing halts were not replaced. Uncertain
+outcomes were retained, and the injected WAL mode was not converted.
+
+The first smoke failed because its expected Python dataclass dictionary retained
+tuples while journal JSON contains arrays. The corrected harness compares the
+canonical JSON form; checked application bytes were unchanged. The initial smoke
+script/log remain under `quiesce-b0f4c59/`, failure log hash
+`ca545614b36941f8220efa550e1a493544d57dabf3b189f967e3fe86867a7952`.
+Accepted candidate report: `reports/review-20261105/quiesce-b0f4c59-v2/summary.json`,
+hash `d4016c2a08f000096383517b806c5d118e900ac73068a0d562fa9cc2978503e7`.
+Separate local verification of every exit/log/source/archived Git blob and all
+667 frozen inputs: `quiesce-b0f4c59-v2/reverification.json`, hash
+`7462405a7910ce07cc1f48a05c3534e79edb90e833ea0796f2b25756e36aef98`.
+These are local retained-result checks, not another reviewer or external audit.
+
+Only the review operation was then run against the two original read-only
+volumes, with SQLite restricted to exactly two immutable read-only journal
+connections. It opened no evidence/budget database, key, socket or `.env`, and
+all eight scoped original files and directory entries were unchanged.
+
+- Review plan: `reports/review-20261105/quiesce-original-plan/plan.json`.
+- Exact plan hash:
+  `c317a743407dc9dfb998510c61362d5b3c1ab78a740de300a6ec493809885a49`.
+- Host verification report hash:
+  `71abaa0c1f033c79175619d49dd2da541849796e93c03f6172886a51b0f508d7`.
+- Original-volume worker report hash:
+  `7ccf86c0fd33ae993ec4fd71e96c372af8ab4e393153a90bf551d380b1d1237a`.
+
+**Only authority needs one append.** Its source tip is
+`e8b87f1bbe8b9abbc4574101cd3d6c73c5f3bc929e6769eb51ebcb6bc21f2c0a`;
+source raw state hash `075e717ebed9db42a3f75a00ae0216f2e9f906da787f55be475994c19377fd5f`
+would become `3c38e307141d7dc389e44ad005368cea7cbdffac6120822038c2c780ec5604b7`.
+The strategy's source and target hashes are identical and its journal receives
+no append. Original configuration bindings stay at their exact historical hash;
+no historical 90,000-second policy is made live by this maintenance operation.
+
+The production plan remains **pending separate owner authorization**. No
+production `--apply` was invoked, and no new RPC authorization was inferred.
+The documentation-only follow-up changes no checked code/test/config bytes;
+the four unrelated untracked documents remain unmodified and uncommitted.
