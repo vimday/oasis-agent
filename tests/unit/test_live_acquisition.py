@@ -194,4 +194,41 @@ def test_successful_observation_resets_the_transient_failure_count(tmp_path, mon
         loop.tick()
     # Two drops, a success that resets the count, then two more drops: never three in a row.
     assert loop.state.halted is None
-    assert loop.observation_failures == 2
+    assert loop.state.observation_attempts == 2
+
+
+def test_crash_during_each_observation_cannot_replenish_durable_retry_allowance(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "live.json"
+    initial = live_loop(tmp_path, ScriptedRpc())
+    StateStore(path).bind(sha256_hex(canonical_json(asdict(initial.c))))
+    calls = []
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    def reopen():
+        loop = live_loop(tmp_path, ScriptedRpc())
+        loop.store = StateStore(path, require_existing=True)
+        loop.state = loop.store.load("live")
+        return loop
+
+    def interrupted():
+        calls.append(1)
+        raise SimulatedCrash
+
+    for already_spent in range(MAX_OBSERVATION_FAILURES):
+        loop = reopen()
+        assert loop.state.observation_attempts == already_spent
+        monkeypatch.setattr(loop, "observe", interrupted)
+        with pytest.raises(SimulatedCrash):
+            loop.tick()
+
+    loop = reopen()
+    monkeypatch.setattr(
+        loop, "observe", lambda: pytest.fail("exhausted loop performed another read")
+    )
+    assert loop.tick().startswith("HALT live observation refused")
+    assert len(calls) == MAX_OBSERVATION_FAILURES
+    assert reopen().state.halted is not None

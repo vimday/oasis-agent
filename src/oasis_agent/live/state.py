@@ -33,6 +33,7 @@ from .journal import LiveJournal
 
 DAY_ZONE = timezone(timedelta(hours=8))
 CHECKPOINT_SECONDS = 3600
+MAX_OBSERVATION_FAILURES = 3
 
 
 def day_of(timestamp: int) -> str:
@@ -97,6 +98,8 @@ class LoopState:
     settled_blocks: list[dict[str, Any]] = field(default_factory=list)
     # Last cheap in-range check between full observations; display only, never risk input.
     last_light_check: dict[str, int] | None = None
+    # Reserved full observations since the last complete one; survives a process crash.
+    observation_attempts: int = 0
 
     def integer_risk(self) -> ExactRisk:
         if self.exact_risk is None:
@@ -160,6 +163,11 @@ def _unique_state(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def validate_state(state: LoopState) -> None:
     """Reject corrupt risk inputs instead of allowing NaN to bypass loss comparisons."""
+    if (
+        type(state.observation_attempts) is not int
+        or not 0 <= state.observation_attempts <= MAX_OBSERVATION_FAILURES
+    ):
+        raise ValueError("invalid durable observation attempts")
     if not isinstance(state.settled_blocks, list) or len(state.settled_blocks) > 10_000:
         raise ValueError("settlement anchor budget exceeded")
     for anchor in state.settled_blocks:

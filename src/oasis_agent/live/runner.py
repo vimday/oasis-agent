@@ -54,7 +54,7 @@ from .price_guard import ExternalPriceSource, check_price_deviation
 from .receipts import RetainedReceiptCostReader
 from .recovery import UNKNOWN_SIGNING_HALT, release_unsigned_attempt
 from .revert_cash import reconcile_revert, replay_revert_cash
-from .state import Pending, Position, StateStore, day_of
+from .state import MAX_OBSERVATION_FAILURES, Pending, Position, StateStore, day_of
 from .v4lp import (
     liquidity_for_amounts,
     position_amounts,
@@ -92,8 +92,7 @@ MAX_RELEASED_ATTEMPTS = 3
 # NAV, loss-latch, runtime-pin and decision path still runs at least this often,
 # and sooner whenever the retained NAV's head or either USD feed expires.
 FULL_OBSERVATION_SECONDS = 3600
-# Consecutive unresolved (transport-level) full observations before halting for review.
-MAX_OBSERVATION_FAILURES = 3
+OBSERVATION_HALT = "live observation refused; operator review required before polling"
 RECEIPT_CONFIRMATIONS = 3
 MIN_SWAP_USD = 3.0
 SHADOW_GAS_USD = 0.03
@@ -180,7 +179,6 @@ class LiveLoop:
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         self.settlement_failures = 0
-        self.observation_failures = 0
         self.released_attempts = 0
         # Anchors both providers proved finalized; process-local, so a restart re-verifies.
         self.final_anchors: set[bytes] = set()
@@ -198,7 +196,6 @@ class LiveLoop:
         loop.state = store.load(mode, read_only=read_only)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
         loop.settlement_failures = 0
-        loop.observation_failures = 0
         loop.released_attempts = 0
         loop.final_anchors = set()
         return loop
@@ -541,28 +538,33 @@ class LiveLoop:
                 raise
             self.settlement_failures = 0
             return status
-        self._check_settlements()
+        if self.mode == "live" and s.observation_attempts >= MAX_OBSERVATION_FAILURES:
+            self._halt_observation()
+            return f"HALT {s.halted}"
         self._check_nav_checkpoint()
+        self._check_settlements()
         light = self._light_hold()
         if light is not None:
             return light
+        if self.mode == "live":
+            # Persist the reservation before NAV transport. A crash or restart
+            # cannot replenish the number of unsuccessful full observations.
+            s.observation_attempts += 1
+            self.store.save(s)
         try:
             m = self.observe()
         except ChainError as exc:
-            if self.mode == "live":
-                # A dropped provider read is retried on later ticks (each tick spends its
-                # own budget). A valuation refusal, or repeated failure, halts for review.
-                self.observation_failures += 1
-                if not s.halted and (
+            if (
+                self.mode == "live"
+                and not s.halted
+                and (
                     str(exc).startswith("account NAV refused")
-                    or self.observation_failures >= MAX_OBSERVATION_FAILURES
-                ):
-                    self.state.halted = (
-                        "live observation refused; operator review required before polling"
-                    )
-                    self.state.record("observation_halted", reason=self.state.halted)
+                    or s.observation_attempts >= MAX_OBSERVATION_FAILURES
+                )
+            ):
+                self._halt_observation()
             raise
-        self.observation_failures = 0
+        s.observation_attempts = 0
         nav = self.nav_usd(m)
         flow = 0.0
         flow_micros = 0
@@ -676,6 +678,10 @@ class LiveLoop:
         if not self._pins_ok(m):
             return f"{base} | HALT {s.halted}"
         return f"{base} | {self._act(m, action)}"
+
+    def _halt_observation(self) -> None:
+        self.state.halted = OBSERVATION_HALT
+        self.state.record("observation_halted", reason=OBSERVATION_HALT)
 
     def _external_price_refusal(self, m: Market, kind: str) -> str | None:
         """Only new allocation (swap/mint) consults the optional independent price."""

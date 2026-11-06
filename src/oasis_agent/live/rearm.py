@@ -265,6 +265,7 @@ def _service(
     updated = deepcopy(state)
     updated.nav_evidence = refs["nav"]
     updated.halted = None
+    updated.observation_attempts = 0
     updated.last_observation = updated.last_light_check = None
     preview = updated.integer_risk()
     losses = preview.observe(

@@ -130,6 +130,10 @@ def test_paired_append_preserves_capital_losses_history_stop_budget_and_old_writ
 ):
     data = pair(tmp_path, monkeypatch)
     directories, stores, _, _, refs = data
+    for store in stores.values():
+        state = store.load("live")
+        state.observation_attempts = 3
+        store.save(state)
     prior = {role: store.load("live", read_only=True) for role, store in stores.items()}
     before = {role: rows(store) for role, store in stores.items()}
     files = {role: snapshot(directory) for role, directory in directories.items()}
@@ -155,6 +159,7 @@ def test_paired_append_preserves_capital_losses_history_stop_budget_and_old_writ
         assert state.exact_risk.basis == prior[role].exact_risk.basis
         assert state.exact_risk.external == prior[role].exact_risk.external
         assert state.exact_risk.daily_locked == prior[role].exact_risk.daily_locked
+        assert prior[role].observation_attempts == 3 and state.observation_attempts == 0
         assert state.consecutive_reverts == 1
         assert state.nav_evidence == refs[role]["nav"]
         assert state.history[-1]["review"]["review_hash"] == report["review_hash"]
