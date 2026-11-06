@@ -341,3 +341,32 @@ def test_revert_interval_covers_every_block_and_refuses_excessive_distance(
             # Omitting even an apparently empty intermediate block is not complete proof.
             with pytest.raises(ValueError, match="gap"):
                 replace(proof, headers=proof.headers[1:]).reconstruct(store, CONFIG)
+
+
+@pytest.mark.parametrize("fault", ["foreign_block", "wrong_chain", "wrong_hash", "wrong_parent"])
+def test_wallet_preflight_refuses_before_inventory(tmp_path, fault):
+    primary = WalletFixture()
+    requested = BlockRef(
+        primary.chain_id, primary.block_number, primary.block_hash, primary.timestamp
+    )
+    changes = {
+        "wrong_chain": {"chain_id": 1},
+        "wrong_hash": {"block_hash": "0x" + "aa" * 32},
+        "wrong_parent": {"wrong_parent": True},
+    }
+    peer = replace(primary, methods=[], **changes.get(fault, {}))
+    if fault == "foreign_block":
+        requested = replace(requested, chain_id=1)
+
+    with closing(EvidenceStore(tmp_path / "wallet.db")) as store:
+        with pytest.raises(ValueError):
+            capture_wallet(
+                store,
+                CONFIG,
+                requested,
+                sources=(PRIMARY, SECONDARY),
+                sessions=sessions({PRIMARY: primary, SECONDARY: peer}),
+            )
+        assert store._connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 0
+    expected = [] if fault == "foreign_block" else ["eth_chainId", "eth_getBlockByNumber"]
+    assert primary.methods == peer.methods == expected

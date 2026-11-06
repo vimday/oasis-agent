@@ -43,3 +43,23 @@ Bandit and offline Compose checks exited 0. The quality evidence hash is
 Offline `make contract-check` exited 0 with 70 tests, zero failures and
 zero skips. The contract log SHA-256 is
 `882e307cd7ea06a3d55f5a4e0976f5ee49071d5707450a09589ac860980011d2`.
+
+## Wallet acquisition preflight
+
+Both Base wallet providers now verify the chain ID and the full pinned block
+header before either requests account code, nonce, balances or USDC data.
+A foreign-chain block supplied by the caller refuses before creating provider
+sessions. Provider chain, block hash or parent hash disagreement now stops after
+two requests per provider, rather than consuming all ten wallet reads per
+provider. Successful captures retain the existing request sequence and evidence
+format, including the closing header check.
+
+The four regression cases reproduced the excess requests before the fix. The
+corrected focused run passed 135 tests across wallet, signed NAV, production
+valuation and recovery. An initial invocation named a nonexistent test path
+and ran no tests. These checks used local fixtures.
+
+Final `make live-quality` exited 0 with 4,752 tests and 138 subtests.
+All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
+offline Compose each exited 0. The quality evidence hash is
+`86840be6e6dacb23fee8324d97edf3869c54ddb5ebc3d00b72c8153309f99307`.

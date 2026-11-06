@@ -124,6 +124,17 @@ def wallet_requests(scope: WalletScope, block: BlockRef) -> list[tuple[str, list
     ]
 
 
+def _opening_header(
+    scope: WalletScope, block: BlockRef, chain: object, raw_header: object
+) -> BlockSnapshot:
+    if block.chain_id != scope.chain_id or rpc_quantity(chain) != scope.chain_id:
+        raise ValueError("wallet provider chain mismatch")
+    header = decode_header(raw_header, chain_id=scope.chain_id)
+    if header.ref != block:
+        raise ValueError("wallet block changed")
+    return header
+
+
 def uint_word(value: object) -> int:
     if not isinstance(value, str) or len(value) != 66 or not value.startswith("0x"):
         raise ValueError("wallet balance must be a canonical ABI word")
@@ -144,10 +155,8 @@ class WalletCapture:
         ):
             raise ValueError("wallet evidence exceeds byte budget")
         v = successful_results(self.exchanges, wallet_requests(self.scope, self.block))
-        if self.block.chain_id != self.scope.chain_id or rpc_quantity(v[0]) != self.scope.chain_id:
-            raise ValueError("wallet provider chain mismatch")
-        header = decode_header(v[1], chain_id=self.scope.chain_id)
-        if header.ref != self.block or decode_header(v[-1], chain_id=self.scope.chain_id) != header:
+        header = _opening_header(self.scope, self.block, v[0], v[1])
+        if decode_header(v[-1], chain_id=self.scope.chain_id) != header:
             raise ValueError("wallet block changed")
         if v[2] != "0x":
             raise ValueError("wallet reconciliation requires an undelegated EOA")
@@ -183,11 +192,24 @@ def capture_wallet(
     sessions: SessionFactory,
 ) -> tuple[EvidenceRef, EvidenceRef]:
     scope = WalletScope.from_config(config)
+    if block.chain_id != scope.chain_id:
+        raise ValueError("wallet provider chain mismatch")
     pair = (sessions(sources[0]), sessions(sources[1]))
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != sources:
         raise ValueError("wallet source aliases changed")
-    acquire_pair(pair, wallet_requests(scope, block))
+    calls = wallet_requests(scope, block)
+    opening = calls[:2]
+
+    def verify_opening() -> None:
+        headers = [
+            _opening_header(scope, block, *successful_results(recorder.exchanges, opening))
+            for _, recorder, _ in pair
+        ]
+        if headers[0] != headers[1]:
+            raise ValueError("wallet providers disagree")
+
+    acquire_pair(pair, calls, checkpoint=(len(opening), verify_opening))
     captures = []
     for _transport, recorder, source in pair:
         captures.append(WalletCapture(scope, block, source, recorder.exchanges))
