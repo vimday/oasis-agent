@@ -2,6 +2,7 @@
 
 import json
 import os
+import stat
 import subprocess
 from dataclasses import asdict, replace
 
@@ -445,6 +446,14 @@ def test_start_guard_blocks_overlapping_and_post_timeout_attempts(tmp_path, monk
         assert not (tmp_path / folder / "attempt.json").exists()
     assert [args[0] for args, _ in calls].count("compose") == 1
     assert all(args[0] != "rm" for args, _ in calls)
+    requests = [
+        json.loads((tmp_path / name / "guard-request.json").read_bytes())["evidence_hash"]
+        for name in ("attempt", "parallel", "later")
+    ]
+    assert len(set(requests)) == 3
+    assert first["startup_guard_request_hash"] == requests[0]
+    assert overlapped[0]["startup_guard_request_hash"] == requests[1]
+    assert later["startup_guard_request_hash"] == requests[2]
 
 
 @pytest.mark.parametrize("fault", ["guard_create_timeout", "guard_cleanup"])
@@ -482,6 +491,186 @@ def test_ambient_docker_override_refuses(tmp_path, monkeypatch):
     monkeypatch.setenv("DOCKER_HOST", "tcp://remote:2375")
     report = cli.start(IMAGE, tmp_path / "attempt")
     assert report["failure_stage"] == "local_context" and not calls
+
+
+def test_guard_has_durable_unique_request_before_create(tmp_path, monkeypatch):
+    calls = setup(tmp_path, monkeypatch)
+    original_command = cli.command
+    original_fsync = os.fsync
+    synced = set()
+    requests = []
+    output = tmp_path / "attempt"
+
+    def sync(fd):
+        original_fsync(fd)
+        info = os.fstat(fd)
+        synced.add((info.st_dev, info.st_ino))
+
+    def command(args, env, **kwargs):
+        if args[0] == "create":
+            path = output / "guard-request.json"
+            request = json.loads(path.read_bytes())
+            digest = request.pop("evidence_hash")
+            assert digest == sha256_hex(canonical_json(request))
+            assert args[args.index("--label") + 1] == (
+                "org.oasis-agent.live-start-request=" + digest
+            )
+            assert request["schema"] == "oasis.live-start-guard-request.v1"
+            assert request["docker_host_hash"] == sha256_hex(DOCKER_SOCKET.encode())
+            assert request["image"] == IMAGE and request["config_hash"] == CONFIG_HASH
+            assert request["startup_guard_name"] == cli.STARTUP_GUARD_NAME
+            assert request["execution_eligible"] is False
+            assert len(request["attempt_id"]) == 32
+            for item in (path, output, output.parent):
+                info = item.stat()
+                assert (info.st_dev, info.st_ino) in synced
+            assert "SECRET" not in path.read_text() and DOCKER_SOCKET not in path.read_text()
+            requests.append(digest)
+        return original_command(args, env, **kwargs)
+
+    monkeypatch.setattr(cli.os, "fsync", sync)
+    monkeypatch.setattr(cli, "command", command)
+    for name in ("attempt", "second"):
+        output = tmp_path / name
+        report = cli.start(IMAGE, output)
+        assert report["status"] == "start_command_completed"
+        assert report["startup_guard_request_hash"] == requests[-1]
+        attempt = json.loads((output / "attempt.json").read_bytes())
+        assert attempt["startup_guard_request_hash"] == requests[-1]
+    assert len(set(requests)) == 2
+    assert sum(args[0] == "compose" for args, _ in calls) == 2
+
+
+@pytest.mark.parametrize("failure", ["file", "directory", "parent"])
+def test_guard_request_durability_failure_prevents_create(tmp_path, monkeypatch, failure):
+    calls = setup(tmp_path, monkeypatch)
+    original_fsync = os.fsync
+    output = tmp_path / "attempt"
+    failed = False
+
+    def sync(fd):
+        nonlocal failed
+        info = os.fstat(fd)
+        target = output if failure == "directory" else tmp_path
+        matches = (
+            stat.S_ISREG(info.st_mode) if failure == "file" else info.st_ino == target.stat().st_ino
+        )
+        if not failed and matches:
+            failed = True
+            raise OSError("SECRET fsync failure")
+        original_fsync(fd)
+
+    monkeypatch.setattr(cli.os, "fsync", sync)
+    report = cli.start(IMAGE, output)
+    assert failed and report["failure_stage"] == "startup_guard_record"
+    assert report["start_attempted"] is False
+    assert not any(args[0] in {"create", "compose", "rm"} for args, _ in calls)
+    assert "SECRET" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("failure", ["timeout", "crash", "malformed_id"])
+def test_guard_creation_uncertainty_keeps_ownership_evidence(tmp_path, monkeypatch, failure):
+    calls = setup(tmp_path, monkeypatch)
+    original_command = cli.command
+
+    class ProcessDeath(BaseException):
+        pass
+
+    def command(args, env, **kwargs):
+        result = original_command(args, env, **kwargs)
+        if args[0] == "create":
+            if failure == "timeout":
+                raise subprocess.TimeoutExpired(args, 60, output=b"SECRET")
+            if failure == "crash":
+                raise ProcessDeath
+            return b"SECRET invalid ID"
+        return result
+
+    monkeypatch.setattr(cli, "command", command)
+    output = tmp_path / "attempt"
+    if failure == "crash":
+        with pytest.raises(ProcessDeath):
+            cli.start(IMAGE, output)
+        assert not (output / "report.json").exists()
+    else:
+        report = cli.start(IMAGE, output)
+        assert report["startup_guard_status"] == "creation_unresolved"
+        assert "startup_guard_id" not in report
+        assert "SECRET" not in json.dumps(report)
+    request = json.loads((output / "guard-request.json").read_bytes())
+    create = next(args for args, _ in calls if args[0] == "create")
+    assert create[create.index("--label") + 1].endswith("=" + request["evidence_hash"])
+    assert not (output / "attempt.json").exists()
+    assert not any(args[0] in {"compose", "rm"} for args, _ in calls)
+
+
+def test_final_start_report_is_durable_before_return(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    original_fsync = os.fsync
+    synced = []
+
+    def sync(fd):
+        original_fsync(fd)
+        info = os.fstat(fd)
+        synced.append((info.st_dev, info.st_ino))
+
+    monkeypatch.setattr(cli.os, "fsync", sync)
+    output = tmp_path / "attempt"
+    report = cli.start(IMAGE, output)
+    path = output / "report.json"
+    assert json.loads(path.read_bytes()) == report
+    assert synced[-3:] == [(p.stat().st_dev, p.stat().st_ino) for p in (path, output, tmp_path)]
+
+
+@pytest.mark.parametrize("failure", ["publish", "file_sync", "directory_sync", "parent_sync"])
+def test_final_report_failure_preserves_uncertain_attempt(tmp_path, monkeypatch, capsys, failure):
+    calls = setup(tmp_path, monkeypatch)
+    original_link, original_fsync = os.link, os.fsync
+    output = tmp_path / "attempt"
+
+    def link(source, target):
+        if failure == "publish" and target == output / "report.json":
+            raise OSError("SECRET publication failure")
+        original_link(source, target)
+
+    def sync(fd):
+        info = os.fstat(fd)
+        pending = output / ".report.json.pending"
+        if failure == "file_sync" and pending.exists() and info.st_ino == pending.stat().st_ino:
+            raise OSError("SECRET file sync failure")
+        if (output / "report.json").exists():
+            directory = output if failure == "directory_sync" else tmp_path
+            if (
+                failure in {"directory_sync", "parent_sync"}
+                and info.st_ino == directory.stat().st_ino
+            ):
+                raise OSError("SECRET directory sync failure")
+        original_fsync(fd)
+
+    monkeypatch.setattr(cli.os, "link", link)
+    monkeypatch.setattr(cli.os, "fsync", sync)
+    monkeypatch.setattr("sys.argv", ["start", "--start", "--image", IMAGE, "--out", str(output)])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 3
+    captured = capsys.readouterr()
+    assert not captured.out and "SECRET" not in captured.err
+    assert "Startup outcome unavailable" in captured.err
+    attempt = json.loads((output / "attempt.json").read_bytes())
+    assert attempt["status"] == "unresolved" and attempt["startup_guard_id"] == GUARD_ID
+    assert sum(args[0] == "compose" for args, _ in calls) == 1
+    if failure in {"publish", "file_sync"}:
+        assert not (output / "report.json").exists()
+        assert (output / ".report.json.pending").is_file()
+
+
+def test_record_publication_never_replaces_previous_evidence(tmp_path):
+    path = tmp_path / "report.json"
+    original = b'{"original":"evidence"}'
+    path.write_bytes(original)
+    with pytest.raises(FileExistsError):
+        cli._retain_record(path, {"replacement": True})
+    assert path.read_bytes() == original
 
 
 @pytest.mark.parametrize("complete_policy", [False, True])

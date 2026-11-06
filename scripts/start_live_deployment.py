@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import uuid
 from dataclasses import asdict
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -38,6 +39,26 @@ VOLUMES = {
 }
 MAX_STATE_REPORT_BYTES = 4096
 STARTUP_GUARD_NAME = "oasis-live-start-guard"
+STARTUP_GUARD_LABEL = "org.oasis-agent.live-start-request"
+
+
+def _retain_record(path: Path, record: dict) -> None:
+    """Publish complete bytes exclusively, then persist the record and its path."""
+    pending = path.with_name("." + path.name + ".pending")
+    with pending.open("xb") as handle:
+        handle.write(canonical_json(record))
+        handle.flush()
+        os.fsync(handle.fileno())
+    # A hard link publishes atomically without replacing prior evidence.
+    # A failed publication keeps the pending file for diagnosis.
+    os.link(pending, path)
+    pending.unlink()
+    for directory in (path.parent, path.parent.parent):
+        fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
 
 
 def local_environment() -> dict[str, str]:
@@ -252,13 +273,16 @@ def _require_no_existing_services(env: dict[str, str]) -> None:
         raise ValueError("existing project containers require explicit recovery")
 
 
-def _acquire_startup_guard(image: str, env: dict[str, str]) -> str:
+def _acquire_startup_guard(image: str, env: dict[str, str], request_hash: str) -> str:
     """Reserve one daemon-wide name with a stopped, isolated container."""
+    strict_digest(request_hash, "startup guard request")
     identity = command(
         [
             "create",
             "--name",
             STARTUP_GUARD_NAME,
+            "--label",
+            f"{STARTUP_GUARD_LABEL}={request_hash}",
             "--pull=never",
             "--network=none",
             "--read-only",
@@ -340,26 +364,35 @@ def start(image: str, output: Path) -> dict:
             raise ValueError("runtime sources changed before start")
         if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
             raise ValueError("deployment configuration changed before start")
+        stage = "startup_guard_record"
+        guard_request = {
+            "schema": "oasis.live-start-guard-request.v1",
+            "attempt_id": uuid.uuid4().hex,
+            "startup_guard_name": STARTUP_GUARD_NAME,
+            "docker_host_hash": report["docker_host_hash"],
+            "image": identity["image"],
+            "manifest_hash": identity["manifest_hash"],
+            "compose_hash": policy["compose_hash"],
+            "config_hash": config_hash,
+            "execution_eligible": False,
+        }
+        request_hash = sha256_hex(canonical_json(guard_request))
+        _retain_record(
+            output / "guard-request.json", guard_request | {"evidence_hash": request_hash}
+        )
         stage = "startup_guard"
         report.update(
-            startup_guard_name=STARTUP_GUARD_NAME, startup_guard_status="creation_unresolved"
+            startup_guard_name=STARTUP_GUARD_NAME,
+            startup_guard_status="creation_unresolved",
+            startup_guard_request_hash=request_hash,
         )
-        guard = _acquire_startup_guard(identity["image"], env)
+        guard = _acquire_startup_guard(identity["image"], env, request_hash)
         report.update(startup_guard_id=guard, startup_guard_status="retained_for_recovery")
         stage = "existing_services_recheck"
         _require_no_existing_services(env)
         stage = "attempt_record"
         attempt = report | {"start_attempted": True, "status": "unresolved"}
-        with (output / "attempt.json").open("xb") as handle:
-            handle.write(canonical_json(attempt))
-            handle.flush()
-            os.fsync(handle.fileno())
-        for directory in (output, output.parent):
-            fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+        _retain_record(output / "attempt.json", attempt)
         stage = "compose_start"
         report.update(attempt)
         command(
@@ -397,8 +430,7 @@ def start(image: str, output: Path) -> dict:
         else:
             report["startup_guard_status"] = "released"
     report["evidence_hash"] = sha256_hex(canonical_json(report))
-    with (output / "report.json").open("x") as handle:
-        json.dump(report, handle, indent=2)
+    _retain_record(output / "report.json", report)
     return report
 
 

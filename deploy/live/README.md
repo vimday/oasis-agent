@@ -68,11 +68,28 @@ production start, even though read-only recovery can inspect the surviving journ
 The entry never builds/pulls, initializes state, imports keys or activates setup/
 recovery profiles. It rechecks release and source/config identities immediately
 before one bounded startup command. The attempt record stores the guard container
-ID before Compose. A timeout or partial failure retains the guard for recovery.
+ID before Compose. Before creating the guard, the launcher exclusively publishes
+and fsyncs `guard-request.json` and its directories. This record binds a unique
+attempt ID to the pinned Docker endpoint digest, image, sources, Compose and runtime
+configuration. The guard's `org.oasis-agent.live-start-request` label contains only
+that record's evidence digest. If the host process dies or Docker creation times
+out before a container ID is returned, this label allows the operator to associate
+the retained guard with its original request. Competing attempts have distinct
+digests; a failed contender cannot claim the existing guard. The label is ownership
+metadata, not a recovery or execution permit.
+
+A timeout or partial failure retains the guard for recovery.
 If guard creation times out or removal fails, inspect the guard and project
-containers on the original Docker daemon and reconcile the attempt before removing
-the verified guard by ID. The launcher never force-removes a guard or reuses an
+containers on the original Docker daemon, verify the label against the canonical
+request with its `evidence_hash` field excluded, and reconcile the attempt before
+removing the verified guard by ID. Older guards without a request label remain
+unresolved; a matching name alone cannot establish ownership. The launcher never
+force-removes a guard or reuses an
 unresolved attempt. A successful Compose command records `start_command_completed`.
+The attempt and final report are published atomically without replacing existing
+evidence, and fsynced with their directories before returning success. A publication
+or sync failure exits 3; preserve any `.pending` file and the original request and
+attempt records for recovery. It never causes another Compose start.
 Service health, receipt acceptance and execution eligibility have separate checks.
 The existing direct host
 `make live` entry is unchanged.
