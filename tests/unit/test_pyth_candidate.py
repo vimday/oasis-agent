@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import struct
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,7 @@ from oasis_agent.evidence.pyth_candidate import (
     LOADER,
     RECEIVER,
     _base58,
+    _receiver_config,
     compare_pyth_candidates,
     replay_pyth_candidate,
 )
@@ -54,6 +56,20 @@ def _account(raw, owner, *, executable=False):
     }
 
 
+def _config(*, target=None, emitters=((26, b"E" * 32),), minimum=3, tail=b""):
+    fields = (
+        hashlib.sha256(b"account:Config").digest()[:8]
+        + b"G" * 32
+        + (bytes(1) if target is None else bytes([1]) + target)
+        + b"W" * 32
+        + struct.pack("<I", len(emitters))
+        + b"".join(struct.pack("<H32s", chain, emitter) for chain, emitter in emitters)
+        + struct.pack("<QB", 7, minimum)
+        + tail
+    )
+    return fields.ljust(370, bytes(1))
+
+
 def _rows(source="first", *, shift=0, slot_shift=0):
     fixture = json.loads(FIXTURE.read_bytes())["responses"]
     feed_context = _result(fixture[0])
@@ -61,7 +77,7 @@ def _rows(source="first", *, shift=0, slot_shift=0):
     time = _result(fixture[1])["blockTime"]
     pointers = (bytes(range(32)), bytes(range(1, 33)))
     programs = [_account(b"\x02\0\0\0" + ptr, LOADER, executable=True) for ptr in pointers]
-    config = _account(hashlib.sha256(b"account:Config").digest()[:8] + b"config", RECEIVER)
+    config = _account(_config(tail=b"earlier state"), RECEIVER)
     deployment = (
         b"\x03\0\0\0" + (slot - 100 - slot_shift).to_bytes(8, "little") + bytes(33) + b"\x7fELFmock"
     )
@@ -195,8 +211,65 @@ def test_command_single_source_never_promotes(tmp_path, monkeypatch, capsys):
     assert report["rpc_requests"] == 0
     for key in (
         "source_independence_verified",
+        "receiver_trust_verified",
         "oracle_validated",
         "nav_verified",
         "execution_eligible",
     ):
         assert report[key] is False
+
+
+def test_receiver_config_reads_variable_borsh_fields_and_allocation_tail():
+    raw = _config(target=b"T" * 32, emitters=((26, b"E" * 32), (1, b"B" * 32)), tail=b"old")
+    config = _receiver_config(raw)
+    assert config.governance_authority == _base58(b"G" * 32)
+    assert config.target_governance_authority == _base58(b"T" * 32)
+    assert config.wormhole_program == _base58(b"W" * 32)
+    assert [(e.chain, e.emitter_hex) for e in config.emitters] == [
+        (26, (b"E" * 32).hex()),
+        (1, (b"B" * 32).hex()),
+    ]
+    assert config.minimum_signatures == 3 and config.single_update_fee_lamports == 7
+    assert config.allocation_tail_sha256 == hashlib.sha256(b"old".ljust(184, bytes(1))).hexdigest()
+
+
+@pytest.mark.parametrize(
+    ("raw", "reason"),
+    [
+        (_config()[:-1], "layout"),
+        (_config()[:40] + bytes([2]) + _config()[41:], "authority option"),
+        (_config()[:73] + bytes([255]) * 4 + _config()[77:], "emitter vector"),
+        (_config(emitters=()), "emitter vector"),
+        (_config(emitters=((0, b"E" * 32),)), "emitter identity"),
+        (_config(emitters=((26, b"E" * 32),) * 2), "duplicate receiver emitter"),
+        (_config(minimum=0), "minimum signatures"),
+    ],
+)
+def test_receiver_config_rejects_malformed_fields(raw, reason):
+    with pytest.raises(ValueError, match=reason):
+        _receiver_config(raw)
+
+
+def test_replay_binds_programdata_authority_and_payload(tmp_path):
+    rows = _rows()
+    result = _result(rows[3])
+    account = result["value"][5]
+    raw = bytearray(base64.b64decode(account["data"][0]))
+    raw[12] = 1
+    raw[13:45] = b"U" * 32
+    account["data"][0] = base64.b64encode(raw).decode()
+    _body(rows[3], result)
+    capture = replay_pyth_candidate(_write(tmp_path, rows))
+    assert capture.receiver_config.target_governance_authority is None
+    receiver, push = capture.programdata
+    assert receiver.last_deployed_slot == capture.snapshots[0].slot - 100
+    assert receiver.upgrade_authority == _base58(b"U" * 32)
+    assert receiver.program_payload_sha256 == hashlib.sha256(raw[45:]).hexdigest()
+    assert push.upgrade_authority is None
+    assert capture.snapshots[1].account_hashes[5] == hashlib.sha256(raw).hexdigest()
+
+    raw[13:45] = bytes(32)
+    account["data"][0] = base64.b64encode(raw).decode()
+    _body(rows[3], result)
+    with pytest.raises(ValueError, match="public key"):
+        replay_pyth_candidate(_write(tmp_path, rows))

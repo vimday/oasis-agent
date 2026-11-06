@@ -31,12 +31,13 @@ def main() -> int:
         )
         return 3
     report = {
-        "schema": "oasis.pyth-candidate-replay.v1",
+        "schema": "oasis.pyth-candidate-replay.v2",
         "scope": scope,
         "review_at_ms": args.at_ms,
         "captures": [asdict(capture) for capture in captures],
         "rpc_requests": 0,
         "source_independence_verified": False,
+        "receiver_trust_verified": False,
         "oracle_validated": False,
         "nav_verified": False,
         "execution_eligible": False,

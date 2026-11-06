@@ -60,3 +60,59 @@ and the outer record self-hash is
 `458a88061fa4317ff3d3069dd7b952c4a60605094826049b4e7da8b644a99759`.
 The default local startup readiness check separately exited 3 with
 `gas_oracle_runtime_pins_missing`; no service was started.
+
+## Receiver configuration and upgrade authority
+
+Replay now emits schema `oasis.pyth-candidate-replay.v2`. It decodes the
+receiver configuration in both observations using the [pinned Pyth receiver SDK
+layout](https://github.com/pyth-network/pyth-crosschain/blob/c2b6cf416412b3282831e67f62b43fea496823d8/target_chains/solana/pyth_solana_receiver_sdk/src/config.rs).
+The reviewed upstream file has SHA-256
+`1c232967e9c53dea254053c708e6d44f0d49377b5d16b45ef49efed0bacbfbe8`.
+The decoder bounds the emitter vector by the account allocation and retains a
+digest of the unused tail. The historical account has nonzero bytes in that
+tail. The full account digest continues to cover those bytes. Each loader
+ProgramData entry also exposes its deployment slot, upgrade authority and a
+digest of its allocated bytes after the loader header.
+
+The historical official capture reported one emitter on chain 26, zero update
+fee, and minimum signatures of 3. The emitter, fee and configured Wormhole
+program agree with [Pyth governance proposal OP-PIP-131](https://forum.pyth.network/t/passed-op-pip-131-pyth-core-deprecation-svm/2671).
+The receiver governance authority and both program upgrade authorities resolve
+to `6oXTdojyfDS8m5VtTaYB9xRCxpKGSvKJFndLUPV3V3wT`. The receiver and push
+programs reported last deployment slots 327047637 and 261073328 respectively.
+The v2 replay hash for the original wire is
+`8743f4a99aefdb83be2482adfd142d7a787e838a3b9e62495fb937f1fbdd914d`.
+The earlier v1 report and digest are retained above.
+
+Trust review still requires fresh observations from independent providers, the
+configured bridge program and its ProgramData, the bridge state and active
+guardian set, and verification of the deployed builds. The receiver config's
+minimum signature count is a stored setting. The report keeps
+`receiver_trust_verified`, `oracle_validated`, `nav_verified` and
+`execution_eligible` false. Release still requires approved runtime pins and
+a fresh, reconciled full NAV and recovery proof on Base.
+
+The initial focused checks rejected the older synthetic configuration
+placeholder. A subsequent test assertion used an incorrect tail length for the
+two-emitter option case. After updating the fixture and correcting that
+assertion, the Pyth suite passed 72 tests. Offline `make contract-check` exited
+0 with 70 tests, zero failures and zero skips. The contract log SHA-256 is
+`2adf31e0e50d0ad75a9efb3750317fb8a307dc8505008b56d2e79521ff5121b1`.
+
+The [Pocket Network public RPC](https://docs.pocket.network/developers/supported-chains/)
+was evaluated once as a new peer. Three free requests returned HTTP 200 and
+the correct genesis. Its finalized slot 466127999 reported block time
+1793972060, which was 19,807,932 ms behind the retrieval clock. ETH and USDC
+publish ages were 19,852,932 ms and 19,860,932 ms. Replaying both accounts
+reproduced the staleness refusal. The first provider stopped with exit 3
+before ProgramData acquisition. The paired official request count was zero.
+Raw evidence is in `reports/review-20261107/pyth-fresh-peer-pocket_public/`.
+The terminal report and wire SHA-256 hashes are
+`ac237b9e05b47d2e9b7efb9529bd73b61c5f2668b352f333e5ebba8816151969` and
+`8d901ea8368ccdf535cbc47c30439ecedc829325896c0364a10b9fdb4cc00282`.
+
+The final `make live-quality` exited 0 with 4,739 tests and 138 subtests.
+All 683 frozen inputs matched. Python and frontend, secret scanning, Bandit,
+and offline Compose each exited 0. The quality and outer evidence hashes are
+`c744fc4c1cfdca82234cd13dc35190e747a91c38b1a6d8ab68fc4d00c24ba4fe` and
+`fa529cb198e07edbb31182ca75f7e7b159063f11d6f04bc41bee07c02c6fa94b`.

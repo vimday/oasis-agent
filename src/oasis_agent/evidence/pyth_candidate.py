@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import re
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +16,8 @@ PUSH = "pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT"
 CONFIG = "DaWUKXCyXsnzcvLUyeJRWou8KTn7XtadgTsdhJ6RHS7b"
 LOADER = "BPFLoaderUpgradeab1e11111111111111111111111"
 INITIAL = (*(address for address, _ in FEEDS.values()), RECEIVER, PUSH, CONFIG)
+_CONFIG_SIZE = 370  # Receiver SDK Config::LEN at the commit pinned by pyth_price.
+_CONFIG_DISCRIMINATOR = hashlib.sha256(b"account:Config").digest()[:8]
 _MAX_LINE = 22_000_000  # 16 MB response bound, plus its base64 wire envelope.
 _ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -29,12 +32,38 @@ class CandidateSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class ReceiverEmitter:
+    chain: int
+    emitter_hex: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReceiverConfigFields:
+    governance_authority: str
+    target_governance_authority: str | None
+    wormhole_program: str
+    emitters: tuple[ReceiverEmitter, ...]
+    single_update_fee_lamports: int
+    minimum_signatures: int
+    allocation_tail_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProgramDataFields:
+    last_deployed_slot: int
+    upgrade_authority: str | None
+    program_payload_sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class CandidateCapture:
     source: str
     wire_sha256: str
     exchanges: tuple[tuple[int, str], ...]
     programdata_addresses: tuple[str, ...]
     snapshots: tuple[CandidateSnapshot, CandidateSnapshot]
+    receiver_config: ReceiverConfigFields
+    programdata: tuple[ProgramDataFields, ProgramDataFields]
 
 
 def _sha(raw: bytes) -> str:
@@ -88,15 +117,63 @@ def _pointer(program: bytes) -> str:
     return _base58(program[4:])
 
 
-def _programdata(raw: bytes, initial_slot: int) -> None:
-    if (
-        len(raw) <= 49
-        or raw[:4] != b"\x03\0\0\0"
-        or not 0 < int.from_bytes(raw[4:12], "little") < initial_slot
-        or raw[12] not in (0, 1)
-        or raw[45:49] != b"\x7fELF"
-    ):
-        raise ValueError("unsupported ProgramData or deployment during capture")
+def _public_key(raw: bytes) -> str:
+    if len(raw) != 32 or not any(raw):
+        raise ValueError("missing or invalid public key")
+    return _base58(raw)
+
+
+def _receiver_config(raw: bytes) -> ReceiverConfigFields:
+    if len(raw) != _CONFIG_SIZE or raw[:8] != _CONFIG_DISCRIMINATOR:
+        raise ValueError("unsupported receiver config layout")
+    option = raw[40]
+    if option not in (0, 1):
+        raise ValueError("invalid governance authority option")
+    target = _public_key(raw[41:73]) if option == 1 else None
+    wormhole_start = 41 + 32 * option
+    emitter_count = struct.unpack_from("<I", raw, wormhole_start + 32)[0]
+    emitters_start = wormhole_start + 36
+    fee_start = emitters_start + 34 * emitter_count
+    if not emitter_count or fee_start + 9 > len(raw):
+        raise ValueError("receiver emitter vector does not fit its allocation")
+
+    emitters = []
+    for pos in range(emitters_start, fee_start, 34):
+        chain = struct.unpack_from("<H", raw, pos)[0]
+        emitter = raw[pos + 2 : pos + 34]
+        if not chain or not any(emitter):
+            raise ValueError("invalid receiver emitter identity")
+        emitters.append(ReceiverEmitter(chain, emitter.hex()))
+    if len(set(emitters)) != len(emitters):
+        raise ValueError("duplicate receiver emitter identity")
+    fee, minimum = struct.unpack_from("<QB", raw, fee_start)
+    if not minimum:
+        raise ValueError("invalid receiver minimum signatures")
+
+    # Borsh stops after the declared fields. The remaining allocated bytes may
+    # contain earlier state and still participate in the complete account hash.
+    return ReceiverConfigFields(
+        governance_authority=_public_key(raw[8:40]),
+        target_governance_authority=target,
+        wormhole_program=_public_key(raw[wormhole_start : wormhole_start + 32]),
+        emitters=tuple(emitters),
+        single_update_fee_lamports=fee,
+        minimum_signatures=minimum,
+        allocation_tail_sha256=_sha(raw[fee_start + 9 :]),
+    )
+
+
+def _programdata(raw: bytes, initial_slot: int) -> ProgramDataFields:
+    if len(raw) <= 49 or raw[:4] != b"\x03\0\0\0" or raw[45:49] != b"\x7fELF":
+        raise ValueError("unsupported ProgramData")
+    deployed = int.from_bytes(raw[4:12], "little")
+    if not 0 < deployed < initial_slot or raw[12] not in (0, 1):
+        raise ValueError("invalid ProgramData deployment slot or upgrade authority option")
+    return ProgramDataFields(
+        last_deployed_slot=deployed,
+        upgrade_authority=_public_key(raw[13:45]) if raw[12] == 1 else None,
+        program_payload_sha256=_sha(raw[45:]),
+    )
 
 
 def replay_pyth_candidate(path: Path) -> CandidateCapture:
@@ -147,6 +224,8 @@ def replay_pyth_candidate(path: Path) -> CandidateCapture:
             raise ValueError("Solana mainnet genesis mismatch")
         pointers: tuple[str, ...] = ()
         snapshots: list[CandidateSnapshot] = []
+        receiver_config: ReceiverConfigFields | None = None
+        programdata_fields: tuple[ProgramDataFields, ProgramDataFields] | None = None
         for phase in range(2):
             addresses = [*INITIAL, *pointers]
             params, result, account_clock = read("getMultipleAccounts")
@@ -164,13 +243,16 @@ def replay_pyth_candidate(path: Path) -> CandidateCapture:
             if len(set(derived)) != 2 or set(derived).intersection(INITIAL):
                 raise ValueError("ProgramData pointer aliases an account")
             config = _account(values[4], RECEIVER)
-            if config[:8] != hashlib.sha256(b"account:Config").digest()[:8]:
-                raise ValueError("unsupported config discriminator")
+            receiver_config = _receiver_config(config)
             programdata = tuple(_account(v, LOADER) for v in values[5:])
-            for raw in programdata:
-                _programdata(raw, snapshots[0].slot)
-            if phase and derived != pointers:
-                raise ValueError("ProgramData pointers changed during capture")
+            if phase:
+                if derived != pointers:
+                    raise ValueError("ProgramData pointers changed during capture")
+                initial_slot = snapshots[0].slot
+                programdata_fields = (
+                    _programdata(programdata[0], initial_slot),
+                    _programdata(programdata[1], initial_slot),
+                )
             pointers = derived
 
             params, result, block_clock = read("getBlock")
@@ -219,8 +301,15 @@ def replay_pyth_candidate(path: Path) -> CandidateCapture:
             snapshots.append(snapshot)
         if handle.read(1):
             raise ValueError("unexpected trailing wire rows")
+    assert receiver_config is not None and programdata_fields is not None
     return CandidateCapture(
-        source, wire_hash.hexdigest(), tuple(exchanges), pointers, (snapshots[0], snapshots[1])
+        source=source,
+        wire_sha256=wire_hash.hexdigest(),
+        exchanges=tuple(exchanges),
+        programdata_addresses=pointers,
+        snapshots=(snapshots[0], snapshots[1]),
+        receiver_config=receiver_config,
+        programdata=programdata_fields,
     )
 
 
