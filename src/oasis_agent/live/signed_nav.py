@@ -26,7 +26,7 @@ from .config import BASE_USDC, LiveConfig
 from .positions import collect_position_outcome
 from .signed_prices import SERVICE, verify_prices
 from .state import Position
-from .valuation import AccountValue, NavCapture, NavRefusal, requests
+from .valuation import AccountValue, NavCapture, NavRefusal, requests, require_usdc_nav_band
 from .wallet import WalletScope, capture_wallet, replay_wallet
 
 PRICE_KIND = "live_signed_price_candidate"
@@ -59,6 +59,7 @@ def verify_nav_prices(
         if any(not 0 <= observed_at_ms - clock <= maximum for clock in clocks):
             raise NavRefusal(f"signed NAV {feed} price stale or future")
         deadlines[feed] = {"max_age_ms": maximum, "valid_until_ms": min(clocks) + maximum}
+    require_usdc_nav_band(verified["prices"]["USDC"]["median"])
     return verified, deadlines
 
 

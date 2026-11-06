@@ -123,7 +123,7 @@ def main():
         stage = "existing_budget"
         if args.budget.is_symlink() or not args.budget.is_file():
             raise ValueError("existing budget required")
-        with RpcBudget(args.budget, policies, require_existing=True) as ledger:
+        with RpcBudget(args.budget, policies, require_existing=True, read_only=True) as ledger:
             before = ledger.counts()
         budget_valid = True
         if any(before[s] + limits[s] > profile.max_requests for s in SOURCES):
@@ -231,7 +231,7 @@ def main():
     report["request_attempts"] = attempts
     if budget_valid:
         try:
-            with RpcBudget(args.budget, policies, require_existing=True) as ledger:
+            with RpcBudget(args.budget, policies, require_existing=True, read_only=True) as ledger:
                 report["request_counts_after"] = ledger.counts()
         except Exception:  # noqa: BLE001 - never create a replacement budget
             report.update(passed=False, candidate_verified=False, refusal_stage="final_budget")
