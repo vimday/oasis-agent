@@ -29,14 +29,17 @@ from scripts import rearm_live_services as cli
 from tests.unit.test_live_precheck_evidence import capture
 from tests.unit.test_live_startup_state import prepare, snapshot
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
+from tests.unit.test_lp_receipts import PARENT_HASH
 
 
-def wire_capture(head, anchors=(), receipts=(), source=SOURCES[0], *, fault=None):
+def wire_capture(
+    head, anchors=(), receipts=(), source=SOURCES[0], *, fault=None, parent_hash=PARENT_HASH
+):
     header = {
         "number": hex(head.number),
         "hash": head.block_hash,
         "timestamp": hex(head.timestamp),
-        "parentHash": "0x" + "77" * 32,
+        "parentHash": parent_hash,
     }
     results = [hex(head.chain_id), header]
     for anchor, receipt in zip(anchors, receipts, strict=True):
@@ -463,3 +466,18 @@ def test_fresh_nav_cannot_hide_unexplained_nonce_with_unchanged_wallet(tmp_path,
         _, refs["authority"]["nav"] = capture(evidence, config, fixture)
     with pytest.raises(ValueError, match="reconcile"):
         apply(data, digest)
+
+
+def test_rearm_refuses_matching_settlement_providers_with_wrong_nav_parent(tmp_path, monkeypatch):
+    data = pair(tmp_path, monkeypatch)
+    directories, _, _, _, refs = data
+    head = refs["strategy"]["nav"][0].block
+    with closing(EvidenceStore(paths(directories["strategy"], "strategy")[1])) as evidence:
+        refs["strategy"]["settlements"] = tuple(
+            persist_settlement_head(
+                evidence, wire_capture(head, source=source, parent_hash="0x" + "aa" * 32)
+            )
+            for source in SOURCES
+        )
+    with pytest.raises(ValueError, match="settlement header differs from NAV"):
+        review(data)

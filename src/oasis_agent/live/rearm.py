@@ -258,7 +258,7 @@ def _service(
         evidence,
         refs["settlements"],
         sources=SOURCES,
-        head=head,
+        nav_header=value.wallet.header,
         anchors=tuple(state.settled_blocks),
         historical=historical,
     )

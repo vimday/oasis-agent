@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from ..evidence.exact_capture import decode_header, successful_results, wire_envelope
 from ..evidence.rpc_validation import restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceStore
+from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, canonical_json, normalize_hash32
 from ..rpc.transport import RpcExchange
 
@@ -38,6 +39,24 @@ def settlement_requests(
     return requests
 
 
+def _opening_header(
+    head: BlockRef, values: tuple[object, ...], nav_header: BlockSnapshot | None
+) -> BlockSnapshot:
+    opening = decode_header(values[1], chain_id=head.chain_id)
+    if rpc_quantity(values[0]) != head.chain_id or opening.ref != head:
+        raise ValueError("settlement pinned head moved or differs from NAV")
+    if nav_header is not None and opening != nav_header:
+        raise ValueError("settlement header differs from NAV")
+    return opening
+
+
+def require_settlement_opening(
+    exchanges: tuple[RpcExchange, ...], nav_header: BlockSnapshot
+) -> None:
+    prefix = settlement_requests(nav_header.ref, ())[:2]
+    _opening_header(nav_header.ref, successful_results(exchanges, prefix), nav_header)
+
+
 @dataclass(frozen=True, slots=True)
 class SettlementHeadCapture:
     head: BlockRef
@@ -45,7 +64,9 @@ class SettlementHeadCapture:
     source: str
     exchanges: tuple[RpcExchange, ...]
 
-    def reconstruct(self) -> tuple[dict[str, object], ...]:
+    def reconstruct(
+        self, *, nav_header: BlockSnapshot | None = None
+    ) -> tuple[dict[str, object], ...]:
         head = self.head
         if (
             head.timestamp is None
@@ -71,12 +92,8 @@ class SettlementHeadCapture:
             normalize_hash32(anchor["transaction_hash"])
             transactions.add(anchor["transaction_hash"])
         values = successful_results(self.exchanges, settlement_requests(head, self.anchors))
-        opening = decode_header(values[1], chain_id=head.chain_id)
-        if (
-            rpc_quantity(values[0]) != head.chain_id
-            or opening.ref != head
-            or decode_header(values[-1], chain_id=head.chain_id) != opening
-        ):
+        opening = _opening_header(head, values, nav_header)
+        if decode_header(values[-1], chain_id=head.chain_id) != opening:
             raise ValueError("settlement pinned head moved or differs from NAV")
         receipts: list[dict[str, object]] = []
         for i, anchor in enumerate(self.anchors):
@@ -152,7 +169,7 @@ def require_current_settlements(
     refs: tuple[EvidenceRef, ...],
     *,
     sources: tuple[str, str],
-    head: BlockRef,
+    nav_header: BlockSnapshot,
     anchors: tuple[dict[str, object], ...],
     historical: tuple[dict[str, object], ...],
 ) -> None:
@@ -160,6 +177,6 @@ def require_current_settlements(
     if len(sources) != 2 or sources[0] == sources[1] or tuple(r.source for r in refs) != sources:
         raise ValueError("fresh settlements require the NAV provider pair")
     for ref in refs:
-        capture = replay_settlement_head(store, ref, head=head, anchors=anchors)
-        if capture.reconstruct() != historical:
+        capture = replay_settlement_head(store, ref, head=nav_header.ref, anchors=anchors)
+        if capture.reconstruct(nav_header=nav_header) != historical:
             raise ValueError("fresh receipt differs from original settled cash or gas")

@@ -50,6 +50,7 @@ from oasis_agent.live.positions import PositionOutcomeScope, outcome_requests
 from oasis_agent.live.rearm_settlements import (
     SettlementHeadCapture,
     persist_settlement_head,
+    require_settlement_opening,
     settlement_requests,
 )
 from oasis_agent.live.rpc_profile import LiveRpcProfile
@@ -721,12 +722,23 @@ def capture(
                     )
                     anchors = tuple(states[role].settled_blocks)
                     pair = session(SOURCES[0]), session(SOURCES[1])
-                    acquire_pair(pair, settlement_requests(head, anchors))
+
+                    def verify_settlement_head(pair=pair, nav_header=value.wallet.header):
+                        for _, recorder, _ in pair:
+                            require_settlement_opening(recorder.exchanges, nav_header)
+
+                    acquire_pair(
+                        pair,
+                        settlement_requests(head, anchors),
+                        checkpoint=(2, verify_settlement_head),
+                    )
                     captures = tuple(
                         SettlementHeadCapture(head, anchors, item[2], item[1].exchanges)
                         for item in pair
                     )
-                    if captures[0].reconstruct() != captures[1].reconstruct():
+                    if captures[0].reconstruct(nav_header=value.wallet.header) != captures[
+                        1
+                    ].reconstruct(nav_header=value.wallet.header):
                         raise ValueError("settled receipts disagree between providers")
                     settlement_refs = [persist_settlement_head(evidence, item) for item in captures]
                     references[role] = {

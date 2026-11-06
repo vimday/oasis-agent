@@ -628,3 +628,30 @@ supervise(blocked_request, out, seconds=0.3)
         if worker is not None:
             with suppress(ProcessLookupError):
                 os.killpg(worker, signal.SIGKILL)
+
+
+def test_settlement_header_mismatch_refuses_before_historical_receipts(tmp_path, monkeypatch):
+    data = setup(tmp_path, monkeypatch)
+    _, _, _, posters, _ = data
+    peer_url = URLS[SOURCES[1]]
+    peer = posters[peer_url]
+
+    class WrongParent:
+        def post(self, payload):
+            raw = peer.post(payload)
+            if len(peer.requests) != 38:
+                return raw
+            assert peer.requests[-1]["method"] == "eth_getBlockByNumber"
+            response = json.loads(raw)
+            response["result"]["parentHash"] = "0x" + "aa" * 32
+            return canonical_json(response)
+
+    result = run(
+        tmp_path,
+        data,
+        transport=lambda url, _: WrongParent() if url == peer_url else posters[url],
+    )
+    assert result["exit_code"] == 3 and not result["capture_passed"]
+    assert result["request_counts"]["strategy"] == dict(zip(SOURCES, (39, 38), strict=True))
+    assert result["request_counts"]["authority"] == dict.fromkeys(SOURCES, 0)
+    assert not (tmp_path / "attempt/candidate-references.json").exists()

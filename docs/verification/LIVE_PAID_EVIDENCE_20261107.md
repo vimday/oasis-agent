@@ -124,3 +124,25 @@ Final `make live-quality` exited 0 with 4,760 tests and 138 subtests.
 All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
 offline Compose each exited 0. The quality evidence hash is
 `0b193ad090fa0480624da4b9ae7091ff1a712243f19f060fa500f47be856a82c`.
+
+### Recovery receipt window and NAV header
+
+The recovery collector now compares both settlement opening headers to the
+agreed NAV block snapshot before requesting any historical receipts. Rearm
+replay binds both settlement proofs to that same snapshot, including the parent
+hash. Matching receipt providers cannot override a conflicting NAV parent.
+Successful capture keeps the prior request sequence, evidence format and quota.
+
+A synthetic rearm regression reproduced acceptance of two settlement providers
+with the same incorrect NAV parent. A capture regression confirmed that
+strategy acquisition stops after the two settlement opening reads per source
+and that authority acquisition never starts. All 136 focused recovery and
+continuity tests passed. Offline readback of the five retained Base receipts at
+block 53984727 reproduced
+`d6924a16a7700315c45d26b30ac3d00ba83e8d78a41c41228f368a5197296720`.
+No new RPC request was made.
+
+Final `make live-quality` exited 0 with 4,762 tests and 138 subtests.
+All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
+offline Compose each exited 0. The quality evidence hash is
+`44548cbf0b5ab5251b30a702910e270fc5a3ecccc2d98b478673ed1d0e069a19`.

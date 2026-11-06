@@ -16,13 +16,14 @@ from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.startup_state import paths
 from oasis_agent.live.state import StateStore, day_of
 from oasis_agent.live.valuation import capture_nav
+from oasis_agent.models.chain import BlockSnapshot
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
 from tests.unit import test_live_approval_cash as approval
 from tests.unit.test_live_rearm import rows, wire_capture
 from tests.unit.test_live_receipt_costs import position_config
 from tests.unit.test_live_valuation import NavFixture, synthetic_feed_pin  # noqa: F401
-from tests.unit.test_lp_receipts import PRIMARY, SECONDARY, sessions
+from tests.unit.test_lp_receipts import PARENT_HASH, PRIMARY, SECONDARY, sessions
 
 SOURCES = (PRIMARY, SECONDARY)
 
@@ -140,7 +141,7 @@ def test_fresh_current_receipts_must_equal_original_reconciled_cash_and_gas(
             "store": evidence,
             "refs": tuple(references),
             "sources": SOURCES,
-            "head": head,
+            "nav_header": BlockSnapshot(head, PARENT_HASH),
             "anchors": tuple(state.settled_blocks),
             "historical": historical,
         }
