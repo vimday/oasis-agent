@@ -12,6 +12,7 @@ from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json
 from tests.unit.test_live_authority import setup_authority
 from tests.unit.test_live_valuation import synthetic_feed_pin  # noqa: F401
+from tests.unit.test_lp_receipts import sessions
 
 
 @pytest.fixture
@@ -159,3 +160,87 @@ def test_unknown_signing_result_preserves_full_simulation_provenance(proof):
     assert [asdict(r) for r in refs] == attempt["simulation_evidence"]
     simulation.replay_simulation_quorum(store, refs, authority.loop.c, block, tx, **scope)
     assert key.calls == 1
+
+
+@pytest.mark.parametrize("fault", ["wrong_chain", "parent_hash", "pending_nonce"])
+def test_simulation_opening_mismatch_stops_before_simulating(proof, fault):
+    store, authority, _, _, _, refs, block, tx, scope = proof
+    reader = authority.loop.receipt_costs
+
+    class Poster:
+        def __init__(self, ref, peer=False):
+            record = store.get_record(ref)
+            self.responses = iter(json.loads(record.raw_response_payload)["exchanges"])
+            self.methods = []
+            self.peer = peer
+
+        def post(self, payload):
+            request = json.loads(payload)
+            index = len(self.methods)
+            self.methods.append(request["method"])
+            wire = next(self.responses)
+            assert wire["method"] == request["method"]
+            response = json.loads(bytes.fromhex(wire["payload"]))
+            response["id"] = request["id"]
+            if self.peer:
+                if fault == "wrong_chain" and index == 0:
+                    response["result"] = "0x1"
+                elif fault == "parent_hash" and index == 1:
+                    response["result"]["parentHash"] = "0x" + "aa" * 32
+                elif fault == "pending_nonce" and index == 4:
+                    response["result"] = hex(scope["nonce"] + 1)
+            return canonical_json(response)
+
+    primary, peer = Poster(refs[0]), Poster(refs[1], peer=True)
+    reader.sessions = sessions(dict(zip(reader.sources, (primary, peer), strict=True)))
+    with pytest.raises(ValueError):
+        simulation.simulate(
+            reader,
+            authority.loop.c,
+            block,
+            tx,
+            nonce=scope["nonce"],
+            gas=scope["gas"],
+            maximum=scope["maximum"],
+        )
+    assert (
+        primary.methods
+        == peer.methods
+        == [
+            "eth_chainId",
+            "eth_getBlockByNumber",
+            *(["eth_getTransactionCount"] * 3),
+        ]
+    )
+
+
+def test_single_simulation_replay_rejects_changed_closing_parent(proof):
+    store, authority, _, _, _, refs, block, tx, scope = proof
+    record = store.get_record(refs[0])
+    payload = json.loads(record.payload)
+    response = json.loads(record.raw_response_payload)
+    closing = response["exchanges"][-1]
+    raw = json.loads(bytes.fromhex(closing["payload"]))
+    raw["result"]["parentHash"] = "0x" + "aa" * 32
+    closing["payload"] = canonical_json(raw).hex()
+    payload["results"][-1] = raw["result"]
+    ref = store.put(
+        refs[0].kind,
+        canonical_json(payload),
+        block,
+        refs[0].source,
+        request=json.loads(record.request_payload),
+        raw_response=response,
+        interpretation={"execution_eligible": False},
+    )
+    with pytest.raises(ValueError, match="simulation chain, block or nonce changed"):
+        simulation.replay_simulation(
+            store,
+            ref,
+            authority.loop.c,
+            block,
+            tx,
+            nonce=scope["nonce"],
+            gas=scope["gas"],
+            maximum=scope["maximum"],
+        )

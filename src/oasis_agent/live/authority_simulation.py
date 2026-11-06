@@ -14,6 +14,7 @@ from ..evidence.exact_capture import (
 )
 from ..evidence.rpc_validation import restore_exchanges, rpc_quantity
 from ..evidence.store import EvidenceStore
+from ..models.chain import BlockSnapshot
 from ..models.common import (
     BlockRef,
     EvidenceRef,
@@ -118,6 +119,19 @@ def _requests(
     return calls
 
 
+def _validate_opening(
+    c: LiveConfig, block: BlockRef, values: tuple[object, ...], nonce: int
+) -> BlockSnapshot:
+    header = decode_header(values[1], chain_id=c.chain_id)
+    if (
+        rpc_quantity(values[0]) != c.chain_id
+        or header.ref != block
+        or any(rpc_quantity(value) != nonce for value in values[2:5])
+    ):
+        raise ValueError("simulation chain, block or nonce changed")
+    return header
+
+
 def _validate(
     c: LiveConfig,
     block: BlockRef,
@@ -130,11 +144,10 @@ def _validate(
 ) -> tuple[object, ...]:
     calls = _requests(c, block, tx, nonce=nonce, gas=gas, maximum=maximum)
     values = successful_results(exchanges, calls)
+    header = _validate_opening(c, block, values, nonce)
     if (
-        rpc_quantity(values[0]) != c.chain_id
-        or decode_header(values[1], chain_id=c.chain_id).ref != block
-        or decode_header(values[-1], chain_id=c.chain_id).ref != block
-        or any(rpc_quantity(values[i]) != nonce for i in (2, 3, 4, 10))
+        decode_header(values[-1], chain_id=c.chain_id) != header
+        or rpc_quantity(values[10]) != nonce
     ):
         raise ValueError("simulation chain, block or nonce changed")
     expected_return = "0x" + f"{1:064x}" if tx["to"] == c.pool.currency1 else "0x"
@@ -245,7 +258,16 @@ def simulate(
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != reader.sources:
         raise ValueError("simulation provider aliases changed")
-    acquire_pair(pair, calls)
+    opening = calls[:5]
+
+    def verify_opening() -> None:
+        results = [successful_results(session[1].exchanges, opening) for session in pair]
+        for values in results:
+            _validate_opening(c, block, values, nonce)
+        if results[0] != results[1]:
+            raise ValueError("independent raw simulations disagree")
+
+    acquire_pair(pair, calls, checkpoint=(len(opening), verify_opening))
     results = [
         _validate(c, block, tx, session[1].exchanges, nonce=nonce, gas=gas, maximum=maximum)
         for session in pair

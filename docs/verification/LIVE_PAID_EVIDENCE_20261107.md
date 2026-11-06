@@ -101,3 +101,26 @@ The remaining release blockers include a fresh full NAV under the 1800-second
 policy, applied and approved runtime transition, same-head recovery
 readiness, and demonstrated unwind and restart. Existing USD 500 capital,
 USD 200 daily loss and USD 500 cumulative loss limits were retained.
+
+### Simulation admission preflight
+
+Both Base RPCs must agree on the first five simulation responses, covering the
+chain ID, pinned block and its parent, and the nonce at the pinned block, latest
+and pending. Acquisition checks that prefix before sending the transaction
+envelope to either provider. Opening disagreement now stops after five reads
+per provider. The success path still uses the same fourteen calls and v3
+evidence format. Replay additionally compares the opening and closing block
+snapshots, including their parent hash, and checks the closing pending nonce.
+
+Four regression cases reproduced the excess reads and acceptance of an altered
+closing parent before the fix. The focused simulation, authority and gas-oracle
+tests passed all 99 cases afterward. Offline replay of the retained Base burn
+simulation at block 53985629 reproduced its original evidence hash
+`15d4e1b74c81e91e5ec44d474a73046e1b406850b45b18ef1526cc9b5579bffd`.
+No new RPC requests were made. Fresh full NAV and an approved gas-oracle
+runtime transition remain prerequisites for Base recovery.
+
+Final `make live-quality` exited 0 with 4,760 tests and 138 subtests.
+All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
+offline Compose each exited 0. The quality evidence hash is
+`0b193ad090fa0480624da4b9ae7091ff1a712243f19f060fa500f47be856a82c`.
