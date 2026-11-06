@@ -195,7 +195,9 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
                 ]
             )
         if args[0] == "ps":
-            late = fault == "late_existing" and any(a[0] == "run" for a, _ in calls)
+            late = (fault == "late_existing" and guard_exists) or (
+                fault == "existing_during_preflight" and any(a[0] == "run" for a, _ in calls)
+            )
             return b"existing" if fault == "existing" or late else b""
         if args[0] == "create":
             assert args[args.index("--name") + 1] == "oasis-live-start-guard"
@@ -331,6 +333,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
         "volume_driver",
         "existing",
         "late_existing",
+        "existing_during_preflight",
         "changed_sources",
         "state_refused",
         "state_extra",
@@ -367,7 +370,7 @@ def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     assert "SECRET" not in json.dumps(report)
     assert not (output / "attempt.json").exists()
     assert json.loads((output / "report.json").read_bytes()) == report
-    if fault in {"changed_sources", "late_existing"}:
+    if fault in {"changed_sources", "existing_during_preflight"}:
         assert report["state_preflight_exit_code"] == 0
     else:
         assert "state_preflight" not in report
@@ -375,6 +378,10 @@ def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     if fault == "late_existing":
         assert report["failure_stage"] == "existing_services_recheck"
         assert sum(args[0] == "ps" for args, _ in calls) == 2
+        assert all(args[0] != "run" for args, _ in calls)
+    if fault == "existing_during_preflight":
+        assert report["failure_stage"] == "existing_services_before_start"
+        assert report["startup_guard_status"] == "released"
 
 
 @pytest.mark.parametrize(
@@ -388,6 +395,8 @@ def test_preflight_retains_expected_refusal_without_starting(tmp_path, monkeypat
     assert report["state_preflight"] == refusal and report["state_preflight_exit_code"] == 3
     assert json.loads((output / "report.json").read_bytes()) == report
     assert not report["start_attempted"] and not (output / "attempt.json").exists()
+    assert report["startup_guard_status"] == "released"
+    assert calls[-1][0] == ["rm", GUARD_ID]
     assert not any(args[0] == "compose" for args, _ in calls)
     assert "SECRET" not in json.dumps(report)
 
@@ -407,7 +416,7 @@ def test_one_start_attempt_preserves_uncertainty_and_redacts_secrets(tmp_path, m
     assert envs and "DOCKER_HOST" not in envs[0]
     assert all(env.get("DOCKER_HOST") == DOCKER_SOCKET for env in envs[1:])
     order = [args[0] for args, _ in calls]
-    assert order[order.index("run") :] == ["run", "create", "ps", "compose"] + (
+    assert order[order.index("create") :] == ["create", "ps", "run", "ps", "compose"] + (
         [] if fault else ["rm"]
     )
     assert report["startup_guard_status"] == ("retained_for_recovery" if fault else "released")
@@ -445,6 +454,7 @@ def test_start_guard_blocks_overlapping_and_post_timeout_attempts(tmp_path, monk
         assert "startup_guard_id" not in report and "SECRET" not in json.dumps(report)
         assert not (tmp_path / folder / "attempt.json").exists()
     assert [args[0] for args, _ in calls].count("compose") == 1
+    assert [args[0] for args, _ in calls].count("run") == 1
     assert all(args[0] != "rm" for args, _ in calls)
     requests = [
         json.loads((tmp_path / name / "guard-request.json").read_bytes())["evidence_hash"]

@@ -138,3 +138,35 @@ configuration application, service starts, signatures or broadcasts. The USD
 Real USD/NAV, runtime fingerprints and migration, simulation, receipts and
 unwind/restart acceptance remain required. The existing 197-request read-only
 authorization question is still pending; this diagnostic creates no new scope.
+
+## Base startup serialization follow-up
+
+The one-click launcher now acquires the daemon-wide startup guard before
+replaying the two original state volumes. It checks for existing project
+containers immediately after acquiring the guard and again after replay and
+release/source checks, before writing the Compose attempt. A competing launcher
+that cannot acquire the guard does not read the original state volumes. If
+preflight refuses, the launcher removes only its own guard by container ID;
+an uncertain Compose attempt still retains its guard. The guard serializes
+this launcher; it does not lock out arbitrary Docker clients.
+
+The initial regression run exited 1: the overlapping and later attempts both
+ran original-state replay while the first held the guard (three reads instead
+of one). The first repair run exited 1 because the test for a late project
+container still keyed its arrival to the old ordering. The final tests cover
+both a container present after guard acquisition and one appearing during
+preflight; all 65 startup tests passed. Logs, in that order, are retained in
+`reports/review-20261107/base-startup-guard-preflight/` with SHA-256 values
+`2a061863f2a24f686eb3c9cbc1ad5cd340acca18e68cbf2539178e4ccc221cfa`,
+`82331b15ec063738a7f7204994c32d36297da27309eeef980a201dc362ba01b5` and
+`8c30356375e82013d43b812d222268e1bb631b9f29bc8870cfb527fdd5c3d5d8`.
+
+The actual Base readiness command still exited 3 with
+`gas_oracle_runtime_pins_missing`; current full NAV, dual-source production
+simulation and receipt/fund recovery remain unverified by this change.
+No production volume, key, RPC, or service was used.
+
+Final `make live-quality` exited 0: 4,763 tests and 138 subtests passed;
+Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
+all four log hashes matched. The 685 frozen inputs were unchanged. Quality
+report hash: `c5324ca20a2d2925aa7e095b2dc35b60c40d4451415ffff75e506021fd1450db`.

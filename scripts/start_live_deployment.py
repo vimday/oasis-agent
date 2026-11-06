@@ -350,20 +350,6 @@ def start(image: str, output: Path) -> dict:
             raise ValueError("existing local volumes without remote driver options required")
         stage = "existing_services"
         _require_no_existing_services(env)
-        stage = "original_runtime_state"
-        preflight = state_preflight(
-            identity["image"], env, config_hash=config_hash, rpc_max_requests=rpc_max_requests
-        )
-        report["state_preflight"] = preflight
-        report["state_preflight_exit_code"] = 0 if preflight["startup_prerequisites_passed"] else 3
-        if preflight["startup_prerequisites_passed"] is not True:
-            raise ValueError("original runtime state preflight refused")
-        stage = "final_recheck"
-        require_live_start()
-        if sha256_hex(canonical_json(source_manifest())) != identity["manifest_hash"]:
-            raise ValueError("runtime sources changed before start")
-        if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
-            raise ValueError("deployment configuration changed before start")
         stage = "startup_guard_record"
         guard_request = {
             "schema": "oasis.live-start-guard-request.v1",
@@ -389,6 +375,24 @@ def start(image: str, output: Path) -> dict:
         guard = _acquire_startup_guard(identity["image"], env, request_hash)
         report.update(startup_guard_id=guard, startup_guard_status="retained_for_recovery")
         stage = "existing_services_recheck"
+        _require_no_existing_services(env)
+        # Keep the original-state replay inside the same guard as Compose.
+        # Another startup can otherwise change the journals after this read.
+        stage = "original_runtime_state"
+        preflight = state_preflight(
+            identity["image"], env, config_hash=config_hash, rpc_max_requests=rpc_max_requests
+        )
+        report["state_preflight"] = preflight
+        report["state_preflight_exit_code"] = 0 if preflight["startup_prerequisites_passed"] else 3
+        if preflight["startup_prerequisites_passed"] is not True:
+            raise ValueError("original runtime state preflight refused")
+        stage = "final_recheck"
+        require_live_start()
+        if sha256_hex(canonical_json(source_manifest())) != identity["manifest_hash"]:
+            raise ValueError("runtime sources changed before start")
+        if sha256_hex(compose.COMPOSE.read_bytes()) != policy["compose_hash"]:
+            raise ValueError("deployment configuration changed before start")
+        stage = "existing_services_before_start"
         _require_no_existing_services(env)
         stage = "attempt_record"
         attempt = report | {"start_attempted": True, "status": "unresolved"}
