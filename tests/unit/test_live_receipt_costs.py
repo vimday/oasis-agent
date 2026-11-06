@@ -18,13 +18,13 @@ from eth_hash.auto import keccak
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.farming.transaction_costs import replay_transaction_cost
 from oasis_agent.live.config import LiveConfig
-from oasis_agent.live.positions import replay_position_outcome
+from oasis_agent.live.positions import collect_position_outcome, replay_position_outcome
 from oasis_agent.live.receipts import RetainedReceiptCostReader
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import TRANSFER_TOPIC, LiveLoop
 from oasis_agent.live.state import LoopState, Pending, Position, StateStore
 from oasis_agent.models.chain import BlockSnapshot
-from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
 from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
 from scripts import run_live_lp as live_cli
 from scripts.run_live_lp import receipt_cost_reader
@@ -478,3 +478,44 @@ def test_live_cli_refuses_missing_opening_evidence_before_cost_acquisition(
     result = state.load("live")
     assert result.pending is not None and result.gas_spent_wei == 0
     assert not (tmp_path / "live.receipts.db").exists()
+
+
+@pytest.mark.parametrize(
+    "fault", ["foreign_block", "parent_hash", "position_manager", "state_view"]
+)
+def test_position_opening_mismatch_stops_before_nft_and_liquidity_reads(evidence, fault):
+    config = position_config()
+    primary = LiveCostFixture(position_enabled=True)
+    block = BlockRef(primary.chain_id, primary.block_number, primary.block_hash, primary.timestamp)
+    if fault == "foreign_block":
+        block = replace(block, chain_id=1)
+
+    class Peer(LiveCostFixture):
+        def post(self, payload):
+            response = json.loads(super().post(payload))
+            request = json.loads(payload)
+            if fault == "parent_hash" and request["method"] == "eth_getBlockByNumber":
+                response["result"]["parentHash"] = "0x" + "aa" * 32
+            elif request["method"] == "eth_getCode" and request["params"][0] == getattr(
+                config, fault, None
+            ):
+                response["result"] = "0x6001"
+            return canonical_json(response)
+
+    peer = Peer(position_enabled=True)
+    with pytest.raises(ValueError):
+        collect_position_outcome(
+            evidence,
+            config,
+            block,
+            token_id=123,
+            lower=-100,
+            upper=100,
+            liquidity=77,
+            burned=False,
+            sources=(PRIMARY, SECONDARY),
+            sessions=sessions({PRIMARY: primary, SECONDARY: peer}),
+        )
+    prefix = ["eth_chainId", "eth_getBlockByNumber", "eth_getCode", "eth_getCode"]
+    assert primary.methods == peer.methods == ([] if fault == "foreign_block" else prefix)
+    assert evidence._connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 0

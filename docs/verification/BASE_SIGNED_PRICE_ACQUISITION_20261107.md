@@ -63,3 +63,26 @@ Final `make live-quality` exited 0 with 4,752 tests and 138 subtests.
 All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
 offline Compose each exited 0. The quality evidence hash is
 `86840be6e6dacb23fee8324d97edf3869c54ddb5ebc3d00b72c8153309f99307`.
+
+## Position outcome preflight
+
+Position capture now checks both providers' opening chain and block headers,
+and verifies the pinned PositionManager and StateView code, before either
+provider reads NFT ownership, position data or liquidity. A foreign-chain block
+refuses locally. A disagreeing header or code stops after four reads per provider
+instead of all nine for a held position. A successful capture keeps its prior
+request sequence, closing header check and evidence format.
+
+Four focused regressions reproduced the extra reads before the fix. The
+corrected focused run passed 148 tests covering position outcomes, valuation,
+signed NAV and recovery. Offline readback of the five retained Base receipts
+and the retained burn simulation reproduced their original evidence hashes
+`d6924a16a7700315c45d26b30ac3d00ba83e8d78a41c41228f368a5197296720` and
+`15d4e1b74c81e91e5ec44d474a73046e1b406850b45b18ef1526cc9b5579bffd`.
+The observations remain tied to their original Base blocks 53984727 and
+53985629. No new RPC request was made.
+
+Final `make live-quality` exited 0 with 4,756 tests and 138 subtests.
+All 685 frozen inputs matched. Python/frontend, secret scan, Bandit and
+offline Compose each exited 0. The quality evidence hash is
+`ac83d15c656bef1fcb3d5b577fee7fca6632df219f2e19933e5448d7a9c972b5`.

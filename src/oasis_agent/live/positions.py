@@ -124,6 +124,21 @@ def _abi(types: list[str], value: object) -> tuple[object, ...]:
     return result
 
 
+def _validate_opening(
+    scope: PositionOutcomeScope, block: BlockRef, values: tuple[object, ...]
+) -> BlockSnapshot:
+    if block.chain_id != scope.chain_id:
+        raise ValueError("position outcome chain mismatch")
+    if rpc_quantity(values[0]) != scope.chain_id:
+        raise ValueError("position outcome provider chain mismatch")
+    header = decode_header(values[1], chain_id=scope.chain_id)
+    if header.ref != block:
+        raise ValueError("position outcome header changed")
+    require_code_hash(values[2], scope.position_manager_hash)
+    require_code_hash(values[3], scope.state_view_hash)
+    return header
+
+
 @dataclass(frozen=True, slots=True)
 class PositionOutcomeCapture:
     scope: PositionOutcomeScope
@@ -137,19 +152,10 @@ class PositionOutcomeCapture:
             > 5_000_000
         ):
             raise ValueError("position outcome evidence exceeds byte budget")
-        if self.block.chain_id != self.scope.chain_id:
-            raise ValueError("position outcome chain mismatch")
         values = successful_results(self.exchanges, outcome_requests(self.scope, self.block))
-        if rpc_quantity(values[0]) != self.scope.chain_id:
-            raise ValueError("position outcome provider chain mismatch")
-        header = decode_header(values[1], chain_id=self.scope.chain_id)
-        if (
-            header.ref != self.block
-            or decode_header(values[-1], chain_id=self.scope.chain_id) != header
-        ):
+        header = _validate_opening(self.scope, self.block, values)
+        if decode_header(values[-1], chain_id=self.scope.chain_id) != header:
             raise ValueError("position outcome header changed")
-        require_code_hash(values[2], self.scope.position_manager_hash)
-        require_code_hash(values[3], self.scope.state_view_hash)
         if self.scope.burned:
             if _abi(["uint256"], values[4]) != (0,):
                 raise ValueError("burned NFT position info was not cleared")
@@ -217,11 +223,24 @@ def collect_position_outcome(
     )
     if scope.pool_id != config.pool_id:
         raise ValueError("configured pool id differs from its key")
+    if block.chain_id != scope.chain_id:
+        raise ValueError("position outcome chain mismatch")
     pair = (sessions(sources[0]), sessions(sources[1]))
     validate_session_pair(*pair)
     if (pair[0][2], pair[1][2]) != sources:
         raise ValueError("position outcome provider aliases differ from declared sources")
-    acquire_pair(pair, outcome_requests(scope, block))
+    calls = outcome_requests(scope, block)
+    opening = calls[:4]
+
+    def verify_opening() -> None:
+        headers = [
+            _validate_opening(scope, block, successful_results(recorder.exchanges, opening))
+            for _, recorder, _ in pair
+        ]
+        if headers[0] != headers[1]:
+            raise ValueError("position outcome providers disagree on header")
+
+    acquire_pair(pair, calls, checkpoint=(len(opening), verify_opening))
     captures = []
     for _transport, recorder, source in pair:
         capture = PositionOutcomeCapture(scope, block, source, recorder.exchanges)
