@@ -1,7 +1,7 @@
 """Plan, or explicitly capture, one stopped two-service recovery evidence window.
 
 Default mode is offline and does not read RPC environment variables. --capture
-requires an exact approved plan hash and a retained zero-cost scope declaration.
+requires an exact approved plan hash and a retained zero-cost or paid scope declaration.
 Those declarations record external review; this tool cannot verify provider billing
 or create authorization. It never creates budgets, changes state/STOP, or signs.
 --discover-gas-oracle selects a separate, at-most-209-read scope that proposes
@@ -81,6 +81,25 @@ RUNTIME_PUBLICATIONS = (
 )
 MAX_RESPONSE = MAX_RESPONSE_BYTES
 TRANSPORT_PROFILE = "shared_https_no_redirect_single_attempt.v1"
+PAID_CEILING_MICROS = 100_000
+# Conservative standard-read bound at 40 CU * $0.525/M for Alchemy
+# and 20 CU * $0.30/M for dRPC. This does not fund account activation.
+PAID_MICROS_PER_READ = dict(zip(SOURCES, (21, 6), strict=True))
+PAID_DOMAINS = dict(zip(SOURCES, ("alchemy.com", "drpc.org"), strict=True))
+PAID_READ_METHODS = frozenset(
+    {
+        "eth_chainId",
+        "eth_getBlockByNumber",
+        "eth_getBlockByHash",
+        "eth_getCode",
+        "eth_getStorageAt",
+        "eth_call",
+        "eth_getBalance",
+        "eth_getTransactionCount",
+        "eth_getTransactionReceipt",
+        "eth_getTransactionByHash",
+    }
+)
 NAV_REFUSAL_CODES = {
     "NAV ETH / USD feed incomplete, stale or future": "nav_eth_usd_feed_incomplete_stale_or_future",
     "NAV USDC / USD feed incomplete, stale or future": (
@@ -247,6 +266,7 @@ def prepared(strategy, authority, config, profile, *, discover_gas_oracle=False)
             "max_seconds": MAX_SECONDS,
             "retries": 0,
             "transport_profile": TRANSPORT_PROFILE,
+            "nav_schedule": "verify_price_prefix_before_inventory.v1",
         }
         if discover_gas_oracle:
             plan.update(
@@ -284,7 +304,7 @@ def prepared(strategy, authority, config, profile, *, discover_gas_oracle=False)
         yield plan, states, evidence, budgets, verify
 
 
-def _scope(path, approved_hash, plan, now):
+def _scope(path, approved_hash, plan, now, *, paid=False):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, "rb") as handle:
         if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
@@ -293,16 +313,40 @@ def _scope(path, approved_hash, plan, now):
     if len(raw) > 16_384 or approved_hash != plan["plan_hash"]:
         raise ValueError("bounded scope and exact approved original plan required")
     scope = strict_json_object(raw)
-    if (
-        set(scope)
-        != {
-            "schema",
-            "declared_cost_usd",
-            "authorization_evidence_hash",
-            "pricing_evidence_hash",
-            "endpoint_hashes",
-            "valid_until_ms",
-        }
+    common = {
+        "schema",
+        "authorization_evidence_hash",
+        "pricing_evidence_hash",
+        "endpoint_hashes",
+        "valid_until_ms",
+    }
+    if paid:
+        methods = set(plan["methods_per_provider_per_service"]) | {"eth_getBlockByNumber"}
+        methods.update(plan.get("gas_reads_per_source", {}))
+        upper = sum(
+            count * PAID_MICROS_PER_READ[source]
+            for limits in plan["request_limits"].values()
+            for source, count in limits.items()
+        )
+        prior, attempt = (
+            scope.get("prior_cost_upper_micros"),
+            scope.get("attempt_cost_upper_micros"),
+        )
+        if (
+            set(scope)
+            != common | {"plan_hash", "prior_cost_upper_micros", "attempt_cost_upper_micros"}
+            or scope["schema"] != "oasis.live-recovery-paid-scope.v1"
+            or scope["plan_hash"] != approved_hash
+            or not methods <= PAID_READ_METHODS
+            or type(prior) is not int
+            or type(attempt) is not int
+            or not 4_200 <= prior <= PAID_CEILING_MICROS
+            or attempt != upper
+            or prior + attempt > PAID_CEILING_MICROS
+        ):
+            raise ValueError("exact paid scope and cumulative ceiling required")
+    elif (
+        set(scope) != common | {"declared_cost_usd"}
         or scope["schema"] != "oasis.live-recovery-zero-cost-scope.v1"
         or scope["declared_cost_usd"] != "0"
     ):
@@ -382,6 +426,7 @@ class CaptureControl:
         self.clock, self.monotonic = clock, monotonic
         self.cancelled, self.lock = threading.Event(), threading.Lock()
         self.sleep = sleep or self.cancelled.wait
+        self.paid = False
         self.started, self.started_mono = clock(), monotonic()
         self.deadline = self.started + MAX_SECONDS
         self.counts = {role: dict.fromkeys(SOURCES, 0) for role in ROLES}
@@ -407,6 +452,8 @@ class CaptureControl:
         response_hash = response_size = rpc_error_code = None
         try:
             self.remaining()
+            if self.paid and strict_json_object(payload).get("method") not in PAID_READ_METHODS:
+                raise ValueError("paid read method not priced")
             if self.counts[role][source] >= self.plan["request_limits"][role][source]:
                 raise ValueError("exact request allowance exhausted")
             while True:
@@ -557,6 +604,7 @@ def capture(
     scope_path,
     *,
     discover_gas_oracle=False,
+    paid=False,
     clock=time.time,
     monotonic=time.monotonic,
     sleep=None,
@@ -592,7 +640,7 @@ def capture(
             report["plan"] = plan
             if discover_gas_oracle:
                 report.update(runtime_approved=False, configuration_applied=False)
-            scope = _scope(scope_path, approved_hash, plan, clock())
+            scope = _scope(scope_path, approved_hash, plan, clock(), paid=paid)
             report["cost_scope_hash"] = sha256_hex(canonical_json(scope))
             report["cost_scope_status"] = "operator_declaration_not_provider_billing_verification"
             urls = {
@@ -609,10 +657,21 @@ def capture(
                 for source, url in urls.items()
             ):
                 raise ValueError("declared independent query endpoints unresolved")
+            if paid:
+                for source, url in urls.items():
+                    host = urlsplit(url).hostname or ""
+                    domain = PAID_DOMAINS[source]
+                    if host != domain and not host.endswith("." + domain):
+                        raise ValueError("paid provider differs from pricing scope")
+                report["paid_cost_upper_micros"] = scope["attempt_cost_upper_micros"]
+                report["cumulative_cost_upper_micros"] = (
+                    scope["prior_cost_upper_micros"] + scope["attempt_cost_upper_micros"]
+                )
             (out / "plan.json").write_bytes(canonical_json(plan))
             control = CaptureControl(
                 plan, budgets, profile, out, clock=clock, monotonic=monotonic, sleep=sleep
             )
+            control.paid = paid
             control.deadline = min(control.deadline, scope["valid_until_ms"] / 1000)
             head_session = control.session("strategy", SOURCES[0], urls, transport)
             header = head_session[0].request("eth_getBlockByNumber", ["latest", False])
@@ -956,18 +1015,19 @@ def main():
     )
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approved-plan-hash")
-    parser.add_argument("--zero-cost-scope", type=Path)
+    cost = parser.add_mutually_exclusive_group()
+    cost.add_argument("--zero-cost-scope", type=Path)
+    cost.add_argument("--paid-scope", type=Path)
     args = parser.parse_args()
+    scope = args.paid_scope or args.zero_cost_scope
     if args.capture != all(
-        value is not None for value in (args.out, args.approved_plan_hash, args.zero_cost_scope)
+        value is not None for value in (args.out, args.approved_plan_hash, scope)
     ) or (
         not args.capture
-        and any(
-            value is not None for value in (args.out, args.approved_plan_hash, args.zero_cost_scope)
-        )
+        and any(value is not None for value in (args.out, args.approved_plan_hash, scope))
     ):
         parser.error(
-            "--capture requires --out, --approved-plan-hash and --zero-cost-scope; "
+            "--capture requires --out, --approved-plan-hash and exactly one cost scope; "
             "plan mode accepts none"
         )
     try:
@@ -981,7 +1041,8 @@ def main():
                     profile,
                     args.out,
                     args.approved_plan_hash,
-                    args.zero_cost_scope,
+                    scope,
+                    paid=args.paid_scope is not None,
                     discover_gas_oracle=args.discover_gas_oracle,
                 ),
                 args.out,

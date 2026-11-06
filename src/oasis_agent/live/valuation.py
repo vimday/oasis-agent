@@ -118,6 +118,41 @@ def requests(
     return result
 
 
+def _feed_answers(c: LiveConfig, block: BlockRef, vals: tuple[object, ...]) -> list[int]:
+    if block.timestamp is None:
+        raise NavRefusal("NAV block timestamp missing")
+    answers = []
+    for i, description in ((4, "ETH / USD"), (8, "USDC / USD")):
+        require_code_hash(vals[i], FEED_RUNTIME)
+        if _abi(["uint8"], vals[i + 1]) != (8,) or _abi(["string"], vals[i + 2]) != (description,):
+            raise NavRefusal("NAV feed identity/decimals changed")
+        round_id, answer, started, updated, answered = _abi(
+            ["uint80", "int256", "uint256", "uint256", "uint80"], vals[i + 3]
+        )
+        assert all(isinstance(v, int) for v in (round_id, answer, started, updated, answered))
+        if not (
+            isinstance(answer, int)
+            and isinstance(updated, int)
+            and isinstance(started, int)
+            and isinstance(round_id, int)
+            and isinstance(answered, int)
+        ):
+            raise NavRefusal("invalid feed integers")
+        if (
+            round_id <= 0
+            or answer <= 0
+            or answered < round_id
+            or not 0 < started <= updated
+            or not 0 <= block.timestamp - updated <= feed_max_age(c, i == 8)
+        ):
+            raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
+        if i == 8:
+            # Freshness alone never admits a stablecoin answer outside the approved band.
+            require_usdc_nav_band(answer)
+        answers.append(answer)
+    return answers
+
+
 @dataclass(frozen=True, slots=True)
 class AccountValue:
     wallet: WalletBalance
@@ -152,40 +187,7 @@ class NavCapture:
     def _prices(
         self, store: EvidenceStore, c: LiveConfig, block: BlockRef, vals: tuple[object, ...]
     ) -> list[int]:
-        if block.timestamp is None:
-            raise NavRefusal("NAV block timestamp missing")
-        answers = []
-        for i, description in ((4, "ETH / USD"), (8, "USDC / USD")):
-            require_code_hash(vals[i], FEED_RUNTIME)
-            if _abi(["uint8"], vals[i + 1]) != (8,) or _abi(["string"], vals[i + 2]) != (
-                description,
-            ):
-                raise NavRefusal("NAV feed identity/decimals changed")
-            round_id, answer, started, updated, answered = _abi(
-                ["uint80", "int256", "uint256", "uint256", "uint80"], vals[i + 3]
-            )
-            assert all(isinstance(v, int) for v in (round_id, answer, started, updated, answered))
-            if not (
-                isinstance(answer, int)
-                and isinstance(updated, int)
-                and isinstance(started, int)
-                and isinstance(round_id, int)
-                and isinstance(answered, int)
-            ):
-                raise NavRefusal("invalid feed integers")
-            if (
-                round_id <= 0
-                or answer <= 0
-                or answered < round_id
-                or not 0 < started <= updated
-                or not 0 <= block.timestamp - updated <= feed_max_age(c, i == 8)
-            ):
-                raise NavRefusal(f"NAV {description} feed incomplete, stale or future")
-            if i == 8:
-                # Freshness alone never admits a stablecoin answer outside the approved band.
-                require_usdc_nav_band(answer)
-            answers.append(answer)
-        return answers
+        return _feed_answers(c, block, vals)
 
     def reconstruct(self, store: EvidenceStore, c: LiveConfig) -> AccountValue:
         proof = replay_wallet(store, self.wallet)
@@ -378,6 +380,28 @@ def capture_nav(
     sources: tuple[str, str],
     sessions: SessionFactory,
 ) -> tuple[AccountValue, tuple[EvidenceRef, EvidenceRef]]:
+    calls = requests(c, block, position)
+    pair = (sessions(sources[0]), sessions(sources[1]))
+    validate_session_pair(*pair)
+    if (pair[0][2], pair[1][2]) != sources:
+        raise NavRefusal("NAV source aliases changed")
+    # Retain the canonical wire order for replay, but validate its pricing prefix
+    # before doing inventory reads. Successful acquisition adds no RPC requests.
+    prefix = calls[:12]
+
+    def verify_prices() -> None:
+        opening = []
+        for session in pair:
+            vals = successful_results(session[1].exchanges, prefix)
+            header = decode_header(vals[1], chain_id=c.chain_id)
+            if rpc_quantity(vals[0]) != c.chain_id or header.ref != block:
+                raise NavRefusal("NAV chain/header changed")
+            _feed_answers(c, block, vals)
+            opening.append(vals)
+        if opening[0] != opening[1]:
+            raise NavRefusal("NAV raw observations disagree")
+
+    acquire_pair(pair, calls, checkpoint=(len(prefix), verify_prices))
     wallets = capture_wallet(store, c, block, sources=sources, sessions=sessions)
     positions = (
         None
@@ -395,11 +419,6 @@ def capture_nav(
             sessions=sessions,
         )
     )
-    pair = (sessions(sources[0]), sessions(sources[1]))
-    validate_session_pair(*pair)
-    if (pair[0][2], pair[1][2]) != sources:
-        raise NavRefusal("NAV source aliases changed")
-    acquire_pair(pair, requests(c, block, position))
     captures = []
     for i, session in enumerate(pair):
         captures.append(

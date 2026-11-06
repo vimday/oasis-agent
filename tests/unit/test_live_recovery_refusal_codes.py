@@ -12,22 +12,23 @@ from tests.unit import test_live_recovery_capture as fixtures
 from tests.unit.test_live_valuation import synthetic_feed_pin  # noqa: F401
 
 
-def assert_stopped_after_nav(tmp_path, data, result, before):
+def assert_stopped_after_nav(tmp_path, data, result, before, *, primary, secondary):
+    total = primary + secondary
     roots, _, _, posters, _, _ = data
     assert result["capture_passed"] is False and result["execution_eligible"] is False
     assert result["status"] == "refused" and result["exit_code"] == 3
     assert result["request_counts"] == {
-        "strategy": dict(zip(cli.SOURCES, (43, 42), strict=True)),
+        "strategy": dict(zip(cli.SOURCES, (primary, secondary), strict=True)),
         "authority": dict.fromkeys(cli.SOURCES, 0),
     }
     requests = [request for poster in posters.values() for request in poster.requests]
-    assert len(requests) == 85
+    assert len(requests) == total
     assert all(request["method"] != "eth_getTransactionReceipt" for request in requests)
     wire = [
         json.loads(line) for line in (tmp_path / "attempt/wire.jsonl").read_bytes().splitlines()
     ]
     finished = [event for event in wire if event["phase"] == "request_finished"]
-    assert len(wire) == 170 and len(finished) == 85
+    assert len(wire) == 2 * total and len(finished) == total
     assert all(
         event["outcome"] == "response_received" and event["failure_category"] is None
         for event in finished
@@ -52,8 +53,13 @@ def test_stale_feed_reports_safe_code_after_successful_raw_nav_capture(tmp_path,
     for poster in data[3].values():
         setattr(poster.base.current, f"{feed}_age", 1801)
     result = joint.run(tmp_path, data)
-    assert_stopped_after_nav(tmp_path, data, result, before)
+    assert_stopped_after_nav(tmp_path, data, result, before, primary=19, secondary=18)
     assert result["refusal_code"] == f"nav_{feed}_usd_feed_incomplete_stale_or_future"
+    for poster in data[3].values():
+        assert all(
+            r["method"] not in {"eth_getBalance", "eth_getTransactionCount"}
+            for r in poster.requests
+        )
 
 
 class HostileText:
@@ -91,7 +97,7 @@ def test_unknown_nav_failure_remains_generic_without_rendering_exception(
 
     monkeypatch.setattr(cli, "capture_nav", refuse_after_nav)
     result = joint.run(tmp_path, data)
-    assert_stopped_after_nav(tmp_path, data, result, before)
+    assert_stopped_after_nav(tmp_path, data, result, before, primary=43, secondary=42)
     assert result["refusal_code"] == "capture_unresolved"
     report = (tmp_path / "attempt/report.json").read_bytes()
     assert b"HOSTILE_DIAGNOSTIC_PAYLOAD" not in report

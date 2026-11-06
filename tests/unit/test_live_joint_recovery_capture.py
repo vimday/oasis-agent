@@ -4,6 +4,7 @@ import json
 import sys
 import time
 from dataclasses import asdict, replace
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -148,6 +149,55 @@ def test_complete_capture_replays_shared_head_and_keeps_old_journals(tmp_path, m
         ) as budget:
             assert budget.counts() == {s: 1 + plan["request_limits"][role][s] for s in cli.SOURCES}
     assert not (tmp_path / "attempt/runtime-references.json").exists()
+
+
+@pytest.mark.parametrize("fault", [None, "over_ceiling", "understated", "wrong_plan", "provider"])
+def test_paid_joint_scope_bounds_original_ledger_acquisition(tmp_path, monkeypatch, fault):
+    data = setup(tmp_path, monkeypatch)
+    roots, plan, scope_path, posters, clock, _ = data
+    scope = json.loads(scope_path.read_bytes())
+    del scope["declared_cost_usd"]
+    scope.update(
+        schema="oasis.live-recovery-paid-scope.v1",
+        plan_hash=plan["plan_hash"],
+        prior_cost_upper_micros=4_200,
+        attempt_cost_upper_micros=2_829,
+    )
+    if fault == "over_ceiling":
+        scope["prior_cost_upper_micros"] = 98_000
+    if fault == "understated":
+        scope["attempt_cost_upper_micros"] -= 1
+    if fault == "wrong_plan":
+        scope["plan_hash"] = "a" * 64
+    scope_path.write_bytes(canonical_json(scope))
+    if fault != "provider":
+        monkeypatch.setattr(
+            cli,
+            "PAID_DOMAINS",
+            dict(zip(cli.SOURCES, (urlsplit(u).hostname for u in posters), strict=True)),
+        )
+    before = snapshot(roots)
+    result = cli.capture(
+        *roots,
+        CONFIG,
+        fixtures.PROFILE,
+        tmp_path / "attempt",
+        plan["plan_hash"],
+        scope_path,
+        discover_gas_oracle=True,
+        paid=True,
+        transport=lambda url, _: posters[url],
+        clock=clock.wall,
+        monotonic=clock.monotonic,
+        sleep=clock.sleep,
+    )
+    if fault:
+        assert result["exit_code"] == 3 and result["request_counts"] is None
+        assert all(not p.requests for p in posters.values()) and snapshot(roots) == before
+    else:
+        assert result["capture_passed"] and result["request_counts"] == plan["request_limits"]
+        assert result["paid_cost_upper_micros"] == 2_829
+        assert result["cumulative_cost_upper_micros"] == 7_029
 
 
 def test_old_197_grant_is_refused_before_first_request(tmp_path, monkeypatch):
