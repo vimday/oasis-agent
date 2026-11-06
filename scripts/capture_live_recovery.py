@@ -55,7 +55,7 @@ from oasis_agent.live.rearm_settlements import (
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.startup_state import SOURCES, _position_identity, paths, require_file
 from oasis_agent.live.state import StateStore
-from oasis_agent.live.valuation import capture_nav, nav_fresh_until
+from oasis_agent.live.valuation import NavRefusal, capture_nav, nav_fresh_until
 from oasis_agent.live.valuation import requests as nav_requests
 from oasis_agent.live.wallet import WalletScope, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json, sha256_hex
@@ -81,6 +81,12 @@ RUNTIME_PUBLICATIONS = (
 )
 MAX_RESPONSE = MAX_RESPONSE_BYTES
 TRANSPORT_PROFILE = "shared_https_no_redirect_single_attempt.v1"
+NAV_REFUSAL_CODES = {
+    "NAV ETH / USD feed incomplete, stale or future": "nav_eth_usd_feed_incomplete_stale_or_future",
+    "NAV USDC / USD feed incomplete, stale or future": (
+        "nav_usdc_usd_feed_incomplete_stale_or_future"
+    ),
+}
 
 
 def _identity(path):
@@ -696,9 +702,13 @@ def capture(
                 exit_code=0,
                 nav_micros=values[0].nav_micros,
             )
-    except Exception:  # noqa: BLE001 - never echo endpoints, provider errors or credentials
+    except Exception as error:  # noqa: BLE001 - never echo endpoints or arbitrary exception text
         if control is not None:
             control.cancelled.set()
+        report["refusal_code"] = "capture_unresolved"
+        # Exact fixed library messages only; never stringify an untrusted error or argument.
+        if type(error) is NavRefusal and len(error.args) == 1 and type(error.args[0]) is str:
+            report["refusal_code"] = NAV_REFUSAL_CODES.get(error.args[0], "capture_unresolved")
         report["refusal"] = "capture scope, transport, freshness or evidence unresolved; no retry"
     finally:
         if control is not None:

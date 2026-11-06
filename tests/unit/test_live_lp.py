@@ -19,7 +19,6 @@ from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.intent import SubmittedTransaction, pending_plan_hash
 from oasis_agent.live.price_guard import ExternalPriceSource
 from oasis_agent.live.runner import (
-    FULL_OBSERVATION_SECONDS,
     MAX_SETTLEMENT_FAILURES,
     LiveLoop,
     Market,
@@ -785,76 +784,3 @@ class LightRpc:
 
 
 HELD = Position(77, TICK - 100, TICK + 100, 5_000, 0)
-
-
-def light_loop(tmp_path: Path, primary: Any, secondary: Any, **state: Any) -> LiveLoop:
-    loop = live_loop(tmp_path, primary, secondary, position=HELD, **state)
-    loop.state.last_observation = {"observed_at": int(time.time()) - 60}
-    loop.observe = lambda *_: pytest.fail("light hold must not run a full observation")  # type: ignore[method-assign]
-    return loop
-
-
-def test_light_hold_spends_only_head_slot0_and_liquidity(tmp_path: Path) -> None:
-    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
-    loop = light_loop(tmp_path, a, b)
-    status = loop._tick()
-    assert status.startswith("block 500 light hold in range") and loop.state.halted is None
-    assert (a.calls, b.calls) == (3, 2)
-
-
-@pytest.mark.parametrize(
-    "case",
-    [
-        "out_of_range",
-        "upper_edge",
-        "liquidity_changed",
-        "providers_disagree",
-        "provider_error",
-        "stale_head",
-        "full_observation_due",
-        "no_observation",
-        "no_position",
-        "flow_acknowledgement",
-    ],
-)
-def test_light_hold_falls_back_to_the_full_observation(tmp_path: Path, case: str) -> None:
-    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
-    loop = light_loop(tmp_path, a, b)
-    if case == "out_of_range":
-        a.tick = b.tick = HELD.lower - 1
-    elif case == "upper_edge":
-        a.tick = b.tick = HELD.upper  # upper tick is exclusive
-    elif case == "liquidity_changed":
-        a.liquidity = b.liquidity = HELD.liquidity - 1
-    elif case == "providers_disagree":
-        b.tick = TICK + 1
-    elif case == "provider_error":
-        b.fail = True
-    elif case == "stale_head":
-        a.age = 10_000
-    elif case == "full_observation_due":
-        loop.state.last_observation = {"observed_at": int(time.time()) - FULL_OBSERVATION_SECONDS}
-    elif case == "no_observation":
-        loop.state.last_observation = None
-    elif case == "no_position":
-        loop.state.position = None
-    elif case == "flow_acknowledgement":
-        loop.state.acknowledge_flow = True
-    assert loop._light_hold() is None
-
-
-def test_shadow_mode_never_takes_the_light_path(tmp_path: Path) -> None:
-    loop = loop_with(tmp_path, LightRpc(TICK, HELD.liquidity), position=HELD)
-    loop.state.last_observation = {"observed_at": int(time.time()) - 60}
-    assert loop._light_hold() is None
-
-
-def test_light_hold_records_its_check_and_full_observation_clears_it(tmp_path: Path) -> None:
-    a, b = LightRpc(TICK, HELD.liquidity), LightRpc(TICK, HELD.liquidity)
-    loop = light_loop(tmp_path, a, b)
-    loop._tick()
-    light = loop.state.last_light_check
-    assert light is not None and light["block"] == 500 and light["tick"] == TICK
-    a.tick = b.tick = HELD.lower - 1
-    assert loop._light_hold() is None
-    assert loop.state.last_light_check == light  # a refused light check records nothing

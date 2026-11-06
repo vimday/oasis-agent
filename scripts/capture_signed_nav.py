@@ -24,9 +24,10 @@ from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.signed_nav import (
     _validate_mapping,
     capture_signed_nav_candidate,
+    verify_nav_prices,
     verify_signed_nav_quorum,
 )
-from oasis_agent.live.signed_prices import MAX_RAW_BYTES, verify_prices
+from oasis_agent.live.signed_prices import MAX_RAW_BYTES
 from oasis_agent.live.state import Position
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.models.v4 import PoolKey
@@ -115,9 +116,7 @@ def main():
         raw = read_regular(args.prices, MAX_RAW_BYTES)
         started = time.time_ns() // 1_000_000
         stage = "price_verification"
-        prices = verify_prices(
-            raw, observed_at_ms=started, max_age_ms=c.oracle_max_age_seconds * 1000
-        )
+        prices, deadlines = verify_nav_prices(raw, c, observed_at_ms=started)
         # Wallet: 10; core/inventory without Chainlink: 7; NFT: 9 + fee reads: 2.
         per_source = 28 if position is not None else 17
         limits = {SOURCES[0]: per_source + 1, SOURCES[1]: per_source}
@@ -138,6 +137,7 @@ def main():
             request_counts_before=before,
             rpc_profile=asdict(profile),
             price_verification=prices,
+            feed_deadlines=deadlines,
             spending_scope="request quota only; monetary cost must be established externally",
         )
         if args.capture:
@@ -165,7 +165,7 @@ def main():
                     if (
                         now < started
                         or now - started > 120_000
-                        or now - prices["timestamp_ms"] > c.oracle_max_age_seconds * 1000
+                        or any(now > deadline["valid_until_ms"] for deadline in deadlines.values())
                         or attempts[self.source] >= limits[self.source]
                     ):
                         raise ValueError("capture time or request bound reached")
@@ -214,7 +214,7 @@ def main():
                     finished < result["checked_at_ms"]
                     or finished < started
                     or finished - block.timestamp * 1000 > 120_000
-                    or finished - prices["timestamp_ms"] > c.oracle_max_age_seconds * 1000
+                    or any(finished > deadline["valid_until_ms"] for deadline in deadlines.values())
                 ):
                     raise ValueError("capture expired during replay")
                 request = {
@@ -240,8 +240,7 @@ def main():
         if (
             finished < report["completed_at_ms"]
             or finished - report["block"]["timestamp"] * 1000 > 120_000
-            or finished - report["price_verification"]["timestamp_ms"]
-            > c.oracle_max_age_seconds * 1000
+            or any(finished > deadline["valid_until_ms"] for deadline in deadlines.values())
         ):
             report.update(passed=False, candidate_verified=False, refusal_stage="publication_clock")
         else:

@@ -89,7 +89,8 @@ MAX_SETTLEMENT_FAILURES = 5
 # Refused proposals released per process before an operator must look at the cause.
 MAX_RELEASED_ATTEMPTS = 3
 # Holding an in-range position runs a cheap two-provider tick/liquidity check; the full
-# NAV, loss-latch, runtime-pin and decision path still runs at least this often.
+# NAV, loss-latch, runtime-pin and decision path still runs at least this often,
+# and sooner whenever the retained NAV's head or either USD feed expires.
 FULL_OBSERVATION_SECONDS = 3600
 # Consecutive unresolved (transport-level) full observations before halting for review.
 MAX_OBSERVATION_FAILURES = 3
@@ -325,19 +326,21 @@ class LiveLoop:
     def _light_hold(self) -> str | None:
         """Cheap two-provider in-range check between full observations; never acts.
 
-        Returns a hold status only when a full NAV observation is under
-        FULL_OBSERVATION_SECONDS old and both providers agree, at one canonical block,
+        Returns a hold status only while the retained NAV's head and both feed
+        deadlines remain valid, its observation is under FULL_OBSERVATION_SECONDS
+        old and both providers agree, at one canonical block,
         that the recorded position's liquidity is unchanged and the pool tick is inside
         its range. Anything else (no position, stale or missing observation, any
         disagreement, error or out-of-range tick) returns None so the full observation,
         loss latch, runtime pins and decision path run instead.
         """
-        s, p = self.state, self.state.position
+        s, p, reader = self.state, self.state.position, self.receipt_costs
         last = s.last_observation
         if (
             self.mode != "live"
             or p is None
             or self.secondary is None
+            or reader is None
             or s.acknowledge_flow
             or not isinstance(last, dict)
             or type(last.get("observed_at")) is not int
@@ -345,6 +348,16 @@ class LiveLoop:
         ):
             return None
         try:
+            # The display projection and a recent light check cannot renew raw NAV.
+            # Replaying retained proofs is offline, including after process restart.
+            deadline = nav_fresh_until(reader.store, s.nav_evidence, self.c, sources=reader.sources)
+            nav_block = s.nav_evidence[0].block
+            if (
+                nav_block is None
+                or nav_block.timestamp is None
+                or not nav_block.timestamp <= int(time.time()) <= deadline
+            ):
+                return None
             block = self.rpc.block()
             number, timestamp = int(str(block["number"]), 16), int(str(block["timestamp"]), 16)
             if not 0 <= int(time.time()) - timestamp <= MAX_HEAD_AGE_SECONDS:
@@ -366,10 +379,16 @@ class LiveLoop:
         tick, liquidity = seen[0]
         if seen[0] != seen[1] or liquidity != p.liquidity or not p.lower <= tick < p.upper:
             return None
+        observed_at = int(time.time())
+        if (
+            not nav_block.timestamp <= observed_at <= deadline
+            or not 0 <= observed_at - timestamp <= MAX_HEAD_AGE_SECONDS
+        ):
+            return None
         s.last_light_check = {
             "block": number,
             "block_timestamp": timestamp,
-            "observed_at": int(time.time()),
+            "observed_at": observed_at,
             "tick": tick,
         }
         return (

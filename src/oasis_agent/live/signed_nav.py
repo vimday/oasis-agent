@@ -39,14 +39,44 @@ def _validate_mapping(c: LiveConfig) -> None:
         raise NavRefusal("signed USD mapping requires native ETH and Base USDC")
 
 
+def verify_nav_prices(
+    raw: bytes, c: LiveConfig, *, observed_at_ms: int
+) -> tuple[dict[str, Any], dict[str, dict[str, int]]]:
+    """Authenticate packages, then apply each feed's own configured age limit.
+
+    The package verifier retains its absolute 1800-second ceiling. Per-feed
+    deadlines come from the authenticated witness clocks, never gateway labels
+    or a shared minimum age that obscures the two independent policy limits.
+    """
+    _validate_mapping(c)
+    verified = verify_prices(raw, observed_at_ms=observed_at_ms)
+    deadlines = {}
+    for feed, maximum in (
+        ("ETH", c.oracle_max_age_seconds * 1000),
+        ("USDC", c.usdc_oracle_max_age_seconds * 1000),
+    ):
+        clocks = [w["timestamp_ms"] for w in verified["prices"][feed]["witnesses"]]
+        if any(not 0 <= observed_at_ms - clock <= maximum for clock in clocks):
+            raise NavRefusal(f"signed NAV {feed} price stale or future")
+        deadlines[feed] = {"max_age_ms": maximum, "valid_until_ms": min(clocks) + maximum}
+    return verified, deadlines
+
+
 def bound_prices(
     store: EvidenceStore,
     c: LiveConfig,
     wallets: tuple[EvidenceRef, EvidenceRef],
     raw: bytes,
     observed_at_ms: int,
+    *,
+    schema: str = "oasis.block-bound-signed-price-candidate.v2",
 ) -> dict[str, Any]:
     _validate_mapping(c)
+    if schema not in {
+        "oasis.block-bound-signed-price-candidate.v1",
+        "oasis.block-bound-signed-price-candidate.v2",
+    }:
+        raise NavRefusal("signed price binding schema unsupported")
     if len(wallets) != 2 or wallets[0].source == wallets[1].source:
         raise NavRefusal("signed price binding requires two wallet sources")
     proofs = [replay_wallet(store, ref) for ref in wallets]
@@ -63,13 +93,17 @@ def bound_prices(
         or not 0 <= observed_at_ms - timestamp * 1000 <= 120_000
     ):
         raise NavRefusal("signed price observation requires a recent nonfuture wallet block")
-    verified = verify_prices(
-        raw, observed_at_ms=observed_at_ms, max_age_ms=c.oracle_max_age_seconds * 1000
-    )
+    verified, deadlines = verify_nav_prices(raw, c, observed_at_ms=observed_at_ms)
     if verified["timestamp_ms"] > timestamp * 1000:
         raise NavRefusal("signed price postdates the wallet block")
-    return {
-        "schema": "oasis.block-bound-signed-price-candidate.v1",
+    if schema == "oasis.block-bound-signed-price-candidate.v1":
+        # Preserve historical payload bytes, after independently enforcing both
+        # current feed policies above. Legacy metadata never waives USDC's limit.
+        verified = verify_prices(
+            raw, observed_at_ms=observed_at_ms, max_age_ms=c.oracle_max_age_seconds * 1000
+        )
+    result = {
+        "schema": schema,
         "config_hash": sha256_hex(canonical_json(asdict(c))),
         "block": asdict(block),
         "wallets": [asdict(ref) for ref in wallets],
@@ -82,6 +116,9 @@ def bound_prices(
         "verified": verified,
         "execution_eligible": False,
     }
+    if schema == "oasis.block-bound-signed-price-candidate.v2":
+        result["feed_deadlines"] = deadlines
+    return result
 
 
 def retain_prices(
@@ -116,7 +153,12 @@ def replay_prices(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> dict
         raise NavRefusal("signed price binding request differs")
     wallets = tuple(evidence_ref_from_json(r) for r in request["wallets"])
     payload = bound_prices(
-        store, c, (wallets[0], wallets[1]), record.raw_response_payload, request["observed_at_ms"]
+        store,
+        c,
+        (wallets[0], wallets[1]),
+        record.raw_response_payload,
+        request["observed_at_ms"],
+        schema=json.loads(record.payload).get("schema"),
     )
     if (
         record.request_payload != canonical_json(request)
@@ -229,10 +271,10 @@ def verify_signed_nav_quorum(
     if binding["verified"]["observed_at_ms"] > now_ms:
         raise NavRefusal("signed NAV capture clock is in the future")
     # Recheck original signatures/age at consumption, never reuse capture freshness.
-    current_prices = verify_prices(
+    current_prices, deadlines = verify_nav_prices(
         store.get_record(price_ref).raw_response_payload,
+        c,
         observed_at_ms=now_ms,
-        max_age_ms=c.oracle_max_age_seconds * 1000,
     )
     values = [p.reconstruct(store, c) for p in captures]
     calls = captures[0]._requests(c, block)
@@ -253,6 +295,7 @@ def verify_signed_nav_quorum(
         "evidence": [asdict(ref) for ref in refs],
         "price_evidence": asdict(price_ref),
         "current_price_verification": current_prices,
+        "feed_deadlines": deadlines,
         "account_age_ms": now_ms - block.timestamp * 1000,
         "scope": "declared wallet assets and position; not complete account history or release",
     }
@@ -273,9 +316,7 @@ def capture_signed_nav_candidate(
 ) -> tuple[AccountValue, tuple[EvidenceRef, EvidenceRef]]:
     # Validate signatures/freshness before spending any acquisition requests.
     _validate_mapping(c)
-    verified = verify_prices(
-        raw_prices, observed_at_ms=observed_at_ms, max_age_ms=c.oracle_max_age_seconds * 1000
-    )
+    verified, _ = verify_nav_prices(raw_prices, c, observed_at_ms=observed_at_ms)
     if (
         block.timestamp is None
         or not 0 <= observed_at_ms - block.timestamp * 1000 <= 120_000

@@ -63,13 +63,20 @@ class TransactionAuthority:
             raise ValueError("authority expired or stopped")
         if s.halted or s.signing_attempt is not None or s.legacy_gas_cost_incomplete:
             raise ValueError("authority halted or signing outcome unresolved")
-        if s.pending:
-            loop._resolve_pending()
-            loop.store.save(s)
-            if s.pending or s.halted:
-                raise ValueError("previous authority transaction unresolved")
-        loop._check_settlements()
-        loop._check_nav_checkpoint()
+        try:
+            if s.pending:
+                loop._resolve_pending()
+                loop.store.save(s)
+                if s.pending or s.halted:
+                    raise ValueError("previous authority transaction unresolved")
+            loop._check_settlements()
+            loop._check_nav_checkpoint()
+        except ChainError:
+            # Receipt/ancestry checks can latch HALT before raising. Persist it
+            # before the socket refuses this request: the next one reloads state.
+            if s.halted:
+                loop.store.save(s)
+            raise
         require_gas_oracle_pins(c.expected_pins)
         if (
             set(context) != {"kind", "intent", "block", "block_hash"}

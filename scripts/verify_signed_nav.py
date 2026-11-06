@@ -84,8 +84,10 @@ def main() -> None:
             if (
                 finished < result["checked_at_ms"]
                 or finished - result["block"]["timestamp"] * 1000 > 120_000
-                or finished - result["current_price_verification"]["timestamp_ms"]
-                > c.oracle_max_age_seconds * 1000
+                or any(
+                    finished > deadline["valid_until_ms"]
+                    for deadline in result["feed_deadlines"].values()
+                )
             ):
                 raise ValueError("candidate expired or host clock regressed during replay")
         report.update(

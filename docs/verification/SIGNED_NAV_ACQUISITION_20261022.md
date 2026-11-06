@@ -49,8 +49,8 @@ real provider during this increment.
 
 ## Acquisition and evidence boundaries
 
-- Wallet only: at most 16 primary / 15 secondary requests (31 total).
-- One declared LP: at most 27 primary / 26 secondary requests (53 total).
+- Wallet only: at most 18 primary / 17 secondary requests (35 total).
+- One declared LP: at most 29 primary / 28 secondary requests (57 total).
 - The primary count includes one latest-header lookup. All account/state reads
   then bind to its block hash, with both providers checking chain and headers.
 - No retry or polling is configured. Each provider uses the existing durable
@@ -111,3 +111,40 @@ run passed all four commands (each exit 0, no timeout or launch failure):
 Each retained command log digest was checked against the report. Quality evidence
 hash: `7fc2c9a68a74fca8c91bdb69565917640c5ce16d1583e302d2a0cbe2c1e308a7`.
 This is development evidence, not current production NAV or live acceptance.
+
+## Independent feed deadlines and request-count correction — 2026-11-07
+
+The earlier request-count text stated 16/15 for wallet-only and 27/26 for one LP.
+Those counts omitted the two position-manager runtime/inventory reads per source
+required by the current NAV proof. The bullets above now match the executable
+request inventory: wallet acquisition uses 10 calls, signed core/inventory uses
+7 calls, and a held LP adds 9 NFT/outcome calls plus 2 core fee-growth calls.
+The primary additionally looks up the decision head. Current totals are therefore
+18/17 and 29/28, respectively. This correction neither grants requests nor changes
+an existing budget; the original historical logs remain unchanged.
+
+Signed NAV formerly applied only the ETH age setting to both feeds. A configuration
+with a tighter USDC setting could therefore admit a USDC package after its own
+deadline, including when it expired during acquisition or final replay. The
+candidate now authenticates the original packages under the verifier's unchanged
+1800-second absolute ceiling, then checks each feed's authenticated witness clock
+against that feed's own configured age. It retains separate ETH and USDC
+`max_age_ms` and `valid_until_ms` values; it does not replace the policies with one
+shared minimum. The existing requirement for one signed timestamp across both
+feed quorums remains unchanged.
+
+New price bindings use `oasis.block-bound-signed-price-candidate.v2` and retain
+these per-feed deadlines. Replay re-derives them from signed bytes and refuses
+rehashing an extended deadline. Historical v1 payloads remain byte-replayable
+only when both configured feed limits pass; the legacy single-age metadata
+cannot waive USDC's policy. Both the capture command and the read-only checker
+recheck each deadline after slow work, and capture checks before every logical
+request and again before publishing its check input.
+
+This remains candidate-only code. No production valuation, signer or recovery
+consumer is connected; no fresh price package or real NAV acceptance is claimed.
+The production 1800-second settings, USD 500/200/500 limits and original budgets
+are unchanged. Tests use the retained authentic historical price signatures with
+synthetic account responses, controlled clocks and temporary ledgers. Raw
+before/after output and each command's exit code are retained under
+`reports/review-20261107/signed-nav-feed-deadlines/`.
