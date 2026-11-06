@@ -26,7 +26,13 @@ def receipt_worker(directory, ready, parked, crash):
         if crash:
             loop = approval_loop(root, evidence, a, b)
 
+            save = loop.store.save
+
             def before_publish(state):
+                if state.pending is not None:
+                    assert state.settlement_attempts == 1 and state.gas_spent_wei == 0
+                    save(state)
+                    return
                 # Proof acquisition and in-memory accounting have finished, but
                 # the old pending remains the durable truth until publication.
                 assert state.pending is None and state.gas_spent_wei == 218
@@ -76,7 +82,7 @@ def test_two_private_ledgers_recover_receipt_after_process_death(tmp_path):
         for root in roots:
             state = StateStore(root / "live.state.json").load("live")
             assert state.pending is not None and state.gas_spent_wei == 0
-            assert state.actions_today == 0
+            assert state.actions_today == 0 and state.settlement_attempts == 1
         for root, ready in zip(roots, queues, strict=True):
             process = ctx.Process(target=receipt_worker, args=(str(root), ready, parked, False))
             process.start()
@@ -92,6 +98,7 @@ def test_two_private_ledgers_recover_receipt_after_process_death(tmp_path):
                 state = StateStore(root / "live.state.json").load("live")
                 assert state.pending is None and state.gas_spent_wei == 218
                 assert state.actions_today == 1 and len(state.history) == 1
+                assert state.settlement_attempts == 0
     finally:
         for process in processes:
             stop(process)

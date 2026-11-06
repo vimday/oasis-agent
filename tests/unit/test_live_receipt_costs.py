@@ -261,9 +261,9 @@ def test_position_refusal_preserves_pending_until_both_providers_prove_outcome(
         loop.state.position = Position(123, -100, 100, 77, 0)
         bind_pending(loop.state.pending, loop.state.position, config=loop.c)
     loop.store.save(loop.state)
-    before = loop.store.path.read_bytes()
+    before = json.loads(loop.store.path.read_bytes())
     assert "position outcome unresolved" in loop.tick()
-    assert loop.store.path.read_bytes() == before
+    assert json.loads(loop.store.path.read_bytes()) == before | {"settlement_attempts": 1}
     # Agreement on the position still cannot replace complete owner cash accounting.
     loop.state = loop.store.load("live")
     for name in changes:
@@ -299,9 +299,9 @@ def test_changed_pending_plan_refuses_before_any_rpc_read(
 
     loop.rpc = NoRpc()
     loop.store.save(loop.state)
-    before = loop.store.path.read_bytes()
+    before = json.loads(loop.store.path.read_bytes())
     assert "pending" in loop.tick()
-    assert loop.store.path.read_bytes() == before
+    assert json.loads(loop.store.path.read_bytes()) == before | {"settlement_attempts": 1}
     assert loop.state.gas_spent_wei == 0
 
 
@@ -322,9 +322,9 @@ def test_cost_disagreement_or_missing_proof_preserves_position_and_pending(
     loop.state.position = Position(123, -100, 100, 77, 0)
     bind_pending(loop.state.pending, loop.state.position)
     loop.store.save(loop.state)
-    before = loop.store.path.read_bytes()
+    before = json.loads(loop.store.path.read_bytes())
     assert "whole native receipt cost unresolved" in loop.tick()
-    assert loop.store.path.read_bytes() == before
+    assert json.loads(loop.store.path.read_bytes()) == before | {"settlement_attempts": 1}
 
 
 @pytest.mark.parametrize(

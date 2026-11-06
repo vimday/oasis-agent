@@ -65,7 +65,7 @@ class TransactionAuthority:
             raise ValueError("authority halted or signing outcome unresolved")
         try:
             if s.pending:
-                loop._resolve_pending()
+                loop._poll_pending()
                 loop.store.save(s)
                 if s.pending or s.halted:
                     raise ValueError("previous authority transaction unresolved")

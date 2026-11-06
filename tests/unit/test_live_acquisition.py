@@ -13,12 +13,12 @@ from oasis_agent.evidence.rpc_capture import BoundedExchangeRecorder
 from oasis_agent.live.acquisition import acquire_pair
 from oasis_agent.live.chain import ChainError
 from oasis_agent.live.rpc_profile import LiveRpcProfile
-from oasis_agent.live.runner import MAX_OBSERVATION_FAILURES
-from oasis_agent.live.state import StateStore
+from oasis_agent.live.runner import MAX_OBSERVATION_FAILURES, MAX_SETTLEMENT_FAILURES
+from oasis_agent.live.state import Pending, StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import RpcBudget
 from oasis_agent.rpc.transport import JsonRpcTransport
-from tests.unit.test_live_lp import ScriptedRpc, live_loop, market
+from tests.unit.test_live_lp import ScriptedRpc, bind_pending, live_loop, market
 
 
 class Rendezvous:
@@ -232,3 +232,44 @@ def test_crash_during_each_observation_cannot_replenish_durable_retry_allowance(
     assert loop.tick().startswith("HALT live observation refused")
     assert len(calls) == MAX_OBSERVATION_FAILURES
     assert reopen().state.halted is not None
+
+
+def test_pending_poll_crash_limit_survives_journal_reopen(tmp_path, monkeypatch):
+    path = tmp_path / "live.json"
+    loop = live_loop(tmp_path, ScriptedRpc())
+    store = StateStore(path)
+    store.bind(sha256_hex(canonical_json(asdict(loop.c))))
+    original = store.load("live")
+    pending = Pending("mint", "0x" + "ab" * 32, 3, 1_791_470_000)
+    bind_pending(pending)
+    original.pending = pending
+    store.save(original)
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    def reopen():
+        fresh = live_loop(tmp_path, ScriptedRpc())
+        fresh.store = StateStore(path, require_existing=True)
+        fresh.state = fresh.store.load("live")
+        return fresh
+
+    def interrupted():
+        raise SimulatedCrash
+
+    for spent in range(MAX_SETTLEMENT_FAILURES):
+        loop = reopen()
+        assert loop.state.settlement_attempts == spent
+        monkeypatch.setattr(loop, "_resolve_pending", interrupted)
+        with pytest.raises(SimulatedCrash):
+            loop.tick()
+
+    loop = reopen()
+    monkeypatch.setattr(
+        loop, "_resolve_pending", lambda: pytest.fail("exhausted loop polled again")
+    )
+    assert loop.tick().startswith("HALT pending mint settlement failed")
+    retained = reopen().state
+    assert retained.pending == pending
+    assert retained.settlement_attempts == MAX_SETTLEMENT_FAILURES
+    assert retained.halted is not None

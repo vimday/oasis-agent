@@ -158,7 +158,9 @@ def test_pending_identity_halt_survives_without_releasing_commitment(tmp_path, m
         reason = f"receipt for {TX_HASH} does not match the signed transaction"
         with pytest.raises(ChainError, match=reason):
             authority.sign([], {})
-        assert_durable_halt(authority, before, reason, tmp_path, store, providers)
+        assert_durable_halt(
+            authority, before | {"settlement_attempts": 1}, reason, tmp_path, store, providers
+        )
 
 
 def test_transport_failure_does_not_invent_or_mutate_halt(tmp_path, monkeypatch):

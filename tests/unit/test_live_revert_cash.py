@@ -167,10 +167,10 @@ def test_revert_cash_disagreement_never_clears_pending_or_resets_baseline(
         # Mutate only post-publication responses; the opening remains immutable.
         for name, value in change.items():
             setattr(peer, name, value)
-        prior = loop.store.path.read_bytes()
+        prior = json.loads(loop.store.path.read_bytes())
         result = loop.tick()
         assert "unresolved" in result and loop.state.pending is not None
-        assert loop.store.path.read_bytes() == prior
+        assert json.loads(loop.store.path.read_bytes()) == prior | {"settlement_attempts": 1}
         assert loop.state.gas_spent_wei == 0 and loop.state.actions_today == 0
 
 

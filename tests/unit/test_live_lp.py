@@ -732,9 +732,9 @@ def test_settlement_success_resets_failure_count(tmp_path: Path) -> None:
 
     loop._resolve_pending = flaky  # type: ignore[method-assign]
     loop.tick()
-    assert loop.settlement_failures == 1
+    assert loop.state.settlement_attempts == 1
     assert loop.tick() == "waiting on receipt"
-    assert loop.settlement_failures == 0 and loop.state.halted is None
+    assert loop.state.settlement_attempts == 0 and loop.state.halted is None
 
 
 @pytest.mark.parametrize("interval", [None, 30, 300, 3600])

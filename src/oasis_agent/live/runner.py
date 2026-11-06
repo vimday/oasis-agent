@@ -54,7 +54,14 @@ from .price_guard import ExternalPriceSource, check_price_deviation
 from .receipts import RetainedReceiptCostReader
 from .recovery import UNKNOWN_SIGNING_HALT, release_unsigned_attempt
 from .revert_cash import reconcile_revert, replay_revert_cash
-from .state import MAX_OBSERVATION_FAILURES, Pending, Position, StateStore, day_of
+from .state import (
+    MAX_OBSERVATION_FAILURES,
+    MAX_SETTLEMENT_FAILURES,
+    Pending,
+    Position,
+    StateStore,
+    day_of,
+)
 from .v4lp import (
     liquidity_for_amounts,
     position_amounts,
@@ -84,8 +91,6 @@ USDC_IMPL_SLOT = "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3
 PENDING_TIMEOUT = 900
 ORACLE_DECIMALS = 8  # Base ETH/USD feed decimals(), verified on two providers 2026-10-08
 MAX_CONSECUTIVE_REVERTS = 2
-# Each failed settlement attempt can spend ~100 requests of a 4096 lifetime budget.
-MAX_SETTLEMENT_FAILURES = 5
 # Refused proposals released per process before an operator must look at the cause.
 MAX_RELEASED_ATTEMPTS = 3
 # Holding an in-range position runs a cheap two-provider tick/liquidity check; the full
@@ -178,7 +183,6 @@ class LiveLoop:
             store.bind(sha256_hex(canonical_json(asdict(config))))
         self.state = store.load(mode)
         self.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
-        self.settlement_failures = 0
         self.released_attempts = 0
         # Anchors both providers proved finalized; process-local, so a restart re-verifies.
         self.final_anchors: set[bytes] = set()
@@ -195,7 +199,6 @@ class LiveLoop:
         loop.external_prices, loop.max_external_deviation_bps = None, 50
         loop.state = store.load(mode, read_only=read_only)
         loop.fees = FeePolicy(config.max_fee_per_gas_wei, config.priority_fee_wei)
-        loop.settlement_failures = 0
         loop.released_attempts = 0
         loop.final_anchors = set()
         return loop
@@ -523,21 +526,7 @@ class LiveLoop:
                 f"{attempt.get('nonce')}; re-proposing next tick"
             )
         if s.pending is not None:
-            try:
-                status = self._resolve_pending()
-            except ChainError:
-                # A settlement proof that keeps failing would otherwise re-poll every tick
-                # until the lifetime RPC budget is gone. Halt; recovery runs separately.
-                self.settlement_failures += 1
-                if self.settlement_failures >= MAX_SETTLEMENT_FAILURES:
-                    s.halted = (
-                        f"pending {s.pending.kind} settlement failed "
-                        f"{self.settlement_failures} times; run reconcile-only recovery"
-                    )
-                    s.record("halt", reason=s.halted, tx=s.pending.tx_hash)
-                raise
-            self.settlement_failures = 0
-            return status
+            return self._poll_pending()
         if self.mode == "live" and s.observation_attempts >= MAX_OBSERVATION_FAILURES:
             self._halt_observation()
             return f"HALT {s.halted}"
@@ -1138,7 +1127,7 @@ class LiveLoop:
         except (TxReverted, SubmissionUnknown) as exc:
             # Pending stays recorded; only independently verified evidence resolves it.
             return f"{kind} submitted, awaiting verified receipt: {exc}"
-        return f"{kind} {self._resolve_pending()} {sent.tx_hash}"
+        return f"{kind} {self._poll_pending()} {sent.tx_hash}"
 
     def _receipt_cost(
         self, pending: Pending, receipt: dict[str, Any]
@@ -1198,6 +1187,7 @@ class LiveLoop:
         s.last_observation = None  # pre-action NAV cannot describe the settled account
         s.checkpoint_at = 0  # the next observation locks this action's NAV change
         s.pending = None
+        s.settlement_attempts = 0
         s.record(
             kind,
             tx=receipt.get("transactionHash"),
@@ -1233,6 +1223,7 @@ class LiveLoop:
         )
         s.checkpoint_at = 0
         s.pending = None
+        s.settlement_attempts = 0
         s.consecutive_reverts += 1
         s.actions_today += 1
         tx = receipt.get("transactionHash")
@@ -1379,6 +1370,33 @@ class LiveLoop:
             s.halted = f"receipt for {p.tx_hash} does not match the signed transaction"
             raise ChainError(s.halted)
         return receipt
+
+    def _poll_pending(self) -> str:
+        """Reserve one automatic attempt durably before reading a pending transaction."""
+        s = self.state
+        pending = s.pending
+        assert pending is not None
+
+        def halt() -> str:
+            s.halted = (
+                f"pending {pending.kind} settlement failed "
+                f"{s.settlement_attempts} times; run reconcile-only recovery"
+            )
+            s.record("halt", reason=s.halted, tx=pending.tx_hash)
+            return f"HALT {s.halted}"
+
+        if s.settlement_attempts >= MAX_SETTLEMENT_FAILURES:
+            return halt()
+        s.settlement_attempts += 1
+        self.store.save(s)
+        try:
+            result = self._resolve_pending()
+        except ChainError:
+            if not s.halted and s.settlement_attempts >= MAX_SETTLEMENT_FAILURES:
+                halt()
+            raise
+        s.settlement_attempts = 0
+        return result
 
     def _resolve_pending(self) -> str:
         s = self.state
@@ -1552,6 +1570,7 @@ class LiveLoop:
             raise ValueError("a transaction is still in the mempool for this nonce")
         s.record("pending_dropped", kind=p.kind, tx=p.tx_hash, nonce=p.nonce)
         s.pending = None
+        s.settlement_attempts = 0
         return f"dropped pending {p.kind} {p.tx_hash}"
 
     # ---- shadow ------------------------------------------------------------------

@@ -262,9 +262,9 @@ def test_action_cash_fault_never_clears_pending(tmp_path: Path, fault: str) -> N
             a.terms["min_out"] = 101
             b.terms["min_out"] = 101
         loop = action_loop(tmp_path, store, a, b)
-        before = loop.store.path.read_bytes()
+        before = json.loads(loop.store.path.read_bytes())
         assert "unresolved" in loop.tick()
-        assert loop.store.path.read_bytes() == before
+        assert json.loads(loop.store.path.read_bytes()) == before | {"settlement_attempts": 1}
 
 
 def test_reverted_descendants_cannot_be_counted_as_refunds(tmp_path: Path) -> None:

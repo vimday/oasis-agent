@@ -181,9 +181,9 @@ def test_approval_outcome_or_cash_disagreement_keeps_pending(
         loop = approval_loop(tmp_path, store, a, b)
         for name, value in change.items():
             setattr(b, name, value)
-        original = loop.store.path.read_bytes()
+        original = json.loads(loop.store.path.read_bytes())
         assert "unresolved" in loop.tick()
-        assert loop.store.path.read_bytes() == original
+        assert json.loads(loop.store.path.read_bytes()) == original | {"settlement_attempts": 1}
         assert loop.state.pending is not None and loop.state.gas_spent_wei == 0
 
 
