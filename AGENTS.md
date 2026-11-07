@@ -408,6 +408,20 @@ autonomous trader. Its current verified boundary is:
   September 22 Base run captured all four OKX routes including 100 holders; GMGN CLI failed
   and its subsequent requests were halted. Provider claims are not chain attestations. Robinhood OKX cluster capture failed with HTTP 400. FOMO is authorization-required;
   sustained discovery, complete enrichment and execution remain unverified or unimplemented.
+- `launch/spot_agent.py` and `scripts/run_spot_agent.py` run an autonomous Base spot agent over
+  OKX onchainos claims (hot tokens, smart-money signals, price/security/advanced info, quotes) with
+  an optional GMGN cross-check and pluggable address-only nominators (`discovery_slot.py`, the FOMO
+  slot; no FOMO access exists). Each tick journals hash-linked assessments, entries, exits and
+  forward-return labels; resume takes money state from the journal and refuses an interrupted
+  tick. Default mode is a paper book. `launch/spot_executor.py` adds a gated live path for the
+  owner-approved OKX Agentic Wallet only: `--live` needs a per-trade cap, bounded slippage, the
+  exact confirmation phrase, a Base RPC and a read-only preflight (active CLI account equals the
+  gated wallet, USDC and gas present); the wallet's TEE signs, the process holds no key, each swap
+  is submitted once, a fill is the wallet's balance delta plus a status-1 receipt, and anything
+  unproven journals `live_unresolved` and halts. It is tested with fakes only; the real preflight
+  refused the unfunded wallet, no live swap has been submitted, swap-response parsing is unverified
+  against real output, and short live shadow runs produced no flip decisions, so there is no
+  evidence of selection edge or profitability;
 - CLI fixture commands are not evidence of a working backtester, simulator, or executor;
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a
