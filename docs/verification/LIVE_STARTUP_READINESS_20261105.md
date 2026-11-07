@@ -231,3 +231,31 @@ Final `make live-quality` exited 0: 4,768 tests and 138 subtests passed.
 Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
 all four log hashes matched. The 685 frozen inputs were unchanged. Quality
 report hash: `e481e578d40ab17ab891b54ae5aa75888df47a1896528a50552c73b5d48a79e2`.
+
+## Base startup policy and image binding
+
+The launcher now hashes the exact bytes it parses for both the trading
+configuration and the RPC quota/pacing profile. Both hashes must match the
+corresponding entries in the verified image's application manifest. A
+difference refuses before RPC environment handling, volume inspection,
+original-state replay, or Compose. The canonical configuration hash remains
+the journal binding; the raw hashes are used only to establish which files
+supplied the host checks. The final manifest, release and Compose checks
+remain in place.
+
+Two simulated replacements reproduced the old gap: the initial host policy
+differed from the policy subsequently verified in the image and the launcher
+nevertheless attempted Compose. The pre-fix regression exited 1. After the
+fix, both cases refused at image verification and all 96 focused tests
+passed. The logs are in `reports/review-20261107/base-start-policy-image/`,
+with SHA-256 values
+`996dd1e7253c150b65beafe51f43c9cc7a524d39c4666e0e4be9beb87b3860d1` and
+`12be8c0a48a73ab90988cdea29a2b4dfe7a7f998cf74e37de5d949031a490b14`.
+Actual Base readiness still exited 3 with
+`gas_oracle_runtime_pins_missing`. No RPC request, production volume, key or
+service was used.
+
+Final `make live-quality` exited 0: 4,770 tests and 138 subtests passed.
+Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
+all four log hashes matched. The 685 frozen inputs were unchanged. Quality
+report hash: `82870ac096fb393f7cd973db5b0fd9c5645c12c3ab0376e04afc9e1fd2a66016`.

@@ -18,7 +18,8 @@ from ..live.rpc_profile import LiveRpcProfile
 from ..models.common import canonical_json, sha256_hex
 from .live_release import LiveRelease, live_release
 
-DEFAULT_CONFIG = Path(__file__).resolve().parents[3] / "configs/live.base-eth-usdc.json"
+CONFIG_INPUT = "configs/live.base-eth-usdc.json"
+DEFAULT_CONFIG = Path(__file__).resolve().parents[3] / CONFIG_INPUT
 RPC_PROFILE_NAME = "live.rpc.canary.json"
 MAX_CONFIG_BYTES = 65_536
 RuntimeRole = Literal[
@@ -101,8 +102,14 @@ def _read(path: Path) -> bytes:
         return raw
 
 
-def read_local_rpc_profile(path: Path) -> LiveRpcProfile:
-    return LiveRpcProfile.from_json(_read(path))
+def read_local_startup_config(path: Path) -> tuple[LiveConfig, str]:
+    raw = _read(path)
+    return LiveConfig.from_json(raw), sha256_hex(raw)
+
+
+def read_local_rpc_profile(path: Path) -> tuple[LiveRpcProfile, str]:
+    raw = _read(path)
+    return LiveRpcProfile.from_json(raw), sha256_hex(raw)
 
 
 def read_local_startup_readiness(
@@ -125,7 +132,7 @@ def read_local_startup_readiness(
             blockers=["live_configuration_unconfigured"],
         )
     try:
-        config = LiveConfig.from_json(_read(path))
+        config, _ = read_local_startup_config(path)
     except FileNotFoundError:
         return LiveStartupReadiness(
             release_gate_passed=True,

@@ -119,6 +119,12 @@ def test_document_refuses_ambiguous_image_or_endpoints(image, rpc):
         cli.runtime_document(image, rpc)
 
 
+POLICY_FILES = {
+    "configs/live.base-eth-usdc.json": "12" * 32,
+    "configs/live.rpc.canary.json": "34" * 32,
+}
+
+
 def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None):
     for name in tuple(os.environ):
         if name.startswith("DOCKER_"):
@@ -130,11 +136,15 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
     monkeypatch.setenv("COMPOSE_PROFILES", "setup,recovery")
     calls = []
     guard_exists = False
-    sources = {"src/a.py": "fixed"}
+    sources = {"src/a.py": "fixed"} | POLICY_FILES
+    if fault == "changed_profile_before_image":
+        sources["configs/live.rpc.canary.json"] = "56" * 32
+    if fault == "changed_config_before_image":
+        sources["configs/live.base-eth-usdc.json"] = "78" * 32
     digest = sha256_hex(canonical_json(sources))
     monkeypatch.setattr(cli, "require_live_start", lambda: None)  # Synthetic future release only.
     monkeypatch.setattr(
-        cli, "require_local_runtime_policy", lambda: (CONFIG_HASH, RPC_MAX_REQUESTS)
+        cli, "require_local_runtime_policy", lambda: (CONFIG_HASH, RPC_MAX_REQUESTS, POLICY_FILES)
     )  # Separate pin tests.
     monkeypatch.setattr(
         cli.compose,
@@ -145,7 +155,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
     def verify(*_, env=None):
         if observed_envs is not None:
             observed_envs.append(env or {})
-        return {"image": IMAGE, "manifest_hash": digest}
+        return {"image": IMAGE, "manifest_hash": digest, "files": sources}
 
     monkeypatch.setattr(cli, "verify", verify)
     monkeypatch.setattr(
@@ -335,6 +345,8 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
         "late_existing",
         "existing_during_preflight",
         "changed_sources",
+        "changed_profile_before_image",
+        "changed_config_before_image",
         "state_refused",
         "state_extra",
         "state_wrong_exit",
@@ -375,6 +387,10 @@ def test_preflight_failure_never_starts_services(tmp_path, monkeypatch, fault):
     else:
         assert "state_preflight" not in report
         assert "state_preflight_exit_code" not in report
+    if fault in {"changed_profile_before_image", "changed_config_before_image"}:
+        assert report["failure_stage"] == "image_sources"
+        assert [args[0] for args, _ in calls] == ["context"]
+        assert not (output / "guard-request.json").exists()
     if fault == "late_existing":
         assert report["failure_stage"] == "existing_services_recheck"
         assert sum(args[0] == "ps" for args, _ in calls) == 2
@@ -721,4 +737,5 @@ def test_open_release_offline_readiness_does_not_inspect_docker(
         assert cli.require_local_runtime_policy() == (
             result["startup"]["configuration_hash"],
             RPC_MAX_REQUESTS,
+            {name: sha256_hex((tmp_path / name).read_bytes()) for name in POLICY_FILES},
         )

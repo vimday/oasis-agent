@@ -16,7 +16,6 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from oasis_agent.evidence.rpc_validation import strict_digest, strict_json_object, strict_object
-from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.live.startup_state import (
     SOURCES,
@@ -27,8 +26,10 @@ from oasis_agent.live.startup_state import (
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
 from oasis_agent.reporting.live_startup import (
+    CONFIG_INPUT,
     RPC_PROFILE_NAME,
     read_local_rpc_profile,
+    read_local_startup_config,
     read_local_startup_readiness,
 )
 from scripts import verify_live_compose as compose
@@ -262,14 +263,19 @@ def state_preflight(
     return result
 
 
-def require_local_runtime_policy() -> tuple[str, int]:
-    config = LiveConfig.load(compose.ROOT / "configs/live.base-eth-usdc.json")
+def require_local_runtime_policy() -> tuple[str, int, dict[str, str]]:
+    config, config_file_hash = read_local_startup_config(compose.ROOT / CONFIG_INPUT)
     require_gas_oracle_pins(config.expected_pins)
+    profile_input = f"configs/{RPC_PROFILE_NAME}"
     try:
-        profile = read_local_rpc_profile(compose.ROOT / "configs" / RPC_PROFILE_NAME)
+        profile, profile_file_hash = read_local_rpc_profile(compose.ROOT / profile_input)
     except (OSError, ValueError, RecursionError):
         raise ValueError("valid local RPC profile required") from None
-    return sha256_hex(canonical_json(asdict(config))), profile.max_requests
+    return (
+        sha256_hex(canonical_json(asdict(config))),
+        profile.max_requests,
+        {CONFIG_INPUT: config_file_hash, profile_input: profile_file_hash},
+    )
 
 
 def _require_no_existing_services(env: dict[str, str]) -> None:
@@ -308,7 +314,7 @@ def _acquire_startup_guard(image: str, env: dict[str, str], request_hash: str) -
 
 def start(image: str, output: Path) -> dict:
     require_live_start()  # Before Docker, environment, output or state access.
-    config_hash, rpc_max_requests = require_local_runtime_policy()
+    config_hash, rpc_max_requests, policy_files = require_local_runtime_policy()
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
     report = {
         "schema": "oasis.live-start.v1",
@@ -338,6 +344,8 @@ def start(image: str, output: Path) -> dict:
         policy = compose.inspect()
         stage = "image_sources"
         identity = verify(image, output / "image-sources.json", env=env)
+        if any(identity["files"].get(name) != digest for name, digest in policy_files.items()):
+            raise ValueError("verified image policies differ from local preflight inputs")
         report.update(
             image=identity["image"],
             manifest_hash=identity["manifest_hash"],
@@ -455,9 +463,7 @@ def main() -> None:
         release.new_actions_allowed and not release.blockers
     )
     if not args.start or not startable:
-        readiness = read_local_startup_readiness(
-            compose.ROOT / "configs/live.base-eth-usdc.json", release=release
-        )
+        readiness = read_local_startup_readiness(compose.ROOT / CONFIG_INPUT, release=release)
         print(
             json.dumps(
                 {
