@@ -6,7 +6,9 @@ USD values floor each asset leg. Raw units and feed answers never pass through f
 """
 
 import json
+import time
 from dataclasses import asdict, dataclass, field
+from typing import Any
 
 from eth_abi.abi import decode, encode
 
@@ -31,16 +33,14 @@ from ..models.common import (
 from ..rpc.transport import RpcExchange
 from ..uniswap_v4.liquidity_math import MAX_TICK, sqrt_price_at_tick
 from .acquisition import acquire_pair
-from .config import LiveConfig
+from .config import LiveConfig, PublicUsdConfig
+from .nav_errors import NavRefusal as NavRefusal  # noqa: PLC0414 - preserve public exception API
 from .positions import _call, collect_position_outcome, replay_position_outcome
+from .public_usd_prices import POLICY as PUBLIC_PRICE_POLICY
+from .public_usd_prices import fetch_public_prices, verify_public_prices
 from .state import Position
 from .v4lp import position_amounts
 from .wallet import WalletBalance, WalletScope, capture_wallet, replay_wallet
-
-
-class NavRefusal(ValueError):
-    """Fixed, non-sensitive valuation refusal; safe to report to the operator."""
-
 
 USDC_USD_FEED = "0x7e860098f58bbfc8648a4311b374b1d669a2bc6b"
 ETH_USD_FEED = "0x71041dddad3595f9ced3dccfbe3d1f4b0a16bb70"
@@ -288,6 +288,8 @@ class NavCapture:
 
 
 def replay_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> NavCapture:
+    if isinstance(c, PublicUsdConfig):
+        return replay_public_nav(store, ref, c)
     record = store.get_record(ref)
     if ref.kind != "live_nav" or record.request_payload is None:
         raise NavRefusal("NAV raw proof missing")
@@ -362,6 +364,10 @@ def nav_fresh_until(
     capture = replay_nav(store, refs[0], c)
     if not capture.inventory_checked:
         raise NavRefusal("NAV historical proof lacks current position inventory")
+    if isinstance(c, PublicUsdConfig):
+        if not isinstance(capture, PublicNavCapture):
+            raise NavRefusal("public NAV proof type differs")
+        return int(replay_public_prices(store, capture.price_evidence, c, block)["valid_until"])
     values = successful_results(capture.exchanges, capture._requests(c, block))
     deadlines = [block.timestamp + MAX_HEAD_AGE_SECONDS]
     for index, usdc in ((7, False), (11, True)):
@@ -379,7 +385,22 @@ def capture_nav(
     *,
     sources: tuple[str, str],
     sessions: SessionFactory,
+    public_prices: bytes | None = None,
+    observed_at_ms: int | None = None,
 ) -> tuple[AccountValue, tuple[EvidenceRef, EvidenceRef]]:
+    if isinstance(c, PublicUsdConfig):
+        return capture_public_nav(
+            store,
+            c,
+            block,
+            position,
+            sources=sources,
+            sessions=sessions,
+            raw_prices=public_prices,
+            now_ms=observed_at_ms,
+        )
+    if public_prices is not None or observed_at_ms is not None:
+        raise NavRefusal("Chainlink NAV cannot consume a public USD price bundle")
     calls = requests(c, block, position)
     pair = (sessions(sources[0]), sessions(sources[1]))
     validate_session_pair(*pair)
@@ -447,3 +468,163 @@ def capture_nav(
     for ref in refs:
         replay_nav(store, ref, c)
     return captures[0].reconstruct(store, c), (refs[0], refs[1])
+
+
+PUBLIC_NAV_KIND = "live_public_usd_nav"
+PUBLIC_PRICE_KIND = "live_public_usd_prices"
+
+
+def require_public_price_policy(c: LiveConfig) -> None:
+    if not isinstance(c, PublicUsdConfig) or c.usd_price_source != PUBLIC_PRICE_POLICY:
+        raise NavRefusal("explicit public USD pricing configuration required")
+    c.validate()
+
+
+def replay_public_prices(
+    store: EvidenceStore, ref: EvidenceRef, c: LiveConfig, block: BlockRef
+) -> dict[str, Any]:
+    require_public_price_policy(c)
+    if ref.kind != PUBLIC_PRICE_KIND or ref.source != PUBLIC_PRICE_POLICY or ref.block != block:
+        raise NavRefusal("public USD price scope differs")
+    record = store.get_record(ref)
+    if record.request_payload is None:
+        raise NavRefusal("public USD raw observations missing")
+    request = json.loads(record.request_payload)
+    if set(request) != {"config_hash", "observed_at_ms"} or request["config_hash"] != sha256_hex(
+        canonical_json(asdict(c))
+    ):
+        raise NavRefusal("public USD configuration binding differs")
+    value = verify_public_prices(
+        record.raw_response_payload, c, block, now_ms=request["observed_at_ms"]
+    )
+    if record.payload != canonical_json(value):
+        raise NavRefusal("public USD interpretation contradicts raw observations")
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class PublicNavCapture(NavCapture):
+    price_evidence: EvidenceRef
+
+    def _requests(self, c: LiveConfig, block: BlockRef) -> list[tuple[str, list[object]]]:
+        calls = requests(c, block, self.position, inventory_checked=self.inventory_checked)
+        return calls[:4] + calls[12:]
+
+    def _prices(
+        self, store: EvidenceStore, c: LiveConfig, block: BlockRef, vals: tuple[object, ...]
+    ) -> list[int]:
+        result = replay_public_prices(store, self.price_evidence, c, block)
+        return [int(result["prices"][feed]) for feed in ("ETH", "USDC")]
+
+    def payload(self, store: EvidenceStore, c: LiveConfig) -> bytes:
+        result = json.loads(NavCapture.payload(self, store, c))
+        result.update(
+            schema="oasis.live-public-usd-nav.v1", price_evidence=asdict(self.price_evidence)
+        )
+        return canonical_json(result)
+
+
+def replay_public_nav(store: EvidenceStore, ref: EvidenceRef, c: LiveConfig) -> PublicNavCapture:
+    require_public_price_policy(c)
+    record = store.get_record(ref)
+    if ref.kind != PUBLIC_NAV_KIND or record.request_payload is None:
+        raise NavRefusal("public USD NAV raw proof missing")
+    data = json.loads(record.payload)
+    if data.get("schema") != "oasis.live-public-usd-nav.v1":
+        raise NavRefusal("public USD NAV schema differs")
+    proof = PublicNavCapture(
+        evidence_ref_from_json(data["wallet"]),
+        Position(**data["position"]) if data["position"] else None,
+        evidence_ref_from_json(data["position_evidence"]) if data["position_evidence"] else None,
+        restore_exchanges(record.request_payload, record.raw_response_payload),
+        evidence_ref_from_json(data["price_evidence"]),
+    )
+    if (
+        ref.block != proof.wallet.block
+        or ref.source != proof.wallet.source
+        or proof.payload(store, c) != record.payload
+    ):
+        raise NavRefusal("public USD NAV interpretation contradicts raw proofs")
+    return proof
+
+
+def capture_public_nav(
+    store: EvidenceStore,
+    c: LiveConfig,
+    block: BlockRef,
+    position: Position | None,
+    *,
+    sources: tuple[str, str],
+    sessions: SessionFactory,
+    raw_prices: bytes | None = None,
+    now_ms: int | None = None,
+) -> tuple[AccountValue, tuple[EvidenceRef, EvidenceRef]]:
+    require_public_price_policy(c)
+    # The configuration is opt-in. Default Chainlink acquisition never calls HTTPS.
+    raw = fetch_public_prices() if raw_prices is None else raw_prices
+    observed = time.time_ns() // 1_000_000 if now_ms is None else now_ms
+    verified = verify_public_prices(raw, c, block, now_ms=observed)
+    wallets = capture_wallet(store, c, block, sources=sources, sessions=sessions)
+    prices = store.put(
+        PUBLIC_PRICE_KIND,
+        canonical_json(verified),
+        block,
+        PUBLIC_PRICE_POLICY,
+        request=canonical_json(
+            {"config_hash": sha256_hex(canonical_json(asdict(c))), "observed_at_ms": observed}
+        ),
+        raw_response=raw,
+        interpretation={"execution_eligible": False},
+    )
+    positions = (
+        None
+        if position is None
+        else collect_position_outcome(
+            store,
+            c,
+            block,
+            token_id=position.token_id,
+            lower=position.lower,
+            upper=position.upper,
+            liquidity=position.liquidity,
+            burned=False,
+            sources=sources,
+            sessions=sessions,
+        )
+    )
+    pair = (sessions(sources[0]), sessions(sources[1]))
+    validate_session_pair(*pair)
+    if (pair[0][2], pair[1][2]) != sources:
+        raise NavRefusal("public NAV source aliases differ")
+    prototypes = [
+        PublicNavCapture(wallets[i], position, positions[i] if positions else None, (), prices)
+        for i in range(2)
+    ]
+    calls = prototypes[0]._requests(c, block)
+    acquire_pair(pair, calls)
+    proofs = [
+        PublicNavCapture(
+            wallets[i], position, positions[i] if positions else None, pair[i][1].exchanges, prices
+        )
+        for i in range(2)
+    ]
+    values = [p.reconstruct(store, c) for p in proofs]
+    if values[0] != values[1] or successful_results(
+        proofs[0].exchanges, calls
+    ) != successful_results(proofs[1].exchanges, calls):
+        raise NavRefusal("public NAV raw providers disagree")
+    refs = tuple(
+        store.put(
+            PUBLIC_NAV_KIND,
+            p.payload(store, c),
+            block,
+            p.wallet.source,
+            request=wire_envelope(p.exchanges, response=False),
+            raw_response=wire_envelope(p.exchanges, response=True),
+            interpretation={"execution_eligible": False},
+        )
+        for p in proofs
+    )
+    for ref in refs:
+        replay_public_nav(store, ref, c)
+    return values[0], (refs[0], refs[1])

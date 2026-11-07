@@ -33,7 +33,7 @@ from oasis_agent.evidence.rpc_validation import (
 )
 from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from oasis_agent.live.acquisition import acquire_pair
-from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.config import LiveConfig, PublicUsdConfig
 from oasis_agent.live.feed_transition import _service_lock
 from oasis_agent.live.gas_oracle import (
     LEGACY_PIN_NAMES,
@@ -47,6 +47,7 @@ from oasis_agent.live.gas_oracle_evidence import (
     retain_discovery_quorum,
 )
 from oasis_agent.live.positions import PositionOutcomeScope, outcome_requests
+from oasis_agent.live.public_usd_prices import fetch_public_prices
 from oasis_agent.live.rearm_settlements import (
     SettlementHeadCapture,
     persist_settlement_head,
@@ -56,7 +57,12 @@ from oasis_agent.live.rearm_settlements import (
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.startup_state import SOURCES, _position_identity, paths, require_file
 from oasis_agent.live.state import StateStore
-from oasis_agent.live.valuation import NavRefusal, capture_nav, nav_fresh_until
+from oasis_agent.live.valuation import (
+    NavRefusal,
+    capture_nav,
+    nav_fresh_until,
+    replay_nav_quorum,
+)
 from oasis_agent.live.valuation import requests as nav_requests
 from oasis_agent.live.wallet import WalletScope, wallet_requests
 from oasis_agent.models.common import BlockRef, canonical_json, evidence_ref_from_json, sha256_hex
@@ -231,13 +237,20 @@ def prepared(strategy, authority, config, profile, *, discover_gas_oracle=False)
             position.liquidity,
             False,
         )
+        nav_calls = nav_requests(config, block, position)
+        if isinstance(config, PublicUsdConfig):
+            nav_calls = nav_calls[:4] + nav_calls[12:]
         calls = (
             wallet_requests(WalletScope.from_config(config), block)
             + outcome_requests(outcome, block)
-            + nav_requests(config, block, position)
+            + nav_calls
             + settlement_requests(block, tuple(states["strategy"].settled_blocks))
         )
         limits = {role: {source: len(calls) for source in SOURCES} for role in ROLES}
+        if isinstance(config, PublicUsdConfig):
+            # Both journals describe the same account and position. Acquire one
+            # quorum; the other service independently replays its new raw records.
+            limits["authority"] = dict.fromkeys(SOURCES, 0)
         limits["strategy"][SOURCES[0]] += 1  # shared initial head lookup
         if discover_gas_oracle:
             for source in SOURCES:
@@ -269,6 +282,14 @@ def prepared(strategy, authority, config, profile, *, discover_gas_oracle=False)
             "transport_profile": TRANSPORT_PROFILE,
             "nav_schedule": "verify_price_prefix_before_inventory.v1",
         }
+        if isinstance(config, PublicUsdConfig):
+            plan.update(
+                nav_schedule="public_usd_asof_block_before_inventory.v1",
+                public_price_policy=config.usd_price_source,
+                public_https_requests=4,
+                account_capture="one_quorum_independent_replay_in_both_original_stores.v1",
+                public_price_scope="Kraken/Bitstamp USD trades; no credentials or trading",
+            )
         if discover_gas_oracle:
             plan.update(
                 schema="oasis.live-runtime-recovery-capture-plan.v1",
@@ -595,6 +616,52 @@ def _capture_gas_candidate(control, urls, transport, header, config, out, verify
     return LiveConfig.from_json(canonical_json(candidate["candidate_config"])), refs
 
 
+def _share_new_account_proofs(origin_path, target, references, head):
+    """Retain only this head's new records; never copy a database or budget."""
+    allowed = {
+        "live_public_usd_nav",
+        "live_public_usd_prices",
+        "live_wallet",
+        "live_position_outcome",
+        "live_rearm_settlements",
+    }
+    pending = [
+        evidence_ref_from_json(row) for field in ("nav", "settlements") for row in references[field]
+    ]
+    seen = set()
+    with closing(ReadOnlyEvidenceStore(origin_path)) as origin:
+        while pending:
+            ref = pending.pop()
+            key = canonical_json(asdict(ref))
+            if key in seen:
+                continue
+            if len(seen) >= 16 or ref.kind not in allowed or ref.block != head:
+                raise ValueError("only bounded newly captured account proofs may be shared")
+            seen.add(key)
+            record = origin.get_record(ref)
+            if ref.kind == "live_public_usd_nav":
+                body = strict_json_object(record.payload)
+                pending.extend(
+                    evidence_ref_from_json(body[name])
+                    for name in ("wallet", "position_evidence", "price_evidence")
+                    if body.get(name) is not None
+                )
+            copied = target.put(
+                ref.kind,
+                record.payload,
+                ref.block,
+                ref.source,
+                request=record.request_payload,
+                raw_response=record.raw_response_payload,
+                interpretation=record.interpretation_payload,
+                retrieved_at=ref.retrieved_at,
+                schema_version=ref.schema_version,
+            )
+            if copied != ref:
+                raise ValueError("new proof provenance changed while sharing")
+    return tuple(evidence_ref_from_json(row) for row in references["nav"])
+
+
 def capture(
     strategy,
     authority,
@@ -687,6 +754,16 @@ def capture(
                     control, urls, transport, header, config, out, verify
                 )
                 report["target_config_hash"] = sha256_hex(canonical_json(asdict(config)))
+            public_prices = None
+            if isinstance(config, PublicUsdConfig):
+                control.remaining()
+                report["public_https_requests_attempted"] = 0
+
+                def price_attempt(_):
+                    report["public_https_requests_attempted"] += 1
+
+                public_prices = fetch_public_prices(on_request=price_attempt)
+                control.remaining()
             references, values = {}, []
             for role in ROLES:
                 verify()
@@ -698,6 +775,27 @@ def capture(
                     def session(source, service=role):
                         return control.session(service, source, urls, transport)
 
+                    if isinstance(config, PublicUsdConfig) and role == "authority":
+                        refs = _share_new_account_proofs(
+                            evidence_paths["strategy"], evidence, references["strategy"], head
+                        )
+                        value = replay_nav_quorum(evidence, refs, config, sources=SOURCES)
+                        control.deadline = min(
+                            control.deadline,
+                            nav_fresh_until(evidence, refs, config, sources=SOURCES),
+                        )
+                        review_checkpoint(
+                            config,
+                            states[role],
+                            plan["services"][role]["config_hash"],
+                            evidence,
+                            fresh=refs,
+                            now=int(clock()),
+                        )
+                        references[role] = references["strategy"]
+                        values.append(value)
+                        control.remaining()
+                        continue
                     value, refs = capture_nav(
                         evidence,
                         config,
@@ -705,6 +803,11 @@ def capture(
                         states[role].position,
                         sources=SOURCES,
                         sessions=session,
+                        **(
+                            {"public_prices": public_prices, "observed_at_ms": int(clock() * 1000)}
+                            if public_prices is not None
+                            else {}
+                        ),
                     )
                     if discover_gas_oracle and value.wallet.header != header:
                         raise ValueError("gas and NAV full headers differ")

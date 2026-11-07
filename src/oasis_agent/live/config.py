@@ -75,11 +75,12 @@ class LiveConfig:
             "hooks",
         }:
             raise ValueError("pool fields mismatch")
-        fields = set(LiveConfig.__dataclass_fields__) - {"pool"}
+        config_type = PublicUsdConfig if "usd_price_source" in raw else LiveConfig
+        fields = set(config_type.__dataclass_fields__) - {"pool"}
         if set(raw) != fields:
             missing, extra = fields - set(raw), set(raw) - fields
             raise ValueError(f"live config fields mismatch: missing={missing} extra={extra}")
-        config = LiveConfig(
+        config = config_type(
             pool=PoolKey(
                 normalize_address(pool["currency0"]),
                 normalize_address(pool["currency1"]),
@@ -104,6 +105,7 @@ class LiveConfig:
             "eth_usd_feed",
             "expected_pins",
             "secondary_rpc_env",
+            "usd_price_source",
         }
         return [(n, getattr(self, n)) for n in self.__dataclass_fields__ if n not in skip]
 
@@ -172,3 +174,15 @@ class LiveConfig:
             r"[A-Z][A-Z0-9_]{0,127}", self.secondary_rpc_env
         ):
             raise ValueError("secondary RPC must name an environment variable")
+
+
+@dataclass(frozen=True, slots=True)
+class PublicUsdConfig(LiveConfig):
+    """Explicit price-source change; legacy config bytes and hashes stay unchanged."""
+
+    usd_price_source: str = "kraken-bitstamp-usd-v1"
+
+    def validate(self) -> None:
+        LiveConfig.validate(self)
+        if self.usd_price_source != "kraken-bitstamp-usd-v1":
+            raise ValueError("unsupported production USD price source")

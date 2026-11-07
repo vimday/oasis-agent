@@ -8,7 +8,7 @@ from dataclasses import asdict
 from typing import Any
 
 from ..models.common import canonical_json, evidence_ref_from_json, sha256_hex
-from .config import LiveConfig
+from .config import LiveConfig, PublicUsdConfig
 from .config_epochs import retained_config
 from .feed_epoch import checkpoint_snapshot
 from .gas_oracle import GAS_PIN_NAMES, LEGACY_PIN_NAMES, require_gas_oracle_pins
@@ -117,7 +117,13 @@ def transition_snapshot(
         raise ValueError("bounded same-block runtime review required")
     for raw_refs, kind in (
         (references["gas"], "live_gas_oracle_discovery"),
-        *((references["nav"][name], "live_nav") for name in ("strategy", "authority")),
+        *(
+            (
+                references["nav"][name],
+                "live_public_usd_nav" if isinstance(target, PublicUsdConfig) else "live_nav",
+            )
+            for name in ("strategy", "authority")
+        ),
     ):
         refs = tuple(evidence_ref_from_json(ref) for ref in raw_refs)
         if (

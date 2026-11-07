@@ -10,7 +10,7 @@ from dataclasses import asdict, replace
 
 from ..evidence.rpc_validation import strict_digest
 from ..models.common import canonical_json, sha256_hex
-from .config import LiveConfig
+from .config import LiveConfig, PublicUsdConfig
 from .gas_oracle import EXECUTION_PIN_NAMES, LEGACY_PIN_NAMES
 
 
@@ -23,6 +23,14 @@ def retained_configurations(target: LiveConfig) -> dict[str, LiveConfig]:
     No account, old runtime pin, risk, gas, pool or execution bound may differ.
     """
     target.validate()
+    if isinstance(target, PublicUsdConfig):
+        # This new source never had a legacy 90000-second authorization.
+        chainlink = LiveConfig(
+            **{name: getattr(target, name) for name in LiveConfig.__dataclass_fields__}
+        )
+        historical = retained_configurations(chainlink)
+        historical[sha256_hex(canonical_json(asdict(target)))] = target
+        return historical
     candidates = [target, replace(target, usdc_oracle_max_age_seconds=90_000)]
     if set(target.expected_pins) == EXECUTION_PIN_NAMES:
         legacy = replace(

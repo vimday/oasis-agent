@@ -17,7 +17,7 @@ from pathlib import Path
 from oasis_agent.evidence.exact_capture import successful_results
 from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.evidence.store import ReadOnlyEvidenceStore
-from oasis_agent.live.config import LiveConfig
+from oasis_agent.live.config import LiveConfig, PublicUsdConfig
 from oasis_agent.live.config_epochs import retained_config
 from oasis_agent.live.gas_oracle import GAS_PIN_NAMES, LEGACY_PIN_NAMES, require_gas_oracle_pins
 from oasis_agent.live.gas_oracle_evidence import replay_discovery_observation
@@ -137,6 +137,9 @@ def review(strategy, authority, target, references, gas_evidence, *, now):
             "separate_explicit_paired_epoch_application_required",
         ],
     }
+    if isinstance(target, PublicUsdConfig):
+        report["usd_price_policy"] = target.usd_price_source
+        report["limitations"].append("explicit_Kraken_Bitstamp_HTTPS_trust_not_signed_oracle_data")
     with startup_locks(directories), ExitStack() as resources:
         unchanged()
         gas = resources.enter_context(closing(ReadOnlyEvidenceStore(gas_evidence)))

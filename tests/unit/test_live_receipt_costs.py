@@ -460,11 +460,15 @@ def test_live_cli_refuses_missing_opening_evidence_before_cost_acquisition(
 
     for name in ("one_shot_session", "rpc_url", "BudgetedRpc", "TransactionSocketClient"):
         monkeypatch.setattr(live_cli, name, forbidden)
+    config = tmp_path / "legacy.json"
+    config.write_bytes(canonical_json(asdict(CONFIG)))
     monkeypatch.setattr(
         sys,
         "argv",
         [
             "run_live_lp",
+            "--config",
+            str(config),
             "--mode",
             "live",
             "--state-dir",

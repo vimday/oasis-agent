@@ -35,9 +35,13 @@
     "position_manager": "0x243f9e091ddf11c7c04e28059fdbbf1bab82b72d414fafb8e096c097aaeb622a",
     "state_view": "0xbbd5859677ef5491143133e8ed2b8faa0272f6fc2cbae94c53e79cc8c0538545",
     "universal_router": "0x27713951fb0660a1422b710122022d90723d883dc7b72949be79cb2957d234e0",
-    "usdc_implementation": "0x0000000000000000000000002ce6311ddae708829bc0784c967b7d77d19fd779"
+    "usdc_implementation": "0x0000000000000000000000002ce6311ddae708829bc0784c967b7d77d19fd779",
+    "gas_oracle_implementation": "0x0000000000000000000000004f1db3c6abd250ba86e0928471a8f7db3afd88f1",
+    "gas_oracle_implementation_code": "0xe9fc7c96c4db0d6078e3d359d7e8c982c350a513cb2c31121adf5e1e8a446614",
+    "gas_oracle_proxy": "0x1f958654ab06a152993e7a0ae7b6dbb0d4b19265cc9337b8789fe1353bd9dc35"
   },
   "oracle_max_age_seconds": 1800,
   "usdc_oracle_max_age_seconds": 1800,
-  "secondary_rpc_env": "BASE_RPC_PRIMARY"
+  "secondary_rpc_env": "BASE_RPC_PRIMARY",
+  "usd_price_source": "kraken-bitstamp-usd-v1"
 }

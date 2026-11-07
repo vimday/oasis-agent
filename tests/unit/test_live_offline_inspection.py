@@ -166,9 +166,21 @@ def test_cli_exit_and_no_state_changes(tmp_path, monkeypatch, capsys, blocked):
         state = a.load("live")
         state.halted = "halt"
         a.save(state)
+    config = tmp_path / "legacy.json"
+    config.write_bytes(canonical_json(asdict(CONFIG)))
     before = snapshot(tmp_path)
     monkeypatch.setattr(
-        sys, "argv", ["inspect", "--strategy-state", str(a.path), "--authority-state", str(b.path)]
+        sys,
+        "argv",
+        [
+            "inspect",
+            "--config",
+            str(config),
+            "--strategy-state",
+            str(a.path),
+            "--authority-state",
+            str(b.path),
+        ],
     )
     with pytest.raises(SystemExit) as caught:
         cli.main()

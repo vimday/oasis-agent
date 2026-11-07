@@ -162,7 +162,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
         cli, "source_manifest", lambda: {} if fault == "changed_sources" else sources
     )
 
-    def command(args, env, *, payload=None):
+    def command(args, env, *, payload=None, timeout=60):
         nonlocal guard_exists
         if observed_envs is not None:
             observed_envs.append(env)
@@ -174,6 +174,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
         else:
             assert set(env) <= {"PATH", "HOME", "DOCKER_HOST"}
             assert all("SECRET" not in value for value in env.values())
+        assert timeout == (210 if "--abort-on-container-exit" in args else 60)
         calls.append((args, payload))
         if args[:2] == ["context", "inspect"]:
             return canonical_json(
@@ -316,7 +317,7 @@ def setup(tmp_path, monkeypatch, fault=None, *, observed_envs=None, overlap=None
         assert "--no-build" in args and args[args.index("--pull") + 1] == "never"
         assert args[args.index("--env-file") + 1] == os.devnull
         doc = json.loads(payload)
-        assert doc == cli.runtime_document(IMAGE, RPC)
+        assert doc == cli.runtime_document(IMAGE, RPC, once="--abort-on-container-exit" in args)
         assert b"SECRET" not in payload
         assert (
             json.loads((tmp_path / "attempt" / "attempt.json").read_bytes())["status"]
@@ -739,3 +740,31 @@ def test_open_release_offline_readiness_does_not_inspect_docker(
             RPC_MAX_REQUESTS,
             {name: sha256_hex((tmp_path / name).read_bytes()) for name in POLICY_FILES},
         )
+
+
+@pytest.mark.parametrize("fault", [None, "timeout", "partial_failure"])
+def test_bounded_start_stops_on_one_tick_or_authority_exit(tmp_path, monkeypatch, fault):
+    calls = setup(tmp_path, monkeypatch, fault)
+    original = {k: list(v) for k, v in cli.compose.COMMANDS.items()}
+    result = cli.start(IMAGE, tmp_path / "attempt", once=True)
+    assert result["requested_ticks"] == 1 and result["authority_ttl_seconds"] == 180
+    commands = [(args, payload) for args, payload in calls if args[0] == "compose"]
+    assert len(commands) == 1
+    args, payload = commands[0]
+    assert "--detach" not in args
+    assert args[args.index("--exit-code-from") + 1] == "strategy"
+    assert "--abort-on-container-exit" in args
+    doc = json.loads(payload)
+    assert doc["services"]["strategy"]["command"][-2:] == ["--ticks", "1"]
+    authority = doc["services"]["authority"]["command"]
+    assert authority[authority.index("--ttl-seconds") + 1] == "180"
+    assert original == cli.compose.COMMANDS
+    assert result["status"] == ("unresolved" if fault else "start_command_completed")
+    assert result["startup_guard_status"] == ("retained_for_recovery" if fault else "released")
+
+
+def test_bounded_flag_is_exact_boolean(tmp_path):
+    with pytest.raises(ValueError, match="explicit bounded"):
+        cli.start(IMAGE, tmp_path / "invalid", once=1)
+    with pytest.raises(ValueError, match="explicit bounded"):
+        cli.runtime_document(IMAGE, RPC, once=1)

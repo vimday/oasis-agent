@@ -72,16 +72,22 @@ def local_environment() -> dict[str, str]:
     return {k: os.environ[k] for k in ("PATH", "HOME") if k in os.environ}
 
 
-def command(args: list[str], env: dict[str, str], *, payload: bytes | None = None) -> bytes:
+def command(
+    args: list[str], env: dict[str, str], *, payload: bytes | None = None, timeout: int = 60
+) -> bytes:
+    if type(timeout) is not int or timeout not in (60, 210):
+        raise ValueError("fixed Docker command deadline required")
     return subprocess.run(  # nosec B603 B607 - fixed local Docker commands; no shell
-        ["docker", *args], env=env, input=payload, capture_output=True, check=True, timeout=60
+        ["docker", *args], env=env, input=payload, capture_output=True, check=True, timeout=timeout
     ).stdout
 
 
-def runtime_document(image: str, rpc: dict[str, str]) -> dict:
+def runtime_document(image: str, rpc: dict[str, str], *, once: bool = False) -> dict:
     """Build only the two production services from an independent fixed contract."""
     if re.fullmatch(r"sha256:[0-9a-f]{64}", image) is None or set(rpc) != set(compose.RPC_NAMES):
         raise ValueError("immutable image and exact RPC variable pair required")
+    if type(once) is not bool:
+        raise ValueError("explicit bounded startup flag required")
     urls = [urlsplit(v) for v in rpc.values()]
     hosts = {u.hostname.rstrip(".") for u in urls if u.hostname}
     if (
@@ -114,7 +120,7 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
             # Compose interpolates document values. Import the validated RPC
             # strings by name so dollar signs in credentials stay literal.
             "environment": list(compose.RPC_NAMES),
-            "command": compose.COMMANDS[name],
+            "command": list(compose.COMMANDS[name]),
             "volumes": [
                 {
                     "type": "volume",
@@ -125,6 +131,10 @@ def runtime_document(image: str, rpc: dict[str, str]) -> dict:
                 for target, source in compose.MOUNTS[name].items()
             ],
         }
+    if once:
+        services["strategy"]["command"].extend(["--ticks", "1"])
+        authority = services["authority"]["command"]
+        authority[authority.index("--ttl-seconds") + 1] = "180"
     return {
         "name": "oasis-live",
         "services": services,
@@ -312,7 +322,9 @@ def _acquire_startup_guard(image: str, env: dict[str, str], request_hash: str) -
     return identity.decode("ascii")
 
 
-def start(image: str, output: Path) -> dict:
+def start(image: str, output: Path, *, once: bool = False) -> dict:
+    if type(once) is not bool:
+        raise ValueError("explicit bounded startup flag required")
     require_live_start()  # Before Docker, environment, output or state access.
     config_hash, rpc_max_requests, policy_files = require_local_runtime_policy()
     output.mkdir(mode=0o700, parents=False)  # One attempt; a timeout is never retried here.
@@ -323,6 +335,8 @@ def start(image: str, output: Path) -> dict:
         "services_ready": False,
         "execution_eligible": False,
     }
+    if once:
+        report.update(requested_ticks=1, authority_ttl_seconds=180, compose_timeout_seconds=210)
     guard = None
     stage = "local_context"
     try:
@@ -353,7 +367,7 @@ def start(image: str, output: Path) -> dict:
         )
         stage = "rpc_environment"
         rpc = {name: os.environ[name] for name in compose.RPC_NAMES}
-        document = runtime_document(identity["image"], rpc)
+        document = runtime_document(identity["image"], rpc, once=once)
         stage = "existing_volumes"
         volumes = json.loads(command(["volume", "inspect", *VOLUMES.values()], env))
         if (
@@ -376,6 +390,8 @@ def start(image: str, output: Path) -> dict:
             "config_hash": config_hash,
             "execution_eligible": False,
         }
+        if once:
+            guard_request.update(requested_ticks=1, authority_ttl_seconds=180)
         request_hash = sha256_hex(canonical_json(guard_request))
         _retain_record(
             output / "guard-request.json", guard_request | {"evidence_hash": request_hash}
@@ -423,7 +439,11 @@ def start(image: str, output: Path) -> dict:
                 "-f",
                 "-",
                 "up",
-                "--detach",
+                *(
+                    ["--abort-on-container-exit", "--exit-code-from", "strategy"]
+                    if once
+                    else ["--detach"]
+                ),
                 "--no-build",
                 "--pull",
                 "never",
@@ -433,6 +453,7 @@ def start(image: str, output: Path) -> dict:
             ],
             env | rpc,
             payload=canonical_json(document),
+            **({"timeout": 210} if once else {}),
         )
         # Compose success says nothing about service health, receipts or profitability.
         report["status"] = "start_command_completed"
@@ -455,6 +476,9 @@ def start(image: str, output: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start", action="store_true")
+    parser.add_argument(
+        "--once", action="store_true", help="one strategy tick; stop both services on exit"
+    )
     parser.add_argument("--image", default="oasis-live:local")
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
@@ -476,7 +500,7 @@ def main() -> None:
     if args.out is None:
         parser.error("--start requires a new --out directory for one retained attempt")
     try:
-        result = start(args.image, args.out)
+        result = start(args.image, args.out, once=args.once)
     except ValueError:
         parser.exit(
             3,

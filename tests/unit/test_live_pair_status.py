@@ -96,11 +96,15 @@ def test_pair_cli_refuses_start_with_stop_on_one_service(tmp_path, monkeypatch, 
         stop.symlink_to("unresolved-target")
     before = snapshot(strategy_dir), snapshot(authority_dir)
     output = tmp_path / "inspection.json"
+    config = tmp_path / "legacy.json"
+    config.write_bytes(canonical_json(asdict(CONFIG)))
     monkeypatch.setattr(
         sys,
         "argv",
         [
             "inspect",
+            "--config",
+            str(config),
             "--strategy-state",
             str(a.path),
             "--authority-state",

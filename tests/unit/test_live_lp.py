@@ -5,6 +5,7 @@ Anvil fork of Base in `.scratch/fork_live_e2e.py`; these tests pin the pure part
 and the fail-closed state machine with a scripted RPC.
 """
 
+import json
 import time
 from dataclasses import asdict, replace
 from fractions import Fraction
@@ -42,7 +43,15 @@ from oasis_agent.models.common import BlockRef
 from oasis_agent.uniswap_v4.liquidity_math import sqrt_price_at_tick
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG = LiveConfig.load(ROOT / "configs/live.base-eth-usdc.json")
+# Legacy retained-proof fixtures stay Chainlink-bound when the production policy changes.
+_legacy = json.loads((ROOT / "configs/live.base-eth-usdc.json").read_bytes())
+_legacy.pop("usd_price_source", None)
+_legacy["expected_pins"] = {
+    k: v
+    for k, v in _legacy["expected_pins"].items()
+    if k in {"permit2", "position_manager", "state_view", "universal_router", "usdc_implementation"}
+}
+CONFIG = LiveConfig.from_json(json.dumps(_legacy).encode())
 KEY = CONFIG.pool
 TICK = -198_080
 SQRT = sqrt_price_at_tick(TICK) + 12345
@@ -746,7 +755,7 @@ def test_run_polls_at_or_slower_than_the_configured_rate(
     monkeypatch.setattr("oasis_agent.live.runner.time.sleep", sleeps.append)
     monkeypatch.setattr(loop, "tick", lambda: "hold")
     loop.run(max_ticks=2, poll_seconds=interval)
-    assert sleeps == [CONFIG.poll_seconds if interval is None else interval] * 2
+    assert sleeps == [CONFIG.poll_seconds if interval is None else interval]
 
 
 @pytest.mark.parametrize("interval", [0, 1, CONFIG.poll_seconds - 1, 3601, 300.0, True, "300"])
@@ -784,3 +793,16 @@ class LightRpc:
 
 
 HELD = Position(77, TICK - 100, TICK + 100, 5_000, 0)
+
+
+def test_one_tick_exits_without_sleeping_after_its_final_action(tmp_path, monkeypatch):
+    loop = LiveLoop(CONFIG, ScriptedRpc(), StateStore(tmp_path / "once.json"), mode="shadow")
+    ticks = []
+    monkeypatch.setattr(loop, "tick", lambda: ticks.append(1))
+
+    def forbidden(_):
+        pytest.fail("a completed bounded run must not wait for another polling interval")
+
+    monkeypatch.setattr("oasis_agent.live.runner.time.sleep", forbidden)
+    loop.run(max_ticks=1, poll_seconds=300)
+    assert ticks == [1]

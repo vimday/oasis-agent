@@ -1623,6 +1623,8 @@ class LiveLoop:
                 break
             self.tick()
             ticks += 1
+            if max_ticks is not None and ticks >= max_ticks:
+                break
             if self.state.halted or (self.stop_file is not None and self.stop_file.exists()):
                 break
             time.sleep(interval)

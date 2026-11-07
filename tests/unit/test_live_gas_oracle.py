@@ -82,9 +82,13 @@ def test_execution_cli_refuses_legacy_pins_before_rpc_or_key(tmp_path, monkeypat
     assert caught.value.code == 3 and not list(directory.iterdir())
 
 
-def test_one_command_start_refuses_current_unpinned_policy_before_docker(tmp_path, monkeypatch):
+def test_one_command_start_refuses_unpinned_policy_before_docker(tmp_path, monkeypatch):
     monkeypatch.setattr(start_live_deployment, "require_live_start", lambda: None)
     monkeypatch.setattr(start_live_deployment, "command", forbidden)
+    configs = tmp_path / "configs"
+    configs.mkdir()
+    (configs / "live.base-eth-usdc.json").write_bytes(canonical_json(asdict(CONFIG)))
+    monkeypatch.setattr(start_live_deployment.compose, "ROOT", tmp_path)
     output = tmp_path / "attempt"
     with pytest.raises(ValueError, match="gas oracle runtime pins"):
         start_live_deployment.start("unused", output)
