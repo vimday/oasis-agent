@@ -18,7 +18,6 @@ from urllib.parse import urlsplit
 from oasis_agent.evidence.rpc_validation import strict_digest, strict_json_object, strict_object
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
-from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.startup_state import (
     SOURCES,
     STARTUP_LIMITATIONS,
@@ -27,7 +26,11 @@ from oasis_agent.live.startup_state import (
 )
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
-from oasis_agent.reporting.live_startup import read_local_startup_readiness
+from oasis_agent.reporting.live_startup import (
+    RPC_PROFILE_NAME,
+    read_local_rpc_profile,
+    read_local_startup_readiness,
+)
 from scripts import verify_live_compose as compose
 from scripts.verify_live_image_sources import source_manifest, verify
 
@@ -262,7 +265,10 @@ def state_preflight(
 def require_local_runtime_policy() -> tuple[str, int]:
     config = LiveConfig.load(compose.ROOT / "configs/live.base-eth-usdc.json")
     require_gas_oracle_pins(config.expected_pins)
-    profile = LiveRpcProfile.load(compose.ROOT / "configs/live.rpc.canary.json")
+    try:
+        profile = read_local_rpc_profile(compose.ROOT / "configs" / RPC_PROFILE_NAME)
+    except (OSError, ValueError, RecursionError):
+        raise ValueError("valid local RPC profile required") from None
     return sha256_hex(canonical_json(asdict(config))), profile.max_requests
 
 
@@ -466,7 +472,10 @@ def main() -> None:
     try:
         result = start(args.image, args.out)
     except ValueError:
-        parser.exit(3, "Startup refused: release or approved gas oracle runtime pins unresolved.\n")
+        parser.exit(
+            3,
+            "Startup refused: release, runtime configuration, or RPC profile unresolved.\n",
+        )
     except Exception:  # noqa: BLE001 - no raw exception diagnostics
         parser.exit(
             3,

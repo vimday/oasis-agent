@@ -52,8 +52,48 @@ def test_default_readiness_refuses_legacy_runtime_without_external_access(
     assert report["startup"]["startup_prerequisites_passed"] is False
 
 
+@pytest.mark.parametrize("fault", ["missing", "invalid", "fifo", "symlink"])
+def test_cli_refuses_full_pins_without_a_valid_local_rpc_profile(
+    tmp_path, monkeypatch, capsys, fault
+):
+    configs = tmp_path / "configs"
+    configs.mkdir()
+    (configs / "live.base-eth-usdc.json").write_bytes(canonical_json(asdict(FULL_CONFIG)))
+    profile = configs / "live.rpc.canary.json"
+    if fault == "invalid":
+        profile.write_text('{"max_requests":4097,"min_interval_ms":3000,"note":"private-marker"}')
+    elif fault == "fifo":
+        os.mkfifo(profile)
+    elif fault == "symlink":
+        target = tmp_path / "target.json"
+        target.write_text('{"max_requests":4096,"min_interval_ms":3000}')
+        profile.symlink_to(target)
+    monkeypatch.setattr(cli.compose, "ROOT", tmp_path)
+    monkeypatch.setattr("sys.argv", ["start"])
+
+    with pytest.raises(SystemExit) as outcome:
+        cli.main()
+    assert outcome.value.code == 3
+    raw = capsys.readouterr().out
+    startup = json.loads(raw)["startup"]
+    assert startup["configured_runtime_roles"] == 8 and not startup["local_guards_passed"]
+    assert startup["blockers"] == [
+        "live_rpc_profile_missing" if fault == "missing" else "live_rpc_profile_invalid"
+    ]
+    assert "private-marker" not in raw and str(tmp_path) not in raw
+    with pytest.raises(ValueError, match="valid local RPC profile required"):
+        cli.require_local_runtime_policy()
+
+
+@pytest.fixture
+def valid_profile(tmp_path):
+    path = tmp_path / "live.rpc.canary.json"
+    path.write_bytes(canonical_json({"max_requests": 4096, "min_interval_ms": 3000}))
+    return path
+
+
 @pytest.mark.parametrize("full", [False, True])
-def test_configuration_shape_is_declaration_not_chain_acceptance(tmp_path, full):
+def test_configuration_shape_is_declaration_not_chain_acceptance(tmp_path, full, valid_profile):
     config = (
         FULL_CONFIG
         if full
@@ -142,7 +182,7 @@ def test_missing_unconfigured_and_closed_release_never_create_or_read_inputs(tmp
     assert result.blockers == ["release_gate_closed"]
 
 
-def test_existing_acceptance_permit_semantics_are_not_widened(tmp_path):
+def test_existing_acceptance_permit_semantics_are_not_widened(tmp_path, valid_profile):
     path = tmp_path / "policy.json"
     path.write_bytes(canonical_json(asdict(FULL_CONFIG)))
     synthetic = release.LiveRelease(
@@ -164,7 +204,9 @@ def test_status_contains_the_same_local_declaration_without_claiming_state_check
     assert "stop_controls" in status.startup.unverified_checks
 
 
-def test_api_refreshes_configuration_etag_without_claiming_live_eligibility(tmp_path, monkeypatch):
+def test_api_refreshes_configuration_etag_without_claiming_live_eligibility(
+    tmp_path, monkeypatch, valid_profile
+):
     path = tmp_path / "policy.json"
     legacy = replace(
         FULL_CONFIG,
@@ -188,11 +230,20 @@ def test_api_refreshes_configuration_etag_without_claiming_live_eligibility(tmp_
         assert second.json()["startup"]["local_guards_passed"] is True
         assert second.json()["startup"]["startup_prerequisites_passed"] is False
         assert second.json()["execution_eligible"] is False
-        path.write_text('{"private_key":"synthetic-private-content"}')
-        invalid = client.get(
+        valid_profile.unlink()
+        no_profile = client.get(
             "/api/v1/live/status", headers={"If-None-Match": second.headers["etag"]}
         )
-        assert invalid.status_code == 200 and invalid.headers["etag"] != second.headers["etag"]
+        assert (
+            no_profile.status_code == 200 and no_profile.headers["etag"] != second.headers["etag"]
+        )
+        assert no_profile.json()["startup"]["blockers"] == ["live_rpc_profile_missing"]
+        assert no_profile.json()["startup"]["local_guards_passed"] is False
+        path.write_text('{"private_key":"synthetic-private-content"}')
+        invalid = client.get(
+            "/api/v1/live/status", headers={"If-None-Match": no_profile.headers["etag"]}
+        )
+        assert invalid.status_code == 200 and invalid.headers["etag"] != no_profile.headers["etag"]
         assert invalid.json()["startup"]["configuration_status"] == "invalid"
         assert "synthetic-private-content" not in invalid.text and str(path) not in invalid.text
         assert client.post("/api/v1/live/status").status_code == 405
@@ -204,7 +255,8 @@ import importlib.abc,sys
 class DenyCapability(importlib.abc.MetaPathFinder):
     def find_spec(self,fullname,path=None,target=None):
         blocked=('eth_account','web3','oasis_agent.live.chain','oasis_agent.live.runner',
-                 'oasis_agent.live.authority','oasis_agent.execution.lp_broadcast')
+                 'oasis_agent.live.authority','oasis_agent.execution.lp_broadcast',
+                 'oasis_agent.rpc.budget')
         if any(fullname==p or fullname.startswith(p+'.') for p in blocked):
             raise AssertionError('readonly report imported execution capability')
 sys.meta_path.insert(0,DenyCapability())

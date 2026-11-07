@@ -196,3 +196,38 @@ Final `make live-quality` exited 0: 4,764 tests and 138 subtests passed;
 Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
 all four log hashes matched. The 685 frozen inputs were unchanged. Quality
 report hash: `1d9bddb5ebef6d9d696ea3f1d469df39329184221168983b8e51e5e2f6a54fb6`.
+
+## Base local RPC profile readiness
+
+The launcher already required a valid local RPC quota and pacing profile, but
+its offline readiness command and status API could report a static pass
+without one. With all eight runtime pins declared, a missing or invalid
+profile now blocks both views. The dashboard shows which case was reported and
+rejects any payload that claims a static pass while carrying that blocker. The
+launcher and reporting read the same sibling profile using the same bounded
+regular-file read and typed parser; neither opens a request ledger to do so.
+Legacy configurations still report the missing gas-oracle pins first.
+
+The pre-fix regression exited 1: all four missing, malformed, FIFO and
+symlink cases incorrectly exited 0 from the readiness command. The initial
+focused fix run exited 1 because a tightened import test blocked a transport
+module already imported through the existing reporting package. The corrected
+test forbids loading the budget module and still checks the existing signing
+boundaries; all 90 focused tests passed. The initial full gate exited 2 at
+lint; its output remains in `reports/review-20261107/base-rpc-profile-readiness-quality/`.
+The regression and both focused logs are in `reports/review-20261107/base-rpc-profile-readiness/`.
+Actual local readiness still exited 3 with `gas_oracle_runtime_pins_missing`.
+No ledger, key, RPC endpoint or production service was accessed by these checks.
+
+The next full gate also exited 2: the repository disallows future
+annotations, so its code-standard test rejected the initial type annotation.
+The failed report and test output are retained in
+`reports/review-20261107/base-rpc-profile-readiness-final-quality/`. The
+type-only change to `Self` and a quoted forward reference preserved the
+import boundary. All 94 focused tests, including the code-standard suite,
+passed afterward; their log is `focused-standards.log` in the first directory.
+
+Final `make live-quality` exited 0: 4,768 tests and 138 subtests passed.
+Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
+all four log hashes matched. The 685 frozen inputs were unchanged. Quality
+report hash: `e481e578d40ab17ab891b54ae5aa75888df47a1896528a50552c73b5d48a79e2`.

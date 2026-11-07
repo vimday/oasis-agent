@@ -239,6 +239,14 @@ renderLiveStatus({...data, startup: fullStartup});
 assert.match(nodes.get('live-startup').innerHTML, /本地静态检查通过 · 执行资格未核验/);
 assert.match(nodes.get('live-startup').innerHTML, /仍未核验的运行条件/);
 assert.doesNotMatch(nodes.get('live-startup').innerHTML, /已放行|可以实盘|交易已启动/);
+for (const blocker of ['live_rpc_profile_missing', 'live_rpc_profile_invalid']) {
+  const blockedProfile = {...fullStartup, local_guards_passed: false, blockers: [blocker]};
+  renderLiveStatus({...data, startup: blockedProfile});
+  assert.match(nodes.get('live-startup').innerHTML, /本地静态检查未通过/);
+  assert.match(nodes.get('live-startup').innerHTML, /本地 RPC 额度与间隔配置(不存在|无法校验)/);
+  const falsePass = {...blockedProfile, local_guards_passed: true};
+  assert.equal(liveStatusModel({...data, startup: falsePass}), null);
+}
 const light = {block: data.observation.block + 10,
   block_timestamp: data.observation.observed_at + 590,
   observed_at: data.observation.observed_at + 600, tick: -199100};

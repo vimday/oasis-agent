@@ -706,6 +706,10 @@ def test_open_release_offline_readiness_does_not_inspect_docker(
     (tmp_path / "configs").mkdir()
     (tmp_path / "configs/live.base-eth-usdc.json").write_bytes(canonical_json(asdict(config)))
     monkeypatch.setattr(cli.compose, "ROOT", tmp_path)
+    if complete_policy:
+        (tmp_path / "configs/live.rpc.canary.json").write_bytes(
+            canonical_json({"max_requests": RPC_MAX_REQUESTS, "min_interval_ms": 3000})
+        )
     with pytest.raises(SystemExit) as exc:
         cli.main()
     assert exc.value.code == (0 if complete_policy else 3)
@@ -714,9 +718,6 @@ def test_open_release_offline_readiness_does_not_inspect_docker(
     assert result["startup"]["local_guards_passed"] is complete_policy
     assert result["startup"]["startup_prerequisites_passed"] is False
     if complete_policy:
-        (tmp_path / "configs/live.rpc.canary.json").write_bytes(
-            canonical_json({"max_requests": RPC_MAX_REQUESTS, "min_interval_ms": 3000})
-        )
         assert cli.require_local_runtime_policy() == (
             result["startup"]["configuration_hash"],
             RPC_MAX_REQUESTS,

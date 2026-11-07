@@ -1,4 +1,4 @@
-"""Local start-configuration declaration only; no Docker, state, key or RPC access.
+"""Local start-configuration and RPC profile declarations only; no Docker, state, key or RPC access.
 
 Complete configured pins are not observed runtime approval. All live prerequisites
 remain unverified, even when these static release/configuration guards pass.
@@ -14,10 +14,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..live.config import LiveConfig
 from ..live.gas_oracle import LEGACY_PIN_NAMES, require_gas_oracle_pins
+from ..live.rpc_profile import LiveRpcProfile
 from ..models.common import canonical_json, sha256_hex
 from .live_release import LiveRelease, live_release
 
 DEFAULT_CONFIG = Path(__file__).resolve().parents[3] / "configs/live.base-eth-usdc.json"
+RPC_PROFILE_NAME = "live.rpc.canary.json"
 MAX_CONFIG_BYTES = 65_536
 RuntimeRole = Literal[
     "gas_oracle_proxy", "gas_oracle_implementation", "gas_oracle_implementation_code"
@@ -51,6 +53,8 @@ StartupBlocker = Literal[
     "live_configuration_missing",
     "live_configuration_invalid",
     "gas_oracle_runtime_pins_missing",
+    "live_rpc_profile_missing",
+    "live_rpc_profile_invalid",
 ]
 
 
@@ -97,6 +101,10 @@ def _read(path: Path) -> bytes:
         return raw
 
 
+def read_local_rpc_profile(path: Path) -> LiveRpcProfile:
+    return LiveRpcProfile.from_json(_read(path))
+
+
 def read_local_startup_readiness(
     path: Path | None = DEFAULT_CONFIG, *, release: LiveRelease | None = None
 ) -> LiveStartupReadiness:
@@ -141,11 +149,18 @@ def read_local_startup_readiness(
             blockers=["gas_oracle_runtime_pins_missing"],
         )
     require_gas_oracle_pins(config.expected_pins)
+    blockers: list[StartupBlocker] = []
+    try:
+        read_local_rpc_profile(path.with_name(RPC_PROFILE_NAME))
+    except FileNotFoundError:
+        blockers.append("live_rpc_profile_missing")
+    except (OSError, ValueError, RecursionError):
+        blockers.append("live_rpc_profile_invalid")
     return LiveStartupReadiness(
         release_gate_passed=True,
-        local_guards_passed=True,
+        local_guards_passed=not blockers,
         configuration_status="declared_execution_policy",
         configuration_hash=digest,
         configured_runtime_roles=8,
-        blockers=[],
+        blockers=blockers,
     )

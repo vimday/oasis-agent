@@ -32,6 +32,8 @@ const START_BLOCKERS = {
   live_configuration_unconfigured: "未指定本地待启动配置",
   live_configuration_missing: "本地待启动配置不存在",
   live_configuration_invalid: "本地待启动配置无法校验",
+  live_rpc_profile_missing: "本地 RPC 额度与间隔配置不存在",
+  live_rpc_profile_invalid: "本地 RPC 额度与间隔配置无法校验",
   gas_oracle_runtime_pins_missing: "本地待启动配置缺少 Gas 预言机运行时指纹",
 };
 const GAS_ROLES = {
@@ -150,7 +152,7 @@ function startupValid(p, release) {
       typeof permit.authorized_by !== "string" || !permit.authorized_by)) return false;
   const releasePassed = permit != null || release.new_actions_allowed && release.blockers.length === 0;
   if (p.release_gate_passed !== releasePassed ||
-      p.local_guards_passed !== (releasePassed && p.configuration_status === "declared_execution_policy")) return false;
+      p.local_guards_passed !== (releasePassed && p.configuration_status === "declared_execution_policy" && p.blockers.length === 0)) return false;
   const empty = p.configuration_hash === null && p.configured_runtime_roles === null && p.missing_runtime_roles.length === 0;
   if (!releasePassed) return p.configuration_status === "not_checked" && empty &&
     p.blockers.length === 1 && p.blockers[0] === "release_gate_closed";
@@ -161,7 +163,8 @@ function startupValid(p, release) {
   if (p.configuration_status === "legacy_runtime_policy") return p.configured_runtime_roles === 5 &&
     p.missing_runtime_roles.length === 3 && p.blockers.length === 1 && p.blockers[0] === "gas_oracle_runtime_pins_missing";
   return p.configuration_status === "declared_execution_policy" && p.configured_runtime_roles === 8 &&
-    p.missing_runtime_roles.length === 0 && p.blockers.length === 0;
+    p.missing_runtime_roles.length === 0 && (p.blockers.length === 0 ||
+    p.blockers.length === 1 && ["live_rpc_profile_missing", "live_rpc_profile_invalid"].includes(p.blockers[0]));
 }
 
 export function formatNative(raw) {
@@ -236,7 +239,7 @@ export function renderLiveStatus(data) {
     `<ul>${startup.blockers.map(code => `<li>${esc(START_BLOCKERS[code])}</li>`).join("")}` +
     startup.missing_runtime_roles.map(role => `<li>缺少：${esc(GAS_ROLES[role])}</li>`).join("") + `</ul>` +
     `<details><summary>仍未核验的运行条件</summary><ul>${startup.unverified_checks.map(code => `<li>${esc(UNVERIFIED[code])}</li>`).join("")}</ul></details>` +
-    `<p>这里只读取本地待启动配置；不代表生产镜像、链上状态或交易许可。</p>`;
+    `<p>这里只读取本地待启动配置和 RPC 限额声明；不代表生产镜像、链上状态或交易许可。</p>`;
   // Static release approval says nothing about current service health or admission.
   const runtimeStatus = model.status === "observed" && startup.local_guards_passed &&
       model.pair.status === "aligned" && model.pair.blockers.length === 0
