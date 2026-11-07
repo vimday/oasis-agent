@@ -38,6 +38,21 @@ class _DiagnosticPoster:
             raise _TransportRefusal("transport") from None
 
 
+class BudgetedReadRefusal(ChainError):
+    """Public diagnostic built without provider text or request parameters."""
+
+    def __init__(self, source: str, method: str, error: Exception) -> None:
+        safe_source = source if source in ("live_primary", "live_secondary") else "unknown_source"
+        safe_method = (
+            method if type(method) is str and method in BUDGETED_READ_METHODS else "unknown_method"
+        )
+        reason = error.reason if isinstance(error, _TransportRefusal) else "request_or_response"
+        super().__init__(
+            f"budgeted live RPC read refused: {safe_source} {safe_method} {reason}; "
+            "details redacted"
+        )
+
+
 class BudgetedRpc(Rpc):
     """Budget every read, including head/nonce/receipt polling.
 
@@ -78,13 +93,4 @@ class BudgetedRpc(Rpc):
         try:
             return self.reads.request(method, params)
         except (RpcError, ValueError, OSError, sqlite3.Error) as error:
-            safe_method = (
-                method
-                if type(method) is str and method in BUDGETED_READ_METHODS
-                else "unknown_method"
-            )
-            reason = error.reason if isinstance(error, _TransportRefusal) else "request_or_response"
-            raise ChainError(
-                f"budgeted live RPC read refused: {self.source} {safe_method} {reason}; "
-                "details redacted"
-            ) from None
+            raise BudgetedReadRefusal(self.source, method, error) from None

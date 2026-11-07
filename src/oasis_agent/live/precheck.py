@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ..models.common import canonical_json, sha256_hex
 from ..reporting.live_release import live_release
+from .budget_rpc import BudgetedReadRefusal
 from .chain import ChainError, Rpc
 from .config import LiveConfig
 from .intent import pending_plan_hash
@@ -138,7 +139,8 @@ def check_live(
     except ChainError as exc:
         blockers.append("chain_observation_unresolved")
         if (
-            str(exc).startswith("account NAV refused: ")
+            type(exc) is BudgetedReadRefusal
+            or str(exc).startswith("account NAV refused: ")
             or str(exc) == "retained NAV expired during acquisition"
         ):
             report["observation_failure"] = str(exc)

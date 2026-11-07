@@ -188,3 +188,28 @@ while preserving its state and report. Direct budgeted runtime refusals now
 expose only the approved provider alias, an allowlisted method and a safe
 category or HTTP status. No endpoint, error body, automatic retry, extra
 request or weaker settlement gate is introduced by this fix.
+
+
+## Authorized settlement diagnosis
+
+The operator approved one separate read-only diagnosis. The retained plan
+`c8575ab1e3df0dd0f17227c3bc6b4bf6e4dc73ef149b196600ff78816a8a2b8f`
+finished with exit 0 in 21.298 seconds. Both providers reported Base chain ID
+8453 and finalized heights above all five original settlement blocks. Both
+agreed on all five block and receipt interpretation hashes. The previous
+runtime refusal did not recur. Its original cause remains unresolved.
+
+The strategy budget counts advanced from 1111/946 to 1123/958, twelve requests
+per provider. The authority budget was unchanged and both STOP markers were
+preserved. The campaign used no retries, service starts, signatures or
+broadcasts. The cumulative conservative RPC allowance is 11205 USD micros.
+The evidence is in
+`reports/review-20261107/public-usd-critical-path/joint-approved-once-001/diagnosis-authorized-001/`
+and its evidence hash is
+`46b1e57fd6a41aef8a3ac898e1abb458cdac8fcae538886e65cbc2fd96169ad3`.
+
+The normal operational precheck now preserves the same sanitized diagnostic
+from budgeted reads. A refusal still blocks the observation. The successful
+diagnosis verifies historical settlement reads at its own observation time.
+A subsequent bounded production start requires fresh prices and NAV, a current
+policy check and separate owner authorization.

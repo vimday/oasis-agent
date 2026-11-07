@@ -120,6 +120,34 @@ def test_precheck_never_changes_state_or_creates_authority(
     assert store.path.read_bytes() == before
 
 
+def test_precheck_preserves_only_redacted_budgeted_rpc_diagnostics(tmp_path, monkeypatch):
+    http = Http(fail=True)
+    monkeypatch.setattr(budget_rpc, "_UrlLibPoster", lambda *_: http)
+    primary = budget_rpc.BudgetedRpc(
+        "https://provider.invalid/private-credential", tmp_path, "live_primary", LiveRpcProfile()
+    )
+    monkeypatch.setattr(
+        LiveLoop,
+        "_check_settlements",
+        lambda loop: loop.rpc.call("eth_getBlockByNumber", ["finalized", False]),
+    )
+    stop = tmp_path / "STOP"
+    stop.touch()
+    store = StateStore(tmp_path / "live.state.json")
+
+    result = check_live(CONFIG, store, primary, NonceRpc(), stop_file=stop)
+
+    assert result["blockers"] == ["stop_file_present", "chain_observation_unresolved"]
+    assert result["observation_failure"] == (
+        "budgeted live RPC read refused: live_primary eth_getBlockByNumber transport; "
+        "details redacted"
+    )
+    assert "private" not in str(result)
+    assert not result["signer_contacted"] and not result["execution_eligible"]
+    assert http.calls == ["eth_getBlockByNumber"]
+    assert stop.is_file() and not store.path.exists()
+
+
 def test_cli_check_refuses_duplicate_endpoints_without_signer_or_state_writes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
