@@ -204,6 +204,25 @@ class RpcBudget:
         self.db.close()
 
 
+BUDGETED_READ_METHODS = frozenset(
+    {
+        "eth_chainId",
+        "eth_blockNumber",
+        "eth_getBlockByNumber",
+        "eth_getCode",
+        "eth_getBalance",
+        "eth_getTransactionCount",
+        "eth_getStorageAt",
+        "debug_traceTransaction",
+        "eth_getLogs",
+        "eth_getTransactionReceipt",
+        "eth_getTransactionByHash",
+        "eth_call",
+        "eth_estimateGas",
+    }
+)
+
+
 class BudgetedPoster:
     """Observation-only HTTP wrapper; request quota covers underlying failures too."""
 
@@ -227,21 +246,8 @@ class BudgetedPoster:
         request = json.loads(
             payload, object_pairs_hook=_unique_request_fields, parse_constant=_reject_json_constant
         )
-        if not isinstance(request, dict) or request.get("method") not in {
-            "eth_chainId",
-            "eth_blockNumber",
-            "eth_getBlockByNumber",
-            "eth_getCode",
-            "eth_getBalance",
-            "eth_getTransactionCount",
-            "eth_getStorageAt",
-            "debug_traceTransaction",
-            "eth_getLogs",
-            "eth_getTransactionReceipt",
-            "eth_getTransactionByHash",
-            "eth_call",
-            "eth_estimateGas",
-        }:
+        method = request.get("method") if isinstance(request, dict) else None
+        if type(method) is not str or method not in BUDGETED_READ_METHODS:
             raise ValueError("budgeted observation method not allowed")
         if request["method"] == "eth_getTransactionByHash":
             params = request.get("params")

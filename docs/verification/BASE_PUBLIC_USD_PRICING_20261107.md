@@ -145,3 +145,46 @@ retained-proof tests explicitly retain their original Chainlink configuration;
 changing the production declaration must not silently switch synthetic tests
 to an unmocked public transport. Initial local test failures and their corrected
 reruns remain in public-usd-critical-path/once-focused*.log.
+
+## Owner-approved one-shot startup outcome
+
+Commit bf3b340 was pushed after the frozen development gate passed 4794 tests,
+138 subtests, frontend checks, type checks, secret scan, Bandit and Compose.
+One new authorized capture then completed with worker and supervisor exit 0
+in 82.244330 seconds, using exactly 95 original-ledger RPC reservations and
+four price GETs. At Base block 54167102, hash
+0xcaf9dc5e0bdec53623720d3832e8ddfd068f1e2a593c48791f22060265fd5623,
+its complete account NAV was 500754569 USD micros. The exact approved gas
+pins were observed. Both original journals migrated and rearmed atomically;
+each independently replayed five settled receipts. The guarded Compose start
+used the verified image and the original volumes, including the original
+canary key volume mounted only in authority.
+
+**Runtime acceptance is still incomplete.** The strategy attempted one live
+tick and logged `skip: budgeted live RPC read refused; details redacted`. It
+never reached a fresh runtime observation or an action decision. The 8/7 new
+strategy reservations and zero authority reservations are consistent with a
+refusal during the runtime settlement recheck, plausibly the primary read of
+the fourth historical block. The image did not retain a safe reason for the
+individual request, so the HTTP, network or protocol cause is unresolved.
+The strategy process and Compose reported exit 0 despite the skipped tick;
+the enclosing acceptance operation correctly returned 3. The authority exited
+137 on shutdown and was not OOM-killed. Both containers are stopped, both STOP
+markers are restored, and there are no new signatures, broadcasts, unresolved
+signing attempts or pending transactions. The original budget identities and
+five settled receipts are preserved. The cumulative conservative RPC cost
+allowance is 10881 USD micros, below the 100000-micro cap; no provider invoice
+was verified. This one-start authorization is consumed and was not retried.
+
+Raw evidence and the outcome are retained under
+reports/review-20261107/public-usd-critical-path/joint-approved-once-001/.
+Terminal evidence hash:
+03f7503fe8c31edfc5168a7291066eae0055e2de29d30d5795ce76d4f0523c1f.
+Full log readback hash:
+a31a73ae3c67b19b93e04c8a9fd3886b9b0b2069de25fdfeacfe760ab04839c7.
+
+The follow-up code treats a skipped bounded live tick as an unsuccessful run
+while preserving its state and report. Direct budgeted runtime refusals now
+expose only the approved provider alias, an allowlisted method and a safe
+category or HTTP status. No endpoint, error body, automatic retry, extra
+request or weaker settlement gate is introduced by this fix.

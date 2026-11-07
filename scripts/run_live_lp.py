@@ -540,9 +540,15 @@ def main() -> None:
             max_external_deviation_bps=guard_bps,
         )
         until = time.time() + args.hours * 3600 if args.hours else None
-        loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
-        print(json.dumps(loop.report(), indent=1, default=str))
-        if loop.state.halted:
+        status = loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
+        report = loop.report()
+        bounded = args.mode == "live" and args.ticks is not None
+        if bounded:
+            report["tick_status"] = status
+        print(json.dumps(report, indent=1, default=str))
+        if loop.state.halted or (
+            bounded and (status is None or status.startswith(("skip: ", "stopped: ", "halted: ")))
+        ):
             # Preserve the report and latch, but do not tell supervisors a failed
             # observation/risk/settlement run completed successfully.
             raise SystemExit(3)

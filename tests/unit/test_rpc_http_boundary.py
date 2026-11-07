@@ -142,3 +142,21 @@ def test_http_failure_retries_remain_bounded_and_close_each_response(monkeypatch
     assert len(calls) == 3
     assert all(stream.closed and not stream.read_sizes for stream in streams)
     assert [json.loads(request.data)["id"] for request in calls] == [1, 2, 3]
+
+
+def test_live_http_refusal_identifies_provider_method_and_status_without_a_second_read(
+    monkeypatch, tmp_path
+):
+    calls, streams = memory_https(monkeypatch, URL.encode(), status=429)
+    profile = LiveRpcProfile(max_requests=1)
+    policies = profile.policies(("live_primary", "live_secondary"))
+    path = tmp_path / "live.receipt-budget.db"
+    with RpcBudget(path, policies):
+        pass
+    client = BudgetedRpc(URL, tmp_path, "live_secondary", profile, require_existing_budget=True)
+    with pytest.raises(ChainError, match="live_secondary eth_getBlockByNumber http_429") as error:
+        client.block()
+    assert URL not in str(error.value)
+    assert len(calls) == 1 and streams[0].closed and not streams[0].read_sizes
+    with RpcBudget(path, policies, require_existing=True) as budget:
+        assert budget.counts() == {"live_primary": 0, "live_secondary": 1}

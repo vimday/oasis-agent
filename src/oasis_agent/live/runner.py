@@ -1612,22 +1612,24 @@ class LiveLoop:
         max_ticks: int | None = None,
         until: float | None = None,
         poll_seconds: int | None = None,
-    ) -> None:
+    ) -> str | None:
         """`poll_seconds` may only slow polling below the configured rate; it never speeds it."""
         interval = self.c.poll_seconds if poll_seconds is None else poll_seconds
         if type(interval) is not int or not self.c.poll_seconds <= interval <= 3600:
             raise ValueError("poll interval must be an integer from the configured rate to 3600s")
         ticks = 0
+        status = None
         while max_ticks is None or ticks < max_ticks:
             if until is not None and time.time() >= until:
                 break
-            self.tick()
+            status = self.tick()
             ticks += 1
             if max_ticks is not None and ticks >= max_ticks:
                 break
             if self.state.halted or (self.stop_file is not None and self.stop_file.exists()):
                 break
             time.sleep(interval)
+        return status
 
     def report(self) -> dict[str, Any]:
         s = self.state
