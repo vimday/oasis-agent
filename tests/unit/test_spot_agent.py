@@ -12,8 +12,14 @@ from oasis_agent.launch.onchainos_source import (
     build_argv,
 )
 from oasis_agent.launch.opportunity import RISK_FLAGS, DecisionPolicy, assess, market_from_hot
-from oasis_agent.launch.spot_agent import AgentConfig, SpotAgent
+from oasis_agent.launch.spot_agent import (
+    AgentConfig,
+    AgentState,
+    SpotAgent,
+    reconcile_with_journal,
+)
 from oasis_agent.launch.spot_book import Position, check_exit, parse_quote
+from oasis_agent.launch.spot_executor import Fill, LiveRefused
 from oasis_agent.models.common import sha256_hex
 from scripts.run_spot_agent import load_state, save_state
 
@@ -480,3 +486,91 @@ def test_flip_reason_records_the_measured_pullback() -> None:
     records = agent(FakeCli()).tick(NOW)
     assessed = next(r for r in records if r["kind"] == "assessment")
     assert assessed["action"] == "flip" and "pullback_bps:500" in assessed["reasons"]
+
+
+class FakeExecutor:
+    """Stands in for LiveExecutor: scripted fills or refusals, never a real wallet."""
+
+    def __init__(self, refuse: str | None = None) -> None:
+        self.calls = 0
+        self.orders: list[tuple[str, str, int]] = []
+        self.refuse = refuse
+
+    def _fill(self, side: str, token: str, amount: int, usdc: int, units: int) -> Any:
+        self.calls += 1
+        self.orders.append((side, token, amount))
+        if self.refuse is not None:
+            raise LiveRefused(self.refuse)
+        return Fill(side, token, "0x" + "cd" * 32, 77, usdc, units)  # type: ignore[arg-type]
+
+    def buy(self, token: str, usdc_amount: int) -> Any:
+        # Fill one percent fewer units than quoted.
+        return self._fill("buy", token, usdc_amount, -usdc_amount, usdc_amount * 990)
+
+    def sell(self, token: str, units: int) -> Any:
+        return self._fill("sell", token, units, 150 * USD, -units)
+
+
+def live_agent(cli: FakeCli, executor: FakeExecutor) -> SpotAgent:
+    config = AgentConfig(initial_cash_usd_micros=1_000 * USD)
+    return SpotAgent(OnchainosSource(cli, clock=lambda: NOW), config, executor=executor)  # type: ignore[arg-type]
+
+
+def test_live_buy_books_the_observed_fill_not_the_quote() -> None:
+    cli, ex = FakeCli(), FakeExecutor()
+    bot = live_agent(cli, ex)
+    buy = next(r for r in bot.tick(NOW) if r["kind"] == "live_buy")
+    assert ex.orders == [("buy", TOKEN, 200 * USD)]
+    position = bot.state.positions[TOKEN]
+    assert position.units == 200 * USD * 990
+    # 200 USD spent plus 0.05 declared gas; no modelled slippage on an observed fill.
+    assert buy["cost_usd_micros"] == 200_050_000
+    assert buy["mode"] == "live" and buy["tx_hash"] == "0x" + "cd" * 32
+    assert buy["execution_eligible"] is False
+
+
+def test_live_buy_refusal_skips_without_booking() -> None:
+    cli = FakeCli()
+    bot = live_agent(cli, FakeExecutor(refuse="insufficient_balance"))
+    records = bot.tick(NOW)
+    skip = next(r for r in records if r["kind"] == "skip_entry")
+    assert skip["reason"] == "live_buy_refused" and skip["category"] == "insufficient_balance"
+    assert bot.state.positions == {} and bot.state.cash_usd_micros == 1_000 * USD
+
+
+def test_live_sell_realizes_observed_usdc_and_refusal_halts() -> None:
+    cli, ex = FakeCli(), FakeExecutor()
+    bot = live_agent(cli, ex)
+    bot.tick(NOW)
+    units = bot.state.positions[TOKEN].units
+    cli.sell_ratio = (60, 100)
+    sell = next(r for r in bot.tick(NOW + 60) if r["kind"] == "live_sell")
+    assert ex.orders[-1] == ("sell", TOKEN, units)
+    assert sell["proceeds_usd_micros"] == 150 * USD - 50_000
+    assert sell["pnl_usd_micros"] == 150 * USD - 50_000 - 200_050_000
+
+    cli2, ex2 = FakeCli(), FakeExecutor()
+    bot2 = live_agent(cli2, ex2)
+    bot2.tick(NOW)
+    ex2.refuse = "insufficient_balance"
+    cli2.sell_ratio = (60, 100)
+    records = bot2.tick(NOW + 60)
+    assert any(r["kind"] == "halt_review" and r["reason"] == "live_sell_refused" for r in records)
+    assert TOKEN in bot2.state.positions
+    assert not any(r["kind"] == "live_buy" for r in records)
+
+
+@pytest.mark.parametrize("kind", ["live_intent", "live_unresolved", "live_buy"])
+def test_resume_refuses_journal_with_unsummarized_live_activity(kind: str) -> None:
+    summary = {
+        "kind": "tick_summary",
+        "cash_usd_micros": 1,
+        "positions": [],
+        "realized_pnl_usd_micros": 0,
+        "closed_trades": 0,
+        "winning_trades": 0,
+    }
+    with pytest.raises(ValueError):
+        reconcile_with_journal(AgentState(1), [summary, {"kind": kind}])
+    with pytest.raises(ValueError):
+        reconcile_with_journal(AgentState(1), [{"kind": kind}])

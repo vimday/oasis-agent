@@ -1,8 +1,11 @@
 """Live shadow spot agent: discover -> enrich -> decide -> paper-execute -> manage exits.
 
 One `tick()` is one bounded decision cycle over fresh OKX onchainos claims. It returns
-append-only decision records; the caller journals them. The book is paper-only:
-`execution_eligible` is always False and no code path here can sign or broadcast.
+append-only decision records; the caller journals them. Without an executor the book is
+paper-only and nothing here can sign or broadcast. With an operator-gated `LiveExecutor`
+the same decisions trade the Agentic Wallet: cash is the wallet's own USDC balance and
+positions come from observed fills. `execution_eligible` stays False on every record; a
+record is never a permit.
 """
 
 from collections.abc import Callable
@@ -38,9 +41,13 @@ from .spot_book import (
     parse_quote,
     round_trip_bps,
 )
+from .spot_executor import LiveExecutor, LiveRefused
 
 Record = dict[str, Any]
 MAX_MISSED_MARKS = 3
+TRADE_KINDS = frozenset({"paper_buy", "paper_sell", "live_buy", "live_sell"})
+# Any of these after the last tick summary means money may have moved unjournaled.
+INTERRUPTING_KINDS = TRADE_KINDS | {"live_intent", "live_fill", "live_unresolved"}
 
 
 class AgentConfig(DecisionPolicy):
@@ -85,21 +92,27 @@ class SpotAgent:
         state: AgentState | None = None,
         clock: Callable[[], float] | None = None,
         gmgn: GmgnSource | None = None,
+        executor: LiveExecutor | None = None,
     ):
         self.source = source
         self.gmgn = gmgn
+        self.executor = executor
+        self.mode = "shadow" if executor is None else "live"
         self.config = config
         self.state = state or AgentState(config.initial_cash_usd_micros)
         self._clock = clock
 
     def provider_calls(self) -> int:
-        return self.source.calls + (self.gmgn.calls if self.gmgn is not None else 0)
+        extra = (self.gmgn.calls if self.gmgn is not None else 0) + (
+            self.executor.calls if self.executor is not None else 0
+        )
+        return self.source.calls + extra
 
     def _record(self, now: int, kind: str, **body: Any) -> Record:
         return {
             "at": now,
             "kind": kind,
-            "mode": "shadow",
+            "mode": self.mode,
             "evidence_level": "provider_claims_not_chain_attestations",
             "execution_eligible": False,
             **body,
@@ -165,6 +178,25 @@ class SpotAgent:
                     )
                 )
                 continue
+            live: Record = {}
+            if self.executor is not None:
+                try:
+                    fill = self.executor.sell(token, position.units)
+                except LiveRefused as refused:
+                    # Nothing was submitted; holding an unsellable position needs a human.
+                    out.append(
+                        self._record(
+                            now,
+                            "halt_review",
+                            token=token,
+                            reason="live_sell_refused",
+                            category=refused.category,
+                        )
+                    )
+                    continue
+                # Realized proceeds are the observed USDC delta, less declared gas (paid in ETH).
+                value = fill.usdc_delta - self.config.gas_per_leg_usd_micros
+                live = {"tx_hash": fill.tx_hash, "block_number": fill.block_number}
             pnl = value - position.cost_usd_micros
             del self.state.positions[token]
             self.state.cash_usd_micros += value
@@ -175,7 +207,7 @@ class SpotAgent:
             out.append(
                 self._record(
                     now,
-                    "paper_sell",
+                    "paper_sell" if self.executor is None else "live_sell",
                     token=token,
                     symbol=position.symbol,
                     reason=reason,
@@ -183,6 +215,7 @@ class SpotAgent:
                     pnl_usd_micros=pnl,
                     held_seconds=now - position.opened_at,
                     quote_sha256=quote_hash,
+                    **live,
                 )
             )
 
@@ -274,11 +307,31 @@ class SpotAgent:
             )
         cost = entry_cost(buy, self.config)
         value = exit_value(sell, self.config)
+        units = buy.amount_out
+        live: Record = {}
+        if self.executor is not None:
+            try:
+                fill = self.executor.buy(market.token, size)
+            except LiveRefused as refused:
+                return self._record(
+                    now,
+                    "skip_entry",
+                    token=market.token,
+                    reason="live_buy_refused",
+                    category=refused.category,
+                )
+            # Observed fill, not the quote: USDC spent plus declared gas (paid in ETH), and
+            # the units the wallet actually gained. The unwind value is the sell quote
+            # rescaled to those units, floored.
+            units = fill.token_delta
+            cost = -fill.usdc_delta + self.config.gas_per_leg_usd_micros
+            value = value * units // buy.amount_out
+            live = {"tx_hash": fill.tx_hash, "block_number": fill.block_number}
         self.state.cash_usd_micros -= cost
         self.state.positions[market.token] = Position(
             token=market.token,
             symbol=market.symbol,
-            units=buy.amount_out,
+            units=units,
             cost_usd_micros=cost,
             opened_at=now,
             high_water_usd_micros=value,
@@ -287,17 +340,18 @@ class SpotAgent:
         )
         return self._record(
             now,
-            "paper_buy",
+            "paper_buy" if self.executor is None else "live_buy",
             token=market.token,
             symbol=market.symbol,
             cost_usd_micros=cost,
-            units=str(buy.amount_out),
+            units=str(units),
             immediate_exit_usd_micros=value,
             round_trip_cost_bps=cost_bps,
             score_bps=assessment.score_bps,
             reasons=list(assessment.reasons),
             smart_wallets=market.smart_wallets,
             quote_sha256=[buy.raw_sha256, sell.raw_sha256],
+            **live,
         )
 
     def tick(self, now: int) -> list[Record]:
@@ -353,7 +407,7 @@ class SpotAgent:
                         now, "skip_entry", token=market.token, reason="quote_refused"
                     )
                 out.append(entry)
-                open_slots -= entry["kind"] == "paper_buy"
+                open_slots -= entry["kind"] in TRADE_KINDS
         out.append(self._summary(now, calls))
         return out
 
@@ -463,11 +517,11 @@ def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentSta
     """
     summaries = [i for i, r in enumerate(records) if r["kind"] == "tick_summary"]
     if not summaries:
-        if any(r["kind"] in ("paper_buy", "paper_sell") for r in records):
+        if any(r["kind"] in INTERRUPTING_KINDS for r in records):
             raise ValueError("journal has trades but no tick summary; review before resuming")
         return state
     last = summaries[-1]
-    if any(r["kind"] in ("paper_buy", "paper_sell") for r in records[last + 1 :]):
+    if any(r["kind"] in INTERRUPTING_KINDS for r in records[last + 1 :]):
         raise ValueError("journal ends inside an interrupted tick; review before resuming")
     summary = records[last]
     state.cash_usd_micros = int(summary["cash_usd_micros"])

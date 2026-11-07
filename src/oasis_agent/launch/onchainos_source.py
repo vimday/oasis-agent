@@ -61,7 +61,9 @@ def default_binary() -> Path:
     return Path.home() / ".local/bin/onchainos"
 
 
-def run_cli(binary: Path, *, interpreter_dir: Path | None = None) -> Runner:
+def run_cli(
+    binary: Path, *, interpreter_dir: Path | None = None, timeout: float = TIMEOUT_SECONDS
+) -> Runner:
     """Bounded subprocess runner with a minimal environment and process-group kill.
 
     `interpreter_dir` is prepended to PATH for script CLIs (e.g. a node shebang). No
@@ -85,7 +87,7 @@ def run_cli(binary: Path, *, interpreter_dir: Path | None = None) -> Runner:
             ) as process,
         ):
             out, size = bytearray(), 0
-            deadline = time.monotonic() + TIMEOUT_SECONDS
+            deadline = time.monotonic() + timeout
             try:
                 with selectors.DefaultSelector() as selector:
                     assert process.stdout is not None and process.stderr is not None  # nosec B101

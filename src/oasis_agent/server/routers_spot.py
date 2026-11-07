@@ -10,7 +10,18 @@ from ..launch.spot_report import build_report, read_journal, recent
 from .deps import State
 
 router = APIRouter(prefix="/api/v1/spot", tags=["spot"])
-DECISIONS = frozenset({"paper_buy", "paper_sell", "halt_review", "skip_entry", "mark_missed"})
+DECISIONS = frozenset(
+    {
+        "paper_buy",
+        "paper_sell",
+        "live_buy",
+        "live_sell",
+        "live_unresolved",
+        "halt_review",
+        "skip_entry",
+        "mark_missed",
+    }
+)
 
 
 def _run_dir(state: State) -> Path:

@@ -12,6 +12,7 @@ from oasis_agent.launch.spot_agent import (
     SpotAgent,
     reconcile_with_journal,
 )
+from oasis_agent.launch.spot_executor import LiveUnresolved
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import resume, run_loop, save_state
@@ -163,3 +164,50 @@ def test_tick_error_rolls_back_unjournaled_state_and_halts_after_repeats(tmp_pat
     assert [e["consecutive"] for e in errors] == [1, 2, 3, 4, 5]
     assert all("secret" not in str(e) for e in errors)
     assert errors[0]["error_type"] == "RuntimeError"
+
+
+class SubmittingExecutor:
+    """Executor double whose buy submits and then raises."""
+
+    def __init__(self, error: Exception) -> None:
+        self.calls = 0
+        self.submissions = 0
+        self.error = error
+
+    def buy(self, token: str, usdc_amount: int) -> Any:
+        self.submissions += 1
+        raise self.error
+
+    def sell(self, token: str, units: int) -> Any:
+        raise AssertionError("no position to sell")
+
+
+@pytest.mark.parametrize(
+    "error", [LiveUnresolved("receipt_unavailable"), RuntimeError("after submit")]
+)
+def test_live_loop_halts_after_any_unproven_submission(tmp_path: Path, error: Exception) -> None:
+    executor = SubmittingExecutor(error)
+    agent = SpotAgent(
+        OnchainosSource(FakeCli(), clock=lambda: NOW),
+        AgentConfig(),
+        executor=executor,  # type: ignore[arg-type]
+    )
+    times = iter(range(NOW, NOW + 100_000, 60))
+    with ExecutionJournal(tmp_path / "journal.db", policy()) as journal:
+        code = run_loop(
+            agent,
+            journal,
+            tmp_path / "state.json",
+            interval=60,
+            max_ticks=5,
+            call_budget=100_000,
+            spent=0,
+            should_stop=lambda: False,
+            clock=lambda: float(next(times)),
+            sleep=lambda s: None,
+        )
+    assert code == 4
+    assert executor.submissions == 1  # never ticked again
+    records = read_journal(tmp_path / "journal.db")[1]
+    assert records[-1]["kind"] == "tick_error" and records[-1]["mode"] == "live"
+    assert agent.state.positions == {}

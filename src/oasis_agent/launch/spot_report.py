@@ -99,7 +99,7 @@ def signal_quality(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 def paper_book(records: list[dict[str, Any]], initial_cash: int) -> dict[str, Any]:
     """Closed-trade PnL, drawdown over tick NAVs, and per-exit-reason breakdown."""
-    trades = [r for r in records if r["kind"] == "paper_sell"]
+    trades = [r for r in records if r["kind"] in ("paper_sell", "live_sell")]
     navs = [r["nav_usd_micros"] for r in records if r["kind"] == "tick_summary"]
     peak, max_dd = initial_cash, 0
     for nav in navs:

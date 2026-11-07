@@ -20,7 +20,8 @@ function when(seconds) {
 
 const ACTION_LABEL = { flip: "短线买入", watch: "观望", skip: "跳过", lp_candidate: "转 LP 评估" };
 const KIND_LABEL = {
-  paper_buy: "纸面买入", paper_sell: "纸面卖出", halt_review: "停止复核",
+  paper_buy: "纸面买入", paper_sell: "纸面卖出", live_buy: "实盘买入", live_sell: "实盘卖出",
+  live_unresolved: "实盘未确认（需人工复核）", halt_review: "停止复核",
   skip_entry: "放弃入场", mark_missed: "未能估值",
 };
 const VERDICT = {
