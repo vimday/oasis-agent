@@ -146,18 +146,22 @@ class Run:
         fmt = (
             "{{.Id}} {{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}} {{.Image}} "
             '{{index .Config.Labels "com.docker.compose.service"}} '
-            '{{index .Config.Labels "org.oasis-agent.bounded-run"}}'
+            '{{json (index .Config.Labels "org.oasis-agent.bounded-run")}}'
         )
         for identity in output:
             if re.fullmatch(r"[a-f0-9]{64}", identity) is None:
                 raise ValueError("invalid local service identity")
             row = self.docker(f"inspect_{len(self.calls)}", ["inspect", "-f", fmt, identity])
-            cid, status, code, oom, image, role, *owner = row.stdout.decode().split()
+            cid, status, code, oom, image, role, owner_json = row.stdout.decode().split(maxsplit=6)
+            owner = json.loads(owner_json)
             if (
                 cid != identity
                 or role not in ROLES
                 or role in services
-                or len(owner) > 1
+                or (
+                    owner not in (None, "")
+                    and (not isinstance(owner, str) or re.fullmatch(r"[a-f0-9]{32}", owner) is None)
+                )
                 or re.fullmatch(r"sha256:[a-f0-9]{64}", image) is None
                 or oom not in ("true", "false")
             ):
@@ -168,7 +172,7 @@ class Run:
                 "exit_code": int(code),
                 "oom_killed": oom == "true",
                 "image": image,
-                "attempt": owner[0] if owner else None,
+                "attempt": owner or None,
             }
         return services
 

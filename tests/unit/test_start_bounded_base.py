@@ -17,6 +17,45 @@ from scripts import start_bounded_base as entry
 ATTEMPT = "a" * 32
 
 
+@pytest.mark.parametrize(
+    ("owner", "expected"),
+    [(None, None), ("", None), (ATTEMPT, ATTEMPT), ("unexpected", ValueError)],
+)
+def test_project_reads_optional_docker_run_label(tmp_path, monkeypatch, owner, expected):
+    identity = "b" * 64
+    image = "sha256:" + "c" * 64
+    operation = entry.Run(image, tmp_path)
+
+    def docker(_name, args):
+        if args[0] == "ps":
+            stdout = f"{identity}\n"
+        else:
+            assert args[0] == "inspect" and args[-1] == identity
+            label = (
+                canonical_json(owner).decode()
+                if '{{json (index .Config.Labels "org.oasis-agent.bounded-run")}}' in args[2]
+                else owner or "<no value>"
+            )
+            stdout = f"{identity} exited 0 false {image} strategy {label}\n"
+        return subprocess.CompletedProcess(args, 0, stdout.encode(), b"")
+
+    monkeypatch.setattr(operation, "docker", docker)
+    if expected is ValueError:
+        with pytest.raises(ValueError, match="unrecognized local service"):
+            operation.project()
+    else:
+        assert operation.project() == {
+            "strategy": {
+                "id": identity,
+                "state": "exited",
+                "exit_code": 0,
+                "oom_killed": False,
+                "image": image,
+                "attempt": expected,
+            }
+        }
+
+
 @pytest.fixture
 def roots(tmp_path, monkeypatch):
     directories = {role: tmp_path / role for role in worker.ROLES}
