@@ -41,7 +41,9 @@ from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     LiveExecutor,
     LiveGate,
+    LiveRefused,
     LiveUnresolved,
+    preflight,
     rpc_receipt_reader,
 )
 from oasis_agent.launch.spot_report import read_journal
@@ -190,6 +192,9 @@ def main() -> int:
     live.add_argument("--slippage-bps", type=int, default=100)
     live.add_argument("--confirm", help=f'exactly "LIVE SPOT ON BASE FROM {APPROVED_WALLET}"')
     live.add_argument("--rpc-env", default="BASE_RPC_PRIMARY", help="env var with a Base RPC URL")
+    live.add_argument(
+        "--preflight-only", action="store_true", help="run read-only live checks and exit"
+    )
     args = parser.parse_args()
     if args.interval < 30:
         parser.error("--interval must be at least 30 seconds")
@@ -219,6 +224,18 @@ def main() -> int:
             parser.error(str(error))
         if not os.environ.get(args.rpc_env):
             parser.error(f"--live requires a Base RPC URL in {args.rpc_env}")
+        try:
+            RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453).chain_id()
+            checked = preflight(gate, paced(run_cli(args.binary)))
+        except LiveRefused as refused:
+            print(f"live preflight refused: {refused.category}", file=sys.stderr)
+            return 2
+        except (ValueError, OSError) as error:
+            print(f"live preflight refused: rpc_{type(error).__name__}", file=sys.stderr)
+            return 2
+        print(json.dumps({"live_preflight": "passed", **checked}, sort_keys=True), flush=True)
+        if args.preflight_only:
+            return 0
     elif args.max_trade_usd is not None or args.confirm is not None:
         parser.error("--max-trade-usd/--confirm are only valid with --live")
     source = OnchainosSource(paced(run_cli(args.binary)), retain=raw_dir)
@@ -245,7 +262,6 @@ def main() -> int:
         executor = None
         if gate is not None:
             rpc = RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453)
-            rpc.chain_id()  # fail before any trade if the endpoint is not Base
             executor = LiveExecutor(
                 gate,
                 read=paced(run_cli(args.binary)),

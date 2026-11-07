@@ -99,8 +99,12 @@ live-stop:
 
 # Shadow spot agent: live OKX/GMGN claims, paper book only, no key, no broadcast.
 SPOT_RUN ?= data/spot/shadow
-.PHONY: spot-shadow spot-report
+.PHONY: spot-shadow spot-report spot-live-preflight
 spot-shadow:
 	$(PYTHON) -m scripts.run_spot_agent --out "$(SPOT_RUN)" --interval $(or $(INTERVAL),120)
+# Live (Agentic Wallet): read-only preflight only; trading needs LIVE_ARGS from the owner.
+spot-live-preflight:
+	$(PYTHON) -m scripts.run_spot_agent --out "$(or $(SPOT_LIVE_RUN),data/spot/live)" --live --preflight-only \
+		--max-trade-usd $(or $(MAX_TRADE_USD),20) --confirm "LIVE SPOT ON BASE FROM 0x95a91b0afbc5fb3dbbffa1be8aaff5c14772a900"
 spot-report:
 	$(PYTHON) -m scripts.report_spot_shadow --run "$(SPOT_RUN)"

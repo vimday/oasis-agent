@@ -8,11 +8,12 @@ positions come from observed fills. `execution_eligible` stays False on every re
 record is never a permit.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from fractions import Fraction
 from typing import Any, Literal
 
+from .discovery_slot import DiscoveryProvider, nominated_markets
 from .gmgn_source import GmgnSource, cross_check, parse_token_info
 from .onchainos_source import Capture, OnchainosSource, SourceFailure
 from .opportunity import (
@@ -93,18 +94,22 @@ class SpotAgent:
         clock: Callable[[], float] | None = None,
         gmgn: GmgnSource | None = None,
         executor: LiveExecutor | None = None,
+        nominators: Sequence[DiscoveryProvider] = (),
     ):
         self.source = source
         self.gmgn = gmgn
         self.executor = executor
+        self.nominators = tuple(nominators)
         self.mode = "shadow" if executor is None else "live"
         self.config = config
         self.state = state or AgentState(config.initial_cash_usd_micros)
         self._clock = clock
 
     def provider_calls(self) -> int:
-        extra = (self.gmgn.calls if self.gmgn is not None else 0) + (
-            self.executor.calls if self.executor is not None else 0
+        extra = (
+            (self.gmgn.calls if self.gmgn is not None else 0)
+            + (self.executor.calls if self.executor is not None else 0)
+            + sum(n.calls for n in self.nominators)
         )
         return self.source.calls + extra
 
@@ -234,6 +239,15 @@ class SpotAgent:
         # unknown and block entry unless enrichment (price-info/advanced-info) fills them.
         for row in signal_rows:
             if (m := market_from_signal(row, now)) is not None:
+                markets.setdefault(m.token, m)
+        # Pluggable providers (e.g. FOMO) only nominate addresses; a failing provider
+        # costs nothing but its own nominations.
+        for nominator in self.nominators:
+            try:
+                addresses = nominator.nominate(self.config.chain_id)
+            except SourceFailure:
+                continue
+            for m in nominated_markets(addresses, now):
                 markets.setdefault(m.token, m)
         merged = [
             merge_signals(m, signal_rows, now, self.config.signal_window_seconds)

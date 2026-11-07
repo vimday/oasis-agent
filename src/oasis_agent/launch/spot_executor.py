@@ -339,3 +339,82 @@ def rpc_receipt_reader(client: Any) -> ReceiptReader:
         return receipt.status, receipt.block_number
 
     return read
+
+
+def parse_active_base_address(raw: bytes) -> str:
+    """The CLI's active-account Base EVM address; balances and swaps act on this account."""
+    try:
+        root = json.loads(raw, parse_float=str, parse_int=str)
+    except (ValueError, RecursionError) as error:
+        raise SourceFailure("invalid_json") from error
+    data = root.get("data") if isinstance(root, dict) and root.get("ok") is True else None
+    rows = data.get("evm") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        raise SourceFailure("addresses_shape")
+    base = {
+        str(r.get("address", "")).lower()
+        for r in rows
+        if isinstance(r, dict) and r.get("chainIndex") == "8453"
+    }
+    if len(base) != 1:
+        raise SourceFailure("addresses_identity")
+    try:
+        return normalize_address(base.pop())
+    except ValueError as error:
+        raise SourceFailure("addresses_identity") from error
+
+
+# Native ETH for gas. The unfunded wallet showed no row, so the native row's address is
+# unobserved: accept the two conventional sentinels; anything else reads as zero (refuses).
+NATIVE_SENTINELS = frozenset({"", "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"})
+MIN_GAS_WEI = 10**14  # 0.0001 ETH, a few Base swaps at normal fees
+
+
+def parse_native_balance(raw: bytes) -> int:
+    try:
+        root = json.loads(raw, parse_float=str, parse_int=str)
+    except (ValueError, RecursionError) as error:
+        raise SourceFailure("invalid_json") from error
+    if not isinstance(root, dict) or root.get("ok") is not True:
+        raise SourceFailure("provider_error")
+    details = root.get("data", {}).get("details") if isinstance(root.get("data"), dict) else None
+    if not isinstance(details, list):
+        raise SourceFailure("balance_shape")
+    native = [
+        r
+        for d in details
+        if isinstance(d, dict) and isinstance(d.get("tokenAssets"), list)
+        for r in d["tokenAssets"]
+        if isinstance(r, dict)
+        and r.get("chainIndex") == "8453"
+        and str(r.get("tokenAddress", "x")).lower() in NATIVE_SENTINELS
+    ]
+    if len(native) > 1:
+        raise SourceFailure("balance_identity")
+    if not native:
+        return 0
+    value = native[0].get("rawBalance")
+    if not isinstance(value, str) or not value.isdigit() or len(value) > 78:
+        raise SourceFailure("balance_value")
+    return int(value)
+
+
+def preflight(gate: LiveGate, read: Runner) -> dict[str, Any]:
+    """Read-only checks before a live run; raises LiveRefused, never submits anything.
+
+    The active CLI account must be the gated wallet (balances and swaps act on it), and
+    the wallet must hold USDC to trade and native ETH for gas.
+    """
+    try:
+        active = parse_active_base_address(read(("wallet", "addresses", "--chain", "base")))
+        usdc = parse_balance(read(balance_argv(BASE_USDC)), BASE_USDC)
+        gas = parse_native_balance(read(("wallet", "balance", "--chain", "base", "--force")))
+    except SourceFailure as error:
+        raise LiveRefused("preflight_" + error.category) from error
+    if active != gate.wallet:
+        raise LiveRefused("active_account_not_gated_wallet")
+    if usdc < USD:
+        raise LiveRefused("wallet_usdc_below_1_usd")
+    if gas < MIN_GAS_WEI:
+        raise LiveRefused("wallet_gas_below_minimum")
+    return {"wallet": active, "usdc_base_units": str(usdc), "native_wei": str(gas)}

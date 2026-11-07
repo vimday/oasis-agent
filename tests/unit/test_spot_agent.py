@@ -574,3 +574,42 @@ def test_resume_refuses_journal_with_unsummarized_live_activity(kind: str) -> No
         reconcile_with_journal(AgentState(1), [summary, {"kind": kind}])
     with pytest.raises(ValueError):
         reconcile_with_journal(AgentState(1), [{"kind": kind}])
+
+
+class Nominator:
+    name = "fomo"
+
+    def __init__(self, addresses: list[str], fail: bool = False) -> None:
+        self.calls, self.addresses, self.fail = 0, addresses, fail
+
+    def nominate(self, chain_id: int) -> list[str]:
+        self.calls += 1
+        if self.fail:
+            raise SourceFailure("authorization_required")
+        return self.addresses
+
+
+def test_nominated_token_is_enriched_but_never_admitted_on_its_own() -> None:
+    other = "0x" + "cd" * 20
+    cli = FakeCli()
+    cli.hot, cli.signals = [], []
+    nominator = Nominator([other, other, "not-an-address"])
+    bot = SpotAgent(OnchainosSource(cli, clock=lambda: NOW), AgentConfig(), nominators=[nominator])
+    records = bot.tick(NOW)
+    assessed = [r for r in records if r["kind"] == "assessment"]
+    assert [r["token"] for r in assessed] == [other]
+    # Enrichment ran (price-info was queried for it) but no smart money: no entry.
+    assert any(c[:2] == ("token", "price-info") and other in c for c in cli.calls)
+    assert assessed[0]["action"] != "flip"
+    assert not any(r["kind"] in ("paper_buy", "live_buy") for r in records)
+    assert records[-1]["provider_calls"] >= nominator.calls == 1
+
+
+def test_failing_nominator_does_not_block_other_discovery() -> None:
+    cli = FakeCli()
+    bot = SpotAgent(
+        OnchainosSource(cli, clock=lambda: NOW),
+        AgentConfig(initial_cash_usd_micros=1_000 * USD),
+        nominators=[Nominator([], fail=True)],
+    )
+    assert any(r["kind"] == "paper_buy" for r in bot.tick(NOW))

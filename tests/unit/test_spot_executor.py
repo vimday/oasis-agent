@@ -14,7 +14,9 @@ from oasis_agent.launch.spot_executor import (
     LiveRefused,
     LiveUnresolved,
     parse_balance,
+    parse_native_balance,
     parse_tx_hash,
+    preflight,
     swap_argv,
 )
 
@@ -230,3 +232,64 @@ def test_sell_requires_exact_units_spent_and_usdc_received() -> None:
     wallet.fill_out = 3 * USD
     fill = executor(wallet).sell(TOKEN, 50_000)
     assert (fill.token_delta, fill.usdc_delta) == (-50_000, 3 * USD)
+
+
+def test_balance_parser_accepts_the_observed_cli_shape() -> None:
+    # Shape captured from `onchainos wallet balance --chain base --token-address <USDC> --force`
+    # on the unfunded Agentic Wallet (2026-11-07); values other than shape are irrelevant.
+    raw = (
+        b'{"ok":true,"data":{"details":[{"tokenAssets":[{"balance":"12.5","chainIndex":"8453",'
+        b'"decimal":"6","rawBalance":"12500000","symbol":"USDC","tokenAddress":"'
+        + BASE_USDC.encode()
+        + b'","tokenName":"USD Coin","tokenPrice":"1","usdValue":"12.5"}]}]}}'
+    )
+    assert parse_balance(raw, BASE_USDC) == 12_500_000
+
+
+def addresses_reply(address: str) -> bytes:
+    return json.dumps(
+        {"ok": True, "data": {"evm": [{"address": address, "chainIndex": "8453"}]}}
+    ).encode()
+
+
+def native_reply(wei: int | None) -> bytes:
+    rows = (
+        [] if wei is None else [{"tokenAddress": "", "chainIndex": "8453", "rawBalance": str(wei)}]
+    )
+    return json.dumps({"ok": True, "data": {"details": [{"tokenAssets": rows}]}}).encode()
+
+
+def preflight_reader(address: str, usdc: int, wei: int | None) -> Any:
+    def read(argv: Any) -> bytes:
+        argv = tuple(argv)
+        if argv[:2] == ("wallet", "addresses"):
+            return addresses_reply(address)
+        if "--token-address" in argv:
+            return balance_reply(BASE_USDC, usdc)
+        return native_reply(wei)
+
+    return read
+
+
+def test_preflight_binds_active_account_and_requires_usdc_and_gas() -> None:
+    ok = preflight(gate(), preflight_reader(APPROVED_WALLET, 5 * USD, 10**15))
+    assert ok == {
+        "wallet": APPROVED_WALLET,
+        "usdc_base_units": "5000000",
+        "native_wei": str(10**15),
+    }
+    cases = [
+        (preflight_reader("0x" + "11" * 20, 5 * USD, 10**15), "active_account_not_gated_wallet"),
+        (preflight_reader(APPROVED_WALLET, USD - 1, 10**15), "wallet_usdc_below_1_usd"),
+        (preflight_reader(APPROVED_WALLET, 5 * USD, None), "wallet_gas_below_minimum"),
+        (lambda _argv: b'{"ok":false}', "preflight_addresses_shape"),
+    ]
+    for read, category in cases:
+        with pytest.raises(LiveRefused, match=category):
+            preflight(gate(), read)
+
+
+def test_observed_empty_native_shape_is_zero() -> None:
+    # Observed on the unfunded wallet: `wallet balance --chain base --force`.
+    raw = b'{"ok":true,"data":{"details":[{"tokenAssets":[]}],"totalValueUsd":"0.00"}}'
+    assert parse_native_balance(raw) == 0
