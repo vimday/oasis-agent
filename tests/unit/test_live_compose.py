@@ -122,6 +122,8 @@ def test_parser_gets_no_host_credentials_or_compose_overrides(document, monkeypa
         assert "private-marker" not in env.values()
         assert not {"COMPOSE_FILE", "OASIS_PRIVATE_KEY"}.intersection(env)
         assert command[2:4] == ["--env-file", os.devnull]
+        assert command[4:8] == ["--project-directory", str(cli.COMPOSE.parent), "-f", "-"]
+        assert kwargs["input"] == cli.COMPOSE.read_bytes()
         assert command[-5:] == ["--profile", "*", "config", "--format", "json"]
         assert kwargs["timeout"] == 20
         calls.append(command)
@@ -136,7 +138,32 @@ def test_parser_gets_no_host_credentials_or_compose_overrides(document, monkeypa
     assert len(calls) == 2 and report["passed"] is True
     assert report["execution_eligible"] is False and report["network_calls"] == 0
     assert report["schema"] == "oasis.compose-policy-verification.v2"
+    assert report["compose_hash"] == sha256_hex(cli.COMPOSE.read_bytes())
     assert report["verifier_hash"] == sha256_hex(Path(cli.__file__).read_bytes())
+
+
+def test_policy_refuses_file_replacement_during_expansion(document, monkeypatch, tmp_path):
+    path = tmp_path / "compose.yaml"
+    original = b"name: original\n"
+    path.write_bytes(original)
+    monkeypatch.setattr(cli, "COMPOSE", path)
+    parsed = []
+
+    def run(command, *, env, input=None, **kwargs):
+        parsed.append(path.read_bytes() if input is None else input)
+        if len(parsed) == 1:
+            replacement = tmp_path / "replacement.yaml"
+            replacement.write_bytes(b"name: replaced\n")
+            replacement.replace(path)
+        result = copy.deepcopy(document)
+        for name in result["services"].keys() - {"initialize", "authority-status"}:
+            result["services"][name]["environment"] = {k: env.get(k) for k in cli.RPC_NAMES}
+        return SimpleNamespace(stdout=json.dumps(result).encode())
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with pytest.raises(ValueError, match="changed during verification"):
+        cli.inspect()
+    assert parsed == [original, original]
 
 
 @pytest.mark.parametrize(

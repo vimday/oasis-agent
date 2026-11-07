@@ -170,3 +170,29 @@ Final `make live-quality` exited 0: 4,763 tests and 138 subtests passed;
 Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
 all four log hashes matched. The 685 frozen inputs were unchanged. Quality
 report hash: `c5324ca20a2d2925aa7e095b2dc35b60c40d4451415ffff75e506021fd1450db`.
+
+## Base Compose policy input binding
+
+The verifier now reads the Compose file once and sends the same bytes to
+Docker Compose for both the missing and synthetic RPC environment cases. Its
+report hashes those bytes. If the current file differs after either case has
+run, the verifier refuses; the one-click launcher still compares the digest
+again before starting. Relative paths resolve from the original Compose
+project directory. This checks the deployment configuration, not a live
+container or chain state.
+
+An atomic file replacement between expansions reproduced a false pass in the
+previous verifier. The regression exited 1 before the fix; the corrected
+Compose and startup suites passed all 112 tests. The two logs are retained in
+`reports/review-20261107/base-compose-snapshot/` with SHA-256 values
+`10fca3473c04d43e734f37900d69582c0611b2a805aa633c40f1fa5006a8ac36` and
+`533bc5ddf033a67a80f1693684157268ed5dc3998c0dd78372cd879461b1d1d3`.
+No production service, volume, key, RPC or release policy changed.
+
+Local Docker Compose produced identical expanded documents before and after
+this change for both cases (all four parser invocations exited 0). The offline
+Base readiness command still exited 3: `gas_oracle_runtime_pins_missing`.
+Final `make live-quality` exited 0: 4,764 tests and 138 subtests passed;
+Python/frontend, secret scan, Bandit and offline Compose each exited 0 and
+all four log hashes matched. The 685 frozen inputs were unchanged. Quality
+report hash: `1d9bddb5ebef6d9d696ea3f1d469df39329184221168983b8e51e5e2f6a54fb6`.

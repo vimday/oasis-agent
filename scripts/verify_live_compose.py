@@ -150,6 +150,8 @@ def verify_services(document: dict, expected_rpc: dict) -> None:
 
 
 def inspect() -> dict:
+    # Both expansions and the evidence digest must use the same bytes.
+    snapshot = COMPOSE.read_bytes()
     # Do not inherit RPC credentials, COMPOSE_FILE, profiles, .env or Docker context.
     environment = {k: os.environ[k] for k in ("PATH", "HOME") if k in os.environ}
     for configured in (False, True):
@@ -164,8 +166,10 @@ def inspect() -> dict:
                 "compose",
                 "--env-file",
                 os.devnull,
+                "--project-directory",
+                str(COMPOSE.parent),
                 "-f",
-                str(COMPOSE),
+                "-",
                 "--profile",
                 "*",
                 "config",
@@ -173,15 +177,18 @@ def inspect() -> dict:
                 "json",
             ],
             env=env,
+            input=snapshot,
             capture_output=True,
             timeout=20,
             check=True,
         )
         verify_services(json.loads(result.stdout), expected)
+    if COMPOSE.read_bytes() != snapshot:
+        raise ValueError("deployment configuration changed during verification")
     report = {
         "schema": "oasis.compose-policy-verification.v2",
         "passed": True,
-        "compose_hash": sha256_hex(COMPOSE.read_bytes()),
+        "compose_hash": sha256_hex(snapshot),
         "verifier_hash": sha256_hex(Path(__file__).read_bytes()),
         "services": sorted(MOUNTS),
         "cases": ["rpc_absent", "synthetic_rpc_present"],
