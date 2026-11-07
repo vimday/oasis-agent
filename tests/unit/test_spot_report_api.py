@@ -114,3 +114,63 @@ def test_journal_record_claiming_execution_authority_is_refused(tmp_path: Path) 
         journal.append("paper_buy", {"execution_eligible": True, "at": NOW})
     with configured(tmp_path, run) as client:
         assert client.get("/api/v1/spot/decisions").status_code == 503
+
+
+def test_live_report_uses_wallet_cash_and_surfaces_unresolved_orders(tmp_path: Path) -> None:
+    run = tmp_path / "live"
+    run.mkdir()
+    config = AgentConfig()
+    policy = {
+        "schema": "oasis.spot-agent-live.v1",
+        "config": config.model_dump(mode="json"),
+        "gate": {"wallet": "0x" + "95" * 20},
+    }
+    summary = {
+        "at": NOW,
+        "kind": "tick_summary",
+        "mode": "live",
+        "execution_eligible": False,
+        "cash_usd_micros": 42_000_000,
+        "nav_usd_micros": 42_000_000,
+        "open_positions": 0,
+        "positions": [],
+        "realized_pnl_usd_micros": 0,
+        "closed_trades": 0,
+        "winning_trades": 0,
+        "provider_calls": 3,
+    }
+    with ExecutionJournal(run / "journal.db", policy) as journal:
+        journal.append(
+            "live_start",
+            {
+                "at": NOW,
+                "kind": "live_start",
+                "execution_eligible": False,
+                "cash_usd_micros": 42_000_000,
+            },
+        )
+        journal.append("tick_summary", summary)
+        journal.append(
+            "live_unresolved",
+            {"at": NOW, "kind": "live_unresolved", "execution_eligible": False, "category": "x"},
+        )
+    report = build_report(run)
+    assert report["mode"] == "live" and report["execution_eligible"] is False
+    assert report["paper_book"]["initial_cash_usd_micros"] == 42_000_000
+    assert report["unresolved_live_orders"] == 1
+
+
+def test_live_journal_without_start_record_fails_closed(tmp_path: Path) -> None:
+    run = tmp_path / "live"
+    run.mkdir()
+    policy = {"schema": "oasis.spot-agent-live.v1", "config": AgentConfig().model_dump(mode="json")}
+    with ExecutionJournal(run / "journal.db", policy) as journal:
+        journal.append(
+            "tick_summary",
+            {"at": NOW, "kind": "tick_summary", "execution_eligible": False, "provider_calls": 0},
+        )
+    try:
+        build_report(run)
+    except ValueError:
+        return
+    raise AssertionError("live report without live_start must refuse")

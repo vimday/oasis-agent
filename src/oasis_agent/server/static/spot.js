@@ -55,14 +55,20 @@ export async function loadSpot() {
       : "影子日志不可用或校验失败，未显示任何数据。";
     return;
   }
-  if (report.execution_eligible !== false || report.mode !== "shadow") {
+  if (report.execution_eligible !== false || !["shadow", "live"].includes(report.mode)) {
     status.textContent = "响应声明了执行权限，已拒绝显示。";
     return;
   }
   const ops = report.operations, book = report.paper_book, quality = report.signal_quality;
-  status.textContent = `影子模式 · 数据为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
+  const live = report.mode === "live";
+  const unresolved = report.unresolved_live_orders || 0;
+  const banner = live
+    ? `实盘模式（Agentic Wallet）${unresolved ? ` · ⚠ ${unresolved} 笔实盘未确认，已停机等待人工复核` : ""}`
+    : "影子模式";
+  status.textContent = `${banner} · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
+  status.classList.toggle("danger", live && unresolved > 0);
   renderStats("spot-stats", [
-    { label: "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
+    { label: live ? "实盘净值 USD" : "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
     { label: "已实现 PnL USD", value: usd(book.realized_pnl_usd_micros),
       tone: book.realized_pnl_usd_micros < 0 ? "danger" : "" },
     { label: "平仓 / 盈利", value: book.closed_trades + " / " + book.winning_trades },

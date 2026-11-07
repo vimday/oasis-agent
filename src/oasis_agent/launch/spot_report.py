@@ -141,11 +141,21 @@ def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 def build_report(run_dir: Path) -> dict[str, Any]:
     policy, records = read_journal(run_dir / "journal.db")
-    initial = int(policy["config"]["initial_cash_usd_micros"])
+    live = policy.get("schema") == "oasis.spot-agent-live.v1"
+    starts = [r for r in records if r["kind"] == "live_start"]
+    if live and not starts and any(r["kind"] == "tick_summary" for r in records):
+        raise ValueError("live journal has ticks but no live_start record")
+    # A live book starts from the wallet's observed USDC, never the configured paper cash.
+    initial = (
+        int(starts[0]["cash_usd_micros"])
+        if starts
+        else int(policy["config"]["initial_cash_usd_micros"])
+    )
     summaries = [r for r in records if r["kind"] == "tick_summary"]
     return {
         "schema": SCHEMA,
-        "mode": "shadow",
+        "mode": "live" if live else "shadow",
+        "unresolved_live_orders": sum(r["kind"] == "live_unresolved" for r in records),
         "execution_eligible": False,
         "evidence_level": "provider_claims_not_chain_attestations",
         "policy_sha256": sha256_hex(canonical_json(policy)),

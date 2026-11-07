@@ -530,7 +530,11 @@ def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentSta
     summary-time book is no longer the truth and the run must be reviewed, not resumed.
     """
     summaries = [i for i, r in enumerate(records) if r["kind"] == "tick_summary"]
+    starts = [r for r in records if r["kind"] == "live_start"]
     if not summaries:
+        if starts:
+            # A live run that never finished a tick starts again from the wallet's cash.
+            state.cash_usd_micros = int(starts[0]["cash_usd_micros"])
         if any(r["kind"] in INTERRUPTING_KINDS for r in records):
             raise ValueError("journal has trades but no tick summary; review before resuming")
         return state

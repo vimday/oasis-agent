@@ -270,9 +270,18 @@ def main() -> int:
                 receipt=rpc_receipt_reader(rpc),
                 emit=journal.append,
             )
-            if spent == 0 and not state.positions:
+            if not any(r["kind"] == "live_start" for r in read_journal(args.out / "journal.db")[1]):
                 # Fresh live run: cash is the wallet's own USDC, never a configured number.
                 state.cash_usd_micros = executor.balance(BASE_USDC)
+                start = {
+                    "at": int(time.time()),
+                    "kind": "live_start",
+                    "mode": "live",
+                    "execution_eligible": False,
+                    "cash_usd_micros": state.cash_usd_micros,
+                    **gate.describe(),
+                }
+                journal.append("live_start", start)
         agent = SpotAgent(source, config, state, gmgn=gmgn, executor=executor)
         return run_loop(
             agent,
