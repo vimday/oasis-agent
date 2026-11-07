@@ -30,6 +30,7 @@ from oasis_agent.execution.account_capture import one_shot_session
 from oasis_agent.live.authority_socket import TransactionSocketClient
 from oasis_agent.live.base_acceptance_rpc import LIMITS as BASE_ACCEPTANCE_LIMITS
 from oasis_agent.live.base_acceptance_rpc import require_endpoint
+from oasis_agent.live.base_run_limits import MAX_TICKS, POLL_SECONDS
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
@@ -43,6 +44,7 @@ from oasis_agent.live.recovery import (
     adopt_authority_pending,
     release_unsigned_attempt,
     require_recovery_wallets,
+    settlement_digest,
 )
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
@@ -107,6 +109,63 @@ def rpc_url(name: str) -> str:
     return value
 
 
+def run_bounded(
+    loop: LiveLoop,
+    ticks: int,
+    *,
+    poll_seconds: int | None,
+    until: float | None,
+    authority: TransactionSocketClient | None,
+) -> dict:
+    completed, reconciled = 0, 0
+    settled = len(loop.state.settled_blocks)
+    failed = False
+
+    def finish_tick(status: str) -> bool:
+        nonlocal completed, reconciled, settled, failed
+        completed += 1
+        state = loop.state
+        if authority is not None and len(state.settled_blocks) != settled:
+            try:
+                if len(state.settled_blocks) != settled + 1:
+                    raise ValueError("a tick must settle at most one transaction")
+                tx_hash = state.settled_blocks[-1]["transaction_hash"]
+                if authority.settle(tx_hash) != settlement_digest(state, tx_hash):
+                    raise ValueError("settlement digest differs")
+            except (OSError, RuntimeError, ValueError, KeyError):
+                state.halted = "dual-service receipt reconciliation unresolved"
+                state.record("halt", reason=state.halted)
+                loop.store.save(state)
+            else:
+                reconciled += 1
+            settled = len(state.settled_blocks)
+        failed = (
+            state.halted is not None
+            or state.signing_attempt is not None
+            or status.startswith(("skip: ", "stopped: ", "halted: ", "HALT ", "released unsigned "))
+            or " REVERTED " in status
+            or " submitted, awaiting verified receipt: " in status
+        )
+        return not failed
+
+    status = loop.run(
+        max_ticks=ticks, until=until, poll_seconds=poll_seconds, after_tick=finish_tick
+    )
+    return {
+        "tick_status": status,
+        "completed_ticks": completed,
+        "reconciled_transactions": reconciled,
+        "pending_transaction": loop.state.pending is not None,
+        "signing_unresolved": loop.state.signing_attempt is not None,
+        "bounded_completed": (
+            not failed
+            and completed == ticks
+            and loop.state.pending is None
+            and loop.state.signing_attempt is None
+        ),
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -160,8 +219,14 @@ def main() -> None:
         help="reconcile pending once; optional public authority status only",
     )
     args = parser.parse_args()
-    if args.base_acceptance_rpc and (not args.require_existing_runtime or args.ticks != 1):
-        parser.error("Base RPC acceptance requires one tick on existing live state")
+    if args.base_acceptance_rpc and (
+        not args.require_existing_runtime
+        or args.ticks is None
+        or not 1 <= args.ticks <= MAX_TICKS
+        or args.poll_seconds != POLL_SECONDS
+        or args.hours is not None
+    ):
+        parser.error("Base RPC acceptance requires one to three ticks with the fixed poll interval")
     if args.require_existing_runtime and (
         args.mode != "live"
         or any(
@@ -560,30 +625,26 @@ def main() -> None:
             max_external_deviation_bps=guard_bps,
         )
         until = time.time() + args.hours * 3600 if args.hours else None
-        status = loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
-        report = loop.report()
-        bounded = args.mode == "live" and args.ticks is not None
-        if bounded:
-            report.update(
-                tick_status=status,
-                pending_transaction=loop.state.pending is not None,
-                signing_unresolved=loop.state.signing_attempt is not None,
+        bounded = None
+        if args.mode == "live" and args.ticks is not None:
+            bounded = run_bounded(
+                loop,
+                args.ticks,
+                poll_seconds=args.poll_seconds,
+                until=until,
+                authority=signer if args.base_acceptance_rpc else None,
             )
+        else:
+            loop.run(max_ticks=args.ticks, until=until, poll_seconds=args.poll_seconds)
+        report = loop.report() | (bounded or {})
         print(json.dumps(report, indent=1, default=str))
-        if bounded and args.require_existing_runtime:
+        if bounded is not None and args.require_existing_runtime:
             # Keep the terminal record short regardless of journal/report size.
-            fields = ("mode", "halted", "pending_transaction", "signing_unresolved", "tick_status")
-            print(json.dumps({key: report[key] for key in fields}, default=str), flush=True)
-        if loop.state.halted or (
-            bounded
-            and (
-                loop.state.pending is not None
-                or loop.state.signing_attempt is not None
-                or status is None
-                or status.startswith(("skip: ", "stopped: ", "halted: "))
-                or " REVERTED " in status
+            print(
+                json.dumps({"mode": report["mode"], "halted": report["halted"], **bounded}),
+                flush=True,
             )
-        ):
+        if loop.state.halted or (bounded is not None and not bounded["bounded_completed"]):
             # Preserve the report and latch, but do not tell supervisors a failed
             # observation/risk/settlement run completed successfully.
             raise SystemExit(3)

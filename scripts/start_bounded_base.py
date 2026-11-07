@@ -1,4 +1,4 @@
-"""Operator-triggered one-tick Base deployment using the existing stopped volumes."""
+"""Operator-triggered bounded Base deployment using the existing stopped volumes."""
 
 import argparse
 import io
@@ -15,6 +15,7 @@ from pathlib import Path
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.live import base_acceptance_rpc as rpc_scope
+from oasis_agent.live.base_run_limits import MAX_TICKS, authority_ttl, wait_seconds
 from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_start
@@ -28,7 +29,6 @@ PROJECT = "com.docker.compose.project=oasis-live"
 RUN_LABEL = "org.oasis-agent.bounded-run"
 ROLES = worker.ROLES
 STOPPED = {"created", "exited"}
-WAIT_SECONDS = 210
 MAX_ARCHIVE = 64 * 1024 * 1024
 
 
@@ -89,15 +89,18 @@ def _archive(raw: bytes, destination: Path) -> dict:
 
 
 class Run:
-    def __init__(self, image: str, output: Path):
+    def __init__(self, image: str, output: Path, *, ticks: int = 1):
         self.image = image
         self.output = output
+        self.ticks = ticks
+        self.wait_seconds = wait_seconds(ticks)
         self.attempt = uuid.uuid4().hex
         self.env: dict[str, str] = {}
         self.rpc: dict[str, str] = {}
         self.calls: dict = {}
         self.guard = None
         self.start_attempted = False
+        self.strategy_started = False
         self.safety_scope_checked = False
         self.keyless_unresolved = False
         self.stage = "docker_context"
@@ -277,8 +280,11 @@ class Run:
             for mount in service["volumes"]:
                 mount["volume"] = {"nocopy": True}
         authority = document["services"]["authority"]["command"]
-        authority[authority.index("--max-signatures") + 1] = "1"
-        authority.append("--no-rpc-retry")
+        authority[authority.index("--max-signatures") + 1] = str(self.ticks)
+        authority[authority.index("--ttl-seconds") + 1] = str(authority_ttl(self.ticks))
+        authority.extend(["--no-rpc-retry", "--bounded-ticks", str(self.ticks)])
+        strategy = document["services"]["strategy"]["command"]
+        strategy[strategy.index("--ticks") + 1] = str(self.ticks)
         names = set(deploy.VOLUMES.values())
         volumes = json.loads(self.docker("volumes", ["volume", "inspect", *sorted(names)]).stdout)
         if (
@@ -299,7 +305,8 @@ class Run:
             "rpc_ceiling_micros": rpc_scope.CEILING_MICROS,
             "rpc_lifetime_upper_micros": rpc_scope.COST_UPPER_MICROS,
             "capture_request_limits": worker.CAPTURE_LIMITS,
-            "requested_ticks": 1,
+            "requested_ticks": self.ticks,
+            "wait_seconds": self.wait_seconds,
             "automatic_retries": 0,
             "execution_eligible": False,
         }
@@ -391,6 +398,7 @@ class Run:
         _retain(self.output / "state-preflight.json", state)
         if state["startup_prerequisites_passed"] is not True:
             raise ValueError("original state startup gate refused")
+        report["opening_settlement_count"] = state["services"]["strategy"]["settlement_count"]
         if time.time() >= fresh["nav_valid_until"] - 5 or self.project() != services:
             raise ValueError("fresh NAV expired or prepared services changed")
         self.stage = "bounded_service_start"
@@ -400,7 +408,8 @@ class Run:
                 "schema": "oasis.base-bounded-attempt.v1",
                 "attempt_id": self.attempt,
                 "started_at": int(time.time()),
-                "wait_seconds": WAIT_SECONDS,
+                "requested_ticks": self.ticks,
+                "wait_seconds": self.wait_seconds,
                 "fresh_evidence_hash": fresh["evidence_hash"],
                 "containers": self.service_ids,
                 "execution_eligible": False,
@@ -411,12 +420,13 @@ class Run:
         self.stage = "authority_ready"
         self.wait_for_authority(fresh["nav_valid_until"])
         self.docker("start_strategy", ["start", self.service_ids["strategy"]], timeout=15)
-        self.stage = "one_strategy_tick"
+        self.strategy_started = True
+        self.stage = "strategy_ticks"
         result = self.docker(
-            "wait_strategy", ["wait", self.service_ids["strategy"]], timeout=WAIT_SECONDS
+            "wait_strategy", ["wait", self.service_ids["strategy"]], timeout=self.wait_seconds
         )
         if result.stdout.strip() != b"0":
-            raise ValueError("strategy did not complete its one tick")
+            raise ValueError("strategy did not complete its bounded ticks")
 
     def wait_for_authority(self, nav_valid_until: int) -> None:
         # Local socket-bind confirmation only. Never probe the signer or RPC,
@@ -492,22 +502,34 @@ class Run:
             if role == "strategy":
                 stdout = proc.stdout
         final = cleanup["services"]
-        if any(final[role]["exit_code"] != 0 or final[role]["oom_killed"] for role in ROLES):
-            raise ValueError("both runtime processes must exit cleanly")
         if len(stdout) > 2_000_000:
             raise ValueError("bounded strategy output required")
         result = strict_json_object(stdout)
+        count, reconciled = result.get("completed_ticks"), result.get("reconciled_transactions")
+        completed, tick = result.get("bounded_completed"), result.get("tick_status")
         if (
             result.get("mode") != "live"
-            or result.get("halted") is not None
-            or result.get("pending_transaction") is not False
-            or result.get("signing_unresolved") is not False
-            or not isinstance(result.get("tick_status"), str)
+            or type(count) is not int
+            or type(reconciled) is not int
+            or not 0 <= reconciled <= count <= self.ticks
+            or type(completed) is not bool
+            or (tick is not None and not isinstance(tick, str))
+            or (count == 0) != (tick is None)
+            or (
+                completed
+                and (
+                    count != self.ticks
+                    or result.get("halted") is not None
+                    or result.get("pending_transaction") is not False
+                    or result.get("signing_unresolved") is not False
+                )
+            )
         ):
-            raise ValueError("terminal strategy result unresolved")
-        tick = result["tick_status"]
+            raise ValueError("terminal strategy result invalid")
         kind = (
-            "hold"
+            "incomplete"
+            if not completed
+            else "hold"
             if " | hold" in tick or tick.startswith("hold ")
             else "deferred"
             if " | wait: " in tick
@@ -519,11 +541,20 @@ class Run:
                 "schema": "oasis.base-bounded-tick.v1",
                 "attempt_id": self.attempt,
                 "kind": kind,
-                "tick_status_hash": sha256_hex(tick.encode()),
+                "completed_ticks": count,
+                "reconciled_transactions": reconciled,
+                "tick_status_hash": sha256_hex(tick.encode()) if tick is not None else None,
                 "execution_eligible": False,
             },
         )
-        return {role: final[role]["exit_code"] for role in ROLES}
+        exit_codes = {role: final[role]["exit_code"] for role in ROLES}
+        return {
+            "service_exit_codes": exit_codes,
+            "completed_ticks": count,
+            "reconciled_transactions": reconciled,
+            "runtime_completed": completed
+            and all(exit_codes[role] == 0 and not final[role]["oom_killed"] for role in ROLES),
+        }
 
 
 def _post_stop_replay(operation: Run, config_hash: str, rpc_max_requests: int) -> dict:
@@ -539,7 +570,8 @@ def _post_stop_replay(operation: Run, config_hash: str, rpc_max_requests: int) -
         return refusal_report(StartupBlocker.UNRESOLVED)
 
 
-def run(image: str, output: Path) -> dict:
+def run(image: str, output: Path, *, ticks: int = 1) -> dict:
+    operation = Run(image, output, ticks=ticks)
     require_live_start()
     config_hash, rpc_max_requests, files = deploy.require_local_runtime_policy()
     worker.require_policy(
@@ -547,14 +579,13 @@ def run(image: str, output: Path) -> dict:
         worker.LiveRpcProfile.load(compose.ROOT / "configs" / RPC_PROFILE_NAME),
     )
     output.mkdir(mode=0o700)  # An output directory authorizes no retry.
-    operation = Run(image, output)
     report = {
         "schema": "oasis.base-bounded-run.v1",
         "attempt_id": operation.attempt,
         "created_at": int(time.time()),
         "result": "failed",
         "execution_eligible": False,
-        "requested_ticks": 1,
+        "requested_ticks": ticks,
         "rpc_ceiling_micros": rpc_scope.CEILING_MICROS,
     }
     completed = False
@@ -579,16 +610,23 @@ def run(image: str, output: Path) -> dict:
                 report["post_stop_replay"] = _post_stop_replay(
                     operation, config_hash, rpc_max_requests
                 )
+            if operation.strategy_started and cleanup["verified"]:
+                with suppress(Exception):  # Unverified runtime output cannot complete the run.
+                    report.update(operation._runtime_evidence(cleanup))
             if completed and cleanup["verified"]:
-                try:
-                    report["service_exit_codes"] = operation._runtime_evidence(cleanup)
-                except Exception:  # noqa: BLE001 - do not equate Compose exit with verified success
+                if report.get("runtime_completed") is not True:
                     report["failure_stage"] = "runtime_evidence"
                 else:
                     replay = report.get("post_stop_replay", {})
                     if (
                         replay.get("startup_prerequisites_passed") is True
                         and replay.get("stop_markers_present") is True
+                        and all(
+                            replay.get("services", {}).get(role, {}).get("settlement_count")
+                            == report.get("opening_settlement_count", -1)
+                            + report["reconciled_transactions"]
+                            for role in ROLES
+                        )
                     ):
                         report["result"] = "completed"
                     else:
@@ -618,11 +656,11 @@ def run(image: str, output: Path) -> dict:
     return report
 
 
-def run_operator(image: str, output: Path) -> dict:
+def run_operator(image: str, output: Path, *, ticks: int = 1) -> dict:
     signals = (signal.SIGINT, signal.SIGTERM)
     previous = {sig: signal.signal(sig, _interrupt) for sig in signals}
     try:
-        return run(image, output)
+        return run(image, output, ticks=ticks)
     finally:
         for sig, handler in previous.items():
             signal.signal(sig, handler)
@@ -632,9 +670,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", default="oasis-live:local")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--ticks", type=int, choices=range(1, MAX_TICKS + 1), default=1)
     args = parser.parse_args()
     try:
-        report = run_operator(args.image, args.out)
+        report = run_operator(args.image, args.out, ticks=args.ticks)
     except Exception:  # noqa: BLE001 - never echo Docker or RPC internals
         parser.exit(3, "Bounded startup refused; preserve any existing run evidence.\n")
     print(

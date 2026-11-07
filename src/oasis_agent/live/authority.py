@@ -17,14 +17,21 @@ from .authority_simulation import simulate
 from .chain import ChainError, DigestSigner, sign_transaction
 from .gas_oracle import require_gas_oracle_pins
 from .intent import SubmittedTransaction, pending_plan_hash
-from .recovery import authority_status
+from .recovery import authority_status, settlement_digest
 from .runner import LiveLoop, Market
 from .state import Pending, day_of
 from .valuation import nav_fresh_until, replay_nav
 
 
 class TransactionAuthority:
-    def __init__(self, loop: LiveLoop, provider: DigestSigner, *, ttl_seconds: int = 3600) -> None:
+    def __init__(
+        self,
+        loop: LiveLoop,
+        provider: DigestSigner,
+        *,
+        ttl_seconds: int = 3600,
+        explicit_settlement: bool = False,
+    ) -> None:
         if loop.mode != "live" or loop.secondary is None or loop.receipt_costs is None:
             raise ValueError("authority requires independent live reconciliation")
         if loop.signer is not None or provider.account != loop.c.account:
@@ -35,6 +42,7 @@ class TransactionAuthority:
         if type(ttl_seconds) is not int or not 1 <= ttl_seconds <= 86400:
             raise ValueError("bounded authority lifetime required")
         self.expires = time.monotonic() + ttl_seconds
+        self.explicit_settlement = explicit_settlement
         self.loop, self.provider = loop, provider
         self.simulation_hashes: tuple[str, str] | None = None
         self.simulation_evidence: tuple[EvidenceRef, EvidenceRef] | None = None
@@ -44,6 +52,32 @@ class TransactionAuthority:
 
     def status_for_nonce(self, nonce: int) -> dict[str, Any]:
         return authority_status(self.loop.store, self.loop.c, nonce)
+
+    def settle(self, transaction_hash: str) -> str:
+        """Independently reconcile only a commitment this authority already signed."""
+        loop = self.loop
+        if (
+            not self.explicit_settlement
+            or time.monotonic() >= self.expires
+            or (loop.stop_file is not None and loop.stop_file.exists())
+        ):
+            raise ValueError("bounded settlement unavailable")
+        state = loop.state = loop.store.load("live")
+        if state.pending is None:
+            # A repeated request after a lost reply is read-only.
+            return settlement_digest(state, transaction_hash)
+        if (
+            state.pending.tx_hash != transaction_hash
+            or state.signing_attempt is not None
+            or state.halted
+            or state.legacy_gas_cost_incomplete
+        ):
+            raise ValueError("authority pending commitment differs or is unresolved")
+        try:
+            loop._poll_pending()
+        finally:
+            loop.store.save(state)
+        return settlement_digest(state, transaction_hash)
 
     def sign(self, fields: list[object], context: dict[str, Any]) -> bytes:
         # The signing boundary must enforce release independently of its caller.
@@ -65,6 +99,8 @@ class TransactionAuthority:
             raise ValueError("authority halted or signing outcome unresolved")
         try:
             if s.pending:
+                if self.explicit_settlement:
+                    raise ValueError("reconcile the previous bounded transaction before signing")
                 loop._poll_pending()
                 loop.store.save(s)
                 if s.pending or s.halted:

@@ -144,6 +144,60 @@ def test_authority_does_not_dispatch_a_frame_after_service_deadline(monkeypatch,
     assert connection.closed
 
 
+def test_last_signature_still_allows_settlement_but_refuses_another_signature(monkeypatch):
+    clock = Clock()
+    monkeypatch.setattr(protocol.time, "monotonic", clock.monotonic)
+    proposal = canonical_json(
+        {
+            "schema": protocol.SCHEMA,
+            "account": CONFIG.account,
+            "fields": [8453, 0, 1, 1, 21000, CONFIG.account, 0, "0x", []],
+            "context": {},
+        }
+    )
+    tx_hash = "0x" + "12" * 32
+    settle = canonical_json(
+        {
+            "schema": protocol.SCHEMA,
+            "account": CONFIG.account,
+            "operation": "settle",
+            "transaction_hash": tx_hash,
+        }
+    )
+    connections = [
+        Connection(clock, [(0, frame + b"\n")]) for frame in (proposal, settle, proposal)
+    ]
+    waiting = iter(connections)
+    calls = []
+
+    def accept():
+        connection = next(waiting, None)
+        if connection is None:
+            clock.now = 2
+            raise TimeoutError
+        return connection, None
+
+    def settle_receipt(digest):
+        calls.append(digest)
+        return "a" * 64
+
+    def sign(*_):
+        calls.append("sign")
+        return b"fixture"
+
+    count = protocol.serve_connections(
+        SimpleNamespace(settimeout=lambda _: None, accept=accept),
+        SimpleNamespace(sign=sign),
+        account=CONFIG.account,
+        max_signatures=1,
+        ttl_seconds=1,
+        settle=settle_receipt,
+    )
+    assert count == 1 and calls == ["sign", tx_hash]
+    assert b'"settlement_digest"' in connections[1].sent[0]
+    assert b'"refused":true' in connections[2].sent[0]
+
+
 @pytest.mark.parametrize(
     "timeout", [0, -1, True, float("nan"), float("inf"), 241, 10**999, "1", None]
 )

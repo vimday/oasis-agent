@@ -39,7 +39,7 @@ def test_run_exit_reflects_persisted_halt(tmp_path, monkeypatch, capsys, mode, o
             "--state-dir",
             str(tmp_path),
             "--ticks",
-            "1",
+            "3" if outcome == "rpc_refused" else "1",
         ]
         + (["--signer-socket", str(tmp_path / "unused.sock")] if mode == "live" else []),
     )
@@ -85,3 +85,4 @@ def test_run_exit_reflects_persisted_halt(tmp_path, monkeypatch, capsys, mode, o
 
     if mode == "live" and outcome == "rpc_refused":
         assert report["tick_status"] == "skip: budgeted live RPC read refused; details redacted"
+        assert report["completed_ticks"] == 1  # never observe again after a bounded RPC failure

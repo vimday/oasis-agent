@@ -1,10 +1,11 @@
-# One bounded Base live run
+# Bounded Base live runs
 
 `make live-docker-readiness` is an offline status check. `make live-docker` is the
-owner-operated live entry: run it only under current authorization for one Base
-strategy tick. It may sign and submit once through the existing transaction
-authority if all runtime and per-action checks pass. A completed hold does not
-imply a transaction or a profit. Solana is outside this entry.
+owner-operated live entry. Run it under current authorization for the selected
+number of Base strategy ticks. The default is one. Set `LIVE_TICKS=2` or
+`LIVE_TICKS=3` to opt into a bounded multi-tick run. Each tick can submit at most
+one transaction through the existing authority. A completed hold does not imply
+a transaction or a profit.
 
 1. Stop the original two services with their existing 0600 STOP markers present.
    Keep the original state, receipt and RPC journals and the dedicated key
@@ -12,17 +13,30 @@ imply a transaction or a profit. Solana is outside this entry.
    `BASE_RPC_PRIMARY_ALT` (Alchemy) and `BASE_RPC_PRIMARY` (dRPC) from the secure
    operator environment; the command never sources a repository `.env`.
 2. Build and review the local image against the intended tracked source tree.
-   Use `make live-docker LIVE_IMAGE=… LIVE_START_OUTPUT=reports/runs/<new-run>`;
+   Use `make live-docker LIVE_IMAGE=… LIVE_START_OUTPUT=reports/runs/<new-run> LIVE_TICKS=1`;
    create the parent directory if needed. The destination must be new and is
    never reused for a retry. The start guard is exclusive on that Docker daemon.
 3. Review `report.json`. A successful invocation requires both stopped
-   containers, exit code 0 for each, a resolved one-tick strategy report, both
+   containers, exit code 0 for each, all requested ticks reported, both
    STOP files read back, matching receipt and financial history replay from
    both original journals, and the guard released. The post-stop replay is
-   keyless, read-only, and network-isolated. A failed or timed-out tick is still
-   a failure even if cleanup succeeded. If the authority still records a pending
-   receipt after the strategy exits, the report records the unresolved service
-   and the next start is blocked until separately authorized reconciliation.
+   keyless, read-only, and network-isolated. It also checks that both ledgers
+   added the number of settlements reported by the strategy. If either service
+   retains a pending receipt, the report identifies the unresolved service and
+   the next start requires separately authorized reconciliation.
+
+The strategy uses the same capital, loss, gas, and action limits in every tick.
+It reobserves the account before proposing an action, and the authority
+independently reconstructs the proposal and verifies the same envelope with
+two RPC sources before signing. An ordinary pending receipt uses a subsequent
+tick for reconciliation alone. Once the strategy commits a receipt, the
+authority independently verifies and commits the same transaction. Both sides
+must agree on the receipt block, outcome, inventory and gas accounting before
+the strategy advances. A refusal, uncertain submission, revert, disagreement
+or exhausted run with pending work stops the session without resubmission.
+The interval remains 300 seconds. The host waits at most 210, 720 or 1,230
+seconds for one, two or three ticks respectively. The authority has its own
+shorter lifetime and cannot sign more transactions than requested ticks.
 
 The capture worker holds the original service locks and leaves both STOP files
 in place during new, keyless two-provider acquisition. It replays both original
@@ -72,7 +86,9 @@ Pricing assumptions refer to [Alchemy pricing](https://www.alchemy.com/docs/refe
 and [dRPC method costs](https://drpc.org/docs/pricing/compute-units).
 
 For the read-only dashboard, set `databases.live_bounded_run` to that exact output
-directory. The page distinguishes an issued start request, a pre-start budget
+directory. The page shows requested ticks at startup and the observed tick
+and reconciliation counts once a terminal strategy record is available. It
+distinguishes an issued start request, a pre-start budget
 refusal, a verified stop with both STOPs, and unverified cleanup. If the
 post-stop replay still requires reconciliation, the page identifies the service
 when the terminal report identifies it. The display uses a fixed set of status

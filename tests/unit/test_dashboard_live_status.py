@@ -492,7 +492,7 @@ def test_bounded_run_status_cannot_claim_stopped_without_two_stop_markers(tmp_pa
     for name in ("core.js", "live-status.js"):
         shutil.copy(root / name, tmp_path / name)
     (tmp_path / "package.json").write_text('{"type":"module"}')
-    program = """
+    program = r"""
 import assert from 'node:assert/strict';
 import {boundedRunLabel} from './live-status.js';
 const row = {attempt_id:"a".repeat(32), as_of:120, execution_eligible:false,
@@ -509,6 +509,10 @@ row.stop_present.authority = true;
 assert.match(boundedRunLabel(row), /已停机.*双 STOP 已恢复.*超时/);
 row.result = "completed";
 assert.match(boundedRunLabel(row), /双 STOP 已恢复.*单轮完成/);
+const multi = {...row, requested_ticks: 3, completed_ticks: 3, reconciled_transactions: 2};
+assert.match(boundedRunLabel(multi), /多轮完成.*3\/3 轮.*已对账 2 笔/);
+assert.equal(boundedRunLabel({...multi, completed_ticks: 2}), null);
+assert.match(boundedRunLabel({...multi, result:"failed", completed_ticks:2}), /失败.*2\/3 轮/);
 """
     result = subprocess.run(
         [node, "--input-type=module"],

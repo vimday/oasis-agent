@@ -4,6 +4,7 @@ import json
 from contextlib import closing
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -12,6 +13,7 @@ from eth_hash.auto import keccak
 
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.live.approval_cash import replay_approval_cash
+from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.chain import ChainError
 from oasis_agent.live.exact_risk import ExactRisk
 from oasis_agent.live.intent import pending_plan_hash
@@ -19,6 +21,7 @@ from oasis_agent.live.state import day_of
 from oasis_agent.live.v4lp import erc20_approve_call, permit2_approve_call
 from oasis_agent.models.common import canonical_json, evidence_ref_from_json
 from oasis_agent.reporting.live_status import read_live_status
+from scripts.run_live_lp import run_bounded
 from tests.unit.test_live_lp import CONFIG
 from tests.unit.test_live_receipt_costs import loop_for
 from tests.unit.test_live_revert_cash import WalletFixture, attach_opening
@@ -121,6 +124,63 @@ def approval_loop(
     attach_opening(loop, a, b)
     bind_approval(loop, a)
     return loop
+
+
+@pytest.mark.parametrize("peer_disagrees", [False, True])
+def test_bounded_strategy_waits_for_the_authoritys_own_receipt_and_cash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, peer_disagrees: bool
+) -> None:
+    (tmp_path / "authority").mkdir()
+    a, b = ApprovalFixture(), ApprovalFixture()
+    with (
+        closing(EvidenceStore(tmp_path / "evidence.db")) as strategy_db,
+        closing(EvidenceStore(tmp_path / "authority" / "evidence.db")) as authority_db,
+    ):
+        strategy = approval_loop(tmp_path, strategy_db, a, b)
+        authority_loop = approval_loop(
+            tmp_path / "authority",
+            authority_db,
+            a,
+            replace(b, approved_amount=1) if peer_disagrees else b,
+        )
+        authority_loop.signer = None
+        authority = TransactionAuthority(
+            authority_loop,
+            SimpleNamespace(
+                account=authority_loop.c.account, sign=lambda *_: pytest.fail("no signing")
+            ),
+            explicit_settlement=True,
+        )
+        tx_hash = strategy.state.pending.tx_hash
+        with pytest.raises(ValueError, match="commitment differs"):
+            authority.settle("0x" + "0" * 64)
+        assert authority_loop.store.load("live").settlement_attempts == 0
+        original = strategy._tick
+        holds = []
+
+        def tick():
+            if strategy.state.pending is not None:
+                return original()
+            assert authority_loop.store.load("live").pending is None
+            holds.append(True)
+            return "block 123 | hold"
+
+        monkeypatch.setattr(strategy, "_tick", tick)
+        monkeypatch.setattr("oasis_agent.live.runner.time.sleep", lambda _: None)
+        result = run_bounded(strategy, 2, poll_seconds=300, until=None, authority=authority)
+        assert strategy.store.load("live").gas_spent_wei == 218
+        if peer_disagrees:
+            assert result["bounded_completed"] is False and result["completed_ticks"] == 1
+            assert not holds and authority_loop.store.load("live").pending is not None
+            assert "reconciliation unresolved" in strategy.store.load("live").halted
+        else:
+            assert result["bounded_completed"] is True and result["completed_ticks"] == 2
+            assert holds and result["reconciled_transactions"] == 1
+            state = authority_loop.store.load("live")
+            assert state.gas_spent_wei == 218 and state.last_units == strategy.state.last_units
+            revision = authority_loop.store.journal.revision
+            assert authority.settle(tx_hash)
+            assert authority_loop.store.journal.revision == revision
 
 
 @pytest.mark.parametrize(

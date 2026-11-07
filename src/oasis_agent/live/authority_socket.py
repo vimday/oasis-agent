@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import socket
 import stat
 import time
@@ -12,7 +13,7 @@ from typing import Any, Protocol
 
 from eth_hash.auto import keccak
 
-from ..models.common import canonical_json, normalize_address
+from ..models.common import canonical_json, normalize_address, normalize_hash32
 from .intent import SubmittedTransaction
 
 SCHEMA = "oasis.live-transaction-authority.v1"
@@ -31,6 +32,17 @@ def status_nonce(raw: bytes, account: str) -> int | None:
     if canonical_json(expected) != raw:
         raise ValueError("canonical account-bound status request required")
     return nonce
+
+
+def _settlement_request(account: str, transaction_hash: str) -> bytes:
+    return canonical_json(
+        {
+            "schema": SCHEMA,
+            "account": account,
+            "operation": "settle",
+            "transaction_hash": normalize_hash32(transaction_hash),
+        }
+    )
 
 
 def fields_json(fields: list[object]) -> list[object]:
@@ -135,6 +147,17 @@ class TransactionSocketClient:
             raise ValueError("authority status unavailable")
         return d["status"]
 
+    def settle(self, transaction_hash: str) -> str:
+        reply = self._exchange(_settlement_request(self.account, transaction_hash))
+        digest = reply.get("settlement_digest")
+        if (
+            set(reply) != {"schema", "settlement_digest"}
+            or not isinstance(digest, str)
+            or re.fullmatch(r"[a-f0-9]{64}", digest) is None
+        ):
+            raise ValueError("authority settlement unavailable")
+        return digest
+
     def sign_envelope(self, fields: list[object], context: dict[str, Any]) -> bytes:
         request = canonical_json(
             {
@@ -237,12 +260,13 @@ def serve_connections(
     account: str,
     max_signatures: int,
     ttl_seconds: int,
+    settle: Callable[[str], str] | None = None,
 ) -> int:
     if not 1 <= max_signatures <= 1000 or not 1 <= ttl_seconds <= 86400:
         raise ValueError("authority lifetime/signature budget invalid")
     server.settimeout(1)
     deadline, signed = time.monotonic() + ttl_seconds, 0
-    while signed < max_signatures and time.monotonic() < deadline:
+    while (signed < max_signatures or settle is not None) and time.monotonic() < deadline:
         try:
             connection, _ = server.accept()
         except TimeoutError:
@@ -260,7 +284,21 @@ def serve_connections(
                         authority.status() if nonce is None else authority.status_for_nonce(nonce)
                     )
                     reply: dict[str, object] = {"schema": SCHEMA, "status": public}
+                elif (
+                    settle is not None
+                    and isinstance(parsed, dict)
+                    and parsed.get("operation") == "settle"
+                ):
+                    tx_hash = parsed.get("transaction_hash")
+                    if (
+                        not isinstance(tx_hash, str)
+                        or _settlement_request(account, tx_hash) != frame
+                    ):
+                        raise ValueError("canonical account-bound settlement request required")
+                    reply = {"schema": SCHEMA, "settlement_digest": settle(tx_hash)}
                 else:
+                    if signed >= max_signatures:
+                        raise ValueError("authority signature budget exhausted")
                     requested, fields, context = parse_request(frame)
                     if requested != account or time.monotonic() >= deadline:
                         raise ValueError("account/lifetime mismatch")

@@ -198,16 +198,26 @@ export function boundedRunLabel(row) {
   const attempted = row.start_attempted ?? null;
   const blocker = row.blocker ?? null;
   const role = row.blocked_service ?? null;
+  const requested = row.requested_ticks ?? 1;
+  const completed = row.completed_ticks ?? null;
+  const reconciled = row.reconciled_transactions ?? null;
   if (attempted !== null && typeof attempted !== "boolean" ||
       blocker !== null && (typeof blocker !== "string" || !Object.hasOwn(BOUNDED_BLOCKER, blocker)) ||
       role !== null && (typeof role !== "string" || !Object.hasOwn(BOUNDED_ROLE, role))) return null;
   if (["unconfigured", "missing", "invalid"].includes(row.status)) {
     return row.attempt_id === null && row.as_of === null && row.result === null &&
-      row.stop_present === null && attempted === null && blocker === null && role === null
+      row.stop_present === null && attempted === null && blocker === null && role === null &&
+      row.requested_ticks == null && completed === null && reconciled === null
       ? BOUNDED_STATUS[row.status] : null;
   }
   if (!/^[0-9a-f]{32}$/.test(row.attempt_id ?? "") || !Number.isSafeInteger(row.as_of) ||
       row.as_of < 0 || row.result !== null && !Object.hasOwn(BOUNDED_RESULT, row.result)) return null;
+  if (!Number.isSafeInteger(requested) || requested < 1 || requested > 3 ||
+      completed !== null && (!Number.isSafeInteger(completed) || completed < 0 || completed > requested) ||
+      reconciled !== null && (!Number.isSafeInteger(reconciled) || completed === null ||
+        reconciled < 0 || reconciled > completed) ||
+      completed !== null && (attempted === false || row.result === null) ||
+      row.result === "completed" && (completed ?? 1) !== requested) return null;
   const stops = row.stop_present;
   if (row.result === null ? stops !== null : !stops || typeof stops.strategy !== "boolean" ||
       typeof stops.authority !== "boolean") return null;
@@ -215,14 +225,20 @@ export function boundedRunLabel(row) {
       row.result === "completed" && (row.status !== "stopped" || attempted === false || blocker !== null) ||
       row.status === "launch_requested" && row.result !== null) return null;
   if (row.result === null) {
-    return attempted === null && blocker === null && role === null ? BOUNDED_STATUS[row.status] : null;
+    if (attempted !== null || blocker !== null || role !== null) return null;
+    return requested === 1 ? BOUNDED_STATUS[row.status] :
+      BOUNDED_STATUS[row.status] + " · 计划 " + requested + " 轮";
   }
   if (blocker?.startsWith("rpc_budget_") && attempted !== false ||
       blocker?.startsWith("post_stop_") && (attempted !== true || row.status !== "stopped") ||
       (blocker === "post_stop_reconciliation_required") !== (role !== null)) return null;
   const status = row.status === "stopped" && attempted === false
     ? "本轮未发起启动 · 双 STOP 已核对" : BOUNDED_STATUS[row.status];
-  const labels = [status, BOUNDED_RESULT[row.result]];
+  const outcome = row.result === "completed" && requested > 1 ? "多轮完成" : BOUNDED_RESULT[row.result];
+  const labels = [status, outcome];
+  if (requested > 1) labels.push(completed === null ? "计划 " + requested + " 轮" :
+    "已执行 " + completed + "/" + requested + " 轮");
+  if (reconciled > 0) labels.push("双账本已对账 " + reconciled + " 笔");
   if (blocker !== null) labels.push(role === null ? BOUNDED_BLOCKER[blocker] :
     BOUNDED_ROLE[role] + " " + BOUNDED_BLOCKER[blocker]);
   return labels.join(" · ");

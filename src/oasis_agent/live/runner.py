@@ -1106,6 +1106,8 @@ class LiveLoop:
                 wallet,
             )
             self.store.save(s)
+            if self.stop_file is not None and self.stop_file.exists():
+                raise ChainError("STOP present before broadcast; commitment preserved")
 
         try:
             sent = send_transaction(
@@ -1612,6 +1614,7 @@ class LiveLoop:
         max_ticks: int | None = None,
         until: float | None = None,
         poll_seconds: int | None = None,
+        after_tick: Callable[[str], bool] | None = None,
     ) -> str | None:
         """`poll_seconds` may only slow polling below the configured rate; it never speeds it."""
         interval = self.c.poll_seconds if poll_seconds is None else poll_seconds
@@ -1624,6 +1627,8 @@ class LiveLoop:
                 break
             status = self.tick()
             ticks += 1
+            if after_tick is not None and not after_tick(status):
+                break
             if max_ticks is not None and ticks >= max_ticks:
                 break
             if self.state.halted or (self.stop_file is not None and self.stop_file.exists()):

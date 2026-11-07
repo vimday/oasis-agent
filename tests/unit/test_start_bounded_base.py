@@ -132,7 +132,8 @@ def test_marker_conflict_never_overwrites_another_marker_or_skips_other_role(roo
 
 
 @pytest.mark.parametrize(
-    "outcome", ["completed", "failed", "timed_out", "stop_error", "authority_pending"]
+    "outcome",
+    ["completed", "failed", "timed_out", "stop_error", "authority_pending", "count_mismatch"],
 )
 def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
     tmp_path, roots, monkeypatch, outcome
@@ -159,6 +160,8 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
     def execute(operation, *args):
         operation.safety_scope_checked = True
         operation.start_attempted = True
+        operation.strategy_started = True
+        args[-1]["opening_settlement_count"] = 5
         operation.guard = "guard"
         operation.service_ids = {role: row["id"] for role, row in services.items()}
         operation.stage = "one_strategy_tick"
@@ -182,6 +185,9 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
                 "pending_transaction": False,
                 "signing_unresolved": False,
                 "tick_status": "block 4 | hold",
+                "completed_ticks": 1 if outcome == "failed" else 3,
+                "reconciled_transactions": 1,
+                "bounded_completed": outcome != "failed",
             }
         )
         return subprocess.CompletedProcess(args, 0, tick, b"")
@@ -204,6 +210,10 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
             "stop_markers_present": True,
             "execution_eligible": False,
             "historical_only": True,
+            "services": {
+                role: {"settlement_count": 5 if outcome == "count_mismatch" else 6}
+                for role in worker.ROLES
+            },
         }
 
     monkeypatch.setattr(entry.deploy, "state_preflight", replay)
@@ -212,12 +222,16 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
     monkeypatch.setattr(entry.Run, "docker", docker)
     monkeypatch.setattr(entry.Run, "keyless", keyless)
     output = tmp_path / "evidence"
-    result = entry.run("image", output)
-    expected = "failed" if outcome in {"stop_error", "authority_pending"} else outcome
+    result = entry.run("image", output, ticks=3)
+    expected = (
+        "failed" if outcome in {"stop_error", "authority_pending", "count_mismatch"} else outcome
+    )
     assert result["result"] == expected
     if outcome == "authority_pending":
         assert result["failure_stage"] == "post_stop_replay"
         assert result["post_stop_replay"]["blocked_service"] == "authority"
+    if outcome == "count_mismatch":
+        assert result["failure_stage"] == "post_stop_replay"
     assert ("post_stop_replay" in actions) is (outcome != "stop_error")
     assert actions[:3] == ["stop_strategy", "stop_authority", "restore"]
     assert all((root / "STOP").is_file() for root in roots.values())
@@ -226,6 +240,9 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
     projected = read_bounded_run(output, now=result["finished_at"])
     assert projected.status == ("cleanup_unverified" if outcome == "stop_error" else "stopped")
     assert projected.execution_eligible is False
+    assert projected.requested_ticks == 3
+    if outcome in {"completed", "failed"}:
+        assert projected.completed_ticks == (3 if outcome == "completed" else 1)
 
 
 def test_missing_terminal_never_claims_a_current_service_is_running_or_stopped(tmp_path):
@@ -243,6 +260,24 @@ def test_missing_terminal_never_claims_a_current_service_is_running_or_stopped(t
     assert read_bounded_run(tmp_path, now=1_241).status == "cleanup_unverified"
     (tmp_path / "report.json").write_text("{}")
     assert read_bounded_run(tmp_path, now=1_241).status == "invalid"
+
+
+def test_multi_tick_attempt_projects_the_configured_deadline(tmp_path):
+    attempt = {
+        "schema": "oasis.base-bounded-attempt.v1",
+        "attempt_id": ATTEMPT,
+        "started_at": 1_000,
+        "requested_ticks": 3,
+        "wait_seconds": 1_230,
+        "execution_eligible": False,
+    }
+    entry._retain(tmp_path / "attempt.json", attempt)
+    running = read_bounded_run(tmp_path, now=2_260)
+    assert running.requested_ticks == 3 and running.status == "launch_requested"
+    assert read_bounded_run(tmp_path, now=2_261).status == "cleanup_unverified"
+    (tmp_path / "attempt.json").unlink()
+    entry._retain(tmp_path / "attempt.json", attempt | {"wait_seconds": 210})
+    assert read_bounded_run(tmp_path, now=1_100).status == "invalid"
 
 
 def test_authority_ready_is_local_and_never_overrides_expired_nav(tmp_path, monkeypatch):

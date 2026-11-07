@@ -9,6 +9,7 @@ from typing import Annotated, Literal, cast
 from pydantic import BaseModel, Field
 
 from ..evidence.rpc_validation import strict_json_object
+from ..live.base_run_limits import MAX_TICKS, wait_seconds
 from ..models.common import canonical_json, sha256_hex
 
 MAX_BYTES = 65_536
@@ -33,6 +34,9 @@ class BoundedRunStatus(BaseModel):
     result: RunResult | None = None
     stop_present: dict[Role, bool] | None = None
     start_attempted: bool | None = None
+    requested_ticks: int | None = None
+    completed_ticks: int | None = None
+    reconciled_transactions: int | None = None
     blocker: RunBlocker | None = None
     blocked_service: Role | None = None
 
@@ -121,25 +125,31 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
         except FileNotFoundError:
             attempt = _read(path / "attempt.json")
             started = attempt["started_at"]
+            ticks = attempt.get("requested_ticks", 1)
             if (
                 attempt["schema"] != "oasis.base-bounded-attempt.v1"
                 or type(started) is not int
                 or not 0 <= started <= clock
                 or type(attempt["wait_seconds"]) is not int
-                or attempt["wait_seconds"] != 210
+                or type(ticks) is not int
+                or attempt["wait_seconds"] != wait_seconds(ticks)
             ):
                 raise ValueError("invalid start declaration") from None
             return BoundedRunStatus.model_validate(
                 {
                     "status": "launch_requested"
-                    if clock - started <= 240
+                    if clock - started <= wait_seconds(ticks) + 30
                     else "cleanup_unverified",
                     "attempt_id": attempt["attempt_id"],
                     "as_of": started,
+                    "requested_ticks": ticks,
                 }
             )
         finished, cleanup = raw["finished_at"], raw["cleanup"]
         start_attempted = raw.get("start_attempted")
+        ticks = raw.get("requested_ticks", 1)
+        completed = raw.get("completed_ticks")
+        reconciled = raw.get("reconciled_transactions")
         if (
             raw["schema"] != "oasis.base-bounded-run.v1"
             or type(finished) is not int
@@ -148,6 +158,19 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
             or not isinstance(cleanup, dict)
             or type(cleanup["verified"]) is not bool
             or type(cleanup["services_stopped"]) is not bool
+            or type(ticks) is not int
+            or not 1 <= ticks <= MAX_TICKS
+            or (
+                "completed_ticks" in raw
+                and (
+                    type(completed) is not int
+                    or not 0 <= completed <= ticks
+                    or type(reconciled) is not int
+                    or not 0 <= reconciled <= completed
+                )
+            )
+            or ("completed_ticks" in raw) != ("reconciled_transactions" in raw)
+            or (start_attempted is False and completed is not None)
         ):
             raise ValueError("invalid terminal declaration")
         stops = cleanup["stop_present"]
@@ -164,6 +187,7 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
                     not cleanup["verified"]
                     or raw.get("guard") != "released"
                     or start_attempted is False
+                    or (completed != ticks and (ticks != 1 or completed is not None))
                 )
             )
         ):
@@ -182,6 +206,11 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
                 "result": raw["result"],
                 "stop_present": stops,
                 "start_attempted": attempted,
+                "requested_ticks": ticks,
+                "completed_ticks": 1
+                if completed is None and raw["result"] == "completed"
+                else completed,
+                "reconciled_transactions": reconciled,
                 "blocker": blocker,
                 "blocked_service": role,
             }

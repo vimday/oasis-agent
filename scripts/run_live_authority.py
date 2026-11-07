@@ -24,6 +24,7 @@ from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
 from oasis_agent.live.base_acceptance_rpc import LIMITS as BASE_ACCEPTANCE_LIMITS
 from oasis_agent.live.base_acceptance_rpc import require_endpoint
+from oasis_agent.live.base_run_limits import MAX_TICKS, authority_ttl
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
@@ -54,6 +55,7 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--require-existing-runtime", action="store_true")
     parser.add_argument("--base-acceptance-rpc", action="store_true")
+    parser.add_argument("--bounded-ticks", type=int)
     parser.add_argument("--socket", type=Path)
     parser.add_argument(
         "--status-only",
@@ -75,9 +77,16 @@ def main() -> None:
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
     if args.base_acceptance_rpc and (
-        not args.require_existing_runtime or not args.no_rpc_retry or args.max_signatures != 1
+        not args.require_existing_runtime
+        or not args.no_rpc_retry
+        or args.bounded_ticks is None
+        or not 1 <= args.bounded_ticks <= MAX_TICKS
+        or args.max_signatures != args.bounded_ticks
+        or args.ttl_seconds != authority_ttl(args.bounded_ticks)
     ):
-        parser.error("Base RPC acceptance requires one signature and existing live state")
+        parser.error("Base RPC acceptance requires a matching bounded tick and signature budget")
+    if args.bounded_ticks is not None and not args.base_acceptance_rpc:
+        parser.error("--bounded-ticks requires Base RPC acceptance")
     if args.require_existing_runtime and (args.status_only or args.reconcile_only):
         parser.error("--require-existing-runtime requires a normal production authority")
     if args.status_only:
@@ -221,7 +230,12 @@ def main() -> None:
                 return
             key = load_private_key(key_file=args.key_file, key_env=args.key_env, environ=os.environ)
             provider = _KeyProvider(address_of(key), key)
-            authority = TransactionAuthority(loop, provider, ttl_seconds=args.ttl_seconds)
+            authority = TransactionAuthority(
+                loop,
+                provider,
+                ttl_seconds=args.ttl_seconds,
+                explicit_settlement=args.base_acceptance_rpc,
+            )
             with prepare_endpoint(args.socket) as server:
                 print("oasis authority ready", flush=True)
                 serve_connections(
@@ -230,6 +244,7 @@ def main() -> None:
                     account=config.account,
                     max_signatures=args.max_signatures,
                     ttl_seconds=args.ttl_seconds,
+                    settle=authority.settle if args.base_acceptance_rpc else None,
                 )
 
 

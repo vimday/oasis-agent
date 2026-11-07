@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from ..evidence.store import ReadOnlyEvidenceStore
-from ..models.common import evidence_ref_from_json
+from ..models.common import canonical_json, evidence_ref_from_json, sha256_hex
 from .config import LiveConfig
 from .intent import SubmittedTransaction, pending_plan_hash
 from .state import LoopState, Pending, StateStore
@@ -65,6 +65,42 @@ def authority_status(store: StateStore, c: LiveConfig, nonce: int | None = None)
         "pending": asdict(pending) if pending else None,
         "signing_unresolved": state.signing_attempt is not None,
     }
+
+
+def settlement_digest(state: LoopState, transaction_hash: str) -> str:
+    """Bind the most recent settled receipt to the resulting inventory and gas ledger."""
+    if (
+        state.mode != "live"
+        or state.pending is not None
+        or state.signing_attempt is not None
+        or not state.settled_blocks
+        or state.settled_blocks[-1]["transaction_hash"] != transaction_hash
+        or state.last_units is None
+    ):
+        raise ValueError("matching settled transaction required")
+    action = next(
+        (
+            row
+            for row in reversed(state.history)
+            if row.get("tx") == transaction_hash and isinstance(row.get("transaction"), dict)
+        ),
+        None,
+    )
+    if action is None:
+        raise ValueError("matching settlement action required")
+    p = state.position
+    return sha256_hex(
+        canonical_json(
+            {
+                "receipt": state.settled_blocks[-1],
+                "action": action["event"],
+                "reverted_action": action.get("kind"),
+                "units": state.last_units,
+                "native_gas_units": state.gas_spent_wei,
+                "position": [p.token_id, p.lower, p.upper, p.liquidity] if p else None,
+            }
+        )
+    )
 
 
 def adopt_authority_pending(state: LoopState, c: LiveConfig, status: dict[str, Any]) -> None:
