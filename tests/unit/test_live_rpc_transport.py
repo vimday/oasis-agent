@@ -9,6 +9,7 @@ from urllib.response import addinfourl
 import pytest
 from eth_hash.auto import keccak
 
+from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import (
     ChainError,
     FeePolicy,
@@ -17,7 +18,9 @@ from oasis_agent.live.chain import (
     SubmissionUnknown,
     send_transaction,
 )
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.models.common import canonical_json
+from oasis_agent.rpc.budget import RpcBudget, UsageLimit
 from tests.unit.test_live_intent import EphemeralSigner
 from tests.unit.test_live_lp import CONFIG
 
@@ -61,6 +64,45 @@ def memory_https(monkeypatch, reply):
 def success(request, result=DIGEST):
     request_id = json.loads(request.data)["id"] if request.data is not None else 1
     return canonical_json({"jsonrpc": "2.0", "id": request_id, "result": result})
+
+
+def test_acceptance_read_and_broadcast_share_one_durable_allowance(tmp_path, monkeypatch):
+    profile = LiveRpcProfile(max_requests=8, min_interval_ms=100)
+    path = tmp_path / "live.receipt-budget.db"
+    policies = profile.policies(("live_primary", "live_secondary"))
+    with RpcBudget(path, policies) as budget:
+        budget.reserve("live_primary", now_ms=100)
+        (digest,) = budget.db.execute("SELECT digest FROM rpc_usage WHERE seq=1").fetchone()
+    stat = path.stat()
+    limit = UsageLimit(1, digest, (stat.st_dev, stat.st_ino), 2)
+    calls = memory_https(
+        monkeypatch,
+        lambda request, _: (
+            200,
+            {},
+            success(
+                request,
+                DIGEST
+                if json.loads(request.data)["method"] == "eth_sendRawTransaction"
+                else "0x2105",
+            ),
+        ),
+    )
+    rpc = BudgetedRpc(
+        URL, tmp_path, "live_primary", profile, require_existing_budget=True, usage_limit=limit
+    )
+    stamps = iter((1000, 1100, 1200))
+    rpc.poster.clock = lambda: next(stamps)
+    assert rpc.call("eth_chainId", []) == "0x2105"
+    assert rpc.send_raw(RAW) == DIGEST
+    with pytest.raises(ChainError, match="broadcast RPC reservation refused"):
+        rpc.send_raw(RAW)
+    assert [json.loads(request.data)["method"] for request in calls] == [
+        "eth_chainId",
+        "eth_sendRawTransaction",
+    ]
+    with RpcBudget(path, policies, read_only=True, usage_limit=limit) as budget:
+        assert budget.remaining_under_limit() == 0
 
 
 @pytest.mark.parametrize("code", [301, 302, 303, 307, 308])

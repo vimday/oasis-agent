@@ -22,6 +22,8 @@ from oasis_agent.execution.lp_signer_daemon import (
 )
 from oasis_agent.live.authority import TransactionAuthority
 from oasis_agent.live.authority_socket import serve_connections, serve_status_connections
+from oasis_agent.live.base_acceptance_rpc import LIMITS as BASE_ACCEPTANCE_LIMITS
+from oasis_agent.live.base_acceptance_rpc import require_endpoint
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.config import LiveConfig
 from oasis_agent.live.gas_oracle import require_gas_oracle_pins
@@ -51,6 +53,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--require-existing-runtime", action="store_true")
+    parser.add_argument("--base-acceptance-rpc", action="store_true")
     parser.add_argument("--socket", type=Path)
     parser.add_argument(
         "--status-only",
@@ -71,6 +74,10 @@ def main() -> None:
     parser.add_argument("--no-rpc-retry", action="store_true")
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
+    if args.base_acceptance_rpc and (
+        not args.require_existing_runtime or not args.no_rpc_retry or args.max_signatures != 1
+    ):
+        parser.error("Base RPC acceptance requires one signature and existing live state")
     if args.require_existing_runtime and (args.status_only or args.reconcile_only):
         parser.error("--require-existing-runtime requires a normal production authority")
     if args.status_only:
@@ -160,6 +167,12 @@ def main() -> None:
             except Exception:  # noqa: BLE001 - no raw evidence or local path in diagnostics
                 parser.exit(3, "Authority recovery wallet evidence unresolved; state preserved.\n")
         primary, secondary = os.environ[args.primary_rpc_env], os.environ[config.secondary_rpc_env]
+        usage_limit = BASE_ACCEPTANCE_LIMITS["authority"] if args.base_acceptance_rpc else None
+        if usage_limit is not None:
+            if config.chain_id != 8453:
+                raise ValueError("Base RPC acceptance requires Base")
+            require_endpoint("live_primary", primary)
+            require_endpoint("live_secondary", secondary)
         with closing(
             EvidenceStore(directory / "evidence.db", require_existing=args.require_existing_runtime)
         ) as evidence:
@@ -171,6 +184,7 @@ def main() -> None:
                     "live_primary",
                     profile,
                     require_existing_budget=args.reconcile_only or args.require_existing_runtime,
+                    usage_limit=usage_limit,
                 ),
                 store,
                 "live",
@@ -181,6 +195,7 @@ def main() -> None:
                 "live_secondary",
                 profile,
                 require_existing_budget=args.reconcile_only or args.require_existing_runtime,
+                usage_limit=usage_limit,
             )
             loop.stop_file = directory / "STOP"
             loop.receipt_costs = receipt_cost_reader(
@@ -191,6 +206,7 @@ def main() -> None:
                 secondary,
                 profile=profile,
                 require_existing_budget=args.reconcile_only or args.require_existing_runtime,
+                usage_limit=usage_limit,
                 retries=0 if args.no_rpc_retry else 2,
             )
             if args.reconcile_only:

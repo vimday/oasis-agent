@@ -28,6 +28,8 @@ from tempfile import TemporaryDirectory
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.execution.account_capture import one_shot_session
 from oasis_agent.live.authority_socket import TransactionSocketClient
+from oasis_agent.live.base_acceptance_rpc import LIMITS as BASE_ACCEPTANCE_LIMITS
+from oasis_agent.live.base_acceptance_rpc import require_endpoint
 from oasis_agent.live.budget_rpc import BudgetedRpc
 from oasis_agent.live.chain import Rpc
 from oasis_agent.live.config import LiveConfig
@@ -49,7 +51,7 @@ from oasis_agent.live.startup_state import acquire_existing_lock, inspect_servic
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import live_release, require_live_start
-from oasis_agent.rpc.budget import RpcBudget
+from oasis_agent.rpc.budget import RpcBudget, UsageLimit
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,6 +66,7 @@ def receipt_cost_reader(
     profile: LiveRpcProfile | None = None,
     require_existing_budget: bool = False,
     retries: int = 2,
+    usage_limit: UsageLimit | None = None,
 ) -> RetainedReceiptCostReader:
     """Share live endpoints with bounded, raw-recording cost acquisition sessions."""
     if primary_url.rstrip("/") == secondary_url.rstrip("/"):
@@ -73,7 +76,9 @@ def receipt_cost_reader(
     policies = (profile or LiveRpcProfile()).policies(sources)
     budget = state_dir / "live.receipt-budget.db"
     # Validate the durable cap before a loop can sign. Restarts never reset it.
-    with RpcBudget(budget, policies, require_existing=require_existing_budget):
+    with RpcBudget(
+        budget, policies, require_existing=require_existing_budget, usage_limit=usage_limit
+    ):
         pass
     return RetainedReceiptCostReader(
         store,
@@ -88,6 +93,7 @@ def receipt_cost_reader(
             budget=budget,
             require_existing_budget=require_existing_budget,
             retries=retries,
+            usage_limit=usage_limit,
         ),
     )
 
@@ -109,6 +115,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=ROOT / "configs/live.base-eth-usdc.json")
     parser.add_argument("--state-dir", type=Path, default=ROOT / "data/live")
     parser.add_argument("--require-existing-runtime", action="store_true")
+    parser.add_argument("--base-acceptance-rpc", action="store_true")
     parser.add_argument("--rpc-env", default="BASE_RPC_PRIMARY_ALT")
     parser.add_argument("--signer-socket", type=Path)
     parser.add_argument(
@@ -153,6 +160,8 @@ def main() -> None:
         help="reconcile pending once; optional public authority status only",
     )
     args = parser.parse_args()
+    if args.base_acceptance_rpc and (not args.require_existing_runtime or args.ticks != 1):
+        parser.error("Base RPC acceptance requires one tick on existing live state")
     if args.require_existing_runtime and (
         args.mode != "live"
         or any(
@@ -500,6 +509,12 @@ def main() -> None:
         costs = None
         if args.mode == "live":
             secondary_url = rpc_url(config.secondary_rpc_env)
+            usage_limit = BASE_ACCEPTANCE_LIMITS["strategy"] if args.base_acceptance_rpc else None
+            if usage_limit is not None:
+                if config.chain_id != 8453:
+                    raise ValueError("Base RPC acceptance requires Base")
+                require_endpoint("live_primary", primary_url)
+                require_endpoint("live_secondary", secondary_url)
             evidence = EvidenceStore(
                 args.state_dir / "live.receipts.db", require_existing=args.require_existing_runtime
             )
@@ -513,6 +528,7 @@ def main() -> None:
                 profile=profile,
                 require_existing_budget=args.require_existing_runtime,
                 retries=0 if args.ticks is not None else 2,
+                usage_limit=usage_limit,
             )
             primary = BudgetedRpc(
                 primary_url,
@@ -520,6 +536,7 @@ def main() -> None:
                 "live_primary",
                 profile,
                 require_existing_budget=args.require_existing_runtime,
+                usage_limit=usage_limit,
             )
             secondary = BudgetedRpc(
                 secondary_url,
@@ -527,6 +544,7 @@ def main() -> None:
                 "live_secondary",
                 profile,
                 require_existing_budget=args.require_existing_runtime,
+                usage_limit=usage_limit,
             )
         loop = LiveLoop(
             config,

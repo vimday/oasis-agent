@@ -6,7 +6,7 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 
 from ..errors import RpcError
-from ..rpc.budget import BUDGETED_READ_METHODS, BudgetedPoster, RpcBudget
+from ..rpc.budget import BUDGETED_READ_METHODS, BudgetedPoster, RpcBudget, UsageLimit
 from ..rpc.transport import HttpPoster, JsonRpcTransport, _UrlLibPoster
 from .chain import ChainError, Rpc
 from .rpc_profile import LiveRpcProfile
@@ -56,8 +56,8 @@ class BudgetedReadRefusal(ChainError):
 class BudgetedRpc(Rpc):
     """Budget every read, including head/nonce/receipt polling.
 
-    Broadcasting retains Rpc.send_raw's separate exactly-once path. It is not a
-    read and is never retried or sent through the observation transport.
+    Broadcasts in an acceptance scope reserve an additional slot before using
+    the existing exactly-once transport.
     """
 
     def __init__(
@@ -68,6 +68,7 @@ class BudgetedRpc(Rpc):
         profile: LiveRpcProfile,
         *,
         require_existing_budget: bool = False,
+        usage_limit: UsageLimit | None = None,
     ) -> None:
         super().__init__(url, retries=1)
         policies = profile.policies(("live_primary", "live_secondary"))
@@ -75,19 +76,27 @@ class BudgetedRpc(Rpc):
             raise ValueError("unknown live RPC source")
         self.source = source
         path = directory / "live.receipt-budget.db"
-        with RpcBudget(path, policies, require_existing=require_existing_budget):
+        with RpcBudget(
+            path, policies, require_existing=require_existing_budget, usage_limit=usage_limit
+        ):
             pass
-        self.reads = JsonRpcTransport(
-            "https://unused.invalid",
-            http=BudgetedPoster(
-                _DiagnosticPoster(_UrlLibPoster(url, 10)),
-                path,
-                policies,
-                source,
-                require_existing=require_existing_budget,
-            ),
-            retries=0,
+        self.poster = BudgetedPoster(
+            _DiagnosticPoster(_UrlLibPoster(url, 10)),
+            path,
+            policies,
+            source,
+            require_existing=require_existing_budget,
+            usage_limit=usage_limit,
         )
+        self.reads = JsonRpcTransport("https://unused.invalid", http=self.poster, retries=0)
+
+    def send_raw(self, raw: bytes) -> str:
+        if self.poster.usage_limit is not None:
+            try:
+                self.poster.reserve()
+            except (OSError, ValueError, sqlite3.Error):
+                raise ChainError("broadcast RPC reservation refused") from None
+        return super().send_raw(raw)
 
     def call(self, method: str, params: list[Any]) -> Any:
         try:

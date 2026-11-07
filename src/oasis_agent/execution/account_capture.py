@@ -35,7 +35,7 @@ from ..farming.account_inventory import (
 from ..farming.position_quorum import collect_position_quorum
 from ..risk.account_risk import AccountFrame
 from ..risk.portfolio_manifest import ChainInventory
-from ..rpc.budget import BudgetedPoster, BudgetPolicy
+from ..rpc.budget import BudgetedPoster, BudgetPolicy, UsageLimit
 from ..rpc.transport import JsonRpcTransport, _UrlLibPoster
 from ..shadow.pool_state_capture import (
     collect_slot0_window_quorum,
@@ -58,6 +58,7 @@ def one_shot_session(
     budget: Path,
     require_existing_budget: bool = False,
     retries: int = 0,
+    usage_limit: UsageLimit | None = None,
 ) -> RecordedSession:
     """One fresh session for one declared provider, sharing the caller's budget ledger.
 
@@ -73,10 +74,13 @@ def one_shot_session(
         raise ValueError("capture session retries must be 0..2")
     recorder = BoundedExchangeRecorder()
     http = _UrlLibPoster(urls[source], 15)
-    poster = (
-        BudgetedPoster(http, budget, policies, source, require_existing=True)
-        if require_existing_budget
-        else BudgetedPoster(http, budget, policies, source)
+    poster = BudgetedPoster(
+        http,
+        budget,
+        policies,
+        source,
+        require_existing=require_existing_budget,
+        usage_limit=usage_limit,
     )
     return (
         JsonRpcTransport(

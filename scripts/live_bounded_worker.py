@@ -11,10 +11,10 @@ import time
 from contextlib import ExitStack, closing
 from dataclasses import asdict
 from pathlib import Path
-from urllib.parse import urlsplit
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.evidence.store import ReadOnlyEvidenceStore
+from oasis_agent.live import base_acceptance_rpc as rpc_scope
 from oasis_agent.live.chain import ChainError, Rpc
 from oasis_agent.live.config import LiveConfig, PublicUsdConfig
 from oasis_agent.live.feed_transition import _service_lock
@@ -30,7 +30,6 @@ from oasis_agent.live.wallet import require_wallet_continuity
 from oasis_agent.models.common import canonical_json, evidence_ref_from_json, sha256_hex
 from oasis_agent.rpc.budget import BUDGETED_READ_METHODS, RpcBudget
 from scripts.capture_live_recovery import (
-    PAID_DOMAINS,
     PAID_READ_METHODS,
     ROLES,
     RPC_ENV,
@@ -41,17 +40,6 @@ from scripts.capture_live_recovery import (
 
 ROOTS = {role: Path("/") / role for role in ROLES}
 PROFILE_REQUESTS = 4096
-PREVIOUS_COST_UPPER_MICROS = 20_155
-READ_UPPER_MICROS = 50
-SEND_UPPER_MICROS = 25
-RPC_CEILING_MICROS = 1_000_000
-# A send follows a new budgeted primary eth_estimateGas in send_transaction().
-# Count an extra send for every lifetime strategy primary slot, even failed reads.
-RPC_UPPER_MICROS = (
-    PREVIOUS_COST_UPPER_MICROS
-    + 4 * PROFILE_REQUESTS * READ_UPPER_MICROS
-    + PROFILE_REQUESTS * SEND_UPPER_MICROS
-)
 PRICED_READ_METHODS = frozenset(
     {
         "eth_chainId",
@@ -85,7 +73,7 @@ def require_policy(config, profile) -> None:
         or profile.max_requests != PROFILE_REQUESTS
         or profile.min_interval_ms != 250
         or not BUDGETED_READ_METHODS | PAID_READ_METHODS <= PRICED_READ_METHODS
-        or RPC_UPPER_MICROS >= RPC_CEILING_MICROS
+        or rpc_scope.COST_UPPER_MICROS > rpc_scope.CEILING_MICROS
     ):
         raise ValueError("approved Base risk and cumulative RPC policy required")
 
@@ -93,19 +81,7 @@ def require_policy(config, profile) -> None:
 def endpoints(env: dict[str, str]) -> dict[str, str]:
     urls = {source: env[key] for source, key in zip(SOURCES, RPC_ENV, strict=True)}
     for source, url in urls.items():
-        parsed = urlsplit(url)
-        host, domain = parsed.hostname, PAID_DOMAINS[source]
-        if (
-            parsed.scheme != "https"
-            or not host
-            or not (host == domain or host.endswith("." + domain))
-            or parsed.username is not None
-            or parsed.password is not None
-            or parsed.fragment
-            or parsed.port not in (None, 443)
-            or any(char.isspace() or ord(char) < 32 for char in url)
-        ):
-            raise ValueError("priced HTTPS RPC providers required")
+        rpc_scope.require_endpoint(source, url)
     return urls
 
 
@@ -144,8 +120,34 @@ def _backup(root: Path, attempt: str) -> Path:
 def _budget(root, profile):
     path = root / "live.receipt-budget.db"
     info = require_file(path)
-    with RpcBudget(path, profile.policies(SOURCES), read_only=True) as quota:
-        return {"identity": [info.st_dev, info.st_ino], "counts": quota.counts()}
+    with RpcBudget(
+        path, profile.policies(SOURCES), read_only=True, usage_limit=rpc_scope.LIMITS[root.name]
+    ) as quota:
+        return {
+            "identity": [info.st_dev, info.st_ino],
+            "counts": quota.counts(),
+            "remaining": quota.remaining_under_limit(),
+        }
+
+
+def budget_readiness(profile) -> dict:
+    ledgers = {role: _budget(root, profile) for role, root in ROOTS.items()}
+    used = sum(
+        rpc_scope.LIMITS[role].additional_requests - ledger["remaining"]
+        for role, ledger in ledgers.items()
+    )
+    return {
+        "ceiling_micros": rpc_scope.CEILING_MICROS,
+        "cumulative_reserved_upper_micros": (
+            rpc_scope.PREVIOUS_COST_UPPER_MICROS + rpc_scope.PER_REQUEST_UPPER_MICROS * used
+        ),
+        "cumulative_scope_upper_micros": rpc_scope.COST_UPPER_MICROS,
+        "ledgers": ledgers,
+        "enough_for_capture": (
+            ledgers["strategy"]["remaining"] > sum(CAPTURE_LIMITS["strategy"].values())
+            and ledgers["authority"]["remaining"] > 0
+        ),
+    }
 
 
 def _reader(evidence, config, sessions):
@@ -238,13 +240,22 @@ def capture(config, profile, plan, out):
             ):
                 if a[field] != b[field]:
                     raise ValueError("original service financial history differs")
-            before = {role: _budget(root, profile) for role, root in ROOTS.items()}
+            allowance = budget_readiness(profile)
+            if not allowance["enough_for_capture"]:
+                raise ValueError("insufficient cumulative RPC allowance")
+            before = allowance["ledgers"]
             result.update(
                 original={r: row[3] for r, row in snapshots.items()}, budget_before=before
             )
             stage = "fresh_nav"
             budgets = {r: root / "live.receipt-budget.db" for r, root in ROOTS.items()}
-            control = CaptureControl({"request_limits": CAPTURE_LIMITS}, budgets, profile, out)
+            control = CaptureControl(
+                {"request_limits": CAPTURE_LIMITS},
+                budgets,
+                profile,
+                out,
+                usage_limits=rpc_scope.LIMITS,
+            )
             control.paid = True
             signal.setitimer(signal.ITIMER_REAL, 120)
 
@@ -402,7 +413,7 @@ def restore_stops(attempt: str) -> dict[str, bool]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("capture", "open", "restore"))
+    parser.add_argument("mode", choices=("budget", "capture", "open", "restore"))
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--rpc-profile", type=Path, required=True)
     args = parser.parse_args()
@@ -419,6 +430,9 @@ def main() -> None:
         plan = data["plan"]
         if sha256_hex(canonical_json(asdict(config))) != plan["config_hash"]:
             raise ValueError("capture configuration differs")
+        if args.mode == "budget":
+            print(canonical_json(budget_readiness(profile)).decode())
+            return
         if args.mode == "capture":
             signal.signal(signal.SIGALRM, _deadline)
             out = Path("/tmp/base-preflight")  # nosec B108 - dedicated container tmpfs

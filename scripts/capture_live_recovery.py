@@ -442,9 +442,19 @@ def successful_response(payload, raw, url):
 
 class CaptureControl:
     def __init__(
-        self, plan, budgets, profile, out, *, clock=time.time, monotonic=time.monotonic, sleep=None
+        self,
+        plan,
+        budgets,
+        profile,
+        out,
+        *,
+        clock=time.time,
+        monotonic=time.monotonic,
+        sleep=None,
+        usage_limits=None,
     ):
         self.plan, self.budgets, self.profile = plan, budgets, profile
+        self.usage_limits = usage_limits or {}
         self.clock, self.monotonic = clock, monotonic
         self.cancelled, self.lock = threading.Event(), threading.Lock()
         self.sleep = sleep or self.cancelled.wait
@@ -481,7 +491,10 @@ class CaptureControl:
             while True:
                 self.remaining()
                 with RpcBudget(
-                    self.budgets[role], self.profile.policies(SOURCES), require_existing=True
+                    self.budgets[role],
+                    self.profile.policies(SOURCES),
+                    require_existing=True,
+                    usage_limit=self.usage_limits.get(role),
                 ) as quota:
                     wait = quota.reserve(
                         source, now_ms=int(self.clock() * 1000), admission=self.remaining

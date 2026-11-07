@@ -47,6 +47,28 @@ class BudgetPolicy:
             raise ValueError("RPC interval must be 0..60000 integer milliseconds")
 
 
+@dataclass(frozen=True, slots=True)
+class UsageLimit:
+    """A cumulative sublimit on an existing ledger, anchored to a reviewed prefix."""
+
+    sequence: int
+    digest: str
+    identity: tuple[int, int]
+    additional_requests: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.sequence) is not int
+            or self.sequence < 1
+            or re.fullmatch(r"[0-9a-f]{64}", self.digest) is None
+            or len(self.identity) != 2
+            or any(type(part) is not int or part < 1 for part in self.identity)
+            or type(self.additional_requests) is not int
+            or self.additional_requests < 1
+        ):
+            raise ValueError("invalid cumulative RPC sublimit")
+
+
 class RpcBudget:
     def __init__(
         self,
@@ -55,6 +77,7 @@ class RpcBudget:
         *,
         require_existing: bool = False,
         read_only: bool = False,
+        usage_limit: UsageLimit | None = None,
     ):
         if not policies or len({item.source for item in policies}) != len(policies):
             raise ValueError("distinct RPC budget policies required")
@@ -64,6 +87,9 @@ class RpcBudget:
         )
         self.policy_hash = sha256_hex(payload)
         require_existing = require_existing or read_only
+        self.path, self.usage_limit = path, usage_limit
+        if usage_limit is not None and not require_existing:
+            raise ValueError("RPC sublimit requires the original ledger")
         self.db = sqlite3.connect(
             path.resolve().as_uri() + ("?mode=ro" if read_only else "?mode=rw")
             if require_existing
@@ -89,7 +115,7 @@ class RpcBudget:
                 payload,
             ):
                 raise ValueError("RPC budget policy changed; refusing reset or increased cap")
-            self._read()
+            self._check_limit(self._read()[2])
             if not read_only:
                 self.db.commit()
         except Exception:
@@ -137,6 +163,32 @@ class RpcBudget:
             sequence, previous = seq, digest
         return counts, last, sequence, previous
 
+    def _check_limit(self, sequence: int) -> int | None:
+        limit = self.usage_limit
+        if limit is None:
+            return None
+        info = self.path.stat(follow_symlinks=False)
+        if (
+            self.path.is_symlink()
+            or (info.st_dev, info.st_ino) != limit.identity
+            or sequence < limit.sequence
+            or self.db.execute(
+                "SELECT digest FROM rpc_usage WHERE seq=?", (limit.sequence,)
+            ).fetchone()
+            != (limit.digest,)
+        ):
+            raise ValueError("original RPC sublimit checkpoint differs")
+        remaining = limit.sequence + limit.additional_requests - sequence
+        if remaining < 0:
+            raise ValueError("RPC sublimit already exceeded")
+        return remaining
+
+    def remaining_under_limit(self) -> int:
+        remaining = self._check_limit(self._read()[2])
+        if remaining is None:
+            raise ValueError("RPC sublimit was not supplied")
+        return remaining
+
     def reserve(
         self,
         source: str,
@@ -160,6 +212,8 @@ class RpcBudget:
         self.db.execute("BEGIN IMMEDIATE")
         try:
             counts, last, seq, previous = self._read()
+            if self._check_limit(seq) == 0:
+                raise ValueError("cumulative RPC sublimit exhausted")
             if admission is not None:
                 admission()
             policy = self.policies[source]
@@ -236,11 +290,12 @@ class BudgetedPoster:
         clock: Callable[[], int] | None = None,
         sleep: Callable[[float], None] = time.sleep,
         require_existing: bool = False,
+        usage_limit: UsageLimit | None = None,
     ):
         self.http, self.path, self.policies, self.source = http, path, policies, source
         self.clock = clock or (lambda: time.time_ns() // 1_000_000)
         self.sleep = sleep
-        self.require_existing = require_existing
+        self.require_existing, self.usage_limit = require_existing, usage_limit
 
     def post(self, payload: bytes) -> bytes:
         request = json.loads(
@@ -269,11 +324,18 @@ class BudgetedPoster:
                 != {"tracer": "callTracer", "timeout": "5s", "tracerConfig": {"onlyTopCall": False}}
             ):
                 raise ValueError("only bounded complete callTracer observation is allowed")
+        self.reserve()
+        return self.http.post(payload)
+
+    def reserve(self) -> None:
         while True:
             with RpcBudget(
-                self.path, self.policies, require_existing=self.require_existing
+                self.path,
+                self.policies,
+                require_existing=self.require_existing,
+                usage_limit=self.usage_limit,
             ) as budget:
                 wait = budget.reserve(self.source, now_ms=self.clock())
             if not wait:
-                return self.http.post(payload)
+                return
             self.sleep(wait / 1000)

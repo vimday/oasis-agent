@@ -47,18 +47,29 @@ Do not start the services or remove the links or guard blindly. Ordinary run
 failure, timeout, SIGTERM and SIGINT go through the same cleanup path.
 
 Risk limits remain USD 500 total capital, USD 200 daily loss, USD 500 cumulative
-loss and a 1,800-second USD feed limit. The cumulative RPC ceiling is USD 1,
-never refreshed per run. The bound reserves USD 0.020155 for the earlier
-acceptance, USD 0.000050 for each of the four existing 4,096-slot service/source
-read budgets, and another USD 0.000025 for a send for every lifetime strategy
-primary slot. Each send needs a new primary gas estimation before submission.
-The resulting worst-case reservation is USD 0.941755. This assumes the original
-ledgers, the two named providers' published usage pricing, and no out-of-band
-usage charged to this acceptance. It is a conservative usage bound, not a
-provider invoice. If tariffs or provider routing change, review this bound before
-running. References: [Alchemy pricing](https://www.alchemy.com/docs/reference/pricing-plans),
+loss and a 1,800-second USD feed limit. The bounded entry uses the cumulative
+USD 0.10 RPC ceiling for this acceptance. It carries forward the USD 0.020155
+conservative cost allowance recorded in terminal evidence
+`bc0069eb7645eae2b778149d01cd29827046bbdc124668eda607c61ff01630a0`.
+The original strategy and authority ledger prefixes at sequences 2259 and 2011
+were independently re-read offline and matched the retained counters and file
+identities. The scope allows at most 750 further reservations per ledger.
+At USD 0.000050 per reservation, including a separately reserved slot per
+broadcast, the cumulative upper bound is USD 0.095155. The bound relies on
+the retained conservative price assumptions for the two declared providers
+and leaves provider invoice verification outstanding. Check rates and confirm
+current authorization before online use.
+
+The initial budget check is network-isolated and read-only. A different ledger
+identity or prefix, insufficient allowance, or an unpriced provider prevents
+capture. The capture worker and both services enforce the same limits in
+their existing reservation transactions. Restarting keeps the remaining balance.
+A failed request still consumes its reservation. Neither the ledger tables nor
+their original request policies are migrated by the bounded entry.
+
+Pricing assumptions refer to [Alchemy pricing](https://www.alchemy.com/docs/reference/pricing-plans),
 [Alchemy method costs](https://www.alchemy.com/docs/reference/compute-unit-costs),
-[dRPC method costs](https://drpc.org/docs/pricing/compute-units).
+and [dRPC method costs](https://drpc.org/docs/pricing/compute-units).
 
 For the read-only dashboard, set `databases.live_bounded_run` to that exact output
 directory. The page distinguishes an issued start request, historical verified

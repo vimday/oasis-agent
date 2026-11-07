@@ -14,6 +14,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
+from oasis_agent.live import base_acceptance_rpc as rpc_scope
 from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_start
@@ -193,7 +194,11 @@ class Run:
             "/tmp:rw,noexec,nosuid,nodev,size=67108864",  # nosec B108 - private tmpfs
         ]
         for role in ROLES:
-            readonly = ",readonly" if mode == "capture" and role == "authority" else ""
+            readonly = (
+                ",readonly"
+                if mode == "budget" or (mode == "capture" and role == "authority")
+                else ""
+            )
             volume = deploy.VOLUMES[f"{role}-state"]
             args += ["--mount", f"type=volume,src={volume},dst=/{role},volume-nocopy{readonly}"]
         network = mode == "capture"
@@ -264,6 +269,7 @@ class Run:
         for service in document["services"].values():
             service["labels"] = {RUN_LABEL: self.attempt}
             service["stop_grace_period"] = "8s"
+            service["command"].append("--base-acceptance-rpc")
             for mount in service["volumes"]:
                 mount["volume"] = {"nocopy": True}
         authority = document["services"]["authority"]["command"]
@@ -286,8 +292,8 @@ class Run:
             "compose_hash": policy["compose_hash"],
             "docker_host_hash": sha256_hex(host.encode()),
             "endpoint_hashes": {source: sha256_hex(url.encode()) for source, url in urls.items()},
-            "rpc_ceiling_micros": worker.RPC_CEILING_MICROS,
-            "rpc_lifetime_upper_micros": worker.RPC_UPPER_MICROS,
+            "rpc_ceiling_micros": rpc_scope.CEILING_MICROS,
+            "rpc_lifetime_upper_micros": rpc_scope.COST_UPPER_MICROS,
             "capture_request_limits": worker.CAPTURE_LIMITS,
             "requested_ticks": 1,
             "automatic_retries": 0,
@@ -308,6 +314,15 @@ class Run:
             raise ValueError("stop both services before using this entry")
         self.safety_scope_checked = True
         _retain(self.output / "original-containers.json", {"services": old})
+        self.stage = "cumulative_rpc_budget"
+        budget = strict_json_object(self.keyless("budget", {"plan": plan}, timeout=25).stdout)
+        report["rpc_budget"] = budget
+        if (
+            budget.get("ceiling_micros") != rpc_scope.CEILING_MICROS
+            or budget.get("cumulative_scope_upper_micros") != rpc_scope.COST_UPPER_MICROS
+            or budget.get("enough_for_capture") is not True
+        ):
+            raise ValueError("insufficient cumulative RPC allowance")
         self.stage = "fresh_evidence"
         capture = self.keyless("capture", {"plan": plan}, timeout=150, check=False)
         fresh = _archive(capture.stdout, self.output / "capture")
@@ -536,7 +551,7 @@ def run(image: str, output: Path) -> dict:
         "result": "failed",
         "execution_eligible": False,
         "requested_ticks": 1,
-        "rpc_ceiling_micros": worker.RPC_CEILING_MICROS,
+        "rpc_ceiling_micros": rpc_scope.CEILING_MICROS,
     }
     completed = False
     try:

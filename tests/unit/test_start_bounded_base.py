@@ -216,3 +216,22 @@ def test_authority_ready_is_local_and_never_overrides_expired_nav(tmp_path, monk
     with pytest.raises(TimeoutError, match="fresh NAV deadline"):
         operation.wait_for_authority(104)
     assert len(calls) == 1
+
+
+def test_uncertain_rpc_budget_refuses_before_capture(tmp_path, monkeypatch):
+    operation = entry.Run("image", tmp_path)
+    monkeypatch.setattr(operation, "prepare", lambda *_: ({"test": True}, {}))
+    monkeypatch.setattr(operation, "project", lambda: {})
+    checked = []
+
+    def keyless(mode, payload, **kwargs):
+        checked.append(mode)
+        return subprocess.CompletedProcess(
+            [], 0, canonical_json({"enough_for_capture": True, "ceiling_micros": 1_000_000}), b""
+        )
+
+    monkeypatch.setattr(operation, "keyless", keyless)
+    with pytest.raises(ValueError, match="insufficient cumulative RPC allowance"):
+        operation.execute("test", 4096, {}, {})
+    assert checked == ["budget"]
+    assert operation.stage == "cumulative_rpc_budget"

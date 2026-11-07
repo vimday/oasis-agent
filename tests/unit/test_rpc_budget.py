@@ -3,11 +3,12 @@
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from threading import Event
 
 import pytest
 
-from oasis_agent.rpc.budget import BudgetedPoster, BudgetPolicy, RpcBudget
+from oasis_agent.rpc.budget import BudgetedPoster, BudgetPolicy, RpcBudget, UsageLimit
 
 
 def policies():
@@ -344,3 +345,42 @@ def test_guard_cancellation_rolls_back_even_base_exception(tmp_path):
         with pytest.raises(Cancelled):
             budget.reserve("paid", now_ms=1000, admission=cancel)
         assert not budget.db.in_transaction and budget.counts()["paid"] == 0
+
+
+def test_cumulative_sublimit_survives_restart_and_covers_both_sources(tmp_path):
+    path = tmp_path / "budget.db"
+    with RpcBudget(path, policies()) as budget:
+        budget.reserve("public", now_ms=1000)
+        (digest,) = budget.db.execute("SELECT digest FROM rpc_usage WHERE seq=1").fetchone()
+    info = path.stat()
+    limit = UsageLimit(1, digest, (info.st_dev, info.st_ino), 2)
+    with RpcBudget(path, policies(), require_existing=True, usage_limit=limit) as budget:
+        assert budget.reserve("public", now_ms=2000) == 0
+    with RpcBudget(path, policies(), require_existing=True, usage_limit=limit) as budget:
+        assert budget.reserve("paid", now_ms=2000) == 0
+    with RpcBudget(path, policies(), require_existing=True, usage_limit=limit) as budget:
+        with pytest.raises(ValueError, match="cumulative RPC sublimit exhausted"):
+            budget.reserve("public", now_ms=3000)
+        assert budget.counts() == {"public": 2, "paid": 1}
+        assert budget.remaining_under_limit() == 0
+
+
+def test_cumulative_sublimit_requires_verified_prefix_and_original_file(tmp_path):
+    path = tmp_path / "budget.db"
+    with RpcBudget(path, policies()) as budget:
+        budget.reserve("public", now_ms=1000)
+        (digest,) = budget.db.execute("SELECT digest FROM rpc_usage WHERE seq=1").fetchone()
+    info = path.stat()
+    limit = UsageLimit(1, digest, (info.st_dev, info.st_ino), 2)
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="checkpoint differs"):
+        RpcBudget(path, policies(), read_only=True, usage_limit=replace(limit, digest="a" * 64))
+    assert path.read_bytes() == before
+    replacement = path.with_suffix(".replacement")
+    with RpcBudget(replacement, policies()) as budget:
+        budget.reserve("public", now_ms=1000)
+        assert budget.db.execute("SELECT digest FROM rpc_usage WHERE seq=1").fetchone() == (digest,)
+    replacement.replace(path)
+    with pytest.raises(ValueError, match="checkpoint differs"):
+        RpcBudget(path, policies(), read_only=True, usage_limit=limit)
+    assert path.read_bytes() == before
