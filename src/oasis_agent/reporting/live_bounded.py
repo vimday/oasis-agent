@@ -61,7 +61,12 @@ def _read(path: Path) -> dict[str, object]:
 
 def _rpc_budget_insufficient(raw: dict[str, object]) -> bool:
     budget = raw.get("rpc_budget")
-    if not isinstance(budget, dict) or budget.get("enough_for_capture") is not False:
+    if not isinstance(budget, dict):
+        return False
+    # Earlier reports only admitted enough quota for a fresh capture.
+    if budget.get("enough_for_run", budget.get("enough_for_capture")) is not False:
+        return False
+    if "enough_for_run" in budget and budget.get("requested_ticks") != raw.get("requested_ticks"):
         return False
     used = budget.get("cumulative_reserved_upper_micros")
     scope = budget.get("cumulative_scope_upper_micros")

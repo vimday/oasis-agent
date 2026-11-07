@@ -331,7 +331,8 @@ class Run:
         if (
             budget.get("ceiling_micros") != rpc_scope.CEILING_MICROS
             or budget.get("cumulative_scope_upper_micros") != rpc_scope.COST_UPPER_MICROS
-            or budget.get("enough_for_capture") is not True
+            or budget.get("requested_ticks") != self.ticks
+            or budget.get("enough_for_run") is not True
         ):
             raise ValueError("insufficient cumulative RPC allowance")
         self.stage = "fresh_evidence"

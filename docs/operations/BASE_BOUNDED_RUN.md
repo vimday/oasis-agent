@@ -62,21 +62,31 @@ failure, timeout, SIGTERM and SIGINT go through the same cleanup path.
 
 Risk limits remain USD 500 total capital, USD 200 daily loss, USD 500 cumulative
 loss and a 1,800-second USD feed limit. The bounded entry uses the cumulative
-USD 0.10 RPC ceiling for this acceptance. It carries forward the USD 0.020155
+USD 3 cumulative RPC ceiling for this acceptance. It carries forward the USD 0.020155
 conservative cost allowance recorded in terminal evidence
 `bc0069eb7645eae2b778149d01cd29827046bbdc124668eda607c61ff01630a0`.
 The original strategy and authority ledger prefixes at sequences 2259 and 2011
 were independently re-read offline and matched the retained counters and file
-identities. The scope allows at most 750 further reservations per ledger.
+identities. The scope allows at most 4,600 strategy and 3,600 authority
+reservations after those original prefixes, including all reservations already
+recorded after them.
 At USD 0.000050 per reservation, including a separately reserved slot per
-broadcast, the cumulative upper bound is USD 0.095155. The bound relies on
+broadcast, the cumulative upper bound is USD 0.430155. The bound relies on
 the retained conservative price assumptions for the two declared providers
 and leaves provider invoice verification outstanding. Check rates and confirm
 current authorization before online use.
 
 The initial budget check is network-isolated and read-only. A different ledger
 identity or prefix, insufficient allowance, or an unpriced provider prevents
-capture. The capture worker and both services enforce the same limits in
+capture. Admission checks the total and each provider's balance on each ledger.
+It includes the maximum NAV capture, one action per tick, independent signing
+simulation, receipt polling, and cash reconciliation over the full supported
+128-block interval. It also accounts for rechecking the existing anchors and
+any new anchors from earlier ticks. An operator-run unsigned rehearsal uses the
+strategy ledger and must fit alongside that admission budget before it starts.
+The worker rechecks the runtime allowance after capture, and STOP handoff
+requires the exact budget state recorded by that capture. Both services enforce
+their existing reservation limits in
 their existing reservation transactions. Restarting keeps the remaining balance.
 A failed request still consumes its reservation. Neither the ledger tables nor
 their original request policies are migrated by the bounded entry.

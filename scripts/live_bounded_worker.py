@@ -58,7 +58,10 @@ PRICED_READ_METHODS = frozenset(
         "eth_estimateGas",
     }
 )
-CAPTURE_LIMITS = {"strategy": dict.fromkeys(SOURCES, 80), "authority": dict.fromkeys(SOURCES, 0)}
+CAPTURE_LIMITS = {
+    "strategy": dict.fromkeys(SOURCES, rpc_scope.CAPTURE_PER_SOURCE),
+    "authority": dict.fromkeys(SOURCES, 0),
+}
 ARCHIVE_FILES = frozenset({"report.json", "wire.jsonl", "fresh-evidence.db"})
 
 
@@ -117,7 +120,7 @@ def _backup(root: Path, attempt: str) -> Path:
     return root / f".STOP.bounded-{attempt}"
 
 
-def _budget(root, profile):
+def _budget(root, profile) -> rpc_scope.LedgerBudget:
     path = root / "live.receipt-budget.db"
     info = require_file(path)
     with RpcBudget(
@@ -130,12 +133,13 @@ def _budget(root, profile):
         }
 
 
-def budget_readiness(profile) -> dict:
+def budget_readiness(profile, ticks: int, opening_settlements: int) -> dict:
     ledgers = {role: _budget(root, profile) for role, root in ROOTS.items()}
     used = sum(
         rpc_scope.LIMITS[role].additional_requests - ledger["remaining"]
         for role, ledger in ledgers.items()
     )
+    required = rpc_scope.run_requests(ticks, opening_settlements, include_capture=True)
     return {
         "ceiling_micros": rpc_scope.CEILING_MICROS,
         "cumulative_reserved_upper_micros": (
@@ -143,11 +147,24 @@ def budget_readiness(profile) -> dict:
         ),
         "cumulative_scope_upper_micros": rpc_scope.COST_UPPER_MICROS,
         "ledgers": ledgers,
-        "enough_for_capture": (
-            ledgers["strategy"]["remaining"] > sum(CAPTURE_LIMITS["strategy"].values())
-            and ledgers["authority"]["remaining"] > 0
-        ),
+        "requested_ticks": ticks,
+        "opening_settlement_count": opening_settlements,
+        "required_requests": required,
+        "enough_for_run": rpc_scope.covers_requests(ledgers, required, profile.max_requests),
     }
+
+
+def _opening_settlements() -> int:
+    counts = {
+        len(
+            StateStore(paths(root, role)[0], require_existing=True)
+            .load("live", read_only=True)
+            .settled_blocks
+        )
+        for role, root in ROOTS.items()
+    }
+    (count,) = counts
+    return count
 
 
 def _reader(evidence, config, sessions):
@@ -211,6 +228,7 @@ def capture(config, profile, plan, out):
         "schema": "oasis.base-bounded-fresh.v1",
         "attempt_id": plan["attempt_id"],
         "config_hash": plan["config_hash"],
+        "requested_ticks": plan["requested_ticks"],
         "passed": False,
         "execution_eligible": False,
     }
@@ -240,9 +258,10 @@ def capture(config, profile, plan, out):
             ):
                 if a[field] != b[field]:
                     raise ValueError("original service financial history differs")
-            allowance = budget_readiness(profile)
-            if not allowance["enough_for_capture"]:
-                raise ValueError("insufficient cumulative RPC allowance")
+            ticks, opening = plan["requested_ticks"], a["settlement_count"]
+            allowance = budget_readiness(profile, ticks, opening)
+            if not allowance["enough_for_run"]:
+                raise ValueError("insufficient cumulative RPC allowance for bounded run")
             before = allowance["ledgers"]
             result.update(
                 original={r: row[3] for r, row in snapshots.items()}, budget_before=before
@@ -320,6 +339,9 @@ def capture(config, profile, plan, out):
                 if current != result["original"][role]:
                     raise ValueError("original stopped service changed during capture")
                 checks[role]()
+            required = rpc_scope.run_requests(ticks, opening, include_capture=False)
+            if not rpc_scope.covers_requests(after, required, profile.max_requests):
+                raise ValueError("remaining RPC allowance cannot cover bounded runtime")
             result.update(passed=True, budget_after=after)
     except Exception as error:  # noqa: BLE001 - retain only redacted diagnostics
         result.update(failure_stage=stage, error_type=type(error).__name__)
@@ -352,6 +374,7 @@ def open_stops(config, profile, plan, fresh) -> dict:
         or proof.get("passed") is not True
         or proof.get("config_hash") != plan["config_hash"]
         or proof.get("attempt_id") != plan["attempt_id"]
+        or proof.get("requested_ticks") != plan["requested_ticks"]
     ):
         raise ValueError("verified current capture required")
     with ExitStack() as locks:
@@ -431,7 +454,8 @@ def main() -> None:
         if sha256_hex(canonical_json(asdict(config))) != plan["config_hash"]:
             raise ValueError("capture configuration differs")
         if args.mode == "budget":
-            print(canonical_json(budget_readiness(profile)).decode())
+            budget = budget_readiness(profile, plan["requested_ticks"], _opening_settlements())
+            print(canonical_json(budget).decode())
             return
         if args.mode == "capture":
             signal.signal(signal.SIGALRM, _deadline)

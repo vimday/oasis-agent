@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from oasis_agent.live import base_acceptance_rpc as rpc_scope
 from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_bounded import read_bounded_run
@@ -73,7 +74,7 @@ def test_handoff_preserves_both_original_markers_after_full_or_partial_open(
     roots, monkeypatch, fail_second_unlink
 ):
     config_hash = "b" * 64
-    plan = {"attempt_id": ATTEMPT, "config_hash": config_hash}
+    plan = {"attempt_id": ATTEMPT, "config_hash": config_hash, "requested_ticks": 1}
     original = {
         role: {
             "inspection": {"rpc_remaining": {}},
@@ -315,3 +316,59 @@ def test_uncertain_rpc_budget_refuses_before_capture(tmp_path, monkeypatch):
         operation.execute("test", 4096, {}, {})
     assert checked == ["budget"]
     assert operation.stage == "cumulative_rpc_budget"
+
+
+@pytest.mark.parametrize("short_role", ["strategy", "authority"])
+def test_three_tick_budget_checks_both_ledgers_before_capture(tmp_path, monkeypatch, short_role):
+    operation = entry.Run("image", tmp_path, ticks=3)
+    plan = {"requested_ticks": 3}
+    monkeypatch.setattr(operation, "prepare", lambda *_: (plan, {}))
+    monkeypatch.setattr(operation, "project", lambda: {})
+    need = rpc_scope.run_requests(3, 5, include_capture=True)
+    ledgers = {
+        role: {"remaining": sum(requests.values()), "counts": dict.fromkeys(worker.SOURCES, 10)}
+        for role, requests in need.items()
+    }
+    ledgers[short_role]["remaining"] -= 1
+    monkeypatch.setattr(worker, "_budget", lambda root, _: ledgers[root.name])
+    checked = []
+
+    def keyless(mode, payload, **kwargs):
+        checked.append(mode)
+        assert payload["plan"]["requested_ticks"] == 3
+        profile = SimpleNamespace(max_requests=4096)
+        budget = worker.budget_readiness(profile, 3, 5)
+        assert budget["enough_for_run"] is False
+        assert worker.budget_readiness(profile, 2, 5)["enough_for_run"] is True
+        return subprocess.CompletedProcess([], 0, canonical_json(budget), b"")
+
+    monkeypatch.setattr(operation, "keyless", keyless)
+    with pytest.raises(ValueError, match="insufficient cumulative RPC allowance"):
+        operation.execute("test", 4096, {}, {})
+    assert checked == ["budget"]
+
+
+def test_three_tick_budget_includes_bounded_cash_proofs_and_provider_capacity():
+    runtime = rpc_scope.run_requests(3, 5, include_capture=False)
+    full = rpc_scope.run_requests(3, 5, include_capture=True)
+    assert full == {
+        "strategy": {"live_primary": 2135, "live_secondary": 1751},
+        "authority": {"live_primary": 1671, "live_secondary": 1671},
+    }
+    assert all(full["strategy"][s] - runtime["strategy"][s] == 80 for s in worker.SOURCES)
+    assert runtime["authority"] == full["authority"]
+    # Counts from the retained two-tick postflight plus the bounded rehearsal.
+    ledgers = {
+        "strategy": {
+            "remaining": rpc_scope.LIMITS["strategy"].additional_requests - 523 - 55,
+            "counts": {"live_primary": 1506, "live_secondary": 1331},
+        },
+        "authority": {
+            "remaining": rpc_scope.LIMITS["authority"].additional_requests,
+            "counts": {"live_primary": 1015, "live_secondary": 996},
+        },
+    }
+    assert rpc_scope.covers_requests(ledgers, full, 4096)
+    ledgers["authority"]["counts"]["live_secondary"] = 4096 - 1671 + 1
+    assert not rpc_scope.covers_requests(ledgers, full, 4096)
+    assert rpc_scope.COST_UPPER_MICROS == 430_155 < rpc_scope.CEILING_MICROS == 3_000_000

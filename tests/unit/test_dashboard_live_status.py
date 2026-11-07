@@ -578,6 +578,19 @@ def test_bounded_run_endpoint_and_label_distinguish_safe_blockers(tmp_path):
             "start_attempted": False,
             "rpc_budget": {**budget, "ceiling_micros": True},
         },
+        "three_tick_shortfall": {
+            "failure_stage": "cumulative_rpc_budget",
+            "start_attempted": False,
+            "requested_ticks": 3,
+            "rpc_ceiling_micros": 3_000_000,
+            "rpc_budget": {
+                "ceiling_micros": 3_000_000,
+                "cumulative_reserved_upper_micros": 46_305,
+                "cumulative_scope_upper_micros": 430_155,
+                "requested_ticks": 3,
+                "enough_for_run": False,
+            },
+        },
         "budget_missing": {"failure_stage": "cumulative_rpc_budget", "start_attempted": False},
         "reconcile": {
             "failure_stage": "post_stop_replay",
@@ -616,6 +629,8 @@ def test_bounded_run_endpoint_and_label_distinguish_safe_blockers(tmp_path):
         assert client.post("/api/v1/live/status").status_code == 405
 
     assert rows["insufficient"]["blocker"] == "rpc_budget_insufficient"
+    assert rows["three_tick_shortfall"]["blocker"] == "rpc_budget_insufficient"
+    assert rows["three_tick_shortfall"]["requested_ticks"] == 3
     assert rows["unverified"]["blocker"] == "rpc_budget_unverified"
     assert rows["budget_missing"]["blocker"] == "rpc_budget_unverified"
     assert rows["reconcile"]["blocked_service"] == "authority"
