@@ -8,17 +8,20 @@ import time
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
 
 import pytest
 from eth_hash.auto import keccak
 
 from oasis_agent.evidence.store import EvidenceStore
-from oasis_agent.live import valuation
+from oasis_agent.live import budget_rpc, valuation
 from oasis_agent.live.chain import ChainError
 from oasis_agent.live.receipts import RetainedReceiptCostReader
+from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import FULL_OBSERVATION_SECONDS, LiveLoop
 from oasis_agent.live.state import StateStore, day_of
 from oasis_agent.models.common import BlockRef
+from scripts.run_live_lp import run_bounded
 from tests.unit.test_live_lp import HELD, TICK, LightRpc, loop_with
 from tests.unit.test_live_receipt_costs import position_config
 from tests.unit.test_live_valuation import NavFixture
@@ -97,6 +100,32 @@ def test_light_hold_spends_only_head_slot0_and_liquidity(tmp_path, monkeypatch, 
     status = loop._tick()
     assert status.startswith("block 500 light hold in range") and loop.state.halted is None
     assert (a.calls, b.calls) == (3, 2)
+
+
+def test_light_hold_http_429_stops_the_bounded_run_without_fallback(tmp_path, monkeypatch, request):
+    url = "https://secondary.invalid/private-credential"
+    attempted = []
+
+    class RateLimited:
+        def post(self, payload):
+            attempted.append(payload)
+            raise HTTPError(url, 429, "private-provider-message", {}, None)
+
+    monkeypatch.setattr(budget_rpc, "_UrlLibPoster", lambda *_: RateLimited())
+    primary = LightRpc(TICK, HELD.liquidity)
+    secondary = budget_rpc.BudgetedRpc(url, tmp_path, "live_secondary", LiveRpcProfile())
+    loop = light_loop(tmp_path, primary, secondary, monkeypatch, request)
+    monkeypatch.setattr(
+        "oasis_agent.live.runner.time.sleep", lambda *_: pytest.fail("bounded run continued")
+    )
+
+    result = run_bounded(loop, 3, poll_seconds=300, until=None, authority=None)
+
+    assert result["completed_ticks"] == 1 and result["bounded_completed"] is False
+    assert result["tick_status"] == (
+        "skip: budgeted live RPC read refused: live_secondary eth_call http_429; details redacted"
+    )
+    assert primary.calls == 3 and len(attempted) == 1
 
 
 @pytest.mark.parametrize(

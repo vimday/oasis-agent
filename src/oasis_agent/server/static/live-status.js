@@ -188,6 +188,7 @@ const BOUNDED_RESULT = {
 const BOUNDED_BLOCKER = {
   rpc_budget_insufficient: "累计 RPC 额度不足",
   rpc_budget_unverified: "累计 RPC 预算未核验",
+  rpc_provider_rate_limited: "前置采集遇到 RPC 服务限流",
   post_stop_reconciliation_required: "待核查停机或对账",
   post_stop_replay_unverified: "停机后对账未核验",
 };
@@ -230,6 +231,7 @@ export function boundedRunLabel(row) {
       BOUNDED_STATUS[row.status] + " · 计划 " + requested + " 轮";
   }
   if (blocker?.startsWith("rpc_budget_") && attempted !== false ||
+      blocker === "rpc_provider_rate_limited" && (attempted !== false || row.result !== "failed") ||
       blocker?.startsWith("post_stop_") && (attempted !== true || row.status !== "stopped") ||
       (blocker === "post_stop_reconciliation_required") !== (role !== null)) return null;
   const status = row.status === "stopped" && attempted === false

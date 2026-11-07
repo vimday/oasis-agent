@@ -349,6 +349,8 @@ def capture(config, profile, plan, out):
         signal.setitimer(signal.ITIMER_REAL, 0)
         if control is not None:
             result["request_counts"] = control.counts
+            if control.rate_limited_sources:
+                result["rpc_rate_limited_sources"] = sorted(control.rate_limited_sources)
             control.cancelled.set()
             control.wire.close()
     result["artifacts"] = {

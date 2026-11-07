@@ -322,6 +322,36 @@ def test_request_cap_does_not_spend_an_extra_reservation(tmp_path):
         control.wire.close()
 
 
+def test_rate_limited_capture_records_the_source_and_cancels_without_retry(tmp_path):
+    budget = tmp_path / "budget.db"
+    with RpcBudget(budget, PROFILE.policies(SOURCES)):
+        pass
+    plan = {"request_limits": {role: dict.fromkeys(SOURCES, 2) for role in cli.ROLES}}
+    control = cli.CaptureControl(plan, dict.fromkeys(cli.ROLES, budget), PROFILE, tmp_path)
+    calls = []
+
+    class RateLimited:
+        def post(self, payload):
+            calls.append(payload)
+            raise HTTPError(URLS[SOURCES[1]], 429, "private-provider-message", {}, None)
+
+    with closing(control.wire):
+        payload = canonical_json({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []})
+        with pytest.raises(HTTPError):
+            control.post(
+                "strategy", SOURCES[1], payload, URLS[SOURCES[1]], lambda *_: RateLimited()
+            )
+        with pytest.raises(ValueError, match="cancelled"):
+            control.post(
+                "strategy", SOURCES[0], payload, URLS[SOURCES[0]], lambda *_: RateLimited()
+            )
+        assert control.rate_limited_sources == {SOURCES[1]}
+        assert len(calls) == 1
+        with RpcBudget(budget, PROFILE.policies(SOURCES), read_only=True) as quota:
+            assert quota.counts() == {SOURCES[0]: 0, SOURCES[1]: 1}
+    assert "private-provider-message" not in (tmp_path / "wire.jsonl").read_text()
+
+
 def test_shared_poster_caps_one_read_and_keeps_redirect_guard(monkeypatch):
     calls = []
     bodies = []

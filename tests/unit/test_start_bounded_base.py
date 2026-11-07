@@ -1,7 +1,9 @@
 """Safety coverage for the Base one-shot operator boundary; no real provider or key."""
 
+import io
 import os
 import subprocess
+import tarfile
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
@@ -316,6 +318,58 @@ def test_uncertain_rpc_budget_refuses_before_capture(tmp_path, monkeypatch):
         operation.execute("test", 4096, {}, {})
     assert checked == ["budget"]
     assert operation.stage == "cumulative_rpc_budget"
+
+
+@pytest.mark.parametrize("tampered", [False, True])
+def test_refused_capture_reports_rate_limit_only_with_intact_wire(tmp_path, monkeypatch, tampered):
+    operation = entry.Run("image", tmp_path, ticks=3)
+    monkeypatch.setattr(operation, "prepare", lambda *_: ({"requested_ticks": 3}, {}))
+    monkeypatch.setattr(operation, "project", lambda: {})
+    monkeypatch.setattr(operation, "docker", lambda *_: pytest.fail("capture refused before start"))
+    wire = canonical_json(
+        {"phase": "request_finished", "source": "live_secondary", "http_status": 429}
+    )
+    fresh = {
+        "passed": False,
+        "rpc_rate_limited_sources": ["live_secondary"],
+        "artifacts": {"wire.jsonl": sha256_hex(wire)},
+    }
+    fresh["evidence_hash"] = sha256_hex(canonical_json(fresh))
+    capture = io.BytesIO()
+    with tarfile.open(fileobj=capture, mode="w") as archive:
+        for name, data in (
+            ("report.json", canonical_json(fresh)),
+            ("wire.jsonl", b"tampered" if tampered else wire),
+        ):
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            archive.addfile(member, io.BytesIO(data))
+
+    def keyless(mode, payload, **kwargs):
+        if mode == "budget":
+            return subprocess.CompletedProcess(
+                [],
+                0,
+                canonical_json(
+                    {
+                        "ceiling_micros": rpc_scope.CEILING_MICROS,
+                        "cumulative_scope_upper_micros": rpc_scope.COST_UPPER_MICROS,
+                        "requested_ticks": 3,
+                        "enough_for_run": True,
+                    }
+                ),
+                b"",
+            )
+        assert mode == "capture"
+        return subprocess.CompletedProcess([], 3, capture.getvalue(), b"")
+
+    monkeypatch.setattr(operation, "keyless", keyless)
+    report = {}
+    expected = "archive does not match" if tampered else "fresh NAV preflight refused"
+    with pytest.raises(ValueError, match=expected):
+        operation.execute("test", 4096, {}, report)
+    assert operation.stage == "fresh_evidence" and not operation.start_attempted
+    assert report.get("rpc_rate_limited_sources") == (None if tampered else ["live_secondary"])
 
 
 @pytest.mark.parametrize("short_role", ["strategy", "authority"])

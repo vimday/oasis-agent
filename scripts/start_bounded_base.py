@@ -76,15 +76,23 @@ def _archive(raw: bytes, destination: Path) -> dict:
     body = {key: value for key, value in report.items() if key != "evidence_hash"}
     if report.get("evidence_hash") != sha256_hex(canonical_json(body)):
         raise ValueError("capture report digest differs")
-    if report.get("passed") is True and (
-        names != worker.ARCHIVE_FILES
-        or set(report.get("artifacts", {})) != worker.ARCHIVE_FILES - {"report.json"}
+    artifacts = report.get("artifacts")
+    rate_limited = report.get("rpc_rate_limited_sources", [])
+    if (
+        type(report.get("passed")) is not bool
+        or not isinstance(artifacts, dict)
+        or set(artifacts) != names - {"report.json"}
         or any(
             sha256_hex((destination / name).read_bytes()) != digest
-            for name, digest in report.get("artifacts", {}).items()
+            for name, digest in artifacts.items()
         )
+        or (report["passed"] and names != worker.ARCHIVE_FILES)
+        or not isinstance(rate_limited, list)
+        or any(source not in worker.SOURCES for source in rate_limited)
+        or len(rate_limited) != len(set(rate_limited))
+        or (rate_limited and (report["passed"] or "wire.jsonl" not in artifacts))
     ):
-        raise ValueError("complete fresh evidence required")
+        raise ValueError("capture evidence archive does not match its report")
     return report
 
 
@@ -339,6 +347,8 @@ class Run:
         capture = self.keyless("capture", {"plan": plan}, timeout=150, check=False)
         fresh = _archive(capture.stdout, self.output / "capture")
         report["fresh_evidence_hash"] = fresh["evidence_hash"]
+        if fresh.get("rpc_rate_limited_sources"):
+            report["rpc_rate_limited_sources"] = fresh["rpc_rate_limited_sources"]
         if self.keyless_unresolved or capture.returncode != 0 or fresh["passed"] is not True:
             raise ValueError("fresh NAV preflight refused")
         report.update(nav_micros=fresh["nav_micros"], nav_block=fresh["block"])

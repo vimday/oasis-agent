@@ -44,7 +44,10 @@ settlement histories and wallet anchors, then checks current runtime pins,
 current wallet inventory and nonce, and complete NAV including uncollected LP
 fees. At most 80 reads per source, 120 seconds, failure stops acquisition with no
 retry. Successful wire and retained NAV artifacts are bound to the capture
-report. The host and offline handoff recheck scope and freshness before launch. The
+report. If a provider returns HTTP 429, the failed capture retains the affected
+source alias and the dashboard reports rate limiting before launch. A 429 during
+a runtime light hold stops the bounded run before a full observation can issue
+more reads. The host and offline handoff recheck scope and freshness before launch. The
 strategy starts only after the authority reports that its local socket is ready,
 while the retained NAV is still fresh. Separate runtime and signer checks still
 gate each proposed action.
@@ -61,8 +64,8 @@ Do not start the services or remove the links or guard blindly. Ordinary run
 failure, timeout, SIGTERM and SIGINT go through the same cleanup path.
 
 Risk limits remain USD 500 total capital, USD 200 daily loss, USD 500 cumulative
-loss and a 1,800-second USD feed limit. The bounded entry uses the cumulative
-USD 3 cumulative RPC ceiling for this acceptance. It carries forward the USD 0.020155
+loss and a 1,800-second USD feed limit. The bounded entry uses a cumulative
+USD 3 RPC ceiling for this acceptance. It carries forward the USD 0.020155
 conservative cost allowance recorded in terminal evidence
 `bc0069eb7645eae2b778149d01cd29827046bbdc124668eda607c61ff01630a0`.
 The original strategy and authority ledger prefixes at sequences 2259 and 2011
@@ -86,8 +89,7 @@ any new anchors from earlier ticks. An operator-run unsigned rehearsal uses the
 strategy ledger and must fit alongside that admission budget before it starts.
 The worker rechecks the runtime allowance after capture, and STOP handoff
 requires the exact budget state recorded by that capture. Both services enforce
-their existing reservation limits in
-their existing reservation transactions. Restarting keeps the remaining balance.
+their limits in the existing reservation transactions. Restarting keeps the remaining balance.
 A failed request still consumes its reservation. Neither the ledger tables nor
 their original request policies are migrated by the bounded entry.
 

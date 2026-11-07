@@ -47,6 +47,7 @@ class BudgetedReadRefusal(ChainError):
             method if type(method) is str and method in BUDGETED_READ_METHODS else "unknown_method"
         )
         reason = error.reason if isinstance(error, _TransportRefusal) else "request_or_response"
+        self.rate_limited = reason == "http_429"
         super().__init__(
             f"budgeted live RPC read refused: {safe_source} {safe_method} {reason}; "
             "details redacted"

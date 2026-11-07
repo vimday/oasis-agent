@@ -18,6 +18,7 @@ RunResult = Literal["completed", "failed", "timed_out", "interrupted"]
 RunBlocker = Literal[
     "rpc_budget_insufficient",
     "rpc_budget_unverified",
+    "rpc_provider_rate_limited",
     "post_stop_reconciliation_required",
     "post_stop_replay_unverified",
 ]
@@ -91,6 +92,19 @@ def _terminal_blocker(
         if _rpc_budget_insufficient(raw):
             return "rpc_budget_insufficient", None
         return "rpc_budget_unverified", None
+    if stage == "fresh_evidence" and start_attempted is False and raw.get("result") == "failed":
+        sources = raw.get("rpc_rate_limited_sources")
+        digest = raw.get("fresh_evidence_hash")
+        if (
+            isinstance(sources, list)
+            and 1 <= len(sources) <= 2
+            and all(source in ("live_primary", "live_secondary") for source in sources)
+            and len(set(sources)) == len(sources)
+            and isinstance(digest, str)
+            and len(digest) == 64
+            and all(character in "0123456789abcdef" for character in digest)
+        ):
+            return "rpc_provider_rate_limited", None
     if not stopped or start_attempted is not True:
         return None, None
     if "post_stop_replay" not in raw and stage != "post_stop_replay":

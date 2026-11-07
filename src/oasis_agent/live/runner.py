@@ -29,6 +29,7 @@ from ..reporting.live_status import LiveObservation
 from .action_cash import reconcile_action, replay_action_cash
 from .action_plan import action_call
 from .approval_cash import reconcile_approval, replay_approval_cash
+from .budget_rpc import BudgetedReadRefusal
 from .chain import (
     ChainError,
     DigestSigner,
@@ -374,7 +375,9 @@ class LiveLoop:
                     ref,
                 )
                 seen.append((int(slot[1]), self._liquidity(rpc, p.token_id, ref)))
-        except Exception:  # noqa: BLE001 - fall back to the full, fully checked observation
+        except Exception as error:
+            if isinstance(error, BudgetedReadRefusal) and error.rate_limited:
+                raise
             return None
         tick, liquidity = seen[0]
         if seen[0] != seen[1] or liquidity != p.liquidity or not p.lower <= tick < p.upper:

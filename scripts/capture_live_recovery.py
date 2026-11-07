@@ -462,6 +462,7 @@ class CaptureControl:
         self.started, self.started_mono = clock(), monotonic()
         self.deadline = self.started + MAX_SECONDS
         self.counts = {role: dict.fromkeys(SOURCES, 0) for role in ROLES}
+        self.rate_limited_sources: set[str] = set()
         self.wire = (out / "wire.jsonl").open("xb")
 
     def remaining(self):
@@ -549,6 +550,8 @@ class CaptureControl:
             raise
         finally:
             with self.lock:
+                if spent and http_status == 429:
+                    self.rate_limited_sources.add(source)
                 self.wire.write(
                     canonical_json(
                         {

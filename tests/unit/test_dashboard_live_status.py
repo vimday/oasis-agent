@@ -592,6 +592,17 @@ def test_bounded_run_endpoint_and_label_distinguish_safe_blockers(tmp_path):
             },
         },
         "budget_missing": {"failure_stage": "cumulative_rpc_budget", "start_attempted": False},
+        "rate_limited": {
+            "failure_stage": "fresh_evidence",
+            "start_attempted": False,
+            "fresh_evidence_hash": "c" * 64,
+            "rpc_rate_limited_sources": ["live_secondary"],
+        },
+        "rate_limit_unverified": {
+            "failure_stage": "fresh_evidence",
+            "start_attempted": False,
+            "rpc_rate_limited_sources": ["live_secondary"],
+        },
         "reconcile": {
             "failure_stage": "post_stop_replay",
             "start_attempted": True,
@@ -633,6 +644,8 @@ def test_bounded_run_endpoint_and_label_distinguish_safe_blockers(tmp_path):
     assert rows["three_tick_shortfall"]["requested_ticks"] == 3
     assert rows["unverified"]["blocker"] == "rpc_budget_unverified"
     assert rows["budget_missing"]["blocker"] == "rpc_budget_unverified"
+    assert rows["rate_limited"]["blocker"] == "rpc_provider_rate_limited"
+    assert rows["rate_limit_unverified"]["blocker"] is None
     assert rows["reconcile"]["blocked_service"] == "authority"
     assert rows["unrecognized"]["blocked_service"] is None
     assert rows["timed_out"]["blocker"] == "post_stop_reconciliation_required"
@@ -648,6 +661,7 @@ import assert from 'node:assert/strict';
 import {boundedRunLabel} from './live-status.js';
 assert.match(boundedRunLabel(rows.insufficient), /未发起启动.*累计 RPC 额度不足/);
 assert.match(boundedRunLabel(rows.unverified), /累计 RPC 预算未核验/);
+assert.match(boundedRunLabel(rows.rate_limited), /未发起启动.*前置采集遇到 RPC 服务限流/);
 assert.match(boundedRunLabel(rows.reconcile), /双 STOP 已恢复.*签名服务.*待核查停机或对账/);
 assert.match(boundedRunLabel(rows.unrecognized), /停机后对账未核验/);
 assert.match(boundedRunLabel(rows.timed_out), /超时.*待核查停机或对账/);
