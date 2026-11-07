@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_bounded import read_bounded_run
 from scripts import live_bounded_worker as worker
@@ -91,7 +92,9 @@ def test_marker_conflict_never_overwrites_another_marker_or_skips_other_role(roo
     assert (roots["authority"] / "STOP").read_text() == "authority"
 
 
-@pytest.mark.parametrize("outcome", ["completed", "failed", "timed_out", "stop_error"])
+@pytest.mark.parametrize(
+    "outcome", ["completed", "failed", "timed_out", "stop_error", "authority_pending"]
+)
 def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
     tmp_path, roots, monkeypatch, outcome
 ):
@@ -149,13 +152,28 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
         result = worker.restore_stops(payload["attempt_id"])
         return subprocess.CompletedProcess([], 0, canonical_json(result), b"")
 
+    def replay(_image, _env, *, config_hash, rpc_max_requests, expect_stop):
+        assert expect_stop and config_hash == "h" and rpc_max_requests == 4096
+        assert all(row["state"] == "exited" for row in services.values())
+        assert all((root / "STOP").is_file() for root in roots.values())
+        actions.append("post_stop_replay")
+        if outcome == "authority_pending":
+            return refusal_report(StartupBlocker.RECONCILIATION_REQUIRED, "authority")
+        return {"startup_prerequisites_passed": True, "stop_markers_present": True}
+
+    monkeypatch.setattr(entry.deploy, "state_preflight", replay)
     monkeypatch.setattr(entry.Run, "execute", execute)
     monkeypatch.setattr(entry.Run, "project", lambda self: services)
     monkeypatch.setattr(entry.Run, "docker", docker)
     monkeypatch.setattr(entry.Run, "keyless", keyless)
     output = tmp_path / "evidence"
     result = entry.run("image", output)
-    assert result["result"] == ("failed" if outcome == "stop_error" else outcome)
+    expected = "failed" if outcome in {"stop_error", "authority_pending"} else outcome
+    assert result["result"] == expected
+    if outcome == "authority_pending":
+        assert result["failure_stage"] == "post_stop_replay"
+        assert result["post_stop_replay"]["blocked_service"] == "authority"
+    assert ("post_stop_replay" in actions) is (outcome != "stop_error")
     assert actions[:3] == ["stop_strategy", "stop_authority", "restore"]
     assert all((root / "STOP").is_file() for root in roots.values())
     assert result["cleanup"]["verified"] is (outcome != "stop_error")

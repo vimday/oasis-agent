@@ -15,6 +15,8 @@ from oasis_agent.live.chain import ChainError
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.startup_state import (
     SOURCES,
+    StartupBlocker,
+    StartupRefused,
     acquire_existing_lock,
     inspect_pair,
     inspect_service,
@@ -230,6 +232,38 @@ def test_pair_holds_both_original_locks_and_refuses_shared_files(tmp_path, share
     ):
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     assert (snapshot(a), snapshot(b)) == before
+
+
+@pytest.mark.parametrize("fault", [None, "missing_stop", "authority_pending"])
+def test_post_stop_replay_requires_private_markers_and_both_journals_resolved(tmp_path, fault):
+    strategy, authority = tmp_path / "strategy", tmp_path / "authority"
+    config, profile, _ = prepare(strategy, "strategy")
+    _, _, signer = prepare(authority, "authority")
+    for directory in (strategy, authority):
+        (directory / "STOP").touch(mode=0o600)
+    if fault == "missing_stop":
+        (authority / "STOP").unlink()
+    elif fault == "authority_pending":
+        state = signer.load("live")
+        state.pending = Pending("swap", "0x" + "ab" * 32, 3, 1000, {}, config.position_manager)
+        signer.save(state)
+
+    before = snapshot(strategy), snapshot(authority)
+    if fault:
+        with pytest.raises(StartupRefused) as exc:
+            inspect_pair(strategy, authority, config, profile, expect_stop=True)
+        assert exc.value.role == "authority"
+        assert exc.value.code == (
+            StartupBlocker.STOP_UNVERIFIED
+            if fault == "missing_stop"
+            else StartupBlocker.RECONCILIATION_REQUIRED
+        )
+    else:
+        report = inspect_pair(strategy, authority, config, profile, expect_stop=True)
+        assert report["stop_markers_present"] is True
+        assert report["historical_only"] is True and report["execution_eligible"] is False
+        assert all(service["settled_history_replayed"] for service in report["services"].values())
+    assert (snapshot(strategy), snapshot(authority)) == before
 
 
 @pytest.mark.parametrize("lost", ["state", "journal", "evidence", "budget"])

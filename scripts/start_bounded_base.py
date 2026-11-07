@@ -14,6 +14,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
+from oasis_agent.live.startup_state import StartupBlocker, refusal_report
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_release import require_live_start
 from oasis_agent.reporting.live_startup import CONFIG_INPUT, RPC_PROFILE_NAME
@@ -506,6 +507,19 @@ class Run:
         return {role: final[role]["exit_code"] for role in ROLES}
 
 
+def _post_stop_replay(operation: Run, config_hash: str, rpc_max_requests: int) -> dict:
+    try:
+        return deploy.state_preflight(
+            operation.image,
+            operation.env,
+            config_hash=config_hash,
+            rpc_max_requests=rpc_max_requests,
+            expect_stop=True,
+        )
+    except Exception:  # noqa: BLE001 - report no Docker or provider diagnostics
+        return refusal_report(StartupBlocker.UNRESOLVED)
+
+
 def run(image: str, output: Path) -> dict:
     require_live_start()
     config_hash, rpc_max_requests, files = deploy.require_local_runtime_policy()
@@ -542,13 +556,24 @@ def run(image: str, output: Path) -> dict:
         try:
             cleanup = operation.cleanup()
             report["cleanup"] = cleanup
+            if operation.start_attempted and cleanup["verified"]:
+                report["post_stop_replay"] = _post_stop_replay(
+                    operation, config_hash, rpc_max_requests
+                )
             if completed and cleanup["verified"]:
                 try:
                     report["service_exit_codes"] = operation._runtime_evidence(cleanup)
                 except Exception:  # noqa: BLE001 - do not equate Compose exit with verified success
                     report["failure_stage"] = "runtime_evidence"
                 else:
-                    report["result"] = "completed"
+                    replay = report.get("post_stop_replay", {})
+                    if (
+                        replay.get("startup_prerequisites_passed") is True
+                        and replay.get("stop_markers_present") is True
+                    ):
+                        report["result"] = "completed"
+                    else:
+                        report["failure_stage"] = "post_stop_replay"
             elif completed:
                 report["failure_stage"] = "cleanup"
             if operation.guard is not None:

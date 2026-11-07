@@ -1,4 +1,4 @@
-"""Offline original-state inspection used before production containers are started."""
+"""Replay original state before startup or after verified shutdown, offline."""
 
 import argparse
 import json
@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--authority-dir", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--rpc-profile", type=Path, required=True)
+    parser.add_argument("--expect-stop", action="store_true")
     args = parser.parse_args()
     try:
         result = inspect_pair(
@@ -27,6 +28,7 @@ def main() -> None:
             args.authority_dir,
             LiveConfig.load(args.config),
             LiveRpcProfile.load(args.rpc_profile),
+            expect_stop=args.expect_stop,
         )
     except StartupRefused as exc:
         result = refusal_report(exc.code, exc.role)

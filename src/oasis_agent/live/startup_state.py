@@ -34,6 +34,7 @@ Role = Literal["strategy", "authority"]
 class StartupBlocker(StrEnum):
     UNRESOLVED = "original_runtime_state_unresolved"
     STOP_PRESENT = "stop_present"
+    STOP_UNVERIFIED = "stop_missing_or_changed"
     SQLITE_RECOVERY = "sqlite_recovery_required"
     CONFIGURATION_MISMATCH = "configuration_mismatch"
     RECONCILIATION_REQUIRED = "halt_or_reconciliation_unresolved"
@@ -307,13 +308,34 @@ def inspect_service(
     }
 
 
+def _stopped_marker(directory: Path, role: Role) -> os.stat_result:
+    try:
+        marker = require_file(directory / "STOP")
+        if stat.S_IMODE(marker.st_mode) == 0o600 and marker.st_size <= 4096:
+            return marker
+    except (OSError, ValueError):
+        pass
+    raise StartupRefused(StartupBlocker.STOP_UNVERIFIED, role, "private STOP required")
+
+
 def inspect_pair(
-    strategy: Path, authority: Path, config: LiveConfig, profile: LiveRpcProfile
+    strategy: Path,
+    authority: Path,
+    config: LiveConfig,
+    profile: LiveRpcProfile,
+    *,
+    expect_stop: bool = False,
 ) -> dict[str, Any]:
+    """Replay the two original histories; stopped mode also binds both STOP markers."""
     if strategy.samefile(authority):
         raise ValueError("distinct original state volumes required")
     directories: dict[Role, Path] = {"strategy": strategy, "authority": authority}
     with startup_locks(directories):
+        stops = (
+            {role: _stopped_marker(directory, role) for role, directory in directories.items()}
+            if expect_stop
+            else {}
+        )
         identities = set()
         for role, directory in directories.items():
             state_path, evidence_path, _ = paths(directory, role)
@@ -329,7 +351,7 @@ def inspect_pair(
                     raise ValueError("distinct original service files required")
                 identities.add(identity)
         services = {
-            role: inspect_service(directory, role, config, profile)
+            role: inspect_service(directory, role, config, profile, expect_stop=expect_stop)
             for role, directory in directories.items()
         }
         if (
@@ -340,7 +362,11 @@ def inspect_pair(
         for field in ("settlement_count", "settled_history_hash", "financial_continuity_hash"):
             if services["strategy"][field] != services["authority"][field]:
                 raise ValueError("services disagree on original capital or settled history")
+        for role, marker in stops.items():
+            if _stopped_marker(directories[role], role) != marker:
+                raise StartupRefused(StartupBlocker.STOP_UNVERIFIED, role, "STOP changed")
     return {
+        **({"stop_markers_present": True} if expect_stop else {}),
         "schema": "oasis.live-startup-state.v1",
         "startup_prerequisites_passed": True,
         "execution_eligible": False,

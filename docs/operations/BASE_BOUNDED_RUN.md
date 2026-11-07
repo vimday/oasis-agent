@@ -17,9 +17,12 @@ imply a transaction or a profit. Solana is outside this entry.
    never reused for a retry. The start guard is exclusive on that Docker daemon.
 3. Review `report.json`. A successful invocation requires both stopped
    containers, exit code 0 for each, a resolved one-tick strategy report, both
-   STOP files read back, and the guard released. A failed or timed-out tick is
-   still a failure even if cleanup succeeded. An unresolved signature or receipt
-   requires separate reconciliation.
+   STOP files read back, matching receipt and financial history replay from
+   both original journals, and the guard released. The post-stop replay is
+   keyless, read-only, and network-isolated. A failed or timed-out tick is still
+   a failure even if cleanup succeeded. If the authority still records a pending
+   receipt after the strategy exits, the report records the unresolved service
+   and the next start is blocked until separately authorized reconciliation.
 
 The capture worker holds the original service locks and leaves both STOP files
 in place during new, keyless two-provider acquisition. It replays both original

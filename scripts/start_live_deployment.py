@@ -168,7 +168,12 @@ def _state_refusal(error: subprocess.CalledProcessError) -> dict:
 
 
 def state_preflight(
-    image: str, env: dict[str, str], *, config_hash: str, rpc_max_requests: int
+    image: str,
+    env: dict[str, str],
+    *,
+    config_hash: str,
+    rpc_max_requests: int,
+    expect_stop: bool = False,
 ) -> dict:
     """Run verified code with only original state volumes, read-only and offline."""
     try:
@@ -201,6 +206,7 @@ def state_preflight(
                 "/authority",
                 *compose.CONFIG,
                 *compose.PROFILE,
+                *(["--expect-stop"] if expect_stop else []),
             ],
             env,
         )
@@ -218,7 +224,9 @@ def state_preflight(
             "historical_only",
             "limitations",
             "services",
+            *({"stop_markers_present"} if expect_stop else set()),
         }
+        or (expect_stop and result.get("stop_markers_present") is not True)
         or result.get("schema") != "oasis.live-startup-state.v1"
         or result.get("startup_prerequisites_passed") is not True
         or result.get("execution_eligible") is not False
