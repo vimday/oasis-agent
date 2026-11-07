@@ -213,3 +213,42 @@ from budgeted reads. A refusal still blocks the observation. The successful
 diagnosis verifies historical settlement reads at its own observation time.
 A subsequent bounded production start requires fresh prices and NAV, a current
 policy check and separate owner authorization.
+
+## Fresh Base preflight and bounded restart acceptance
+
+The operator authorized one new startup after fresh NAV and gate verification,
+with cumulative RPC spend capped at USD 1. The strategy and authority retained
+their original state and quota ledgers. The keyless preflight acquired the
+current full NAV with both STOP markers present and found STOP was its only
+blocker. The pinned NAV was 500954517 USD micros at Base block 54179056,
+hash 0x9219e24855697c2ca0200ece5d55a03ac497e22966b3b7fa2e1004c8df8f7e40.
+It checked the runtime fingerprints, account nonces and holdings against the
+original checkpoints. The startup gate then independently replayed the five
+retained settlements in both service journals. The preflight, handoff,
+startup and cleanup each exited 0.
+
+The strategy completed one live decision at block 54179610,
+hash 0x7db7b1867f25cbb273bbff1a5a83fd4b56edd9142a8ae5a3242afd934881d607.
+Its full NAV was 501032326 USD micros. Daily and cumulative losses were
+0 and 20244849 USD micros. The pool tick -199165 was inside the recorded
+position's range, so the strategy held. No signature or broadcast occurred.
+The five settlements remain reconciled and neither service has an unresolved
+signing attempt or pending transaction.
+
+The strategy exited 0. Docker sent TERM and then KILL to stop the authority
+after the strategy exited. The authority exited 137 without an OOM event.
+Both services were confirmed stopped, the startup guard was released and
+both STOP markers were restored. The preflight reserved 99 RPC reads and
+the strategy reserved 79 during the startup. There were no automatic retries.
+The cumulative conservative RPC allowance is 20155 USD micros, including a
+reserve for one broadcast. The figure is an allowance based on public rates,
+with provider invoice verification still outstanding.
+
+Evidence is under
+`reports/review-20261107/base-restart-fresh-acceptance-001/`, including
+the preflight RPC wire records, fresh evidence database, exit records, full
+service logs and authority shutdown events. The terminal evidence hash is
+`bc0069eb7645eae2b778149d01cd29827046bbdc124668eda607c61ff01630a0`.
+The acceptance audit hash is
+`65f264845d9d0634e6c003af0848eb1e3dc8a73947a456c7a8f6292b6e289a32`.
+The tested runtime commit was `4a66b32273d1e563ca10ff5c35c803ba5d63c64d`.
