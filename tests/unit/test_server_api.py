@@ -446,6 +446,7 @@ def test_dashboard_views_match_tabs():
         "observations",
         "system",
         "research",
+        "spot",
     }
 
 

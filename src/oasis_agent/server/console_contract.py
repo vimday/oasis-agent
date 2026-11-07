@@ -47,4 +47,5 @@ CONSOLE_VIEWS: dict[str, str] = {
         f"/api/v1/launch/{part}": "launch"
         for part in ("targets", "decisions", "candidates", "quotes", "approvals", "dashboard")
     },
+    **{f"/api/v1/spot/{part}": "spot" for part in ("report", "decisions", "assessments")},
 }

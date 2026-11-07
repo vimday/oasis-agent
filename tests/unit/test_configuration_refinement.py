@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from oasis_agent.launch.spot_agent import AgentConfig
 from oasis_agent.server.app import create_app
 from oasis_agent.server.config import ServerShadowRunnerConfig
 from oasis_agent.shadow.market_archive import ArchiveConfig
@@ -85,6 +86,8 @@ def test_all_ui_templates_use_the_same_validators(tmp_path):
                 assert ArchiveConfig.from_json(result).start_block == 51907410
             elif kind == "market":
                 assert Config.from_json(result).market is not None
+            elif kind == "spot":
+                assert AgentConfig.model_validate_json(result).chain_id == 8453
             else:
                 assert ExecutionConfig.from_json(result).chain_id == 8453
 

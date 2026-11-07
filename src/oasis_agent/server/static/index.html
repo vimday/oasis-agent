@@ -31,6 +31,7 @@
     <button role="tab" id="tab-btn-gates" aria-controls="tab-gates" aria-selected="false" data-tab="gates">门禁审批</button>
     <button role="tab" id="tab-btn-chains" aria-controls="tab-chains" aria-selected="false" data-tab="chains">多链与警报</button>
     <button role="tab" id="tab-btn-launch" aria-controls="tab-launch" aria-selected="false" data-tab="launch">Launch 观测</button>
+    <button role="tab" id="tab-btn-spot" aria-controls="tab-spot" aria-selected="false" data-tab="spot">自主交易 · 影子</button>
     <button role="tab" id="tab-btn-research" aria-controls="tab-research" aria-selected="false" data-tab="research">代币评分研究</button>
     <button role="tab" id="tab-btn-system" aria-controls="tab-system" aria-selected="false" data-tab="system">系统与能力</button>
   </nav>
@@ -38,6 +39,19 @@
 
 <main id="main-content" tabindex="-1">
   <p class="workspace-notice"><span class="eyebrow">OASIS / WORKSPACE</span><span>证据驱动 · 观测与影子决策 · 独立发布门禁</span></p>
+  <div id="tab-spot" role="tabpanel" aria-labelledby="tab-btn-spot" class="tab">
+    <section class="card"><h2>自主交易 · 影子运行</h2>
+      <p>发现（OKX 热度 + 聪明钱 + GMGN 交叉核对）→ 安全门禁 → 往返报价 → 短线 / 转 LP / 跳过 → 止损止盈。纸面账本，只读，不签名不广播。</p>
+      <p id="spot-status" role="status" aria-live="polite">正在读取影子日志…</p>
+      <div class="grid g4" id="spot-stats"></div>
+      <h3>持仓</h3><div class="table-wrap"><table id="spot-positions" aria-label="Spot positions"></table></div>
+      <h3>信号质量 · 前向收益（所有被评估代币，不止成交）</h3>
+      <p class="muted">现货中间价声明，衡量选股能力而非可成交收益；样本达到 30 才给出结论。</p>
+      <div class="table-wrap"><table id="spot-quality" aria-label="Signal quality"></table></div>
+      <h3>交易决策</h3><div class="table-wrap"><table id="spot-decisions" aria-label="Spot decisions"></table></div>
+      <h3>最近买入信号</h3><div class="table-wrap"><table id="spot-flips" aria-label="Flip signals"></table></div>
+    </section>
+  </div>
   <div id="tab-research" role="tabpanel" aria-labelledby="tab-btn-research" class="tab">
     <section class="card"><h2>代币评分研究</h2>
       <p>导入候选与研究策略，查看热度、买方比例、深度、持仓分散和估值分项，以及安全否决原因和退出提案。这里不会获取实时行情或下单。</p>
@@ -213,7 +227,7 @@
       <div class="table-wrap"><table id="campaign-table" aria-label="独立策略任务"></table></div>
       <div class="row" style="margin-top:16px">
         <label for="campaign-name">任务 ID</label><input type="text" id="campaign-name" value="launch-observe" maxlength="64" style="max-width:240px">
-        <label for="campaign-kind">策略</label><select id="campaign-kind"><option value="launch">Launch 观察</option><option value="lp">LP Shadow</option><option value="market">LP 市场采集与分析</option><option value="archive">LP 历史采集（可恢复）</option></select>
+        <label for="campaign-kind">策略</label><select id="campaign-kind"><option value="launch">Launch 观察</option><option value="lp">LP Shadow</option><option value="market">LP 市场采集与分析</option><option value="archive">LP 历史采集（可恢复）</option><option value="spot">自主交易影子（3 天前向）</option></select>
         <button type="button" class="action" data-action="campaign-template">载入策略示例</button>
       </div>
       <div class="row" id="campaign-launch-fields">

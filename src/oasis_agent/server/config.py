@@ -29,6 +29,7 @@ class ServerDatabaseConfig:
     live_state: Path | None = None
     live_pair_inspection: Path | None = None
     live_bounded_run: Path | None = None
+    spot_run: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +154,7 @@ _DATABASE_KEYS = frozenset(
         "live_state",
         "live_pair_inspection",
         "live_bounded_run",
+        "spot_run",
     }
 )
 _RUNNER_KEYS = frozenset({"command", "timeout_seconds", "max_concurrent"})
@@ -220,6 +222,7 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
         live_bounded_run=_strict_path(
             databases_raw.get("live_bounded_run"), "databases.live_bounded_run"
         ),
+        spot_run=_strict_path(databases_raw.get("spot_run"), "databases.spot_run"),
     )
     for name, value in (
         ("databases.shadow", databases.shadow),

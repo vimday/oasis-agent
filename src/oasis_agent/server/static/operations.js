@@ -32,12 +32,13 @@ function campaignKindChanged() {
   const launch = $("campaign-kind").value === "launch";
   const archive = $("campaign-kind").value === "archive";
   const market = $("campaign-kind").value === "market" || archive;
+  const spot = $("campaign-kind").value === "spot";
   $("campaign-launch-fields").hidden = !(launch || market);
   $("campaign-wallet").hidden = !launch;
   $("campaign-wallet-label").hidden = !launch;
   $("campaign-lp-fields").hidden = launch || (market && !archive);
-  $("campaign-source").hidden = archive;
-  $("campaign-source-label").hidden = archive;
+  $("campaign-source").hidden = archive || spot;
+  $("campaign-source-label").hidden = archive || spot;
 }
 
 function updateCampaignOptions(id, items) {
@@ -55,7 +56,7 @@ async function loadCampaigns() {
   campaignLoading = true;
   try {
     const data = await apiGet("/api/v1/campaigns");
-    $("campaign-capabilities").textContent = "可运行：LP 市场分析 / 可恢复历史采集 / LP Shadow / Launch Observe · 最多 " + data.max_active
+    $("campaign-capabilities").textContent = "可运行：LP 市场分析 / 可恢复历史采集 / LP Shadow / Launch Observe / 自主交易影子 · 最多 " + data.max_active
       + " 个并行任务 · 实盘阻断：独立签名服务及目标发布门禁未通过";
     updateCampaignOptions("campaign-primary", data.rpc_profiles.map(x => x.name));
     updateCampaignOptions("campaign-secondary", data.rpc_profiles.map(x => x.name));
@@ -119,8 +120,8 @@ async function campaignAction(action) {
     const base = `/api/v1/campaigns/${encodeURIComponent(name)}`;
     if (action === "save") {
       const kind = $("campaign-kind").value;
-      const spec = {kind, mode: kind === "lp" ? "shadow" : "observe", policy: $("campaign-policy").value,
-        timeout_seconds: campaignInteger("campaign-timeout", 10, 86400)};
+      const spec = {kind, mode: kind === "lp" || kind === "spot" ? "shadow" : "observe", policy: $("campaign-policy").value,
+        timeout_seconds: campaignInteger("campaign-timeout", 10, kind === "spot" ? 345600 : 86400)};
       if (kind === "market" || kind === "archive") {
         Object.assign(spec, {rpc_primary: $("campaign-primary").value, rpc_secondary: $("campaign-secondary").value});
         if (kind === "archive") spec.cycles = campaignInteger("campaign-cycles", 1, 1000);
@@ -128,6 +129,9 @@ async function campaignAction(action) {
         Object.assign(spec, {wallet: $("campaign-wallet").value.toLowerCase(), rpc_primary: $("campaign-primary").value,
           rpc_secondary: $("campaign-secondary").value, events: $("campaign-events").checked});
         if ($("campaign-discovery").value) spec.discovery_from_block = campaignInteger("campaign-discovery", 0, Number.MAX_SAFE_INTEGER);
+      } else if (kind === "spot") {
+        // cycles = provider-call budget in thousands (OKX + GMGN, whole run).
+        spec.cycles = campaignInteger("campaign-cycles", 1, 200);
       } else Object.assign(spec, {input_source: $("campaign-source").value, cycles: campaignInteger("campaign-cycles", 1, 10000)});
       await apiPost(base + "/configuration", {expected_revision: campaignHead?.name === name ? campaignHead.desired_revision : 0,
         document: JSON.stringify(spec)});

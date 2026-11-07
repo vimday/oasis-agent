@@ -1,0 +1,478 @@
+"""Live shadow spot agent: discover -> enrich -> decide -> paper-execute -> manage exits.
+
+One `tick()` is one bounded decision cycle over fresh OKX onchainos claims. It returns
+append-only decision records; the caller journals them. The book is paper-only:
+`execution_eligible` is always False and no code path here can sign or broadcast.
+"""
+
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field, replace
+from fractions import Fraction
+from typing import Any, Literal
+
+from .gmgn_source import GmgnSource, cross_check, parse_token_info
+from .onchainos_source import Capture, OnchainosSource, SourceFailure
+from .opportunity import (
+    Assessment,
+    DecisionPolicy,
+    Market,
+    assess,
+    count,
+    decided,
+    market_from_hot,
+    market_from_signal,
+    merge_price,
+    merge_security,
+    merge_signals,
+    security_flags,
+)
+from .outcomes import OutcomeTracker, Pending, parse_prices
+from .spot_book import (
+    SETTLEMENT,
+    Position,
+    check_exit,
+    entry_cost,
+    entry_size,
+    exit_value,
+    mark,
+    parse_quote,
+    round_trip_bps,
+)
+
+Record = dict[str, Any]
+MAX_MISSED_MARKS = 3
+
+
+class AgentConfig(DecisionPolicy):
+    chain_id: Literal[8453] = 8453
+    initial_cash_usd_micros: int = 1_000_000_000
+    enrich_top: int = 8
+    security_ttl_seconds: int = 900
+    cooldown_seconds: int = 3_600
+
+
+@dataclass
+class AgentState:
+    cash_usd_micros: int
+    positions: dict[str, Position] = field(default_factory=dict)
+    realized_pnl_usd_micros: int = 0
+    closed_trades: int = 0
+    winning_trades: int = 0
+    cooldown_until: dict[str, int] = field(default_factory=dict)
+    security: dict[str, tuple[int, dict[str, Any]]] = field(default_factory=dict)
+    outcomes: OutcomeTracker = field(default_factory=OutcomeTracker)
+
+    def nav(self) -> int:
+        return self.cash_usd_micros + sum(p.last_value_usd_micros for p in self.positions.values())
+
+
+def _rows(capture: Capture) -> list[Any]:
+    return capture.data if isinstance(capture.data, list) else []
+
+
+def _first(capture: Capture) -> dict[str, Any] | None:
+    data = capture.data
+    if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
+        return data[0]
+    return data if isinstance(data, dict) else None
+
+
+class SpotAgent:
+    def __init__(
+        self,
+        source: OnchainosSource,
+        config: AgentConfig,
+        state: AgentState | None = None,
+        clock: Callable[[], float] | None = None,
+        gmgn: GmgnSource | None = None,
+    ):
+        self.source = source
+        self.gmgn = gmgn
+        self.config = config
+        self.state = state or AgentState(config.initial_cash_usd_micros)
+        self._clock = clock
+
+    def provider_calls(self) -> int:
+        return self.source.calls + (self.gmgn.calls if self.gmgn is not None else 0)
+
+    def _record(self, now: int, kind: str, **body: Any) -> Record:
+        return {
+            "at": now,
+            "kind": kind,
+            "mode": "shadow",
+            "evidence_level": "provider_claims_not_chain_attestations",
+            "execution_eligible": False,
+            **body,
+        }
+
+    def _security(self, token: str, now: int) -> dict[str, Any] | None:
+        cached = self.state.security.get(token)
+        if cached is not None and now - cached[0] < self.config.security_ttl_seconds:
+            return cached[1]
+        row = _first(self.source.security(self.config.chain_id, token))
+        if row is not None:
+            self.state.security[token] = (now, row)
+        return row
+
+    def _sell_quote(self, position: Position, now: int) -> tuple[int, str]:
+        capture = self.source.quote(
+            self.config.chain_id, position.token, SETTLEMENT, position.units
+        )
+        sell = parse_quote(
+            capture.data,
+            chain=self.config.chain_id,
+            src=position.token,
+            dst=SETTLEMENT,
+            amount=position.units,
+            raw_sha256=capture.raw_sha256,
+            at=capture.retrieved_at,
+        )
+        return exit_value(sell, self.config), sell.raw_sha256
+
+    def _manage(self, now: int, out: list[Record]) -> None:
+        for token, position in list(self.state.positions.items()):
+            flags: tuple[str, ...] | None
+            try:
+                row = self._security(token, now)
+                flags = None if row is None else security_flags(row)[0]
+                value, quote_hash = self._sell_quote(position, now)
+            except (SourceFailure, ValueError):
+                missed = position.missed_marks + 1
+                self.state.positions[token] = replace(position, missed_marks=missed)
+                out.append(
+                    self._record(
+                        now,
+                        "halt_review" if missed >= MAX_MISSED_MARKS else "mark_missed",
+                        token=token,
+                        reason="exit_quote_unavailable",
+                        missed_marks=missed,
+                    )
+                )
+                continue
+            reason = "risk_flag" if flags is None or flags else None
+            reason = reason or check_exit(position, value, now, self.config)
+            if reason is None:
+                self.state.positions[token] = mark(position, value)
+                out.append(
+                    self._record(
+                        now,
+                        "hold",
+                        token=token,
+                        symbol=position.symbol,
+                        value_usd_micros=value,
+                        cost_usd_micros=position.cost_usd_micros,
+                        quote_sha256=quote_hash,
+                    )
+                )
+                continue
+            pnl = value - position.cost_usd_micros
+            del self.state.positions[token]
+            self.state.cash_usd_micros += value
+            self.state.realized_pnl_usd_micros += pnl
+            self.state.closed_trades += 1
+            self.state.winning_trades += pnl > 0
+            self.state.cooldown_until[token] = now + self.config.cooldown_seconds
+            out.append(
+                self._record(
+                    now,
+                    "paper_sell",
+                    token=token,
+                    symbol=position.symbol,
+                    reason=reason,
+                    proceeds_usd_micros=value,
+                    pnl_usd_micros=pnl,
+                    held_seconds=now - position.opened_at,
+                    quote_sha256=quote_hash,
+                )
+            )
+
+    def _discover(self, now: int) -> tuple[list[Market], list[Any]]:
+        hot = self.source.hot_tokens(self.config.chain_id)
+        markets: dict[str, Market] = {}
+        for row in _rows(hot):
+            if isinstance(row, dict) and (m := market_from_hot(row, now)) is not None:
+                markets.setdefault(m.token, m)
+        try:
+            signal_rows = _rows(self.source.signals(self.config.chain_id))
+        except SourceFailure:
+            signal_rows = []  # Signals only raise a score; absence never admits a token.
+        # Smart-money buys are a discovery source of their own: tokens they name join the
+        # pool with only the fields the signal states. Unstated liquidity and age stay
+        # unknown and block entry unless enrichment (price-info/advanced-info) fills them.
+        for row in signal_rows:
+            if (m := market_from_signal(row, now)) is not None:
+                markets.setdefault(m.token, m)
+        merged = [
+            merge_signals(m, signal_rows, now, self.config.signal_window_seconds)
+            for m in markets.values()
+        ]
+        return merged, signal_rows
+
+    def _enrich(self, market: Market, now: int) -> Market:
+        price = _first(self.source.price_info(self.config.chain_id, market.token))
+        if price is not None:
+            market = merge_price(market, price)
+        security = self._security(market.token, now)
+        if security is not None:
+            market = merge_security(market, security)
+        advanced = _first(self.source.advanced_info(self.config.chain_id, market.token))
+        if advanced is not None:
+            first = market.first_trade_at
+            if first is None and (created := count(advanced.get("createTime"))) is not None:
+                first = created // 1000
+            market = replace(
+                market,
+                dev_rug_count=count(advanced.get("devRugPullTokenCount")),
+                first_trade_at=first,
+            )
+        if self.gmgn is not None:
+            # GMGN is an optional second opinion: its absence never blocks, its material
+            # disagreement does (via provider_disagreement blockers).
+            try:
+                info = self.gmgn.token_info(self.config.chain_id, market.token)
+                market = cross_check(market, parse_token_info(info.data, market.token))
+            except SourceFailure:
+                pass
+        return market
+
+    def _try_entry(self, market: Market, assessment: Assessment, now: int) -> Record:
+        size = entry_size(self.state.cash_usd_micros, market.liquidity_usd_micros, self.config)
+        if size < 1_000_000:
+            return self._record(now, "skip_entry", token=market.token, reason="size_below_1_usd")
+        chain = self.config.chain_id
+        buy_capture = self.source.quote(chain, SETTLEMENT, market.token, size)
+        buy = parse_quote(
+            buy_capture.data,
+            chain=chain,
+            src=SETTLEMENT,
+            dst=market.token,
+            amount=size,
+            raw_sha256=buy_capture.raw_sha256,
+            at=buy_capture.retrieved_at,
+        )
+        sell_capture = self.source.quote(chain, market.token, SETTLEMENT, buy.amount_out)
+        sell = parse_quote(
+            sell_capture.data,
+            chain=chain,
+            src=market.token,
+            dst=SETTLEMENT,
+            amount=buy.amount_out,
+            raw_sha256=sell_capture.raw_sha256,
+            at=sell_capture.retrieved_at,
+        )
+        cost_bps = round_trip_bps(buy, sell, self.config)
+        if (
+            cost_bps > self.config.max_round_trip_cost_bps
+            or max(buy.impact_bps, sell.impact_bps) > self.config.max_impact_bps
+        ):
+            return self._record(
+                now,
+                "skip_entry",
+                token=market.token,
+                reason="round_trip_too_expensive",
+                round_trip_cost_bps=cost_bps,
+            )
+        cost = entry_cost(buy, self.config)
+        value = exit_value(sell, self.config)
+        self.state.cash_usd_micros -= cost
+        self.state.positions[market.token] = Position(
+            token=market.token,
+            symbol=market.symbol,
+            units=buy.amount_out,
+            cost_usd_micros=cost,
+            opened_at=now,
+            high_water_usd_micros=value,
+            last_value_usd_micros=value,
+            entry_quote_sha256=buy.raw_sha256,
+        )
+        return self._record(
+            now,
+            "paper_buy",
+            token=market.token,
+            symbol=market.symbol,
+            cost_usd_micros=cost,
+            units=str(buy.amount_out),
+            immediate_exit_usd_micros=value,
+            round_trip_cost_bps=cost_bps,
+            score_bps=assessment.score_bps,
+            reasons=list(assessment.reasons),
+            smart_wallets=market.smart_wallets,
+            quote_sha256=[buy.raw_sha256, sell.raw_sha256],
+        )
+
+    def tick(self, now: int) -> list[Record]:
+        """One bounded cycle. Exits are managed before any new entry is considered."""
+        out: list[Record] = []
+        calls = self.provider_calls()
+        self._label_outcomes(now, out)
+        self._manage(now, out)
+        if any(r["kind"] == "halt_review" for r in out):
+            out.append(self._summary(now, calls, entries_blocked="held_position_unpriceable"))
+            return out
+        try:
+            markets, _ = self._discover(now)
+        except SourceFailure as error:
+            out.append(self._record(now, "discovery_failed", category=error.category))
+            out.append(self._summary(now, calls))
+            return out
+        ranked = sorted(
+            markets,
+            key=lambda m: (-(m.smart_wallets), -(m.liquidity_usd_micros or 0), m.token),
+        )
+        open_slots = self.config.max_positions - len(self.state.positions)
+        enriched = 0
+        for listed in ranked:
+            if enriched >= self.config.enrich_top:
+                break
+            if (
+                listed.token in self.state.positions
+                or self.state.cooldown_until.get(listed.token, 0) > now
+            ):
+                continue
+            pre = assess(listed, self.config)
+            # Cheap gates first: a blocker that is already a known failure cannot be
+            # rescued by enrichment, so it must not cost provider calls.
+            if pre.action == "skip" and decided(pre.reasons):
+                out.append(self._candidate(now, listed, pre))
+                continue
+            enriched += 1
+            try:
+                market = self._enrich(listed, now)
+            except SourceFailure as error:
+                out.append(
+                    self._record(now, "enrich_failed", token=listed.token, category=error.category)
+                )
+                continue
+            assessment = assess(market, self.config)
+            out.append(self._candidate(now, market, assessment))
+            if assessment.action == "flip" and open_slots > 0:
+                try:
+                    entry = self._try_entry(market, assessment, now)
+                except (SourceFailure, ValueError):
+                    entry = self._record(
+                        now, "skip_entry", token=market.token, reason="quote_refused"
+                    )
+                out.append(entry)
+                open_slots -= entry["kind"] == "paper_buy"
+        out.append(self._summary(now, calls))
+        return out
+
+    def _label_outcomes(self, now: int, out: list[Record]) -> None:
+        """Forward-return labels for earlier assessments; failures label `unobserved`."""
+        due = self.state.outcomes.due(now)
+        prices: dict[str, Any] = {}
+        for start in range(0, len(due), 40):
+            try:
+                batch = self.source.prices(self.config.chain_id, due[start : start + 40])
+            except SourceFailure:
+                continue
+            prices |= parse_prices(batch.data, self.config.chain_id)
+        out.extend(
+            self._record(now, "outcome", **label)
+            for label in self.state.outcomes.label(now, prices)
+        )
+
+    def _candidate(self, now: int, market: Market, assessment: Assessment) -> Record:
+        self.state.outcomes.register(
+            market.token,
+            market.symbol,
+            assessment.action,
+            assessment.score_bps,
+            now,
+            market.price,
+        )
+        return self._record(
+            now,
+            "assessment",
+            token=market.token,
+            symbol=market.symbol,
+            action=assessment.action,
+            score_bps=assessment.score_bps,
+            reasons=list(assessment.reasons),
+            liquidity_usd_micros=market.liquidity_usd_micros,
+            change_5m_bps=market.change_5m_bps,
+            change_1h_bps=market.change_1h_bps,
+            smart_wallets=market.smart_wallets,
+        )
+
+    def _summary(self, now: int, calls_before: int, **extra: Any) -> Record:
+        s = self.state
+        return self._record(
+            now,
+            "tick_summary",
+            cash_usd_micros=s.cash_usd_micros,
+            nav_usd_micros=s.nav(),
+            open_positions=len(s.positions),
+            # The journal is the source of truth: a kill between journal and state-file
+            # writes must never leave a report that disagrees with the retained chain.
+            positions=[asdict(p) for p in s.positions.values()],
+            realized_pnl_usd_micros=s.realized_pnl_usd_micros,
+            closed_trades=s.closed_trades,
+            winning_trades=s.winning_trades,
+            provider_calls=self.provider_calls() - calls_before,
+            **extra,
+        )
+
+
+def state_to_json(state: AgentState) -> dict[str, Any]:
+    """Lossless snapshot; prices are exact `numerator/denominator` strings, never floats."""
+    return {
+        "schema_version": "oasis.spot-agent-state.v1",
+        "cash_usd_micros": state.cash_usd_micros,
+        "realized_pnl_usd_micros": state.realized_pnl_usd_micros,
+        "closed_trades": state.closed_trades,
+        "winning_trades": state.winning_trades,
+        "cooldown_until": dict(state.cooldown_until),
+        "security": {k: [at, row] for k, (at, row) in state.security.items()},
+        "positions": {k: asdict(v) for k, v in state.positions.items()},
+        "outcomes": [
+            asdict(p) | {"price": f"{p.price.numerator}/{p.price.denominator}"}
+            for p in state.outcomes.pending.values()
+        ],
+    }
+
+
+def state_from_json(raw: dict[str, Any]) -> AgentState:
+    if raw.get("schema_version") != "oasis.spot-agent-state.v1":
+        raise ValueError("unknown spot agent state schema")
+    tracker = OutcomeTracker()
+    for item in raw["outcomes"]:
+        pending = Pending(
+            **(item | {"price": Fraction(item["price"]), "remaining": tuple(item["remaining"])})
+        )
+        tracker.pending[(pending.token, pending.at // 60)] = pending
+    return AgentState(
+        cash_usd_micros=int(raw["cash_usd_micros"]),
+        positions={k: Position(**v) for k, v in raw["positions"].items()},
+        realized_pnl_usd_micros=int(raw["realized_pnl_usd_micros"]),
+        closed_trades=int(raw["closed_trades"]),
+        winning_trades=int(raw["winning_trades"]),
+        cooldown_until={k: int(v) for k, v in raw["cooldown_until"].items()},
+        security={k: (int(v[0]), v[1]) for k, v in raw["security"].items()},
+        outcomes=tracker,
+    )
+
+
+def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentState:
+    """Make the hash-linked journal authoritative for money state after a restart.
+
+    Cash, positions and PnL counters come from the last journaled `tick_summary`; only
+    caches (security, cooldowns, pending outcome labels) survive from the state file. A
+    paper trade journaled after that summary means the tick was cut short, so the
+    summary-time book is no longer the truth and the run must be reviewed, not resumed.
+    """
+    summaries = [i for i, r in enumerate(records) if r["kind"] == "tick_summary"]
+    if not summaries:
+        if any(r["kind"] in ("paper_buy", "paper_sell") for r in records):
+            raise ValueError("journal has trades but no tick summary; review before resuming")
+        return state
+    last = summaries[-1]
+    if any(r["kind"] in ("paper_buy", "paper_sell") for r in records[last + 1 :]):
+        raise ValueError("journal ends inside an interrupted tick; review before resuming")
+    summary = records[last]
+    state.cash_usd_micros = int(summary["cash_usd_micros"])
+    state.positions = {p["token"]: Position(**p) for p in summary["positions"]}
+    state.realized_pnl_usd_micros = int(summary["realized_pnl_usd_micros"])
+    state.closed_trades = int(summary["closed_trades"])
+    state.winning_trades = int(summary["winning_trades"])
+    return state

@@ -1,5 +1,6 @@
 import { wireBatchResearch } from "./batch-research.js";
 import { loadLiveStatus } from "./live-status.js";
+import { loadSpot } from "./spot.js";
 import { wireResearch } from "./research.js";
 import { readinessModel, renderReadinessPath } from "./readiness.js";
 import { loadCampaigns, loadConfiguration, loadRuns, loadOps, loadApprovals, wireOperations } from "./operations.js";
@@ -412,6 +413,7 @@ registerView("observations", () => observationsPage.load());
 registerView("system", loadSystem, true);
 registerView("research", async () => {});
 registerView("launch", loadLaunch, true);
+registerView("spot", loadSpot, true);
 registerView("overview", async () => { await Promise.all([loadStatus(), loadGates()]); }, true);
 registerView("decisions", loadDecisions);
 registerView("evidence", loadEvidence);

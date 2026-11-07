@@ -96,3 +96,11 @@ live-report:
 	$(PYTHON) scripts/run_live_lp.py --mode $(or $(MODE),live) --report
 live-stop:
 	touch data/live/STOP
+
+# Shadow spot agent: live OKX/GMGN claims, paper book only, no key, no broadcast.
+SPOT_RUN ?= data/spot/shadow
+.PHONY: spot-shadow spot-report
+spot-shadow:
+	$(PYTHON) -m scripts.run_spot_agent --out "$(SPOT_RUN)" --interval $(or $(INTERVAL),120)
+spot-report:
+	$(PYTHON) -m scripts.report_spot_shadow --run "$(SPOT_RUN)"

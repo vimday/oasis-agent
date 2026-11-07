@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import Field, SecretStr
 
 from ..launch.models import StrictModel
+from ..launch.spot_report import build_report
 from .campaigns import CampaignError, CampaignManager
 from .config import ServerConfig, ServerDatabaseConfig
 from .databases import ReadOnlyDatabases
@@ -107,6 +108,16 @@ async def stop_campaign(name: str, state: State, authorization: Bearer = None) -
 
 
 def _snapshot(kind: str, path: Path, config: ServerConfig) -> dict[str, Any]:
+    if kind == "spot":
+        if not (path / "journal.db").is_file():
+            return {"status": "journal_not_created", "items": [], "execution_eligible": False}
+        try:
+            report = build_report(path)
+        except (sqlite3.Error, ValueError, KeyError, TypeError, OSError) as exc:
+            raise HTTPException(
+                status_code=503, detail="spot journal unavailable or corrupt"
+            ) from exc
+        return {"status": "retained", "items": [report], "execution_eligible": False}
     if not path.is_file():
         return {"status": "journal_not_created", "items": [], "execution_eligible": False}
     if kind in {"market", "archive"}:

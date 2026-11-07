@@ -15,6 +15,7 @@ from pydantic import Field
 
 from ..farming.strategy import BandTableFeeStrategy
 from ..launch.models import Address, Positive, StrictModel
+from ..launch.spot_agent import AgentConfig
 from ..models.common import sha256_hex
 from ..shadow.market_archive import ArchiveConfig
 from ..shadow.observer_config import Config as ObserverConfig
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/api/v1/configuration", tags=["configuration"])
 
 
 class ConfigurationRequest(StrictModel):
-    kind: Literal["launch", "lp", "rpc", "market", "archive"]
+    kind: Literal["launch", "lp", "rpc", "market", "archive", "spot"]
     document: Annotated[str, Field(min_length=2, max_length=65_536)]
 
 
@@ -102,6 +103,7 @@ async def configuration(state: State) -> dict[str, object]:
                 ).model_dump(mode="json", by_alias=True)
             ),
             "lp": _json_document(lp),
+            "spot": _json_document(AgentConfig().model_dump(mode="json")),
             "rpc": _json_document(
                 {
                     "chain_id": 8453,
@@ -135,6 +137,10 @@ async def validate_configuration(
         elif body.kind == "launch":
             parsed = ExecutionConfig.from_json(body.document)
             document = _json_document(parsed.model_dump(mode="json", by_alias=True))
+        elif body.kind == "spot":
+            document = _json_document(
+                AgentConfig.model_validate_json(body.document).model_dump(mode="json")
+            )
         elif body.kind == "lp":
             document = _json_document(serializable(parse_policy(body.document.encode())))
         else:
@@ -174,5 +180,6 @@ async def validate_configuration(
             "launch": "launch_execution.json",
             "lp": "lp-shadow.json",
             "rpc": "server-rpc.toml",
+            "spot": "spot-agent-config.json",
         }[body.kind],
     }

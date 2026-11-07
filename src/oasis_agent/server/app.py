@@ -53,6 +53,7 @@ from .routers_observe import router as observe_router
 from .routers_ops import router as ops_router
 from .routers_p3 import router as p3_router
 from .routers_research import router as research_router
+from .routers_spot import router as spot_router
 from .runner import ShadowRunCoordinator
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,7 @@ _ROUTERS = (
     configuration_router,
     campaigns_router,
     research_router,
+    spot_router,
 )
 
 _REQUEST_ID_HEX_LENGTH = 12

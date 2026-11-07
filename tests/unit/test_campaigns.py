@@ -649,3 +649,74 @@ def test_large_archive_diagnostic_does_not_hide_runtime_status(tmp_path):
     assert snapshot["items"][0]["stage"] == "completed"
     assert snapshot["diagnostics"]["economics.json"]["preview"] == "size_limit"
     assert snapshot["execution_eligible"] is False
+
+
+def spot_document(client, **overrides):
+    policy = client.get("/api/v1/configuration").json()["templates"]["spot"]
+    return json.dumps(
+        {
+            "kind": "spot",
+            "mode": "shadow",
+            "policy": policy,
+            "cycles": 60,
+            "timeout_seconds": 3 * 86_400,
+        }
+        | overrides
+    )
+
+
+def test_spot_campaign_rules_bound_mode_fields_budget_and_duration(tmp_path):
+    with client_for(tmp_path) as client:
+        for overrides in (
+            {"mode": "observe"},
+            {"wallet": "0x" + "1" * 40},
+            {"rpc_primary": "primary"},
+            {"cycles": 201},
+            {"timeout_seconds": 4 * 86_400 + 1},
+            {"policy": '{"initial_cash_usd_micros": 1.5}'},
+        ):
+            assert save(client, document=spot_document(client, **overrides)).status_code == 422
+        assert save(client, document=launch_document(client)).status_code == 200
+        long_launch = json.loads(launch_document(client)) | {"timeout_seconds": 2 * 86_400}
+        response = client.post(
+            "/api/v1/campaigns/other/configuration",
+            headers=AUTH,
+            json={"expected_revision": 0, "document": json.dumps(long_launch)},
+        )
+        assert response.status_code == 422  # only spot may exceed 24 hours
+
+
+def test_spot_worker_gets_home_but_no_key_and_a_fixed_shadow_command(tmp_path, monkeypatch):
+    fake_root = tmp_path / "worker"
+    (fake_root / "scripts").mkdir(parents=True)
+    (fake_root / "scripts/__init__.py").write_text("")
+    (fake_root / "scripts/run_spot_agent.py").write_text(
+        "import os, sys\n"
+        "assert 'OASIS_PRIVATE_KEY' not in os.environ and 'BASE_RPC_PRIMARY' not in os.environ\n"
+        "assert os.environ['HOME']\n"
+        "argv = sys.argv\n"
+        "assert argv[argv.index('--call-budget') + 1] == '60000'\n"
+        "assert argv[argv.index('--interval') + 1] == '180'\n"
+        "assert not any(a in argv for a in ('--live', '--broadcast', '--signer-socket'))\n"
+        "print('spot shadow authority verified')\n"
+    )
+    monkeypatch.setattr(campaigns, "_REPOSITORY", fake_root)
+    monkeypatch.setenv("OASIS_PRIVATE_KEY", "synthetic-test-only")
+    with client_for(tmp_path) as client:
+        assert save(client, document=spot_document(client)).status_code == 200
+        client.post(
+            "/api/v1/campaigns/demo/apply",
+            headers=AUTH,
+            json={"expected_revision": 1, "revision": 1},
+        )
+        started = client.post(
+            "/api/v1/campaigns/demo/start",
+            headers=AUTH,
+            json={"revision": 1, "request_id": "5" * 32},
+        )
+        assert started.status_code == 200
+        final = wait_terminal(client)
+        assert final["status"] == "succeeded", final["run"]
+        assert "spot shadow authority verified" in final["run"]["stdout_tail"]
+        snapshot = client.get("/api/v1/campaigns/demo/snapshot").json()
+        assert snapshot["status"] == "journal_not_created"

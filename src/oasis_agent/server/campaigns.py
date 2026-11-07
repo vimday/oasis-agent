@@ -26,7 +26,9 @@ from urllib.parse import urlsplit
 from pydantic import Field, model_validator
 
 from ..errors import ConfigurationError
+from ..launch import gmgn_source, onchainos_source
 from ..launch.models import Address, StrictModel
+from ..launch.spot_agent import AgentConfig
 from ..models.common import canonical_json, sha256_hex
 from ..shadow.market_archive import ArchiveConfig
 from ..shadow.observer_config import Config as ObserverConfig
@@ -39,6 +41,7 @@ from .runner import ShadowRunCoordinator
 Name = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")]
 ACTIVE = frozenset({"queued", "running", "stopping"})
 MAX_ASSET_BYTES = 256 * 1024 * 1024
+SPOT_MAX_SECONDS = 4 * 86_400
 _REPOSITORY = Path(__file__).resolve().parents[3]
 
 
@@ -51,7 +54,7 @@ class CampaignIntegrityError(RuntimeError):
 
 
 class CampaignSpec(StrictModel):
-    kind: Literal["launch", "lp", "market", "archive"]
+    kind: Literal["launch", "lp", "market", "archive", "spot"]
     mode: Literal["observe", "shadow"]
     policy: Annotated[str, Field(min_length=2, max_length=65_536)]
     wallet: Address | None = None
@@ -59,13 +62,30 @@ class CampaignSpec(StrictModel):
     rpc_secondary: Name | None = None
     input_source: Name | None = None
     cycles: Annotated[int, Field(ge=1, le=10_000)] = 100
-    timeout_seconds: Annotated[int, Field(ge=10, le=86_400)] = 900
+    # Spot shadow is a multi-day forward window; every other kind keeps the 24h bound.
+    timeout_seconds: Annotated[int, Field(ge=10, le=SPOT_MAX_SECONDS)] = 900
     discovery_from_block: Annotated[int, Field(ge=0, lt=2**64)] | None = None
     events: bool = False
 
     @model_validator(mode="after")
     def validate_kind(self) -> "CampaignSpec":
-        if self.kind in {"market", "archive"}:
+        if self.kind != "spot" and self.timeout_seconds > 86_400:
+            raise ValueError("only spot shadow runs may exceed 24 hours")
+        if self.kind == "spot":
+            if self.mode != "shadow" or any(
+                (
+                    self.wallet,
+                    self.rpc_primary,
+                    self.rpc_secondary,
+                    self.input_source,
+                    self.events,
+                    self.discovery_from_block is not None,
+                )
+            ):
+                raise ValueError("Spot requires shadow mode and no wallet, RPC or LP fields")
+            if self.cycles > 200:
+                raise ValueError("spot call budget is at most 200 thousand provider calls")
+        elif self.kind in {"market", "archive"}:
             if (
                 self.mode != "observe"
                 or not self.rpc_primary
@@ -120,6 +140,8 @@ def normalize_spec(document: str) -> CampaignSpec:
         policy = parsed.model_dump(mode="json")
     elif spec.kind == "launch":
         policy = ExecutionConfig.from_json(spec.policy).model_dump(mode="json", by_alias=True)
+    elif spec.kind == "spot":
+        policy = AgentConfig.model_validate_json(spec.policy).model_dump(mode="json")
     else:
         policy = serializable(parse_policy(spec.policy.encode()))
     return CampaignSpec.model_validate(
@@ -224,6 +246,9 @@ class CampaignManager:
         self._stop_preparing: set[str] = set()
         self._preparations: set[asyncio.Task[dict[str, str]]] = set()
         self._closed = False
+        okx = onchainos_source.default_binary()
+        gmgn = gmgn_source.default_binary()
+        self._spot_binaries = (okx, gmgn if gmgn.is_absolute() and gmgn.is_file() else None)
         self._db = sqlite3.connect(self.root / "control.db")
         self._db.execute("PRAGMA synchronous=FULL")
         self._db.executescript("""
@@ -370,6 +395,7 @@ class CampaignManager:
                 "lp": ["shadow"],
                 "market": ["observe"],
                 "archive": ["observe"],
+                "spot": ["shadow"],
             },
             "live_blockers": [
                 "isolated_policy_signer_not_released",
@@ -526,6 +552,27 @@ class CampaignManager:
                     "--max-chunks",
                     str(spec.cycles),
                 )
+            elif spec.kind == "spot":
+                okx, gmgn = self._spot_binaries
+                # Both read-only CLIs keep their sessions under HOME; no wallet, RPC or
+                # project variable is forwarded.
+                env["HOME"] = str(Path.home())
+                command = (
+                    sys.executable,
+                    "-m",
+                    "scripts.run_spot_agent",
+                    "--config",
+                    str(folder / "policy.json"),
+                    "--out",
+                    str(folder / "spot"),
+                    "--interval",
+                    "180",
+                    "--call-budget",
+                    str(spec.cycles * 1000),
+                    "--binary",
+                    str(okx),
+                )
+                command += ("--gmgn", str(gmgn)) if gmgn is not None else ("--no-gmgn",)
             elif spec.kind == "market":
                 command = (
                     sys.executable,
@@ -648,6 +695,8 @@ class CampaignManager:
             raise CampaignError("invalid retained run path")
         if head["kind"] == "archive":
             return "archive", self.archive_path(name, run["revision"]) / "status.json"
+        if head["kind"] == "spot":
+            return "spot", self.root / folder / "spot"
         return head["kind"], self.root / folder / (
             "research/status.json" if head["kind"] == "market" else "journal.db"
         )
