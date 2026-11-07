@@ -185,11 +185,26 @@ const BOUNDED_RESULT = {
   completed: "单轮完成", failed: "失败", timed_out: "超时", interrupted: "已中断",
 };
 
+const BOUNDED_BLOCKER = {
+  rpc_budget_insufficient: "累计 RPC 额度不足",
+  rpc_budget_unverified: "累计 RPC 预算未核验",
+  post_stop_reconciliation_required: "待核查停机或对账",
+  post_stop_replay_unverified: "停机后对账未核验",
+};
+const BOUNDED_ROLE = {strategy: "策略服务", authority: "签名服务"};
+
 export function boundedRunLabel(row) {
   if (!row || row.execution_eligible !== false || !Object.hasOwn(BOUNDED_STATUS, row.status)) return null;
+  const attempted = row.start_attempted ?? null;
+  const blocker = row.blocker ?? null;
+  const role = row.blocked_service ?? null;
+  if (attempted !== null && typeof attempted !== "boolean" ||
+      blocker !== null && (typeof blocker !== "string" || !Object.hasOwn(BOUNDED_BLOCKER, blocker)) ||
+      role !== null && (typeof role !== "string" || !Object.hasOwn(BOUNDED_ROLE, role))) return null;
   if (["unconfigured", "missing", "invalid"].includes(row.status)) {
     return row.attempt_id === null && row.as_of === null && row.result === null &&
-      row.stop_present === null ? BOUNDED_STATUS[row.status] : null;
+      row.stop_present === null && attempted === null && blocker === null && role === null
+      ? BOUNDED_STATUS[row.status] : null;
   }
   if (!/^[0-9a-f]{32}$/.test(row.attempt_id ?? "") || !Number.isSafeInteger(row.as_of) ||
       row.as_of < 0 || row.result !== null && !Object.hasOwn(BOUNDED_RESULT, row.result)) return null;
@@ -197,10 +212,20 @@ export function boundedRunLabel(row) {
   if (row.result === null ? stops !== null : !stops || typeof stops.strategy !== "boolean" ||
       typeof stops.authority !== "boolean") return null;
   if (row.status === "stopped" && (!stops?.strategy || !stops?.authority) ||
-      row.result === "completed" && row.status !== "stopped" ||
+      row.result === "completed" && (row.status !== "stopped" || attempted === false || blocker !== null) ||
       row.status === "launch_requested" && row.result !== null) return null;
-  return row.result === null ? BOUNDED_STATUS[row.status] :
-    `${BOUNDED_STATUS[row.status]} · ${BOUNDED_RESULT[row.result]}`;
+  if (row.result === null) {
+    return attempted === null && blocker === null && role === null ? BOUNDED_STATUS[row.status] : null;
+  }
+  if (blocker?.startsWith("rpc_budget_") && attempted !== false ||
+      blocker?.startsWith("post_stop_") && (attempted !== true || row.status !== "stopped") ||
+      (blocker === "post_stop_reconciliation_required") !== (role !== null)) return null;
+  const status = row.status === "stopped" && attempted === false
+    ? "本轮未发起启动 · 双 STOP 已核对" : BOUNDED_STATUS[row.status];
+  const labels = [status, BOUNDED_RESULT[row.result]];
+  if (blocker !== null) labels.push(role === null ? BOUNDED_BLOCKER[blocker] :
+    BOUNDED_ROLE[role] + " " + BOUNDED_BLOCKER[blocker]);
+  return labels.join(" · ");
 }
 
 export function liveStatusModel(data) {

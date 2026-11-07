@@ -4,7 +4,7 @@ import os
 import stat
 import time
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,12 @@ from ..models.common import canonical_json, sha256_hex
 MAX_BYTES = 65_536
 Role = Literal["strategy", "authority"]
 RunResult = Literal["completed", "failed", "timed_out", "interrupted"]
+RunBlocker = Literal[
+    "rpc_budget_insufficient",
+    "rpc_budget_unverified",
+    "post_stop_reconciliation_required",
+    "post_stop_replay_unverified",
+]
 Status = Literal[
     "unconfigured", "missing", "invalid", "launch_requested", "cleanup_unverified", "stopped"
 ]
@@ -26,6 +32,9 @@ class BoundedRunStatus(BaseModel):
     as_of: int | None = None
     result: RunResult | None = None
     stop_present: dict[Role, bool] | None = None
+    start_attempted: bool | None = None
+    blocker: RunBlocker | None = None
+    blocked_service: Role | None = None
 
 
 def _read(path: Path) -> dict[str, object]:
@@ -44,6 +53,62 @@ def _read(path: Path) -> dict[str, object]:
     ):
         raise ValueError("bounded run declaration digest or flags differ")
     return report
+
+
+def _rpc_budget_insufficient(raw: dict[str, object]) -> bool:
+    budget = raw.get("rpc_budget")
+    if not isinstance(budget, dict) or budget.get("enough_for_capture") is not False:
+        return False
+    used = budget.get("cumulative_reserved_upper_micros")
+    scope = budget.get("cumulative_scope_upper_micros")
+    ceiling = budget.get("ceiling_micros")
+    declared_ceiling = raw.get("rpc_ceiling_micros")
+    return (
+        type(used) is int
+        and type(scope) is int
+        and type(ceiling) is int
+        and 0 <= used <= scope <= ceiling
+        and ceiling > 0
+        and type(declared_ceiling) is int
+        and declared_ceiling == ceiling
+    )
+
+
+def _terminal_blocker(
+    raw: dict[str, object], *, stopped: bool, start_attempted: bool | None
+) -> tuple[RunBlocker | None, Role | None]:
+    stage = raw.get("failure_stage")
+    if stage == "cumulative_rpc_budget" and start_attempted is False:
+        if _rpc_budget_insufficient(raw):
+            return "rpc_budget_insufficient", None
+        return "rpc_budget_unverified", None
+    if not stopped or start_attempted is not True:
+        return None, None
+    if "post_stop_replay" not in raw and stage != "post_stop_replay":
+        return None, None
+    replay = raw.get("post_stop_replay")
+    if (
+        not isinstance(replay, dict)
+        or replay.get("schema") != "oasis.live-startup-state.v1"
+        or replay.get("execution_eligible") is not False
+        or replay.get("historical_only") is not True
+    ):
+        return "post_stop_replay_unverified", None
+    if (
+        replay.get("startup_prerequisites_passed") is True
+        and replay.get("stop_markers_present") is True
+        and "blockers" not in replay
+        and stage != "post_stop_replay"
+    ):
+        return None, None
+    role = replay.get("blocked_service")
+    if (
+        replay.get("startup_prerequisites_passed") is False
+        and replay.get("blockers") == ["halt_or_reconciliation_unresolved"]
+        and role in ("strategy", "authority")
+    ):
+        return "post_stop_reconciliation_required", cast(Role, role)
+    return "post_stop_replay_unverified", None
 
 
 def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRunStatus:
@@ -74,10 +139,12 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
                 }
             )
         finished, cleanup = raw["finished_at"], raw["cleanup"]
+        start_attempted = raw.get("start_attempted")
         if (
             raw["schema"] != "oasis.base-bounded-run.v1"
             or type(finished) is not int
             or not 0 <= finished <= clock
+            or ("start_attempted" in raw and type(start_attempted) is not bool)
             or not isinstance(cleanup, dict)
             or type(cleanup["verified"]) is not bool
             or type(cleanup["services_stopped"]) is not bool
@@ -93,10 +160,20 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
             )
             or (
                 raw["result"] == "completed"
-                and (not cleanup["verified"] or raw.get("guard") != "released")
+                and (
+                    not cleanup["verified"]
+                    or raw.get("guard") != "released"
+                    or start_attempted is False
+                )
             )
         ):
             raise ValueError("incoherent terminal cleanup")
+        attempted = start_attempted if isinstance(start_attempted, bool) else None
+        blocker, role = _terminal_blocker(
+            raw, stopped=cleanup["verified"], start_attempted=attempted
+        )
+        if raw["result"] == "completed" and blocker is not None:
+            raise ValueError("terminal success conflicts with an unresolved blocker")
         return BoundedRunStatus.model_validate(
             {
                 "status": "stopped" if cleanup["verified"] else "cleanup_unverified",
@@ -104,6 +181,9 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
                 "as_of": finished,
                 "result": raw["result"],
                 "stop_present": stops,
+                "start_attempted": attempted,
+                "blocker": blocker,
+                "blocked_service": role,
             }
         )
     except FileNotFoundError:

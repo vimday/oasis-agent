@@ -72,6 +72,9 @@ Pricing assumptions refer to [Alchemy pricing](https://www.alchemy.com/docs/refe
 and [dRPC method costs](https://drpc.org/docs/pricing/compute-units).
 
 For the read-only dashboard, set `databases.live_bounded_run` to that exact output
-directory. The page distinguishes an issued start request, historical verified
-stop with both STOPs, and unverified cleanup. It does not poll Docker, contact RPC,
-infer that the services are currently running, or grant trading authority.
+directory. The page distinguishes an issued start request, a pre-start budget
+refusal, a verified stop with both STOPs, and unverified cleanup. If the
+post-stop replay still requires reconciliation, the page identifies the service
+when the terminal report identifies it. The display uses a fixed set of status
+messages from the retained report. The evidence path and raw diagnostics stay
+local.

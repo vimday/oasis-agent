@@ -159,7 +159,13 @@ def test_terminal_outcomes_stop_owned_services_and_restore_both_markers(
         actions.append("post_stop_replay")
         if outcome == "authority_pending":
             return refusal_report(StartupBlocker.RECONCILIATION_REQUIRED, "authority")
-        return {"startup_prerequisites_passed": True, "stop_markers_present": True}
+        return {
+            "schema": "oasis.live-startup-state.v1",
+            "startup_prerequisites_passed": True,
+            "stop_markers_present": True,
+            "execution_eligible": False,
+            "historical_only": True,
+        }
 
     monkeypatch.setattr(entry.deploy, "state_preflight", replay)
     monkeypatch.setattr(entry.Run, "execute", execute)

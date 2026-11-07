@@ -3,14 +3,18 @@
 import json
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.reporting.live_pair import read_pair_status
 from oasis_agent.reporting.live_status import read_live_status
 from scripts.inspect_live_state import export_pair_status
+from tests.unit.server_helpers import make_server_config
 from tests.unit.test_live_lp import CONFIG
 from tests.unit.test_live_offline_inspection import pair
 from tests.unit.test_live_status import NOW, observed_state, write_state
+from tests.unit.test_server_api import client_for
 
 
 def test_pair_dashboard_shows_projection_and_configuration_conflicts(tmp_path, monkeypatch):
@@ -506,6 +510,134 @@ assert.match(boundedRunLabel(row), /已停机.*双 STOP 已恢复.*超时/);
 row.result = "completed";
 assert.match(boundedRunLabel(row), /双 STOP 已恢复.*单轮完成/);
 """
+    result = subprocess.run(
+        [node, "--input-type=module"],
+        cwd=tmp_path,
+        input=program,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_bounded_run_endpoint_and_label_distinguish_safe_blockers(tmp_path):
+    node = shutil.which("node")
+    assert node is not None
+    root = Path(__file__).resolve().parents[2] / "src/oasis_agent/server/static"
+    for name in ("core.js", "live-status.js"):
+        shutil.copy(root / name, tmp_path / name)
+    (tmp_path / "package.json").write_text('{"type":"module"}')
+
+    run = tmp_path / "run"
+    run.mkdir()
+    config = make_server_config(tmp_path)
+    config = replace(config, databases=replace(config.databases, live_bounded_run=run))
+    terminal = {
+        "schema": "oasis.base-bounded-run.v1",
+        "execution_eligible": False,
+        "attempt_id": "a" * 32,
+        "finished_at": 120,
+        "result": "failed",
+        "guard": "released",
+        "rpc_ceiling_micros": 100_000,
+        "cleanup": {
+            "verified": True,
+            "services_stopped": True,
+            "stop_present": {"strategy": True, "authority": True},
+        },
+        "commands": {"diagnostic": "private-provider-diagnostic"},
+    }
+    budget = {
+        "ceiling_micros": 100_000,
+        "cumulative_reserved_upper_micros": 91_155,
+        "cumulative_scope_upper_micros": 95_155,
+        "enough_for_capture": False,
+    }
+    replay = {
+        "schema": "oasis.live-startup-state.v1",
+        "startup_prerequisites_passed": False,
+        "execution_eligible": False,
+        "historical_only": True,
+        "blockers": ["halt_or_reconciliation_unresolved"],
+        "blocked_service": "authority",
+    }
+    cases = {
+        "insufficient": {
+            "failure_stage": "cumulative_rpc_budget",
+            "start_attempted": False,
+            "rpc_budget": budget,
+        },
+        "unverified": {
+            "failure_stage": "cumulative_rpc_budget",
+            "start_attempted": False,
+            "rpc_budget": {**budget, "ceiling_micros": True},
+        },
+        "budget_missing": {"failure_stage": "cumulative_rpc_budget", "start_attempted": False},
+        "reconcile": {
+            "failure_stage": "post_stop_replay",
+            "start_attempted": True,
+            "post_stop_replay": replay,
+        },
+        "unrecognized": {
+            "failure_stage": "post_stop_replay",
+            "start_attempted": True,
+            "post_stop_replay": {**replay, "blocked_service": "private-role"},
+        },
+        "timed_out": {
+            "result": "timed_out",
+            "failure_stage": "one_tick_runtime",
+            "start_attempted": True,
+            "post_stop_replay": replay,
+        },
+        "contradictory": {
+            "result": "completed",
+            "start_attempted": True,
+            "post_stop_replay": replay,
+        },
+        "legacy": {},
+    }
+    rows = {}
+    with client_for(tmp_path, config=config) as client:
+        for name, fields in cases.items():
+            report = terminal | fields
+            report["evidence_hash"] = sha256_hex(canonical_json(report))
+            (run / "report.json").write_bytes(canonical_json(report))
+            response = client.get("/api/v1/live/status")
+            assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+            assert "private-provider-diagnostic" not in response.text
+            assert "private-role" not in response.text and str(run) not in response.text
+            rows[name] = response.json()["bounded_run"]
+        assert client.post("/api/v1/live/status").status_code == 405
+
+    assert rows["insufficient"]["blocker"] == "rpc_budget_insufficient"
+    assert rows["unverified"]["blocker"] == "rpc_budget_unverified"
+    assert rows["budget_missing"]["blocker"] == "rpc_budget_unverified"
+    assert rows["reconcile"]["blocked_service"] == "authority"
+    assert rows["unrecognized"]["blocked_service"] is None
+    assert rows["timed_out"]["blocker"] == "post_stop_reconciliation_required"
+    assert rows["contradictory"]["status"] == "invalid"
+    assert rows["legacy"]["blocker"] is None
+
+    program = (
+        "const rows = "
+        + json.dumps(rows)
+        + ";\n"
+        + r"""
+import assert from 'node:assert/strict';
+import {boundedRunLabel} from './live-status.js';
+assert.match(boundedRunLabel(rows.insufficient), /未发起启动.*累计 RPC 额度不足/);
+assert.match(boundedRunLabel(rows.unverified), /累计 RPC 预算未核验/);
+assert.match(boundedRunLabel(rows.reconcile), /双 STOP 已恢复.*签名服务.*待核查停机或对账/);
+assert.match(boundedRunLabel(rows.unrecognized), /停机后对账未核验/);
+assert.match(boundedRunLabel(rows.timed_out), /超时.*待核查停机或对账/);
+assert.match(boundedRunLabel(rows.contradictory), /本轮记录无法校验/);
+assert.match(boundedRunLabel(rows.legacy), /失败$/);
+assert.equal(boundedRunLabel({...rows.insufficient, blocker:"<img>"}), null);
+assert.equal(boundedRunLabel({...rows.reconcile, blocked_service:"<img>"}), null);
+"""
+    )
     result = subprocess.run(
         [node, "--input-type=module"],
         cwd=tmp_path,
