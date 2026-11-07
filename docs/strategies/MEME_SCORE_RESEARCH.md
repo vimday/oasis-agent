@@ -101,6 +101,36 @@ including blockers and exit/LP proposals. It sends the original JSON without Jav
 rounding and clears failed results. Streaming provider ingestion and execution integration remain
 unimplemented.
 
+## Base spot paper replay
+
+`python -m scripts.replay_base_spot --input /path/to/frames.json --output /path/to/new-report.json`
+runs a chronological Base USDC/ERC-20 paper book with at most one position at a time.
+The strict `oasis.spot-replay.v1` input schema is defined by
+`launch.spot_replay.SpotReplay`. Each frame carries a `DiscoveryRequest`, the current
+normalized chain assessments as `Candidate` records, and size-specific `SpotMarket`
+quotes. Use the retained GMGN/OKX discovery imports for rankings and include separate
+pair-creation evidence as a `new_pair` signal with `created_at`. A supplied, fresh FOMO
+social observation breaks a tie between otherwise equally ranked valid entries.
+FOMO acquisition remains subject to authorization from FOMO.
+
+An entry needs a fresh exact-output buy and exact-input unwind for the same token quantity.
+The runner parses retained [OKX Classic Swap quote responses](https://web3.okx.com/onchainos/dev-docs/trade/dex-get-quote).
+The quote frame carries explicit USDC/USD valuation bounds with a reference, retrieval
+times, and additional costs for each leg. The book rounds the buy upward and the sell
+downward after slippage and costs. Entry requires a discount to the lower median of
+earlier same-size asks plus a rebound from the most recent ask. All thresholds and
+reference windows are declared research parameters. The round-trip loss bound is
+recomputed from the two quotes before a simulated buy.
+
+While held, the book marks only against a fresh sell quote for the held amount.
+It applies the net stop, trailing stop, take-profit and time-stop rules independently
+of discovery rankings. Missing or unsafe exit evidence halts the replay with the
+position still open. The entire buy cost must fit inside the remaining paper loss
+allowance, with caps of USD 500 capital, USD 200 daily loss and USD 500 cumulative loss.
+Each decision binds its input frame and the quote hashes used. Reported PnL is simulated.
+Quote retrieval times, USDC bounds and chain assessments are imported declarations.
+The replay makes no network requests and carries no signing or broadcast capability.
+
 ## Experiment and latency requirements before promotion
 
 Hypothesis: confluence of authentic breadth/depth and dispersed ownership selects better risk-adjusted
