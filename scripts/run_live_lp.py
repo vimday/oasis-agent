@@ -44,6 +44,7 @@ from oasis_agent.live.recovery import (
 )
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
+from oasis_agent.live.shutdown import run_with_term_handler
 from oasis_agent.live.startup_state import acquire_existing_lock, inspect_service
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
@@ -62,6 +63,7 @@ def receipt_cost_reader(
     *,
     profile: LiveRpcProfile | None = None,
     require_existing_budget: bool = False,
+    retries: int = 2,
 ) -> RetainedReceiptCostReader:
     """Share live endpoints with bounded, raw-recording cost acquisition sessions."""
     if primary_url.rstrip("/") == secondary_url.rstrip("/"):
@@ -85,8 +87,7 @@ def receipt_cost_reader(
             policies=policies,
             budget=budget,
             require_existing_budget=require_existing_budget,
-            # A ~110-request interval proof must survive one transient TLS/timeout drop.
-            retries=2,
+            retries=retries,
         ),
     )
 
@@ -511,6 +512,7 @@ def main() -> None:
                 secondary_url,
                 profile=profile,
                 require_existing_budget=args.require_existing_runtime,
+                retries=0 if args.ticks is not None else 2,
             )
             primary = BudgetedRpc(
                 primary_url,
@@ -544,15 +546,30 @@ def main() -> None:
         report = loop.report()
         bounded = args.mode == "live" and args.ticks is not None
         if bounded:
-            report["tick_status"] = status
+            report.update(
+                tick_status=status,
+                pending_transaction=loop.state.pending is not None,
+                signing_unresolved=loop.state.signing_attempt is not None,
+            )
         print(json.dumps(report, indent=1, default=str))
+        if bounded and args.require_existing_runtime:
+            # Keep the terminal record short regardless of journal/report size.
+            fields = ("mode", "halted", "pending_transaction", "signing_unresolved", "tick_status")
+            print(json.dumps({key: report[key] for key in fields}, default=str), flush=True)
         if loop.state.halted or (
-            bounded and (status is None or status.startswith(("skip: ", "stopped: ", "halted: ")))
+            bounded
+            and (
+                loop.state.pending is not None
+                or loop.state.signing_attempt is not None
+                or status is None
+                or status.startswith(("skip: ", "stopped: ", "halted: "))
+                or " REVERTED " in status
+            )
         ):
             # Preserve the report and latch, but do not tell supervisors a failed
             # observation/risk/settlement run completed successfully.
             raise SystemExit(3)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__" and not run_with_term_handler(main):
+    raise SystemExit(143)

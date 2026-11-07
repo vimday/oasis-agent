@@ -28,6 +28,7 @@ from oasis_agent.live.gas_oracle import require_gas_oracle_pins
 from oasis_agent.live.recovery import authority_status, require_recovery_wallets
 from oasis_agent.live.rpc_profile import LiveRpcProfile
 from oasis_agent.live.runner import LiveLoop
+from oasis_agent.live.shutdown import run_with_term_handler
 from oasis_agent.live.startup_state import acquire_existing_lock, inspect_service
 from oasis_agent.live.state import StateStore
 from oasis_agent.models.common import canonical_json, sha256_hex
@@ -67,6 +68,7 @@ def main() -> None:
     parser.add_argument("--key-env")
     parser.add_argument("--primary-rpc-env", default="BASE_RPC_PRIMARY_ALT")
     parser.add_argument("--max-signatures", type=int, default=12)
+    parser.add_argument("--no-rpc-retry", action="store_true")
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     args = parser.parse_args()
     if args.require_existing_runtime and (args.status_only or args.reconcile_only):
@@ -189,6 +191,7 @@ def main() -> None:
                 secondary,
                 profile=profile,
                 require_existing_budget=args.reconcile_only or args.require_existing_runtime,
+                retries=0 if args.no_rpc_retry else 2,
             )
             if args.reconcile_only:
                 try:
@@ -204,6 +207,7 @@ def main() -> None:
             provider = _KeyProvider(address_of(key), key)
             authority = TransactionAuthority(loop, provider, ttl_seconds=args.ttl_seconds)
             with prepare_endpoint(args.socket) as server:
+                print("oasis authority ready", flush=True)
                 serve_connections(
                     server,
                     authority,
@@ -215,6 +219,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        main()
+        run_with_term_handler(main)
     except (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error):
         raise SystemExit("Transaction authority refused or stopped; details redacted.") from None

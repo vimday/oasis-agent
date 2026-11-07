@@ -479,3 +479,40 @@ assert.equal(timers.size, 0);
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_bounded_run_status_cannot_claim_stopped_without_two_stop_markers(tmp_path):
+    node = shutil.which("node")
+    assert node is not None
+    root = Path(__file__).resolve().parents[2] / "src/oasis_agent/server/static"
+    for name in ("core.js", "live-status.js"):
+        shutil.copy(root / name, tmp_path / name)
+    (tmp_path / "package.json").write_text('{"type":"module"}')
+    program = """
+import assert from 'node:assert/strict';
+import {boundedRunLabel} from './live-status.js';
+const row = {attempt_id:"a".repeat(32), as_of:120, execution_eligible:false,
+             status:"launch_requested", result:null, stop_present:null};
+assert.match(boundedRunLabel(row), /启动已发起.*等待停机证据/);
+row.status = "cleanup_unverified";
+assert.match(boundedRunLabel(row), /停机或双 STOP 恢复待核对/);
+row.result = "timed_out";
+row.stop_present = {strategy:true,authority:false};
+assert.match(boundedRunLabel(row), /超时/);
+row.status = "stopped";
+assert.equal(boundedRunLabel(row), null);
+row.stop_present.authority = true;
+assert.match(boundedRunLabel(row), /已停机.*双 STOP 已恢复.*超时/);
+row.result = "completed";
+assert.match(boundedRunLabel(row), /双 STOP 已恢复.*单轮完成/);
+"""
+    result = subprocess.run(
+        [node, "--input-type=module"],
+        cwd=tmp_path,
+        input=program,
+        text=True,
+        capture_output=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

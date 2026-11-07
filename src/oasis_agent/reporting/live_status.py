@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, ValidationError
 
 from ..models.common import sha256_hex
+from .live_bounded import BoundedRunStatus, read_bounded_run
 from .live_pair import LivePairStatus, read_pair_status
 from .live_release import LiveRelease, live_release
 from .live_startup import LiveStartupReadiness, read_local_startup_readiness
@@ -120,6 +121,7 @@ class ActionView(BaseModel):
 class LiveStatusResponse(BaseModel):
     release: LiveRelease = Field(default_factory=live_release)
     startup: LiveStartupReadiness
+    bounded_run: BoundedRunStatus = Field(default_factory=lambda: read_bounded_run(None))
     pair: LivePairStatus = Field(default_factory=lambda: read_pair_status(None))
     schema_: Literal["oasis.live-status.v1"] = Field(default="oasis.live-status.v1", alias="schema")
     execution_eligible: Literal[False] = False
@@ -178,7 +180,11 @@ def _read(path: Path) -> bytes:
 
 
 def read_live_status(
-    path: Path | None, *, now: int | None = None, pair_inspection: Path | None = None
+    path: Path | None,
+    *,
+    now: int | None = None,
+    pair_inspection: Path | None = None,
+    bounded_run: Path | None = None,
 ) -> LiveStatusResponse:
     """Read one atomic local snapshot; missing/corrupt inputs never become zero NAV."""
     release = live_release()
@@ -186,11 +192,13 @@ def read_live_status(
     pair = read_pair_status(
         pair_inspection, now=now, startup_config_hash=startup.configuration_hash
     )
+    bounded = read_bounded_run(bounded_run, now=now)
     if path is None:
         return LiveStatusResponse(
             release=release,
             startup=startup,
             pair=pair,
+            bounded_run=bounded,
             status="unconfigured",
             blockers=["live_state_unconfigured"],
         )
@@ -202,6 +210,7 @@ def read_live_status(
             release=release,
             startup=startup,
             pair=pair,
+            bounded_run=bounded,
             status="missing",
             blockers=["live_state_missing"],
         )
@@ -210,6 +219,7 @@ def read_live_status(
             release=release,
             startup=startup,
             pair=pair,
+            bounded_run=bounded,
             status="invalid",
             blockers=["live_state_invalid"],
         )
@@ -288,6 +298,7 @@ def read_live_status(
         release=release,
         startup=startup,
         pair=pair,
+        bounded_run=bounded,
         status=status,
         blockers=blockers,
         state_hash=sha256_hex(payload),

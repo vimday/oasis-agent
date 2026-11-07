@@ -15,84 +15,19 @@ these local guards fail. Exit 0 means only `local_guards_passed: true`:
 `startup_prerequisites_passed`, `execution_eligible` and `evidence_replayed`
 remain false, including with all eight configured runtime roles. This default
 does not inspect Docker, original state, STOP, keys, environment values or RPC.
-`make live-docker` is the guarded startup
-entry. A closed owner release refuses before Docker, credentials, output creation
-or state access. An open owner release still requires the original-state and
-runtime checks below. Neither command changes the release decision. The Python
-CLI exits 3 for a refusal; Make propagates a failed target.
+`make live-docker` is the guarded **one-tick** Base operator entry. See
+[the bounded Base runbook](../../docs/operations/BASE_BOUNDED_RUN.md) for the
+preconditions, paid RPC ceiling, evidence files, cleanup and dashboard status.
+The CLI refuses a closed release before Docker, credentials or production state.
+The guard is held until both services are stopped and both STOPs are verified.
+Neither the dashboard nor the offline readiness command starts services.
 
-The dashboard labels these as the **local start configuration**, independently
-of the observed state record. Complete configured pins do not establish approved
-deployed bytecode. Image identity, original dual-service state, STOP controls,
-fresh USD/NAV, runtime/simulation, receipt/fund recovery and binding the record to
-the start configuration remain visibly unverified. No start/rearm operation was
-added to the API or dashboard. See the
-[read-only startup diagnostic record](../../docs/verification/LIVE_STARTUP_READINESS_20261105.md).
-
-After completing current production acceptance under the recorded owner release, startup
-requires explicit RPC environment variables, the existing four named state/socket/key
-volumes, and a new output directory (`LIVE_START_OUTPUT`, default
-`reports/runs/live-start`). It verifies the local Unix-socket Docker context,
-expanded deployment policy and every tracked application file in `LIVE_IMAGE`
-(default `oasis-live:local`), then uses the verified immutable image ID. Image,
-volume, state and startup commands use the Unix socket selected at the beginning
-of the attempt. The report records a digest of that endpoint. The launcher sends a
-fixed two-service Compose document through stdin; no RPC endpoint is saved in a
-report. Only the two RPC variables reach the containers, and the strategy has no
-key mount. All volumes are external to this startup operation: missing state cannot
-silently become fresh journals or budgets. Existing project containers require
-explicit recovery. The launcher checks their inventory again after preflight and
-before recording a start attempt. That last check and Compose start run under a
-daemon-wide guard named `oasis-live-start-guard`. The guard is a stopped container
-with networking disabled, no mounts and no RPC variables. A second invocation
-on the same daemon cannot acquire the guard, including with a different output
-directory.
-
-Before Compose starts either service, the verified candidate image checks both
-original state volumes with no network, key/socket mount or RPC environment. The
-volumes are read-only, both existing service locks are held shared, and missing,
-empty, corrupt, shared or configuration-mismatched state/evidence/budget files
-refuse. STOP, HALT, pending/signing uncertainty and unresolved accounting also
-refuse. This checks retained startup prerequisites, not current NAV or execution
-eligibility. It neither applies a feed migration nor clears a halt.
-
-Production service commands require `--require-existing-runtime`. Each service
-rechecks its original files under its exclusive lock and uses existing-only journal,
-evidence and request-budget opens throughout execution; losing a file after the
-precheck cannot silently initialize a replacement. Normal manual research setup
-without this production flag retains its explicit initialization behavior. The flag
-cannot be combined with reporting, readiness, reconciliation or state-edit commands.
-An absent JSON projection needs a separate journal recovery operation before a
-production start, even though read-only recovery can inspect the surviving journal.
-
-The entry never builds/pulls, initializes state, imports keys or activates setup/
-recovery profiles. It rechecks release and source/config identities immediately
-before one bounded startup command. The attempt record stores the guard container
-ID before Compose. Before creating the guard, the launcher exclusively publishes
-and fsyncs `guard-request.json` and its directories. This record binds a unique
-attempt ID to the pinned Docker endpoint digest, image, sources, Compose and runtime
-configuration. The guard's `org.oasis-agent.live-start-request` label contains only
-that record's evidence digest. If the host process dies or Docker creation times
-out before a container ID is returned, this label allows the operator to associate
-the retained guard with its original request. Competing attempts have distinct
-digests; a failed contender cannot claim the existing guard. The label is ownership
-metadata, not a recovery or execution permit.
-
-A timeout or partial failure retains the guard for recovery.
-If guard creation times out or removal fails, inspect the guard and project
-containers on the original Docker daemon, verify the label against the canonical
-request with its `evidence_hash` field excluded, and reconcile the attempt before
-removing the verified guard by ID. Older guards without a request label remain
-unresolved; a matching name alone cannot establish ownership. The launcher never
-force-removes a guard or reuses an
-unresolved attempt. A successful Compose command records `start_command_completed`.
-The attempt and final report are published atomically without replacing existing
-evidence, and fsynced with their directories before returning success. A publication
-or sync failure exits 3; preserve any `.pending` file and the original request and
-attempt records for recovery. It never causes another Compose start.
-Service health, receipt acceptance and execution eligibility have separate checks.
-The existing direct host
-`make live` entry is unchanged.
+The runtime image verifies original service files under the original locks using
+`--require-existing-runtime`. Production startup never creates journals or RPC
+budgets, rebuilds or pulls an image, reads an operator `.env`, imports a key,
+or starts an initialization/recovery profile. The dedicated key volume is
+available only to the authority. An absent projection or unresolved accounting
+requires separate recovery.
 
 Current NAV capture also verifies the pinned PositionManager's `balanceOf(account)`
 through both providers at the valuation block. Zero declared positions requires zero

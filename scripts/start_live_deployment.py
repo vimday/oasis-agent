@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import uuid
 from dataclasses import asdict
 from pathlib import Path
@@ -500,7 +501,20 @@ def main() -> None:
     if args.out is None:
         parser.error("--start requires a new --out directory for one retained attempt")
     try:
-        result = start(args.image, args.out, once=args.once)
+        if args.once:
+            # Replace this compatibility CLI with the bounded command so signal
+            # handling and exit status stay owned by the one-tick supervisor.
+            os.execv(  # nosec B606 - fixed Python module, no shell
+                sys.executable,
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.start_bounded_base",
+                    f"--image={args.image}",
+                    f"--out={args.out}",
+                ],
+            )
+        result = start(args.image, args.out)
     except ValueError:
         parser.exit(
             3,

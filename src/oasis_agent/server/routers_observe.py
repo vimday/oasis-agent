@@ -65,6 +65,7 @@ async def live_status(state: State, response: Response) -> LiveStatusResponse:
         lambda _: read_live_status(
             state.config.databases.live_state,
             pair_inspection=state.config.databases.live_pair_inspection,
+            bounded_run=state.config.databases.live_bounded_run,
         )
     )
 

@@ -26,6 +26,8 @@ ops = "data/server_ops.db"
 # Read-only projection; absent files show "missing" and are never created here.
 live_state = "data/live/live.state.json"
 live_pair_inspection = "data/live/pair-inspection.json"
+# Optional: directory from LIVE_START_OUTPUT for the exact run to display.
+live_bounded_run = "reports/runs/base-bounded"
 
 # Optional when real journals exist; uncomment and point at them.
 # shadow = "data/shadow.db"

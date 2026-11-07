@@ -173,6 +173,36 @@ export function formatNative(raw) {
   return padded.slice(0, -18) + "." + padded.slice(-18).replace(/0+$/, "").padEnd(1, "0") + " ETH";
 }
 
+const BOUNDED_STATUS = {
+  unconfigured: "未配置本地有界运行记录",
+  missing: "暂无本轮运行记录",
+  invalid: "本轮记录无法校验",
+  launch_requested: "本轮启动已发起 · 等待停机证据",
+  cleanup_unverified: "本轮停机或双 STOP 恢复待核对",
+  stopped: "本轮已停机 · 双 STOP 已恢复",
+};
+const BOUNDED_RESULT = {
+  completed: "单轮完成", failed: "失败", timed_out: "超时", interrupted: "已中断",
+};
+
+export function boundedRunLabel(row) {
+  if (!row || row.execution_eligible !== false || !Object.hasOwn(BOUNDED_STATUS, row.status)) return null;
+  if (["unconfigured", "missing", "invalid"].includes(row.status)) {
+    return row.attempt_id === null && row.as_of === null && row.result === null &&
+      row.stop_present === null ? BOUNDED_STATUS[row.status] : null;
+  }
+  if (!/^[0-9a-f]{32}$/.test(row.attempt_id ?? "") || !Number.isSafeInteger(row.as_of) ||
+      row.as_of < 0 || row.result !== null && !Object.hasOwn(BOUNDED_RESULT, row.result)) return null;
+  const stops = row.stop_present;
+  if (row.result === null ? stops !== null : !stops || typeof stops.strategy !== "boolean" ||
+      typeof stops.authority !== "boolean") return null;
+  if (row.status === "stopped" && (!stops?.strategy || !stops?.authority) ||
+      row.result === "completed" && row.status !== "stopped" ||
+      row.status === "launch_requested" && row.result !== null) return null;
+  return row.result === null ? BOUNDED_STATUS[row.status] :
+    `${BOUNDED_STATUS[row.status]} · ${BOUNDED_RESULT[row.result]}`;
+}
+
 export function liveStatusModel(data) {
   if (!data || data.schema !== "oasis.live-status.v1" || data.execution_eligible !== false ||
       data.evidence_replayed !== false || data.source !== "local_state_declaration" ||
@@ -227,13 +257,14 @@ export function renderLiveStatus(data) {
   if (!model) {
     $("live-title").textContent = "实盘状态暂不可用";
     $("live-next").textContent = "连接或数据校验失败，已清除旧结果；恢复后刷新。";
-    for (const id of ["live-stats", "live-release", "live-startup", "live-pair", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
+    for (const id of ["live-stats", "live-release", "live-startup", "live-bounded-run", "live-pair", "live-blockers", "live-pending", "live-position", "live-observation"]) $(id).textContent = "";
     renderTable("live-actions", [], [], "记录未验证");
     return;
   }
   const release = model.release;
   const startup = model.startup;
   renderPair(model.pair);
+  $("live-bounded-run").textContent = boundedRunLabel(model.bounded_run) ?? BOUNDED_STATUS.invalid;
   $("live-startup").innerHTML = `<strong>${startup.local_guards_passed ? "本地静态检查通过 · 执行资格未核验" : "本地静态检查未通过"}</strong>` +
     (startup.configured_runtime_roles === null ? "" : `<p>本地待启动配置指纹 ${startup.configured_runtime_roles} / 8 · 配置摘要 ${esc(startup.configuration_hash.slice(0, 12))}</p>`) +
     `<ul>${startup.blockers.map(code => `<li>${esc(START_BLOCKERS[code])}</li>`).join("")}` +

@@ -291,7 +291,7 @@ def send_transaction(
         try:
             receipt = rpc.receipt(tx_hash)
         except ChainError:
-            receipt = None
+            raise SubmissionUnknown("receipt read failed; reconcile before retrying") from None
         if receipt is not None:
             if int(str(receipt["status"]), 16) != 1:
                 raise TxReverted(f"transaction {tx_hash} reverted", receipt)

@@ -71,12 +71,12 @@ SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
 live-deployment-check:
 	$(PYTHON) -m scripts.verify_live_compose
 LIVE_IMAGE ?= oasis-live:local
-LIVE_START_OUTPUT ?= reports/runs/live-start
+LIVE_START_OUTPUT ?= reports/runs/base-bounded
 .PHONY: live-docker live-docker-readiness
 live-docker-readiness:
 	$(PYTHON) -m scripts.start_live_deployment
 live-docker:
-	$(PYTHON) -m scripts.start_live_deployment --start --image "$(LIVE_IMAGE)" --out "$(LIVE_START_OUTPUT)"
+	$(PYTHON) -m scripts.start_bounded_base --image "$(LIVE_IMAGE)" --out "$(LIVE_START_OUTPUT)"
 QUALITY_OUTPUT ?= reports/runs/live-quality
 .PHONY: live-quality
 live-quality:

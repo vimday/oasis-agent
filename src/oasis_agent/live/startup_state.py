@@ -161,7 +161,12 @@ def _journal_history(store: StateStore, state: LoopState) -> list[tuple[str, byt
 
 
 def inspect_service(
-    directory: Path, role: Role, config: LiveConfig, profile: LiveRpcProfile
+    directory: Path,
+    role: Role,
+    config: LiveConfig,
+    profile: LiveRpcProfile,
+    *,
+    expect_stop: bool = False,
 ) -> dict[str, Any]:
     """Caller holds the service lock. Reads original evidence without migration.
 
@@ -182,7 +187,9 @@ def inspect_service(
     for path in (state_path, lock_path):
         require_file(path)
     budget_path = directory / "live.receipt-budget.db"
-    if os.path.lexists(directory / "STOP"):
+    if expect_stop:
+        require_file(directory / "STOP")
+    elif os.path.lexists(directory / "STOP"):
         raise StartupRefused(
             StartupBlocker.STOP_PRESENT, role, "service STOP must be resolved before startup"
         )
