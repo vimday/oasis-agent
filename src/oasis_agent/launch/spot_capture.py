@@ -67,6 +67,10 @@ REPLAYABLE_ERRORS: dict[str, type[Exception]] = {
     "TimeoutError": TimeoutError,
 }
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
+# Why a run loop returned; see scripts/run_spot_agent.py::run_loop.
+STOP_REASONS = frozenset(
+    {"max_ticks", "stop_requested", "budget_stop", "repeated_errors", "unresolved_live"}
+)
 
 
 def code_identity() -> dict[str, str]:
@@ -227,6 +231,15 @@ class CaptureRecorder:
             },
         )
 
+    def session_end(self, reason: str) -> None:
+        """The run's own end. Only a healthy archive can write it: after any lost write
+        the session stays a prefix, never a healthy-looking complete run."""
+        if reason not in STOP_REASONS:
+            raise ValueError("unknown stop reason")
+        if self._cycle is not None:
+            self.healthy = False  # ending inside a cycle is not a clean end
+        self._write("session_end", {"reason": reason, "cycles": self._cycles, "calls": self._seq})
+
     def cycle_end(self, records: list[Record] | None, error: str | None, agent: SpotAgent) -> None:
         try:
             self._cycle_end(records, error, agent)
@@ -267,8 +280,10 @@ class _Cycle:
     end: Record | None = None
 
 
-def _session(records: list[Record], session_id: str | None) -> tuple[Record, list[_Cycle]]:
-    """The session's start record and its cycles, structurally validated."""
+def _session(
+    records: list[Record], session_id: str | None
+) -> tuple[Record, list[_Cycle], Record | None]:
+    """The session's start record, its cycles and its end record, structurally validated."""
     ids = list(dict.fromkeys(r.get("session_id") for r in records))
     if not ids:
         raise ReplayRefused("empty_archive")
@@ -283,10 +298,22 @@ def _session(records: list[Record], session_id: str | None) -> tuple[Record, lis
         raise ReplayRefused("session_not_replayable", ",".join(start["unreplayable_reasons"]))
     cycles: list[_Cycle] = []
     expected_seq = 1
+    end: Record | None = None
     for r in rest:
         kind = r.get("kind")
+        if end is not None:
+            # Nothing may follow the session's end: it would be input no cycle consumed.
+            raise ReplayRefused("record_after_session_end", str(kind))
         current = cycles[-1] if cycles and cycles[-1].end is None else None
-        if kind == "cycle_start":
+        if kind == "session_end":
+            if current is not None:
+                raise ReplayRefused("session_end_inside_cycle")
+            if r.get("cycles") != len(cycles) or r.get("calls") != expected_seq - 1:
+                raise ReplayRefused("session_end_count_mismatch")
+            if r.get("reason") not in STOP_REASONS:
+                raise ReplayRefused("session_end_malformed")
+            end = r
+        elif kind == "cycle_start":
             if current is not None or r.get("cycle") != len(cycles) + 1:
                 raise ReplayRefused("cycle_sequence_broken")
             if r.get("first_call_seq") != expected_seq:
@@ -318,7 +345,7 @@ def _session(records: list[Record], session_id: str | None) -> tuple[Record, lis
             current.end = r
         else:
             raise ReplayRefused("unsupported_record", str(kind))
-    return start, cycles
+    return start, cycles, end
 
 
 def _check_call(call: Record, cycle: _Cycle) -> None:
@@ -410,7 +437,7 @@ def replay_session(
         raise ReplayRefused("archive_corrupt") from corrupt
     if policy != {"schema": CAPTURE_SCHEMA}:
         raise ReplayRefused("unsupported_schema")
-    start, cycles = _session(records, session_id)
+    start, cycles, end = _session(records, session_id)
     if start["code"] != code_identity():
         # Different decision code would replay different behavior, not this session's.
         raise ReplayRefused("code_identity_changed")
@@ -453,7 +480,22 @@ def replay_session(
             if result[key] != cycle.end[key]:
                 raise ReplayRefused("decision_mismatch", f"cycle {result['cycle']} {key}")
         cycle_results.append(result)
-        out.extend(produced or [])
+        if produced is not None:
+            out.extend(produced)
+        else:
+            # The agent returned nothing (the tick raised and the state was rolled back).
+            # Keep the cycle in the output so no denominator can silently lose it; this
+            # marker is replay bookkeeping, not an agent decision record.
+            out.append(
+                {
+                    "kind": "cycle_failed",
+                    "at": cycle.start["now"],
+                    "cycle": cycle.start["cycle"],
+                    "error_type": error,
+                    "state_rolled_back": True,
+                    "execution_eligible": False,
+                }
+            )
     return {
         "schema": "oasis.spot-replay.v1",
         "execution_eligible": False,
@@ -465,9 +507,14 @@ def replay_session(
         "initial_state_sha256": start["state_sha256"],
         "final_state_sha256": state_digest(agent),
         "cycles_replayed": len(cycle_results),
-        # A cycle without its end record (crash, archive write failure) is never
-        # replayed as if it had completed.
-        "session_complete": len(complete) == len(cycles),
+        # Complete only with the run's own end record: closed cycles alone prove a
+        # prefix, never that the run did not continue past the last recorded cycle.
+        "session_complete": end is not None,
+        "termination": (
+            {"status": "ended", "reason": end["reason"], "cycles": end["cycles"]}
+            if end is not None
+            else {"status": "unknown_prefix_only", "reason": None, "cycles": None}
+        ),
         "incomplete_cycles": [c.start["cycle"] for c in cycles if c.end is None],
         "calls_served": len(frozen.served),
         "cycles": cycle_results,

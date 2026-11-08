@@ -500,7 +500,7 @@ def test_coverage_reconciles_and_keeps_failures_and_deferrals(tmp_path: Path) ->
     replay = replay_session(run / "capture.db", run / "raw")
     report = coverage_report(replay["records"])
     fates = report["candidate_fates"]
-    assert report["fates_reconcile"] is True
+    assert report["fates_reconcile_where_observed"] is True
     assert sum(fates.values()) == report["discovered_candidate_cycles"] == 12
     # The quota counts enrichment attempts: 8 tried (all failed on advanced-info, kept in
     # the denominator as enrich_failed), 4 never reached (deferred, not skipped).
@@ -536,7 +536,10 @@ def test_real_main_captures_and_the_replay_command_reproduces_it(
     assert replay_cli.main() == 0
     report = json.loads(out.read_bytes())
     assert report["records"] == tick_records(run_records)
-    assert report["cycles_replayed"] == 2 and report["coverage"]["fates_reconcile"] is True
+    assert (
+        report["cycles_replayed"] == 2
+        and report["coverage"]["fates_reconcile_where_observed"] is True
+    )
     # Never overwrites an earlier result, and never writes into the run's evidence.
     with pytest.raises(FileExistsError):
         replay_cli.main()

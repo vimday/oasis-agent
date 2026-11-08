@@ -61,8 +61,11 @@ CANDIDATE_FATES = (
 
 def _coverage(discovery: str) -> Record:
     return {
-        "schema": "oasis.spot-coverage.v1",
+        "schema": "oasis.spot-coverage.v2",
         "discovery": discovery,
+        # Per discovery source: rows / valid / unique / new (see SpotAgent._discover);
+        # empty when discovery did not run or failed before any source answered.
+        "discovery_sources": {},
         "discovered": 0,
         **dict.fromkeys(CANDIDATE_FATES, 0),
         "label_registration": dict.fromkeys(REGISTRATION, 0),
@@ -268,36 +271,70 @@ class SpotAgent:
                 )
             )
 
-    def _discover(self, now: int) -> tuple[list[Market], list[Any]]:
+    def _discover(self, now: int) -> tuple[list[Market], list[Any], Record]:
+        """Unique candidate markets, signal rows, and per-source nomination counts.
+
+        Per source: `rows` returned, `valid` rows naming a token, `unique` tokens among
+        them, `new` tokens not already named by an earlier source (hot, then signals,
+        then nominators). Sum of `new` equals the unique candidates this cycle.
+        """
+        sources: Record = {}
+
+        def nominate(name: str, rows: int, found: list[Market], status: str = "ok") -> None:
+            tokens = [m.token for m in found]
+            fresh = [t for t in dict.fromkeys(tokens) if t not in markets]
+            sources[name] = {
+                "status": status,
+                "rows": rows,
+                "valid": len(tokens),
+                "unique": len(set(tokens)),
+                "new": len(fresh),
+            }
+            for m in found:
+                markets.setdefault(m.token, m)
+
         hot = self.source.hot_tokens(self.config.chain_id)
         markets: dict[str, Market] = {}
-        for row in _rows(hot):
-            if isinstance(row, dict) and (m := market_from_hot(row, now)) is not None:
-                markets.setdefault(m.token, m)
+        hot_rows = _rows(hot)
+        nominate(
+            "hot_tokens",
+            len(hot_rows),
+            [
+                m
+                for row in hot_rows
+                if isinstance(row, dict) and (m := market_from_hot(row, now)) is not None
+            ],
+        )
+        signal_status = "ok"
         try:
             signal_rows = _rows(self.source.signals(self.config.chain_id))
         except SourceFailure:
             signal_rows = []  # Signals only raise a score; absence never admits a token.
+            signal_status = "failed"
         # Smart-money buys are a discovery source of their own: tokens they name join the
         # pool with only the fields the signal states. Unstated liquidity and age stay
         # unknown and block entry unless enrichment (price-info/advanced-info) fills them.
-        for row in signal_rows:
-            if (m := market_from_signal(row, now)) is not None:
-                markets.setdefault(m.token, m)
+        nominate(
+            "signals",
+            len(signal_rows),
+            [m for row in signal_rows if (m := market_from_signal(row, now)) is not None],
+            signal_status,
+        )
         # Pluggable providers (e.g. FOMO) only nominate addresses; a failing provider
         # costs nothing but its own nominations.
         for nominator in self.nominators:
+            name = f"nominator:{getattr(nominator, 'name', 'unnamed')}"
             try:
                 addresses = nominator.nominate(self.config.chain_id)
             except SourceFailure:
+                nominate(name, 0, [], "failed")
                 continue
-            for m in nominated_markets(addresses, now):
-                markets.setdefault(m.token, m)
+            nominate(name, len(addresses), nominated_markets(addresses, now))
         merged = [
             merge_signals(m, signal_rows, now, self.config.signal_window_seconds)
             for m in markets.values()
         ]
-        return merged, signal_rows
+        return merged, signal_rows, sources
 
     def _enrich(self, market: Market, now: int) -> Market:
         price = _first(self.source.price_info(self.config.chain_id, market.token))
@@ -448,7 +485,6 @@ class SpotAgent:
                     calls,
                     cycle="manage_only",
                     deferred=["outcome_labels", "discovery"],
-                    due_outcome_labels=len(self.state.outcomes.due(now)),
                     coverage=_coverage("deferred_manage_only"),
                 )
             )
@@ -467,13 +503,17 @@ class SpotAgent:
             )
             return out
         try:
-            markets, _ = self._discover(now)
+            markets, _, sources = self._discover(now)
         except SourceFailure as error:
             out.append(self._record(now, "discovery_failed", category=error.category))
             failed = _coverage("failed") | {"labels_emitted": labels}
             out.append(self._summary(now, calls, coverage=failed))
             return out
-        coverage = _coverage("ok") | {"discovered": len(markets), "labels_emitted": labels}
+        coverage = _coverage("ok") | {
+            "discovered": len(markets),
+            "labels_emitted": labels,
+            "discovery_sources": sources,
+        }
         registration = coverage["label_registration"]
         ranked = sorted(
             markets,
@@ -573,6 +613,10 @@ class SpotAgent:
 
     def _summary(self, now: int, calls_before: int, **extra: Any) -> Record:
         s = self.state
+        if "coverage" in extra:
+            # Label work still pending as this cycle ends, in sample x horizon units: a
+            # manage-only or budget-short cycle keeps it here instead of dropping it.
+            extra["coverage"] = extra["coverage"] | {"label_backlog": s.outcomes.backlog(now)}
         return self._record(
             now,
             "tick_summary",

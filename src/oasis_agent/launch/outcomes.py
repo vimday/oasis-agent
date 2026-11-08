@@ -59,7 +59,20 @@ class OutcomeTracker:
         return REGISTERED
 
     def due(self, now: int) -> list[str]:
+        """Unique tokens with at least one due label (the unit a price batch queries)."""
         return sorted({p.token for p in self.pending.values() if now >= p.at + p.remaining[0]})
+
+    def backlog(self, now: int) -> dict[str, int]:
+        """Pending work in each unit. A label is one sample x one horizon; a sample is one
+        registered assessment; a token may carry several samples."""
+        due = [p for p in self.pending.values() if now >= p.at + p.remaining[0]]
+        return {
+            "samples_pending": len(self.pending),
+            "labels_pending": sum(len(p.remaining) for p in self.pending.values()),
+            "labels_due": sum(now >= p.at + h for p in self.pending.values() for h in p.remaining),
+            "samples_due": len(due),
+            "tokens_due": len({p.token for p in due}),
+        }
 
     def label(self, now: int, prices: dict[str, tuple[Fraction, int]]) -> list[dict[str, Any]]:
         """Emit labels for every due horizon. `prices` maps token -> (price, observed_at)."""

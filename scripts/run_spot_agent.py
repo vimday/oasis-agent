@@ -180,6 +180,14 @@ def run_loop(
         raise ValueError("live runs are never captured")
     per_swap = agent.executor.calls_per_swap() if agent.executor is not None else 0
     ticks, errors = 0, 0
+
+    def ended(code: int, reason: str) -> int:
+        # Written only on a normal return, after the run's own records: a raise anywhere
+        # above leaves no end, so that session is replayable only as a prefix.
+        if capture is not None:
+            capture.session_end(reason)
+        return code
+
     while not should_stop():
         used = spent + agent.provider_calls()
         held = len(agent.state.positions)
@@ -196,12 +204,13 @@ def run_loop(
                 "calls_used": used,
                 "reserved_needed": reserved,
                 "open_positions": held,
-                "due_outcome_labels": len(agent.state.outcomes.due(int(clock()))),
+                # sample x horizon units (not tokens): the label work this stop leaves.
+                "label_backlog": agent.state.outcomes.backlog(int(clock())),
             }
             journal.append("budget_stop", stop_record)
             print(json.dumps(stop_record, sort_keys=True), flush=True)
             print("call budget cannot cover the next cycle; stopping with state preserved")
-            return 0
+            return ended(0, "budget_stop")
         started = clock()
         # Reserve before any provider call: a kill from here on leaves an unsettled
         # reservation that resume charges in full, so the budget can never shrink.
@@ -298,16 +307,16 @@ def run_loop(
                 "this run directory will refuse to resume",
                 file=sys.stderr,
             )
-            return 4
+            return ended(4, "unresolved_live")
         if errors >= MAX_CONSECUTIVE_ERRORS:
             print("spot shadow halted after repeated tick errors", file=sys.stderr)
-            return 3
+            return ended(3, "repeated_errors")
         ticks += 1
         if max_ticks and ticks >= max_ticks:
-            return 0
+            return ended(0, "max_ticks")
         while not should_stop() and clock() < started + interval:
             sleep(1)
-    return 0
+    return ended(0, "stop_requested")
 
 
 def _build_agent(
