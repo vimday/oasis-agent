@@ -4,11 +4,17 @@ Input is a binding that `bind_order_cost` has already replayed (same journal sna
 same retained two-provider receipt proofs, same tx, wallet, block pin and status 1).
 From each provider's retained `eth_getTransactionReceipt` result this reads every log
 and keeps only canonical ERC-20 `Transfer` events emitted by Base USDC or by this
-order's token that move value from or to this wallet. Each kept log must name this
-transaction and the pinned block, be not removed, and have a unique log index; the
-two providers must agree on the exact set of kept logs (identity and amount), not only
-on the final net. The signed per-asset nets in integer base units are then compared
-with the journal fill's `usdc_delta` / `token_delta`.
+order's token that move value from or to this wallet. Every log of a receipt must name
+this transaction and the pinned block, be not removed, have a unique log index and sit
+at the receipt's own canonical `transactionIndex`. Both providers must state the same
+transactionIndex and the identical set of kept logs (every identity field and the raw
+amount), not only the same final net. The signed per-asset nets in integer base units
+are then compared with the journal fill's `usdc_delta` / `token_delta`.
+
+A retained receipt that does not state `transactionIndex` (older synthetic or frozen
+bundles) is never matched: its position is neither inferred from its logs nor filled
+with a default, so it reports `receipt_transaction_index_missing`. A receipt without
+`logs` still reports `receipt_logs_missing` first, and the cost replay is unaffected.
 
 Scope is what this one receipt shows. It is not a whole-block or account balance
 proof, not proof of funds settlement, not fees, USD or PnL, and a non-standard token
@@ -17,22 +23,31 @@ Nothing here reads RPC, a wallet or a key; refusals are statuses with fixed reas
 """
 
 import re
-from typing import Any
+from typing import Any, NamedTuple
 
 from eth_abi.exceptions import DecodingError
 
-from ..evidence.rpc_validation import decode_exchange
+from ..evidence.rpc_validation import decode_exchange, rpc_quantity
 from ..evidence.store import EvidenceStore
 from ..farming.owner_payments import TRANSFER, _log, _transfer
 from ..farming.transaction_costs import replay_transaction_cost
-from ..models.chain import BlockSnapshot
+from ..models.chain import BlockSnapshot, LogRecord
 from ..models.common import BlockRef, evidence_ref_from_json, normalize_address
 from .onchainos_source import BASE_USDC
 from .spot_cost_binding import bind_order_cost
 
-VIEW_SCHEMA = "oasis.spot-transfer-check.v1"
+# v2: the transaction's position in its block is part of every log's identity.
+VIEW_SCHEMA = "oasis.spot-transfer-check.v2"
 Record = dict[str, Any]
 Key = tuple[str, int]  # (emitting token, log index)
+_UINT64 = 1 << 64
+
+
+class _Leg(NamedTuple):
+    log: LogRecord  # every identity field; providers must agree on all of them
+    sender: str
+    recipient: str
+    amount: int
 
 
 class _Refused(Exception):
@@ -41,13 +56,28 @@ class _Refused(Exception):
         self.status, self.reason = status, reason
 
 
+def _position(receipt: dict[str, object]) -> int:
+    """The receipt's own canonical uint64 transactionIndex; never inferred or defaulted."""
+    if "transactionIndex" not in receipt:
+        # Older bundles stay readable but never match: their position is unknown.
+        raise _Refused("unverified", "receipt_transaction_index_missing")
+    try:
+        position = rpc_quantity(receipt["transactionIndex"])
+    except ValueError as error:
+        raise _Refused("unverified", "receipt_transaction_index_invalid") from error
+    if position >= _UINT64:
+        raise _Refused("unverified", "receipt_transaction_index_invalid")
+    return position
+
+
 def _scoped_logs(
     receipt: object, *, tx: str, header: BlockSnapshot, wallet: str, assets: frozenset[str]
-) -> dict[Key, tuple[str, str, int]]:
-    """In-scope Transfer logs of one receipt, keyed by (token, log index)."""
+) -> tuple[int, dict[Key, _Leg]]:
+    """This receipt's transactionIndex and its in-scope Transfer legs by (token, log index)."""
     if not isinstance(receipt, dict) or not isinstance(receipt.get("logs"), list):
         raise _Refused("unverified", "receipt_logs_missing")
-    out: dict[Key, tuple[str, str, int]] = {}
+    position = _position(receipt)
+    out: dict[Key, _Leg] = {}
     indices: set[int] = set()
     for raw in receipt["logs"]:
         try:
@@ -63,6 +93,9 @@ def _scoped_logs(
             or log.block_hash != header.ref.block_hash
         ):
             raise _Refused("unverified", "log_identity_mismatch")
+        if log.transaction_index != position:
+            # Every log of one receipt sits at that receipt's own position in the block.
+            raise _Refused("unverified", "log_transaction_index_mismatch")
         if log.address not in assets or not log.topics or log.topics[0] != TRANSFER:
             continue  # other contracts or events: never counted
         try:
@@ -73,8 +106,8 @@ def _scoped_logs(
         sender, recipient = normalize_address(sender), normalize_address(recipient)
         if wallet not in (sender, recipient):
             continue  # moves value between other parties: never counted
-        out[(token, log.log_index)] = (sender, recipient, amount)
-    return out
+        out[(token, log.log_index)] = _Leg(log, sender, recipient, amount)
+    return position, out
 
 
 def _receipt_result(store: EvidenceStore, ref: object, header: BlockSnapshot, tx: str) -> object:
@@ -84,9 +117,10 @@ def _receipt_result(store: EvidenceStore, ref: object, header: BlockSnapshot, tx
     return decode_exchange(capture.exchanges[2])[1].get("result")
 
 
-def _nets(logs: dict[Key, tuple[str, str, int]], wallet: str, asset: str) -> dict[str, int]:
-    received = sum(a for (t, _), (_, r, a) in logs.items() if t == asset and r == wallet)
-    sent = sum(a for (t, _), (s, _, a) in logs.items() if t == asset and s == wallet)
+def _nets(logs: dict[Key, _Leg], wallet: str, asset: str) -> dict[str, int]:
+    legs = [leg for (token, _), leg in logs.items() if token == asset]
+    received = sum(leg.amount for leg in legs if leg.recipient == wallet)
+    sent = sum(leg.amount for leg in legs if leg.sender == wallet)
     return {"received": received, "sent": sent, "net": received - sent}
 
 
@@ -116,14 +150,24 @@ def _check(records: list[Record], binding: Any, store: EvidenceStore) -> Record:
     if token == BASE_USDC:
         raise _Refused("unverified", "token_is_settlement")
     assets = frozenset({BASE_USDC, token})
-    per_source = []
-    for ref in binding["costs"]:
-        receipt = _receipt_result(store, ref, header, tx)
-        per_source.append(_scoped_logs(receipt, tx=tx, header=header, wallet=wallet, assets=assets))
-    if per_source[0] != per_source[1]:
-        # Same net is not enough: the exact in-scope log set must be identical.
+    # Each receipt is checked on its own first: an inconsistent single receipt is
+    # `unverified`; only two self-consistent receipts that disagree are a `conflict`.
+    per_source = [
+        _scoped_logs(
+            _receipt_result(store, ref, header, tx),
+            tx=tx,
+            header=header,
+            wallet=wallet,
+            assets=assets,
+        )
+        for ref in binding["costs"]
+    ]
+    if per_source[0][0] != per_source[1][0]:
+        raise _Refused("conflict", "providers_disagree_on_transaction_index")
+    if per_source[0][1] != per_source[1][1]:
+        # Same net is not enough: every identity field and raw amount must be identical.
         raise _Refused("conflict", "providers_disagree_on_transfer_logs")
-    logs = per_source[0]
+    position, logs = per_source[0]
     usdc, units = _nets(logs, wallet, BASE_USDC), _nets(logs, wallet, token)
     journal = {
         "usdc": _journal_int(fill.get("usdc_delta")),
@@ -146,6 +190,8 @@ def _check(records: list[Record], binding: Any, store: EvidenceStore) -> Record:
         "block": block,
         "providers": replay["providers"],
         "origin": replay["origin"],
+        # Stated by both receipts and by every one of their logs; never inferred.
+        "transaction_index": position,
         "logs_in_scope": len(logs),
         "assets": {
             "usdc": {"token": BASE_USDC, **{k: str(v) for k, v in usdc.items()}},

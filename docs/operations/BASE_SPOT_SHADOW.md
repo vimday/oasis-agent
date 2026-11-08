@@ -62,7 +62,9 @@ With a retained order and two frozen RPC input files, use
 ```
 
 The strict flag requires agreeing, transaction-scoped USDC and token Transfer nets that match
-the journal. A missing or conflicting receipt proof produces a nonzero exit. Historical native
+the journal. Both receipts must state the same canonical `transactionIndex`, and every log must
+sit at that index. A receipt that omits it never matches. A missing or conflicting receipt proof
+produces a nonzero exit. Historical native
 fees remain separate from strategy PnL. A matching receipt does not establish complete wallet
 inventory, account NAV, or execution permission.
 

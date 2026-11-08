@@ -23,7 +23,14 @@ from oasis_agent.launch.spot_transfer_check import check_order_transfers
 
 from .spot_legacy_fixture import LiveExecutor, rpc_receipt_reader
 from .test_spot_agent import NOW, FakeCli
-from .test_spot_cost_binding import BLOCK, OTHER_BLOCK, PROVIDERS, World, cost_capture
+from .test_spot_cost_binding import (
+    BLOCK,
+    OTHER_BLOCK,
+    PROVIDERS,
+    UNSTATED,
+    World,
+    cost_capture,
+)
 from .test_spot_executor import FakeWallet, gate
 from .test_spot_receipt_fees import Transport
 from .test_spot_runner import open_live, run_live
@@ -82,14 +89,18 @@ class Order:
         ]
 
     def check(
-        self, first: list[dict[str, Any]], second: list[dict[str, Any]] | None = None
+        self,
+        first: list[dict[str, Any]],
+        second: list[dict[str, Any]] | None = None,
+        *,
+        positions: tuple[object, object] = ("0x0", "0x0"),
     ) -> dict[str, Any]:
+        """Retain both providers' receipts (each stating its own transactionIndex)."""
         world = self.world
+        rows = (first, first if second is None else second)
         costs = [
-            world.put(cost_capture(PROVIDERS[0], self.tx, logs=first)),
-            world.put(
-                cost_capture(PROVIDERS[1], self.tx, logs=first if second is None else second)
-            ),
+            world.put(cost_capture(p, self.tx, logs=r, transaction_index=i))
+            for p, r, i in zip(PROVIDERS, rows, positions, strict=True)
         ]
         binding = world.binding(costs)
         world.store.close()
@@ -103,6 +114,11 @@ class Order:
 
 def buy(tmp_path: Path) -> Order:
     return Order(World(tmp_path), "buy")
+
+
+def at(logs: list[dict[str, Any]], *positions: str) -> list[dict[str, Any]]:
+    """The same logs, each restated at its own transactionIndex (nothing else changes)."""
+    return [log | {"transactionIndex": p} for log, p in zip(logs, positions, strict=True)]
 
 
 class SellWorld(World):
@@ -149,6 +165,7 @@ def test_buy_receipt_transfers_match_the_journal_fill(tmp_path: Path) -> None:
     assert view["journal"] == {"usdc_delta": str(order.usdc), "token_delta": str(order.units)}
     assert view["logs_in_scope"] == 2 and view["unit"] == "token_base_units"
     assert view["whole_block_balance"] == "not_proven" and view["fund_settlement"] == "not_proven"
+    assert view["transaction_index"] == 0 and view["schema"] == "oasis.spot-transfer-check.v2"
 
 
 def test_sell_receipt_transfers_match_the_journal_fill(tmp_path: Path) -> None:
@@ -225,6 +242,68 @@ def test_same_net_from_different_log_rows_is_a_provider_conflict(tmp_path: Path)
     assert view["assets"] is None
 
 
+def test_reordered_logs_at_the_same_position_still_match(tmp_path: Path) -> None:
+    order = buy(tmp_path)
+    logs = order.swap_logs()
+    view = order.check(logs, list(reversed(logs)))
+    assert (view["status"], view["transaction_index"]) == ("matched", 0)
+
+
+def test_one_receipt_with_logs_at_two_positions_is_refused(tmp_path: Path) -> None:
+    # The 77e96ca counterexample: only the second provider's token log moves to 0x1.
+    order = buy(tmp_path)
+    logs = order.swap_logs()
+    view = order.check(logs, at(logs, "0x0", "0x1"))
+    assert (view["status"], view["reason"]) == ("unverified", "log_transaction_index_mismatch")
+    assert view["assets"] is None
+
+
+def test_logs_at_another_position_than_their_receipt_are_refused(tmp_path: Path) -> None:
+    order = buy(tmp_path)
+    view = order.check(order.swap_logs(), positions=("0x1", "0x1"))
+    assert (view["status"], view["reason"]) == ("unverified", "log_transaction_index_mismatch")
+
+
+def test_an_out_of_scope_log_at_another_position_still_refuses(tmp_path: Path) -> None:
+    order = buy(tmp_path)
+    stray = transfer(UNRELATED_TOKEN, ROUTER, STRANGER, 1, 2, order.tx, transactionIndex="0x5")
+    view = order.check([*order.swap_logs(), stray])
+    assert (view["status"], view["reason"]) == ("unverified", "log_transaction_index_mismatch")
+
+
+def test_two_self_consistent_receipts_at_different_positions_conflict(tmp_path: Path) -> None:
+    order = buy(tmp_path)
+    logs = order.swap_logs()
+    view = order.check(logs, at(logs, "0x1", "0x1"), positions=("0x0", "0x1"))
+    assert (view["status"], view["reason"]) == (
+        "conflict",
+        "providers_disagree_on_transaction_index",
+    )
+    assert view["assets"] is None
+
+
+@pytest.mark.parametrize(
+    ("positions", "reason"),
+    [
+        # Legacy bundles: readable, but a position is never inferred or defaulted.
+        ((UNSTATED, UNSTATED), "receipt_transaction_index_missing"),
+        # One provider's own receipt is incomplete: unverified, not a two-source conflict.
+        (("0x0", UNSTATED), "receipt_transaction_index_missing"),
+        (("0x00", "0x00"), "receipt_transaction_index_invalid"),
+        ((None, None), "receipt_transaction_index_invalid"),
+        ((0, 0), "receipt_transaction_index_invalid"),
+        ((hex(1 << 64), hex(1 << 64)), "receipt_transaction_index_invalid"),
+    ],
+)
+def test_receipt_without_a_canonical_position_never_matches(
+    tmp_path: Path, positions: tuple[object, object], reason: str
+) -> None:
+    order = buy(tmp_path)
+    view = order.check(order.swap_logs(), positions=positions)
+    assert (view["status"], view["reason"]) == ("unverified", reason)
+    assert view["assets"] is None
+
+
 @pytest.mark.parametrize(
     ("mutate", "reason"),
     [
@@ -237,6 +316,14 @@ def test_same_net_from_different_log_rows_is_a_provider_conflict(tmp_path: Path)
         (lambda o, logs: [logs[0], logs[1] | {"blockNumber": hex(124)}], "log_identity_mismatch"),
         (lambda o, logs: [logs[0], logs[1] | {"removed": True}], "log_malformed"),
         (lambda o, logs: [logs[0], logs[1] | {"logIndex": "0x01"}], "log_malformed"),
+        (lambda o, logs: [logs[0], logs[1] | {"transactionIndex": "0x00"}], "log_malformed"),
+        (
+            lambda o, logs: [
+                logs[0],
+                {k: v for k, v in logs[1].items() if k != "transactionIndex"},
+            ],
+            "log_malformed",
+        ),
         (lambda o, logs: [logs[0], logs[1] | {"data": "0x01"}], "transfer_abi_invalid"),
         (
             lambda o, logs: [logs[0], logs[1] | {"topics": [*logs[1]["topics"], word(ROUTER)]}],

@@ -42,6 +42,7 @@ PARENT = "0x" + "a0" * 32
 HEADER = BlockSnapshot(BlockRef(8453, 123, BLOCK, 1_800_000_000), PARENT)
 OPERATOR = 11
 PROVIDERS = ["alchemy", "drpc"]
+UNSTATED: Any = object()  # a receipt field that is not stated at all (legacy bundles)
 
 
 def cost_capture(
@@ -54,6 +55,7 @@ def cost_capture(
     operator: int = OPERATOR,
     l1: int = L1,
     logs: list[dict[str, Any]] | None = None,
+    transaction_index: object = "0x0",
 ) -> TransactionCostCapture:
     ref = header.ref
     hdr = {
@@ -75,6 +77,8 @@ def cost_capture(
     }
     if logs is not None:  # absent by default: older fixtures carry no logs
         receipt["logs"] = logs  # type: ignore[assignment]
+        if transaction_index is not UNSTATED:  # None is written as JSON null
+            receipt["transactionIndex"] = transaction_index  # type: ignore[assignment]
     pin = {"blockHash": ref.block_hash, "requireCanonical": True}
     specs = [
         ("eth_chainId", [], hex(ref.chain_id)),
