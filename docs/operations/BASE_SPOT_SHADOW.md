@@ -64,9 +64,19 @@ With a retained order and two frozen RPC input files, use
 The strict flag requires agreeing, transaction-scoped USDC and token Transfer nets that match
 the journal. Both receipts must state the same canonical `transactionIndex`, and every log must
 sit at that index. A receipt that omits it never matches. A missing or conflicting receipt proof
-produces a nonzero exit. Historical native
-fees remain separate from strategy PnL. A matching receipt does not establish complete wallet
-inventory, account NAV, or execution permission.
+produces a nonzero exit. Historical native fees remain separate from strategy PnL. A matching
+receipt does not establish complete wallet inventory, account NAV, or execution permission.
+
+To check the fill against the wallet's balances across its whole block, add
+`--settlement-binding SETTLEMENT.json` naming two retained `account_block_settlement` proofs
+from the same provider pair, and `--require-block-settlement` to exit 2 unless the result is
+`reconciled`. That status requires the native balance change to equal minus the receipt fee.
+Each USDC and token balance and supply change must be fully explained by the block's Transfer
+logs. The receipt rows must equal the block rows, and no other transaction may touch the wallet
+in that block. Any shortfall is reported as `residual`, `unverified` or `conflict`, with raw
+units. The check covers native, USDC and the order token only. It is still not account NAV,
+finality, or execution permission. No producer captures settlement proofs from frozen inputs
+yet.
 
 ## Requirements for a future release
 
