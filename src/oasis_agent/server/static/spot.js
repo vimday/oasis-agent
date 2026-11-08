@@ -88,7 +88,7 @@ export async function loadSpot() {
   // A live run that stopped before reading the wallet has no observed book: never show
   // paper cash, a zero or "no positions" for it. Absent flag = observed (older servers).
   const observed = (report.accounting || {}).book_observed !== false;
-  const UNOBSERVED = "未观测（未读取钱包余额）";
+  const UNOBSERVED = "未观测（尚无持久化的钱包余额观测）";
   const money = v => observed ? usd(v) : UNOBSERVED;
   const stopInfo = ops.budget_state || {};
   const stopHeld = Number.isSafeInteger(stopInfo.open_positions)

@@ -30,7 +30,7 @@ from .opportunity import (
     merge_signals,
     security_flags,
 )
-from .outcomes import OutcomeTracker, Pending, parse_prices
+from .outcomes import REGISTRATION, OutcomeTracker, Pending, parse_prices
 from .spot_book import (
     SETTLEMENT,
     Position,
@@ -47,6 +47,29 @@ from .spot_lifecycle import TRADE_KINDS, run_status
 
 Record = dict[str, Any]
 MAX_MISSED_MARKS = 3
+# Mutually exclusive fate of every unique discovered token in one cycle; they sum to
+# `discovered`. `not_reached_enrich_quota` is deferred, not a skip decision.
+CANDIDATE_FATES = (
+    "held",
+    "cooling_down",
+    "rejected_before_enrich",
+    "enrich_failed",
+    "assessed_after_enrich",
+    "not_reached_enrich_quota",
+)
+
+
+def _coverage(discovery: str) -> Record:
+    return {
+        "schema": "oasis.spot-coverage.v1",
+        "discovery": discovery,
+        "discovered": 0,
+        **dict.fromkeys(CANDIDATE_FATES, 0),
+        "label_registration": dict.fromkeys(REGISTRATION, 0),
+        "labels_emitted": {"observed": 0, "unobserved": 0},
+    }
+
+
 LIVE_EVIDENCE = "wallet_balance_delta_and_chain_receipt"
 
 
@@ -426,49 +449,68 @@ class SpotAgent:
                     cycle="manage_only",
                     deferred=["outcome_labels", "discovery"],
                     due_outcome_labels=len(self.state.outcomes.due(now)),
+                    coverage=_coverage("deferred_manage_only"),
                 )
             )
             return out
         self._label_outcomes(now, out)
+        labels = {
+            "observed": sum(r["kind"] == "outcome" and r["status"] == "observed" for r in out),
+            "unobserved": sum(r["kind"] == "outcome" and r["status"] != "observed" for r in out),
+        }
         if any(r["kind"] == "halt_review" for r in out):
-            out.append(self._summary(now, calls, entries_blocked="held_position_unpriceable"))
+            blocked = _coverage("skipped_held_position_unpriceable") | {"labels_emitted": labels}
+            out.append(
+                self._summary(
+                    now, calls, entries_blocked="held_position_unpriceable", coverage=blocked
+                )
+            )
             return out
         try:
             markets, _ = self._discover(now)
         except SourceFailure as error:
             out.append(self._record(now, "discovery_failed", category=error.category))
-            out.append(self._summary(now, calls))
+            failed = _coverage("failed") | {"labels_emitted": labels}
+            out.append(self._summary(now, calls, coverage=failed))
             return out
+        coverage = _coverage("ok") | {"discovered": len(markets), "labels_emitted": labels}
+        registration = coverage["label_registration"]
         ranked = sorted(
             markets,
             key=lambda m: (-(m.smart_wallets), -(m.liquidity_usd_micros or 0), m.token),
         )
         open_slots = self.config.max_positions - len(self.state.positions)
         enriched = 0
-        for listed in ranked:
+        for index, listed in enumerate(ranked):
             if enriched >= self.config.enrich_top:
+                # Deferred by the quota: never assessed this cycle, never a skip.
+                coverage["not_reached_enrich_quota"] = len(ranked) - index
                 break
-            if (
-                listed.token in self.state.positions
-                or self.state.cooldown_until.get(listed.token, 0) > now
-            ):
+            if listed.token in self.state.positions:
+                coverage["held"] += 1
+                continue
+            if self.state.cooldown_until.get(listed.token, 0) > now:
+                coverage["cooling_down"] += 1
                 continue
             pre = assess(listed, self.config)
             # Cheap gates first: a blocker that is already a known failure cannot be
             # rescued by enrichment, so it must not cost provider calls.
             if pre.action == "skip" and decided(pre.reasons):
-                out.append(self._candidate(now, listed, pre))
+                coverage["rejected_before_enrich"] += 1
+                out.append(self._candidate(now, listed, pre, registration))
                 continue
             enriched += 1
             try:
                 market = self._enrich(listed, now)
             except SourceFailure as error:
+                coverage["enrich_failed"] += 1
                 out.append(
                     self._record(now, "enrich_failed", token=listed.token, category=error.category)
                 )
                 continue
+            coverage["assessed_after_enrich"] += 1
             assessment = assess(market, self.config)
-            out.append(self._candidate(now, market, assessment))
+            out.append(self._candidate(now, market, assessment, registration))
             if assessment.action == "flip" and open_slots > 0:
                 submitted = self.submissions()
                 try:
@@ -482,7 +524,9 @@ class SpotAgent:
                     )
                 out.append(entry)
                 open_slots -= entry["kind"] in TRADE_KINDS
-        out.append(self._summary(now, calls))
+        if sum(coverage[f] for f in CANDIDATE_FATES) != coverage["discovered"]:
+            raise AssertionError("candidate coverage does not reconcile")  # pragma: no cover
+        out.append(self._summary(now, calls, coverage=coverage))
         return out
 
     def _label_outcomes(self, now: int, out: list[Record]) -> None:
@@ -500,8 +544,10 @@ class SpotAgent:
             for label in self.state.outcomes.label(now, prices)
         )
 
-    def _candidate(self, now: int, market: Market, assessment: Assessment) -> Record:
-        self.state.outcomes.register(
+    def _candidate(
+        self, now: int, market: Market, assessment: Assessment, registration: dict[str, int]
+    ) -> Record:
+        outcome = self.state.outcomes.register_reason(
             market.token,
             market.symbol,
             assessment.action,
@@ -509,6 +555,7 @@ class SpotAgent:
             now,
             market.price,
         )
+        registration[outcome] += 1
         return self._record(
             now,
             "assessment",
@@ -521,6 +568,7 @@ class SpotAgent:
             change_5m_bps=market.change_5m_bps,
             change_1h_bps=market.change_1h_bps,
             smart_wallets=market.smart_wallets,
+            label_registration=outcome,
         )
 
     def _summary(self, now: int, calls_before: int, **extra: Any) -> Record:

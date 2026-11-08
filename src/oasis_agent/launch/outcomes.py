@@ -18,6 +18,9 @@ HORIZONS = (900, 3_600, 14_400)
 # A horizon observation older than this past its due time is too late to label.
 MAX_LATENESS_SECONDS = 600
 MAX_PENDING = 2_000
+REGISTERED = "registered"
+# Every outcome of one registration attempt; mutually exclusive.
+REGISTRATION = (REGISTERED, "no_reference_price", "tracker_full", "overlaps_recent_sample")
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,13 +42,21 @@ class OutcomeTracker:
         self, token: str, symbol: str, action: str, score_bps: int, at: int, price: Fraction | None
     ) -> bool:
         """Track one assessment; at most one new sample per token per 5 minutes."""
-        if price is None or price <= 0 or len(self.pending) >= MAX_PENDING:
-            return False
+        return self.register_reason(token, symbol, action, score_bps, at, price) == REGISTERED
+
+    def register_reason(
+        self, token: str, symbol: str, action: str, score_bps: int, at: int, price: Fraction | None
+    ) -> str:
+        """`register`, saying why a sample was or was not tracked (one of REGISTRATION)."""
+        if price is None or price <= 0:
+            return "no_reference_price"
+        if len(self.pending) >= MAX_PENDING:
+            return "tracker_full"
         key = (token, at // 60)
         if any(p.token == token and at - p.at < 300 for p in self.pending.values()):
-            return False  # overlapping samples of one token would overweight it
+            return "overlaps_recent_sample"  # overlapping samples would overweight a token
         self.pending[key] = Pending(token, symbol, action, score_bps, at, price, HORIZONS)
-        return True
+        return REGISTERED
 
     def due(self, now: int) -> list[str]:
         return sorted({p.token for p in self.pending.values() if now >= p.at + p.remaining[0]})

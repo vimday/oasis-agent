@@ -19,6 +19,7 @@ from .test_spot_runner import SubmittingExecutor, open_live, run_live
 # Console labels, exactly as spot.js renders them (fullwidth parentheses are the UI text).
 EQUITY = "策略权益 USD\uff08非全账户净值\uff09"
 HELD = "策略账簿持仓\uff08非钱包盘点\uff09"
+UNOBSERVED = "未观测\uff08尚无持久化的钱包余额观测\uff09"
 
 
 def assert_unobserved(report: dict[str, Any]) -> None:
@@ -156,8 +157,9 @@ def test_console_never_shows_paper_cash_or_empty_wallet_for_unobserved_book(
     out = render(build_report(run))
     stats = {s["label"]: str(s["value"]) for s in out["stats"]}
     text = json.dumps(out, ensure_ascii=False)
-    assert "未观测" in stats[EQUITY]
-    assert "未观测" in stats[HELD]
+    # A read may have happened (killed before live_start): never claim it did not.
+    assert stats[EQUITY] == stats[HELD] == UNOBSERVED
+    assert "未读取" not in json.dumps(out["stats"], ensure_ascii=False)
     assert "1000.00" not in text and "null" not in text and "undefined" not in text
     assert "启动前未能读取钱包余额" in out["status"] and "停止时持仓未知" in out["status"]
     assert "未观测" in out["tables"]["spot-positions"]["empty"]
@@ -174,3 +176,24 @@ def test_console_keeps_observed_values_for_an_initialized_run(
     assert stats[HELD] == "0"
     assert "不代表钱包无持仓" in out["tables"]["spot-positions"]["empty"]
     assert "未初始化" not in out["status"]
+
+
+def test_console_wording_holds_after_a_read_without_live_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "run"
+    original = ExecutionJournal.append
+
+    def faulty(self: ExecutionJournal, kind: str, payload: dict[str, Any]) -> Any:
+        if kind == "live_start":
+            raise OSError("killed")
+        return original(self, kind, payload)
+
+    monkeypatch.setattr(ExecutionJournal, "append", faulty)
+    with pytest.raises(OSError):
+        start_live(run, monkeypatch, CountingWallet(), 1)
+    monkeypatch.setattr(ExecutionJournal, "append", original)
+    out = render(build_report(run))
+    stats = {s["label"]: str(s["value"]) for s in out["stats"]}
+    assert stats[EQUITY] == UNOBSERVED
+    assert "1000.00" not in json.dumps(out, ensure_ascii=False)

@@ -14,6 +14,7 @@ import copy
 import json
 import os
 import signal
+import sqlite3
 import sys
 import time
 import uuid
@@ -27,6 +28,7 @@ from oasis_agent.launch.gmgn_source import GmgnSource
 from oasis_agent.launch.onchainos_source import (
     BASE_USDC,
     OnchainosSource,
+    Runner,
     default_binary,
     paced,
     run_cli,
@@ -46,6 +48,7 @@ from oasis_agent.launch.spot_budget import (
     full_cycle_calls,
     legacy_error_charge,
 )
+from oasis_agent.launch.spot_capture import CAPTURE_SCHEMA, CaptureRecorder
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     LiveExecutor,
@@ -57,7 +60,7 @@ from oasis_agent.launch.spot_executor import (
 )
 from oasis_agent.launch.spot_lifecycle import HUMAN_REVIEW_REASONS, LIVE_HALT, LIVE_SCHEMA
 from oasis_agent.launch.spot_report import read_journal
-from oasis_agent.models.common import canonical_json
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.client import RpcClient
 from oasis_agent.rpc.transport import JsonRpcTransport
 from oasis_agent.sniping.journal import ExecutionJournal
@@ -165,8 +168,16 @@ def run_loop(
     should_stop: Callable[[], bool],
     clock: Callable[[], float] = time.time,
     sleep: Callable[[float], None] = time.sleep,
+    capture: CaptureRecorder | None = None,
 ) -> int:
-    """0 on a clean stop, 3 after repeated tick errors, 4 on an unresolved live order."""
+    """0 on a clean stop, 3 after repeated tick errors, 4 on an unresolved live order.
+
+    `capture` (shadow only) archives each cycle's ordered inputs and outcome digests in
+    its own journal; it never writes the run journal and never raises, so the financial
+    write order below is unchanged with or without it.
+    """
+    if capture is not None and agent.executor is not None:
+        raise ValueError("live runs are never captured")
     per_swap = agent.executor.calls_per_swap() if agent.executor is not None else 0
     ticks, errors = 0, 0
     while not should_stop():
@@ -212,6 +223,9 @@ def run_loop(
         before = copy.deepcopy(agent.state)
         submitted = agent.submissions()
         unresolved = False
+        tick_error: str | None = None
+        if capture is not None:
+            capture.cycle_start(int(started), cycle == "manage_only")
         try:
             records = agent.tick(int(started), manage_only=cycle == "manage_only")
             errors = 0
@@ -226,15 +240,21 @@ def run_loop(
             # that may be wrong. The executor already journaled intent and outcome.
             unresolved = True
             agent.state = before
+            tick_error = type(error).__name__
             records = [_error_record(int(started), error, errors + 1, agent.mode)]
             records[0]["category"] = error.category
         except Exception as error:  # noqa: BLE001 - one bad tick must not lose the run
             errors += 1
             agent.state = before
+            tick_error = type(error).__name__
             records = [_error_record(int(started), error, errors, agent.mode)]
             # Rolling back a book after a real swap would forget it; halt for review.
             if agent.submissions() != submitted:
                 unresolved = True
+        if capture is not None:
+            # The tick's own return value (before error records are added) and the
+            # state after rollback: exactly what replay of this cycle must reproduce.
+            capture.cycle_end(None if tick_error else records, tick_error, agent)
         # Write order is a safety contract. (1) A financial halt first: if any later write
         # fails, the run still refuses to resume. (2) Then the budget settle: if it fails,
         # the cycle's reservation stays unsettled and is charged in full (conservative),
@@ -455,11 +475,30 @@ def main() -> int:
             return 0
     elif args.max_trade_usd is not None or args.confirm is not None:
         parser.error("--max-trade-usd/--confirm are only valid with --live")
-    source = OnchainosSource(paced(run_cli(args.binary)), retain=raw_dir)
+    # Shadow runs archive their ordered inputs for offline replay (spot_capture); live
+    # runs never do, and get exactly the runners they had before.
+    archive = None
+    if gate is None:
+        try:
+            archive = ExecutionJournal(args.out / "capture.db", {"schema": CAPTURE_SCHEMA})
+        except (ValueError, sqlite3.Error):
+            # The run's own evidence and behavior do not depend on the archive.
+            print("input capture disabled: archive unavailable", file=sys.stderr)
+    recorder = None if archive is None else CaptureRecorder(archive, raw_dir)
+
+    def wrap(provider: str, runner: Runner) -> Runner:
+        if recorder is None:
+            return paced(runner)
+        return recorder.logical(provider, paced(recorder.attempt(runner)))
+
+    source_clock = time.time if recorder is None else recorder.source_clock
+    source = OnchainosSource(
+        wrap("onchainos", run_cli(args.binary)), clock=source_clock, retain=raw_dir
+    )
     gmgn = None
     if not args.no_gmgn:
-        runner = paced(run_cli(args.gmgn, interpreter_dir=args.gmgn.parent))
-        gmgn = GmgnSource(runner, clock=time.time, retain=raw_dir)
+        runner = wrap("gmgn", run_cli(args.gmgn, interpreter_dir=args.gmgn.parent))
+        gmgn = GmgnSource(runner, clock=source_clock, retain=raw_dir)
     stop = False
 
     def request_stop(*_: object) -> None:
@@ -495,16 +534,23 @@ def main() -> int:
         # counted calls, e.g. the live_start balance read.
         policy_now, records_now = read_journal(journal.path)
         spent = budget_ledger(records_now, legacy_error_charge(policy_now))["charged"]
-        return run_loop(
-            agent,
-            journal,
-            args.out / "state.json",
-            interval=args.interval,
-            max_ticks=args.ticks,
-            call_budget=args.call_budget,
-            spent=spent,
-            should_stop=lambda: stop,
-        )
+        if recorder is not None:
+            recorder.start_session(agent, sha256_hex(canonical_json(policy_now)))
+        try:
+            return run_loop(
+                agent,
+                journal,
+                args.out / "state.json",
+                interval=args.interval,
+                max_ticks=args.ticks,
+                call_budget=args.call_budget,
+                spent=spent,
+                should_stop=lambda: stop,
+                capture=recorder,
+            )
+        finally:
+            if archive is not None:
+                archive.close()
 
 
 if __name__ == "__main__":
