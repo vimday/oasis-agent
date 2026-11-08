@@ -89,14 +89,26 @@ def signal_quality(records: list[dict[str, Any]]) -> dict[str, Any]:
         | {"unobserved": unobserved[h]}
         for h in horizons
     }
-    verdict = "insufficient_samples"
+    # Descriptive only. These are raw label rows: one token assessed in many cycles adds
+    # many overlapping rows, and the flip and watch/skip groups are selected by the rule
+    # itself, not randomized. A median gap here is not evidence of selection edge either
+    # way; the frozen-sample experiment (spot_experiment) is the comparison to cite.
+    verdict = "insufficient_label_rows"
     one_hour = observed.get(("flip", 3_600), [])
     baseline = observed.get(("watch", 3_600), []) + observed.get(("skip", 3_600), [])
+    gap: int | None = None
     if len(one_hour) >= MIN_LABELS_FOR_VERDICT and len(baseline) >= MIN_LABELS_FOR_VERDICT:
         # Median, not mean: meme returns are heavy-tailed and one outlier must not decide.
-        edge = int(median(one_hour)) - int(median(baseline))
-        verdict = "flip_outperforms" if edge > 0 else "no_selection_edge"
-    return {"by_horizon_seconds": table, "verdict_1h": verdict}
+        gap = int(median(one_hour)) - int(median(baseline))
+        verdict = (
+            "flip_median_higher_descriptive" if gap > 0 else "flip_median_not_higher_descriptive"
+        )
+    return {
+        "by_horizon_seconds": table,
+        "verdict_1h": verdict,
+        "median_gap_1h_bps": gap,
+        "verdict_basis": "descriptive_overlapping_label_rows_not_independent_not_causal",
+    }
 
 
 def paper_book(records: list[dict[str, Any]], initial_cash: int | None) -> dict[str, Any]:

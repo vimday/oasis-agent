@@ -56,14 +56,16 @@ def test_signal_quality_needs_samples_and_compares_medians() -> None:
         }
 
     few = [outcome("flip", 500)] * 5 + [outcome("skip", -100)] * 40
-    assert signal_quality(few)["verdict_1h"] == "insufficient_samples"
+    assert signal_quality(few)["verdict_1h"] == "insufficient_label_rows"
     # One huge outlier must not decide: the flip median is below the baseline median.
     skewed = [outcome("flip", -50)] * 29 + [outcome("flip", 1_000_000)] + [outcome("skip", 0)] * 30
-    assert signal_quality(skewed)["verdict_1h"] == "no_selection_edge"
+    assert signal_quality(skewed)["verdict_1h"] == "flip_median_not_higher_descriptive"
     good = [outcome("flip", 300)] * 30 + [outcome("watch", -20)] * 30
     quality = signal_quality(good)
-    assert quality["verdict_1h"] == "flip_outperforms"
+    assert quality["verdict_1h"] == "flip_median_higher_descriptive"
     assert quality["by_horizon_seconds"]["3600"]["flip"]["hit_rate_bps"] == 10_000
+    assert quality["median_gap_1h_bps"] == 320
+    assert "not_causal" in quality["verdict_basis"]
 
 
 def configured(tmp_path: Path, run: Path) -> Any:

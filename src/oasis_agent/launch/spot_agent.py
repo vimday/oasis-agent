@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field, replace
 from fractions import Fraction
 from typing import Any, Literal
 
+from ..models.common import canonical_json, sha256_hex
 from .discovery_slot import DiscoveryProvider, nominated_markets
 from .gmgn_source import GmgnSource, cross_check, parse_token_info
 from .onchainos_source import Capture, OnchainosSource, SourceFailure
@@ -25,6 +26,7 @@ from .opportunity import (
     decided,
     market_from_hot,
     market_from_signal,
+    market_to_json,
     merge_price,
     merge_security,
     merge_signals,
@@ -104,6 +106,17 @@ class AgentState:
         return self.cash_usd_micros + held - self.estimated_gas_usd_micros
 
 
+def decision_policy(config: DecisionPolicy) -> DecisionPolicy:
+    """Exactly the DecisionPolicy that `assess` reads, without agent-only settings."""
+    return DecisionPolicy.model_validate(
+        {name: getattr(config, name) for name in DecisionPolicy.model_fields}
+    )
+
+
+def policy_digest(config: DecisionPolicy) -> str:
+    return sha256_hex(canonical_json(decision_policy(config).model_dump(mode="json")))
+
+
 def _rows(capture: Capture) -> list[Any]:
     return capture.data if isinstance(capture.data, list) else []
 
@@ -132,6 +145,8 @@ class SpotAgent:
         self.nominators = tuple(nominators)
         self.mode = "shadow" if executor is None else "live"
         self.config = config
+        # The decision policy `assess` uses: the DecisionPolicy fields of the config.
+        self._policy_digest = policy_digest(config)
         self.state = state or AgentState(config.initial_cash_usd_micros)
         self._clock = clock
 
@@ -609,6 +624,9 @@ class SpotAgent:
             change_1h_bps=market.change_1h_bps,
             smart_wallets=market.smart_wallets,
             label_registration=outcome,
+            # The exact input `assess` saw, so the decision can be recomputed offline.
+            market=market_to_json(market),
+            policy_sha256=self._policy_digest,
         )
 
     def _summary(self, now: int, calls_before: int, **extra: Any) -> Record:

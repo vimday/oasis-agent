@@ -504,6 +504,7 @@ def replay_session(
         "archive_head_digest": sha256_hex(canonical_json(records[-1])),
         "run_policy_sha256": start["run_policy_sha256"],
         "code": start["code"],
+        "config": start["config"],
         "initial_state_sha256": start["state_sha256"],
         "final_state_sha256": state_digest(agent),
         "cycles_replayed": len(cycle_results),

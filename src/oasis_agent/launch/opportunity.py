@@ -343,3 +343,97 @@ def assess(m: Market, p: DecisionPolicy) -> Assessment:
     return Assessment(
         m.token, "flip", score, ("uptrend_pullback_entry", f"pullback_bps:{pullback}")
     )
+
+
+MARKET_SNAPSHOT = "oasis.spot-market.v1"
+_FRACTION = re.compile(r"^-?(0|[1-9][0-9]*)/[1-9][0-9]*$")
+_INT_FIELDS = (
+    "observed_at",
+    "liquidity_usd_micros",
+    "market_cap_usd_micros",
+    "holders",
+    "top10_bps",
+    "unique_traders",
+    "buys",
+    "sells",
+    "first_trade_at",
+    "change_5m_bps",
+    "change_1h_bps",
+    "change_24h_bps",
+    "volume_24h_usd_micros",
+    "smart_wallets",
+    "smart_sold_bps",
+    "tax_bps",
+    "dev_rug_count",
+)
+_REQUIRED_INTS = frozenset({"observed_at", "smart_wallets"})
+
+
+def market_to_json(m: Market) -> dict[str, Any]:
+    """Lossless snapshot of the exact Market an assessment saw. None stays null; prices
+    are exact `numerator/denominator` strings; tuples become lists."""
+
+    def fraction(value: Fraction | None) -> str | None:
+        return None if value is None else f"{value.numerator}/{value.denominator}"
+
+    return {
+        "schema": MARKET_SNAPSHOT,
+        "token": m.token,
+        "symbol": m.symbol,
+        **{name: getattr(m, name) for name in _INT_FIELDS},
+        "risk_flags": None if m.risk_flags is None else list(m.risk_flags),
+        "price": fraction(m.price),
+        "high_24h": fraction(m.high_24h),
+        "gmgn_listed": m.gmgn_listed,
+        "provider_disagreement": list(m.provider_disagreement),
+    }
+
+
+def market_from_json(raw: object) -> Market:
+    """The exact Market back; anything malformed or of another schema raises ValueError."""
+    if not isinstance(raw, dict) or raw.get("schema") != MARKET_SNAPSHOT:
+        raise ValueError("unsupported market snapshot")
+    expected = {"schema", "token", "symbol", "risk_flags", "price", "high_24h", "gmgn_listed"}
+    if set(raw) != expected | set(_INT_FIELDS) | {"provider_disagreement"}:
+        raise ValueError("market snapshot fields differ")
+    ints: dict[str, int | None] = {}
+    for name in _INT_FIELDS:
+        value = raw[name]
+        if value is None and name not in _REQUIRED_INTS:
+            ints[name] = None
+        elif type(value) is int:
+            ints[name] = value
+        else:
+            raise ValueError(f"market snapshot {name} is not an integer")
+
+    def fraction(value: object) -> Fraction | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not _FRACTION.fullmatch(value):
+            raise ValueError("market snapshot price is not an exact fraction")
+        return Fraction(value)
+
+    def strings(value: object) -> tuple[str, ...]:
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ValueError("market snapshot list is malformed")
+        return tuple(value)
+
+    if normalize_address(str(raw["token"])) != raw["token"] or not isinstance(raw["symbol"], str):
+        raise ValueError("market snapshot identity is malformed")
+    if type(raw["gmgn_listed"]) is not bool:
+        raise ValueError("market snapshot gmgn_listed is not a boolean")
+    smart = ints.pop("smart_wallets")
+    observed = ints.pop("observed_at")
+    assert smart is not None and observed is not None  # nosec B101 - required above
+    return Market(
+        token=raw["token"],
+        symbol=raw["symbol"],
+        observed_at=observed,
+        smart_wallets=smart,
+        risk_flags=None if raw["risk_flags"] is None else strings(raw["risk_flags"]),
+        price=fraction(raw["price"]),
+        high_24h=fraction(raw["high_24h"]),
+        gmgn_listed=raw["gmgn_listed"],
+        provider_disagreement=strings(raw["provider_disagreement"]),
+        **ints,
+    )

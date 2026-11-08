@@ -43,9 +43,14 @@ const BLOCK_LABEL = {
   status_unavailable: "状态不可用",
 };
 const VERDICT = {
-  insufficient_samples: "样本不足，尚无结论",
-  flip_outperforms: "短线组 1 小时中位收益高于对照组",
-  no_selection_edge: "短线组没有优于对照组：选股无优势",
+  // Descriptive only: overlapping label rows of rule-selected groups, not an edge test.
+  insufficient_label_rows: "标签行不足，仅可描述",
+  flip_median_higher_descriptive: "描述性：短线组 1 小时中位标签收益较高（重叠观测、非因果，不代表选股优势）",
+  flip_median_not_higher_descriptive: "描述性：短线组 1 小时中位标签收益不高于其余组（重叠观测、非因果，不能据此判定选股无优势）",
+  // Older servers' verdicts, shown with the same caveat.
+  insufficient_samples: "标签行不足，仅可描述",
+  flip_outperforms: "描述性：短线组中位标签收益较高（非因果，不代表选股优势）",
+  no_selection_edge: "描述性：短线组中位标签收益不高（非因果，不能据此判定选股无优势）",
 };
 
 function horizonRows(table) {
@@ -102,7 +107,7 @@ export async function loadSpot() {
     + (stopInfo.stopped ? ` · 最近记录：${stopStage}（${stopHeld}）` : "")
     + (observed ? "" : " · 实盘账簿未初始化：现金、权益与钱包持仓均未观测");
   // Process liveness is not provable from a journal; say so instead of claiming "running".
-  status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
+  status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时标签描述：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
   status.classList.toggle("danger", !run.resumable);
   renderStats("spot-stats", [
     { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: money(book.final_nav_usd_micros) },
