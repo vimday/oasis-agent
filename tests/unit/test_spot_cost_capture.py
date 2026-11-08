@@ -497,3 +497,79 @@ def test_producer_refuses_an_origin_for_other_sources(tmp_path: Path) -> None:
             scene.out, scene.world.records, scene.world.intent, header, captures, origin=wrong
         )
     assert not scene.out.exists() and staging_left(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["digest_basis", "kind", "schema"],
+)
+@pytest.mark.parametrize("value", [[], {}, ["x"], 1, None, "unknown-label"])
+def test_any_json_type_in_an_origin_enum_is_a_stable_refusal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    value: Any,
+) -> None:
+    scene = Scene(tmp_path)
+    bad = origin_of(**{field: value})
+    replay = report(monkeypatch, capsys, scene.world.run, legacy_bundle(scene, (bad, bad)))
+    # The CLI still returns the base report; the replay is refused, no amounts.
+    assert (replay["status"], replay["reason"]) == ("unbound", "origin_invalid")
+    assert replay["native_wei"] is None
+
+
+@pytest.mark.parametrize("source", [[], {}, 1])
+def test_any_json_type_in_an_input_source_is_a_stable_refusal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    source: Any,
+) -> None:
+    scene = Scene(tmp_path)
+    bad = origin_of(
+        {"source": source, "sha256": GOOD_DIGEST}, {"source": PROVIDERS[1], "sha256": GOOD_DIGEST}
+    )
+    replay = report(monkeypatch, capsys, scene.world.run, legacy_bundle(scene, (bad, bad)))
+    assert (replay["status"], replay["reason"]) == ("unbound", "origin_invalid")
+
+
+def null_interpretations(db: Path, rows: int) -> None:
+    """Remove the stored interpretation of the first `rows` proofs; references unchanged."""
+    with closing(sqlite3.connect(db)) as connection:
+        keys = [
+            k for (k,) in connection.execute("SELECT evidence_key FROM evidence ORDER BY rowid")
+        ]
+        for key in keys[:rows]:
+            connection.execute(
+                "UPDATE evidence SET interpretation_payload = NULL WHERE evidence_key = ?", (key,)
+            )
+        connection.commit()
+
+
+@pytest.mark.parametrize("rows", [1, 2])
+def test_removed_declared_interpretation_is_corruption_not_a_legacy_bundle(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], rows: int
+) -> None:
+    scene = Scene(tmp_path)
+    run_capture(scene, monkeypatch, scene.good())
+    null_interpretations(scene.out / "evidence.db", rows)
+    replay = report(monkeypatch, capsys, scene.world.run, scene.out)
+    # Before this fix both cases replayed silently as origin "unknown".
+    assert replay["status"] == "unbound" and replay["reason"].startswith("evidence_invalid_")
+    assert replay["native_wei"] is None and replay.get("origin") is None
+
+
+def test_genuine_legacy_and_normal_bundles_are_unaffected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scene = Scene(tmp_path)
+    legacy = report(monkeypatch, capsys, scene.world.run, legacy_bundle(scene))
+    assert legacy["status"] == "replayed" and legacy["origin"] == {"kind": "unknown"}
+    run_capture(scene, monkeypatch, scene.good())
+    normal = report(monkeypatch, capsys, scene.world.run, scene.out)
+    assert normal["status"] == "replayed"
+    assert normal["origin"]["kind"] == "frozen_input_reconstruction"
+    assert legacy["native_wei"] == normal["native_wei"] and normal["native_wei"]["total"] == str(
+        TOTAL
+    )

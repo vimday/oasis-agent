@@ -216,14 +216,20 @@ def _origin(origins: list[object], providers: tuple[str, str]) -> dict[str, Any]
     if any(o != first for o in origins) or not isinstance(first, dict):
         raise _unbound("origin_invalid")
     inputs = first.get("inputs")
+    # Every enum field is type-checked BEFORE any set or equality lookup: a JSON array
+    # or object is unhashable and would otherwise raise TypeError out of the report.
+    if set(first) != {"kind", "schema", "digest_basis", "inputs"} or not all(
+        type(first[name]) is str for name in ("kind", "schema", "digest_basis")
+    ):
+        raise _unbound("origin_invalid")
     if (
-        set(first) != {"kind", "schema", "digest_basis", "inputs"}
-        or first["kind"] != FROZEN_ORIGIN
+        first["kind"] != FROZEN_ORIGIN
         or first["schema"] != FROZEN_INPUT_SCHEMA
         or first["digest_basis"] not in DIGEST_BASES
         or not isinstance(inputs, list)
         or len(inputs) != 2
         or any(not isinstance(i, dict) or set(i) != {"source", "sha256"} for i in inputs)
+        or any(type(i["source"]) is not str for i in inputs)
         or [i["source"] for i in inputs] != list(providers)
         or any(
             not isinstance(i["sha256"], str) or not _SHA256.fullmatch(i["sha256"]) for i in inputs

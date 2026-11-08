@@ -299,12 +299,19 @@ class EvidenceStore:
         interpretation_payload = None if row[3] is None else bytes(row[3])
         if sha256_hex(payload) != reference.content_hash:
             raise ValueError("evidence payload hash mismatch")
+        # `put` and the legacy migration both write an empty hash exactly when there is
+        # no content, so a declared hash with absent content is a removed payload, never
+        # a legacy record: it refuses just like edited content does.
+        if request_payload is None and reference.request_hash:
+            raise ValueError("evidence request payload is missing")
         if request_payload is not None and sha256_hex(request_payload) != reference.request_hash:
             raise ValueError("evidence request hash mismatch")
         if raw_response_payload is None:
             raise ValueError("evidence raw response payload is missing")
         if sha256_hex(raw_response_payload) != reference.raw_response_hash:
             raise ValueError("evidence raw response hash mismatch")
+        if interpretation_payload is None and reference.interpretation_hash:
+            raise ValueError("evidence interpretation payload is missing")
         if (
             interpretation_payload is not None
             and sha256_hex(interpretation_payload) != reference.interpretation_hash

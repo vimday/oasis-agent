@@ -198,3 +198,66 @@ class EvidenceTests(unittest.TestCase):
             connection.close()
             with self.assertRaisesRegex(ValueError, "raw response hash mismatch"):
                 reopened.get_record(reference)
+
+
+def _null_column(path: Path, column: str) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.execute(f"UPDATE evidence SET {column} = NULL")
+        connection.commit()
+
+
+class DeclaredContentTests(unittest.TestCase):
+    """A declared hash with absent content is a removed payload, never a legacy record."""
+
+    def put(self, path: Path, **envelopes: object) -> EvidenceRef:
+        store = EvidenceStore(path)
+        try:
+            return store.put(
+                "rpc", b"raw", BlockRef(4663, 12, "0x" + "a" * 64), "rpc-a", **envelopes
+            )
+        finally:
+            store.close()
+
+    def test_removed_interpretation_is_refused(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.sqlite3"
+            reference = self.put(path, interpretation={"scope": "x"})
+            self.assertTrue(reference.interpretation_hash)
+            _null_column(path, "interpretation_payload")
+            store = EvidenceStore(path)
+            with self.assertRaisesRegex(ValueError, "interpretation payload is missing"):
+                store.get_record(reference)
+            store.close()
+
+    def test_removed_request_is_refused(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.sqlite3"
+            reference = self.put(path, request={"method": "eth_chainId"})
+            _null_column(path, "request_payload")
+            store = EvidenceStore(path)
+            with self.assertRaisesRegex(ValueError, "request payload is missing"):
+                store.get_record(reference)
+            store.close()
+
+    def test_records_written_without_envelopes_still_read(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.sqlite3"
+            reference = self.put(path)  # no request, no interpretation: empty hashes
+            self.assertEqual((reference.request_hash, reference.interpretation_hash), ("", ""))
+            store = EvidenceStore(path)
+            record = store.get_record(reference)
+            self.assertIsNone(record.request_payload)
+            self.assertIsNone(record.interpretation_payload)
+            store.close()
+
+    def test_edited_interpretation_is_still_refused(self) -> None:
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "evidence.sqlite3"
+            reference = self.put(path, interpretation={"scope": "x"})
+            with sqlite3.connect(path) as connection:
+                connection.execute("UPDATE evidence SET interpretation_payload = ?", (b"{}",))
+                connection.commit()
+            store = EvidenceStore(path)
+            with self.assertRaisesRegex(ValueError, "interpretation hash mismatch"):
+                store.get_record(reference)
+            store.close()
