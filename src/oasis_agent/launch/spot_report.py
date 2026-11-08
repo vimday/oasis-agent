@@ -7,7 +7,6 @@ beat doing nothing after costs? Labels are provider spot claims; PnL is simulate
 """
 
 import json
-import re
 import sqlite3
 from collections import Counter, defaultdict
 from contextlib import closing
@@ -16,7 +15,7 @@ from statistics import median
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
-from .receipt_fee_contract import FEE_SOURCE, execution_fee_in_bounds, l1_fee_in_bounds
+from .receipt_fee_contract import ITEM_STATES, read_fee_record
 from .spot_budget import budget_ledger, legacy_error_charge
 from .spot_lifecycle import reconcile_orders, run_status
 
@@ -190,38 +189,8 @@ def operations(records: list[dict[str, Any]], legacy_error_charge: int) -> dict[
     }
 
 
-_WEI = re.compile(r"^(0|[1-9][0-9]{0,77})$")
-FEE_ITEM_STATES = ("observed", "missing", "invalid", "not_captured", "record_invalid")
-
-
-def _wei(value: object) -> int | None:
-    return int(value) if isinstance(value, str) and _WEI.fullmatch(value) else None
-
-
-def _execution_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
-    item = fees.get("execution")
-    if not isinstance(item, dict) or item.get("status") not in ("observed", "missing", "invalid"):
-        return "record_invalid", None
-    if item["status"] != "observed":
-        return item["status"], None
-    gas, price = _wei(item.get("gas_used")), _wei(item.get("effective_gas_price_wei"))
-    fee = _wei(item.get("fee_wei"))
-    # Only what capture could emit: in-width factors whose exact product is the fee.
-    if gas is None or price is None or fee is None or not execution_fee_in_bounds(gas, price, fee):
-        return "record_invalid", None
-    return "observed", fee
-
-
-def _l1_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
-    item = fees.get("l1_data")
-    if not isinstance(item, dict) or item.get("status") not in ("observed", "missing", "invalid"):
-        return "record_invalid", None
-    if item["status"] != "observed":
-        return item["status"], None
-    fee = _wei(item.get("fee_wei"))
-    if fee is None or not l1_fee_in_bounds(fee):
-        return "record_invalid", None
-    return "observed", fee
+# Kept as the report's public name for the shared item states.
+FEE_ITEM_STATES = ITEM_STATES
 
 
 def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -246,31 +215,20 @@ def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
         key = fill.get("intent_id")
         if not isinstance(key, str) or key not in settled:
             continue
-        fees = fill.get("receipt_fees")
-        # States: not_captured (reader stated nothing), missing/invalid (the receipt
-        # itself lacked or malformed a field), record_invalid (the journal line is not
-        # something capture could have written: other source, width or product).
-        if fees is None or (isinstance(fees, dict) and fees.get("status") == "not_captured"):
-            execution: tuple[str, int | None] = ("not_captured", None)
-            l1: tuple[str, int | None] = ("not_captured", None)
-        elif (
-            not isinstance(fees, dict)
-            or fees.get("status") != "captured"
-            or fees.get("source") != FEE_SOURCE
-        ):
-            execution = l1 = ("record_invalid", None)
-        else:
-            execution, l1 = _execution_fee(fees), _l1_fee(fees)
+        # The one shared reading (receipt_fee_contract.read_fee_record): cost replay
+        # uses exactly the same, so the two can never rank a record differently.
+        reading = read_fee_record(fill.get("receipt_fees"))
+        execution, l1 = reading.execution, reading.l1
         rows.append(
             {
                 "intent_id": fill["intent_id"],
                 "tx_hash": fill.get("tx_hash"),
                 "side": fill.get("side"),
                 "block_number": fill.get("block_number"),
-                "execution": execution[0],
-                "execution_fee_wei": None if execution[1] is None else str(execution[1]),
-                "l1_data": l1[0],
-                "l1_data_fee_wei": None if l1[1] is None else str(l1[1]),
+                "execution": execution.state,
+                "execution_fee_wei": None if execution.wei is None else str(execution.wei),
+                "l1_data": l1.state,
+                "l1_data_fee_wei": None if l1.wei is None else str(l1.wei),
             }
         )
 
@@ -279,7 +237,7 @@ def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
         return {
             "observed_wei": str(sum(observed)),
             "observed_orders": len(observed),
-            "by_state": {s: sum(r[state] == s for r in rows) for s in FEE_ITEM_STATES},
+            "by_state": {s: sum(r[state] == s for r in rows) for s in ITEM_STATES},
         }
 
     return {
@@ -302,7 +260,17 @@ def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def build_report(run_dir: Path) -> dict[str, Any]:
+    """Default report of a run: one verified journal read, then `report_from_snapshot`."""
     policy, records = read_journal(run_dir / "journal.db")
+    return report_from_snapshot(policy, records)
+
+
+def report_from_snapshot(policy: dict[str, Any], records: list[dict[str, Any]]) -> dict[str, Any]:
+    """The report of exactly one hash-verified journal prefix (see `read_journal`).
+
+    A caller that derives more views (e.g. a cost replay) passes them the same
+    `records`, so a whole output reflects one journal prefix and never two reads.
+    """
     status = run_status(policy.get("schema"), records)
     live = status["mode"] == "live"
     starts = [r for r in records if r["kind"] == "live_start"]

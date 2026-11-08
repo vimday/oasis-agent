@@ -13,7 +13,7 @@ from pathlib import Path
 
 from oasis_agent.evidence.store import ReadOnlyEvidenceStore
 from oasis_agent.launch.spot_cost_binding import bind_order_cost
-from oasis_agent.launch.spot_report import build_report, read_journal
+from oasis_agent.launch.spot_report import read_journal, report_from_snapshot
 
 
 def main() -> int:
@@ -25,12 +25,15 @@ def main() -> int:
     if (args.cost_binding is None) != (args.evidence is None):
         parser.error("--cost-binding and --evidence must be given together")
     try:
-        report = build_report(args.run)
+        # ONE verified read of the journal: the base report and the optional cost
+        # replay both derive from this snapshot, so a writer appending after it can
+        # never make the two halves of one output describe different journals.
+        policy, records = read_journal(args.run / "journal.db")
+        report = report_from_snapshot(policy, records)
         if args.cost_binding is not None:
             if not args.evidence.is_file():
                 raise OSError("evidence store does not exist")
             binding = json.loads(args.cost_binding.read_bytes())
-            _, records = read_journal(args.run / "journal.db")
             store = ReadOnlyEvidenceStore(args.evidence)
             try:
                 report["cost_replay"] = bind_order_cost(records, binding, store)

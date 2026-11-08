@@ -18,7 +18,6 @@ USD, not a funds-settlement proof and not net PnL; nothing here reads RPC, a wal
 a key, and the journal and evidence store are opened read-only by the caller.
 """
 
-import re
 from dataclasses import asdict
 from typing import Any
 
@@ -26,13 +25,13 @@ from ..evidence.store import EvidenceStore
 from ..farming.transaction_costs import TransactionCost, replay_transaction_cost
 from ..models.chain import BlockSnapshot
 from ..models.common import BlockRef, EvidenceRef, evidence_ref_from_json
+from .receipt_fee_contract import read_fee_record
 from .spot_lifecycle import reconcile_orders
 
 SCHEMA = "oasis.spot-cost-binding.v1"
 VIEW_SCHEMA = "oasis.spot-cost-replay.v1"
 BASE_CHAIN_ID = 8453
 _FIELDS = frozenset({"schema", "intent_id", "header", "providers", "costs"})
-_WEI = re.compile(r"^(0|[1-9][0-9]{0,77})$")
 
 Record = dict[str, Any]
 
@@ -98,32 +97,17 @@ def _fill(records: list[Record], key: str) -> Record:
     return fill
 
 
-def _receipt_block(fill: Record) -> str:
-    fees = fill.get("receipt_fees")
-    block = fees.get("receipt_block") if isinstance(fees, dict) else None
-    if not isinstance(block, dict) or block.get("status") != "observed":
-        # Legacy height-only fills, and receipts that stated no usable hash.
-        raise _unbound("receipt_block_unknown")
-    value = block.get("block_hash")
-    if not isinstance(value, str):
-        raise _unbound("receipt_block_unknown")
-    return value
-
-
-def _single_receipt_item(fees: object, item: str) -> int | None:
-    """A journaled single-receipt item that capture could have written, else None."""
-    entry = fees.get(item) if isinstance(fees, dict) else None
-    if not isinstance(entry, dict) or entry.get("status") != "observed":
-        return None
-    value = entry.get("fee_wei")
-    # ASCII canonical decimal only: str.isdigit() also accepts e.g. "²", which int() rejects.
-    return int(value) if isinstance(value, str) and _WEI.fullmatch(value) else None
-
-
 def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Record:
     key, header, providers, refs = _parse(binding)
     fill = _fill(records, key)
-    block_hash = _receipt_block(fill)
+    # The same reading the fee report uses: a block pin and a single-receipt item exist
+    # only for a record capture could have written (source, status, widths, product).
+    reading = read_fee_record(fill.get("receipt_fees"))
+    block_hash = reading.block_hash
+    if block_hash is None:
+        # Legacy height-only fills, unknown sources, not_captured records carrying a
+        # hash, and receipts that stated no usable hash.
+        raise _unbound("receipt_block_unknown")
     number = fill.get("block_number")
     if (
         header.ref.chain_id != BASE_CHAIN_ID
@@ -164,10 +148,13 @@ def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Recor
         raise _conflict("identity_mismatch")
     if cost.status != 1:
         raise _conflict("status_mismatch")
-    fees = fill.get("receipt_fees")
-    for item, replayed in (("execution", cost.execution_native), ("l1_data", cost.l1_native)):
-        journaled = _single_receipt_item(fees, item)
-        if journaled is not None and journaled != replayed:
+    # Only a valid observed item is evidence to compare; a record_invalid, missing or
+    # invalid item can neither confirm nor contradict the replay.
+    for item, replayed in (
+        (reading.execution, cost.execution_native),
+        (reading.l1, cost.l1_native),
+    ):
+        if item.state == "observed" and item.wei != replayed:
             raise _conflict("single_receipt_conflict")
     return {
         "status": "replayed",
