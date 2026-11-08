@@ -8,7 +8,10 @@ report_spot_shadow CLI.
 
 import hashlib
 import json
+import sqlite3
 import sys
+from contextlib import closing
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -17,14 +20,21 @@ import pytest
 import oasis_agent.launch.spot_cost_capture as capture_module
 import scripts.capture_spot_cost as capture_cli
 import scripts.report_spot_shadow as report_cli
+from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
+from oasis_agent.farming.transaction_costs import persist_transaction_cost
+from oasis_agent.launch.spot_cost_binding import SCHEMA
 from oasis_agent.launch.spot_cost_capture import (
+    DIGEST_CANONICAL,
+    DIGEST_FILE_BYTES,
     FROZEN_SCHEMA,
     CostCaptureRefused,
     collect_order_cost,
+    frozen_origin,
     frozen_sessions,
+    write_cost_bundle,
 )
 from oasis_agent.models.chain import BlockSnapshot
-from oasis_agent.models.common import BlockRef
+from oasis_agent.models.common import BlockRef, evidence_ref_from_json
 
 from .test_spot_cost_binding import (
     BLOCK,
@@ -245,11 +255,11 @@ def test_store_failure_mid_write_leaves_no_orphan_proof(
     real = capture_module.persist_transaction_cost
     calls: list[int] = []
 
-    def fail_second(store: Any, capture: Any) -> Any:
+    def fail_second(store: Any, capture: Any, **kwargs: Any) -> Any:
         calls.append(1)
         if len(calls) == 2:
             raise OSError("disk full")
-        return real(store, capture)
+        return real(store, capture, **kwargs)
 
     monkeypatch.setattr(capture_module, "persist_transaction_cost", fail_second)
     assert scene.capture(monkeypatch, *scene.good()) == 2
@@ -281,3 +291,209 @@ def test_frozen_rpc_refuses_duplicate_or_malformed_entries() -> None:
     ):
         with pytest.raises(CostCaptureRefused, match="frozen_responses_invalid"):
             frozen_sessions({PROVIDERS[0]: bad}, chain_id=8453)
+
+
+def run_capture(scene: Scene, monkeypatch: pytest.MonkeyPatch, files: tuple[Any, ...]) -> list[str]:
+    """Run the producer and return the frozen file paths it actually read."""
+    paths = scene.write(*files)
+    argv = ["x", "--run", str(scene.world.run), "--intent", scene.world.intent]
+    for path in paths:
+        argv += ["--frozen", path]
+    monkeypatch.setattr(sys, "argv", [*argv, "--out", str(scene.out)])
+    assert capture_cli.main() == 0
+    return paths
+
+
+def report(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    run: Path,
+    bundle: Path,
+) -> dict[str, Any]:
+    capsys.readouterr()
+    argv = ["x", "--run", str(run), "--cost-binding", str(bundle / "binding.json")]
+    monkeypatch.setattr(sys, "argv", [*argv, "--evidence", str(bundle / "evidence.db")])
+    assert report_cli.main() == 0
+    out: dict[str, Any] = json.loads(capsys.readouterr().out)["cost_replay"]
+    return out
+
+
+def test_moved_bundle_still_states_frozen_origin_and_input_digests(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scene = Scene(tmp_path)
+    paths = run_capture(scene, monkeypatch, scene.good())
+    expected = [hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in paths]
+    # Hand the bundle over: move it elsewhere and delete the frozen inputs.
+    moved = tmp_path / "elsewhere" / "handover"
+    moved.parent.mkdir()
+    scene.out.rename(moved)
+    for p in paths:
+        Path(p).unlink()
+    replay = report(monkeypatch, capsys, scene.world.run, moved)
+    assert replay["status"] == "replayed"
+    assert replay["basis"] == "frozen_input_reconstruction_not_provider_observation"
+    assert replay["provider_independence"] == "not_established"
+    origin = replay["origin"]
+    assert origin["kind"] == "frozen_input_reconstruction"
+    assert origin["schema"] == FROZEN_SCHEMA
+    assert origin["digest_basis"] == DIGEST_FILE_BYTES
+    assert origin["inputs"] == [
+        {"source": PROVIDERS[0], "sha256": expected[0]},
+        {"source": PROVIDERS[1], "sha256": expected[1]},
+    ]
+    assert replay["native_wei"]["total"] == str(TOTAL)  # numbers unchanged
+
+
+def test_two_aliases_over_the_same_answers_are_still_a_reconstruction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scene = Scene(tmp_path)
+    one = frozen(PROVIDERS[0], scene.world.tx)
+    two = one | {"source": PROVIDERS[1]}  # identical responses, only the alias differs
+    run_capture(scene, monkeypatch, (one, two))
+    replay = report(monkeypatch, capsys, scene.world.run, scene.out)
+    assert replay["status"] == "replayed" and len(set(replay["evidence"])) == 2
+    # Distinct references and two names never read as two observed providers.
+    assert replay["basis"] == "frozen_input_reconstruction_not_provider_observation"
+    assert replay["origin"]["kind"] == "frozen_input_reconstruction"
+    assert replay["provider_independence"] == "not_established"
+
+
+def legacy_bundle(scene: Scene, origins: tuple[Any, Any] = (None, None)) -> Path:
+    """A bundle written the historical way (or with given origins), not via the CLI."""
+    bundle = scene.tmp / "legacy"
+    bundle.mkdir()
+    store = EvidenceStore(bundle / "evidence.db")
+    refs = [
+        persist_transaction_cost(store, cost_capture(p, scene.world.tx), origin=o)
+        for p, o in zip(PROVIDERS, origins, strict=True)
+    ]
+    store.close()
+    binding = {
+        "schema": SCHEMA,
+        "intent_id": scene.world.intent,
+        "header": {
+            "chain_id": 8453,
+            "number": 123,
+            "block_hash": BLOCK,
+            "timestamp": HEADER.ref.timestamp,
+            "parent_hash": PARENT,
+        },
+        "providers": list(PROVIDERS),
+        "costs": [asdict(r) for r in refs],
+    }
+    (bundle / "binding.json").write_text(json.dumps(binding))
+    return bundle
+
+
+def test_old_bundle_without_origin_replays_with_unknown_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scene = Scene(tmp_path)
+    bundle = legacy_bundle(scene)
+    # The historical interpretation bytes are unchanged when no origin is given.
+    store = ReadOnlyEvidenceStore(bundle / "evidence.db")
+    binding = json.loads((bundle / "binding.json").read_text())
+    ref = evidence_ref_from_json(binding["costs"][0])
+    interpretation = json.loads(store.get_record(ref).interpretation_payload or b"null")
+    store.close()
+    assert interpretation == {
+        "scope": "whole_transaction_native_gas_cost",
+        "execution_eligible": False,
+    }
+    replay = report(monkeypatch, capsys, scene.world.run, bundle)
+    assert replay["status"] == "replayed" and replay["origin"] == {"kind": "unknown"}
+    assert replay["basis"] == "two_declared_providers_retained_raw_receipt_origin_unknown"
+    assert replay["native_wei"]["total"] == str(TOTAL)
+
+
+GOOD_DIGEST = "ab" * 32
+
+
+def origin_of(*inputs: Any, **change: Any) -> dict[str, Any]:
+    base = {
+        "kind": "frozen_input_reconstruction",
+        "schema": FROZEN_SCHEMA,
+        "digest_basis": DIGEST_FILE_BYTES,
+        "inputs": list(inputs) or [{"source": p, "sha256": GOOD_DIGEST} for p in PROVIDERS],
+    }
+    return base | change
+
+
+@pytest.mark.parametrize(
+    "origins",
+    [
+        (origin_of(), None),  # one proof marked, the other not
+        (origin_of(), origin_of(digest_basis=DIGEST_CANONICAL)),  # the two disagree
+        (origin_of(kind="provider_observation"),) * 2,  # claims to be an observation
+        (origin_of(schema="x"),) * 2,
+        (origin_of(digest_basis="md5"),) * 2,
+        (
+            origin_of(
+                {"source": PROVIDERS[0], "sha256": "zz"},
+                {"source": PROVIDERS[1], "sha256": GOOD_DIGEST},
+            ),
+        )
+        * 2,
+        (
+            origin_of(
+                {"source": PROVIDERS[1], "sha256": GOOD_DIGEST},
+                {"source": PROVIDERS[0], "sha256": GOOD_DIGEST},
+            ),
+        )
+        * 2,
+        (origin_of({"source": PROVIDERS[0], "sha256": GOOD_DIGEST}),) * 2,  # one input
+        (origin_of() | {"extra": 1},) * 2,
+        ("frozen",) * 2,
+    ],
+)
+def test_bad_or_inconsistent_origin_is_refused_not_upgraded(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    origins: tuple[Any, Any],
+) -> None:
+    scene = Scene(tmp_path)
+    replay = report(monkeypatch, capsys, scene.world.run, legacy_bundle(scene, origins))
+    assert (replay["status"], replay["reason"]) == ("unbound", "origin_invalid")
+    assert replay["native_wei"] is None and replay["basis"] == "not_replayed"
+
+
+def test_edited_origin_bytes_fail_the_retained_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scene = Scene(tmp_path)
+    run_capture(scene, monkeypatch, scene.good())
+    db = scene.out / "evidence.db"
+    with closing(sqlite3.connect(db)) as connection:
+        rows = connection.execute(
+            "SELECT evidence_key, interpretation_payload FROM evidence"
+        ).fetchall()
+        key, payload = rows[0]
+        edited = json.loads(payload)
+        edited["origin"]["kind"] = "provider_observation"  # promote without re-hashing
+        connection.execute(
+            "UPDATE evidence SET interpretation_payload = ? WHERE evidence_key = ?",
+            (json.dumps(edited).encode(), key),
+        )
+        connection.commit()
+    replay = report(monkeypatch, capsys, scene.world.run, scene.out)
+    assert replay["status"] == "unbound" and replay["reason"].startswith("evidence_invalid_")
+
+
+def test_producer_refuses_an_origin_for_other_sources(tmp_path: Path) -> None:
+    scene = Scene(tmp_path)
+    sessions = frozen_sessions(dict(zip(PROVIDERS, scene.good(), strict=True)), chain_id=8453)
+    pair = (PROVIDERS[0], PROVIDERS[1])
+    header, captures = collect_order_cost(
+        scene.world.records, scene.world.intent, sources=pair, sessions=sessions
+    )
+    wrong = frozen_origin(
+        (PROVIDERS[1], PROVIDERS[0]), (GOOD_DIGEST, GOOD_DIGEST), DIGEST_FILE_BYTES
+    )
+    with pytest.raises(CostCaptureRefused, match="origin_sources_mismatch"):
+        write_cost_bundle(
+            scene.out, scene.world.records, scene.world.intent, header, captures, origin=wrong
+        )
+    assert not scene.out.exists() and staging_left(tmp_path) == []

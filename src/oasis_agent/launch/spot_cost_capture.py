@@ -21,6 +21,7 @@ copy of the same fee. Sessions are injected; `FrozenRpc` answers from retained
 responses only, so nothing here opens a network connection, a wallet or a key.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -94,6 +95,42 @@ class FrozenRpc:
         if key not in self._answers:
             raise ValueError("request not in the frozen responses")
         return canonical_json({"jsonrpc": "2.0", "id": request["id"], "result": self._answers[key]})
+
+
+FROZEN_ORIGIN_KIND = "frozen_input_reconstruction"
+DIGEST_FILE_BYTES = "sha256_of_exact_file_bytes_parsed"
+DIGEST_CANONICAL = "sha256_of_canonical_json_of_parsed_object"
+
+
+def frozen_origin(
+    sources: tuple[str, str], digests: tuple[str, str], digest_basis: str
+) -> dict[str, object]:
+    """What a cost proof built from frozen responses was built from (not an observation).
+
+    Kept inside each proof's hash-bound interpretation: the same object on both proofs,
+    inputs listed in declared provider order.
+    """
+    return {
+        "kind": FROZEN_ORIGIN_KIND,
+        "schema": FROZEN_SCHEMA,
+        "digest_basis": digest_basis,
+        "inputs": [
+            {"source": source, "sha256": digest}
+            for source, digest in zip(sources, digests, strict=True)
+        ],
+    }
+
+
+def load_frozen(raw: bytes) -> tuple[object, str]:
+    """Parse one frozen file and return it with the SHA-256 of exactly those bytes."""
+    try:
+        return json.loads(raw), hashlib.sha256(raw).hexdigest()
+    except (ValueError, RecursionError) as error:
+        raise CostCaptureRefused("frozen_responses_invalid") from error
+
+
+def canonical_digest(frozen: object) -> str:
+    return hashlib.sha256(canonical_json(frozen)).hexdigest()
 
 
 def frozen_sessions(frozen: Mapping[str, object], *, chain_id: int) -> SessionFactory:
@@ -183,8 +220,20 @@ def write_cost_bundle(
     intent_id: str,
     header: BlockSnapshot,
     captures: tuple[TransactionCostCapture, TransactionCostCapture],
+    *,
+    origin: dict[str, object],
 ) -> dict[str, Any]:
-    """Publish `out/` = {evidence.db, binding.json} atomically, or nothing at all."""
+    """Publish `out/` = {evidence.db, binding.json} atomically, or nothing at all.
+
+    `origin` (see `frozen_origin`) is retained inside both proofs' interpretations, so
+    the bundle states its own origin wherever it is copied; it is never inferred.
+    """
+    inputs = origin.get("inputs")
+    if not isinstance(inputs, list) or [i.get("source") for i in inputs] != [
+        captures[0].source,
+        captures[1].source,
+    ]:
+        raise CostCaptureRefused("origin_sources_mismatch")
     if out.exists() or out.is_symlink():
         raise CostCaptureRefused("output_exists")
     if not out.parent.is_dir():
@@ -193,7 +242,7 @@ def write_cost_bundle(
     try:
         store = EvidenceStore(staging / "evidence.db")
         try:
-            refs = [persist_transaction_cost(store, capture) for capture in captures]
+            refs = [persist_transaction_cost(store, capture, origin=origin) for capture in captures]
         finally:
             store.close()
         binding = {
@@ -210,6 +259,9 @@ def write_cost_bundle(
             reader.close()
         if view["status"] != "replayed":
             raise CostCaptureRefused("verification_" + str(view.get("reason")))
+        if view.get("origin") != origin:
+            # The published bundle must read back as exactly what produced it.
+            raise CostCaptureRefused("verification_origin")
         with (staging / "binding.json").open("xb") as handle:
             handle.write(canonical_json(binding) + b"\n")
         os.rename(staging, out)  # one step: the directory appears complete or not at all

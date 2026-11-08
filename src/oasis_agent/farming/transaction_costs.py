@@ -204,7 +204,16 @@ class TransactionCostCapture:
         )
 
 
-def persist_transaction_cost(store: EvidenceStore, capture: TransactionCostCapture) -> EvidenceRef:
+def persist_transaction_cost(
+    store: EvidenceStore,
+    capture: TransactionCostCapture,
+    *,
+    origin: dict[str, object] | None = None,
+) -> EvidenceRef:
+    """Retain one cost capture. `origin`, when given, is kept inside the hash-bound
+    interpretation (its hash is part of the evidence key), so it travels with the
+    record; without it the interpretation is exactly the historical one."""
+
     def envelope(response: bool) -> dict[str, object]:
         return {
             "encoding": "hex_exact_bytes",
@@ -226,7 +235,11 @@ def persist_transaction_cost(store: EvidenceStore, capture: TransactionCostCaptu
         capture.source,
         request=envelope(False),
         raw_response=envelope(True),
-        interpretation={"scope": "whole_transaction_native_gas_cost", "execution_eligible": False},
+        interpretation={
+            "scope": "whole_transaction_native_gas_cost",
+            "execution_eligible": False,
+            **({} if origin is None else {"origin": origin}),
+        },
     )
 
 

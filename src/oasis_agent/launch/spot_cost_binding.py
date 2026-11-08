@@ -18,6 +18,8 @@ USD, not a funds-settlement proof and not net PnL; nothing here reads RPC, a wal
 a key, and the journal and evidence store are opened read-only by the caller.
 """
 
+import json
+import re
 from dataclasses import asdict
 from typing import Any
 
@@ -130,12 +132,17 @@ def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Recor
     if not isinstance(tx, str) or not isinstance(wallet, str):
         raise _unbound("order_not_matched")
     costs: list[TransactionCost] = []
+    origins: list[object] = []
     for index, ref in enumerate(refs):
         try:
             capture = replay_transaction_cost(store, ref, header=header, transaction_hash=tx)
             costs.append(capture.reconstruct())
+            # get_record re-checks the interpretation bytes against the reference's own
+            # interpretation_hash, so this origin is exactly what the producer retained.
+            origins.append(_retained_origin(store.get_record(ref).interpretation_payload))
         except (KeyError, TypeError, ValueError) as error:
             raise _unbound(f"evidence_invalid_{index}") from error
+    origin = _origin(origins, providers)
     if costs[0] != costs[1]:
         raise _conflict("providers_disagree")
     cost = costs[0]
@@ -163,6 +170,9 @@ def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Recor
         "payer": wallet,
         "block": asdict(header.ref),
         "providers": list(providers),
+        # How these proofs were made. Never derived from aliases, distinct reference
+        # hashes or equal response bodies: only from the retained, hash-bound origin.
+        "origin": origin,
         "evidence": [r.content_hash for r in refs],
         "native_wei": {
             "execution": str(cost.execution_native),
@@ -172,6 +182,55 @@ def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Recor
             "total": str(cost.total_native),
         },
     }
+
+
+FROZEN_ORIGIN = "frozen_input_reconstruction"
+FROZEN_INPUT_SCHEMA = "oasis.frozen-rpc.v1"
+DIGEST_BASES = frozenset(
+    {"sha256_of_exact_file_bytes_parsed", "sha256_of_canonical_json_of_parsed_object"}
+)
+UNKNOWN_ORIGIN: dict[str, Any] = {"kind": "unknown"}
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_ABSENT = object()
+
+
+def _retained_origin(interpretation: bytes | None) -> object:
+    if interpretation is None:
+        return _ABSENT
+    value = json.loads(interpretation)
+    if not isinstance(value, dict):
+        raise ValueError("cost interpretation is not an object")
+    return value.get("origin", _ABSENT)
+
+
+def _origin(origins: list[object], providers: tuple[str, str]) -> dict[str, Any]:
+    """The bundle's stated origin, or `unknown` for historical proofs; never inferred.
+
+    Both proofs must state the same origin, or neither may. A frozen origin is accepted
+    only with its exact shape: kind, input schema, a known digest basis and one SHA-256
+    per declared provider in declared order. Anything else is refused, never upgraded.
+    """
+    if all(o is _ABSENT for o in origins):
+        return dict(UNKNOWN_ORIGIN)
+    first = origins[0]
+    if any(o != first for o in origins) or not isinstance(first, dict):
+        raise _unbound("origin_invalid")
+    inputs = first.get("inputs")
+    if (
+        set(first) != {"kind", "schema", "digest_basis", "inputs"}
+        or first["kind"] != FROZEN_ORIGIN
+        or first["schema"] != FROZEN_INPUT_SCHEMA
+        or first["digest_basis"] not in DIGEST_BASES
+        or not isinstance(inputs, list)
+        or len(inputs) != 2
+        or any(not isinstance(i, dict) or set(i) != {"source", "sha256"} for i in inputs)
+        or [i["source"] for i in inputs] != list(providers)
+        or any(
+            not isinstance(i["sha256"], str) or not _SHA256.fullmatch(i["sha256"]) for i in inputs
+        )
+    ):
+        raise _unbound("origin_invalid")
+    return dict(first)
 
 
 def bind_order_cost(records: list[Record], binding: object, store: EvidenceStore) -> Record:
@@ -186,10 +245,23 @@ def bind_order_cost(records: list[Record], binding: object, store: EvidenceStore
             "intent_id": key if isinstance(key, str) else None,
             "native_wei": None,
         }
+    origin = result.get("origin")
+    kind = origin.get("kind") if isinstance(origin, dict) else None
+    # The basis says what the replayed bytes ARE. Frozen input is a reconstruction from
+    # retained files, never two observed providers, whatever the aliases are called;
+    # an unmarked historical proof is replayable but its origin is unknown.
+    basis = (
+        "frozen_input_reconstruction_not_provider_observation"
+        if kind == FROZEN_ORIGIN
+        else "two_declared_providers_retained_raw_receipt_origin_unknown"
+        if kind == "unknown"
+        else "not_replayed"
+    )
     return {
         "schema": VIEW_SCHEMA,
         "scope": "this_order_only",
-        "basis": "two_declared_providers_retained_raw_receipt_and_pinned_header",
+        "basis": basis,
+        "provider_independence": "not_established",
         "booked_in_strategy_pnl": False,
         "usd_value": "not_converted",
         "fund_settlement": "unverified_balance_delta_plus_sender_receipt",
