@@ -328,7 +328,13 @@ def test_receipt_fields_come_from_one_raw_response() -> None:
         "blockNumber": "0x1f",
         "from": upper,
     }
-    assert rpc_receipt_reader(Transport(raw))(TX) == (1, 31, upper.lower())
+    mined = rpc_receipt_reader(Transport(raw))(TX)
+    assert mined is not None and mined[:3] == (1, 31, upper.lower())
+    # This receipt states no fee fields: missing, never zero, and the fill still stands.
+    assert mined[3]["execution"] == {
+        "status": "missing",
+        "fields": ["gasUsed", "effectiveGasPrice"],
+    }
     assert calls == [("eth_getTransactionReceipt", [TX])]  # exactly one request
     assert rpc_receipt_reader(Transport(None))(TX) is None
     for bad in (

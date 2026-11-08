@@ -7,6 +7,7 @@ beat doing nothing after costs? Labels are provider spot claims; PnL is simulate
 """
 
 import json
+import re
 import sqlite3
 from collections import Counter, defaultdict
 from contextlib import closing
@@ -16,7 +17,7 @@ from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
 from .spot_budget import budget_ledger, legacy_error_charge
-from .spot_lifecycle import run_status
+from .spot_lifecycle import reconcile_orders, run_status
 
 SCHEMA = "oasis.spot-agent-report.v1"
 MIN_LABELS_FOR_VERDICT = 30
@@ -188,6 +189,98 @@ def operations(records: list[dict[str, Any]], legacy_error_charge: int) -> dict[
     }
 
 
+_WEI = re.compile(r"^(0|[1-9][0-9]{0,77})$")
+FEE_ITEM_STATES = ("observed", "missing", "invalid", "not_captured", "record_invalid")
+
+
+def _wei(value: object) -> int | None:
+    return int(value) if isinstance(value, str) and _WEI.fullmatch(value) else None
+
+
+def _execution_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
+    item = fees.get("execution")
+    if not isinstance(item, dict) or item.get("status") not in ("observed", "missing", "invalid"):
+        return "record_invalid", None
+    if item["status"] != "observed":
+        return item["status"], None
+    gas, price = _wei(item.get("gas_used")), _wei(item.get("effective_gas_price_wei"))
+    fee = _wei(item.get("fee_wei"))
+    # The journaled product must restate its own factors; anything else is not evidence.
+    if gas is None or price is None or fee is None or gas * price != fee:
+        return "record_invalid", None
+    return "observed", fee
+
+
+def _l1_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
+    item = fees.get("l1_data")
+    if not isinstance(item, dict) or item.get("status") not in ("observed", "missing", "invalid"):
+        return "record_invalid", None
+    if item["status"] != "observed":
+        return item["status"], None
+    fee = _wei(item.get("fee_wei"))
+    return ("observed", fee) if fee is not None else ("record_invalid", None)
+
+
+def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per settled live order, the native fee items its own proving receipt stated.
+
+    Only intents the lifecycle ledger settles (one fill, one booking, a tx hash used by
+    no other intent) are attributed, so a transaction is never charged twice and an
+    unproven or mismatched fill is never charged at all. Fills outside that set stay
+    visible as a count. These are evidence items in wei: they are not deducted from the
+    strategy book (which still carries the declared USD gas estimate), not converted to
+    USD, and their sum is not the total native debit (the OP operator fee is uncaptured).
+    """
+    settled = set(reconcile_orders(records).settled)
+    fills = [r for r in records if r.get("kind") == "live_fill"]
+    rows: list[dict[str, Any]] = []
+    for fill in fills:
+        if fill.get("intent_id") not in settled:
+            continue
+        fees = fill.get("receipt_fees")
+        if fees is None or (isinstance(fees, dict) and fees.get("status") == "not_captured"):
+            execution: tuple[str, int | None] = ("not_captured", None)
+            l1: tuple[str, int | None] = ("not_captured", None)
+        elif not isinstance(fees, dict) or fees.get("status") != "captured":
+            execution = l1 = ("record_invalid", None)
+        else:
+            execution, l1 = _execution_fee(fees), _l1_fee(fees)
+        rows.append(
+            {
+                "intent_id": fill["intent_id"],
+                "tx_hash": fill.get("tx_hash"),
+                "side": fill.get("side"),
+                "block_number": fill.get("block_number"),
+                "execution": execution[0],
+                "execution_fee_wei": None if execution[1] is None else str(execution[1]),
+                "l1_data": l1[0],
+                "l1_data_fee_wei": None if l1[1] is None else str(l1[1]),
+            }
+        )
+
+    def total(key: str, state: str) -> dict[str, Any]:
+        observed = [int(r[key]) for r in rows if r[state] == "observed"]
+        return {
+            "observed_wei": str(sum(observed)),
+            "observed_orders": len(observed),
+            "by_state": {s: sum(r[state] == s for r in rows) for s in FEE_ITEM_STATES},
+        }
+
+    return {
+        "basis": "settled_live_orders_own_receipt_items",
+        "unit": "native_wei",
+        "settled_orders": len(rows),
+        "fills_not_attributed": len(fills) - len(rows),
+        "execution": total("execution_fee_wei", "execution"),
+        "l1_data": total("l1_data_fee_wei", "l1_data"),
+        "operator": "not_captured",
+        "total_native_debit": "not_derived",
+        "usd_value": "not_converted",
+        "booked_in_strategy_pnl": False,
+        "rows": rows,
+    }
+
+
 def build_report(run_dir: Path) -> dict[str, Any]:
     policy, records = read_journal(run_dir / "journal.db")
     status = run_status(policy.get("schema"), records)
@@ -237,6 +330,8 @@ def build_report(run_dir: Path) -> dict[str, Any]:
                 int(summaries[-1].get("estimated_gas_usd_micros", 0)) if summaries else 0
             ),
             "gas_basis": "declared_per_leg_estimate_not_receipt_fees",
+            # Separate native evidence from the same receipts; never mixed into the above.
+            "receipt_fees": receipt_fee_attribution(records),
             "nav_scope": "strategy_equity_not_account_nav",
             "book_observed": observed,
             # open_positions lists what this run's strategy book recorded, never a wallet

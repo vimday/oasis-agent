@@ -53,6 +53,14 @@ const VERDICT = {
   no_selection_edge: "描述性：短线组中位标签收益不高（非因果，不能据此判定选股无优势）",
 };
 
+// "<wei> (<observed>/<settled> 笔)": orders without an observed item stay visible, never zero.
+export function receiptFees(report) {
+  const fees = (report.accounting || {}).receipt_fees;
+  if (!fees || !fees.execution) return "未记录";
+  const n = fees.execution.observed_orders, total = fees.settled_orders;
+  return n ? `${fees.execution.observed_wei}（${n}/${total} 笔）` : `未观测（0/${total} 笔）`;
+}
+
 function horizonRows(table) {
   const rows = [];
   for (const [horizon, groups] of Object.entries(table)) {
@@ -113,6 +121,9 @@ export async function loadSpot() {
     { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: money(book.final_nav_usd_micros) },
     ...(live ? [{ label: "估算 gas USD（声明值，非收据）",
       value: usd((report.accounting || {}).estimated_gas_usd_micros) }] : []),
+    // Receipt execution fee of settled orders, in wei: evidence only, not booked, no USD.
+    ...(live ? [{ label: "收据执行 gas wei（已结算订单，仅执行分项，未入账）",
+      value: receiptFees(report) }] : []),
     { label: "已实现 PnL USD", value: usd(book.realized_pnl_usd_micros),
       tone: book.realized_pnl_usd_micros < 0 ? "danger" : "" },
     { label: "平仓 / 盈利", value: book.closed_trades + " / " + book.winning_trades },

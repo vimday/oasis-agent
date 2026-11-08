@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from ..evidence.rpc_validation import rpc_quantity
 from ..models.common import normalize_address
 from .onchainos_source import BASE_USDC, Runner, SourceFailure
 
@@ -40,7 +41,10 @@ def swap_call_bound(settle_attempts: int = DEFAULT_SETTLE_ATTEMPTS) -> int:
 Side = Literal["buy", "sell"]
 Emit = Callable[[str, dict[str, Any]], object]
 # (status, block_number, sender) once mined, None while unavailable. Raises on RPC failure.
-ReceiptReader = Callable[[str], tuple[int, int, str] | None]
+# A reader may append a fourth element, the fee items of that same receipt (`receipt_fees`);
+# a three-element reader (older injection) leaves the fees `not_captured`.
+Mined = tuple[int, int, str] | tuple[int, int, str, dict[str, Any]]
+ReceiptReader = Callable[[str], Mined | None]
 
 
 class LiveRefused(Exception):
@@ -95,6 +99,9 @@ class Fill:
     usdc_delta: int  # signed USDC base units observed in the wallet
     token_delta: int  # signed token base units observed in the wallet
     intent_id: str = ""  # the journaled live_intent this fill answers
+    # Fee items read from the same receipt that proved this fill (see `receipt_fees`);
+    # None when the reader did not capture them. Evidence only: never booked as cash.
+    receipt_fees: dict[str, Any] | None = None
 
     def record(self) -> dict[str, Any]:
         return {
@@ -110,6 +117,9 @@ class Fill:
             "usdc_delta": str(self.usdc_delta),
             "token_delta": str(self.token_delta),
             "intent_id": self.intent_id,
+            "receipt_fees": (
+                self.receipt_fees if self.receipt_fees is not None else dict(NOT_CAPTURED_FEES)
+            ),
         }
 
 
@@ -311,7 +321,8 @@ class LiveExecutor:
         mined = self._await_receipt(tx_hash)
         if mined is None:
             raise self._unresolved(base, "receipt_unavailable", tx_hash)
-        status, block, sender = mined
+        status, block, sender = mined[0], mined[1], mined[2]
+        fees = mined[3] if len(mined) == 4 else None
         if sender != self.gate.wallet:
             # A status-1 receipt of someone else's transaction proves nothing about ours.
             raise self._unresolved(base, "receipt_not_from_wallet", tx_hash)
@@ -328,12 +339,13 @@ class LiveExecutor:
             settled[0] - usdc0,
             settled[1] - token0,
             base["intent_id"],
+            fees,
         )
         # `fill.record()` restates side/token; it wins so the journal shows the fill itself.
         self._journal("live_fill", **(base | fill.record()))
         return fill
 
-    def _await_receipt(self, tx_hash: str) -> tuple[int, int, str] | None:
+    def _await_receipt(self, tx_hash: str) -> Mined | None:
         waited = 0.0
         while True:
             try:
@@ -388,13 +400,82 @@ def parse_receipt(raw: object, tx_hash: str) -> tuple[int, int, str] | None:
     return int(status, 16), int(block, 16), normalize_address(sender)
 
 
-def rpc_receipt_reader(transport: Any) -> ReceiptReader:
-    """One `eth_getTransactionReceipt` per poll on a chain-pinned transport."""
+FEE_SOURCE = "eth_getTransactionReceipt_same_response"
+# The reader returned no fee items (an older three-element injection or log).
+NOT_CAPTURED_FEES: dict[str, Any] = {"status": "not_captured"}
 
-    def read(tx_hash: str) -> tuple[int, int, str] | None:
+
+def _fee_quantity(raw: dict[str, Any], field: str) -> int | None:
+    """A canonical hex quantity, or None; `missing` and `invalid` are told apart by caller."""
+    try:
+        return rpc_quantity(raw[field])
+    except (KeyError, ValueError):
+        return None
+
+
+def receipt_fees(raw: dict[str, Any]) -> dict[str, Any]:
+    """Native-fee items stated by the same receipt object that `parse_receipt` accepted.
+
+    Never raises: a missing or malformed item is recorded as such and can never turn a
+    proven fill into an unresolved one or cause a resubmission.
+    - execution: gasUsed x effectiveGasPrice in wei (the L2 execution fee only);
+    - l1_data: the receipt's own `l1Fee` (OP-stack L1 data fee), as stated, in wei.
+    The OP operator fee is not in the receipt and is not captured, so no total native
+    debit is derived here, and nothing is converted to USD.
+    """
+
+    def item(fields: tuple[str, ...]) -> tuple[dict[str, Any], list[int]]:
+        absent = [f for f in fields if f not in raw]
+        if absent:
+            return {"status": "missing", "fields": absent}, []
+        values = [_fee_quantity(raw, f) for f in fields]
+        if any(v is None for v in values):
+            bad = [f for f, v in zip(fields, values, strict=True) if v is None]
+            return {"status": "invalid", "fields": bad}, []
+        return {"status": "observed"}, [v for v in values if v is not None]
+
+    execution, values = item(("gasUsed", "effectiveGasPrice"))
+    if values:
+        gas, price = values
+        fee = gas * price
+        if gas >= 1 << 64 or price >= 1 << 256 or fee >= 1 << 256:
+            execution = {"status": "invalid", "fields": ["gasUsed", "effectiveGasPrice"]}
+        else:
+            execution |= {
+                "gas_used": str(gas),
+                "effective_gas_price_wei": str(price),
+                "fee_wei": str(fee),
+            }
+    l1, values = item(("l1Fee",))
+    if values:
+        if values[0] >= 1 << 256:
+            l1 = {"status": "invalid", "fields": ["l1Fee"]}
+        else:
+            l1 |= {"fee_wei": str(values[0])}
+    return {
+        "status": "captured",
+        "source": FEE_SOURCE,
+        "execution": execution,
+        "l1_data": l1,
+        "operator": {"status": "not_captured"},
+        "total_native_wei": "not_derived",
+    }
+
+
+def rpc_receipt_reader(transport: Any) -> ReceiptReader:
+    """One `eth_getTransactionReceipt` per poll on a chain-pinned transport.
+
+    Identity, status and fee items all come from that one response; no extra request.
+    """
+
+    def read(tx_hash: str) -> Mined | None:
         if not _HASH.fullmatch(tx_hash):
             raise ValueError("invalid transaction hash")
-        return parse_receipt(transport.request("eth_getTransactionReceipt", [tx_hash]), tx_hash)
+        raw = transport.request("eth_getTransactionReceipt", [tx_hash])
+        mined = parse_receipt(raw, tx_hash)
+        if mined is None:
+            return None
+        return (*mined, receipt_fees(raw))  # raw is a dict once parse_receipt accepted it
 
     return read
 
