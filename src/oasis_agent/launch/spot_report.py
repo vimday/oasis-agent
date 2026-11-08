@@ -15,6 +15,7 @@ from statistics import median
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
+from .spot_lifecycle import run_status
 
 SCHEMA = "oasis.spot-agent-report.v1"
 MIN_LABELS_FOR_VERDICT = 30
@@ -139,22 +140,10 @@ def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-LIVE_SCHEMA = "oasis.spot-agent-live.v1"
-
-
-def unresolved_live_orders(records: list[dict[str, Any]]) -> int:
-    """Live intents without a proven fill: explicit unresolved records or missing outcomes.
-
-    A process killed (or failing) after submission journals an intent but no outcome; it
-    must count as unresolved, not disappear.
-    """
-    kinds = Counter(str(r["kind"]) for r in records)
-    return max(kinds["live_intent"] - kinds["live_fill"], kinds["live_unresolved"])
-
-
 def build_report(run_dir: Path) -> dict[str, Any]:
     policy, records = read_journal(run_dir / "journal.db")
-    live = policy.get("schema") == LIVE_SCHEMA
+    status = run_status(policy.get("schema"), records)
+    live = status["mode"] == "live"
     starts = [r for r in records if r["kind"] == "live_start"]
     if live and not starts and any(r["kind"] == "tick_summary" for r in records):
         raise ValueError("live journal has ticks but no live_start record")
@@ -168,7 +157,9 @@ def build_report(run_dir: Path) -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "mode": "live" if live else "shadow",
-        "unresolved_live_orders": unresolved_live_orders(records),
+        # The same derivation resume uses: report, API and console cannot disagree with it.
+        "run_status": status,
+        "unresolved_live_orders": status["unknown_live_orders"],
         "execution_eligible": False,
         "evidence_level": "provider_claims_not_chain_attestations",
         "policy_sha256": sha256_hex(canonical_json(policy)),
@@ -179,7 +170,13 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         # Live: cash is the wallet's own USDC; gas is a declared per-leg estimate paid in
         # ETH (not receipt fees); equity is strategy equity, never full-account NAV.
         "accounting": {
-            "cash_basis": "wallet_usdc_observed" if live else "paper",
+            "cash_basis": (
+                "legacy_v1_cash_net_of_estimated_gas"
+                if status["lifecycle"] == "live_v1_legacy"
+                else "wallet_usdc_observed"
+                if live
+                else "paper"
+            ),
             "estimated_gas_usd_micros": (
                 int(summaries[-1].get("estimated_gas_usd_micros", 0)) if summaries else 0
             ),

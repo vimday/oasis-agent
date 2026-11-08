@@ -6,7 +6,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..launch.spot_report import LIVE_SCHEMA, build_report, read_journal, recent
+from ..launch.spot_lifecycle import LIVE_SCHEMAS
+from ..launch.spot_report import build_report, read_journal, recent
 from .deps import State
 
 router = APIRouter(prefix="/api/v1/spot", tags=["spot"])
@@ -15,6 +16,7 @@ DECISIONS = frozenset(
         "live_start",
         "live_intent",
         "live_fill",
+        "live_halt",
         "paper_buy",
         "paper_sell",
         "live_buy",
@@ -28,7 +30,7 @@ DECISIONS = frozenset(
 
 
 def _mode(policy: dict[str, Any]) -> str:
-    return "live" if policy.get("schema") == LIVE_SCHEMA else "shadow"
+    return "live" if policy.get("schema") in LIVE_SCHEMAS else "shadow"
 
 
 def _run_dir(state: State) -> Path:

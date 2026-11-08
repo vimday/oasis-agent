@@ -13,7 +13,8 @@ from oasis_agent.launch.spot_agent import (
     reconcile_with_journal,
 )
 from oasis_agent.launch.spot_executor import Fill, LiveRefused, LiveUnresolved
-from oasis_agent.launch.spot_report import read_journal
+from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA
+from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import resume, run_loop, save_state, tick_budget
 
@@ -225,7 +226,7 @@ def test_live_tick_budget_reserves_worst_case_swap_calls() -> None:
 def test_live_flag_on_a_shadow_directory_is_refused(tmp_path: Path) -> None:
     run = tmp_path / "run"
     loop(run, FakeCli(), 1)
-    live = {"schema": "oasis.spot-agent-live.v1", "config": AgentConfig().model_dump()}
+    live = {"schema": "oasis.spot-agent-live.v2", "config": AgentConfig().model_dump()}
     with pytest.raises(ValueError, match="cannot change"):
         ExecutionJournal(run / "journal.db", live)
 
@@ -298,8 +299,22 @@ def test_mismatch_keeps_booked_trade_records_and_halts(tmp_path: Path) -> None:
     assert TOKEN in agent.state.positions  # the booked trade is not rolled back
 
 
-def run_live(run: Path, executor: Any, cli: FakeCli | None = None, ticks: int = 5) -> int:
+def live_policy() -> dict[str, Any]:
+    return {"schema": LIVE_SCHEMA, "config": AgentConfig().model_dump()}
+
+
+def open_live(run: Path) -> ExecutionJournal:
+    """A live journal shaped like a real run: live policy plus its live_start record."""
     run.mkdir(exist_ok=True)
+    journal = ExecutionJournal(run / "journal.db", live_policy())
+    if not any(r["kind"] == "live_start" for r in read_journal(run / "journal.db")[1]):
+        start = {"at": NOW, "kind": "live_start", "cash_usd_micros": 1_000_000_000}
+        journal.append("live_start", start | {"execution_eligible": False})
+    return journal
+
+
+def run_live(run: Path, executor: Any, cli: FakeCli | None = None, ticks: int = 5) -> int:
+    open_live(run).close()
     state, spent = resume(run, AgentConfig())
     agent = SpotAgent(
         OnchainosSource(cli or FakeCli(), clock=lambda: NOW),
@@ -308,7 +323,7 @@ def run_live(run: Path, executor: Any, cli: FakeCli | None = None, ticks: int = 
         executor=executor,
     )
     times = iter(range(NOW, NOW + 100_000, 60))
-    with ExecutionJournal(run / "journal.db", policy()) as journal:
+    with ExecutionJournal(run / "journal.db", live_policy()) as journal:
         return run_loop(
             agent,
             journal,
@@ -331,23 +346,24 @@ class JournalingExecutor(SubmittingExecutor):
         self.emit, self.hidden = emit, hidden
 
     def buy(self, token: str, usdc_amount: int) -> Any:
-        for _ in range(self.hidden):
+        body = {"side": "buy", "token": token, "execution_eligible": False}
+        for n in range(self.hidden):
             self.submissions += 1
-            self.emit("live_intent", {"kind": "live_intent", "execution_eligible": False})
+            self.emit("live_intent", body | {"kind": "live_intent", "intent_id": f"hidden{n}"})
         self.submissions += 1
-        self.emit("live_intent", {"kind": "live_intent", "execution_eligible": False})
-        self.emit("live_fill", {"kind": "live_fill", "execution_eligible": False})
-        return Fill("buy", token, "0x" + "cd" * 32, 7, -usdc_amount, usdc_amount * 1_000)
+        tx = "0x" + "cd" * 32
+        self.emit("live_intent", body | {"kind": "live_intent", "intent_id": "seen"})
+        self.emit("live_fill", body | {"kind": "live_fill", "intent_id": "seen", "tx_hash": tx})
+        return Fill("buy", token, tx, 7, -usdc_amount, usdc_amount * 1_000, "seen")
 
 
 @pytest.mark.parametrize("booked", [True, False])
 def test_unexplained_submission_survives_restart(tmp_path: Path, booked: bool) -> None:
     run = tmp_path / "run"
-    run.mkdir()
     db = run / "journal.db"
     if booked:
         # One proven, booked buy plus one hidden submission in the same tick.
-        with ExecutionJournal(db, policy()) as side:
+        with open_live(run) as side:
             executor: Any = JournalingExecutor(side.append, hidden=1)
             assert run_live(run, executor, ticks=1) == 4
     else:
@@ -359,6 +375,7 @@ def test_unexplained_submission_survives_restart(tmp_path: Path, booked: bool) -
     assert kinds.index("live_halt") < len(kinds) - 1
     with pytest.raises(ValueError, match="halted for human review"):
         resume(run, AgentConfig())
+    assert build_report(run)["run_status"]["resumable"] is False
 
 
 def test_refused_live_sell_halts_and_stays_halted_across_restart(tmp_path: Path) -> None:
@@ -368,15 +385,16 @@ def test_refused_live_sell_halts_and_stays_halted_across_restart(tmp_path: Path)
     class Seller(SubmittingExecutor):
         def buy(self, token: str, usdc_amount: int) -> Any:
             self.submissions += 1
-            for kind in ("live_intent", "live_fill"):
-                self.emit(kind, {"kind": kind, "execution_eligible": False})  # type: ignore[attr-defined]
-            return Fill("buy", token, "0x" + "cd" * 32, 7, -usdc_amount, usdc_amount * 1_000)
+            tx = "0x" + "cd" * 32
+            body = {"intent_id": "i1", "side": "buy", "token": token, "execution_eligible": False}
+            self.emit("live_intent", body | {"kind": "live_intent"})  # type: ignore[attr-defined]
+            self.emit("live_fill", body | {"kind": "live_fill", "tx_hash": tx})  # type: ignore[attr-defined]
+            return Fill("buy", token, tx, 7, -usdc_amount, usdc_amount * 1_000, "i1")
 
         def sell(self, token: str, units: int) -> Any:
             raise LiveRefused("insufficient_balance")  # nothing submitted
 
-    run.mkdir()
-    with ExecutionJournal(run / "journal.db", policy()) as side:
+    with open_live(run) as side:
         executor = Seller(RuntimeError("unused"))
         executor.emit = side.append  # type: ignore[attr-defined]
         assert run_live(run, executor, cli, ticks=1) == 0  # entry booked, run continues
@@ -385,6 +403,14 @@ def test_refused_live_sell_halts_and_stays_halted_across_restart(tmp_path: Path)
     assert executor.submissions == 1  # no further entry after the refusal
     with pytest.raises(ValueError, match="human_review_halt"):
         resume(run, AgentConfig())
+    # The report derives the same verdict from the same journal: no unknown order, yet
+    # not resumable, with the held position still shown.
+    report = build_report(run)
+    status = report["run_status"]
+    assert status["unknown_live_orders"] == 0 and status["settled_live_orders"] == 1
+    assert status["resumable"] is False
+    assert {"human_review_halt", "live_halt_recorded"} <= set(status["blocking_reasons"])
+    assert [p["token"] for p in report["open_positions"]] == [TOKEN]
 
 
 def test_shadow_transient_errors_keep_resuming(tmp_path: Path) -> None:
@@ -393,3 +419,4 @@ def test_shadow_transient_errors_keep_resuming(tmp_path: Path) -> None:
     cli.fail = {("token", "hot-tokens")}  # discovery failure: observation-only
     loop(run, cli, 2)
     resume(run, AgentConfig())  # must not raise
+    assert build_report(run)["run_status"]["resumable"] is True

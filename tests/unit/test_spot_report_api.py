@@ -7,11 +7,8 @@ from typing import Any
 
 from oasis_agent.launch.onchainos_source import OnchainosSource
 from oasis_agent.launch.spot_agent import AgentConfig, SpotAgent
-from oasis_agent.launch.spot_report import (
-    build_report,
-    signal_quality,
-    unresolved_live_orders,
-)
+from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA, run_status
+from oasis_agent.launch.spot_report import build_report, signal_quality
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import save_state
 
@@ -125,7 +122,7 @@ def test_live_report_uses_wallet_cash_and_surfaces_unresolved_orders(tmp_path: P
     run.mkdir()
     config = AgentConfig()
     policy = {
-        "schema": "oasis.spot-agent-live.v1",
+        "schema": LIVE_SCHEMA,
         "config": config.model_dump(mode="json"),
         "gate": {"wallet": "0x" + "95" * 20},
     }
@@ -154,10 +151,9 @@ def test_live_report_uses_wallet_cash_and_surfaces_unresolved_orders(tmp_path: P
             },
         )
         journal.append("tick_summary", summary)
-        journal.append(
-            "live_unresolved",
-            {"at": NOW, "kind": "live_unresolved", "execution_eligible": False, "category": "x"},
-        )
+        order = {"at": NOW, "intent_id": "i1", "side": "buy", "execution_eligible": False}
+        journal.append("live_intent", order | {"kind": "live_intent"})
+        journal.append("live_unresolved", order | {"kind": "live_unresolved", "category": "x"})
     report = build_report(run)
     assert report["mode"] == "live" and report["execution_eligible"] is False
     assert report["paper_book"]["initial_cash_usd_micros"] == 42_000_000
@@ -167,7 +163,7 @@ def test_live_report_uses_wallet_cash_and_surfaces_unresolved_orders(tmp_path: P
 def test_live_journal_without_start_record_fails_closed(tmp_path: Path) -> None:
     run = tmp_path / "live"
     run.mkdir()
-    policy = {"schema": "oasis.spot-agent-live.v1", "config": AgentConfig().model_dump(mode="json")}
+    policy = {"schema": LIVE_SCHEMA, "config": AgentConfig().model_dump(mode="json")}
     with ExecutionJournal(run / "journal.db", policy) as journal:
         journal.append(
             "tick_summary",
@@ -182,11 +178,14 @@ def test_live_journal_without_start_record_fails_closed(tmp_path: Path) -> None:
 
 def test_intent_without_outcome_counts_as_unresolved() -> None:
     def kinds(*names: str) -> list[dict[str, Any]]:
-        return [{"kind": n} for n in names]
+        return [{"kind": n, "intent_id": "i1"} for n in names]
 
-    assert unresolved_live_orders(kinds("live_intent", "live_fill")) == 0
-    assert unresolved_live_orders(kinds("live_intent", "tick_error")) == 1
-    assert unresolved_live_orders(kinds("live_intent", "live_unresolved")) == 1
+    intent = {"kind": "live_intent", "intent_id": "i1", "side": "buy", "token": "t"}
+    fill = {"kind": "live_fill", "intent_id": "i1", "side": "buy", "token": "t", "tx_hash": "h"}
+    booked = {"kind": "live_buy", "intent_id": "i1", "token": "t", "tx_hash": "h"}
+    assert run_status(LIVE_SCHEMA, [intent, fill, booked])["unknown_live_orders"] == 0
+    assert run_status(LIVE_SCHEMA, [intent, {"kind": "tick_error"}])["unknown_live_orders"] == 1
+    assert run_status(LIVE_SCHEMA, [intent, *kinds("live_unresolved")])["unknown_live_orders"] == 1
 
 
 def test_report_states_accounting_basis(tmp_path: Path) -> None:

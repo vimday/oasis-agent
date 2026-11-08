@@ -24,6 +24,22 @@ const KIND_LABEL = {
   live_unresolved: "实盘未确认（需人工复核）", halt_review: "停止复核",
   skip_entry: "放弃入场", mark_missed: "未能估值",
 };
+const BLOCK_LABEL = {
+  live_halt_recorded: "已记录实盘停机",
+  human_review_halt: "卖出被拒，需人工处理持仓",
+  live_intent_without_outcome: "有已提交但无结果的订单",
+  live_order_unresolved: "有结果未确认的订单",
+  live_fill_not_booked: "有成交未入账",
+  interrupted_tick: "上一轮在交易中途中断",
+  trades_without_tick_summary: "有交易但无 tick 汇总",
+  legacy_live_lifecycle_v1: "旧版实盘日志（无订单关联，只读）",
+  booking_mismatch: "入账与成交不符",
+  fill_mismatch: "成交与意图不符",
+  duplicate_fill: "重复成交记录",
+  duplicate_booking: "重复入账",
+  duplicate_intent: "重复订单意图",
+  status_unavailable: "状态不可用",
+};
 const VERDICT = {
   insufficient_samples: "样本不足，尚无结论",
   flip_outperforms: "短线组 1 小时中位收益高于对照组",
@@ -61,12 +77,19 @@ export async function loadSpot() {
   }
   const ops = report.operations, book = report.paper_book, quality = report.signal_quality;
   const live = report.mode === "live";
-  const unresolved = report.unresolved_live_orders || 0;
-  const banner = live
-    ? `实盘模式（Agentic Wallet）${unresolved ? ` · ⚠ ${unresolved} 笔实盘未确认，已停机等待人工复核` : ""}`
-    : "影子模式";
-  status.textContent = `${banner} · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
-  status.classList.toggle("danger", live && unresolved > 0);
+  // The journal's own recovery verdict (same derivation as resume). A missing status
+  // is treated as blocked: the console never infers "fine" from absent data.
+  const run = report.run_status || { resumable: false, blocking_reasons: ["status_unavailable"] };
+  const reasons = (run.blocking_reasons || []).map(r => BLOCK_LABEL[r] || r);
+  const unknown = run.unknown_live_orders || 0;
+  const gap = (run.transient_unpriceable || []).length;
+  const banner = (live ? "实盘模式（Agentic Wallet）" : "影子模式")
+    + (run.resumable ? "" : ` · ⛔ 不可恢复交易：${reasons.join("；")}`)
+    + (unknown ? ` · ${unknown} 笔实盘订单结果未知` : "")
+    + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "");
+  // Process liveness is not provable from a journal; say so instead of claiming "running".
+  status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
+  status.classList.toggle("danger", !run.resumable);
   renderStats("spot-stats", [
     { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
     ...(live ? [{ label: "估算 gas USD（声明值，非收据）",
@@ -77,7 +100,8 @@ export async function loadSpot() {
     { label: "最大回撤 USD", value: usd(book.max_drawdown_usd_micros) },
     { label: "持仓", value: report.open_positions.length },
     { label: "tick / 调用", value: ops.ticks + " / " + ops.provider_calls },
-    { label: "停止复核", value: ops.halts, tone: ops.halts ? "warn" : "" },
+    { label: "历史停止复核次数", value: ops.halts, tone: ops.halts ? "warn" : "" },
+    { label: "当前可恢复", value: run.resumable ? "是" : "否", tone: run.resumable ? "" : "danger" },
   ]);
   renderTable("spot-positions", ["代币", "数量", "成本 USD", "当前可卖 USD", "最高 USD", "开仓时间"],
     report.open_positions.map(p => [esc(p.symbol || p.token), esc(p.units), esc(usd(p.cost_usd_micros)),

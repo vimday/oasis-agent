@@ -31,8 +31,6 @@ from oasis_agent.launch.onchainos_source import (
     run_cli,
 )
 from oasis_agent.launch.spot_agent import (
-    HUMAN_REVIEW_REASONS,
-    LIVE_HALT,
     AgentConfig,
     AgentState,
     SpotAgent,
@@ -49,6 +47,7 @@ from oasis_agent.launch.spot_executor import (
     preflight,
     rpc_receipt_reader,
 )
+from oasis_agent.launch.spot_lifecycle import HUMAN_REVIEW_REASONS, LIVE_HALT, LIVE_SCHEMA
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.client import RpcClient
@@ -98,8 +97,8 @@ def resume(out: Path, config: AgentConfig) -> tuple[AgentState, int]:
     journal_path = out / "journal.db"
     if not journal_path.exists():
         return state, 0
-    records = read_journal(journal_path)[1]
-    state = reconcile_with_journal(state, records)
+    policy, records = read_journal(journal_path)
+    state = reconcile_with_journal(state, records, policy.get("schema"))
     # The call budget covers the whole run directory, across restarts.
     return state, sum(r["provider_calls"] for r in records if r["kind"] == "tick_summary")
 
@@ -336,7 +335,7 @@ def main() -> int:
     }
     if gate is not None:
         # A distinct policy makes the journal refuse a shadow directory resumed as live.
-        policy = policy | {"schema": "oasis.spot-agent-live.v1", "gate": gate.describe()}
+        policy = policy | {"schema": LIVE_SCHEMA, "gate": gate.describe()}
     try:
         journal_context = ExecutionJournal(args.out / "journal.db", policy)
     except ValueError as error:

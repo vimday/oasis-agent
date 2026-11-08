@@ -43,42 +43,11 @@ from .spot_book import (
     round_trip_bps,
 )
 from .spot_executor import LiveExecutor, LiveRefused
+from .spot_lifecycle import TRADE_KINDS, run_status
 
 Record = dict[str, Any]
 MAX_MISSED_MARKS = 3
 LIVE_EVIDENCE = "wallet_balance_delta_and_chain_receipt"
-TRADE_KINDS = frozenset({"paper_buy", "paper_sell", "live_buy", "live_sell"})
-# Any of these after the last tick summary means money may have moved unjournaled.
-INTERRUPTING_KINDS = TRADE_KINDS | {"live_intent", "live_fill", "live_unresolved"}
-# Halt reasons that need a human: the wallet may hold something the agent cannot exit.
-# A transient unpriceable mark is not one of them; it keeps observing.
-HUMAN_REVIEW_REASONS = frozenset({"live_sell_refused"})
-LIVE_HALT = "live_halt"
-
-
-def live_halt_reasons(records: list[Record]) -> list[str]:
-    """Why a journal must not resume trading, judged over its whole history.
-
-    Each submitted swap journals one `live_intent`; a proven one adds one `live_fill`
-    and the agent books exactly one `live_buy`/`live_sell` for it. Any break in that
-    1:1:1 chain is an unexplained submission, whatever tick summaries follow it. A
-    persisted `live_halt` (or a human-review halt) is likewise permanent for the run.
-    """
-    kinds = [str(r.get("kind")) for r in records]
-    intents, fills = kinds.count("live_intent"), kinds.count("live_fill")
-    booked = kinds.count("live_buy") + kinds.count("live_sell")
-    reasons = []
-    if intents != fills:
-        reasons.append("live_intent_without_fill")
-    if fills != booked:
-        reasons.append("live_fill_not_booked")
-    if LIVE_HALT in kinds:
-        reasons.append("live_halt_recorded")
-    if any(
-        r.get("kind") == "halt_review" and r.get("reason") in HUMAN_REVIEW_REASONS for r in records
-    ):
-        reasons.append("human_review_halt")
-    return reasons
 
 
 class AgentConfig(DecisionPolicy):
@@ -242,6 +211,7 @@ class SpotAgent:
                 gas = self.config.gas_per_leg_usd_micros
                 value = fill.usdc_delta - gas
                 live = {
+                    "intent_id": fill.intent_id,
                     "tx_hash": fill.tx_hash,
                     "block_number": fill.block_number,
                     "usdc_received_base_units": fill.usdc_delta,
@@ -395,6 +365,7 @@ class SpotAgent:
             cost = -fill.usdc_delta + gas
             value = value * units // buy.amount_out
             live = {
+                "intent_id": fill.intent_id,
                 "tx_hash": fill.tx_hash,
                 "block_number": fill.block_number,
                 "usdc_spent_base_units": -fill.usdc_delta,
@@ -594,34 +565,38 @@ def state_from_json(raw: dict[str, Any]) -> AgentState:
     )
 
 
-def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentState:
+def reconcile_with_journal(
+    state: AgentState, records: list[Record], schema: str | None = None
+) -> AgentState:
     """Make the hash-linked journal authoritative for money state after a restart.
 
-    Cash, positions and PnL counters come from the last journaled `tick_summary`; only
-    caches (security, cooldowns, pending outcome labels) survive from the state file. A
-    paper trade journaled after that summary means the tick was cut short, so the
-    summary-time book is no longer the truth and the run must be reviewed, not resumed.
+    Refuses exactly when `run_status(schema, records)` is not resumable (interrupted tick,
+    unknown or unmatched live orders, persisted or human-review halts, legacy live
+    lifecycle), so resume and the report can never disagree. Otherwise cash, positions,
+    gas estimate and PnL counters come from the last journaled `tick_summary`; only caches
+    (security, cooldowns, pending outcome labels) survive from the state file.
     """
-    if halted := live_halt_reasons(records):
-        # No later tick summary can clear this: reconcile the wallet by hand, then start
-        # a new run directory (a fresh live_start reads the wallet's own balance).
-        raise ValueError(
-            "live run halted for human review (" + ", ".join(halted) + "); "
-            "reconcile the wallet and start a new run directory"
+    status = run_status(schema, records)
+    if not status["resumable"]:
+        reasons = status["blocking_reasons"]
+        headline = (
+            "journal ends inside an interrupted tick"
+            if "interrupted_tick" in reasons
+            else "journal has trades but no tick summary"
+            if "trades_without_tick_summary" in reasons
+            else "live run halted for human review"
         )
+        # No later tick summary can clear a live block: reconcile the wallet by hand,
+        # then start a new run directory (a fresh live_start reads the wallet's balance).
+        raise ValueError(f"{headline} ({', '.join(reasons)}); review before resuming")
     summaries = [i for i, r in enumerate(records) if r["kind"] == "tick_summary"]
     starts = [r for r in records if r["kind"] == "live_start"]
     if not summaries:
         if starts:
             # A live run that never finished a tick starts again from the wallet's cash.
             state.cash_usd_micros = int(starts[0]["cash_usd_micros"])
-        if any(r["kind"] in INTERRUPTING_KINDS for r in records):
-            raise ValueError("journal has trades but no tick summary; review before resuming")
         return state
-    last = summaries[-1]
-    if any(r["kind"] in INTERRUPTING_KINDS for r in records[last + 1 :]):
-        raise ValueError("journal ends inside an interrupted tick; review before resuming")
-    summary = records[last]
+    summary = records[summaries[-1]]
     state.cash_usd_micros = int(summary["cash_usd_micros"])
     state.estimated_gas_usd_micros = int(summary.get("estimated_gas_usd_micros", 0))
     state.positions = {p["token"]: Position(**p) for p in summary["positions"]}

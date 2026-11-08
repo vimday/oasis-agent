@@ -14,6 +14,7 @@ proven (no receipt, reverted, balances that did not move as expected) is journal
 import json
 import re
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -86,6 +87,7 @@ class Fill:
     block_number: int
     usdc_delta: int  # signed USDC base units observed in the wallet
     token_delta: int  # signed token base units observed in the wallet
+    intent_id: str = ""  # the journaled live_intent this fill answers
 
     def record(self) -> dict[str, Any]:
         return {
@@ -100,6 +102,7 @@ class Fill:
             "block_number": self.block_number,
             "usdc_delta": str(self.usdc_delta),
             "token_delta": str(self.token_delta),
+            "intent_id": self.intent_id,
         }
 
 
@@ -275,7 +278,16 @@ class LiveExecutor:
             raise LiveRefused("balance_unavailable") from error
         if (usdc0 if side == "buy" else token0) < amount:
             raise LiveRefused("insufficient_balance")
-        base = {"side": side, "token": token, "amount": str(amount), **self.gate.describe()}
+        # The intent id is minted once, journaled before submission and carried by every
+        # later record of this order, so a fill can never be matched to another intent.
+        base = {
+            "intent_id": uuid.uuid4().hex,
+            "chain_id": 8453,
+            "side": side,
+            "token": token,
+            "amount": str(amount),
+            **self.gate.describe(),
+        }
         # Journal before submission: a crash after this line leaves an intent without a
         # fill, which refuses resume instead of silently forgetting a possible trade.
         self._journal("live_intent", **base, usdc_before=str(usdc0), token_before=str(token0))
@@ -301,7 +313,15 @@ class LiveExecutor:
         settled = self._await_settlement(side, token, amount, usdc0, token0)
         if settled is None:
             raise self._unresolved(base, "balance_not_settled", tx_hash)
-        fill = Fill(side, token, tx_hash, block, settled[0] - usdc0, settled[1] - token0)
+        fill = Fill(
+            side,
+            token,
+            tx_hash,
+            block,
+            settled[0] - usdc0,
+            settled[1] - token0,
+            base["intent_id"],
+        )
         # `fill.record()` restates side/token; it wins so the journal shows the fill itself.
         self._journal("live_fill", **(base | fill.record()))
         return fill
