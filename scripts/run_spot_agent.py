@@ -16,6 +16,7 @@ import os
 import signal
 import sys
 import time
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from oasis_agent.launch.spot_agent import (
     state_from_json,
     state_to_json,
 )
+from oasis_agent.launch.spot_budget import RESERVE, SETTLE, budget_ledger, full_cycle_calls
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     LiveExecutor,
@@ -78,8 +80,7 @@ PRINTED = frozenset(
 # price reads (at most MAX_PENDING / 40) + live swaps (every position sold, every slot
 # bought).
 def tick_budget(config: AgentConfig, calls_per_swap: int = 0) -> int:
-    swaps = 2 * config.max_positions
-    return 2 + config.enrich_top * 6 + config.max_positions * 2 + 50 + swaps * calls_per_swap
+    return full_cycle_calls(config.enrich_top, config.max_positions, calls_per_swap)
 
 
 def manage_budget(held: int, calls_per_swap: int = 0) -> int:
@@ -127,8 +128,9 @@ def resume(out: Path, config: AgentConfig) -> tuple[AgentState, int]:
         return state, 0
     policy, records = read_journal(journal_path)
     state = reconcile_with_journal(state, records, policy.get("schema"))
-    # The call budget covers the whole run directory, across restarts.
-    return state, sum(r["provider_calls"] for r in records if r["kind"] == "tick_summary")
+    # The call budget covers the whole run directory across restarts, including failed
+    # and interrupted cycles (see spot_budget): it can only grow.
+    return state, budget_ledger(records, tick_budget(config))["charged"]
 
 
 def _error_record(
@@ -184,6 +186,21 @@ def run_loop(
             print("call budget cannot cover the next cycle; stopping with state preserved")
             return 0
         started = clock()
+        # Reserve before any provider call: a kill from here on leaves an unsettled
+        # reservation that resume charges in full, so the budget can never shrink.
+        reserve_id, calls_before = uuid.uuid4().hex, agent.provider_calls()
+        journal.append(
+            RESERVE,
+            {
+                "at": int(started),
+                "kind": RESERVE,
+                "mode": agent.mode,
+                "execution_eligible": False,
+                "reserve_id": reserve_id,
+                "cycle": cycle,
+                "reserved": reserved,
+            },
+        )
         # tick() returns its records only at the end, so a raise mid-tick would leave
         # mutations (e.g. a paper buy) that were never journaled. Roll them back.
         before = copy.deepcopy(agent.state)
@@ -212,6 +229,20 @@ def run_loop(
             # Rolling back a book after a real swap would forget it; halt for review.
             if agent.submissions() != submitted:
                 unresolved = True
+        # Settle with the calls actually made, success or failure alike (same unit as the
+        # reservation). Journaled before the tick's records so a crash while writing them
+        # still leaves the consumption on record.
+        journal.append(
+            SETTLE,
+            {
+                "at": int(clock()),
+                "kind": SETTLE,
+                "mode": agent.mode,
+                "execution_eligible": False,
+                "reserve_id": reserve_id,
+                "used": agent.provider_calls() - calls_before,
+            },
+        )
         human = [
             r["reason"]
             for r in records
@@ -279,8 +310,36 @@ def _build_agent(
     if not any(r["kind"] == "live_start" for r in read_journal(journal.path)[1]):
         # Fresh live run: the book is the wallet's own USDC and nothing else. Paper
         # positions/PnL from a leftover state file must never become live holdings.
+        # The balance read is a counted logical query of this run: reserved first.
+        reserve_id = uuid.uuid4().hex
+        journal.append(
+            RESERVE,
+            {
+                "at": int(time.time()),
+                "kind": RESERVE,
+                "mode": "live",
+                "execution_eligible": False,
+                "reserve_id": reserve_id,
+                "cycle": "live_start",
+                "reserved": 1,
+            },
+        )
+        cash = executor.balance(BASE_USDC)
+        journal.append(
+            SETTLE,
+            {
+                "at": int(time.time()),
+                "kind": SETTLE,
+                "mode": "live",
+                "execution_eligible": False,
+                "reserve_id": reserve_id,
+                "used": executor.calls,
+            },
+        )
+        # Already settled: the agent's own per-tick deltas must not count it again.
+        executor.calls = 0
         state = AgentState(
-            executor.balance(BASE_USDC),
+            cash,
             cooldown_until=state.cooldown_until,
             security=state.security,
             outcomes=state.outcomes,
@@ -395,6 +454,9 @@ def main() -> int:
             # Nothing has been submitted yet; refuse without a traceback or URL.
             print(f"live start refused: {type(error).__name__}", file=sys.stderr)
             return 2
+        # Re-read the charge: building a live agent may itself have spent (and settled)
+        # counted calls, e.g. the live_start balance read.
+        spent = budget_ledger(read_journal(journal.path)[1], tick_budget(config))["charged"]
         return run_loop(
             agent,
             journal,

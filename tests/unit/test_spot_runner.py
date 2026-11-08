@@ -1,10 +1,12 @@
 """Long-running shadow reliability: pacing/retry, crash-consistent resume, error rollback."""
 
+import argparse
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+import scripts.run_spot_agent as runner
 from oasis_agent.launch.onchainos_source import OnchainosSource, SourceFailure, paced
 from oasis_agent.launch.spot_agent import (
     AgentConfig,
@@ -12,6 +14,7 @@ from oasis_agent.launch.spot_agent import (
     SpotAgent,
     reconcile_with_journal,
 )
+from oasis_agent.launch.spot_budget import budget_ledger
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     Fill,
@@ -487,7 +490,8 @@ def test_low_budget_runs_manage_only_cycles_and_then_stops_visibly(tmp_path: Pat
     assert code == 0 and read_journal(run / "journal.db")[1][-1]["kind"] == "budget_stop"
     report = build_report(run)
     assert report["operations"]["manage_only_ticks"] == len(managed)
-    assert report["operations"]["budget_stop"]["open_positions"] == 1
+    assert report["operations"]["last_budget_stop"]["open_positions"] == 1
+    assert report["operations"]["budget_state"]["stopped"] is True
     assert report["run_status"]["resumable"] is True  # resource stop is not a trading halt
 
 
@@ -586,3 +590,143 @@ def test_live_manage_only_reserves_a_full_sell_or_submits_nothing(
         assert any(r["kind"] == "live_sell" for r in records)
         assert resume(run, AgentConfig())[1] <= spent + need  # never above the budget
     assert build_report(run)["run_status"]["resumable"] is True
+
+
+def test_failed_tick_calls_survive_restart_and_restarts_never_exceed_budget(
+    tmp_path: Path,
+) -> None:
+    run, budget = tmp_path / "run", tick_budget(AgentConfig())
+    actual = 0
+    for attempt in range(25):
+        cli = Exploding()
+        cli.explode = True  # every tick raises after its first quote
+        agent, _ = loop(run, cli, 10, call_budget=budget)
+        actual += agent.provider_calls()
+        _, charged = resume(run, AgentConfig())
+        assert actual <= charged  # nothing spent is ever forgotten
+        assert actual <= budget  # restarts can never buy more calls
+        if attempt == 0:
+            assert agent.provider_calls() > 0 and charged >= agent.provider_calls()
+            report = build_report(run)
+            assert report["operations"]["budget"]["charged"] == charged
+    assert read_journal(run / "journal.db")[1][-1]["kind"] == "budget_stop"
+
+
+def test_success_and_failure_interleaved_are_charged_exactly_once(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    agent, _ = loop(run, FakeCli(), 1)
+    first = agent.provider_calls()
+    cli = Exploding()
+    cli.explode = True
+    failed, _ = loop(run, cli, 1)
+    agent, _ = loop(run, FakeCli(), 1)
+    total = first + failed.provider_calls() + agent.provider_calls()
+    ledger = build_report(run)["operations"]["budget"]
+    assert ledger["confirmed"] == total and ledger["unsettled_reserved"] == 0
+    assert resume(run, AgentConfig())[1] == total
+
+
+def test_kill_after_reserve_charges_the_full_reservation(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    loop(run, FakeCli(), 1)
+    _, before = resume(run, AgentConfig())
+
+    class Killed(FakeCli):
+        def __call__(self, argv: Any) -> bytes:
+            super().__call__(argv)
+            raise KeyboardInterrupt  # a hard stop: no except/finally of ours settles it
+
+    with pytest.raises(KeyboardInterrupt):
+        loop(run, Killed(), 1)
+    records = read_journal(run / "journal.db")[1]
+    assert records[-1]["kind"] == "budget_reserve"
+    ledger = build_report(run)["operations"]["budget"]
+    assert ledger["unsettled_reservations"] == 1
+    assert ledger["unsettled_reserved"] == records[-1]["reserved"]
+    assert resume(run, AgentConfig())[1] == before + records[-1]["reserved"]
+
+
+def test_legacy_journal_charges_failed_ticks_conservatively() -> None:
+    legacy = [
+        {"kind": "tick_summary", "provider_calls": 7},
+        {"kind": "tick_error"},
+        {"kind": "budget_stop", "calls_used": 6},
+    ]
+    ledger = budget_ledger(legacy, 106)
+    assert ledger["charged"] == 7 + 106 and ledger["legacy_error_ticks"] == 1
+    assert ledger["basis"] == "legacy_bound_plus_reserve_settle"
+    stop_only = [{"kind": "tick_error"}, {"kind": "budget_stop", "calls_used": 500}]
+    assert budget_ledger(stop_only, 106)["charged"] == 500
+
+
+def test_budget_state_follows_journal_order_and_keeps_history(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    loop(run, FakeCli(), 1)
+    _, spent = resume(run, AgentConfig())
+    loop(run, FakeCli(), 1, call_budget=spent + 1)  # cannot manage: stops holding 1
+    ops = build_report(run)["operations"]
+    assert ops["budget_state"] == {
+        "stopped": True,
+        "at": ops["budget_state"]["at"],
+        "open_positions": 1,
+    }
+    cli = FakeCli()
+    cli.sell_ratio = (60, 100)
+    _, spent = resume(run, AgentConfig())
+    agent, _ = loop(run, cli, 1, call_budget=spent + 10)  # manage-only exit
+    assert agent.state.positions == {}
+    ops = build_report(run)["operations"]
+    assert ops["budget_state"]["stopped"] is False and ops["budget_state"]["open_positions"] == 0
+    assert ops["last_budget_stop"]["open_positions"] == 1  # history kept, not current
+    _, spent = resume(run, AgentConfig())
+    loop(run, FakeCli(), 1, call_budget=spent)  # stops again, now holding nothing
+    ops = build_report(run)["operations"]
+    assert ops["budget_state"]["stopped"] is True and ops["budget_state"]["open_positions"] == 0
+    assert build_report(run)["run_status"]["process_state"] == "unknown_from_journal"
+
+
+def test_live_start_balance_read_is_charged_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    wallet = FakeWallet(usdc=1_000_000_000)
+    with ExecutionJournal(run / "journal.db", live_policy()) as journal:
+        executor = LiveExecutor(
+            gate(),
+            read=wallet.read,
+            submit=wallet.submit,
+            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
+            emit=journal.append,
+            clock=lambda: NOW,
+            sleep=lambda _s: None,
+        )
+        # The real _build_agent path, with only the network constructors stubbed.
+        monkeypatch.setattr(runner, "LiveExecutor", lambda *a, **k: executor)
+        monkeypatch.setattr(runner, "JsonRpcTransport", lambda url: None)
+        monkeypatch.setattr(runner, "RpcClient", lambda *a, **k: None)
+        monkeypatch.setenv("SPOT_TEST_RPC", "unused")
+        args = argparse.Namespace(rpc_env="SPOT_TEST_RPC", binary=Path("/bin/true"))
+        agent = runner._build_agent(
+            args,
+            gate(),
+            AgentConfig(),
+            AgentState(0),
+            OnchainosSource(FakeCli(), clock=lambda: NOW),
+            None,
+            journal,
+        )
+    records = read_journal(run / "journal.db")[1]
+    assert [r["kind"] for r in records] == ["budget_reserve", "budget_settle", "live_start"]
+    assert records[1]["used"] == 1 and agent.state.cash_usd_micros == 1_000_000_000
+    assert agent.provider_calls() == 0  # settled already: a tick delta cannot recount it
+    assert budget_ledger(records, 106)["charged"] == 1
+
+
+def test_report_counts_calls_of_failed_cycles(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    cli = Exploding()
+    cli.explode = True
+    agent, _ = loop(run, cli, 1)
+    assert agent.provider_calls() > 0
+    assert build_report(run)["operations"]["provider_calls"] == agent.provider_calls()

@@ -89,7 +89,9 @@ export async function loadSpot() {
     + (run.resumable ? "" : ` · ⛔ 不可恢复交易：${reasons.join("；")}`)
     + (unknown ? ` · ${unknown} 笔实盘订单结果未知` : "")
     + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "")
-    + (ops.budget_stop ? ` · 调用预算不足已停止（仍持仓 ${ops.budget_stop.open_positions}）` : "");
+    + ((ops.budget_state || {}).stopped
+      ? ` · 最近记录：调用预算不足已停止（停止时持仓 ${ops.budget_state.open_positions}）`
+      : "");
   // Process liveness is not provable from a journal; say so instead of claiming "running".
   status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
   status.classList.toggle("danger", !run.resumable);
@@ -104,6 +106,8 @@ export async function loadSpot() {
     { label: "持仓", value: report.open_positions.length },
     { label: "tick / 调用", value: ops.ticks + " / " + ops.provider_calls },
     { label: "历史停止复核次数", value: ops.halts, tone: ops.halts ? "warn" : "" },
+    { label: "已计调用 / 其中未结算预留",
+      value: ((ops.budget || {}).charged ?? "–") + " / " + ((ops.budget || {}).unsettled_reserved ?? "–") },
     { label: "当前可恢复", value: run.resumable ? "是" : "否", tone: run.resumable ? "" : "danger" },
   ]);
   renderTable("spot-positions", ["代币", "数量", "成本 USD", "当前可卖 USD", "最高 USD", "开仓时间"],

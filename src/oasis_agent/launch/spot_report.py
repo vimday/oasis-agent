@@ -15,6 +15,7 @@ from statistics import median
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
+from .spot_budget import budget_ledger, full_cycle_calls
 from .spot_lifecycle import run_status
 
 SCHEMA = "oasis.spot-agent-report.v1"
@@ -124,7 +125,25 @@ def paper_book(records: list[dict[str, Any]], initial_cash: int) -> dict[str, An
     }
 
 
-def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
+def budget_state(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Current resource state from journal order: is the latest progress a budget stop?
+
+    A stop followed by a later completed cycle is history, not the current state. This
+    says only what the journal last recorded; it never claims a process is running.
+    """
+    for r in reversed(records):
+        if r["kind"] in ("budget_stop", "tick_summary"):
+            # None when a record does not state it: unknown, never silently zero.
+            return {
+                "stopped": r["kind"] == "budget_stop",
+                "at": r.get("at"),
+                "open_positions": r.get("open_positions"),
+            }
+    return {"stopped": False, "at": None, "open_positions": None}
+
+
+def operations(records: list[dict[str, Any]], legacy_error_charge: int) -> dict[str, Any]:
+    ledger = budget_ledger(records, legacy_error_charge)
     ticks = [r for r in records if r["kind"] == "tick_summary"]
     failures = Counter(
         r.get("category", r.get("reason", "")) for r in records if r["kind"].endswith("_failed")
@@ -133,12 +152,19 @@ def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
         "ticks": len(ticks),
         "first_at": ticks[0]["at"] if ticks else None,
         "last_at": ticks[-1]["at"] if ticks else None,
-        "provider_calls": sum(t["provider_calls"] for t in ticks),
+        # Logical calls journaled as made, failed cycles included (see `budget` for the
+        # conservative charge resume uses).
+        "provider_calls": ledger["recorded"],
+        "budget": ledger,
+        "budget_state": budget_state(records),
         "halts": sum(r["kind"] == "halt_review" for r in records),
         "manage_only_ticks": sum(t.get("cycle") == "manage_only" for t in ticks),
         # Resource exhaustion is not a trading fault and never blocks resume; shown so the
         # operator knows why a run stopped and what it still held.
-        "budget_stop": next((r for r in reversed(records) if r["kind"] == "budget_stop"), None),
+        # History: the most recent budget stop ever journaled, with what it held then.
+        "last_budget_stop": next(
+            (r for r in reversed(records) if r["kind"] == "budget_stop"), None
+        ),
         "failures": dict(sorted(failures.items())),
         "kinds": dict(sorted(Counter(r["kind"] for r in records).items())),
     }
@@ -167,7 +193,15 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         "execution_eligible": False,
         "evidence_level": "provider_claims_not_chain_attestations",
         "policy_sha256": sha256_hex(canonical_json(policy)),
-        "operations": operations(records),
+        # Same worst-case cycle the runner charges a legacy failed tick, from this run's
+        # own journaled config (the shadow worst case; live runs never wrote legacy ticks).
+        "operations": operations(
+            records,
+            full_cycle_calls(
+                int(policy["config"].get("enrich_top", 8)),
+                int(policy["config"].get("max_positions", 3)),
+            ),
+        ),
         "signal_quality": signal_quality(records),
         "paper_book": paper_book(records, initial),
         "open_positions": summaries[-1].get("positions", []) if summaries else [],
