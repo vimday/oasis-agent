@@ -303,26 +303,40 @@ def test_observed_empty_native_shape_is_zero() -> None:
     assert parse_native_balance(raw) == 0
 
 
-def test_rpc_receipt_reader_returns_sender_and_none_while_pending() -> None:
+def test_receipt_fields_come_from_one_raw_response() -> None:
+    calls: list[tuple[str, Any]] = []
+
     class Transport:
         def __init__(self, raw: Any) -> None:
             self.raw = raw
 
         def request(self, method: str, params: Any) -> Any:
+            calls.append((method, params))
             return self.raw
 
-    class Client:
-        def __init__(self, raw: Any) -> None:
-            self.transport = Transport(raw)
-
-        def get_receipt(self, tx_hash: str) -> Any:
-            if self.transport.raw is None:
-                raise ValueError("transaction receipt is not available")
-            return type("R", (), {"transaction_hash": tx_hash, "status": 1, "block_number": 5})()
-
     upper = "0x" + "95A9" * 10
-    read = rpc_receipt_reader(Client({"from": upper}))
-    assert read(TX) == (1, 5, upper.lower())
-    assert rpc_receipt_reader(Client(None))(TX) is None
+    raw = {
+        "transactionHash": TX.upper().replace("0X", "0x"),
+        "status": "0x1",
+        "blockNumber": "0x1f",
+        "from": upper,
+    }
+    assert rpc_receipt_reader(Transport(raw))(TX) == (1, 31, upper.lower())
+    assert calls == [("eth_getTransactionReceipt", [TX])]  # exactly one request
+    assert rpc_receipt_reader(Transport(None))(TX) is None
+    for bad in (
+        raw | {"transactionHash": "0x" + "ee" * 32},
+        raw | {"status": "0x2"},
+        raw | {"blockNumber": "0x01"},
+        {k: v for k, v in raw.items() if k != "from"},
+        ["not", "an", "object"],
+    ):
+        with pytest.raises(ValueError):
+            rpc_receipt_reader(Transport(bad))(TX)
     with pytest.raises(ValueError):
-        rpc_receipt_reader(Client({}))(TX)
+        rpc_receipt_reader(Transport(raw))("0x12")
+
+
+def test_fill_record_states_its_settlement_boundary() -> None:
+    fill = executor(FakeWallet()).buy(TOKEN, USD)
+    assert fill.record()["settlement"] == "unverified_balance_delta_plus_sender_receipt"

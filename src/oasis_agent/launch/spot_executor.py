@@ -89,6 +89,11 @@ class Fill:
 
     def record(self) -> dict[str, Any]:
         return {
+            # What this fill proves: the CLI-reported tx mined with status 1 from the gated
+            # wallet, and the wallet's balances moved as expected. The two balance reads are
+            # not block-pinned and are not decoded from the receipt's Transfer logs, so other
+            # wallet activity in between could be misattributed. It is not verified settlement.
+            "settlement": "unverified_balance_delta_plus_sender_receipt",
             "side": self.side,
             "token": self.token,
             "tx_hash": self.tx_hash,
@@ -334,22 +339,35 @@ class LiveExecutor:
         return None
 
 
-def rpc_receipt_reader(client: Any) -> ReceiptReader:
-    """Receipt status/block/sender from a chain-pinned `RpcClient`; None while not mined."""
+def parse_receipt(raw: object, tx_hash: str) -> tuple[int, int, str] | None:
+    """(status, block, sender) from ONE raw `eth_getTransactionReceipt` result.
+
+    All three fields come from the same response so they cannot describe different
+    transactions; None means not yet mined. Any malformed field raises.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("receipt is not an object")
+    if str(raw.get("transactionHash", "")).lower() != tx_hash.lower():
+        raise ValueError("receipt is for a different transaction")
+    status, block, sender = raw.get("status"), raw.get("blockNumber"), raw.get("from")
+    if status not in ("0x0", "0x1"):
+        raise ValueError("receipt status is not 0x0/0x1")
+    if not isinstance(block, str) or not re.fullmatch(r"0x(0|[1-9a-f][0-9a-f]*)", block):
+        raise ValueError("receipt block number is not a canonical quantity")
+    if not isinstance(sender, str):
+        raise ValueError("receipt has no sender")
+    return int(status, 16), int(block, 16), normalize_address(sender)
+
+
+def rpc_receipt_reader(transport: Any) -> ReceiptReader:
+    """One `eth_getTransactionReceipt` per poll on a chain-pinned transport."""
 
     def read(tx_hash: str) -> tuple[int, int, str] | None:
-        try:
-            receipt = client.get_receipt(tx_hash)
-        except ValueError as error:
-            if "not available" in str(error):
-                return None
-            raise
-        # `Receipt` does not carry `from`; read it from the same raw receipt object.
-        raw = client.transport.request("eth_getTransactionReceipt", [receipt.transaction_hash])
-        sender = raw.get("from") if isinstance(raw, dict) else None
-        if not isinstance(sender, str):
-            raise ValueError("receipt has no sender")
-        return receipt.status, receipt.block_number, normalize_address(sender)
+        if not _HASH.fullmatch(tx_hash):
+            raise ValueError("invalid transaction hash")
+        return parse_receipt(transport.request("eth_getTransactionReceipt", [tx_hash]), tx_hash)
 
     return read
 

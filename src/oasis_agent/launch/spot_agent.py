@@ -50,6 +50,35 @@ LIVE_EVIDENCE = "wallet_balance_delta_and_chain_receipt"
 TRADE_KINDS = frozenset({"paper_buy", "paper_sell", "live_buy", "live_sell"})
 # Any of these after the last tick summary means money may have moved unjournaled.
 INTERRUPTING_KINDS = TRADE_KINDS | {"live_intent", "live_fill", "live_unresolved"}
+# Halt reasons that need a human: the wallet may hold something the agent cannot exit.
+# A transient unpriceable mark is not one of them; it keeps observing.
+HUMAN_REVIEW_REASONS = frozenset({"live_sell_refused"})
+LIVE_HALT = "live_halt"
+
+
+def live_halt_reasons(records: list[Record]) -> list[str]:
+    """Why a journal must not resume trading, judged over its whole history.
+
+    Each submitted swap journals one `live_intent`; a proven one adds one `live_fill`
+    and the agent books exactly one `live_buy`/`live_sell` for it. Any break in that
+    1:1:1 chain is an unexplained submission, whatever tick summaries follow it. A
+    persisted `live_halt` (or a human-review halt) is likewise permanent for the run.
+    """
+    kinds = [str(r.get("kind")) for r in records]
+    intents, fills = kinds.count("live_intent"), kinds.count("live_fill")
+    booked = kinds.count("live_buy") + kinds.count("live_sell")
+    reasons = []
+    if intents != fills:
+        reasons.append("live_intent_without_fill")
+    if fills != booked:
+        reasons.append("live_fill_not_booked")
+    if LIVE_HALT in kinds:
+        reasons.append("live_halt_recorded")
+    if any(
+        r.get("kind") == "halt_review" and r.get("reason") in HUMAN_REVIEW_REASONS for r in records
+    ):
+        reasons.append("human_review_halt")
+    return reasons
 
 
 class AgentConfig(DecisionPolicy):
@@ -70,9 +99,14 @@ class AgentState:
     cooldown_until: dict[str, int] = field(default_factory=dict)
     security: dict[str, tuple[int, dict[str, Any]]] = field(default_factory=dict)
     outcomes: OutcomeTracker = field(default_factory=OutcomeTracker)
+    # Live only: gas is paid in ETH, so it never touches `cash_usd_micros` (the wallet's own
+    # USDC). This is the *declared* per-leg estimate, not a receipt-derived fee.
+    estimated_gas_usd_micros: int = 0
 
     def nav(self) -> int:
-        return self.cash_usd_micros + sum(p.last_value_usd_micros for p in self.positions.values())
+        """Strategy equity: cash + marked positions - estimated gas (not full-account NAV)."""
+        held = sum(p.last_value_usd_micros for p in self.positions.values())
+        return self.cash_usd_micros + held - self.estimated_gas_usd_micros
 
 
 def _rows(capture: Capture) -> list[Any]:
@@ -203,12 +237,23 @@ class SpotAgent:
                         )
                     )
                     continue
-                # Realized proceeds are the observed USDC delta, less declared gas (paid in ETH).
-                value = fill.usdc_delta - self.config.gas_per_leg_usd_micros
-                live = {"tx_hash": fill.tx_hash, "block_number": fill.block_number}
+                # Cash moves by the observed USDC delta only; the declared gas (paid in ETH)
+                # is a separate estimated cost that still counts against the trade's PnL.
+                gas = self.config.gas_per_leg_usd_micros
+                value = fill.usdc_delta - gas
+                live = {
+                    "tx_hash": fill.tx_hash,
+                    "block_number": fill.block_number,
+                    "usdc_received_base_units": fill.usdc_delta,
+                    "estimated_gas_usd_micros": gas,
+                }
             pnl = value - position.cost_usd_micros
             del self.state.positions[token]
-            self.state.cash_usd_micros += value
+            if live:
+                self.state.cash_usd_micros += fill.usdc_delta
+                self.state.estimated_gas_usd_micros += self.config.gas_per_leg_usd_micros
+            else:
+                self.state.cash_usd_micros += value
             self.state.realized_pnl_usd_micros += pnl
             self.state.closed_trades += 1
             self.state.winning_trades += pnl > 0
@@ -342,14 +387,25 @@ class SpotAgent:
                     reason="live_buy_refused",
                     category=refused.category,
                 )
-            # Observed fill, not the quote: USDC spent plus declared gas (paid in ETH), and
-            # the units the wallet actually gained. The unwind value is the sell quote
-            # rescaled to those units, floored.
+            # Observed fill, not the quote: the cost basis is USDC spent plus the declared gas
+            # estimate (paid in ETH), and the units the wallet actually gained. The unwind
+            # value is the sell quote rescaled to those units, floored.
             units = fill.token_delta
-            cost = -fill.usdc_delta + self.config.gas_per_leg_usd_micros
+            gas = self.config.gas_per_leg_usd_micros
+            cost = -fill.usdc_delta + gas
             value = value * units // buy.amount_out
-            live = {"tx_hash": fill.tx_hash, "block_number": fill.block_number}
-        self.state.cash_usd_micros -= cost
+            live = {
+                "tx_hash": fill.tx_hash,
+                "block_number": fill.block_number,
+                "usdc_spent_base_units": -fill.usdc_delta,
+                "estimated_gas_usd_micros": gas,
+            }
+        if live:
+            # Wallet USDC moves by the observed delta only; gas is tracked separately.
+            self.state.cash_usd_micros += fill.usdc_delta
+            self.state.estimated_gas_usd_micros += self.config.gas_per_leg_usd_micros
+        else:
+            self.state.cash_usd_micros -= cost
         self.state.positions[market.token] = Position(
             token=market.token,
             symbol=market.symbol,
@@ -482,6 +538,7 @@ class SpotAgent:
             now,
             "tick_summary",
             cash_usd_micros=s.cash_usd_micros,
+            estimated_gas_usd_micros=s.estimated_gas_usd_micros,
             nav_usd_micros=s.nav(),
             open_positions=len(s.positions),
             # The journal is the source of truth: a kill between journal and state-file
@@ -500,6 +557,7 @@ def state_to_json(state: AgentState) -> dict[str, Any]:
     return {
         "schema_version": "oasis.spot-agent-state.v1",
         "cash_usd_micros": state.cash_usd_micros,
+        "estimated_gas_usd_micros": state.estimated_gas_usd_micros,
         "realized_pnl_usd_micros": state.realized_pnl_usd_micros,
         "closed_trades": state.closed_trades,
         "winning_trades": state.winning_trades,
@@ -524,6 +582,8 @@ def state_from_json(raw: dict[str, Any]) -> AgentState:
         tracker.pending[(pending.token, pending.at // 60)] = pending
     return AgentState(
         cash_usd_micros=int(raw["cash_usd_micros"]),
+        # Additive field: snapshots written before it existed carried no live gas.
+        estimated_gas_usd_micros=int(raw.get("estimated_gas_usd_micros", 0)),
         positions={k: Position(**v) for k, v in raw["positions"].items()},
         realized_pnl_usd_micros=int(raw["realized_pnl_usd_micros"]),
         closed_trades=int(raw["closed_trades"]),
@@ -542,6 +602,13 @@ def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentSta
     paper trade journaled after that summary means the tick was cut short, so the
     summary-time book is no longer the truth and the run must be reviewed, not resumed.
     """
+    if halted := live_halt_reasons(records):
+        # No later tick summary can clear this: reconcile the wallet by hand, then start
+        # a new run directory (a fresh live_start reads the wallet's own balance).
+        raise ValueError(
+            "live run halted for human review (" + ", ".join(halted) + "); "
+            "reconcile the wallet and start a new run directory"
+        )
     summaries = [i for i, r in enumerate(records) if r["kind"] == "tick_summary"]
     starts = [r for r in records if r["kind"] == "live_start"]
     if not summaries:
@@ -556,6 +623,7 @@ def reconcile_with_journal(state: AgentState, records: list[Record]) -> AgentSta
         raise ValueError("journal ends inside an interrupted tick; review before resuming")
     summary = records[last]
     state.cash_usd_micros = int(summary["cash_usd_micros"])
+    state.estimated_gas_usd_micros = int(summary.get("estimated_gas_usd_micros", 0))
     state.positions = {p["token"]: Position(**p) for p in summary["positions"]}
     state.realized_pnl_usd_micros = int(summary["realized_pnl_usd_micros"])
     state.closed_trades = int(summary["closed_trades"])

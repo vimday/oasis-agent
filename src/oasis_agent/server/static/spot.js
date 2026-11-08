@@ -68,7 +68,9 @@ export async function loadSpot() {
   status.textContent = `${banner} · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
   status.classList.toggle("danger", live && unresolved > 0);
   renderStats("spot-stats", [
-    { label: live ? "实盘净值 USD" : "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
+    { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
+    ...(live ? [{ label: "估算 gas USD（声明值，非收据）",
+      value: usd((report.accounting || {}).estimated_gas_usd_micros) }] : []),
     { label: "已实现 PnL USD", value: usd(book.realized_pnl_usd_micros),
       tone: book.realized_pnl_usd_micros < 0 ? "danger" : "" },
     { label: "平仓 / 盈利", value: book.closed_trades + " / " + book.winning_trades },

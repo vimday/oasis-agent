@@ -296,3 +296,100 @@ def test_mismatch_keeps_booked_trade_records_and_halts(tmp_path: Path) -> None:
     kinds = [r["kind"] for r in read_journal(tmp_path / "journal.db")[1]]
     assert code == 4 and "live_buy" in kinds and kinds[-1] == "tick_error"
     assert TOKEN in agent.state.positions  # the booked trade is not rolled back
+
+
+def run_live(run: Path, executor: Any, cli: FakeCli | None = None, ticks: int = 5) -> int:
+    run.mkdir(exist_ok=True)
+    state, spent = resume(run, AgentConfig())
+    agent = SpotAgent(
+        OnchainosSource(cli or FakeCli(), clock=lambda: NOW),
+        AgentConfig(),
+        state,
+        executor=executor,
+    )
+    times = iter(range(NOW, NOW + 100_000, 60))
+    with ExecutionJournal(run / "journal.db", policy()) as journal:
+        return run_loop(
+            agent,
+            journal,
+            run / "state.json",
+            interval=60,
+            max_ticks=ticks,
+            call_budget=100_000,
+            spent=spent,
+            should_stop=lambda: False,
+            clock=lambda: float(next(times)),
+            sleep=lambda s: None,
+        )
+
+
+class JournalingExecutor(SubmittingExecutor):
+    """Writes intent/fill like the real executor; `hidden` extra submissions get no fill."""
+
+    def __init__(self, emit: Any, hidden: int) -> None:
+        super().__init__(RuntimeError("unused"))
+        self.emit, self.hidden = emit, hidden
+
+    def buy(self, token: str, usdc_amount: int) -> Any:
+        for _ in range(self.hidden):
+            self.submissions += 1
+            self.emit("live_intent", {"kind": "live_intent", "execution_eligible": False})
+        self.submissions += 1
+        self.emit("live_intent", {"kind": "live_intent", "execution_eligible": False})
+        self.emit("live_fill", {"kind": "live_fill", "execution_eligible": False})
+        return Fill("buy", token, "0x" + "cd" * 32, 7, -usdc_amount, usdc_amount * 1_000)
+
+
+@pytest.mark.parametrize("booked", [True, False])
+def test_unexplained_submission_survives_restart(tmp_path: Path, booked: bool) -> None:
+    run = tmp_path / "run"
+    run.mkdir()
+    db = run / "journal.db"
+    if booked:
+        # One proven, booked buy plus one hidden submission in the same tick.
+        with ExecutionJournal(db, policy()) as side:
+            executor: Any = JournalingExecutor(side.append, hidden=1)
+            assert run_live(run, executor, ticks=1) == 4
+    else:
+        # A submission that books nothing (outcome swallowed).
+        assert run_live(run, SilentSubmitter(RuntimeError("unused"))) == 4
+    kinds = [r["kind"] for r in read_journal(db)[1]]
+    # The halt is persisted, and it precedes the tick's own summary/error records.
+    assert "live_halt" in kinds
+    assert kinds.index("live_halt") < len(kinds) - 1
+    with pytest.raises(ValueError, match="halted for human review"):
+        resume(run, AgentConfig())
+
+
+def test_refused_live_sell_halts_and_stays_halted_across_restart(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    cli = FakeCli()
+
+    class Seller(SubmittingExecutor):
+        def buy(self, token: str, usdc_amount: int) -> Any:
+            self.submissions += 1
+            for kind in ("live_intent", "live_fill"):
+                self.emit(kind, {"kind": kind, "execution_eligible": False})  # type: ignore[attr-defined]
+            return Fill("buy", token, "0x" + "cd" * 32, 7, -usdc_amount, usdc_amount * 1_000)
+
+        def sell(self, token: str, units: int) -> Any:
+            raise LiveRefused("insufficient_balance")  # nothing submitted
+
+    run.mkdir()
+    with ExecutionJournal(run / "journal.db", policy()) as side:
+        executor = Seller(RuntimeError("unused"))
+        executor.emit = side.append  # type: ignore[attr-defined]
+        assert run_live(run, executor, cli, ticks=1) == 0  # entry booked, run continues
+        cli.sell_ratio = (60, 100)  # stop-loss forces a sell that the wallet refuses
+        assert run_live(run, executor, cli, ticks=5) == 4
+    assert executor.submissions == 1  # no further entry after the refusal
+    with pytest.raises(ValueError, match="human_review_halt"):
+        resume(run, AgentConfig())
+
+
+def test_shadow_transient_errors_keep_resuming(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    cli = FakeCli()
+    cli.fail = {("token", "hot-tokens")}  # discovery failure: observation-only
+    loop(run, cli, 2)
+    resume(run, AgentConfig())  # must not raise

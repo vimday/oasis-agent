@@ -187,3 +187,12 @@ def test_intent_without_outcome_counts_as_unresolved() -> None:
     assert unresolved_live_orders(kinds("live_intent", "live_fill")) == 0
     assert unresolved_live_orders(kinds("live_intent", "tick_error")) == 1
     assert unresolved_live_orders(kinds("live_intent", "live_unresolved")) == 1
+
+
+def test_report_states_accounting_basis(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    shadow_run(run, [(NOW, (99, 100))])
+    accounting = build_report(run)["accounting"]
+    assert accounting["cash_basis"] == "paper"
+    assert accounting["nav_scope"] == "strategy_equity_not_account_nav"
+    assert accounting["gas_basis"] == "declared_per_leg_estimate_not_receipt_fees"

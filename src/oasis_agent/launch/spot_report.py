@@ -176,6 +176,16 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         "signal_quality": signal_quality(records),
         "paper_book": paper_book(records, initial),
         "open_positions": summaries[-1].get("positions", []) if summaries else [],
+        # Live: cash is the wallet's own USDC; gas is a declared per-leg estimate paid in
+        # ETH (not receipt fees); equity is strategy equity, never full-account NAV.
+        "accounting": {
+            "cash_basis": "wallet_usdc_observed" if live else "paper",
+            "estimated_gas_usd_micros": (
+                int(summaries[-1].get("estimated_gas_usd_micros", 0)) if summaries else 0
+            ),
+            "gas_basis": "declared_per_leg_estimate_not_receipt_fees",
+            "nav_scope": "strategy_equity_not_account_nav",
+        },
     }
 
 

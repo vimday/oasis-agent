@@ -31,6 +31,8 @@ from oasis_agent.launch.onchainos_source import (
     run_cli,
 )
 from oasis_agent.launch.spot_agent import (
+    HUMAN_REVIEW_REASONS,
+    LIVE_HALT,
     AgentConfig,
     AgentState,
     SpotAgent,
@@ -165,6 +167,25 @@ def run_loop(
             # Rolling back a book after a real swap would forget it; halt for review.
             if agent.submissions() != submitted:
                 unresolved = True
+        human = [
+            r["reason"]
+            for r in records
+            if r["kind"] == "halt_review" and r.get("reason") in HUMAN_REVIEW_REASONS
+        ]
+        if agent.executor is not None and (unresolved or human):
+            # Persist the halt before anything else from this tick: if a later write
+            # fails, the run still refuses to resume rather than trading on.
+            journal.append(
+                LIVE_HALT,
+                {
+                    "at": int(started),
+                    "kind": LIVE_HALT,
+                    "mode": agent.mode,
+                    "execution_eligible": False,
+                    "reasons": sorted({*human, *(["unresolved_submission"] if unresolved else [])}),
+                },
+            )
+            unresolved = True
         for record in records:
             journal.append(record["kind"], record)
             if record["kind"] in PRINTED:
@@ -172,7 +193,9 @@ def run_loop(
         save_state(state_path, agent.state)
         if unresolved:
             print(
-                "spot agent halted: live order unresolved; human review required", file=sys.stderr
+                "spot agent halted: live order unresolved or position needs a human; "
+                "this run directory will refuse to resume",
+                file=sys.stderr,
             )
             return 4
         if errors >= MAX_CONSECUTIVE_ERRORS:
@@ -198,13 +221,14 @@ def _build_agent(
     """The agent for this run; with a gate, a live executor bound to the run's journal."""
     if gate is None:
         return SpotAgent(source, config, state, gmgn=gmgn)
-    rpc = RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453)
+    transport = JsonRpcTransport(os.environ[args.rpc_env])
+    RpcClient(transport, expected_chain_id=8453)  # refuses a non-Base endpoint
     executor = LiveExecutor(
         gate,
         read=paced(run_cli(args.binary)),
         # Unpaced and unretried: a swap is submitted exactly once.
         submit=run_cli(args.binary, timeout=LIVE_SUBMIT_TIMEOUT_SECONDS),
-        receipt=rpc_receipt_reader(rpc),
+        receipt=rpc_receipt_reader(transport),
         emit=journal.append,
     )
     if not any(r["kind"] == "live_start" for r in read_journal(journal.path)[1]):

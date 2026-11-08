@@ -648,3 +648,37 @@ def test_live_trade_records_carry_wallet_evidence_level() -> None:
     bot = live_agent(cli, ex)
     buy = next(r for r in bot.tick(NOW) if r["kind"] == "live_buy")
     assert buy["evidence_level"] == "wallet_balance_delta_and_chain_receipt"
+
+
+def test_live_cash_is_exactly_wallet_usdc_and_gas_is_separate_estimate() -> None:
+    cli, ex = FakeCli(), FakeExecutor()
+    bot = live_agent(cli, ex)
+    gas = AgentConfig().gas_per_leg_usd_micros
+    buy = next(r for r in bot.tick(NOW) if r["kind"] == "live_buy")
+    # Wallet USDC moved by exactly the observed spend; gas never touches it.
+    assert bot.state.cash_usd_micros == 1_000 * USD - 200 * USD
+    assert buy["usdc_spent_base_units"] == 200 * USD
+    assert buy["estimated_gas_usd_micros"] == gas
+    assert buy["cost_usd_micros"] == 200 * USD + gas  # cost basis includes the estimate
+    cli.sell_ratio = (60, 100)
+    records = bot.tick(NOW + 60)
+    sell = next(r for r in records if r["kind"] == "live_sell")
+    assert sell["usdc_received_base_units"] == 150 * USD
+    assert bot.state.cash_usd_micros == 1_000 * USD - 200 * USD + 150 * USD
+    assert bot.state.estimated_gas_usd_micros == 2 * gas
+    # PnL charges both legs' estimated gas exactly once.
+    assert sell["pnl_usd_micros"] == 150 * USD - 200 * USD - 2 * gas
+    summary = records[-1]
+    assert summary["estimated_gas_usd_micros"] == 2 * gas
+    assert summary["nav_usd_micros"] == summary["cash_usd_micros"] - 2 * gas
+    # Restart from the journal keeps both quantities.
+    restored = reconcile_with_journal(AgentState(0), [summary])
+    assert restored.cash_usd_micros == bot.state.cash_usd_micros
+    assert restored.estimated_gas_usd_micros == 2 * gas
+
+
+def test_paper_book_is_unchanged_by_the_gas_split() -> None:
+    bot = agent(FakeCli(), initial_cash_usd_micros=1_000 * USD)
+    bot.tick(NOW)
+    assert bot.state.estimated_gas_usd_micros == 0
+    assert bot.state.cash_usd_micros == 1_000 * USD - 201_050_000
