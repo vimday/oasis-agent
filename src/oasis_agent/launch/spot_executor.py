@@ -29,6 +29,13 @@ USD = 1_000_000
 MAX_TRADE_USD_MICROS = 3_000 * USD
 MIN_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS = 10, 300
 _HASH = re.compile(r"^0x[0-9a-f]{64}$")
+DEFAULT_SETTLE_ATTEMPTS = 6
+
+
+def swap_call_bound(settle_attempts: int = DEFAULT_SETTLE_ATTEMPTS) -> int:
+    """Worst-case logical calls of one swap: two balances, submit, settle balance reads."""
+    return 3 + 2 * settle_attempts
+
 
 Side = Literal["buy", "sell"]
 Emit = Callable[[str, dict[str, Any]], object]
@@ -217,7 +224,7 @@ class LiveExecutor:
         sleep: Callable[[float], None] = time.sleep,
         receipt_timeout: float = 180.0,
         poll_seconds: float = 3.0,
-        settle_attempts: int = 6,
+        settle_attempts: int = DEFAULT_SETTLE_ATTEMPTS,
     ):
         self.gate = gate
         self._read, self._submit, self._receipt, self._emit = read, submit, receipt, emit
@@ -233,8 +240,8 @@ class LiveExecutor:
         self.submissions = 0
 
     def calls_per_swap(self) -> int:
-        """Worst-case CLI calls of one swap: two balances, submit, settle-attempt balances."""
-        return 3 + 2 * self._settle
+        """Worst-case CLI calls of one swap (see `swap_call_bound`)."""
+        return swap_call_bound(self._settle)
 
     def balance(self, token: str) -> int:
         self.calls += 1

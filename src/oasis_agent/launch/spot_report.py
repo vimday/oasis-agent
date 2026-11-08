@@ -15,7 +15,7 @@ from statistics import median
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
-from .spot_budget import budget_ledger, full_cycle_calls
+from .spot_budget import budget_ledger, legacy_error_charge
 from .spot_lifecycle import run_status
 
 SCHEMA = "oasis.spot-agent-report.v1"
@@ -193,15 +193,8 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         "execution_eligible": False,
         "evidence_level": "provider_claims_not_chain_attestations",
         "policy_sha256": sha256_hex(canonical_json(policy)),
-        # Same worst-case cycle the runner charges a legacy failed tick, from this run's
-        # own journaled config (the shadow worst case; live runs never wrote legacy ticks).
-        "operations": operations(
-            records,
-            full_cycle_calls(
-                int(policy["config"].get("enrich_top", 8)),
-                int(policy["config"].get("max_positions", 3)),
-            ),
-        ),
+        # Same legacy bound resume uses, from this run's own journaled policy and mode.
+        "operations": operations(records, legacy_error_charge(policy)),
         "signal_quality": signal_quality(records),
         "paper_book": paper_book(records, initial),
         "open_positions": summaries[-1].get("positions", []) if summaries else [],

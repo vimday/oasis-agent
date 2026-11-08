@@ -715,7 +715,9 @@ def test_live_start_balance_read_is_charged_once(
             OnchainosSource(FakeCli(), clock=lambda: NOW),
             None,
             journal,
+            1,
         )
+    assert agent is not None
     records = read_journal(run / "journal.db")[1]
     assert [r["kind"] for r in records] == ["budget_reserve", "budget_settle", "live_start"]
     assert records[1]["used"] == 1 and agent.state.cash_usd_micros == 1_000_000_000
@@ -730,3 +732,65 @@ def test_report_counts_calls_of_failed_cycles(tmp_path: Path) -> None:
     agent, _ = loop(run, cli, 1)
     assert agent.provider_calls() > 0
     assert build_report(run)["operations"]["provider_calls"] == agent.provider_calls()
+
+
+def test_settle_write_fault_after_refused_sell_still_refuses_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = tmp_path / "run"
+    cli = FakeCli()
+    wallet = FakeWallet(usdc=1_000_000_000)
+    wallet.fill_out = 200_000_000_000
+    with open_live(run) as side:
+        executor = LiveExecutor(
+            gate(),
+            read=wallet.read,
+            submit=wallet.submit,
+            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
+            emit=side.append,
+            clock=lambda: NOW,
+            sleep=lambda _s: None,
+            settle_attempts=1,
+        )
+        assert run_live(run, executor, cli, ticks=1) == 0
+        wallet.balances[TOKEN] = 0
+        cli.sell_ratio = (60, 100)
+        original = ExecutionJournal.append
+
+        def faulty(self: ExecutionJournal, kind: str, payload: dict[str, Any]) -> Any:
+            if kind == "budget_settle":
+                raise OSError("disk full")
+            return original(self, kind, payload)
+
+        monkeypatch.setattr(ExecutionJournal, "append", faulty)
+        with pytest.raises(OSError, match="disk full"):
+            run_live(run, executor, cli, ticks=5)
+        monkeypatch.setattr(ExecutionJournal, "append", original)
+    records = read_journal(run / "journal.db")[1]
+    assert records[-1]["kind"] == "live_halt"  # written before the failing settle
+    assert records[-1]["reasons"] == ["live_sell_refused"]
+    with pytest.raises(ValueError, match="live_halt_recorded"):
+        resume(run, AgentConfig())
+    assert build_report(run)["run_status"]["resumable"] is False
+
+
+def test_settle_write_fault_without_halt_stays_resumable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Control: a shadow cycle whose settle write fails leaves only an unsettled
+    # reservation, charged in full; nothing about it needs a human.
+    run = tmp_path / "run"
+    original = ExecutionJournal.append
+
+    def faulty(self: ExecutionJournal, kind: str, payload: dict[str, Any]) -> Any:
+        if kind == "budget_settle":
+            raise OSError("disk full")
+        return original(self, kind, payload)
+
+    monkeypatch.setattr(ExecutionJournal, "append", faulty)
+    with pytest.raises(OSError):
+        loop(run, FakeCli(), 1)
+    monkeypatch.setattr(ExecutionJournal, "append", original)
+    _, charged = resume(run, AgentConfig())
+    assert charged == tick_budget(AgentConfig())
+    assert build_report(run)["run_status"]["resumable"] is True

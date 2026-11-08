@@ -39,7 +39,13 @@ from oasis_agent.launch.spot_agent import (
     state_from_json,
     state_to_json,
 )
-from oasis_agent.launch.spot_budget import RESERVE, SETTLE, budget_ledger, full_cycle_calls
+from oasis_agent.launch.spot_budget import (
+    RESERVE,
+    SETTLE,
+    budget_ledger,
+    full_cycle_calls,
+    legacy_error_charge,
+)
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     LiveExecutor,
@@ -130,7 +136,7 @@ def resume(out: Path, config: AgentConfig) -> tuple[AgentState, int]:
     state = reconcile_with_journal(state, records, policy.get("schema"))
     # The call budget covers the whole run directory across restarts, including failed
     # and interrupted cycles (see spot_budget): it can only grow.
-    return state, budget_ledger(records, tick_budget(config))["charged"]
+    return state, budget_ledger(records, legacy_error_charge(policy))["charged"]
 
 
 def _error_record(
@@ -229,28 +235,16 @@ def run_loop(
             # Rolling back a book after a real swap would forget it; halt for review.
             if agent.submissions() != submitted:
                 unresolved = True
-        # Settle with the calls actually made, success or failure alike (same unit as the
-        # reservation). Journaled before the tick's records so a crash while writing them
-        # still leaves the consumption on record.
-        journal.append(
-            SETTLE,
-            {
-                "at": int(clock()),
-                "kind": SETTLE,
-                "mode": agent.mode,
-                "execution_eligible": False,
-                "reserve_id": reserve_id,
-                "used": agent.provider_calls() - calls_before,
-            },
-        )
+        # Write order is a safety contract. (1) A financial halt first: if any later write
+        # fails, the run still refuses to resume. (2) Then the budget settle: if it fails,
+        # the cycle's reservation stays unsettled and is charged in full (conservative),
+        # never refunded. (3) Then the tick's own records.
         human = [
             r["reason"]
             for r in records
             if r["kind"] == "halt_review" and r.get("reason") in HUMAN_REVIEW_REASONS
         ]
         if agent.executor is not None and (unresolved or human):
-            # Persist the halt before anything else from this tick: if a later write
-            # fails, the run still refuses to resume rather than trading on.
             journal.append(
                 LIVE_HALT,
                 {
@@ -262,6 +256,17 @@ def run_loop(
                 },
             )
             unresolved = True
+        journal.append(
+            SETTLE,
+            {
+                "at": int(clock()),
+                "kind": SETTLE,
+                "mode": agent.mode,
+                "execution_eligible": False,
+                "reserve_id": reserve_id,
+                "used": agent.provider_calls() - calls_before,
+            },
+        )
         for record in records:
             journal.append(record["kind"], record)
             if record["kind"] in PRINTED:
@@ -293,8 +298,14 @@ def _build_agent(
     source: OnchainosSource,
     gmgn: GmgnSource | None,
     journal: ExecutionJournal,
-) -> SpotAgent:
-    """The agent for this run; with a gate, a live executor bound to the run's journal."""
+    call_budget: int,
+) -> SpotAgent | None:
+    """The agent for this run; with a gate, a live executor bound to the run's journal.
+
+    None means the live run cannot start within its call budget: the wallet balance read
+    a fresh live run needs was not admitted, nothing was queried and no live_start (or
+    cash) was invented. The stop is journaled as budget_stop.
+    """
     if gate is None:
         return SpotAgent(source, config, state, gmgn=gmgn)
     transport = JsonRpcTransport(os.environ[args.rpc_env])
@@ -310,7 +321,26 @@ def _build_agent(
     if not any(r["kind"] == "live_start" for r in read_journal(journal.path)[1]):
         # Fresh live run: the book is the wallet's own USDC and nothing else. Paper
         # positions/PnL from a leftover state file must never become live holdings.
-        # The balance read is a counted logical query of this run: reserved first.
+        # The balance read is a counted logical query of this run: admitted against the
+        # run's recovered charge (failed earlier starts included) and reserved first.
+        policy, records = read_journal(journal.path)
+        charged = budget_ledger(records, legacy_error_charge(policy))["charged"]
+        if call_budget - charged < 1:
+            journal.append(
+                "budget_stop",
+                {
+                    "at": int(time.time()),
+                    "kind": "budget_stop",
+                    "mode": "live",
+                    "execution_eligible": False,
+                    "call_budget": call_budget,
+                    "calls_used": charged,
+                    "reserved_needed": 1,
+                    "open_positions": None,  # unknown: the wallet was never read
+                    "stage": "live_start_balance",
+                },
+            )
+            return None
         reserve_id = uuid.uuid4().hex
         journal.append(
             RESERVE,
@@ -364,7 +394,9 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="run directory")
     parser.add_argument("--interval", type=int, default=120, help="seconds between ticks")
     parser.add_argument("--ticks", type=int, default=0, help="0 = until budget or signal")
-    parser.add_argument("--call-budget", type=int, default=20_000)
+    parser.add_argument(
+        "--call-budget", type=int, default=20_000, help="total logical provider queries (>=0)"
+    )
     parser.add_argument("--binary", type=Path, default=default_binary())
     parser.add_argument("--gmgn", type=Path, default=gmgn_source.default_binary())
     parser.add_argument("--no-gmgn", action="store_true", help="OKX-only decisions")
@@ -380,6 +412,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.interval < 30:
         parser.error("--interval must be at least 30 seconds")
+    if args.call_budget < 0:
+        parser.error("--call-budget must be a non-negative integer")
     config = (
         AgentConfig.model_validate_json(args.config.read_bytes()) if args.config else AgentConfig()
     )
@@ -449,14 +483,18 @@ def main() -> int:
         return 2
     with journal_context as journal:
         try:
-            agent = _build_agent(args, gate, config, state, source, gmgn, journal)
+            agent = _build_agent(args, gate, config, state, source, gmgn, journal, args.call_budget)
         except (ValueError, OSError, OasisError) as error:  # SourceFailure is a ValueError
             # Nothing has been submitted yet; refuse without a traceback or URL.
             print(f"live start refused: {type(error).__name__}", file=sys.stderr)
             return 2
+        if agent is None:
+            print("call budget cannot cover the live start balance read; stopping")
+            return 0
         # Re-read the charge: building a live agent may itself have spent (and settled)
         # counted calls, e.g. the live_start balance read.
-        spent = budget_ledger(read_journal(journal.path)[1], tick_budget(config))["charged"]
+        policy_now, records_now = read_journal(journal.path)
+        spent = budget_ledger(records_now, legacy_error_charge(policy_now))["charged"]
         return run_loop(
             agent,
             journal,
