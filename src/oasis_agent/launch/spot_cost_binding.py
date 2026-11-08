@@ -1,0 +1,211 @@
+"""Offline: bind ONE journal-matched spot order to two retained full-cost proofs.
+
+Given a spot journal, an operator-declared binding (intent id, the receipt block header,
+two declared providers and one retained `transaction_cost` evidence reference each) and
+a read-only evidence store, this rebuilds each provider's whole native transaction fee
+with `farming.transaction_costs.replay_transaction_cost` (raw wire envelopes, pinned
+header re-read, Base OP L1 plus versioned operator fee) and accepts it only if:
+
+- the order is settled by the same `reconcile_orders` result report and resume use;
+- the fill names its receipt's own block hash (a height alone is never upgraded) and
+  the declared header is that exact chain 8453 block;
+- the two references are distinct records from the two distinct declared providers;
+- both reconstructions agree on every item, and name this tx, this wallet and status 1;
+- any single-receipt item already journaled for this fill agrees (else it is a conflict).
+
+The result is per-order native wei evidence only. It is not booked, not converted to
+USD, not a funds-settlement proof and not net PnL; nothing here reads RPC, a wallet or
+a key, and the journal and evidence store are opened read-only by the caller.
+"""
+
+import re
+from dataclasses import asdict
+from typing import Any
+
+from ..evidence.store import EvidenceStore
+from ..farming.transaction_costs import TransactionCost, replay_transaction_cost
+from ..models.chain import BlockSnapshot
+from ..models.common import BlockRef, EvidenceRef, evidence_ref_from_json
+from .spot_lifecycle import reconcile_orders
+
+SCHEMA = "oasis.spot-cost-binding.v1"
+VIEW_SCHEMA = "oasis.spot-cost-replay.v1"
+BASE_CHAIN_ID = 8453
+_FIELDS = frozenset({"schema", "intent_id", "header", "providers", "costs"})
+_WEI = re.compile(r"^(0|[1-9][0-9]{0,77})$")
+
+Record = dict[str, Any]
+
+
+class _Refused(Exception):
+    def __init__(self, status: str, reason: str) -> None:
+        super().__init__(reason)
+        self.status, self.reason = status, reason
+
+
+def _unbound(reason: str) -> _Refused:
+    return _Refused("unbound", reason)
+
+
+def _conflict(reason: str) -> _Refused:
+    return _Refused("conflict", reason)
+
+
+def _parse(binding: object) -> tuple[str, BlockSnapshot, tuple[str, str], tuple[EvidenceRef, ...]]:
+    if not isinstance(binding, dict) or set(binding) != _FIELDS or binding["schema"] != SCHEMA:
+        raise _unbound("binding_malformed")
+    key, header, providers, costs = (
+        binding["intent_id"],
+        binding["header"],
+        binding["providers"],
+        binding["costs"],
+    )
+    if not isinstance(key, str) or not key:
+        raise _unbound("binding_malformed")
+    try:
+        if not isinstance(header, dict) or set(header) != {
+            "chain_id",
+            "number",
+            "block_hash",
+            "timestamp",
+            "parent_hash",
+        }:
+            raise TypeError("header fields")
+        snapshot = BlockSnapshot(
+            BlockRef(
+                header["chain_id"], header["number"], header["block_hash"], header["timestamp"]
+            ),
+            header["parent_hash"],
+        )
+        if not isinstance(costs, list):
+            raise TypeError("costs")
+        refs = tuple(evidence_ref_from_json(c) for c in costs)
+    except (TypeError, ValueError) as error:
+        raise _unbound("binding_malformed") from error
+    if (
+        not isinstance(providers, list)
+        or len(providers) != 2
+        or not all(isinstance(p, str) and p.strip() for p in providers)
+    ):
+        raise _unbound("provider_pair_invalid")
+    return key, snapshot, (providers[0], providers[1]), refs
+
+
+def _fill(records: list[Record], key: str) -> Record:
+    if key not in set(reconcile_orders(records).settled):
+        raise _unbound("order_not_matched")
+    (fill,) = [r for r in records if r.get("kind") == "live_fill" and r.get("intent_id") == key]
+    return fill
+
+
+def _receipt_block(fill: Record) -> str:
+    fees = fill.get("receipt_fees")
+    block = fees.get("receipt_block") if isinstance(fees, dict) else None
+    if not isinstance(block, dict) or block.get("status") != "observed":
+        # Legacy height-only fills, and receipts that stated no usable hash.
+        raise _unbound("receipt_block_unknown")
+    value = block.get("block_hash")
+    if not isinstance(value, str):
+        raise _unbound("receipt_block_unknown")
+    return value
+
+
+def _single_receipt_item(fees: object, item: str) -> int | None:
+    """A journaled single-receipt item that capture could have written, else None."""
+    entry = fees.get(item) if isinstance(fees, dict) else None
+    if not isinstance(entry, dict) or entry.get("status") != "observed":
+        return None
+    value = entry.get("fee_wei")
+    # ASCII canonical decimal only: str.isdigit() also accepts e.g. "²", which int() rejects.
+    return int(value) if isinstance(value, str) and _WEI.fullmatch(value) else None
+
+
+def _bind(records: list[Record], binding: object, store: EvidenceStore) -> Record:
+    key, header, providers, refs = _parse(binding)
+    fill = _fill(records, key)
+    block_hash = _receipt_block(fill)
+    number = fill.get("block_number")
+    if (
+        header.ref.chain_id != BASE_CHAIN_ID
+        or type(number) is not int
+        or header.ref.number != number
+        or header.ref.block_hash != block_hash
+    ):
+        # Same height with another hash is another block, never the fill's evidence.
+        raise _unbound("block_mismatch")
+    if providers[0] == providers[1]:
+        raise _unbound("provider_pair_invalid")
+    if (
+        len(refs) != 2
+        or tuple(r.source for r in refs) != providers
+        or refs[0].content_hash == refs[1].content_hash
+    ):
+        raise _unbound("provider_pair_invalid")
+    tx = fill.get("tx_hash")
+    wallet = fill.get("wallet")
+    if not isinstance(tx, str) or not isinstance(wallet, str):
+        raise _unbound("order_not_matched")
+    costs: list[TransactionCost] = []
+    for index, ref in enumerate(refs):
+        try:
+            capture = replay_transaction_cost(store, ref, header=header, transaction_hash=tx)
+            costs.append(capture.reconstruct())
+        except (KeyError, TypeError, ValueError) as error:
+            raise _unbound(f"evidence_invalid_{index}") from error
+    if costs[0] != costs[1]:
+        raise _conflict("providers_disagree")
+    cost = costs[0]
+    if (
+        cost.chain_id != BASE_CHAIN_ID
+        or cost.transaction_hash != tx
+        or cost.payer != wallet
+        or cost.native_decimals != 18
+    ):
+        raise _conflict("identity_mismatch")
+    if cost.status != 1:
+        raise _conflict("status_mismatch")
+    fees = fill.get("receipt_fees")
+    for item, replayed in (("execution", cost.execution_native), ("l1_data", cost.l1_native)):
+        journaled = _single_receipt_item(fees, item)
+        if journaled is not None and journaled != replayed:
+            raise _conflict("single_receipt_conflict")
+    return {
+        "status": "replayed",
+        "intent_id": key,
+        "tx_hash": tx,
+        "payer": wallet,
+        "block": asdict(header.ref),
+        "providers": list(providers),
+        "evidence": [r.content_hash for r in refs],
+        "native_wei": {
+            "execution": str(cost.execution_native),
+            "l1": str(cost.l1_native),
+            "blob": str(cost.blob_native),
+            "operator": str(cost.operator_native),
+            "total": str(cost.total_native),
+        },
+    }
+
+
+def bind_order_cost(records: list[Record], binding: object, store: EvidenceStore) -> Record:
+    """The per-order replay view; a refusal is a status with a fixed reason, never raised."""
+    try:
+        result = _bind(records, binding, store)
+    except _Refused as refused:
+        key = binding.get("intent_id") if isinstance(binding, dict) else None
+        result = {
+            "status": refused.status,
+            "reason": refused.reason,
+            "intent_id": key if isinstance(key, str) else None,
+            "native_wei": None,
+        }
+    return {
+        "schema": VIEW_SCHEMA,
+        "scope": "this_order_only",
+        "basis": "two_declared_providers_retained_raw_receipt_and_pinned_header",
+        "booked_in_strategy_pnl": False,
+        "usd_value": "not_converted",
+        "fund_settlement": "unverified_balance_delta_plus_sender_receipt",
+        "execution_eligible": False,
+        **result,
+    }

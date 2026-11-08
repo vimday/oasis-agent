@@ -1,19 +1,41 @@
-"""Evaluate a shadow spot run: signal quality, paper book and operations (read-only)."""
+"""Evaluate a shadow spot run: signal quality, paper book and operations (read-only).
+
+Optional, offline: `--cost-binding BINDING.json --evidence EVIDENCE.db` adds a
+`cost_replay` view for ONE journal-matched order, rebuilt from two retained provider
+proofs of its receipt (see oasis_agent.launch.spot_cost_binding). The evidence store is
+opened read-only; without both flags the report is exactly the default report.
+"""
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
-from oasis_agent.launch.spot_report import build_report
+from oasis_agent.evidence.store import ReadOnlyEvidenceStore
+from oasis_agent.launch.spot_cost_binding import bind_order_cost
+from oasis_agent.launch.spot_report import build_report, read_journal
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True, help="run directory of run_spot_agent")
+    parser.add_argument("--cost-binding", type=Path, help="declared binding for one order")
+    parser.add_argument("--evidence", type=Path, help="existing evidence store (read-only)")
     args = parser.parse_args()
+    if (args.cost_binding is None) != (args.evidence is None):
+        parser.error("--cost-binding and --evidence must be given together")
     try:
         report = build_report(args.run)
+        if args.cost_binding is not None:
+            if not args.evidence.is_file():
+                raise OSError("evidence store does not exist")
+            binding = json.loads(args.cost_binding.read_bytes())
+            _, records = read_journal(args.run / "journal.db")
+            store = ReadOnlyEvidenceStore(args.evidence)
+            try:
+                report["cost_replay"] = bind_order_cost(records, binding, store)
+            finally:
+                store.close()
     except (OSError, ValueError, KeyError) as error:
         print(f"spot shadow report refused: {type(error).__name__}", file=sys.stderr)
         return 1

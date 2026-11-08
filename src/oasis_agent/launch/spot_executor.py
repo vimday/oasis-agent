@@ -452,9 +452,20 @@ def receipt_fees(raw: dict[str, Any]) -> dict[str, Any]:
             l1 = {"status": "invalid", "fields": ["l1Fee"]}
         else:
             l1 |= {"fee_wei": str(values[0])}
+    # The block this same receipt names, so a later cost proof can be bound to that exact
+    # block (a height alone is not a block). Optional: missing or malformed only makes
+    # the binding unavailable; it never touches the fill or its gates.
+    block_hash = raw.get("blockHash")
+    if "blockHash" not in raw:
+        binding: dict[str, Any] = {"status": "missing"}
+    elif isinstance(block_hash, str) and _HASH.fullmatch(block_hash.lower()):
+        binding = {"status": "observed", "block_hash": block_hash.lower()}
+    else:
+        binding = {"status": "invalid"}
     return {
         "status": "captured",
         "source": FEE_SOURCE,
+        "receipt_block": binding,
         "execution": execution,
         "l1_data": l1,
         "operator": {"status": "not_captured"},
