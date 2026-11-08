@@ -57,6 +57,8 @@ ASSESSMENT_CASES = [
     ("action", None, "assessment_malformed"),
     ("action", "buy", "assessment_malformed"),
     ("action", 1, "assessment_malformed"),
+    ("action", [], "assessment_malformed"),  # unhashable JSON array
+    ("action", {}, "assessment_malformed"),  # unhashable JSON object
     ("score_bps", MISSING, "assessment_malformed"),
     ("score_bps", "FLOAT", "assessment_malformed"),
     ("score_bps", "BOOL", "assessment_malformed"),
@@ -95,6 +97,8 @@ LABEL_CASES = [
     ("score_bps", MISSING, "label_malformed"),
     ("action", MISSING, "label_malformed"),
     ("action", "buy", "label_malformed"),
+    ("action", [], "label_malformed"),
+    ("action", {}, "label_malformed"),
     ("assessed_at", "FLOAT", "label_malformed"),
     ("assessed_at", MISSING, "label_malformed"),
     ("horizon_seconds", "FLOAT", "label_malformed"),

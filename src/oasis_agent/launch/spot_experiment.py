@@ -92,6 +92,12 @@ def _int(value: object) -> int | None:
 ASSESSED_ACTIONS = frozenset({"skip", "watch", "flip", "lp_candidate"})
 
 
+def _action(value: object) -> bool:
+    """A known action; the str check runs first so a JSON array/object never reaches
+    the set lookup (an unhashable value would raise TypeError there)."""
+    return type(value) is str and value in ASSESSED_ACTIONS
+
+
 def _assessment_fields(r: Record) -> None:
     """Shape of a production assessment record; never coerced, never defaulted.
 
@@ -103,7 +109,7 @@ def _assessment_fields(r: Record) -> None:
         raise ExperimentRefused("assessment_malformed", "token")
     if _int(r.get("at")) is None or _int(r.get("score_bps")) is None:
         raise ExperimentRefused("assessment_malformed", token)
-    if r.get("action") not in ASSESSED_ACTIONS or type(r.get("action")) is not str:
+    if not _action(r.get("action")):
         raise ExperimentRefused("assessment_malformed", token)
     reasons = r.get("reasons")
     if not isinstance(reasons, list) or not all(type(x) is str for x in reasons):
@@ -122,7 +128,7 @@ def _label_fields(r: Record) -> None:
     for name in ("assessed_at", "score_bps", "horizon_seconds"):
         if _int(r.get(name)) is None:
             raise ExperimentRefused("label_malformed", token)
-    if r.get("action") not in ASSESSED_ACTIONS or type(r.get("action")) is not str:
+    if not _action(r.get("action")):
         raise ExperimentRefused("label_malformed", token)
 
 
