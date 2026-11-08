@@ -16,6 +16,7 @@ from statistics import median
 from typing import Any
 
 from ..models.common import canonical_json, sha256_hex
+from .receipt_fee_contract import FEE_SOURCE, execution_fee_in_bounds, l1_fee_in_bounds
 from .spot_budget import budget_ledger, legacy_error_charge
 from .spot_lifecycle import reconcile_orders, run_status
 
@@ -205,8 +206,8 @@ def _execution_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
         return item["status"], None
     gas, price = _wei(item.get("gas_used")), _wei(item.get("effective_gas_price_wei"))
     fee = _wei(item.get("fee_wei"))
-    # The journaled product must restate its own factors; anything else is not evidence.
-    if gas is None or price is None or fee is None or gas * price != fee:
+    # Only what capture could emit: in-width factors whose exact product is the fee.
+    if gas is None or price is None or fee is None or not execution_fee_in_bounds(gas, price, fee):
         return "record_invalid", None
     return "observed", fee
 
@@ -218,11 +219,16 @@ def _l1_fee(fees: dict[str, Any]) -> tuple[str, int | None]:
     if item["status"] != "observed":
         return item["status"], None
     fee = _wei(item.get("fee_wei"))
-    return ("observed", fee) if fee is not None else ("record_invalid", None)
+    if fee is None or not l1_fee_in_bounds(fee):
+        return "record_invalid", None
+    return "observed", fee
 
 
 def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """Per settled live order, the native fee items its own proving receipt stated.
+    """Per journal-matched live order, the native fee items its own receipt stated.
+
+    A fee record is counted only if capture could have written it (receipt_fee_contract:
+    same source, in-width values, exact product); anything else is `record_invalid`.
 
     Only intents the lifecycle ledger settles (one fill, one booking, a tx hash used by
     no other intent) are attributed, so a transaction is never charged twice and an
@@ -235,13 +241,23 @@ def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
     fills = [r for r in records if r.get("kind") == "live_fill"]
     rows: list[dict[str, Any]] = []
     for fill in fills:
-        if fill.get("intent_id") not in settled:
+        # The lifecycle's own id rule (a non-empty str), checked before the set lookup,
+        # so an array/object id is an unattributed fill and never an unhashable crash.
+        key = fill.get("intent_id")
+        if not isinstance(key, str) or key not in settled:
             continue
         fees = fill.get("receipt_fees")
+        # States: not_captured (reader stated nothing), missing/invalid (the receipt
+        # itself lacked or malformed a field), record_invalid (the journal line is not
+        # something capture could have written: other source, width or product).
         if fees is None or (isinstance(fees, dict) and fees.get("status") == "not_captured"):
             execution: tuple[str, int | None] = ("not_captured", None)
             l1: tuple[str, int | None] = ("not_captured", None)
-        elif not isinstance(fees, dict) or fees.get("status") != "captured":
+        elif (
+            not isinstance(fees, dict)
+            or fees.get("status") != "captured"
+            or fees.get("source") != FEE_SOURCE
+        ):
             execution = l1 = ("record_invalid", None)
         else:
             execution, l1 = _execution_fee(fees), _l1_fee(fees)
@@ -268,6 +284,10 @@ def receipt_fee_attribution(records: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "basis": "settled_live_orders_own_receipt_items",
+        # `settled` is the journal lifecycle match (intent, fill, booking, unique tx), not
+        # a proof of funds settlement: fills are still balance delta plus sender receipt.
+        "scope": "journal_matched_orders_only",
+        "fund_settlement": "unverified_balance_delta_plus_sender_receipt",
         "unit": "native_wei",
         "settled_orders": len(rows),
         "fills_not_attributed": len(fills) - len(rows),

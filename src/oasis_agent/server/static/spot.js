@@ -53,7 +53,7 @@ const VERDICT = {
   no_selection_edge: "描述性：短线组中位标签收益不高（非因果，不能据此判定选股无优势）",
 };
 
-// "<wei> (<observed>/<settled> 笔)": orders without an observed item stay visible, never zero.
+// "<wei> (<observed>/<matched> 笔)": orders without an observed item stay visible, never zero.
 export function receiptFees(report) {
   const fees = (report.accounting || {}).receipt_fees;
   if (!fees || !fees.execution) return "未记录";
@@ -122,7 +122,9 @@ export async function loadSpot() {
     ...(live ? [{ label: "估算 gas USD（声明值，非收据）",
       value: usd((report.accounting || {}).estimated_gas_usd_micros) }] : []),
     // Receipt execution fee of settled orders, in wei: evidence only, not booked, no USD.
-    ...(live ? [{ label: "收据执行 gas wei（已结算订单，仅执行分项，未入账）",
+    // Scope: orders whose intent/fill/booking match inside this journal. Funds settlement
+    // itself is still unverified (balance delta plus sender receipt), not proven here.
+    ...(live ? [{ label: "收据执行 gas wei（日志内已匹配订单，仅执行分项，未入账，资金结算未验证）",
       value: receiptFees(report) }] : []),
     { label: "已实现 PnL USD", value: usd(book.realized_pnl_usd_micros),
       tone: book.realized_pnl_usd_micros < 0 ? "danger" : "" },

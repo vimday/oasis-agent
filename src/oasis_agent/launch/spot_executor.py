@@ -22,6 +22,7 @@ from typing import Any, Literal
 from ..evidence.rpc_validation import rpc_quantity
 from ..models.common import normalize_address
 from .onchainos_source import BASE_USDC, Runner, SourceFailure
+from .receipt_fee_contract import FEE_SOURCE, execution_fee_in_bounds, l1_fee_in_bounds
 
 APPROVED_WALLET = "0x95a91b0afbc5fb3dbbffa1be8aaff5c14772a900"
 CONFIRMATION = "LIVE SPOT ON BASE FROM {wallet}"
@@ -400,7 +401,6 @@ def parse_receipt(raw: object, tx_hash: str) -> tuple[int, int, str] | None:
     return int(status, 16), int(block, 16), normalize_address(sender)
 
 
-FEE_SOURCE = "eth_getTransactionReceipt_same_response"
 # The reader returned no fee items (an older three-element injection or log).
 NOT_CAPTURED_FEES: dict[str, Any] = {"status": "not_captured"}
 
@@ -438,7 +438,7 @@ def receipt_fees(raw: dict[str, Any]) -> dict[str, Any]:
     if values:
         gas, price = values
         fee = gas * price
-        if gas >= 1 << 64 or price >= 1 << 256 or fee >= 1 << 256:
+        if not execution_fee_in_bounds(gas, price, fee):
             execution = {"status": "invalid", "fields": ["gasUsed", "effectiveGasPrice"]}
         else:
             execution |= {
@@ -448,7 +448,7 @@ def receipt_fees(raw: dict[str, Any]) -> dict[str, Any]:
             }
     l1, values = item(("l1Fee",))
     if values:
-        if values[0] >= 1 << 256:
+        if not l1_fee_in_bounds(values[0]):
             l1 = {"status": "invalid", "fields": ["l1Fee"]}
         else:
             l1 |= {"fee_wei": str(values[0])}

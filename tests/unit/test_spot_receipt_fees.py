@@ -84,6 +84,9 @@ def test_settled_order_carries_its_own_receipt_fee_items(tmp_path: Path) -> None
     # carries the declared estimate and the observed USDC only.
     assert fees["operator"] == "not_captured" and fees["total_native_debit"] == "not_derived"
     assert fees["usd_value"] == "not_converted" and fees["booked_in_strategy_pnl"] is False
+    # Attribution scope is the journal match; funds settlement is not claimed as proven.
+    assert fees["scope"] == "journal_matched_orders_only"
+    assert fees["fund_settlement"] == "unverified_balance_delta_plus_sender_receipt"
     assert report["accounting"]["gas_basis"] == "declared_per_leg_estimate_not_receipt_fees"
     assert report["run_status"]["settled_live_orders"] == 1
     fill = next(r for r in read_journal(run / "journal.db")[1] if r["kind"] == "live_fill")
@@ -169,3 +172,108 @@ def test_receipt_fees_parser_is_total_and_never_raises() -> None:
         assert fees["l1_data"]["status"] in ("missing", "invalid")
     zero = receipt_fees({"gasUsed": "0x0", "effectiveGasPrice": "0x0"})
     assert zero["execution"]["fee_wei"] == "0"  # an observed zero is a value, not a default
+
+
+@pytest.mark.parametrize("bad_id", [[], {}, 7, None, ""])
+def test_malformed_fill_id_is_unattributed_and_the_report_still_reads(
+    tmp_path: Path, bad_id: Any
+) -> None:
+    run, _ = live_run(tmp_path, rpc_receipt_reader(Transport()))
+    records = read_journal(run / "journal.db")[1]
+    fill = next(r for r in records if r["kind"] == "live_fill")
+    fees = receipt_fee_attribution([*records, fill | {"intent_id": bad_id}])
+    # No unhashable crash; the real settled order keeps its fee, the stray fill is visible.
+    assert fees["settled_orders"] == 1 and fees["fills_not_attributed"] == 1
+    assert fees["execution"]["observed_wei"] == str(GAS * PRICE)
+
+
+def captured(records: list[dict[str, Any]]) -> dict[str, Any]:
+    fees: dict[str, Any] = next(r for r in records if r["kind"] == "live_fill")["receipt_fees"]
+    return fees
+
+
+def attributed(records: list[dict[str, Any]], fees: Any) -> dict[str, Any]:
+    swapped = [r | {"receipt_fees": fees} if r["kind"] == "live_fill" else r for r in records]
+    return receipt_fee_attribution(swapped)
+
+
+def execution_item(gas: int, price: int, fee: int) -> dict[str, Any]:
+    return {
+        "status": "observed",
+        "gas_used": str(gas),
+        "effective_gas_price_wei": str(price),
+        "fee_wei": str(fee),
+    }
+
+
+@pytest.mark.parametrize(
+    ("gas", "price", "fee"),
+    [
+        (1 << 64, 1, 1 << 64),  # gasUsed wider than uint64
+        (1, 1 << 256, 1 << 256),  # price wider than uint256
+        (1 << 63, 1 << 193, 1 << 256),  # in-width factors, product overflows uint256
+        (GAS, PRICE, GAS * PRICE + 1),  # forged product
+    ],
+)
+def test_report_rejects_execution_items_capture_cannot_emit(
+    tmp_path: Path, gas: int, price: int, fee: int
+) -> None:
+    run, _ = live_run(tmp_path, rpc_receipt_reader(Transport()))
+    records = read_journal(run / "journal.db")[1]
+    good = captured(records)
+    fees = attributed(records, good | {"execution": execution_item(gas, price, fee)})
+    (row,) = fees["rows"]
+    assert row["execution"] == "record_invalid" and row["execution_fee_wei"] is None
+    assert fees["execution"]["observed_orders"] == 0 and fees["execution"]["observed_wei"] == "0"
+    # The independent L1 item of the same record is still read on its own terms.
+    assert row["l1_data"] == "observed" and row["l1_data_fee_wei"] == str(L1)
+
+
+def test_report_accepts_the_exact_capture_bounds_and_legal_zero(tmp_path: Path) -> None:
+    run, _ = live_run(tmp_path, rpc_receipt_reader(Transport()))
+    records = read_journal(run / "journal.db")[1]
+    good = captured(records)
+    top_gas = (1 << 64) - 1
+    for item, l1 in (
+        (execution_item(top_gas, 1, top_gas), (1 << 256) - 1),  # largest values capture emits
+        (execution_item(0, 0, 0), 0),  # observed zero is a value
+    ):
+        record = good | {"execution": item, "l1_data": {"status": "observed", "fee_wei": str(l1)}}
+        (row,) = attributed(records, record)["rows"]
+        assert row["execution"] == row["l1_data"] == "observed"
+        assert row["execution_fee_wei"] == item["fee_wei"] and row["l1_data_fee_wei"] == str(l1)
+    # The capture side agrees on the same bounds.
+    assert (
+        receipt_fees({"gasUsed": hex(top_gas), "effectiveGasPrice": "0x1"})["execution"]["status"]
+        == "observed"
+    )
+    assert (
+        receipt_fees({"gasUsed": hex(1 << 64), "effectiveGasPrice": "0x1"})["execution"]["status"]
+        == "invalid"
+    )
+
+
+def test_report_rejects_l1_above_width_and_unknown_source(tmp_path: Path) -> None:
+    run, _ = live_run(tmp_path, rpc_receipt_reader(Transport()))
+    records = read_journal(run / "journal.db")[1]
+    good = captured(records)
+    wide = good | {"l1_data": {"status": "observed", "fee_wei": str(1 << 256)}}
+    (row,) = attributed(records, wide)["rows"]
+    assert row["l1_data"] == "record_invalid" and row["execution"] == "observed"
+    for source in ("eth_getTransactionByHash", None, 1):
+        replaced = {k: v for k, v in good.items() if k != "source"}
+        if source is not None:
+            replaced["source"] = source
+        fees = attributed(records, replaced)
+        (row,) = fees["rows"]
+        assert row["execution"] == row["l1_data"] == "record_invalid"
+        assert fees["execution"]["observed_orders"] == fees["l1_data"]["observed_orders"] == 0
+
+
+def test_receipt_rpc_states_are_distinct_from_journal_contract_states(tmp_path: Path) -> None:
+    run, _ = live_run(tmp_path, rpc_receipt_reader(Transport(gasUsed=None, l1Fee="0xZZ")))
+    by_state = build_report(run)["accounting"]["receipt_fees"]
+    # missing / invalid: what the receipt itself stated; record_invalid: the journal line.
+    assert by_state["execution"]["by_state"]["missing"] == 1
+    assert by_state["l1_data"]["by_state"]["invalid"] == 1
+    assert by_state["execution"]["by_state"]["record_invalid"] == 0
