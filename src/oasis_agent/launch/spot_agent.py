@@ -215,6 +215,7 @@ class SpotAgent:
                     "tx_hash": fill.tx_hash,
                     "block_number": fill.block_number,
                     "usdc_received_base_units": fill.usdc_delta,
+                    "units": str(-fill.token_delta),
                     "estimated_gas_usd_micros": gas,
                 }
             pnl = value - position.cost_usd_micros

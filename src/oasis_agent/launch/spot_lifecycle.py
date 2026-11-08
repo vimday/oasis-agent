@@ -12,6 +12,7 @@ the report/API/console render the same object, so they cannot disagree. A proces
 liveness is not derivable from a journal; the status never claims a run is running.
 """
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from typing import Any
@@ -94,34 +95,51 @@ def reconcile_orders(records: list[Record]) -> OrderLedger:
     open_unresolved: list[str] = []
     missing: list[str] = []
     unbooked: list[str] = []
+    # One swap is one transaction: a hash observed for more than one intent proves none
+    # of them, so every intent sharing it is excluded from `settled`.
+    tx_users = Counter(
+        tx
+        for key in intents
+        for f in fills.get(key, [])[:1]
+        if (tx := _hash(f.get("tx_hash"))) is not None
+    )
     for key, intent in intents.items():
         got, lost, booked = fills.get(key, []), unresolved.get(key, []), bookings.get(key, [])
+        problems: set[str] = set()
         if len(got) > 1:
-            defects.add("duplicate_fill")
+            problems.add("duplicate_fill")
         if len(booked) > 1:
-            defects.add("duplicate_booking")
+            problems.add("duplicate_booking")
         if got and lost:
-            defects.add("fill_and_unresolved")
+            problems.add("fill_and_unresolved")
+        identity = _identity(intent)
+        if identity is None:
+            problems.add("intent_identity_invalid")
         if not got:
             if booked:
-                defects.add("booking_without_fill")
+                problems.add("booking_without_fill")
+            # An unresolved order legitimately has no hash: it stays unknown and blocks.
             (open_unresolved if lost else missing).append(key)
+            defects.update(problems)
             continue
         fill = got[0]
-        same = ("side", "token", "wallet", "chain_id")
-        if any(fill.get(f) != intent.get(f) for f in same):
-            defects.add("fill_mismatch")
+        tx = _hash(fill.get("tx_hash"))
+        if tx is None:
+            problems.add("fill_tx_hash_invalid")
+        elif tx_users[tx] > 1:
+            problems.add("tx_reused_across_intents")
+        if identity is not None and _identity(fill) != identity:
+            problems.add("fill_mismatch")
+        problems.update(_fill_amount_problems(intent, fill))
         if not booked:
             unbooked.append(key)
+            defects.update(problems)
             continue
-        booking = booked[0]
-        if (
-            booking.get("kind") != BOOKING_KIND.get(str(intent.get("side")))
-            or booking.get("token") != intent.get("token")
-            or booking.get("tx_hash") != fill.get("tx_hash")
-        ):
-            defects.add("booking_mismatch")
+        problems.update(_booking_problems(intent, fill, booked[0]))
+        if problems:
+            defects.update(problems)
         else:
+            # Only a chain with no defect at all counts as settled.
             settled.append(key)
     return OrderLedger(
         intents=len(intents),
@@ -131,6 +149,79 @@ def reconcile_orders(records: list[Record]) -> OrderLedger:
         unbooked=tuple(unbooked),
         defects=tuple(sorted(defects)),
     )
+
+
+_ADDRESS = re.compile(r"^0x[0-9a-f]{40}$")
+_TX = re.compile(r"^0x[0-9a-f]{64}$")
+_INT = re.compile(r"^-?(0|[1-9][0-9]{0,77})$")
+
+
+def _address(value: object) -> str | None:
+    """Canonical lowercase address, or None; never treats two absent values as equal."""
+    return value if isinstance(value, str) and _ADDRESS.fullmatch(value) else None
+
+
+def _hash(value: object) -> str | None:
+    return value if isinstance(value, str) and _TX.fullmatch(value) else None
+
+
+def _integer(value: object) -> int | None:
+    """An exact integer written as a canonical decimal string or a plain int; never bool."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    return int(value) if isinstance(value, str) and _INT.fullmatch(value) else None
+
+
+def _identity(record: Record) -> tuple[str, str, str, int] | None:
+    """(side, token, wallet, chain_id) when every field is present and well formed."""
+    side, chain = record.get("side"), record.get("chain_id")
+    token, wallet = _address(record.get("token")), _address(record.get("wallet"))
+    if side not in BOOKING_KIND or token is None or wallet is None:
+        return None
+    if isinstance(chain, bool) or chain != 8453:
+        return None
+    return str(side), token, wallet, 8453
+
+
+def _fill_amount_problems(intent: Record, fill: Record) -> set[str]:
+    """The fill spent exactly the intent's exact-input amount and received something."""
+    amount = _integer(intent.get("amount"))
+    usdc, units = _integer(fill.get("usdc_delta")), _integer(fill.get("token_delta"))
+    if amount is None or amount <= 0 or usdc is None or units is None:
+        return {"fill_amount_invalid"}
+    spent, received = (-usdc, units) if intent.get("side") == "buy" else (-units, usdc)
+    return set() if spent == amount and received > 0 else {"fill_amount_mismatch"}
+
+
+def _booking_problems(intent: Record, fill: Record, booking: Record) -> set[str]:
+    """The book recorded exactly what the fill observed, under the production formula."""
+    side = intent.get("side")
+    if (
+        booking.get("kind") != BOOKING_KIND.get(str(side))
+        or _address(booking.get("token")) != _address(intent.get("token"))
+        or _hash(booking.get("tx_hash")) != _hash(fill.get("tx_hash"))
+    ):
+        return {"booking_mismatch"}
+    usdc, units = _integer(fill.get("usdc_delta")), _integer(fill.get("token_delta"))
+    gas = _integer(booking.get("estimated_gas_usd_micros"))
+    booked_units = _integer(booking.get("units"))
+    if usdc is None or units is None or gas is None or gas < 0 or booked_units is None:
+        return {"booking_amount_invalid"}
+    if side == "buy":
+        spent, cost = (
+            _integer(booking.get("usdc_spent_base_units")),
+            _integer(booking.get("cost_usd_micros")),
+        )
+        # cost basis = observed USDC spent + declared gas estimate (paid in ETH)
+        ok = spent == -usdc and booked_units == units and cost == spent + gas
+    else:
+        received = _integer(booking.get("usdc_received_base_units"))
+        proceeds = _integer(booking.get("proceeds_usd_micros"))
+        # proceeds = observed USDC received - declared gas estimate
+        ok = received == usdc and booked_units == -units and proceeds == received - gas
+    return set() if ok else {"booking_amount_mismatch"}
 
 
 def _last_tick_window(records: list[Record]) -> list[Record]:

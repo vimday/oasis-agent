@@ -13,7 +13,7 @@ from oasis_agent.launch.spot_lifecycle import (
     reconcile_orders,
     run_status,
 )
-from oasis_agent.launch.spot_report import build_report
+from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 
 TOKEN = "0x" + "ab" * 20
@@ -21,23 +21,75 @@ OTHER = "0x" + "cd" * 20
 WALLET = "0x95a91b0afbc5fb3dbbffa1be8aaff5c14772a900"
 
 
+GAS = 50_000
+AMOUNT = {"buy": 20_000_000, "sell": 400_000}  # USDC base units in / token units in
+
+
+def tx(n: int) -> str:
+    return "0x" + f"{n:064x}"
+
+
 def intent(key: str, side: str = "buy", token: str = TOKEN) -> dict[str, Any]:
+    """Shape of LiveExecutor's live_intent (exact-input `amount` in the spent asset)."""
     return {
         "kind": "live_intent",
         "intent_id": key,
+        "chain_id": 8453,
         "side": side,
         "token": token,
+        "amount": str(AMOUNT[side]),
         "wallet": WALLET,
-        "chain_id": 8453,
+        "max_trade_usd_micros": 100_000_000,
+        "slippage_bps": 100,
     }
 
 
-def fill(key: str, tx: str, side: str = "buy", token: str = TOKEN) -> dict[str, Any]:
-    return intent(key, side, token) | {"kind": "live_fill", "tx_hash": tx}
+def fill(key: str, txh: str, side: str = "buy", token: str = TOKEN) -> dict[str, Any]:
+    """Shape of live_fill: intent fields plus Fill.record() with signed observed deltas."""
+    usdc, units = (
+        (-AMOUNT["buy"], AMOUNT["sell"])
+        if side == "buy"
+        else (
+            30_000_000,
+            -AMOUNT["sell"],
+        )
+    )
+    return intent(key, side, token) | {
+        "kind": "live_fill",
+        "settlement": "unverified_balance_delta_plus_sender_receipt",
+        "tx_hash": txh,
+        "block_number": 123,
+        "usdc_delta": str(usdc),
+        "token_delta": str(units),
+    }
 
 
-def booking(key: str, tx: str, side: str = "buy", token: str = TOKEN) -> dict[str, Any]:
-    return {"kind": f"live_{side}", "intent_id": key, "token": token, "tx_hash": tx}
+def booking(key: str, txh: str, side: str = "buy", token: str = TOKEN) -> dict[str, Any]:
+    """Shape of SpotAgent's live_buy/live_sell booking of that fill."""
+    base = {
+        "kind": f"live_{side}",
+        "intent_id": key,
+        "token": token,
+        "tx_hash": txh,
+        "block_number": 123,
+        "units": str(AMOUNT["sell"]),
+        "estimated_gas_usd_micros": GAS,
+    }
+    if side == "buy":
+        return base | {
+            "usdc_spent_base_units": AMOUNT["buy"],
+            "cost_usd_micros": AMOUNT["buy"] + GAS,
+        }
+    return base | {
+        "reason": "take_profit",
+        "usdc_received_base_units": 30_000_000,
+        "proceeds_usd_micros": 30_000_000 - GAS,
+        "pnl_usd_micros": 30_000_000 - GAS - (AMOUNT["buy"] + GAS),
+    }
+
+
+def order(key: str, txh: str, side: str = "buy") -> list[dict[str, Any]]:
+    return [intent(key, side), fill(key, txh, side), booking(key, txh, side)]
 
 
 SUMMARY = {
@@ -54,15 +106,7 @@ SUMMARY = {
 
 
 def test_round_trip_settles_every_intent() -> None:
-    records = [
-        intent("a"),
-        fill("a", "0x1"),
-        booking("a", "0x1"),
-        intent("b", "sell"),
-        fill("b", "0x2", "sell"),
-        booking("b", "0x2", "sell"),
-        SUMMARY,
-    ]
+    records = [*order("a", tx(1)), *order("b", tx(2), "sell"), SUMMARY]
     ledger = reconcile_orders(records)
     assert ledger.settled == ("a", "b") and ledger.defects == ()
     status = run_status(LIVE_SCHEMA, records)
@@ -78,23 +122,23 @@ def test_round_trip_settles_every_intent() -> None:
             [
                 intent("a"),
                 intent("b"),
-                fill("a", "0x1"),
-                fill("b", "0x2"),
-                booking("a", "0x2"),
-                booking("b", "0x1"),
+                fill("a", tx(1)),
+                fill("b", tx(2)),
+                booking("a", tx(2)),
+                booking("b", tx(1)),
             ],
             "booking_mismatch",
         ),
         # Equal counts, but the fill is for another token than the intent.
-        ([intent("a"), fill("a", "0x1", token=OTHER), booking("a", "0x1")], "fill_mismatch"),
-        ([intent("a"), fill("a", "0x1"), fill("a", "0x1"), booking("a", "0x1")], "duplicate_fill"),
+        ([intent("a"), fill("a", tx(1), token=OTHER), booking("a", tx(1))], "fill_mismatch"),
+        ([intent("a"), fill("a", tx(1)), fill("a", tx(1)), booking("a", tx(1))], "duplicate_fill"),
         (
-            [intent("a"), fill("a", "0x1"), booking("a", "0x1"), booking("a", "0x1")],
+            [intent("a"), fill("a", tx(1)), booking("a", tx(1)), booking("a", tx(1))],
             "duplicate_booking",
         ),
         # A fill whose intent was never journaled cannot offset another open intent.
-        ([intent("a"), fill("z", "0x1"), booking("z", "0x1")], "live_fill_without_intent"),
-        ([intent("a"), fill("a", "0x1")], "live_fill_not_booked"),
+        ([intent("a"), fill("z", tx(1)), booking("z", tx(1))], "live_fill_without_intent"),
+        ([intent("a"), fill("a", tx(1))], "live_fill_not_booked"),
         ([intent("a")], "live_intent_without_outcome"),
         ([intent("a"), intent("a") | {"kind": "live_unresolved"}], "live_order_unresolved"),
         ([intent("a") | {"intent_id": None}], "intent_without_id"),
@@ -113,8 +157,8 @@ def test_mismatched_lifecycles_block_resume_even_with_equal_counts(
 def test_human_review_halt_blocks_without_any_unknown_order() -> None:
     records = [
         intent("a"),
-        fill("a", "0x1"),
-        booking("a", "0x1"),
+        fill("a", tx(1)),
+        booking("a", tx(1)),
         {"kind": "halt_review", "reason": "live_sell_refused", "token": TOKEN, "category": "x"},
         {"kind": "live_halt", "reasons": ["live_sell_refused"]},
         SUMMARY,
@@ -151,7 +195,7 @@ def test_report_and_resume_share_one_verdict(tmp_path: Path) -> None:
     start = {"kind": "live_start", "at": 1, "cash_usd_micros": 5}
     halt = {"kind": "halt_review", "reason": "live_sell_refused", "token": TOKEN}
     live_journal(
-        run, LIVE_SCHEMA, [start, intent("a"), fill("a", "0x1"), booking("a", "0x1"), halt, SUMMARY]
+        run, LIVE_SCHEMA, [start, intent("a"), fill("a", tx(1)), booking("a", tx(1)), halt, SUMMARY]
     )
     report = build_report(run)
     assert report["run_status"]["resumable"] is False
@@ -181,3 +225,92 @@ def test_shadow_journal_without_new_fields_still_resumes() -> None:
     paper = [{"kind": "paper_buy"}, {"kind": "paper_sell"}, SUMMARY]
     state = reconcile_with_journal(AgentState(0), paper, SHADOW_SCHEMA)
     assert state.cash_usd_micros == 5 and state.estimated_gas_usd_micros == 0
+
+
+def mutate(records: list[dict[str, Any]], kind: str, **change: Any) -> list[dict[str, Any]]:
+    """Copy `records`, changing (or with value None, removing) fields on one record kind."""
+    out = []
+    for original in records:
+        r = dict(original)
+        if r["kind"] == kind:
+            for key, value in change.items():
+                if value is None:
+                    r.pop(key, None)
+                else:
+                    r[key] = value
+        out.append(r)
+    return out
+
+
+BUY = order("a", tx(1))
+SELL = order("b", tx(2), "sell")
+
+
+@pytest.mark.parametrize(
+    ("records", "reason"),
+    [
+        # Identity: absent on both sides must not count as equal.
+        (mutate(BUY, "live_intent", wallet=None), "intent_identity_invalid"),
+        (
+            mutate(mutate(BUY, "live_intent", wallet=None), "live_fill", wallet=None),
+            "intent_identity_invalid",
+        ),
+        (mutate(BUY, "live_intent", chain_id=None), "intent_identity_invalid"),
+        (mutate(BUY, "live_intent", chain_id=True), "intent_identity_invalid"),
+        (mutate(BUY, "live_intent", token="0xABAB" + "ab" * 18), "intent_identity_invalid"),
+        (mutate(BUY, "live_fill", wallet="0x" + "11" * 20), "fill_mismatch"),
+        (mutate(BUY, "live_fill", tx_hash=None), "fill_tx_hash_invalid"),
+        (mutate(BUY, "live_fill", tx_hash="0x12"), "fill_tx_hash_invalid"),
+        # One transaction, two intents: neither is settled.
+        ([*BUY, *order("b", tx(1))], "tx_reused_across_intents"),
+        # Fill amounts against the exact-input intent.
+        (mutate(BUY, "live_fill", usdc_delta="-19999999"), "fill_amount_mismatch"),
+        (mutate(BUY, "live_fill", usdc_delta="20000000"), "fill_amount_mismatch"),
+        (mutate(BUY, "live_fill", token_delta="0"), "fill_amount_mismatch"),
+        (mutate(BUY, "live_fill", token_delta="1.5"), "fill_amount_invalid"),
+        (mutate(BUY, "live_intent", amount=None), "fill_amount_invalid"),
+        (mutate(SELL, "live_fill", token_delta="-399999"), "fill_amount_mismatch"),
+        (mutate(SELL, "live_fill", usdc_delta="-1"), "fill_amount_mismatch"),
+        # Booking amounts against the fill and the production cost/proceeds formula.
+        (mutate(BUY, "live_buy", units="999"), "booking_amount_mismatch"),
+        (mutate(BUY, "live_buy", usdc_spent_base_units=7), "booking_amount_mismatch"),
+        (mutate(BUY, "live_buy", cost_usd_micros=AMOUNT["buy"]), "booking_amount_mismatch"),
+        (mutate(BUY, "live_buy", estimated_gas_usd_micros=True), "booking_amount_invalid"),
+        (mutate(BUY, "live_buy", estimated_gas_usd_micros=-1), "booking_amount_invalid"),
+        (mutate(BUY, "live_buy", units=None), "booking_amount_invalid"),
+        (mutate(SELL, "live_sell", usdc_received_base_units=29_999_999), "booking_amount_mismatch"),
+        (mutate(SELL, "live_sell", proceeds_usd_micros=30_000_000), "booking_amount_mismatch"),
+        (mutate(SELL, "live_sell", units="1"), "booking_amount_mismatch"),
+    ],
+)
+def test_single_field_defects_are_refused_and_never_settled(
+    tmp_path: Path, records: list[dict[str, Any]], reason: str
+) -> None:
+    run = tmp_path / "run"
+    start = {"kind": "live_start", "at": 1, "cash_usd_micros": 5}
+    live_journal(run, LIVE_SCHEMA, [start, *records, SUMMARY])
+    retained = read_journal(run / "journal.db")[1]
+    status = build_report(run)["run_status"]
+    assert reason in status["blocking_reasons"] and status["resumable"] is False
+    # A defective chain is never counted as settled (shared tx: neither intent is).
+    assert status["settled_live_orders"] == 0
+    with pytest.raises(ValueError, match=reason):
+        reconcile_with_journal(AgentState(0), retained, LIVE_SCHEMA)
+
+
+def test_unresolved_order_without_hash_stays_unknown_not_invalid() -> None:
+    lost = intent("a") | {"kind": "live_unresolved", "category": "receipt_unavailable"}
+    status = run_status(LIVE_SCHEMA, [intent("a"), lost, SUMMARY])
+    assert status["blocking_reasons"] == ["live_order_unresolved"]
+    assert status["unknown_live_orders"] == 1 and status["settled_live_orders"] == 0
+
+
+def test_valid_buy_sell_round_trip_resumes_through_a_real_journal(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    live_journal(
+        run,
+        LIVE_SCHEMA,
+        [{"kind": "live_start", "at": 1, "cash_usd_micros": 5}, *BUY, *SELL, SUMMARY],
+    )
+    status = build_report(run)["run_status"]
+    assert status["resumable"] and status["settled_live_orders"] == 2

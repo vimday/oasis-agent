@@ -12,13 +12,20 @@ from oasis_agent.launch.spot_agent import (
     SpotAgent,
     reconcile_with_journal,
 )
-from oasis_agent.launch.spot_executor import Fill, LiveRefused, LiveUnresolved
+from oasis_agent.launch.spot_executor import (
+    APPROVED_WALLET,
+    Fill,
+    LiveExecutor,
+    LiveRefused,
+    LiveUnresolved,
+)
 from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA
 from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import resume, run_loop, save_state, tick_budget
 
 from .test_spot_agent import NOW, TOKEN, FakeCli
+from .test_spot_executor import FakeWallet, gate
 
 
 class Clock:
@@ -382,23 +389,24 @@ def test_refused_live_sell_halts_and_stays_halted_across_restart(tmp_path: Path)
     run = tmp_path / "run"
     cli = FakeCli()
 
-    class Seller(SubmittingExecutor):
-        def buy(self, token: str, usdc_amount: int) -> Any:
-            self.submissions += 1
-            tx = "0x" + "cd" * 32
-            body = {"intent_id": "i1", "side": "buy", "token": token, "execution_eligible": False}
-            self.emit("live_intent", body | {"kind": "live_intent"})  # type: ignore[attr-defined]
-            self.emit("live_fill", body | {"kind": "live_fill", "tx_hash": tx})  # type: ignore[attr-defined]
-            return Fill("buy", token, tx, 7, -usdc_amount, usdc_amount * 1_000, "i1")
-
-        def sell(self, token: str, units: int) -> Any:
-            raise LiveRefused("insufficient_balance")  # nothing submitted
-
+    # The real executor over a scripted wallet: the journal holds production-shaped
+    # intent/fill records, so the lifecycle checks see exactly what a live run writes.
+    wallet = FakeWallet(usdc=1_000_000_000)
+    wallet.fill_out = 200_000_000_000  # token units received for the 200 USD buy
     with open_live(run) as side:
-        executor = Seller(RuntimeError("unused"))
-        executor.emit = side.append  # type: ignore[attr-defined]
+        executor = LiveExecutor(
+            gate(),
+            read=wallet.read,
+            submit=wallet.submit,
+            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
+            emit=side.append,
+            clock=lambda: NOW,
+            sleep=lambda _s: None,
+            settle_attempts=1,
+        )
         assert run_live(run, executor, cli, ticks=1) == 0  # entry booked, run continues
-        cli.sell_ratio = (60, 100)  # stop-loss forces a sell that the wallet refuses
+        wallet.balances[TOKEN] = 0  # the tokens left the wallet outside the agent
+        cli.sell_ratio = (60, 100)  # stop-loss forces a sell the executor refuses
         assert run_live(run, executor, cli, ticks=5) == 4
     assert executor.submissions == 1  # no further entry after the refusal
     with pytest.raises(ValueError, match="human_review_halt"):
