@@ -135,7 +135,7 @@ def resume(out: Path, config: AgentConfig) -> tuple[AgentState, int]:
     policy, records = read_journal(journal_path)
     state = reconcile_with_journal(state, records, policy.get("schema"))
     # The call budget covers the whole run directory across restarts, including failed
-    # and interrupted cycles (see spot_budget): it can only grow.
+    # and interrupted cycles (see spot_budget): restarts never forget spent calls.
     return state, budget_ledger(records, legacy_error_charge(policy))["charged"]
 
 

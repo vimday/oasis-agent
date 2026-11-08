@@ -8,12 +8,18 @@ Before any work that can call a provider the runner journals `budget_reserve` wi
 worst case it may spend; afterwards it journals `budget_settle` with the calls it
 actually made. On restart `budget_ledger` charges every settled amount, and every
 reservation that was never settled at its full reserved amount: a process killed
-mid-cycle may have spent up to that, and the true number is unknowable. The charge can
-only grow; nothing here ever refunds or resets it.
+mid-cycle may have spent up to that, and the true number is unknowable. A settlement
+lowers its reservation's worst case to the confirmed usage; nothing else refunds or
+resets the charge, and no restart forgets spent calls or an unsettled reservation.
 
 Journals written before reservations existed are charged a conservative bound: their
 tick summaries, plus a full worst-case cycle for every failed tick (whose calls were
-never recorded), and never less than the last `budget_stop.calls_used` they journaled.
+never recorded), and never less than the largest `budget_stop.calls_used` they journaled.
+Every writer of those journals wrote both fields as plain non-negative ints, so any other
+value (missing, bool, float, string, negative) is not an old format and is refused.
+
+Budget events are exactly BUDGET_KINDS. Any other `budget_*` kind is an unsupported
+budget record whose spend cannot be known; it is refused, never treated as no spend.
 """
 
 from typing import Any
@@ -21,7 +27,8 @@ from typing import Any
 from .spot_executor import swap_call_bound
 
 Record = dict[str, Any]
-RESERVE, SETTLE = "budget_reserve", "budget_settle"
+RESERVE, SETTLE, STOP = "budget_reserve", "budget_settle", "budget_stop"
+BUDGET_KINDS = frozenset({RESERVE, SETTLE, STOP})
 
 
 def full_cycle_calls(enrich_top: int, max_positions: int, calls_per_swap: int = 0) -> int:
@@ -42,20 +49,32 @@ def _count(value: object) -> int | None:
     return value if type(value) is int and value >= 0 else None
 
 
+def _field(record: Record, name: str) -> int:
+    """A legacy call count that every writer wrote as a non-negative int."""
+    value = _count(record.get(name))
+    if value is None:
+        raise BudgetLedgerError(f"{record.get('kind')}.{name} is not a non-negative integer")
+    return value
+
+
 def budget_ledger(records: list[Record], legacy_error_charge: int) -> dict[str, Any]:
     """Logical calls charged to this run so far, and how much of it is confirmed.
 
-    The charge is monotone over a valid journal: settling replaces a reservation's
-    worst case with its (smaller or equal) confirmed usage, but no restart can forget
-    spent calls or an unsettled reservation. Malformed or conflicting budget events
-    raise BudgetLedgerError instead of silently becoming a lower charge.
+    Settling lowers a reservation's worst case to its (smaller or equal) confirmed
+    usage, so the charge is not monotone record by record; but no restart can forget
+    calls journaled as spent or a reservation never settled. Malformed, conflicting or
+    unsupported budget input raises BudgetLedgerError instead of becoming a lower charge.
     """
+    for r in records:
+        kind = r.get("kind")
+        if isinstance(kind, str) and kind.startswith("budget_") and kind not in BUDGET_KINDS:
+            raise BudgetLedgerError(f"unsupported budget event: {kind}")
     first = next((i for i, r in enumerate(records) if r.get("kind") == RESERVE), len(records))
     legacy = records[:first]
-    summaries = sum(int(r.get("provider_calls", 0)) for r in legacy if r["kind"] == "tick_summary")
+    summaries = sum(_field(r, "provider_calls") for r in legacy if r.get("kind") == "tick_summary")
     errors = sum(r.get("kind") == "tick_error" for r in legacy)
     stopped = max(
-        (int(r.get("calls_used", 0)) for r in legacy if r.get("kind") == "budget_stop"),
+        (_field(r, "calls_used") for r in legacy if r.get("kind") == STOP),
         default=0,
     )
     legacy_charge = max(summaries + errors * legacy_error_charge, stopped)

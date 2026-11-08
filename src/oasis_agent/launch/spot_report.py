@@ -99,11 +99,17 @@ def signal_quality(records: list[dict[str, Any]]) -> dict[str, Any]:
     return {"by_horizon_seconds": table, "verdict_1h": verdict}
 
 
-def paper_book(records: list[dict[str, Any]], initial_cash: int) -> dict[str, Any]:
-    """Closed-trade PnL, drawdown over tick NAVs, and per-exit-reason breakdown."""
+def paper_book(records: list[dict[str, Any]], initial_cash: int | None) -> dict[str, Any]:
+    """Closed-trade PnL, drawdown over tick NAVs, and per-exit-reason breakdown.
+
+    `initial_cash` None: a live book that was never observed (no live_start). Its cash,
+    equity and drawdown are unknown and stay None; they never fall back to paper cash.
+    """
     trades = [r for r in records if r["kind"] in ("paper_sell", "live_sell")]
     navs = [r["nav_usd_micros"] for r in records if r["kind"] == "tick_summary"]
-    peak, max_dd = initial_cash, 0
+    if initial_cash is None and navs:
+        raise ValueError("unobserved book cannot have tick NAVs")
+    peak, max_dd = initial_cash or 0, 0
     for nav in navs:
         peak = max(peak, nav)
         max_dd = max(max_dd, peak - nav)
@@ -117,7 +123,7 @@ def paper_book(records: list[dict[str, Any]], initial_cash: int) -> dict[str, An
         "realized_pnl_usd_micros": sum(pnls),
         "closed_trades": len(trades),
         "winning_trades": sum(p > 0 for p in pnls),
-        "max_drawdown_usd_micros": max_dd,
+        "max_drawdown_usd_micros": None if initial_cash is None else max_dd,
         "no_trade_baseline_pnl_usd_micros": 0,
         "by_exit_reason": {
             k: {"n": len(v), "pnl_usd_micros": sum(v)} for k, v in sorted(by_reason.items())
@@ -178,10 +184,15 @@ def build_report(run_dir: Path) -> dict[str, Any]:
     if live and not starts and any(r["kind"] == "tick_summary" for r in records):
         raise ValueError("live journal has ticks but no live_start record")
     # A live book starts from the wallet's observed USDC, never the configured paper cash.
+    # A live run stopped before that read (or before live_start was journaled) has an
+    # unobserved book: its cash and equity are unknown, not the paper default.
+    observed = bool(starts) or not live
     initial = (
         int(starts[0]["cash_usd_micros"])
         if starts
         else int(policy["config"]["initial_cash_usd_micros"])
+        if not live
+        else None
     )
     summaries = [r for r in records if r["kind"] == "tick_summary"]
     return {
@@ -202,7 +213,9 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         # ETH (not receipt fees); equity is strategy equity, never full-account NAV.
         "accounting": {
             "cash_basis": (
-                "legacy_v1_cash_net_of_estimated_gas"
+                "unobserved_no_live_start"
+                if not observed
+                else "legacy_v1_cash_net_of_estimated_gas"
                 if status["lifecycle"] == "live_v1_legacy"
                 else "wallet_usdc_observed"
                 if live
@@ -213,6 +226,10 @@ def build_report(run_dir: Path) -> dict[str, Any]:
             ),
             "gas_basis": "declared_per_leg_estimate_not_receipt_fees",
             "nav_scope": "strategy_equity_not_account_nav",
+            "book_observed": observed,
+            # open_positions lists what this run's strategy book recorded, never a wallet
+            # inventory: an empty list does not mean the wallet holds nothing.
+            "positions_scope": "strategy_book_not_wallet_inventory",
         },
     }
 

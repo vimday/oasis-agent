@@ -24,6 +24,7 @@ from scripts.run_spot_agent import resume
 
 from .test_spot_agent import NOW, FakeCli
 from .test_spot_executor import FakeWallet, gate
+from .test_spot_lifecycle import SUMMARY
 
 
 def reserve(key: str, amount: object) -> dict[str, Any]:
@@ -176,3 +177,53 @@ def test_failed_start_restarts_never_exceed_the_budget(
     assert kinds(run) == ["budget_reserve"] + ["budget_stop"] * 4
     _, charged = resume(run, AgentConfig())
     assert charged == 1
+
+
+def summary(calls: object) -> dict[str, Any]:
+    return SUMMARY | {"at": NOW, "provider_calls": calls}
+
+
+def stop(used: object) -> dict[str, Any]:
+    return {"kind": "budget_stop", "at": NOW, "calls_used": used, "open_positions": 0}
+
+
+@pytest.mark.parametrize(
+    ("rows", "message"),
+    [
+        ([stop(2.9)], "budget_stop.calls_used"),  # was truncated to 2
+        ([stop(True)], "budget_stop.calls_used"),
+        ([stop("3")], "budget_stop.calls_used"),
+        ([stop(-1)], "budget_stop.calls_used"),
+        ([{"kind": "budget_stop", "at": NOW}], "budget_stop.calls_used"),
+        ([summary(10), summary(-9)], "tick_summary.provider_calls"),  # was summed to 1
+        ([summary(1.5)], "tick_summary.provider_calls"),
+        ([{k: v for k, v in SUMMARY.items() if k != "provider_calls"}], "provider_calls"),
+        ([{"kind": "budget_future", "reserved": 106}], "unsupported budget event"),
+        ([reserve("a", 5), {"kind": "budget_refund", "used": 5}], "unsupported budget event"),
+    ],
+)
+def test_legacy_and_unknown_budget_input_is_refused_not_lowered(
+    tmp_path: Path, rows: list[dict[str, Any]], message: str
+) -> None:
+    run, policy, records = journal_records(tmp_path, rows)
+    with pytest.raises(BudgetLedgerError, match=message):
+        budget_ledger(records, legacy_error_charge(policy))
+    with pytest.raises(ValueError, match=message):
+        resume(run, AgentConfig())
+    with pytest.raises(ValueError, match=message):
+        build_report(run)
+
+
+def test_valid_legacy_journal_keeps_its_conservative_bound(tmp_path: Path) -> None:
+    error = {"kind": "tick_error", "at": NOW, "error_type": "OSError"}
+    rows = [summary(4), error, summary(3), stop(5), {"kind": "halt_review", "reason": "x"}]
+    run, policy, records = journal_records(tmp_path, rows)
+    charge = 4 + 3 + legacy_error_charge(policy)
+    assert budget_ledger(records, legacy_error_charge(policy))["charged"] == charge
+    assert resume(run, AgentConfig())[1] == charge
+    assert build_report(run)["operations"]["budget"]["charged"] == charge
+    # Then reserve/settle continue on top of the legacy charge.
+    with ExecutionJournal(run / "journal.db", policy) as journal:
+        journal.append("budget_reserve", reserve("a", 9) | {"execution_eligible": False})
+        journal.append("budget_settle", settle("a", 2) | {"execution_eligible": False})
+    assert resume(run, AgentConfig())[1] == charge + 2

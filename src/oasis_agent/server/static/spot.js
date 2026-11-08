@@ -85,25 +85,35 @@ export async function loadSpot() {
   const reasons = (run.blocking_reasons || []).map(r => BLOCK_LABEL[r] || r);
   const unknown = run.unknown_live_orders || 0;
   const gap = (run.transient_unpriceable || []).length;
+  // A live run that stopped before reading the wallet has no observed book: never show
+  // paper cash, a zero or "no positions" for it. Absent flag = observed (older servers).
+  const observed = (report.accounting || {}).book_observed !== false;
+  const UNOBSERVED = "未观测（未读取钱包余额）";
+  const money = v => observed ? usd(v) : UNOBSERVED;
+  const stopInfo = ops.budget_state || {};
+  const stopHeld = Number.isSafeInteger(stopInfo.open_positions)
+    ? `停止时策略持仓 ${stopInfo.open_positions}` : "停止时持仓未知";
+  const stopStage = (ops.last_budget_stop || {}).stage === "live_start_balance"
+    ? "启动前未能读取钱包余额" : "调用预算不足已停止";
   const banner = (live ? "实盘模式（Agentic Wallet）" : "影子模式")
     + (run.resumable ? "" : ` · ⛔ 不可恢复交易：${reasons.join("；")}`)
     + (unknown ? ` · ${unknown} 笔实盘订单结果未知` : "")
     + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "")
-    + ((ops.budget_state || {}).stopped
-      ? ` · 最近记录：调用预算不足已停止（停止时持仓 ${ops.budget_state.open_positions}）`
-      : "");
+    + (stopInfo.stopped ? ` · 最近记录：${stopStage}（${stopHeld}）` : "")
+    + (observed ? "" : " · 实盘账簿未初始化：现金、权益与钱包持仓均未观测");
   // Process liveness is not provable from a journal; say so instead of claiming "running".
   status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
   status.classList.toggle("danger", !run.resumable);
   renderStats("spot-stats", [
-    { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: usd(book.final_nav_usd_micros) },
+    { label: live ? "策略权益 USD（非全账户净值）" : "纸面净值 USD", value: money(book.final_nav_usd_micros) },
     ...(live ? [{ label: "估算 gas USD（声明值，非收据）",
       value: usd((report.accounting || {}).estimated_gas_usd_micros) }] : []),
     { label: "已实现 PnL USD", value: usd(book.realized_pnl_usd_micros),
       tone: book.realized_pnl_usd_micros < 0 ? "danger" : "" },
     { label: "平仓 / 盈利", value: book.closed_trades + " / " + book.winning_trades },
-    { label: "最大回撤 USD", value: usd(book.max_drawdown_usd_micros) },
-    { label: "持仓", value: report.open_positions.length },
+    { label: "最大回撤 USD", value: money(book.max_drawdown_usd_micros) },
+    // The strategy book's own positions, not a wallet inventory.
+    { label: "策略账簿持仓（非钱包盘点）", value: observed ? report.open_positions.length : UNOBSERVED },
     { label: "tick / 调用", value: ops.ticks + " / " + ops.provider_calls },
     { label: "历史停止复核次数", value: ops.halts, tone: ops.halts ? "warn" : "" },
     { label: "已计调用 / 其中未结算预留",
@@ -113,7 +123,7 @@ export async function loadSpot() {
   renderTable("spot-positions", ["代币", "数量", "成本 USD", "当前可卖 USD", "最高 USD", "开仓时间"],
     report.open_positions.map(p => [esc(p.symbol || p.token), esc(p.units), esc(usd(p.cost_usd_micros)),
       esc(usd(p.last_value_usd_micros)), esc(usd(p.high_water_usd_micros)), esc(when(p.opened_at))]),
-    "无持仓");
+    observed ? "策略账簿无持仓（不代表钱包无持仓）" : "实盘账簿未初始化，钱包持仓未观测");
   renderTable("spot-quality", ["周期", "决策", "样本", "中位收益", "平均收益", "P10 / P90", "上涨占比"],
     horizonRows(quality.by_horizon_seconds), "尚无到期的前向标签");
   const [decisions, flips] = await Promise.all([
