@@ -1,7 +1,9 @@
 # Oasis Agent Project Charter
 
-**Status:** Active project constitution  
-**Updated:** 2026-09-04  
+**Status:** Active project constitution
+
+**Updated:** 2026-11-08
+
 **Phase:** 1 — Multi-chain EVM automated LP with Uniswap v4 hooks; Robinhood initial benchmark
 
 ## 1. Vision
@@ -237,8 +239,11 @@ Every production feature must state which threats it addresses and which remain.
 
 The shared target architecture is defined in
 `docs/architecture/AUTONOMOUS_TRADING_SYSTEM.md`. Strategy-specific economic and operational rules
-live under `docs/strategies/`. The intentionally coarse cross-strategy ordering and dependency plan
-is in `docs/strategies/LONG_TERM_PROFIT_ROADMAP.md`; Phase 1 remains the only implementation priority.
+live under `docs/strategies/`. The [long-term roadmap](strategies/LONG_TERM_PROFIT_ROADMAP.md)
+defines dependencies and capital promotion order. Robinhood remains the Phase 1 LP research
+benchmark. The bounded Base LP canary exercises shared operating controls. Base autonomous spot
+work advances through offline and shadow research until its own release evidence exists.
+See [current implementation](CURRENT_IMPLEMENTATION.md) for verified status.
 
 ### Phase 2 — On-chain and crypto-venue arbitrage
 
@@ -279,6 +284,8 @@ when it worsens portfolio survival.
 | v4 primitives | `src/oasis_agent/uniswap_v4` | Canonical ABI, fee, PoolId, delta, state reconstruction |
 | LP research | `src/oasis_agent/farming` | Full replay, attribution, baselines, walk-forward tests |
 | Arbitrage | `src/oasis_agent/arbitrage` | Later-phase route simulator and atomic executor |
+| Base LP canary | `src/oasis_agent/live` | Bounded operations with fresh admission and durable reconciliation |
+| Base spot research | `src/oasis_agent/launch` | Cost-aware shadow evaluation and evidence for an independent release path |
 | Risk | `src/oasis_agent/risk` | Deterministic layered capital and execution policy |
 | Execution | `src/oasis_agent/execution` | Simulate/approve/sign/broadcast/verify with fail-closed gates |
 | Reporting | `src/oasis_agent/reporting` | Evidence-linked performance and security reports |

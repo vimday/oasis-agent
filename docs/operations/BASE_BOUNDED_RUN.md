@@ -7,6 +7,10 @@ number of Base strategy ticks. The default is one. Set `LIVE_TICKS=2` or
 one transaction through the existing authority. A completed hold does not imply
 a transaction or a profit.
 
+The [current evidence index](../CURRENT_IMPLEMENTATION.md#base-lp-验收记录) records the observed
+one- and two-tick holds and the refused three-tick attempt. Treat the runbook's supported tick
+range as a software limit. Each new attempt needs current authorization and fresh evidence.
+
 1. Stop the original two services with their existing 0600 STOP markers present.
    Keep the original state, receipt and RPC journals and the dedicated key
    volume. Use the selected local Docker Unix context. Export the existing
@@ -65,7 +69,10 @@ failure, timeout, SIGTERM and SIGINT go through the same cleanup path.
 
 Risk limits remain USD 500 total capital, USD 200 daily loss, USD 500 cumulative
 loss and a 1,800-second USD feed limit. The bounded entry uses a cumulative
-USD 3 RPC ceiling for this acceptance. It carries forward the USD 0.020155
+USD 3 ceiling in the reviewed acceptance profile. If current authorization is tighter, the
+operator must separately verify that the full worst-case scope fits before starting. A passing
+profile check does not verify a lower off-system cap or renew budget on restart.
+The profile carries forward the USD 0.020155
 conservative cost allowance recorded in terminal evidence
 `bc0069eb7645eae2b778149d01cd29827046bbdc124668eda607c61ff01630a0`.
 The original strategy and authority ledger prefixes at sequences 2259 and 2011

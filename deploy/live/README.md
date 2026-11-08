@@ -15,7 +15,7 @@ these local guards fail. Exit 0 means only `local_guards_passed: true`:
 `startup_prerequisites_passed`, `execution_eligible` and `evidence_replayed`
 remain false, including with all eight configured runtime roles. This default
 does not inspect Docker, original state, STOP, keys, environment values or RPC.
-`make live-docker` is the guarded **one-tick** Base operator entry. See
+`make live-docker` is the guarded Base LP operator entry for **one to three ticks**. The default is one. See
 [the bounded Base runbook](../../docs/operations/BASE_BOUNDED_RUN.md) for the
 preconditions, paid RPC ceiling, evidence files, cleanup and dashboard status.
 The CLI refuses a closed release before Docker, credentials or production state.

@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/oasis_agent/{rpc,evidence,config}/**/*.py"
+  - "src/oasis_agent/{rpc,evidence,config,live}/**/*.py"
   - "src/oasis_agent/config.py"
   - "scripts/**/*.py"
   - "configs/**/*"
@@ -12,8 +12,9 @@ paths:
 - Every decision-critical read is block-pinned. Resolve block tag to number and hash first; reject
   incoherent multi-call snapshots. `latest` is acceptable for observation only, never settlement.
 - Detect chain-ID mismatch, stale heads, block-hash change/reorg, missing receipts/logs, RPC disagreement,
-  partial responses, rate limits, and unsupported methods. Retry only idempotent operations with bounded
-  exponential backoff plus jitter and a total deadline.
+  partial responses, rate limits, and unsupported methods. Retry idempotent operations only when the
+  current runbook and authorization permit it, with a bounded deadline and backoff. A one-shot
+  acceptance attempt stops on the first refusal or 429.
 - Evidence identity includes kind, chain ID, block number/hash, source, request, response/payload hash,
   retrieval time, and schema version. Deduplication must never discard distinct provenance.
 - Canonicalize JSON before hashing. Store raw response separately from parsed interpretation so decoders

@@ -1,7 +1,8 @@
 # Oasis Agent Long-Term Profit Roadmap
 
-**Status:** Directional roadmap; Phase 1 remains the only implementation priority  
-**Updated:** 2026-09-04
+**Status:** Strategy dependencies and promotion order
+
+**Updated:** 2026-11-08
 
 ## 1. Portfolio thesis
 
@@ -24,7 +25,7 @@ zero allocation when capacity, competition, or regime changes remove the edge.
 
 | Stage | Strategy family | Candidate edge | Main reason for order |
 |---|---|---|---|
-| 1 | Robinhood v4 automated LP | Dynamic fee, range, routing, and reliable automation | Current target; builds the core chain ledger and risk loop |
+| 1 | Robinhood v4 automated LP | Dynamic fee, range, routing, and reliable automation | Phase 1 benchmark for the core chain ledger and risk loop |
 | 2 | Same-chain atomic arbitrage | Price inconsistency across pools/routes after all costs | Atomic settlement bounds leg risk and reuses v4 state |
 | 3 | Crypto spot-perp/perp-perp basis | Funding, basis convergence, maker spread | Market-structure edge, but introduces venue and liquidation risk |
 | 4 | On-chain inventory-aware market making | Quote spread plus rebates/fees net of adverse selection | Reuses fee/toxicity and execution models across venues |
@@ -207,8 +208,24 @@ own adversarial tests control production decisions.
 
 ## 11. Near-term focus rule
 
-Until the Robinhood v4 system completes exact replay, attribution, fork, shadow, routing, and canary
-gates, later strategies may receive only lightweight research notes and shared-interface design. They
-must not pull engineering effort into separate live executors. Phase 1 should leave behind reusable
-primitives, not a one-off bot, but shipping those primitives safely comes before expanding scope.
+Robinhood remains the Phase 1 LP research benchmark. Base is the current acceptance target for
+the shared data, valuation, risk, signing, settlement, and recovery path. Keep three work streams
+explicit:
+
+1. **Base LP operational acceptance.** Reproduce bounded start and stop under a current source and
+   budget scope. Record fresh NAV, exact simulation, and dual-ledger settlement when an eligible
+   action actually occurs. Separately evaluate the economics of the strategy and target pool.
+2. **Base autonomous spot research.** Develop point-in-time multi-source discovery, independently
+   priced entries and exits, and net performance comparisons in shadow. Measure the incremental
+   contribution of GMGN, OKX, and any authorized FOMO inputs on an untouched window. Exercise
+   slippage, capacity, stale input, and untradeable exits. Share custody, limits, and evidence
+   services before proposing any spot canary.
+3. **Later strategy research.** Advance atomic arbitrage, hedging, and allocation as the required
+   evidence and operational controls become reusable. A new venue or chain needs its own
+   independent admission and recovery evidence.
+
+The ordering above governs capital promotion and dependencies. It permits bounded offline and
+shadow experiments while operational gates are being completed. Engineering improvements should
+leave a reusable path from proposal to reconciliation, with independent risk and custody controls.
+See the [current evidence index](../CURRENT_IMPLEMENTATION.md) for observed results.
 

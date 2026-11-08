@@ -35,7 +35,7 @@ native LP currencies, partial coverage and mismatched receipts/balances refuse.
 The offline account report retains `lp_cash_proofs` for review. Existing sealed
 runs must not be overwritten; changed code/input requires a new offline run
 location. This does not grant a new acquisition budget or release authority.
-See [the bridge verification](../verification/ACCOUNT_LP_CASH_BRIDGE_20261008.md).
+See [cash-window evidence and accounting](PREPRODUCTION_COMPLETION.md) for the underlying proof model.
 
 ## Connected steps
 
@@ -132,7 +132,9 @@ produce a real Shadow journal and bounded calldata, forbid socket connections,
 and exercise cross-stage rejection and restart integrity. They establish the
 engineering connection; they do not supply real economic or canary acceptance.
 
-A retained, explicitly synthetic demonstration is also available:
+An explicitly synthetic demonstration can be replayed when its original local input bundle is
+present. Both example configurations reference files outside a fresh checkout. Restore the
+declared original inputs and verify their checkpoint hashes before running the command.
 
 ```sh
 make run WORKFLOW=configs/workflow.synthetic.json RUN_OUTPUT=reports/runs/synthetic-only
@@ -140,5 +142,7 @@ make run WORKFLOW=configs/workflow.synthetic.json RUN_OUTPUT=reports/runs/synthe
 
 That bundle and its completed result contain manufactured raw proofs for engineering
 verification only. Its seven completed stages do not change any financial gate.
-The default command continues to use the real retained market input and shows its
-missing account/position prerequisites. Neither command downloads replacement data.
+The default configuration also requires its local retained market input and checkpoint
+manifest. With those inputs present, missing account and position prerequisites are reported as
+blocked stages. Missing referenced files fail integrity checks before stage execution.
+Use `make report` for a fresh checkout's offline fixture report without these retained bundles.

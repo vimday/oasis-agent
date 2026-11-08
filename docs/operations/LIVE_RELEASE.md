@@ -1,19 +1,22 @@
 # Direct Base canary release boundary
 
-## Current status — 2026-11-04
+## Current release boundary
 
-The recorded owner release approval dated 2026-10-31 is distinct from current
-runtime readiness. Both production services remain stopped. Their historical
-journals still bind the earlier USDC age policy; the current ETH/USD and USDC/USD
-ceilings are both 1800 seconds. A fresh, complete two-source NAV is required before
-the explicit configuration migration can proceed. Migration preserves HALT and
-does not start either service or authorize a transaction.
+The recorded 2026-10-31 owner release approval has a defined scope. For a new bounded Base LP run,
+follow the [Base operator runbook](BASE_BOUNDED_RUN.md). Fresh complete two-source NAV, approved
+runtime and price policy, original budget and service journals, signing admission and verified
+cleanup are required for each run. The [evidence index](../CURRENT_IMPLEMENTATION.md) distinguishes
+real historical holds from the unaccepted three-tick run. The
+[public USD review](../verification/BASE_PUBLIC_USD_PRICING_20261107.md) records the price-policy
+transition, and [strict-feed migration](STRICT_FEED_MIGRATION.md) describes the earlier policy path.
 
-See [strict-feed migration](STRICT_FEED_MIGRATION.md),
-[current alignment verification](../verification/LIVE_ALIGNMENT_20261104.md), and
-[the OKX OnchainOS boundary](OKX_ONCHAINOS.md). Complete real-receipt/unwind
-acceptance and current production observations remain outstanding. Historical
-release approval, prior receipts and passing offline tests do not satisfy them.
+Offline readiness reports a release decision and static blockers. Read-only account checks use RPC.
+Recovery of an already pending transaction follows the separate operator procedure below and can
+update the original accounting. Historical approvals, settlements, simulations and successful
+shutdowns never renew the next run's authority or evidence.
+
+The Base autonomous spot strategy is shadow-only and uses
+[its own runbook](BASE_SPOT_SHADOW.md). The LP authority does not release spot execution.
 
 ## Historical release snapshot — 2026-10-17
 

@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/oasis_agent/{market_data,venues,strategies,portfolio,execution,risk}/**/*.py"
+  - "src/oasis_agent/{market_data,venues,strategies,portfolio,execution,risk,live,launch}/**/*.py"
   - "src/oasis_agent/{arbitrage,farming}/**/*.py"
   - "contracts/**/*.sol"
   - "tests/**/*{trading,market,venue,execution,arbitrage,portfolio}*.py"

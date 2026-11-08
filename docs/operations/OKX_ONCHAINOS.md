@@ -1,10 +1,13 @@
 # OKX OnchainOS boundary
 
-As reviewed against official documentation on 2026-11-04, the live integration
-supports one optional external price-ratio check before swap/mint. It is separate
-from block-pinned NAV, receipts, independent signing policy and release approval.
-Exits do not consult it. Discovery and historical candles are research tools;
-there is no OKX swap/broadcast, managed wallet or payment integration.
+The Base LP runtime supports one optional external price-ratio check before swap or mint.
+It is separate from block-pinned NAV, receipts, independent signing policy and release approval.
+Exits do not consult it. The price API details below were reviewed on 2026-11-04.
+
+The [Base spot shadow agent](BASE_SPOT_SHADOW.md) separately uses read-only OnchainOS market,
+security and quote commands. Its optional Agentic Wallet diagnostic reads identity and balances.
+Wallet credentials and CLI output carry no production authority. The autonomous spot entry
+refuses live mode. Neither integration issues OKX payment, swap execution or broadcast commands.
 
 The [price API](https://web3.okx.com/onchainos/dev-docs/market/market-price)
 uses `POST /api/v6/dex/market/price`, lowercase EVM contract addresses and

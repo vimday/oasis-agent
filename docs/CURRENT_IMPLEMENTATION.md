@@ -1,65 +1,56 @@
 # 当前实现与验证边界
 
-更新：2026-09-16。本文是维护入口；历史报告只证明其记录的代码、配置和区块。
-系统仍处于研究、观察和受控执行组件阶段，尚未证明持续盈利或生产运行资格。
-项目所有者于 2026-09-15 取消外部独立安全审计要求；这不构成审计通过，也不替代自动化安全验证与操作发布批准。
-本次复核结果见 [工程复核报告](../reports/engineering-review-20260915.md)。
+更新：2026-11-08。这里记录已实现能力、已验证结果和待解决问题。发布资格以具体代码、
+配置、当前证据和授权为准。历史验收记录适用于其原始范围。
 
-## 功能地图
+## 当前工作
 
-| 领域 | 已实现的工程能力 | 尚未成立的结论或待完成项 |
+| 路线 | 已实现 | 发布或研究边界 |
 | --- | --- | --- |
-| RPC 与证据 | 区块钉扎、原始信封留存、内容哈希与来源校验；SQLite 持久请求预算 | 两个来源标识不自动证明基础设施独立；生产可用性与长期数据完整性需持续验证 |
-| 持续行情 | 有界 pool-state 观察；双来源 slot0/Swap 原始回放、成熟窗口、延后样本、哈希链接检查点恢复 | 不是无人值守的完整补数系统；检查点最多 1000 个窗口，恢复/追加重放成本随历史增长 |
-| LP 特征与 shadow | 整数特征、费用带、范围/库存与再平衡决策；原子幂等消费、代码/配置锁定、断流 HALT | 尚未完成生产级上游行情、现金、风险、执行的持续闭环；决策不授权交易 |
-| 头寸与现金 | 双来源原始头寸快照；owner 原生币/ERC-20 现金校验、按 token 归属、原生支付与 gas 核账；双来源原始头寸/完整事件/动作时 owner/现金窗口整合 | 不等于全账户 NAV 或目标池长期净收益核账；共享 token、第三方支付等歧义必须拒绝或显式解决 |
-| 样本外研究 | R00/R01/R10/R11 walk-forward、purge、成本/路由弹性、回撤/尾损失；v2 逐折比较 hold 与各基线 | 仍缺生产目标未触碰样本外数据、置信区间与可部署盈利证据；fixture 不支持盈利声明 |
-| LP 执行准备 | 有界 RECENTER/REMOVE calldata；双来源模拟、角色绑定 runtime pins；账户/nonce 日志与恢复证明 | 模拟和准备不授予签名或发布权限；目标部署、独立证据复核及完整资金约束仍是发布前置条件 |
-| 签名组件 | 独立 calldata 策略、持久 nonce 预留；本地 Unix socket 摘要签名适配器、签名恢复验证 | 适配器不是密钥守护服务；默认 CLI 无生产 provider；仍需隔离部署、账户限额、运维与独立审查 |
-| 抢开盘与 meme | 多链目标配置、token reconnaissance、v3 holders 风险诊断与原始双来源持仓采集/复核 | 不是盈利的多链自动 meme 机器人；历史 Base live monitor 仍是独立原始密钥路径，不能作为统一托管生产入口 |
-| API 与前端 | 模块化观察控制台、整数保真、只读证据/决策/执行日志；操作鉴权、双人确认、受控 campaign、进程组停止和恢复 | 审批元数据不替代独立发布证据；API 保持执行门禁关闭；本次未重新进行完整手工浏览器验收 |
-| Solidity | 确定性有界费用 hook、LP 加仓白名单、原子 RECENTER/REMOVE executor；官方 core/periphery/Permit2 本地生命周期与回滚测试 | 当前 hook 不启用 afterSwap；动态状态发布器设计尚未实现；完整恶意 token/重入/目标 fork 安全战役仍缺；外部独立安全审计已按用户要求豁免 |
-| 多市场套利 | 架构、策略与风险规范及初步研究组件 | arbitrage 仍是脚手架，不是可执行跨市场套利系统 |
+| Base ETH/USDC v4 LP canary | 本机 Docker 一键有界入口，独立策略与签名服务，1–3 轮上限，完整配置范围内的 NAV、双源模拟、收据对账、双 STOP 恢复及只读仪表盘 | 已记录两轮真实持有验收。最近三轮尝试未启动。每次运行单独核定鲜度、费率、原预算、双账本和当次授权。 |
+| Base 自主现货 | OKX 热榜、信号、风险与报价，GMGN 可选交叉检查，FOMO 提名接口，回调入场及止损、止盈、跟踪和时间退出的纸面账簿，输入回放及历史收据复核 | 影子模式。原 OKX 组单与广播路径已移除。FOMO 未接入已授权数据。独立 NAV 与风险、交易绑定、双源模拟和结算闭环仍是发布前置条件。 |
+| Robinhood v4 LP | 固定区块头寸和报价验证、费用与库存特征、范围决策、现金归因、v4 合约生命周期与原子执行器 | Phase 1 经济研究基准。PONS/USDG 的外部 LP 权限、目标池真实路由与样本外净超额收益仍需证明。 |
+| 证据、账本和控制台 | 区块绑定、原始 RPC 回放、SQLite 请求预算和持久风险状态、只读财务状态和受鉴权的观察任务 | 控制台无法授权交易。日志匹配、显示估值和链上资金对账分别呈现，缺失证据保持未知。 |
+| 后续策略 | 原子套利、对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
 
-## 已有链上证据如何解释
+## Base LP 验收记录
 
-Robinhood 测试网的 35 笔测试交易和主网钉扎 fork 的合成 token 生命周期分别证明当时的
-测试生命周期与 runtime 兼容性；本次没有重新采集或广播。PONS/USDG 的失败报价与
-hookless ETH/STOCKHOOKS 的成功直接报价只适用于各自记录的区块和 PoolId，不能证明
-新 Oasis hook 池获得路由、成交量或净利润。具体标识和历史结果保留在
-[AGENTS.md](../AGENTS.md) 及 `reports/evidence/`。
+- 2026-11-07，公开 USD 数据策略解决了原 USDC 喂价更新周期与 1,800 秒上限不兼容的问题。新策略使用 Kraken 与 Bitstamp 的公开成交，
+  与签名预言机证明分别记录。
+  早期一次持有启动完成后，Docker 对签名服务升级为 KILL，退出码为 137。该记录保留。
+  见[价格策略及早期验收](verification/BASE_PUBLIC_USD_PRICING_20261107.md)。
+- 随后的 `73c2f50` 一轮及 `81bcaeb` 两轮记录均显示策略、签名服务退出码 0，双 STOP
+  恢复，历史收据复核通过。两轮记录是持有，新增成交结算为 0。其本地终验文件为
+  `reports/review-20261107/base-81bcaeb-two-ticks-terminal-verification.json`，自哈希为
+  `76669eb30b296a42998cd7aec760ec94a404663bce64d4413442d093001c1958`。
+- `81bcaeb` 三轮请求首次因策略 RPC 子限额在离线阶段拒绝。`1bb8fe0` 调整了完整流程的
+  预算校验，随后在线的无签名模拟仍因 dRPC HTTP 429 停止，未启动生产服务。后续
+  `9288432` 将限流原因纳入有界入口和前端诊断。本地终验文件为
+  `reports/review-20261107/base-rpc-budget-three-ticks-terminal-verification.json`，自哈希为
+  `34117149744497db4a2b6d6c1e652818bdcd71e10354cc3b38438559d7d76152`。
+- 较早的[付费只读复核](verification/LIVE_PAID_EVIDENCE_20261107.md)确认五笔原有收据和
+  一次无签名全封装退出模拟。历史持有、收据和退出模拟支持各自的验收范围。新的成交后
+  双账本结算和更长的自主运行仍需独立的真实验收。
 
-## 当前链与资金范围
+当前操作流程、原账本限额和 STOP 事故处理统一见 [Base LP 运行手册](operations/BASE_BOUNDED_RUN.md)。
+价格见证、RPC 账单与风险准入是三类不同证据。保守费用估计需与账单核验区分。
 
-用户报告 Base 有约 500 USD ETH、Robinhood 有几十 USD ETH；尚未实时核验。当前优先评估 Base，
-总投入 500 USD 按跨链合计约束。新增共享资金预留组件已经通过跨链并发测试，但旧 Base
-live monitor 尚未接入，不可将钱包余额或独立链配置视为额外预算。
+## Base 现货下一阶段
 
-## 当前发布阻塞项
+1. 用完整影子会话冻结输入、策略和对照。比较 OKX 信号与 GMGN 交叉验证的增量价值，
+   记录不可用数据、净交易成本、样本外表现和尾部损失。FOMO 需先有明确接入权限和数据契约。
+2. 构造仅允许的 Base 现货交易，固定路由、代码、账户、授权额度、最小到账和过期时间。
+   用独立账户风控和同区块双源模拟验收同一份交易，再由独立签名服务执行。
+3. 在原累计 RPC 预算下关联发送结果、双源收据、事件、余额和费用。结果不明时冻结新单，
+   验证人工接管与恢复，再为单独授权的 canary 提交证据。
 
-1. 目标池真实路由、持续完整行情和现金/头寸核账，以及经过冻结实验的样本外净超额收益。
-2. 完整目标安全验证、独立审查、持续 shadow 验收和可复现的故障退出演练。
-3. 隔离 signer 服务、发布批准和独立监控。已确认专用钱包、总投入 500 USD、日损 200 USD、累计亏损 500 USD；限额解析和持久亏损停机记录已实现，尚未接入真实 NAV、signer 和广播闭环。
-4. 将历史 Base live monitor 与统一账户、资金、证据、签名和核账边界整合后再考虑生产使用。
+[现货运行与回放](operations/BASE_SPOT_SHADOW.md)记录命令、证据范围与拒绝语义。
+没有已验证的持续净盈利。合成测试、冻结文件回放和真实签名或广播属于不同验收层次。
 
-`.env` 有私钥不能证明它属于独立 canary，也不能替代上述边界。观察进程应只获得所需的
-RPC 配置；签名服务独立持有密钥。默认 shadow runner 使用最小环境，campaign 仅显式
-传入必要的 RPC 变量。该环境隔离不阻止同一操作系统用户读取文件，仍需独立系统权限隔离。
+## 证据导航
 
-## 维护入口
-
-- [生产准备和完整现金窗口](operations/PREPRODUCTION_COMPLETION.md)：本轮入口、输入格式、审计豁免与剩余条件。
-
-- [贡献规范](../CONTRIBUTING.md)：锁定依赖、全量检查与安全门禁。
-- [服务接口](architecture/SERVICE_INTEGRATION_INTERFACES.md)、[控制台读模型](architecture/CONSOLE_READ_MODEL.md)：API 与展示所有权。
-- [行情管线](architecture/LP_MARKET_FEATURE_PIPELINE.md)、[RPC 使用](operations/ROBINHOOD_RPC_USAGE.md)：采集、预算、检查点和恢复。
-- [执行准备](architecture/LP_EXECUTION_PREPARATION.md)、[签名传输](security/LOCAL_SIGNER_TRANSPORT.md)：受限接口与尚未实现的部署边界。
-- [Phase 1 蓝图](strategies/ROBINHOOD_V4_AUTOLP_BLUEPRINT.md)、[托管模型](security/CUSTODY_AND_AGENT_KEY_MODEL.md)：权威目标与晋级条件。
-
-`docs/superpowers/` 内尚存设计是未完成的目标规范，不能据标题或任务勾选认定已发布。
-已被章程和蓝图替代的 2026-09-03 初始设计/脚手架计划已删除；原始证据、历史验证报告、
-仍待实现的动态费用控制器和头寸核账计划保留。测试数量应以日期报告为准，不在多个入口重复维护。
-
-## 2026-09-17 余额核实增量
-
-已增加有预算的双源原生币余额采集、原始 RPC 离线重建和同区块整数 ETH/USD 参考估值。Base 与 Robinhood 的真实固定区块余额、Base 预言机参考已复核；详见[生产准备记录](operations/PREPRODUCTION_COMPLETION.md)。这不等于完整 NAV、持续行情或实盘放行。
+- [Base 发布和恢复边界](operations/LIVE_RELEASE.md)
+- [Phase 1 实验锁](strategies/PHASE1_LP_EXPERIMENT_LOCK.md)和[生产准备记录](operations/PREPRODUCTION_COMPLETION.md)
+- [RPC 与证据管线](architecture/LP_MARKET_FEATURE_PIPELINE.md)和[控制台读模型](architecture/CONSOLE_READ_MODEL.md)
+- [历史证据报告](verification/)及本机 `reports/evidence/`。已提交的原始证据和失败记录应保留。
+  历史实现索引可通过 `git show 5cea5f7:AGENTS.md` 查询。
