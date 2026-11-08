@@ -75,8 +75,14 @@ Each USDC and token balance and supply change must be fully explained by the blo
 logs. The receipt rows must equal the block rows, and no other transaction may touch the wallet
 in that block. Any shortfall is reported as `residual`, `unverified` or `conflict`, with raw
 units. The check covers native, USDC and the order token only. It is still not account NAV,
-finality, or execution permission. No producer captures settlement proofs from frozen inputs
-yet.
+finality, or execution permission.
+
+`scripts.capture_spot_cost --with-settlement` produces those proofs from the same two frozen
+files. Each file must also answer the pinned block settlement reads of the fill's wallet. The
+bundle then gains `settlement.json`. It is published only when the settlement proofs read back
+as the bundle's own. Any other outcome is published and printed, including `residual`,
+`unverified` and receipts that contradict the block's own log list. Only the report's strict
+flag refuses it.
 
 ## Requirements for a future release
 

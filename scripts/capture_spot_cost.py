@@ -14,22 +14,31 @@ read once (hash-verified, read-only). BUNDLE_DIR must not exist; on success it h
       --cost-binding BUNDLE_DIR/binding.json --evidence BUNDLE_DIR/evidence.db
 
 replays the same fee. On any refusal nothing is published and the exit code is 2.
+
+`--with-settlement` also answers, from the same two files, the whole-block settlement
+reads of the fill's wallet (native, USDC and the order token at the fill's block) and
+adds `settlement.json`; add `--settlement-binding BUNDLE_DIR/settlement.json` to the
+report. The bundle is published only if those proofs read back as this bundle's own;
+a `residual`, `unverified` or `conflict` settlement is retained and printed, not hidden.
 """
 
 import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from oasis_agent.launch.spot_cost_binding import BASE_CHAIN_ID
 from oasis_agent.launch.spot_cost_capture import (
     DIGEST_FILE_BYTES,
     CostCaptureRefused,
     collect_order_cost,
+    collect_order_settlement,
     frozen_origin,
     frozen_sessions,
     load_frozen,
     write_cost_bundle,
+    write_settled_bundle,
 )
 from oasis_agent.launch.spot_report import read_journal
 
@@ -40,6 +49,11 @@ def main() -> int:
     parser.add_argument("--intent", required=True)
     parser.add_argument("--frozen", type=Path, action="append", default=[])
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--with-settlement",
+        action="store_true",
+        help="also capture both whole-block settlement proofs and write settlement.json",
+    )
     args = parser.parse_args()
     if len(args.frozen) != 2:
         parser.error("exactly two --frozen files (primary, secondary) are required")
@@ -57,19 +71,33 @@ def main() -> int:
         sessions = frozen_sessions(dict(zip(pair, frozen, strict=True)), chain_id=BASE_CHAIN_ID)
         _, records = read_journal(args.run / "journal.db")
         header, captures = collect_order_cost(records, args.intent, sources=pair, sessions=sessions)
-        view = write_cost_bundle(args.out, records, args.intent, header, captures, origin=origin)
+        settled: dict[str, Any] | None = None
+        if args.with_settlement:
+            settlements = collect_order_settlement(
+                records, args.intent, header, sources=pair, sessions=sessions
+            )
+            view, settled = write_settled_bundle(
+                args.out, records, args.intent, header, captures, settlements, origin=origin
+            )
+        else:
+            view = write_cost_bundle(
+                args.out, records, args.intent, header, captures, origin=origin
+            )
     except CostCaptureRefused as refused:
         print(f"spot cost capture refused: {refused.category}", file=sys.stderr)
         return 2
     except (OSError, ValueError) as error:
         print(f"spot cost capture refused: {type(error).__name__}", file=sys.stderr)
         return 2
-    print(
-        json.dumps(
-            {"bundle": str(args.out), "origin": view["origin"], **view["native_wei"]},
-            sort_keys=True,
-        )
-    )
+    summary: dict[str, object] = {
+        "bundle": str(args.out),
+        "origin": view["origin"],
+        **view["native_wei"],
+    }
+    if settled is not None:
+        # An observation, published either way; the report's strict flag decides use.
+        summary["settlement"] = {"status": settled["status"], "reason": settled["reason"]}
+    print(json.dumps(summary, sort_keys=True))
     return 0
 
 

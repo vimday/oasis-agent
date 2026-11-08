@@ -37,6 +37,11 @@ from ..evidence.rpc_capture import BoundedExchangeRecorder
 from ..evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from ..execution.account_capture import SessionFactory
 from ..execution.lp_receipts import collect_receipt_cost_quorum
+from ..farming.block_settlement import (
+    BlockSettlementCapture,
+    collect_block_settlement_quorum,
+    persist_block_settlement,
+)
 from ..farming.transaction_costs import TransactionCostCapture, persist_transaction_cost
 from ..models.chain import BlockSnapshot
 from ..models.common import canonical_json
@@ -44,6 +49,8 @@ from ..rpc.transport import JsonRpcTransport
 from .receipt_fee_contract import read_fee_record
 from .spot_cost_binding import BASE_CHAIN_ID, SCHEMA, bind_order_cost
 from .spot_lifecycle import reconcile_orders
+from .spot_settlement_check import SCHEMA as SETTLEMENT_SCHEMA
+from .spot_settlement_check import check_block_settlement, settlement_scope
 
 FROZEN_SCHEMA = "oasis.frozen-rpc.v1"
 Record = dict[str, Any]
@@ -203,6 +210,41 @@ def collect_order_cost(
     return header, captures
 
 
+def collect_order_settlement(
+    records: Sequence[Record],
+    intent_id: str,
+    header: BlockSnapshot,
+    *,
+    sources: tuple[str, str],
+    sessions: SessionFactory,
+) -> tuple[BlockSettlementCapture, BlockSettlementCapture]:
+    """Two agreeing whole-block settlement proofs of this fill's wallet at its own block.
+
+    The scope (wallet, USDC and the order token) comes from `settlement_scope`, the same
+    definition the check uses, and the block is the cost proofs' own pinned header.
+    """
+    fill, block_hash = _matched_fill(records, intent_id)
+    if (
+        header.ref.chain_id != BASE_CHAIN_ID
+        or header.ref.number != fill["block_number"]
+        or header.ref.block_hash != block_hash
+    ):
+        raise CostCaptureRefused("block_mismatch")
+    try:
+        wallet, tokens = settlement_scope(fill)
+    except (KeyError, TypeError, ValueError) as error:
+        raise CostCaptureRefused("settlement_scope_invalid") from error
+    try:
+        return collect_block_settlement_quorum(
+            header, wallet, tokens, sources=sources, sessions=sessions
+        )
+    except CostCaptureRefused:
+        raise
+    except (RpcError, ValueError, TypeError, KeyError, OSError) as error:
+        # A disagreement, a moved header or a request the frozen file cannot answer.
+        raise CostCaptureRefused("settlement_quorum_refused") from error
+
+
 def _header_json(header: BlockSnapshot) -> dict[str, Any]:
     ref = header.ref
     return {
@@ -212,6 +254,14 @@ def _header_json(header: BlockSnapshot) -> dict[str, Any]:
         "timestamp": ref.timestamp,
         "parent_hash": header.parent_hash,
     }
+
+
+Settlements = tuple[BlockSettlementCapture, BlockSettlementCapture]
+# Read-back outcomes that mean the written proofs are not what this run collected: every
+# `unbound` reason, an unreadable proof, and a provider disagreement the quorum already
+# excluded. A residual, another transaction in the block, or receipts that contradict the
+# block's own log list (two different RPC answers) are observations and are published.
+_NOT_THIS_BUNDLE = frozenset({"settlement_unreadable", "providers_disagree_on_block_settlement"})
 
 
 def write_cost_bundle(
@@ -228,12 +278,48 @@ def write_cost_bundle(
     `origin` (see `frozen_origin`) is retained inside both proofs' interpretations, so
     the bundle states its own origin wherever it is copied; it is never inferred.
     """
+    return _publish(out, records, intent_id, header, captures, None, origin)[0]
+
+
+def write_settled_bundle(
+    out: Path,
+    records: Sequence[Record],
+    intent_id: str,
+    header: BlockSnapshot,
+    captures: tuple[TransactionCostCapture, TransactionCostCapture],
+    settlements: Settlements,
+    *,
+    origin: dict[str, object],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """As `write_cost_bundle`, plus both block settlement proofs and `settlement.json`.
+
+    Published only when the settlement proofs bind and replay against this bundle's own
+    cost proofs (same scope, providers and origin). Any other settlement status is an
+    observation of the inputs (`residual`, `unverified`, `journal_mismatch`, or receipts
+    that contradict the block's own log list): it is retained and returned, never
+    discarded, and only the report's strict flag turns it into a refusal.
+    """
+    cost, settled = _publish(out, records, intent_id, header, captures, settlements, origin)
+    if settled is None:  # unreachable: _publish checks whenever it is given proofs
+        raise CostCaptureRefused("verification_settlement_missing")
+    return cost, settled
+
+
+def _publish(
+    out: Path,
+    records: Sequence[Record],
+    intent_id: str,
+    header: BlockSnapshot,
+    captures: tuple[TransactionCostCapture, TransactionCostCapture],
+    settlements: Settlements | None,
+    origin: dict[str, object],
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    pair = [captures[0].source, captures[1].source]
     inputs = origin.get("inputs")
-    if not isinstance(inputs, list) or [i.get("source") for i in inputs] != [
-        captures[0].source,
-        captures[1].source,
-    ]:
+    if not isinstance(inputs, list) or [i.get("source") for i in inputs] != pair:
         raise CostCaptureRefused("origin_sources_mismatch")
+    if settlements is not None and [s.source for s in settlements] != pair:
+        raise CostCaptureRefused("settlement_sources_mismatch")
     if out.exists() or out.is_symlink():
         raise CostCaptureRefused("output_exists")
     if not out.parent.is_dir():
@@ -243,29 +329,52 @@ def write_cost_bundle(
         store = EvidenceStore(staging / "evidence.db")
         try:
             refs = [persist_transaction_cost(store, capture, origin=origin) for capture in captures]
+            proofs = [
+                persist_block_settlement(store, capture, origin=origin)
+                for capture in settlements or ()
+            ]
         finally:
             store.close()
         binding = {
             "schema": SCHEMA,
             "intent_id": intent_id,
             "header": _header_json(header),
-            "providers": [captures[0].source, captures[1].source],
+            "providers": pair,
             "costs": [asdict(ref) for ref in refs],
+        }
+        declared = {
+            "schema": SETTLEMENT_SCHEMA,
+            "intent_id": intent_id,
+            "providers": pair,
+            "settlements": [asdict(ref) for ref in proofs],
         }
         reader = ReadOnlyEvidenceStore(staging / "evidence.db")
         try:
             view = bind_order_cost(list(records), binding, reader)
+            if view["status"] != "replayed":
+                raise CostCaptureRefused("verification_" + str(view.get("reason")))
+            if view.get("origin") != origin:
+                # The published bundle must read back as exactly what produced it.
+                raise CostCaptureRefused("verification_origin")
+            settled = (
+                None
+                if settlements is None
+                else check_block_settlement(list(records), binding, declared, reader)
+            )
         finally:
             reader.close()
-        if view["status"] != "replayed":
-            raise CostCaptureRefused("verification_" + str(view.get("reason")))
-        if view.get("origin") != origin:
-            # The published bundle must read back as exactly what produced it.
-            raise CostCaptureRefused("verification_origin")
+        if settled is not None and (
+            settled["status"] == "unbound" or settled["reason"] in _NOT_THIS_BUNDLE
+        ):
+            # The proofs do not read back as this bundle's own: never publish them.
+            raise CostCaptureRefused("verification_settlement_" + str(settled.get("reason")))
         with (staging / "binding.json").open("xb") as handle:
             handle.write(canonical_json(binding) + b"\n")
+        if settlements is not None:
+            with (staging / "settlement.json").open("xb") as handle:
+                handle.write(canonical_json(declared) + b"\n")
         os.rename(staging, out)  # one step: the directory appears complete or not at all
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
         raise
-    return view
+    return view, settled
