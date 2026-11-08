@@ -88,6 +88,44 @@ def _int(value: object) -> int | None:
     return value if type(value) is int else None
 
 
+# The assessment actions `assess` can emit for a candidate (hold/exit are positions).
+ASSESSED_ACTIONS = frozenset({"skip", "watch", "flip", "lp_candidate"})
+
+
+def _assessment_fields(r: Record) -> None:
+    """Shape of a production assessment record; never coerced, never defaulted.
+
+    Python equality treats 5783 == 5783.0 == True + 5782, so every compared field is
+    type-checked here before any comparison can run.
+    """
+    token = r.get("token")
+    if not isinstance(token, str):
+        raise ExperimentRefused("assessment_malformed", "token")
+    if _int(r.get("at")) is None or _int(r.get("score_bps")) is None:
+        raise ExperimentRefused("assessment_malformed", token)
+    if r.get("action") not in ASSESSED_ACTIONS or type(r.get("action")) is not str:
+        raise ExperimentRefused("assessment_malformed", token)
+    reasons = r.get("reasons")
+    if not isinstance(reasons, list) or not all(type(x) is str for x in reasons):
+        raise ExperimentRefused("assessment_malformed", token)
+    if not isinstance(r.get("label_registration"), str):
+        raise ExperimentRefused("registration_unknown", token)
+    if not isinstance(r.get("policy_sha256"), str) or "market" not in r:
+        raise ExperimentRefused("assessment_without_market_snapshot", token)
+
+
+def _label_fields(r: Record) -> None:
+    """Shape of a production outcome label (OutcomeTracker.label) before any use."""
+    token = r.get("token")
+    if not isinstance(token, str):
+        raise ExperimentRefused("label_malformed", "token")
+    for name in ("assessed_at", "score_bps", "horizon_seconds"):
+        if _int(r.get(name)) is None:
+            raise ExperimentRefused("label_malformed", token)
+    if r.get("action") not in ASSESSED_ACTIONS or type(r.get("action")) is not str:
+        raise ExperimentRefused("label_malformed", token)
+
+
 def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
     """Every assessment, recomputed by the real `assess` and checked against the record.
 
@@ -101,8 +139,7 @@ def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
     for r in records:
         if r.get("kind") != "assessment":
             continue
-        if "market" not in r or "policy_sha256" not in r:
-            raise ExperimentRefused("assessment_without_market_snapshot", str(r.get("token")))
+        _assessment_fields(r)
         if r["policy_sha256"] != digest:
             raise ExperimentRefused("policy_mismatch", str(r.get("token")))
         try:
@@ -116,8 +153,6 @@ def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
         seen.add((market.token, market.observed_at))
         if r.get("label_registration") not in REGISTRATION:
             raise ExperimentRefused("registration_unknown", market.token)
-        if _int(r.get("score_bps")) is None or not isinstance(r.get("reasons"), list):
-            raise ExperimentRefused("assessment_malformed", market.token)
         recomputed = assess(market, policy)
         if _assessment_record(recomputed) != (r["action"], r["score_bps"], r["reasons"]):
             raise ExperimentRefused("original_rule_not_reproduced", str(r.get("token")))
@@ -144,14 +179,10 @@ def _labels(records: list[Record]) -> dict[tuple[str, int, int], Record]:
     for r in records:
         if r.get("kind") != "outcome":
             continue
-        horizon = r.get("horizon_seconds")
-        if type(horizon) is not int:
-            raise ExperimentRefused("label_malformed", str(r.get("token")))
-        if horizon != HORIZON:
+        _label_fields(r)  # every horizon: a malformed 15 min label is still malformed
+        if r["horizon_seconds"] != HORIZON:
             continue
-        token, at = r.get("token"), _int(r.get("assessed_at"))
-        if not isinstance(token, str) or at is None:
-            raise ExperimentRefused("label_malformed", str(token))
+        token, at = r["token"], r["assessed_at"]
         status = r.get("status")
         if status == "observed":
             observed_at, value = _int(r.get("observed_at")), _int(r.get("forward_return_bps"))
@@ -196,6 +227,12 @@ def run_experiment(
     inputs: Record,
 ) -> dict[str, Any]:
     """The comparison report. `inputs` names the frozen evidence (digests, completeness)."""
+    if any(_int(v) is None for v in (start, end, label_cutoff)):
+        raise ExperimentRefused("window_malformed")
+    if evidence not in ("synthetic", "provider_claims", "unknown"):
+        raise ExperimentRefused("evidence_source_unknown")
+    if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
+        raise ExperimentRefused("records_malformed")
     if not start < end:
         raise ExperimentRefused("empty_window")
     if label_cutoff < end + HORIZON + MAX_LATENESS_SECONDS:

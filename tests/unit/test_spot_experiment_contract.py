@@ -164,8 +164,8 @@ def test_duplicate_and_conflicting_sample_identities_refuse(
     [
         (lambda r: r | {"label_registration": "maybe"}, "registration_unknown"),
         (lambda r: r | {"label_registration": None}, "registration_unknown"),
-        (lambda r: r | {"at": float(r["at"])}, "assessment_identity_mismatch"),
-        (lambda r: r | {"at": str(r["at"])}, "assessment_identity_mismatch"),
+        (lambda r: r | {"at": float(r["at"])}, "assessment_malformed"),
+        (lambda r: r | {"at": str(r["at"])}, "assessment_malformed"),
         (lambda r: r | {"score_bps": True}, "assessment_malformed"),
         (lambda r: r | {"reasons": "x"}, "assessment_malformed"),
     ],
