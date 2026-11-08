@@ -405,12 +405,31 @@ class SpotAgent:
             **live,
         )
 
-    def tick(self, now: int) -> list[Record]:
-        """One bounded cycle. Exits are managed before any new entry is considered."""
+    def tick(self, now: int, *, manage_only: bool = False) -> list[Record]:
+        """One bounded cycle; held positions are always checked and exited first.
+
+        Forward-outcome labels and discovery are optional research work: they run only
+        after every held position was managed, and a `manage_only` cycle (chosen by the
+        runner when the budget covers management but not a full cycle) skips them and
+        opens nothing. Deferred labels stay pending; when they are finally queried a
+        price outside their lateness window labels them `unobserved`, so a deferral can
+        never turn a later price into the decision-time outcome or drop the sample.
+        """
         out: list[Record] = []
         calls = self.provider_calls()
-        self._label_outcomes(now, out)
         self._manage(now, out)
+        if manage_only:
+            out.append(
+                self._summary(
+                    now,
+                    calls,
+                    cycle="manage_only",
+                    deferred=["outcome_labels", "discovery"],
+                    due_outcome_labels=len(self.state.outcomes.due(now)),
+                )
+            )
+            return out
+        self._label_outcomes(now, out)
         if any(r["kind"] == "halt_review" for r in out):
             out.append(self._summary(now, calls, entries_blocked="held_position_unpriceable"))
             return out

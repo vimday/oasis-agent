@@ -17,6 +17,7 @@ DECISIONS = frozenset(
         "live_intent",
         "live_fill",
         "live_halt",
+        "budget_stop",
         "paper_buy",
         "paper_sell",
         "live_buy",

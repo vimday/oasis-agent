@@ -22,7 +22,14 @@ from oasis_agent.launch.spot_executor import (
 from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA
 from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
-from scripts.run_spot_agent import resume, run_loop, save_state, tick_budget
+from scripts.run_spot_agent import (
+    manage_budget,
+    plan_cycle,
+    resume,
+    run_loop,
+    save_state,
+    tick_budget,
+)
 
 from .test_spot_agent import NOW, TOKEN, FakeCli
 from .test_spot_executor import FakeWallet, gate
@@ -145,7 +152,12 @@ def test_call_budget_spans_restarts(tmp_path: Path) -> None:
     _, spent = resume(run, AgentConfig())
     cli = FakeCli()
     _, code = loop(run, cli, 5, call_budget=spent + 10)
-    assert code == 0 and cli.calls == []  # budget already consumed by the earlier process
+    # The earlier process's usage still counts: no full cycle (no discovery, no entry),
+    # only management of the held position within the 10 remaining calls.
+    assert code == 0
+    assert {c[:2] for c in cli.calls} <= {("security", "token-scan"), ("swap", "quote")}
+    _, spent_after = resume(run, AgentConfig())
+    assert spent < spent_after <= spent + 10
 
 
 class Exploding(FakeCli):
@@ -427,4 +439,150 @@ def test_shadow_transient_errors_keep_resuming(tmp_path: Path) -> None:
     cli.fail = {("token", "hot-tokens")}  # discovery failure: observation-only
     loop(run, cli, 2)
     resume(run, AgentConfig())  # must not raise
+    assert build_report(run)["run_status"]["resumable"] is True
+
+
+def test_held_position_is_managed_before_outcome_labels() -> None:
+    cli = FakeCli()
+    bot = SpotAgent(OnchainosSource(cli, clock=lambda: NOW), AgentConfig())
+    bot.tick(NOW)
+    assert TOKEN in bot.state.positions and bot.state.outcomes.due(NOW + 3_600)
+    cli.calls.clear()
+    cli.sell_ratio = (60, 100)  # stop-loss at the same time labels fall due
+    records = bot.tick(NOW + 3_600)
+    first = [c[:2] for c in cli.calls[:3]]
+    assert first[0] == ("security", "token-scan") and first[1] == ("swap", "quote")
+    assert ("market", "prices") in [c[:2] for c in cli.calls]  # labels still run after
+    assert any(r["kind"] == "paper_sell" for r in records)
+
+
+def test_low_budget_runs_manage_only_cycles_and_then_stops_visibly(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    cli = FakeCli()
+    agent, _ = loop(run, cli, 1)
+    assert TOKEN in agent.state.positions
+    _, spent = resume(run, AgentConfig())
+    full = tick_budget(AgentConfig())
+    # Enough for one manage-only cycle (2 calls for one held position), not a full one.
+    budget = spent + 3
+    agent, code = loop(run, cli, 5, call_budget=budget)
+    assert code == 0
+    records = read_journal(run / "journal.db")[1]
+    after = [r for r in records if r["at"] > NOW or r["kind"] == "budget_stop"]
+    summaries = [r for r in records if r["kind"] == "tick_summary"]
+    managed = [s for s in summaries if s.get("cycle") == "manage_only"]
+    # Each manage-only cycle reserves its worst case (2 per held position) but may use
+    # less (a cached security read); cycles continue only while that worst case fits.
+    assert managed and all(0 < m["provider_calls"] <= 2 for m in managed)
+    assert all(m["deferred"] == ["outcome_labels", "discovery"] for m in managed)
+    assert not any(r["kind"] in ("paper_buy", "assessment") for r in after if r["at"] > NOW)
+    stop = records[-1]
+    assert stop["kind"] == "budget_stop" and stop["open_positions"] == 1
+    assert stop["calls_used"] <= budget and stop["reserved_needed"] < full
+    assert budget - stop["calls_used"] < stop["reserved_needed"]  # stopped only when needed
+    # Restart keeps cumulative usage, so the same budget admits no further cycle.
+    _, spent_again = resume(run, AgentConfig())
+    assert spent_again == stop["calls_used"] == spent + sum(m["provider_calls"] for m in managed)
+    _, code = loop(run, cli, 5, call_budget=budget)
+    assert code == 0 and read_journal(run / "journal.db")[1][-1]["kind"] == "budget_stop"
+    report = build_report(run)
+    assert report["operations"]["manage_only_ticks"] == len(managed)
+    assert report["operations"]["budget_stop"]["open_positions"] == 1
+    assert report["run_status"]["resumable"] is True  # resource stop is not a trading halt
+
+
+def test_manage_only_cycle_still_exits_on_stop_loss(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    cli = FakeCli()
+    loop(run, cli, 1)
+    _, spent = resume(run, AgentConfig())
+    cli.sell_ratio = (60, 100)
+    agent, code = loop(run, cli, 1, call_budget=spent + 2)
+    assert code == 0 and agent.state.positions == {}
+    records = read_journal(run / "journal.db")[1]
+    assert next(r for r in records if r["kind"] == "paper_sell")["reason"] == "stop_loss"
+
+
+def test_no_position_and_short_budget_stops_without_a_cycle(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    agent, code = loop(run, FakeCli(), 3, call_budget=10)
+    assert code == 0 and agent.provider_calls() == 0
+    records = read_journal(run / "journal.db")[1]
+    assert [r["kind"] for r in records] == ["budget_stop"]
+    assert records[0]["open_positions"] == 0
+
+
+def test_cycle_plan_never_exceeds_the_remaining_budget() -> None:
+    config = AgentConfig()
+    for remaining in range(0, tick_budget(config, 15) + 2):
+        for held in range(config.max_positions + 1):
+            for per_swap in (0, 15):
+                cycle, reserved = plan_cycle(remaining, held, config, per_swap)
+                if cycle != "stop":
+                    assert reserved <= remaining
+                if cycle == "manage_only":
+                    assert held and reserved == manage_budget(held, per_swap)
+
+
+def live_loop(run: Path, executor: Any, cli: FakeCli, ticks: int, budget: int) -> int:
+    state, spent = resume(run, AgentConfig())
+    agent = SpotAgent(
+        OnchainosSource(cli, clock=lambda: NOW), AgentConfig(), state, executor=executor
+    )
+    times = iter(range(NOW, NOW + 100_000, 60))
+    with ExecutionJournal(run / "journal.db", live_policy()) as journal:
+        return run_loop(
+            agent,
+            journal,
+            run / "state.json",
+            interval=60,
+            max_ticks=ticks,
+            call_budget=budget,
+            spent=spent,
+            should_stop=lambda: False,
+            clock=lambda: float(next(times)),
+            sleep=lambda s: None,
+        )
+
+
+@pytest.mark.parametrize("short", [0, 1])
+def test_live_manage_only_reserves_a_full_sell_or_submits_nothing(
+    tmp_path: Path, short: int
+) -> None:
+    run, cli = tmp_path / "run", FakeCli()
+    wallet = FakeWallet(usdc=1_000_000_000)
+    wallet.fill_out = 200_000_000_000
+
+    def executor_for(emit: Any) -> LiveExecutor:
+        # One executor per process, as in production: its call counter starts at zero.
+        return LiveExecutor(
+            gate(),
+            read=wallet.read,
+            submit=wallet.submit,
+            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
+            emit=emit,
+            clock=lambda: NOW,
+            sleep=lambda _s: None,
+            settle_attempts=1,
+        )
+
+    with open_live(run) as side:
+        assert live_loop(run, executor_for(side.append), cli, 1, 100_000) == 0  # buy booked
+        _, spent = resume(run, AgentConfig())
+        second = executor_for(side.append)
+        need = manage_budget(1, second.calls_per_swap())
+        wallet.fill_out = 150_000_000  # USDC the sell returns
+        cli.sell_ratio = (60, 100)  # stop-loss
+        submitted = len(wallet.submits)
+        code = live_loop(run, second, cli, 1, spent + need - short)
+    records = read_journal(run / "journal.db")[1]
+    assert code == 0
+    if short:
+        # Not enough for a worst-case sell: nothing is submitted and the stop is visible.
+        assert len(wallet.submits) == submitted
+        assert records[-1]["kind"] == "budget_stop" and records[-1]["open_positions"] == 1
+    else:
+        assert len(wallet.submits) == submitted + 1
+        assert any(r["kind"] == "live_sell" for r in records)
+        assert resume(run, AgentConfig())[1] <= spent + need  # never above the budget
     assert build_report(run)["run_status"]["resumable"] is True

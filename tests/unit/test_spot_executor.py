@@ -45,6 +45,9 @@ def balance_reply(token: str, raw: int | None) -> bytes:
     return json.dumps({"ok": True, "data": {"details": [{"tokenAssets": rows}]}}).encode()
 
 
+SCRIPTED_REPLY = json.dumps({"ok": True, "data": [{"txHash": TX}]}).encode()
+
+
 class FakeWallet:
     """Balances move only when `submit` runs; every call is recorded."""
 
@@ -53,7 +56,7 @@ class FakeWallet:
         self.reads: list[tuple[str, ...]] = []
         self.submits: list[tuple[str, ...]] = []
         self.fill_out = 7_000  # units received per swap
-        self.reply: bytes = json.dumps({"ok": True, "data": [{"txHash": TX}]}).encode()
+        self.reply: bytes = SCRIPTED_REPLY
         self.move = True
         self.submit_error: SourceFailure | None = None
 
@@ -74,6 +77,10 @@ class FakeWallet:
         if self.move:
             self.balances[src] -= amount
             self.balances[dst] += self.fill_out
+        if self.reply == SCRIPTED_REPLY and len(self.submits) > 1:
+            # A real wallet returns a new transaction per swap; only the first reuses TX.
+            fresh = "0x" + f"{len(self.submits):064x}"
+            return json.dumps({"ok": True, "data": [{"txHash": fresh}]}).encode()
         return self.reply
 
 

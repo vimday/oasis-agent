@@ -63,13 +63,15 @@ def _id(record: Record) -> str | None:
 def reconcile_orders(records: list[Record]) -> OrderLedger:
     defects: set[str] = set()
     intents: dict[str, Record] = {}
+    duplicated: set[str] = set()
     for r in records:
         if r.get("kind") != "live_intent":
             continue
         if (key := _id(r)) is None:
             defects.add("intent_without_id")
         elif key in intents:
-            defects.add("duplicate_intent")
+            # Attributed to that intent: it cannot also count as settled.
+            duplicated.add(key)
         else:
             intents[key] = r
 
@@ -106,6 +108,8 @@ def reconcile_orders(records: list[Record]) -> OrderLedger:
     for key, intent in intents.items():
         got, lost, booked = fills.get(key, []), unresolved.get(key, []), bookings.get(key, [])
         problems: set[str] = set()
+        if key in duplicated:
+            problems.add("duplicate_intent")
         if len(got) > 1:
             problems.add("duplicate_fill")
         if len(booked) > 1:
@@ -180,7 +184,8 @@ def _identity(record: Record) -> tuple[str, str, str, int] | None:
     token, wallet = _address(record.get("token")), _address(record.get("wallet"))
     if side not in BOOKING_KIND or token is None or wallet is None:
         return None
-    if isinstance(chain, bool) or chain != 8453:
+    # Exactly the int 8453: 8453.0 and True compare equal under `==` but are not chain ids.
+    if type(chain) is not int or chain != 8453:
         return None
     return str(side), token, wallet, 8453
 

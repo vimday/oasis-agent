@@ -26,6 +26,8 @@ const KIND_LABEL = {
 };
 const BLOCK_LABEL = {
   live_halt_recorded: "已记录实盘停机",
+  tx_reused_across_intents: "同一交易被多个订单引用",
+  intent_identity_invalid: "订单身份字段缺失或无效",
   human_review_halt: "卖出被拒，需人工处理持仓",
   live_intent_without_outcome: "有已提交但无结果的订单",
   live_order_unresolved: "有结果未确认的订单",
@@ -86,7 +88,8 @@ export async function loadSpot() {
   const banner = (live ? "实盘模式（Agentic Wallet）" : "影子模式")
     + (run.resumable ? "" : ` · ⛔ 不可恢复交易：${reasons.join("；")}`)
     + (unknown ? ` · ${unknown} 笔实盘订单结果未知` : "")
-    + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "");
+    + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "")
+    + (ops.budget_stop ? ` · 调用预算不足已停止（仍持仓 ${ops.budget_stop.open_positions}）` : "");
   // Process liveness is not provable from a journal; say so instead of claiming "running".
   status.textContent = `${banner} · 进程状态未知（仅日志） · 信号为提供商声明而非链上证明 · 最近 tick ${when(ops.last_at)} · 1 小时结论：${VERDICT[quality.verdict_1h] || quality.verdict_1h}`;
   status.classList.toggle("danger", !run.resumable);

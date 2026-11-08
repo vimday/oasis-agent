@@ -314,3 +314,24 @@ def test_valid_buy_sell_round_trip_resumes_through_a_real_journal(tmp_path: Path
     )
     status = build_report(run)["run_status"]
     assert status["resumable"] and status["settled_live_orders"] == 2
+
+
+def test_duplicate_intent_is_that_intents_defect_not_a_global_reset() -> None:
+    dup = [*BUY, intent("a"), *SELL, SUMMARY]
+    status = run_status(LIVE_SCHEMA, dup)
+    assert "duplicate_intent" in status["blocking_reasons"] and not status["resumable"]
+    # The duplicated buy is not settled; the independent, valid sell still is.
+    assert status["settled_live_orders"] == 1
+    assert reconcile_orders(dup).settled == ("b",)
+
+
+@pytest.mark.parametrize("chain", [8453.0, True, "8453", 8454])
+def test_chain_id_must_be_the_integer_8453(chain: object) -> None:
+    records = [
+        *mutate(mutate(BUY, "live_intent", chain_id=chain), "live_fill", chain_id=chain),
+        SUMMARY,
+    ]
+    status = run_status(LIVE_SCHEMA, records)
+    assert "intent_identity_invalid" in status["blocking_reasons"]
+    assert status["settled_live_orders"] == 0
+    assert run_status(LIVE_SCHEMA, [*BUY, SUMMARY])["resumable"] is True

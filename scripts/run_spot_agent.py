@@ -69,13 +69,41 @@ PRINTED = frozenset(
 )
 
 
-# Worst case per tick: hot + signals + enrich_top * (price, security, advanced, gmgn, 2 quotes)
-# + one sell quote and one security read per open position.
+# Budget unit: one logical provider query as counted by `provider_calls()` (one CLI
+# invocation the agent asked for). Transport retries inside `paced` are NOT counted, so
+# this bounds logical queries, not network requests.
+#
+# Worst case per full tick: hot + signals + enrich_top * (price, security, advanced, gmgn,
+# 2 quotes) + one sell quote and one security read per open position + batched outcome
+# price reads (at most MAX_PENDING / 40) + live swaps (every position sold, every slot
+# bought).
 def tick_budget(config: AgentConfig, calls_per_swap: int = 0) -> int:
-    # + batched forward-outcome price reads (at most MAX_PENDING / 40).
-    # + live swaps: at most every held position sold and every slot bought in one tick.
     swaps = 2 * config.max_positions
     return 2 + config.enrich_top * 6 + config.max_positions * 2 + 50 + swaps * calls_per_swap
+
+
+def manage_budget(held: int, calls_per_swap: int = 0) -> int:
+    """Worst case of a manage-only cycle: per held position a security read, a sell quote
+    and (live) one sell swap. Nothing else runs, so nothing else is reserved."""
+    return held * (2 + calls_per_swap)
+
+
+def plan_cycle(
+    remaining: int, held: int, config: AgentConfig, calls_per_swap: int
+) -> tuple[str, int]:
+    """("full" | "manage_only" | "stop", reserved calls) for the next cycle.
+
+    A full cycle needs its whole worst case. Otherwise held positions are still managed if
+    that worst case fits; with no position there is nothing necessary to do, so the run
+    stops rather than start a cycle it cannot finish.
+    """
+    full = tick_budget(config, calls_per_swap)
+    if remaining >= full:
+        return "full", full
+    need = manage_budget(held, calls_per_swap)
+    if held and remaining >= need:
+        return "manage_only", need
+    return "stop", full if not held else need
 
 
 def save_state(path: Path, state: AgentState) -> None:
@@ -132,10 +160,28 @@ def run_loop(
 ) -> int:
     """0 on a clean stop, 3 after repeated tick errors, 4 on an unresolved live order."""
     per_swap = agent.executor.calls_per_swap() if agent.executor is not None else 0
-    per_tick, ticks, errors = tick_budget(agent.config, per_swap), 0, 0
+    ticks, errors = 0, 0
     while not should_stop():
-        if spent + agent.provider_calls() + per_tick > call_budget:
-            print("call budget would be exceeded; stopping with state preserved")
+        used = spent + agent.provider_calls()
+        held = len(agent.state.positions)
+        cycle, reserved = plan_cycle(call_budget - used, held, agent.config, per_swap)
+        if cycle == "stop":
+            # Resource exhaustion, not a trading fault: journaled so the report can say
+            # why the run stopped and what it still holds. Not a live_halt.
+            stop_record: dict[str, Any] = {
+                "at": int(clock()),
+                "kind": "budget_stop",
+                "mode": agent.mode,
+                "execution_eligible": False,
+                "call_budget": call_budget,
+                "calls_used": used,
+                "reserved_needed": reserved,
+                "open_positions": held,
+                "due_outcome_labels": len(agent.state.outcomes.due(int(clock()))),
+            }
+            journal.append("budget_stop", stop_record)
+            print(json.dumps(stop_record, sort_keys=True), flush=True)
+            print("call budget cannot cover the next cycle; stopping with state preserved")
             return 0
         started = clock()
         # tick() returns its records only at the end, so a raise mid-tick would leave
@@ -144,7 +190,7 @@ def run_loop(
         submitted = agent.submissions()
         unresolved = False
         try:
-            records = agent.tick(int(started))
+            records = agent.tick(int(started), manage_only=cycle == "manage_only")
             errors = 0
             booked = sum(r["kind"] in ("live_buy", "live_sell") for r in records)
             if agent.submissions() - submitted != booked:

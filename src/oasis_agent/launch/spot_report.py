@@ -135,6 +135,10 @@ def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
         "last_at": ticks[-1]["at"] if ticks else None,
         "provider_calls": sum(t["provider_calls"] for t in ticks),
         "halts": sum(r["kind"] == "halt_review" for r in records),
+        "manage_only_ticks": sum(t.get("cycle") == "manage_only" for t in ticks),
+        # Resource exhaustion is not a trading fault and never blocks resume; shown so the
+        # operator knows why a run stopped and what it still held.
+        "budget_stop": next((r for r in reversed(records) if r["kind"] == "budget_stop"), None),
         "failures": dict(sorted(failures.items())),
         "kinds": dict(sorted(Counter(r["kind"] for r in records).items())),
     }
