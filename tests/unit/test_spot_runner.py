@@ -12,10 +12,10 @@ from oasis_agent.launch.spot_agent import (
     SpotAgent,
     reconcile_with_journal,
 )
-from oasis_agent.launch.spot_executor import LiveUnresolved
+from oasis_agent.launch.spot_executor import Fill, LiveRefused, LiveUnresolved
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
-from scripts.run_spot_agent import resume, run_loop, save_state
+from scripts.run_spot_agent import resume, run_loop, save_state, tick_budget
 
 from .test_spot_agent import NOW, TOKEN, FakeCli
 
@@ -173,6 +173,10 @@ class SubmittingExecutor:
         self.calls = 0
         self.submissions = 0
         self.error = error
+        self.gate = type("G", (), {"max_trade_usd_micros": 3_000_000_000})()
+
+    def calls_per_swap(self) -> int:
+        return 15
 
     def buy(self, token: str, usdc_amount: int) -> Any:
         self.submissions += 1
@@ -211,3 +215,84 @@ def test_live_loop_halts_after_any_unproven_submission(tmp_path: Path, error: Ex
     records = read_journal(tmp_path / "journal.db")[1]
     assert records[-1]["kind"] == "tick_error" and records[-1]["mode"] == "live"
     assert agent.state.positions == {}
+
+
+def test_live_tick_budget_reserves_worst_case_swap_calls() -> None:
+    config = AgentConfig()
+    assert tick_budget(config, 15) - tick_budget(config) == 2 * config.max_positions * 15
+
+
+def test_live_flag_on_a_shadow_directory_is_refused(tmp_path: Path) -> None:
+    run = tmp_path / "run"
+    loop(run, FakeCli(), 1)
+    live = {"schema": "oasis.spot-agent-live.v1", "config": AgentConfig().model_dump()}
+    with pytest.raises(ValueError, match="cannot change"):
+        ExecutionJournal(run / "journal.db", live)
+
+
+class SilentSubmitter(SubmittingExecutor):
+    """Submits but lets the tick finish without a booked trade (a swallowed outcome)."""
+
+    def buy(self, token: str, usdc_amount: int) -> Any:
+        self.submissions += 1
+        raise LiveRefused("pretend_refused")
+
+
+def test_submission_without_booked_trade_halts(tmp_path: Path) -> None:
+    executor = SilentSubmitter(RuntimeError("unused"))
+    agent = SpotAgent(
+        OnchainosSource(FakeCli(), clock=lambda: NOW),
+        AgentConfig(),
+        executor=executor,  # type: ignore[arg-type]
+    )
+    times = iter(range(NOW, NOW + 100_000, 60))
+    with ExecutionJournal(tmp_path / "journal.db", policy()) as journal:
+        code = run_loop(
+            agent,
+            journal,
+            tmp_path / "state.json",
+            interval=60,
+            max_ticks=5,
+            call_budget=100_000,
+            spent=0,
+            should_stop=lambda: False,
+            clock=lambda: float(next(times)),
+            sleep=lambda s: None,
+        )
+    assert code == 4 and executor.submissions == 1
+    last = read_journal(tmp_path / "journal.db")[1][-1]
+    assert last["category"] == "submission_without_booked_trade"
+
+
+class HalfBooked(SubmittingExecutor):
+    """First swap books a fill; a second hidden submission is never booked."""
+
+    def buy(self, token: str, usdc_amount: int) -> Any:
+        self.submissions += 2
+        return Fill("buy", token, "0x" + "cd" * 32, 7, -usdc_amount, usdc_amount * 1_000)
+
+
+def test_mismatch_keeps_booked_trade_records_and_halts(tmp_path: Path) -> None:
+    executor = HalfBooked(RuntimeError("unused"))
+    agent = SpotAgent(
+        OnchainosSource(FakeCli(), clock=lambda: NOW),
+        AgentConfig(),
+        executor=executor,  # type: ignore[arg-type]
+    )
+    times = iter(range(NOW, NOW + 100_000, 60))
+    with ExecutionJournal(tmp_path / "journal.db", policy()) as journal:
+        code = run_loop(
+            agent,
+            journal,
+            tmp_path / "state.json",
+            interval=60,
+            max_ticks=5,
+            call_budget=100_000,
+            spent=0,
+            should_stop=lambda: False,
+            clock=lambda: float(next(times)),
+            sleep=lambda s: None,
+        )
+    kinds = [r["kind"] for r in read_journal(tmp_path / "journal.db")[1]]
+    assert code == 4 and "live_buy" in kinds and kinds[-1] == "tick_error"
+    assert TOKEN in agent.state.positions  # the booked trade is not rolled back

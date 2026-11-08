@@ -139,9 +139,22 @@ def operations(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+LIVE_SCHEMA = "oasis.spot-agent-live.v1"
+
+
+def unresolved_live_orders(records: list[dict[str, Any]]) -> int:
+    """Live intents without a proven fill: explicit unresolved records or missing outcomes.
+
+    A process killed (or failing) after submission journals an intent but no outcome; it
+    must count as unresolved, not disappear.
+    """
+    kinds = Counter(str(r["kind"]) for r in records)
+    return max(kinds["live_intent"] - kinds["live_fill"], kinds["live_unresolved"])
+
+
 def build_report(run_dir: Path) -> dict[str, Any]:
     policy, records = read_journal(run_dir / "journal.db")
-    live = policy.get("schema") == "oasis.spot-agent-live.v1"
+    live = policy.get("schema") == LIVE_SCHEMA
     starts = [r for r in records if r["kind"] == "live_start"]
     if live and not starts and any(r["kind"] == "tick_summary" for r in records):
         raise ValueError("live journal has ticks but no live_start record")
@@ -155,7 +168,7 @@ def build_report(run_dir: Path) -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "mode": "live" if live else "shadow",
-        "unresolved_live_orders": sum(r["kind"] == "live_unresolved" for r in records),
+        "unresolved_live_orders": unresolved_live_orders(records),
         "execution_eligible": False,
         "evidence_level": "provider_claims_not_chain_attestations",
         "policy_sha256": sha256_hex(canonical_json(policy)),

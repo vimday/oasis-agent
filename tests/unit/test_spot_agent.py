@@ -493,15 +493,24 @@ class FakeExecutor:
 
     def __init__(self, refuse: str | None = None) -> None:
         self.calls = 0
+        self.submissions = 0
         self.orders: list[tuple[str, str, int]] = []
         self.refuse = refuse
+        self.raise_after_submit: Exception | None = None
+        self.gate = type("G", (), {"max_trade_usd_micros": 3_000 * USD})()
 
     def _fill(self, side: str, token: str, amount: int, usdc: int, units: int) -> Any:
         self.calls += 1
         self.orders.append((side, token, amount))
         if self.refuse is not None:
-            raise LiveRefused(self.refuse)
+            raise LiveRefused(self.refuse)  # refused before anything was submitted
+        self.submissions += 1
+        if self.raise_after_submit is not None:
+            raise self.raise_after_submit
         return Fill(side, token, "0x" + "cd" * 32, 77, usdc, units)  # type: ignore[arg-type]
+
+    def calls_per_swap(self) -> int:
+        return 15
 
     def buy(self, token: str, usdc_amount: int) -> Any:
         # Fill one percent fewer units than quoted.
@@ -613,3 +622,29 @@ def test_failing_nominator_does_not_block_other_discovery() -> None:
         nominators=[Nominator([], fail=True)],
     )
     assert any(r["kind"] == "paper_buy" for r in bot.tick(NOW))
+
+
+def test_live_entry_size_is_clamped_to_the_gate_cap() -> None:
+    cli, ex = FakeCli(), FakeExecutor()
+    ex.gate = type("G", (), {"max_trade_usd_micros": 20 * USD})()  # type: ignore[attr-defined]
+    bot = live_agent(cli, ex)
+    bot.tick(NOW)
+    # Uncapped size would be 200 USD (20% of 1000); the gate allows 20.
+    assert ex.orders == [("buy", TOKEN, 20 * USD)]
+
+
+def test_error_after_a_live_submission_is_never_swallowed_as_a_refused_quote() -> None:
+    # e.g. the journal refusing the live_fill write raises ValueError after the swap.
+    cli, ex = FakeCli(), FakeExecutor()
+    ex.raise_after_submit = ValueError("unexpected additional journal writes")
+    bot = live_agent(cli, ex)
+    with pytest.raises(ValueError, match="journal"):
+        bot.tick(NOW)
+    assert ex.submissions == 1
+
+
+def test_live_trade_records_carry_wallet_evidence_level() -> None:
+    cli, ex = FakeCli(), FakeExecutor()
+    bot = live_agent(cli, ex)
+    buy = next(r for r in bot.tick(NOW) if r["kind"] == "live_buy")
+    assert buy["evidence_level"] == "wallet_balance_delta_and_chain_receipt"

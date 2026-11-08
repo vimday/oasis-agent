@@ -20,6 +20,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from oasis_agent.errors import OasisError
 from oasis_agent.launch import gmgn_source
 from oasis_agent.launch.gmgn_source import GmgnSource
 from oasis_agent.launch.onchainos_source import (
@@ -69,9 +70,11 @@ PRINTED = frozenset(
 
 # Worst case per tick: hot + signals + enrich_top * (price, security, advanced, gmgn, 2 quotes)
 # + one sell quote and one security read per open position.
-def tick_budget(config: AgentConfig) -> int:
+def tick_budget(config: AgentConfig, calls_per_swap: int = 0) -> int:
     # + batched forward-outcome price reads (at most MAX_PENDING / 40).
-    return 2 + config.enrich_top * 6 + config.max_positions * 2 + 50
+    # + live swaps: at most every held position sold and every slot bought in one tick.
+    swaps = 2 * config.max_positions
+    return 2 + config.enrich_top * 6 + config.max_positions * 2 + 50 + swaps * calls_per_swap
 
 
 def save_state(path: Path, state: AgentState) -> None:
@@ -127,7 +130,8 @@ def run_loop(
     sleep: Callable[[float], None] = time.sleep,
 ) -> int:
     """0 on a clean stop, 3 after repeated tick errors, 4 on an unresolved live order."""
-    per_tick, ticks, errors = tick_budget(agent.config), 0, 0
+    per_swap = agent.executor.calls_per_swap() if agent.executor is not None else 0
+    per_tick, ticks, errors = tick_budget(agent.config, per_swap), 0, 0
     while not should_stop():
         if spent + agent.provider_calls() + per_tick > call_budget:
             print("call budget would be exceeded; stopping with state preserved")
@@ -136,11 +140,17 @@ def run_loop(
         # tick() returns its records only at the end, so a raise mid-tick would leave
         # mutations (e.g. a paper buy) that were never journaled. Roll them back.
         before = copy.deepcopy(agent.state)
-        submitted = agent.executor.submissions if agent.executor is not None else 0
+        submitted = agent.submissions()
         unresolved = False
         try:
             records = agent.tick(int(started))
             errors = 0
+            booked = sum(r["kind"] in ("live_buy", "live_sell") for r in records)
+            if agent.submissions() - submitted != booked:
+                # Keep what was booked (those trades are real) and halt for the rest.
+                unresolved = True
+                error_record = _error_record(int(started), LiveUnresolved("x"), 1, agent.mode)
+                records.append(error_record | {"category": "submission_without_booked_trade"})
         except LiveUnresolved as error:
             # A swap may have executed without a proven fill: never tick again on a book
             # that may be wrong. The executor already journaled intent and outcome.
@@ -153,7 +163,7 @@ def run_loop(
             agent.state = before
             records = [_error_record(int(started), error, errors, agent.mode)]
             # Rolling back a book after a real swap would forget it; halt for review.
-            if agent.executor is not None and agent.executor.submissions != submitted:
+            if agent.submissions() != submitted:
                 unresolved = True
         for record in records:
             journal.append(record["kind"], record)
@@ -174,6 +184,50 @@ def run_loop(
         while not should_stop() and clock() < started + interval:
             sleep(1)
     return 0
+
+
+def _build_agent(
+    args: argparse.Namespace,
+    gate: LiveGate | None,
+    config: AgentConfig,
+    state: AgentState,
+    source: OnchainosSource,
+    gmgn: GmgnSource | None,
+    journal: ExecutionJournal,
+) -> SpotAgent:
+    """The agent for this run; with a gate, a live executor bound to the run's journal."""
+    if gate is None:
+        return SpotAgent(source, config, state, gmgn=gmgn)
+    rpc = RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453)
+    executor = LiveExecutor(
+        gate,
+        read=paced(run_cli(args.binary)),
+        # Unpaced and unretried: a swap is submitted exactly once.
+        submit=run_cli(args.binary, timeout=LIVE_SUBMIT_TIMEOUT_SECONDS),
+        receipt=rpc_receipt_reader(rpc),
+        emit=journal.append,
+    )
+    if not any(r["kind"] == "live_start" for r in read_journal(journal.path)[1]):
+        # Fresh live run: the book is the wallet's own USDC and nothing else. Paper
+        # positions/PnL from a leftover state file must never become live holdings.
+        state = AgentState(
+            executor.balance(BASE_USDC),
+            cooldown_until=state.cooldown_until,
+            security=state.security,
+            outcomes=state.outcomes,
+        )
+        journal.append(
+            "live_start",
+            {
+                "at": int(time.time()),
+                "kind": "live_start",
+                "mode": "live",
+                "execution_eligible": False,
+                "cash_usd_micros": state.cash_usd_micros,
+                **gate.describe(),
+            },
+        )
+    return SpotAgent(source, config, state, gmgn=gmgn, executor=executor)
 
 
 def main() -> int:
@@ -230,7 +284,8 @@ def main() -> int:
         except LiveRefused as refused:
             print(f"live preflight refused: {refused.category}", file=sys.stderr)
             return 2
-        except (ValueError, OSError) as error:
+        except (ValueError, OSError, OasisError) as error:
+            # Type only: RPC errors can embed the endpoint URL.
             print(f"live preflight refused: rpc_{type(error).__name__}", file=sys.stderr)
             return 2
         print(json.dumps({"live_preflight": "passed", **checked}, sort_keys=True), flush=True)
@@ -258,31 +313,19 @@ def main() -> int:
     if gate is not None:
         # A distinct policy makes the journal refuse a shadow directory resumed as live.
         policy = policy | {"schema": "oasis.spot-agent-live.v1", "gate": gate.describe()}
-    with ExecutionJournal(args.out / "journal.db", policy) as journal:
-        executor = None
-        if gate is not None:
-            rpc = RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453)
-            executor = LiveExecutor(
-                gate,
-                read=paced(run_cli(args.binary)),
-                # Unpaced and unretried: a swap is submitted exactly once.
-                submit=run_cli(args.binary, timeout=LIVE_SUBMIT_TIMEOUT_SECONDS),
-                receipt=rpc_receipt_reader(rpc),
-                emit=journal.append,
-            )
-            if not any(r["kind"] == "live_start" for r in read_journal(args.out / "journal.db")[1]):
-                # Fresh live run: cash is the wallet's own USDC, never a configured number.
-                state.cash_usd_micros = executor.balance(BASE_USDC)
-                start = {
-                    "at": int(time.time()),
-                    "kind": "live_start",
-                    "mode": "live",
-                    "execution_eligible": False,
-                    "cash_usd_micros": state.cash_usd_micros,
-                    **gate.describe(),
-                }
-                journal.append("live_start", start)
-        agent = SpotAgent(source, config, state, gmgn=gmgn, executor=executor)
+    try:
+        journal_context = ExecutionJournal(args.out / "journal.db", policy)
+    except ValueError as error:
+        # e.g. a shadow run directory reopened with --live: the policy binding refuses.
+        print(f"spot agent refused to open journal: {error}", file=sys.stderr)
+        return 2
+    with journal_context as journal:
+        try:
+            agent = _build_agent(args, gate, config, state, source, gmgn, journal)
+        except (ValueError, OSError, OasisError) as error:  # SourceFailure is a ValueError
+            # Nothing has been submitted yet; refuse without a traceback or URL.
+            print(f"live start refused: {type(error).__name__}", file=sys.stderr)
+            return 2
         return run_loop(
             agent,
             journal,

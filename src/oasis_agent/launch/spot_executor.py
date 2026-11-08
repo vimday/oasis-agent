@@ -31,8 +31,8 @@ _HASH = re.compile(r"^0x[0-9a-f]{64}$")
 
 Side = Literal["buy", "sell"]
 Emit = Callable[[str, dict[str, Any]], object]
-# (status, block_number) once mined, None while unavailable. Raises on RPC failure.
-ReceiptReader = Callable[[str], tuple[int, int] | None]
+# (status, block_number, sender) once mined, None while unavailable. Raises on RPC failure.
+ReceiptReader = Callable[[str], tuple[int, int, str] | None]
 
 
 class LiveRefused(Exception):
@@ -180,13 +180,14 @@ def parse_tx_hash(raw: bytes) -> str | None:
         return None
     data = root.get("data")
     rows = data if isinstance(data, list) else [data]
-    hashes = {
-        str(r.get(key, "")).lower()
-        for r in rows
-        if isinstance(r, dict)
-        for key in ("txHash", "swapTxHash")
-        if r.get(key)
-    }
+    # `swapTxHash` names the swap itself; a reply that also reports an approve under
+    # `txHash`/`approveTxHash` must not be mistaken for it. Fall back to `txHash` only
+    # when no swap-specific field exists. Exactly one distinct hash, or nothing.
+    hashes: set[str] = set()
+    for key in ("swapTxHash", "txHash"):
+        hashes = {str(r[key]).lower() for r in rows if isinstance(r, dict) and r.get(key)}
+        if hashes:
+            break
     if len(hashes) != 1:
         return None
     (value,) = hashes
@@ -222,6 +223,10 @@ class LiveExecutor:
         # Swaps handed to the wallet, whatever their outcome; the loop halts on any
         # tick error after a submission rather than rolling back a real trade.
         self.submissions = 0
+
+    def calls_per_swap(self) -> int:
+        """Worst-case CLI calls of one swap: two balances, submit, settle-attempt balances."""
+        return 3 + 2 * self._settle
 
     def balance(self, token: str) -> int:
         self.calls += 1
@@ -282,7 +287,10 @@ class LiveExecutor:
         mined = self._await_receipt(tx_hash)
         if mined is None:
             raise self._unresolved(base, "receipt_unavailable", tx_hash)
-        status, block = mined
+        status, block, sender = mined
+        if sender != self.gate.wallet:
+            # A status-1 receipt of someone else's transaction proves nothing about ours.
+            raise self._unresolved(base, "receipt_not_from_wallet", tx_hash)
         if status != 1:
             raise self._unresolved(base, "reverted", tx_hash)
         settled = self._await_settlement(side, token, amount, usdc0, token0)
@@ -293,7 +301,7 @@ class LiveExecutor:
         self._journal("live_fill", **(base | fill.record()))
         return fill
 
-    def _await_receipt(self, tx_hash: str) -> tuple[int, int] | None:
+    def _await_receipt(self, tx_hash: str) -> tuple[int, int, str] | None:
         waited = 0.0
         while True:
             try:
@@ -327,16 +335,21 @@ class LiveExecutor:
 
 
 def rpc_receipt_reader(client: Any) -> ReceiptReader:
-    """Receipt status/block from a chain-pinned `RpcClient`; None while not yet mined."""
+    """Receipt status/block/sender from a chain-pinned `RpcClient`; None while not mined."""
 
-    def read(tx_hash: str) -> tuple[int, int] | None:
+    def read(tx_hash: str) -> tuple[int, int, str] | None:
         try:
             receipt = client.get_receipt(tx_hash)
         except ValueError as error:
             if "not available" in str(error):
                 return None
             raise
-        return receipt.status, receipt.block_number
+        # `Receipt` does not carry `from`; read it from the same raw receipt object.
+        raw = client.transport.request("eth_getTransactionReceipt", [receipt.transaction_hash])
+        sender = raw.get("from") if isinstance(raw, dict) else None
+        if not isinstance(sender, str):
+            raise ValueError("receipt has no sender")
+        return receipt.status, receipt.block_number, normalize_address(sender)
 
     return read
 

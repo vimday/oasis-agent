@@ -6,12 +6,15 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..launch.spot_report import build_report, read_journal, recent
+from ..launch.spot_report import LIVE_SCHEMA, build_report, read_journal, recent
 from .deps import State
 
 router = APIRouter(prefix="/api/v1/spot", tags=["spot"])
 DECISIONS = frozenset(
     {
+        "live_start",
+        "live_intent",
+        "live_fill",
         "paper_buy",
         "paper_sell",
         "live_buy",
@@ -22,6 +25,10 @@ DECISIONS = frozenset(
         "mark_missed",
     }
 )
+
+
+def _mode(policy: dict[str, Any]) -> str:
+    return "live" if policy.get("schema") == LIVE_SCHEMA else "shadow"
 
 
 def _run_dir(state: State) -> Path:
@@ -53,9 +60,9 @@ def report(state: State) -> dict[str, Any]:
 
 @router.get("/decisions")
 def decisions(state: State, limit: Annotated[int, Query(ge=1, le=500)] = 100) -> dict[str, Any]:
-    _, records = _guard(_run_dir(state))
+    policy, records = _guard(_run_dir(state))
     items = recent(records, DECISIONS, limit)
-    return {"execution_eligible": False, "mode": "shadow", "items": items, "total": len(items)}
+    return {"execution_eligible": False, "mode": _mode(policy), "items": items, "total": len(items)}
 
 
 @router.get("/assessments")
@@ -64,10 +71,10 @@ def assessments(
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     action: Annotated[str | None, Query(pattern="^(flip|watch|skip|lp_candidate)$")] = None,
 ) -> dict[str, Any]:
-    _, records = _guard(_run_dir(state))
+    policy, records = _guard(_run_dir(state))
     rows = [
         r
         for r in recent(records, frozenset({"assessment"}), 5_000)
         if action is None or r["action"] == action
     ][:limit]
-    return {"execution_eligible": False, "mode": "shadow", "items": rows, "total": len(rows)}
+    return {"execution_eligible": False, "mode": _mode(policy), "items": rows, "total": len(rows)}

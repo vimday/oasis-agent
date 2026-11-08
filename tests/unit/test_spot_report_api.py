@@ -7,7 +7,11 @@ from typing import Any
 
 from oasis_agent.launch.onchainos_source import OnchainosSource
 from oasis_agent.launch.spot_agent import AgentConfig, SpotAgent
-from oasis_agent.launch.spot_report import build_report, signal_quality
+from oasis_agent.launch.spot_report import (
+    build_report,
+    signal_quality,
+    unresolved_live_orders,
+)
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import save_state
 
@@ -174,3 +178,12 @@ def test_live_journal_without_start_record_fails_closed(tmp_path: Path) -> None:
     except ValueError:
         return
     raise AssertionError("live report without live_start must refuse")
+
+
+def test_intent_without_outcome_counts_as_unresolved() -> None:
+    def kinds(*names: str) -> list[dict[str, Any]]:
+        return [{"kind": n} for n in names]
+
+    assert unresolved_live_orders(kinds("live_intent", "live_fill")) == 0
+    assert unresolved_live_orders(kinds("live_intent", "tick_error")) == 1
+    assert unresolved_live_orders(kinds("live_intent", "live_unresolved")) == 1

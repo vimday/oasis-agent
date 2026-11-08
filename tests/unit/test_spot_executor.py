@@ -17,6 +17,7 @@ from oasis_agent.launch.spot_executor import (
     parse_native_balance,
     parse_tx_hash,
     preflight,
+    rpc_receipt_reader,
     swap_argv,
 )
 
@@ -78,7 +79,7 @@ class FakeWallet:
 
 def executor(
     wallet: FakeWallet,
-    receipt: Any = lambda _tx: (1, 123),
+    receipt: Any = lambda _tx: (1, 123, APPROVED_WALLET),
     journal: list[tuple[str, dict[str, Any]]] | None = None,
 ) -> LiveExecutor:
     log = journal if journal is not None else []
@@ -150,6 +151,11 @@ def test_tx_hash_parser_requires_exactly_one_canonical_hash() -> None:
 
     assert parse_tx_hash(reply({"txHash": TX})) == TX
     assert parse_tx_hash(reply({"txHash": TX}, {"swapTxHash": TX})) == TX
+    approve = "0x" + "aa" * 32
+    assert (
+        parse_tx_hash(reply({"approveTxHash": approve, "txHash": approve, "swapTxHash": TX})) == TX
+    )
+    assert parse_tx_hash(reply({"swapTxHash": TX}, {"swapTxHash": approve})) is None
     assert parse_tx_hash(reply({"txHash": TX}, {"txHash": "0x" + "ee" * 32})) is None
     assert parse_tx_hash(reply({"txHash": "0x12"})) is None
     assert parse_tx_hash(reply({})) is None
@@ -216,8 +222,10 @@ def test_missing_or_reverted_receipt_is_unresolved() -> None:
     wallet = FakeWallet()
     with pytest.raises(LiveUnresolved, match="receipt_unavailable"):
         executor(wallet, receipt=lambda _tx: None).buy(TOKEN, USD)
+    with pytest.raises(LiveUnresolved, match="receipt_not_from_wallet"):
+        executor(FakeWallet(), receipt=lambda _tx: (1, 9, "0x" + "22" * 20)).buy(TOKEN, USD)
     with pytest.raises(LiveUnresolved, match="reverted"):
-        executor(FakeWallet(), receipt=lambda _tx: (0, 9)).buy(TOKEN, USD)
+        executor(FakeWallet(), receipt=lambda _tx: (0, 9, APPROVED_WALLET)).buy(TOKEN, USD)
 
     def flaky(_tx: str) -> tuple[int, int]:
         raise OSError("rpc down")
@@ -293,3 +301,28 @@ def test_observed_empty_native_shape_is_zero() -> None:
     # Observed on the unfunded wallet: `wallet balance --chain base --force`.
     raw = b'{"ok":true,"data":{"details":[{"tokenAssets":[]}],"totalValueUsd":"0.00"}}'
     assert parse_native_balance(raw) == 0
+
+
+def test_rpc_receipt_reader_returns_sender_and_none_while_pending() -> None:
+    class Transport:
+        def __init__(self, raw: Any) -> None:
+            self.raw = raw
+
+        def request(self, method: str, params: Any) -> Any:
+            return self.raw
+
+    class Client:
+        def __init__(self, raw: Any) -> None:
+            self.transport = Transport(raw)
+
+        def get_receipt(self, tx_hash: str) -> Any:
+            if self.transport.raw is None:
+                raise ValueError("transaction receipt is not available")
+            return type("R", (), {"transaction_hash": tx_hash, "status": 1, "block_number": 5})()
+
+    upper = "0x" + "95A9" * 10
+    read = rpc_receipt_reader(Client({"from": upper}))
+    assert read(TX) == (1, 5, upper.lower())
+    assert rpc_receipt_reader(Client(None))(TX) is None
+    with pytest.raises(ValueError):
+        rpc_receipt_reader(Client({}))(TX)

@@ -46,6 +46,7 @@ from .spot_executor import LiveExecutor, LiveRefused
 
 Record = dict[str, Any]
 MAX_MISSED_MARKS = 3
+LIVE_EVIDENCE = "wallet_balance_delta_and_chain_receipt"
 TRADE_KINDS = frozenset({"paper_buy", "paper_sell", "live_buy", "live_sell"})
 # Any of these after the last tick summary means money may have moved unjournaled.
 INTERRUPTING_KINDS = TRADE_KINDS | {"live_intent", "live_fill", "live_unresolved"}
@@ -104,6 +105,9 @@ class SpotAgent:
         self.config = config
         self.state = state or AgentState(config.initial_cash_usd_micros)
         self._clock = clock
+
+    def submissions(self) -> int:
+        return self.executor.submissions if self.executor is not None else 0
 
     def provider_calls(self) -> int:
         extra = (
@@ -221,6 +225,7 @@ class SpotAgent:
                     held_seconds=now - position.opened_at,
                     quote_sha256=quote_hash,
                     **live,
+                    **({"evidence_level": LIVE_EVIDENCE} if live else {}),
                 )
             )
 
@@ -284,6 +289,9 @@ class SpotAgent:
 
     def _try_entry(self, market: Market, assessment: Assessment, now: int) -> Record:
         size = entry_size(self.state.cash_usd_micros, market.liquidity_usd_micros, self.config)
+        if self.executor is not None:
+            # The gate's hard per-trade cap bounds the size, so a large wallet still trades.
+            size = min(size, self.executor.gate.max_trade_usd_micros)
         if size < 1_000_000:
             return self._record(now, "skip_entry", token=market.token, reason="size_below_1_usd")
         chain = self.config.chain_id
@@ -361,6 +369,7 @@ class SpotAgent:
             units=str(units),
             immediate_exit_usd_micros=value,
             round_trip_cost_bps=cost_bps,
+            **({"evidence_level": LIVE_EVIDENCE} if live else {}),
             score_bps=assessment.score_bps,
             reasons=list(assessment.reasons),
             smart_wallets=market.smart_wallets,
@@ -414,9 +423,13 @@ class SpotAgent:
             assessment = assess(market, self.config)
             out.append(self._candidate(now, market, assessment))
             if assessment.action == "flip" and open_slots > 0:
+                submitted = self.submissions()
                 try:
                     entry = self._try_entry(market, assessment, now)
                 except (SourceFailure, ValueError):
+                    if self.submissions() != submitted:
+                        # A swap was handed to the wallet: this is not a refused quote.
+                        raise
                     entry = self._record(
                         now, "skip_entry", token=market.token, reason="quote_refused"
                     )
