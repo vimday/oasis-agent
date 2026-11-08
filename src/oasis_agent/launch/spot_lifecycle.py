@@ -97,14 +97,17 @@ def reconcile_orders(records: list[Record]) -> OrderLedger:
     open_unresolved: list[str] = []
     missing: list[str] = []
     unbooked: list[str] = []
-    # One swap is one transaction: a hash observed for more than one intent proves none
-    # of them, so every intent sharing it is excluded from `settled`.
-    tx_users = Counter(
-        tx
-        for key in intents
-        for f in fills.get(key, [])[:1]
-        if (tx := _hash(f.get("tx_hash"))) is not None
-    )
+    # One swap is one transaction: a hash claimed by more than one intent proves none of
+    # them. Ownership is built from EVERY fill bound to a known intent (not only each
+    # intent's first), as sets, so neither a second fill nor row order can let one of
+    # the claimants through. Orphan fills are already `live_fill_without_intent` defects
+    # and claim nothing here, so they cannot taint an unrelated order.
+    tx_owners: dict[str, set[str]] = {}
+    for key, rows in fills.items():
+        for f in rows:
+            if (claimed := _hash(f.get("tx_hash"))) is not None:
+                tx_owners.setdefault(claimed, set()).add(key)
+    shared = {key for owners in tx_owners.values() if len(owners) > 1 for key in owners}
     for key, intent in intents.items():
         got, lost, booked = fills.get(key, []), unresolved.get(key, []), bookings.get(key, [])
         problems: set[str] = set()
@@ -130,7 +133,7 @@ def reconcile_orders(records: list[Record]) -> OrderLedger:
         tx = _hash(fill.get("tx_hash"))
         if tx is None:
             problems.add("fill_tx_hash_invalid")
-        elif tx_users[tx] > 1:
+        if key in shared:
             problems.add("tx_reused_across_intents")
         if identity is not None and _identity(fill) != identity:
             problems.add("fill_mismatch")
@@ -182,7 +185,9 @@ def _identity(record: Record) -> tuple[str, str, str, int] | None:
     """(side, token, wallet, chain_id) when every field is present and well formed."""
     side, chain = record.get("side"), record.get("chain_id")
     token, wallet = _address(record.get("token")), _address(record.get("wallet"))
-    if side not in BOOKING_KIND or token is None or wallet is None:
+    # Type first: a JSON array/object side is unhashable and must be an invalid identity,
+    # never a TypeError from the dict lookup.
+    if type(side) is not str or side not in BOOKING_KIND or token is None or wallet is None:
         return None
     # Exactly the int 8453: 8453.0 and True compare equal under `==` but are not chain ids.
     if type(chain) is not int or chain != 8453:

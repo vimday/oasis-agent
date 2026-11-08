@@ -1,5 +1,6 @@
 """Per-intent live order lifecycle, one run status for resume and report, legacy boundary."""
 
+import itertools
 from pathlib import Path
 from typing import Any
 
@@ -323,6 +324,99 @@ def test_duplicate_intent_is_that_intents_defect_not_a_global_reset() -> None:
     # The duplicated buy is not settled; the independent, valid sell still is.
     assert status["settled_live_orders"] == 1
     assert reconcile_orders(dup).settled == ("b",)
+
+
+@pytest.mark.parametrize(
+    ("kind", "reason"),
+    [("live_intent", "intent_identity_invalid"), ("live_fill", "fill_mismatch")],
+)
+@pytest.mark.parametrize("side", [[], {}, ["buy"], None, 1, "BUY"])
+def test_malformed_side_is_a_stable_refusal_not_a_type_error(
+    tmp_path: Path, kind: str, reason: str, side: object
+) -> None:
+    run = tmp_path / "run"
+    start = {"kind": "live_start", "at": 1, "cash_usd_micros": 5}
+    bad = [r | {"side": side} if r["kind"] == kind else r for r in BUY]
+    live_journal(run, LIVE_SCHEMA, [start, *bad, *SELL, SUMMARY])
+    retained = read_journal(run / "journal.db")[1]
+    report = build_report(run)  # never raises: report, API and console stay readable
+    status = report["run_status"]
+    assert reason in status["blocking_reasons"] and status["resumable"] is False
+    # The malformed buy is never settled or charged; the independent sell still is.
+    assert reconcile_orders(retained).settled == ("b",)
+    fees = report["accounting"]["receipt_fees"]
+    assert [r["intent_id"] for r in fees["rows"]] == ["b"]
+    with pytest.raises(ValueError, match=reason):
+        reconcile_with_journal(AgentState(0), retained, LIVE_SCHEMA)
+
+
+def aliased(position: str) -> list[dict[str, Any]]:
+    """Order a (good-looking) and order b, where b also carries a fill claiming a's tx.
+
+    `position` places b's aliasing fill before ("first") or after ("last") b's own fill.
+    A third, unrelated order c must be unaffected.
+    """
+    b_own, b_alias = fill("b", tx(2)), fill("b", tx(1))
+    b_fills = [b_alias, b_own] if position == "first" else [b_own, b_alias]
+    return [
+        *order("a", tx(1)),
+        intent("b"),
+        *b_fills,
+        booking("b", tx(2)),
+        *order("c", tx(3), "sell"),
+        SUMMARY,
+    ]
+
+
+@pytest.mark.parametrize("position", ["first", "last"])
+def test_tx_claimed_by_two_intents_settles_neither_in_any_order(
+    tmp_path: Path, position: str
+) -> None:
+    records = aliased(position)
+    ledger = reconcile_orders(records)
+    # Neither claimant of tx(1) is settled, whatever the row order; c is independent.
+    assert ledger.settled == ("c",)
+    assert "tx_reused_across_intents" in ledger.defects
+    assert "duplicate_fill" in ledger.defects  # b's own duplicate stays its own defect
+    run = tmp_path / "run"
+    start = {"kind": "live_start", "at": 1, "cash_usd_micros": 5}
+    live_journal(run, LIVE_SCHEMA, [start, *records])
+    retained = read_journal(run / "journal.db")[1]
+    report = build_report(run)
+    status = report["run_status"]
+    assert status["resumable"] is False and status["settled_live_orders"] == 1
+    assert "tx_reused_across_intents" in status["blocking_reasons"]
+    fees = report["accounting"]["receipt_fees"]
+    assert [r["intent_id"] for r in fees["rows"]] == ["c"]
+    assert fees["fills_not_attributed"] == 3  # a's fill and both of b's
+    with pytest.raises(ValueError, match="tx_reused_across_intents"):
+        reconcile_with_journal(AgentState(0), retained, LIVE_SCHEMA)
+
+
+def test_tx_ownership_is_independent_of_row_order() -> None:
+    # Every permutation of the three fills yields the same ledger verdict.
+    base = aliased("last")
+    fills = [r for r in base if r["kind"] == "live_fill"]
+    rest = [r for r in base if r["kind"] != "live_fill"]
+    verdicts = {
+        (reconcile_orders([*rest[:4], *p, *rest[4:]]).settled)
+        for p in itertools.permutations(fills)
+    }
+    assert verdicts == {("c",)}
+
+
+def test_orphan_fill_claiming_a_tx_does_not_taint_the_order_that_owns_it() -> None:
+    orphan = fill("ghost", tx(1))  # no live_intent named "ghost"
+    ledger = reconcile_orders([*BUY, orphan, *SELL, SUMMARY])
+    # The orphan is an explicit defect that blocks resume; it claims no ownership.
+    assert "live_fill_without_intent" in ledger.defects
+    assert ledger.settled == ("a", "b")
+    assert run_status(LIVE_SCHEMA, [*BUY, orphan, SUMMARY])["resumable"] is False
+
+
+def test_two_independent_orders_still_settle() -> None:
+    ledger = reconcile_orders([*order("a", tx(1)), *order("b", tx(2)), SUMMARY])
+    assert ledger.settled == ("a", "b") and ledger.defects == ()
 
 
 @pytest.mark.parametrize("chain", [8453.0, True, "8453", 8454])
