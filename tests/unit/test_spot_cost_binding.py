@@ -52,6 +52,7 @@ def cost_capture(
     payer: str = APPROVED_WALLET,
     operator: int = OPERATOR,
     l1: int = L1,
+    logs: list[dict[str, Any]] | None = None,
 ) -> TransactionCostCapture:
     ref = header.ref
     hdr = {
@@ -71,6 +72,8 @@ def cost_capture(
         "effectiveGasPrice": hex(PRICE),
         "l1Fee": hex(l1),
     }
+    if logs is not None:  # absent by default: older fixtures carry no logs
+        receipt["logs"] = logs  # type: ignore[assignment]
     pin = {"blockHash": ref.block_hash, "requireCanonical": True}
     specs = [
         ("eth_chainId", [], hex(ref.chain_id)),
@@ -341,7 +344,9 @@ def test_cli_default_report_unchanged_and_inputs_never_rewritten(
     bound = json.loads(capsys.readouterr().out)
     assert bound["cost_replay"]["status"] == "replayed"
     # Everything else is the default report; resume/strategy fields do not move.
-    assert {k: v for k, v in bound.items() if k != "cost_replay"} == default
+    optional = {"cost_replay", "receipt_transfers"}
+    assert set(bound) - set(default) == optional
+    assert {k: v for k, v in bound.items() if k not in optional} == default
     assert (digest(journal), digest(world.db)) == before
 
     monkeypatch.setattr(sys, "argv", argv)  # one flag without the other

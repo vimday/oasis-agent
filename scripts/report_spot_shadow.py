@@ -4,6 +4,8 @@ Optional, offline: `--cost-binding BINDING.json --evidence EVIDENCE.db` adds a
 `cost_replay` view for ONE journal-matched order, rebuilt from two retained provider
 proofs of its receipt (see oasis_agent.launch.spot_cost_binding). The evidence store is
 opened read-only; without both flags the report is exactly the default report.
+With them it also adds `receipt_transfers`: the wallet's USDC and order-token Transfer
+nets in those same receipts compared with the journal fill (see spot_transfer_check).
 """
 
 import argparse
@@ -14,6 +16,7 @@ from pathlib import Path
 from oasis_agent.evidence.store import ReadOnlyEvidenceStore
 from oasis_agent.launch.spot_cost_binding import bind_order_cost
 from oasis_agent.launch.spot_report import read_journal, report_from_snapshot
+from oasis_agent.launch.spot_transfer_check import check_order_transfers
 
 
 def main() -> int:
@@ -37,6 +40,9 @@ def main() -> int:
             store = ReadOnlyEvidenceStore(args.evidence)
             try:
                 report["cost_replay"] = bind_order_cost(records, binding, store)
+                # Same snapshot, same retained receipts: the wallet's USDC/token
+                # Transfer nets in this receipt versus the journal fill.
+                report["receipt_transfers"] = check_order_transfers(records, binding, store)
             finally:
                 store.close()
     except (OSError, ValueError, KeyError) as error:
