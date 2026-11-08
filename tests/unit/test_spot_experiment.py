@@ -164,16 +164,14 @@ def test_sample_rule_keeps_the_earliest_per_token_and_full_denominator(tmp_path:
     assessed = [r for r in replay["records"] if r["kind"] == "assessment"]
     assert population["in_window"] == len([r for r in assessed if NOW <= r["at"] < END])
     assert (
-        population["primary_samples"]
-        + population["excluded_overlapping_same_token"]
-        + population["not_registered"]
+        population["primary_samples"] + population["excluded_later_same_token"]
         == population["in_window"]
     )
-    # Primary samples are the earliest assessment of each token, not its best label.
-    earliest = {}
+    assert sum(population["primary_registration"].values()) == population["primary_samples"]
+    # Primary samples are the earliest decision of each token, whatever its registration.
+    earliest: dict[str, int] = {}
     for r in sorted(assessed, key=lambda r: r["at"]):
-        if r["label_registration"] == "registered":
-            earliest.setdefault(r["token"], r["at"])
+        earliest.setdefault(r["token"], r["at"])
     primary_times = {d["token"]: d["assessed_at"] for d in report["disagreements"]}
     assert primary_times[TOKEN] == earliest[TOKEN]
     states = report["groups"]["all_primary"]["labels"]
@@ -205,7 +203,7 @@ def test_future_labels_cannot_change_the_sample_or_the_actions(tmp_path: Path) -
     )
 
 
-def test_label_states_cover_not_due_and_unobserved(tmp_path: Path) -> None:
+def test_label_states_cover_after_cutoff_and_unobserved(tmp_path: Path) -> None:
     replay = frozen(tmp_path, ticks=2, interval=900)
     # The run ended before any 1 h label could be queried: every sample is not observed,
     # none is dropped or counted as a zero return.
@@ -218,7 +216,7 @@ def test_label_states_cover_not_due_and_unobserved(tmp_path: Path) -> None:
     late_cutoff = experiment(replay["records"], label_cutoff=CUTOFF + 10**6)
     assert (
         late_cutoff["groups"]["all_primary"]["labels"]["unobserved"]
-        == states["unobserved"] + states["not_due"]
+        == states["unobserved"] + states["after_cutoff"]
     )
 
 

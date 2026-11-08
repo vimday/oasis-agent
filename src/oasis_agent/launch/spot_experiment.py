@@ -19,9 +19,12 @@ with the real `assess` and must equal the recorded action, score and reasons; an
 mismatch refuses the whole experiment.
 
 Sample rule (fixed before labels are read). Within [start, end), per token only the
-earliest assessment with a registered label sample is the primary sample; later ones
-are excluded as overlapping, whatever their labels. `end` must leave the 1 h horizon
-plus the allowed lateness before `label_cutoff`, or the sample is right-censored.
+earliest reproduced decision is the primary sample, whether or not the tracker
+registered it; later decisions of that token are excluded and never replace it, so
+price or label availability cannot select the sample. Unregistered primary samples
+stay in every denominator as `not_registered` with an unknown return. `end` must
+leave the 1 h horizon plus the allowed lateness before `label_cutoff`, or the sample
+is right-censored.
 Labels are joined by exact (token, assessed_at, action, score, horizon) identity.
 
 Labels are provider spot-mid forward returns: not fills, not net of fees, gas,
@@ -36,15 +39,22 @@ from typing import Any, Literal
 
 from ..models.common import canonical_json, sha256_hex
 from .opportunity import Assessment, DecisionPolicy, Market, assess, market_from_json
-from .outcomes import MAX_LATENESS_SECONDS
+from .outcomes import MAX_LATENESS_SECONDS, REGISTRATION
 from .spot_agent import decision_policy, policy_digest
 
 Record = dict[str, Any]
-EXPERIMENT_SCHEMA = "oasis.spot-experiment.v1"
+EXPERIMENT_SCHEMA = "oasis.spot-experiment.v2"
 COMPARATOR = "assess_without_smart_wallet_bonus.v1"
 HORIZON = 3_600
 EvidenceSource = Literal["synthetic", "provider_claims", "unknown"]
-LABEL_STATES = ("observed", "unobserved", "not_due", "not_registered")
+# Mutually exclusive state of one primary sample's 1 h label:
+# - not_registered: the tracker never took the sample (reason in `registration`), so no
+#   label can exist; its return is unknown, never zero;
+# - observed: a valid observed label inside [due, due + lateness] and <= label_cutoff;
+# - unobserved: the label was emitted unobserved, or is due before the cutoff but absent;
+# - after_cutoff: the label could only be observed after label_cutoff (right-censored).
+LABEL_STATES = ("not_registered", "observed", "unobserved", "after_cutoff")
+SCOPE = {"chains": [8453], "sessions": "single_capture_session"}
 
 
 class ExperimentRefused(Exception):
@@ -73,10 +83,21 @@ def _assessment_record(a: Assessment) -> tuple[str, int, list[str]]:
     return a.action, a.score_bps, list(a.reasons)
 
 
+def _int(value: object) -> int | None:
+    """A plain int (never bool, float or numeric string)."""
+    return value if type(value) is int else None
+
+
 def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
-    """Every assessment, recomputed by the real `assess` and checked against the record."""
+    """Every assessment, recomputed by the real `assess` and checked against the record.
+
+    A sample's identity is (token, at) on the one chain of this run. One identity may
+    appear once: the agent assesses a token at most once per cycle, so a second record
+    with that identity (equal or not) is a malformed input, never an overlap.
+    """
     digest = policy_digest(policy)
     out: list[Sample] = []
+    seen: set[tuple[str, int]] = set()
     for r in records:
         if r.get("kind") != "assessment":
             continue
@@ -88,8 +109,15 @@ def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
             market = market_from_json(r["market"])
         except ValueError as error:
             raise ExperimentRefused("market_snapshot_invalid", str(r.get("token"))) from error
-        if market.token != r.get("token") or market.observed_at != r.get("at"):
+        if market.token != r.get("token") or market.observed_at != _int(r.get("at")):
             raise ExperimentRefused("assessment_identity_mismatch", str(r.get("token")))
+        if (market.token, market.observed_at) in seen:
+            raise ExperimentRefused("duplicate_sample_identity", market.token)
+        seen.add((market.token, market.observed_at))
+        if r.get("label_registration") not in REGISTRATION:
+            raise ExperimentRefused("registration_unknown", market.token)
+        if _int(r.get("score_bps")) is None or not isinstance(r.get("reasons"), list):
+            raise ExperimentRefused("assessment_malformed", market.token)
         recomputed = assess(market, policy)
         if _assessment_record(recomputed) != (r["action"], r["score_bps"], r["reasons"]):
             raise ExperimentRefused("original_rule_not_reproduced", str(r.get("token")))
@@ -99,21 +127,47 @@ def rebuild(records: list[Record], policy: DecisionPolicy) -> list[Sample]:
                 market.observed_at,
                 market,
                 recomputed,
-                str(r.get("label_registration")),
+                r["label_registration"],
             )
         )
     return out
 
 
 def _labels(records: list[Record]) -> dict[tuple[str, int, int], Record]:
-    """1 h labels by (token, assessed_at, horizon); a conflicting duplicate refuses."""
+    """1 h labels by (token, assessed_at, horizon), under the OutcomeTracker contract.
+
+    observed: integer observed_at in [assessed_at + 1 h, + lateness] and an integer
+    forward_return_bps. unobserved: neither field. Anything else, and any duplicate,
+    refuses: a label is never repaired, defaulted or coerced.
+    """
     out: dict[tuple[str, int, int], Record] = {}
     for r in records:
-        if r.get("kind") != "outcome" or r.get("horizon_seconds") != HORIZON:
+        if r.get("kind") != "outcome":
             continue
-        key = (str(r.get("token")), int(r["assessed_at"]), HORIZON)
+        horizon = r.get("horizon_seconds")
+        if type(horizon) is not int:
+            raise ExperimentRefused("label_malformed", str(r.get("token")))
+        if horizon != HORIZON:
+            continue
+        token, at = r.get("token"), _int(r.get("assessed_at"))
+        if not isinstance(token, str) or at is None:
+            raise ExperimentRefused("label_malformed", str(token))
+        status = r.get("status")
+        if status == "observed":
+            observed_at, value = _int(r.get("observed_at")), _int(r.get("forward_return_bps"))
+            if observed_at is None or value is None:
+                raise ExperimentRefused("label_malformed", token)
+            due = at + HORIZON
+            if not due <= observed_at <= due + MAX_LATENESS_SECONDS:
+                raise ExperimentRefused("label_time_outside_window", token)
+        elif status == "unobserved":
+            if "observed_at" in r or "forward_return_bps" in r:
+                raise ExperimentRefused("label_malformed", token)
+        else:
+            raise ExperimentRefused("label_malformed", token)
+        key = (token, at, HORIZON)
         if key in out:
-            raise ExperimentRefused("duplicate_label", key[0])
+            raise ExperimentRefused("duplicate_label", token)
         out[key] = r
     return out
 
@@ -150,14 +204,12 @@ def run_experiment(
     policy = decision_policy(config)
     samples = rebuild(records, policy)  # every assessment, before any label is read
     in_window = [s for s in samples if start <= s.at < end]
-    # Fixed sample rule, using only decision-time fields.
+    # Fixed sample rule: per token the earliest reproduced decision in the window,
+    # whatever its label registration, price or later outcome. A later decision of the
+    # same token never replaces it, so label availability cannot select the sample.
     primary: dict[str, Sample] = {}
-    unregistered: list[Sample] = []
     excluded_overlap = 0
     for s in sorted(in_window, key=lambda s: (s.at, s.token)):
-        if s.registration != "registered":
-            unregistered.append(s)
-            continue
         if s.token in primary:
             excluded_overlap += 1
             continue
@@ -167,6 +219,7 @@ def run_experiment(
     # same action and score, whether or not that sample is primary: a label that matches
     # no sample is a corrupted or foreign input, never ignored.
     by_identity = {(s.token, s.at): s for s in samples if s.registration == "registered"}
+    # A label for a sample the tracker refused cannot exist.
     for (token, at, _), joined in labels.items():
         owner = by_identity.get((token, at))
         if owner is None:
@@ -182,15 +235,18 @@ def run_experiment(
         label = labels.get((s.token, s.at, HORIZON))
         due_by = s.at + HORIZON
         observed_return: int | None = None
-        if label is None:
-            state = "not_due" if due_by > label_cutoff else "unobserved"
+        if s.registration != "registered":
+            state = "not_registered"
+        elif label is None:
+            # Due before the cutoff yet absent is a missing observation, not a zero.
+            state = "after_cutoff" if due_by > label_cutoff else "unobserved"
+        elif label["status"] == "unobserved":
+            state = "unobserved"
+        elif label["observed_at"] > label_cutoff:
+            state = "after_cutoff"
         else:
-            if int(label.get("observed_at", due_by)) > label_cutoff:
-                state = "not_due"  # observed only after the cutoff: unusable here
-            else:
-                state = "observed" if label["status"] == "observed" else "unobserved"
-                if state == "observed":
-                    observed_return = int(label["forward_return_bps"])
+            state = "observed"
+            observed_return = label["forward_return_bps"]
         rows.append(
             {
                 "token": s.token,
@@ -199,6 +255,7 @@ def run_experiment(
                 "original": {"action": s.original.action, "score_bps": s.original.score_bps},
                 "baseline": {"action": base.action, "score_bps": base.score_bps},
                 "baseline_reasons": list(base.reasons),
+                "registration": s.registration,
                 "label": state,
                 "forward_return_bps": observed_return,
             }
@@ -210,7 +267,7 @@ def run_experiment(
         returns = [r["forward_return_bps"] for r in selected if r["label"] == "observed"]
         return {
             "samples": len(selected),
-            "labels": {k: states[k] for k in LABEL_STATES if k != "not_registered"},
+            "labels": {k: states[k] for k in LABEL_STATES},
             "forward_return_bps": _distribution(returns),
         }
 
@@ -227,10 +284,12 @@ def run_experiment(
             "policy_sha256": policy_digest(policy),
             "evidence_source": evidence,
             "inputs": inputs,
+            "scope": SCOPE,
             "window": {"start": start, "end": end, "label_cutoff": label_cutoff},
             "horizon_seconds": HORIZON,
             "allowed_lateness_seconds": MAX_LATENESS_SECONDS,
-            "sample_rule": "earliest_registered_assessment_per_token_in_window",
+            "sample_rule": "earliest_reproduced_decision_per_token_in_window",
+            "label_states": list(LABEL_STATES),
             "label_join": "token+assessed_at+horizon, action and score must match",
             "trials": 1,
             "fitted_parameters": 0,
@@ -238,13 +297,18 @@ def run_experiment(
         "population": {
             "assessments_rebuilt": len(samples),
             "original_rule_reproduced": True,
+            # in_window = primary_samples + excluded_later_same_token (one per token).
             "in_window": len(in_window),
-            "not_registered": len(unregistered),
-            "excluded_overlapping_same_token": excluded_overlap,
             "primary_samples": len(rows),
+            "excluded_later_same_token": excluded_overlap,
             "unique_tokens": len(primary),
+            "primary_registration": {
+                k: sum(r["registration"] == k for r in rows) for k in REGISTRATION
+            },
         },
         "agreement_matrix": dict(sorted(matrix.items())),
+        # Every primary sample, so each count below can be recomputed by hand.
+        "rows": rows,
         "disagreements": [r for r in rows if r["original"]["action"] != r["baseline"]["action"]],
         "groups": {
             "original_flip": group(original_flip),
