@@ -1,11 +1,7 @@
-"""Live shadow spot agent: discover -> enrich -> decide -> paper-execute -> manage exits.
+"""Base spot discovery, paper decisions and position management.
 
-One `tick()` is one bounded decision cycle over fresh OKX onchainos claims. It returns
-append-only decision records; the caller journals them. Without an executor the book is
-paper-only and nothing here can sign or broadcast. With an operator-gated `LiveExecutor`
-the same decisions trade the Agentic Wallet: cash is the wallet's own USDC balance and
-positions come from observed fills. `execution_eligible` stays False on every record; a
-record is never a permit.
+The operator CLI runs a paper book. The executor protocol is the strategy boundary,
+and journal records are never transaction permits.
 """
 
 from collections.abc import Callable, Sequence
@@ -44,7 +40,7 @@ from .spot_book import (
     parse_quote,
     round_trip_bps,
 )
-from .spot_executor import LiveExecutor, LiveRefused
+from .spot_executor import LiveRefused, SpotExecutor
 from .spot_lifecycle import TRADE_KINDS, run_status
 
 Record = dict[str, Any]
@@ -58,6 +54,7 @@ CANDIDATE_FATES = (
     "enrich_failed",
     "assessed_after_enrich",
     "not_reached_enrich_quota",
+    "not_reached_stop",
 )
 
 
@@ -136,7 +133,7 @@ class SpotAgent:
         state: AgentState | None = None,
         clock: Callable[[], float] | None = None,
         gmgn: GmgnSource | None = None,
-        executor: LiveExecutor | None = None,
+        executor: SpotExecutor | None = None,
         nominators: Sequence[DiscoveryProvider] = (),
     ):
         self.source = source
@@ -195,8 +192,10 @@ class SpotAgent:
         )
         return exit_value(sell, self.config), sell.raw_sha256
 
-    def _manage(self, now: int, out: list[Record]) -> None:
+    def _manage(self, now: int, out: list[Record], should_stop: Callable[[], bool]) -> None:
         for token, position in list(self.state.positions.items()):
+            if should_stop():
+                break
             flags: tuple[str, ...] | None
             try:
                 row = self._security(token, now)
@@ -233,6 +232,8 @@ class SpotAgent:
                 continue
             live: Record = {}
             if self.executor is not None:
+                if should_stop():
+                    break
                 try:
                     fill = self.executor.sell(token, position.units)
                 except LiveRefused as refused:
@@ -246,7 +247,7 @@ class SpotAgent:
                             category=refused.category,
                         )
                     )
-                    continue
+                    return
                 # Cash moves by the observed USDC delta only; the declared gas (paid in ETH)
                 # is a separate estimated cost that still counts against the trade's PnL.
                 gas = self.config.gas_per_leg_usd_micros
@@ -378,7 +379,9 @@ class SpotAgent:
                 pass
         return market
 
-    def _try_entry(self, market: Market, assessment: Assessment, now: int) -> Record:
+    def _try_entry(
+        self, market: Market, assessment: Assessment, now: int, should_stop: Callable[[], bool]
+    ) -> Record:
         size = entry_size(self.state.cash_usd_micros, market.liquidity_usd_micros, self.config)
         if self.executor is not None:
             # The gate's hard per-trade cap bounds the size, so a large wallet still trades.
@@ -423,6 +426,8 @@ class SpotAgent:
         units = buy.amount_out
         live: Record = {}
         if self.executor is not None:
+            if should_stop():
+                return self._record(now, "skip_entry", token=market.token, reason="stop_requested")
             try:
                 fill = self.executor.buy(market.token, size)
             except LiveRefused as refused:
@@ -480,7 +485,13 @@ class SpotAgent:
             **live,
         )
 
-    def tick(self, now: int, *, manage_only: bool = False) -> list[Record]:
+    def tick(
+        self,
+        now: int,
+        *,
+        manage_only: bool = False,
+        should_stop: Callable[[], bool] | None = None,
+    ) -> list[Record]:
         """One bounded cycle; held positions are always checked and exited first.
 
         Forward-outcome labels and discovery are optional research work: they run only
@@ -492,7 +503,16 @@ class SpotAgent:
         """
         out: list[Record] = []
         calls = self.provider_calls()
-        self._manage(now, out)
+        # Paper ticks are deterministic and finish atomically for archive replay.
+        stop = should_stop if self.executor is not None and should_stop else lambda: False
+        self._manage(now, out, stop)
+        if stop():
+            out.append(
+                self._summary(
+                    now, calls, entries_blocked="stop_requested", coverage=_coverage("stopped")
+                )
+            )
+            return out
         if manage_only:
             out.append(
                 self._summary(
@@ -537,6 +557,9 @@ class SpotAgent:
         open_slots = self.config.max_positions - len(self.state.positions)
         enriched = 0
         for index, listed in enumerate(ranked):
+            if stop():
+                coverage["not_reached_stop"] = len(ranked) - index
+                break
             if enriched >= self.config.enrich_top:
                 # Deferred by the quota: never assessed this cycle, never a skip.
                 coverage["not_reached_enrich_quota"] = len(ranked) - index
@@ -569,7 +592,7 @@ class SpotAgent:
             if assessment.action == "flip" and open_slots > 0:
                 submitted = self.submissions()
                 try:
-                    entry = self._try_entry(market, assessment, now)
+                    entry = self._try_entry(market, assessment, now, stop)
                 except (SourceFailure, ValueError):
                     if self.submissions() != submitted:
                         # A swap was handed to the wallet: this is not a refused quote.

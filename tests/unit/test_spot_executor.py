@@ -1,4 +1,4 @@
-"""Live spot executor: gate, exactly-once submission, fills proven by balances and receipt."""
+"""Live spot executor: gate, exactly-once submission, historical balance-delta records."""
 
 import json
 from typing import Any
@@ -9,17 +9,15 @@ from oasis_agent.launch.onchainos_source import BASE_USDC, SourceFailure
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     CONFIRMATION,
-    LiveExecutor,
     LiveGate,
     LiveRefused,
     LiveUnresolved,
     parse_balance,
     parse_native_balance,
-    parse_tx_hash,
     preflight,
-    rpc_receipt_reader,
-    swap_argv,
 )
+
+from .spot_legacy_fixture import LiveExecutor, parse_tx_hash, rpc_receipt_reader, swap_argv
 
 TOKEN = "0x" + "ab" * 20
 TX = "0x" + "cd" * 32
@@ -109,7 +107,7 @@ def executor(
     [
         {"wallet": "0x" + "11" * 20},
         {"max_trade_usd_micros": 0},
-        {"max_trade_usd_micros": 3_000 * USD + 1},
+        {"max_trade_usd_micros": 500 * USD + 1},
         {"slippage_bps": 9},
         {"slippage_bps": 301},
         {"confirmation": "yes"},

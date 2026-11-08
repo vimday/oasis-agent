@@ -682,3 +682,40 @@ def test_paper_book_is_unchanged_by_the_gas_split() -> None:
     bot.tick(NOW)
     assert bot.state.estimated_gas_usd_micros == 0
     assert bot.state.cash_usd_micros == 1_000 * USD - 201_050_000
+
+
+@pytest.mark.parametrize("action", ["block", "warn", "unknown", None])
+def test_quote_risk_verdict_blocks_a_route_before_entry(action: object) -> None:
+    quote = quote_row(BASE_USDC, TOKEN, USD, 1_000 * USD)
+    quote["dexRouterList"][0]["action"] = action
+    with pytest.raises(ValueError, match="quote route risk refused"):
+        parse_quote(
+            [quote], chain=8453, src=BASE_USDC, dst=TOKEN, amount=USD, raw_sha256="a" * 64, at=NOW
+        )
+
+
+def test_stop_during_first_submission_preserves_fill_and_blocks_remaining_entries() -> None:
+    cli, executor = FakeCli(), FakeExecutor()
+    tokens = [TOKEN, "0x" + "ac" * 20, "0x" + "ad" * 20]
+    cli.hot = [hot_row(tokenContractAddress=token) for token in tokens]
+    cli.signals = [cli.signals[0] | {"token": {"tokenAddress": token}} for token in tokens]
+    bot = live_agent(cli, executor)
+    records = bot.tick(NOW, should_stop=lambda: bool(executor.orders))
+    assert len(executor.orders) == 1
+    assert [r["kind"] for r in records].count("live_buy") == 1
+    assert records[-1]["coverage"]["not_reached_stop"] == 2
+    assert set(bot.state.positions) == {TOKEN}
+
+
+def test_stop_after_sell_quote_does_not_submit_or_drop_the_held_position() -> None:
+    cli, executor = FakeCli(), FakeExecutor()
+    bot = live_agent(cli, executor)
+    bot.tick(NOW)
+    before = len(executor.orders)
+    cli.sell_ratio = (60, 100)
+    cli.calls.clear()
+    records = bot.tick(
+        NOW + 120, should_stop=lambda: any(argv[:2] == ("swap", "quote") for argv in cli.calls)
+    )
+    assert len(executor.orders) == before and set(bot.state.positions) == {TOKEN}
+    assert records[-1]["entries_blocked"] == "stop_requested"

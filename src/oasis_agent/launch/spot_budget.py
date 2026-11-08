@@ -2,7 +2,7 @@
 
 Unit: one logical provider query as counted by the sources' and executor's `calls`
 (one CLI invocation the agent asked for). Transport retries inside `paced`, and the
-read-only live preflight that runs before the journal is opened, are not counted.
+separate wallet diagnostics are outside this shadow journal. It is not an RPC cost ledger.
 
 Before any work that can call a provider the runner journals `budget_reserve` with the
 worst case it may spend; afterwards it journals `budget_settle` with the calls it

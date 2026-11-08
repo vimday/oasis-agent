@@ -25,6 +25,7 @@ const KIND_LABEL = {
   skip_entry: "放弃入场", mark_missed: "未能估值",
 };
 const BLOCK_LABEL = {
+  spot_live_execution_unreleased: "现货执行未发布，历史账簿只读",
   live_halt_recorded: "已记录实盘停机",
   tx_reused_across_intents: "同一交易被多个订单引用",
   intent_identity_invalid: "订单身份字段缺失或无效",
@@ -77,17 +78,32 @@ function horizonRows(table) {
 
 export async function loadSpot() {
   const status = document.getElementById("spot-status");
-  let report;
+  const unavailable = message => {
+    status.textContent = message;
+    status.classList.toggle("danger", true);
+    for (const id of ["spot-stats", "spot-positions", "spot-quality", "spot-decisions", "spot-flips"]) {
+      document.getElementById(id).replaceChildren();
+    }
+  };
+  let report, decisions, flips;
   try {
-    report = await apiGet("/api/v1/spot/report");
+    [report, decisions, flips] = await Promise.all([
+      apiGet("/api/v1/spot/report"),
+      apiGet("/api/v1/spot/decisions?limit=50"),
+      apiGet("/api/v1/spot/assessments?limit=30&action=flip"),
+    ]);
   } catch (error) {
-    status.textContent = error && error.status === 404
-      ? "未配置影子运行目录（databases.spot_run）。"
-      : "影子日志不可用或校验失败，未显示任何数据。";
+    unavailable(error && error.status === 404
+      ? "未配置现货运行目录（databases.spot_run）。"
+      : "现货日志不可用或校验失败，未显示任何数据。");
     return;
   }
-  if (report.execution_eligible !== false || !["shadow", "live"].includes(report.mode)) {
-    status.textContent = "响应声明了执行权限，已拒绝显示。";
+  if (report?.execution_eligible !== false || !["shadow", "live"].includes(report.mode)
+      || !report.operations || !report.paper_book || !report.signal_quality?.by_horizon_seconds
+      || !Array.isArray(report.open_positions)
+      || ![decisions, flips].every(result => result?.mode === report.mode
+        && result.execution_eligible === false && Array.isArray(result.items))) {
+    unavailable("现货响应不符合只读报告约定，已拒绝显示。");
     return;
   }
   const ops = report.operations, book = report.paper_book, quality = report.signal_quality;
@@ -108,7 +124,7 @@ export async function loadSpot() {
     ? `停止时策略持仓 ${stopInfo.open_positions}` : "停止时持仓未知";
   const stopStage = (ops.last_budget_stop || {}).stage === "live_start_balance"
     ? "启动前未能读取钱包余额" : "调用预算不足已停止";
-  const banner = (live ? "实盘模式（Agentic Wallet）" : "影子模式")
+  const banner = (live ? "历史实盘账簿（只读）" : "影子模式")
     + (run.resumable ? "" : ` · ⛔ 不可恢复交易：${reasons.join("；")}`)
     + (unknown ? ` · ${unknown} 笔实盘订单结果未知` : "")
     + (gap ? ` · ${gap} 个持仓暂时无法估值（继续观察）` : "")
@@ -144,10 +160,6 @@ export async function loadSpot() {
     observed ? "策略账簿无持仓（不代表钱包无持仓）" : "实盘账簿未初始化，钱包持仓未观测");
   renderTable("spot-quality", ["周期", "决策", "样本", "中位收益", "平均收益", "P10 / P90", "上涨占比"],
     horizonRows(quality.by_horizon_seconds), "尚无到期的前向标签");
-  const [decisions, flips] = await Promise.all([
-    apiGet("/api/v1/spot/decisions?limit=50"),
-    apiGet("/api/v1/spot/assessments?limit=30&action=flip"),
-  ]);
   renderTable("spot-decisions", ["时间", "动作", "代币", "金额 USD", "PnL USD", "原因"],
     decisions.items.map(d => [esc(when(d.at)), esc(KIND_LABEL[d.kind] || d.kind), esc(d.symbol || d.token || "–"),
       esc(usd(d.cost_usd_micros ?? d.proceeds_usd_micros)), esc(usd(d.pnl_usd_micros)),

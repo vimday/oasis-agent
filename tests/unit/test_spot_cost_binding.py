@@ -25,7 +25,7 @@ from oasis_agent.farming.transaction_costs import (
     persist_transaction_cost,
 )
 from oasis_agent.launch.spot_cost_binding import SCHEMA, bind_order_cost
-from oasis_agent.launch.spot_executor import APPROVED_WALLET, rpc_receipt_reader
+from oasis_agent.launch.spot_executor import APPROVED_WALLET
 from oasis_agent.launch.spot_lifecycle import reconcile_orders
 from oasis_agent.launch.spot_report import read_journal, receipt_fee_attribution
 from oasis_agent.models.chain import BlockSnapshot
@@ -33,6 +33,7 @@ from oasis_agent.models.common import BlockRef, EvidenceRef, canonical_json
 from oasis_agent.rpc.transport import RpcExchange
 from oasis_agent.sniping.journal import ExecutionJournal
 
+from .spot_legacy_fixture import rpc_receipt_reader
 from .test_spot_receipt_fees import GAS, L1, PRICE, Transport, live_run
 
 BLOCK = "0x" + "b1" * 32

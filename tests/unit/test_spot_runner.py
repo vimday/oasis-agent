@@ -1,6 +1,6 @@
 """Long-running shadow reliability: pacing/retry, crash-consistent resume, error rollback."""
 
-import argparse
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +18,6 @@ from oasis_agent.launch.spot_budget import budget_ledger
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
     Fill,
-    LiveExecutor,
     LiveRefused,
     LiveUnresolved,
 )
@@ -26,6 +25,7 @@ from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA
 from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import (
+    load_state,
     manage_budget,
     plan_cycle,
     resume,
@@ -34,6 +34,7 @@ from scripts.run_spot_agent import (
     tick_budget,
 )
 
+from .spot_legacy_fixture import LiveExecutor
 from .test_spot_agent import NOW, TOKEN, FakeCli
 from .test_spot_executor import FakeWallet, gate
 
@@ -335,9 +336,16 @@ def open_live(run: Path) -> ExecutionJournal:
     return journal
 
 
+def historical_state(run: Path) -> tuple[AgentState, int]:
+    """Continue scripted v2 fixtures outside the operator's read-only history path."""
+    return load_state(run / "state.json", AgentConfig()), budget_ledger(
+        read_journal(run / "journal.db")[1], 106
+    )["charged"]
+
+
 def run_live(run: Path, executor: Any, cli: FakeCli | None = None, ticks: int = 5) -> int:
     open_live(run).close()
-    state, spent = resume(run, AgentConfig())
+    state, spent = historical_state(run)
     agent = SpotAgent(
         OnchainosSource(cli or FakeCli(), clock=lambda: NOW),
         AgentConfig(),
@@ -529,7 +537,7 @@ def test_cycle_plan_never_exceeds_the_remaining_budget() -> None:
 
 
 def live_loop(run: Path, executor: Any, cli: FakeCli, ticks: int, budget: int) -> int:
-    state, spent = resume(run, AgentConfig())
+    state, spent = historical_state(run)
     agent = SpotAgent(
         OnchainosSource(cli, clock=lambda: NOW), AgentConfig(), state, executor=executor
     )
@@ -572,7 +580,7 @@ def test_live_manage_only_reserves_a_full_sell_or_submits_nothing(
 
     with open_live(run) as side:
         assert live_loop(run, executor_for(side.append), cli, 1, 100_000) == 0  # buy booked
-        _, spent = resume(run, AgentConfig())
+        _, spent = historical_state(run)
         second = executor_for(side.append)
         need = manage_budget(1, second.calls_per_swap())
         wallet.fill_out = 150_000_000  # USDC the sell returns
@@ -588,8 +596,8 @@ def test_live_manage_only_reserves_a_full_sell_or_submits_nothing(
     else:
         assert len(wallet.submits) == submitted + 1
         assert any(r["kind"] == "live_sell" for r in records)
-        assert resume(run, AgentConfig())[1] <= spent + need  # never above the budget
-    assert build_report(run)["run_status"]["resumable"] is True
+        assert historical_state(run)[1] <= spent + need  # never above the budget
+    assert build_report(run)["run_status"]["resumable"] is False
 
 
 def test_failed_tick_calls_survive_restart_and_restarts_never_exceed_budget(
@@ -685,44 +693,34 @@ def test_budget_state_follows_journal_order_and_keeps_history(tmp_path: Path) ->
     assert build_report(run)["run_status"]["process_state"] == "unknown_from_journal"
 
 
-def test_live_start_balance_read_is_charged_once(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_live_entry_refuses_before_provider_io_or_journal_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    run = tmp_path / "run"
-    run.mkdir()
-    wallet = FakeWallet(usdc=1_000_000_000)
-    with ExecutionJournal(run / "journal.db", live_policy()) as journal:
-        executor = LiveExecutor(
-            gate(),
-            read=wallet.read,
-            submit=wallet.submit,
-            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
-            emit=journal.append,
-            clock=lambda: NOW,
-            sleep=lambda _s: None,
-        )
-        # The real _build_agent path, with only the network constructors stubbed.
-        monkeypatch.setattr(runner, "LiveExecutor", lambda *a, **k: executor)
-        monkeypatch.setattr(runner, "JsonRpcTransport", lambda url: None)
-        monkeypatch.setattr(runner, "RpcClient", lambda *a, **k: None)
-        monkeypatch.setenv("SPOT_TEST_RPC", "unused")
-        args = argparse.Namespace(rpc_env="SPOT_TEST_RPC", binary=Path("/bin/true"))
-        agent = runner._build_agent(
-            args,
-            gate(),
-            AgentConfig(),
-            AgentState(0),
-            OnchainosSource(FakeCli(), clock=lambda: NOW),
-            None,
-            journal,
-            1,
-        )
-    assert agent is not None
-    records = read_journal(run / "journal.db")[1]
-    assert [r["kind"] for r in records] == ["budget_reserve", "budget_settle", "live_start"]
-    assert records[1]["used"] == 1 and agent.state.cash_usd_micros == 1_000_000_000
-    assert agent.provider_calls() == 0  # settled already: a tick delta cannot recount it
-    assert budget_ledger(records, 106)["charged"] == 1
+    def unexpected(*_args: Any, **_kwargs: Any) -> Any:
+        pytest.fail("an unreleased live entry attempted provider I/O")
+
+    monkeypatch.setattr(runner, "run_cli", unexpected)
+    run = tmp_path / "unused"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "spot",
+            "--out",
+            str(run),
+            "--live",
+            "--no-gmgn",
+            "--max-trade-usd",
+            "20",
+            "--confirm",
+            gate().confirmation,
+            "--rpc-env",
+            "SPOT_TEST_RPC",
+        ],
+    )
+    assert runner.main() == 2
+    assert "independent execution gate unavailable" in capsys.readouterr().err
+    assert not run.exists()
 
 
 def test_report_counts_calls_of_failed_cycles(tmp_path: Path) -> None:

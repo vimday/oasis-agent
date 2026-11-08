@@ -1,13 +1,4 @@
-"""Run the spot agent: live OKX onchainos claims in, decisions out.
-
-Every decision is appended to a hash-linked journal before the next tick. By default the
-book is paper-only and this command cannot sign, approve or broadcast. `--live` trades the
-owner-approved OKX Agentic Wallet through its own TEE signer (this process never holds a
-key) and requires a per-trade cap, a slippage bound, the exact confirmation phrase and a
-Base RPC for receipts. A live run directory can never be resumed as shadow or vice versa.
-A provider call budget bounds total usage; the loop stops (state preserved) when it would
-overrun.
-"""
+"""Run the Base spot agent in shadow mode, or inspect the Agentic Wallet read-only."""
 
 import argparse
 import copy
@@ -22,11 +13,9 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from oasis_agent.errors import OasisError
 from oasis_agent.launch import gmgn_source
 from oasis_agent.launch.gmgn_source import GmgnSource
 from oasis_agent.launch.onchainos_source import (
-    BASE_USDC,
     OnchainosSource,
     Runner,
     default_binary,
@@ -51,22 +40,17 @@ from oasis_agent.launch.spot_budget import (
 from oasis_agent.launch.spot_capture import CAPTURE_SCHEMA, CaptureRecorder
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
-    LiveExecutor,
     LiveGate,
     LiveRefused,
     LiveUnresolved,
     preflight,
-    rpc_receipt_reader,
 )
-from oasis_agent.launch.spot_lifecycle import HUMAN_REVIEW_REASONS, LIVE_HALT, LIVE_SCHEMA
+from oasis_agent.launch.spot_lifecycle import HUMAN_REVIEW_REASONS, LIVE_HALT, SHADOW_SCHEMA
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.rpc.client import RpcClient
-from oasis_agent.rpc.transport import JsonRpcTransport
 from oasis_agent.sniping.journal import ExecutionJournal
 
 MAX_CONSECUTIVE_ERRORS = 5
-LIVE_SUBMIT_TIMEOUT_SECONDS = 120.0
 PRINTED = frozenset(
     {
         "paper_buy",
@@ -236,7 +220,9 @@ def run_loop(
         if capture is not None:
             capture.cycle_start(int(started), cycle == "manage_only")
         try:
-            records = agent.tick(int(started), manage_only=cycle == "manage_only")
+            records = agent.tick(
+                int(started), manage_only=cycle == "manage_only", should_stop=should_stop
+            )
             errors = 0
             booked = sum(r["kind"] in ("live_buy", "live_sell") for r in records)
             if agent.submissions() - submitted != booked:
@@ -311,110 +297,14 @@ def run_loop(
         if errors >= MAX_CONSECUTIVE_ERRORS:
             print("spot shadow halted after repeated tick errors", file=sys.stderr)
             return ended(3, "repeated_errors")
+        if should_stop():
+            return ended(0, "stop_requested")
         ticks += 1
         if max_ticks and ticks >= max_ticks:
             return ended(0, "max_ticks")
         while not should_stop() and clock() < started + interval:
             sleep(1)
     return ended(0, "stop_requested")
-
-
-def _build_agent(
-    args: argparse.Namespace,
-    gate: LiveGate | None,
-    config: AgentConfig,
-    state: AgentState,
-    source: OnchainosSource,
-    gmgn: GmgnSource | None,
-    journal: ExecutionJournal,
-    call_budget: int,
-) -> SpotAgent | None:
-    """The agent for this run; with a gate, a live executor bound to the run's journal.
-
-    None means the live run cannot start within its call budget: the wallet balance read
-    a fresh live run needs was not admitted, nothing was queried and no live_start (or
-    cash) was invented. The stop is journaled as budget_stop.
-    """
-    if gate is None:
-        return SpotAgent(source, config, state, gmgn=gmgn)
-    transport = JsonRpcTransport(os.environ[args.rpc_env])
-    RpcClient(transport, expected_chain_id=8453)  # refuses a non-Base endpoint
-    executor = LiveExecutor(
-        gate,
-        read=paced(run_cli(args.binary)),
-        # Unpaced and unretried: a swap is submitted exactly once.
-        submit=run_cli(args.binary, timeout=LIVE_SUBMIT_TIMEOUT_SECONDS),
-        receipt=rpc_receipt_reader(transport),
-        emit=journal.append,
-    )
-    if not any(r["kind"] == "live_start" for r in read_journal(journal.path)[1]):
-        # Fresh live run: the book is the wallet's own USDC and nothing else. Paper
-        # positions/PnL from a leftover state file must never become live holdings.
-        # The balance read is a counted logical query of this run: admitted against the
-        # run's recovered charge (failed earlier starts included) and reserved first.
-        policy, records = read_journal(journal.path)
-        charged = budget_ledger(records, legacy_error_charge(policy))["charged"]
-        if call_budget - charged < 1:
-            journal.append(
-                "budget_stop",
-                {
-                    "at": int(time.time()),
-                    "kind": "budget_stop",
-                    "mode": "live",
-                    "execution_eligible": False,
-                    "call_budget": call_budget,
-                    "calls_used": charged,
-                    "reserved_needed": 1,
-                    "open_positions": None,  # unknown: the wallet was never read
-                    "stage": "live_start_balance",
-                },
-            )
-            return None
-        reserve_id = uuid.uuid4().hex
-        journal.append(
-            RESERVE,
-            {
-                "at": int(time.time()),
-                "kind": RESERVE,
-                "mode": "live",
-                "execution_eligible": False,
-                "reserve_id": reserve_id,
-                "cycle": "live_start",
-                "reserved": 1,
-            },
-        )
-        cash = executor.balance(BASE_USDC)
-        journal.append(
-            SETTLE,
-            {
-                "at": int(time.time()),
-                "kind": SETTLE,
-                "mode": "live",
-                "execution_eligible": False,
-                "reserve_id": reserve_id,
-                "used": executor.calls,
-            },
-        )
-        # Already settled: the agent's own per-tick deltas must not count it again.
-        executor.calls = 0
-        state = AgentState(
-            cash,
-            cooldown_until=state.cooldown_until,
-            security=state.security,
-            outcomes=state.outcomes,
-        )
-        journal.append(
-            "live_start",
-            {
-                "at": int(time.time()),
-                "kind": "live_start",
-                "mode": "live",
-                "execution_eligible": False,
-                "cash_usd_micros": state.cash_usd_micros,
-                **gate.describe(),
-            },
-        )
-    return SpotAgent(source, config, state, gmgn=gmgn, executor=executor)
 
 
 def main() -> int:
@@ -429,12 +319,17 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, default=default_binary())
     parser.add_argument("--gmgn", type=Path, default=gmgn_source.default_binary())
     parser.add_argument("--no-gmgn", action="store_true", help="OKX-only decisions")
-    live = parser.add_argument_group("live trading (Agentic Wallet; off by default)")
-    live.add_argument("--live", action="store_true", help="trade the approved wallet")
+    live = parser.add_argument_group("read-only Agentic Wallet diagnostics")
+    live.add_argument(
+        "--live",
+        action="store_true",
+        help="reserved for a released execution path, or with --preflight-only",
+    )
     live.add_argument("--max-trade-usd", type=int, help="hard per-trade cap, whole USD")
     live.add_argument("--slippage-bps", type=int, default=100)
     live.add_argument("--confirm", help=f'exactly "LIVE SPOT ON BASE FROM {APPROVED_WALLET}"')
-    live.add_argument("--rpc-env", default="BASE_RPC_PRIMARY", help="env var with a Base RPC URL")
+    # Keep old invocations parseable. This command never opens a chain RPC.
+    live.add_argument("--rpc-env", help=argparse.SUPPRESS)
     live.add_argument(
         "--preflight-only", action="store_true", help="run read-only live checks and exit"
     )
@@ -443,6 +338,50 @@ def main() -> int:
         parser.error("--interval must be at least 30 seconds")
     if args.call_budget < 0:
         parser.error("--call-budget must be a non-negative integer")
+    if args.preflight_only and not args.live:
+        parser.error("--preflight-only requires --live")
+    if args.live:
+        if not args.preflight_only:
+            # A wallet confirmation does not authorize the exact transaction. There is
+            # no released spot signer that can independently enforce the risk policy.
+            print("spot live refused: independent execution gate unavailable", file=sys.stderr)
+            return 2
+        if args.call_budget < 3:
+            print(
+                "spot wallet diagnostics refused: insufficient logical call budget", file=sys.stderr
+            )
+            return 2
+        if args.max_trade_usd is None or args.confirm is None:
+            parser.error("--live --preflight-only requires --max-trade-usd and --confirm")
+        try:
+            gate = LiveGate(
+                APPROVED_WALLET, args.max_trade_usd * 1_000_000, args.slippage_bps, args.confirm
+            )
+        except ValueError as error:
+            parser.error(str(error))
+        if (
+            not args.binary.is_absolute()
+            or not os.access(args.binary, os.X_OK)
+            or not args.binary.is_file()
+        ):
+            parser.error(f"executable not found: {args.binary.name}")
+        try:
+            checked = preflight(gate, run_cli(args.binary))
+        except (LiveRefused, OSError) as error:
+            reason = error.category if isinstance(error, LiveRefused) else type(error).__name__
+            print(f"spot wallet diagnostics refused: {reason}", file=sys.stderr)
+            return 2
+        print(
+            json.dumps(
+                {"wallet_diagnostics": "passed", "execution_eligible": False, **checked},
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        return 0
+    if args.max_trade_usd is not None or args.confirm is not None:
+        parser.error("--max-trade-usd/--confirm are only valid with --live")
+
     config = (
         AgentConfig.model_validate_json(args.config.read_bytes()) if args.config else AgentConfig()
     )
@@ -457,42 +396,11 @@ def main() -> int:
     except (ValueError, KeyError, TypeError) as error:
         print(f"spot agent refused to resume: {error}", file=sys.stderr)
         return 2
-    gate = None
-    if args.live:
-        if args.max_trade_usd is None or args.confirm is None:
-            parser.error("--live requires --max-trade-usd and --confirm")
-        try:
-            gate = LiveGate(
-                APPROVED_WALLET, args.max_trade_usd * 1_000_000, args.slippage_bps, args.confirm
-            )
-        except ValueError as error:
-            parser.error(str(error))
-        if not os.environ.get(args.rpc_env):
-            parser.error(f"--live requires a Base RPC URL in {args.rpc_env}")
-        try:
-            RpcClient(JsonRpcTransport(os.environ[args.rpc_env]), expected_chain_id=8453).chain_id()
-            checked = preflight(gate, paced(run_cli(args.binary)))
-        except LiveRefused as refused:
-            print(f"live preflight refused: {refused.category}", file=sys.stderr)
-            return 2
-        except (ValueError, OSError, OasisError) as error:
-            # Type only: RPC errors can embed the endpoint URL.
-            print(f"live preflight refused: rpc_{type(error).__name__}", file=sys.stderr)
-            return 2
-        print(json.dumps({"live_preflight": "passed", **checked}, sort_keys=True), flush=True)
-        if args.preflight_only:
-            return 0
-    elif args.max_trade_usd is not None or args.confirm is not None:
-        parser.error("--max-trade-usd/--confirm are only valid with --live")
-    # Shadow runs archive their ordered inputs for offline replay (spot_capture); live
-    # runs never do, and get exactly the runners they had before.
     archive = None
-    if gate is None:
-        try:
-            archive = ExecutionJournal(args.out / "capture.db", {"schema": CAPTURE_SCHEMA})
-        except (ValueError, sqlite3.Error):
-            # The run's own evidence and behavior do not depend on the archive.
-            print("input capture disabled: archive unavailable", file=sys.stderr)
+    try:
+        archive = ExecutionJournal(args.out / "capture.db", {"schema": CAPTURE_SCHEMA})
+    except (ValueError, sqlite3.Error):
+        print("input capture disabled: archive unavailable", file=sys.stderr)
     recorder = None if archive is None else CaptureRecorder(archive, raw_dir)
 
     def wrap(provider: str, runner: Runner) -> Runner:
@@ -516,35 +424,16 @@ def main() -> int:
 
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
-    policy: dict[str, Any] = {
-        "schema": "oasis.spot-agent-shadow.v1",
-        "config": config.model_dump(mode="json"),
-    }
-    if gate is not None:
-        # A distinct policy makes the journal refuse a shadow directory resumed as live.
-        policy = policy | {"schema": LIVE_SCHEMA, "gate": gate.describe()}
+    policy = {"schema": SHADOW_SCHEMA, "config": config.model_dump(mode="json")}
     try:
         journal_context = ExecutionJournal(args.out / "journal.db", policy)
     except ValueError as error:
-        # e.g. a shadow run directory reopened with --live: the policy binding refuses.
         print(f"spot agent refused to open journal: {error}", file=sys.stderr)
         return 2
     with journal_context as journal:
-        try:
-            agent = _build_agent(args, gate, config, state, source, gmgn, journal, args.call_budget)
-        except (ValueError, OSError, OasisError) as error:  # SourceFailure is a ValueError
-            # Nothing has been submitted yet; refuse without a traceback or URL.
-            print(f"live start refused: {type(error).__name__}", file=sys.stderr)
-            return 2
-        if agent is None:
-            print("call budget cannot cover the live start balance read; stopping")
-            return 0
-        # Re-read the charge: building a live agent may itself have spent (and settled)
-        # counted calls, e.g. the live_start balance read.
-        policy_now, records_now = read_journal(journal.path)
-        spent = budget_ledger(records_now, legacy_error_charge(policy_now))["charged"]
+        agent = SpotAgent(source, config, state, gmgn=gmgn)
         if recorder is not None:
-            recorder.start_session(agent, sha256_hex(canonical_json(policy_now)))
+            recorder.start_session(agent, sha256_hex(canonical_json(policy)))
         try:
             return run_loop(
                 agent,
@@ -554,7 +443,7 @@ def main() -> int:
                 max_ticks=args.ticks,
                 call_budget=args.call_budget,
                 spent=spent,
-                should_stop=lambda: stop,
+                should_stop=lambda: stop or (args.out / "STOP").exists(),
                 capture=recorder,
             )
         finally:

@@ -111,8 +111,10 @@ def test_round_trip_settles_every_intent() -> None:
     ledger = reconcile_orders(records)
     assert ledger.settled == ("a", "b") and ledger.defects == ()
     status = run_status(LIVE_SCHEMA, records)
-    assert status["resumable"] and status["unknown_live_orders"] == 0
-    assert reconcile_with_journal(AgentState(0), records, LIVE_SCHEMA).cash_usd_micros == 5
+    assert not status["resumable"] and status["unknown_live_orders"] == 0
+    assert status["settled_live_orders_basis"] == "journal_match_only"
+    with pytest.raises(ValueError, match="spot_live_execution_unreleased"):
+        reconcile_with_journal(AgentState(0), records, LIVE_SCHEMA)
 
 
 @pytest.mark.parametrize(
@@ -215,7 +217,10 @@ def test_legacy_v1_live_journal_is_read_only_and_cash_is_not_relabelled(
     report = build_report(run)
     status = report["run_status"]
     assert status["lifecycle"] == "live_v1_legacy" and status["resumable"] is False
-    assert status["blocking_reasons"] == ["legacy_live_lifecycle_v1"]
+    assert status["blocking_reasons"] == [
+        "legacy_live_lifecycle_v1",
+        "spot_live_execution_unreleased",
+    ]
     assert status["unknown_live_orders_basis"] == "count_only_legacy"
     assert report["accounting"]["cash_basis"] == "legacy_v1_cash_net_of_estimated_gas"
     with pytest.raises(ValueError, match="legacy_live_lifecycle_v1"):
@@ -302,7 +307,7 @@ def test_single_field_defects_are_refused_and_never_settled(
 def test_unresolved_order_without_hash_stays_unknown_not_invalid() -> None:
     lost = intent("a") | {"kind": "live_unresolved", "category": "receipt_unavailable"}
     status = run_status(LIVE_SCHEMA, [intent("a"), lost, SUMMARY])
-    assert status["blocking_reasons"] == ["live_order_unresolved"]
+    assert status["blocking_reasons"] == ["live_order_unresolved", "spot_live_execution_unreleased"]
     assert status["unknown_live_orders"] == 1 and status["settled_live_orders"] == 0
 
 
@@ -314,7 +319,7 @@ def test_valid_buy_sell_round_trip_resumes_through_a_real_journal(tmp_path: Path
         [{"kind": "live_start", "at": 1, "cash_usd_micros": 5}, *BUY, *SELL, SUMMARY],
     )
     status = build_report(run)["run_status"]
-    assert status["resumable"] and status["settled_live_orders"] == 2
+    assert not status["resumable"] and status["settled_live_orders"] == 2
 
 
 def test_duplicate_intent_is_that_intents_defect_not_a_global_reset() -> None:
@@ -428,4 +433,6 @@ def test_chain_id_must_be_the_integer_8453(chain: object) -> None:
     status = run_status(LIVE_SCHEMA, records)
     assert "intent_identity_invalid" in status["blocking_reasons"]
     assert status["settled_live_orders"] == 0
-    assert run_status(LIVE_SCHEMA, [*BUY, SUMMARY])["resumable"] is True
+    assert run_status(LIVE_SCHEMA, [*BUY, SUMMARY])["blocking_reasons"] == [
+        "spot_live_execution_unreleased"
+    ]

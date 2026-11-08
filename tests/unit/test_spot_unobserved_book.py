@@ -110,7 +110,7 @@ def test_api_serves_the_unobserved_book_as_nulls(
         assert_unobserved(response.json())
 
 
-def render(report: dict[str, Any]) -> dict[str, Any]:
+def render(report: dict[str, Any], fail_after: str | None = None) -> dict[str, Any]:
     """Run the real loadSpot() under Node with stub DOM/API; return what it rendered."""
     node = shutil.which("node")
     assert node, "Node.js is required"
@@ -120,22 +120,38 @@ def render(report: dict[str, Any]) -> dict[str, Any]:
         r"""
 const nodes = new Map(), out = {stats: null, tables: {}};
 globalThis.document = {getElementById: id => {
-  if (!nodes.has(id)) nodes.set(id, {textContent: '', classList: {toggle(){}}});
+  if (!nodes.has(id)) nodes.set(id, {
+    textContent: '', classList: {toggle(){}},
+    replaceChildren() {
+      if (id === 'spot-stats') out.stats = null;
+      else delete out.tables[id];
+    },
+  });
   return nodes.get(id);
 }};
 const esc = String;
 const REPORT = """
         + json.dumps(report)
+        + "; const FAIL_AFTER = "
+        + json.dumps(fail_after)
         + r""";
+let refresh = false;
 async function apiGet(path) {
-  return path.startsWith('/api/v1/spot/report') ? REPORT : {items: [], total: 0};
+  if (refresh && path.startsWith(FAIL_AFTER)) throw {status: 503};
+  return path.startsWith('/api/v1/spot/report') ? REPORT :
+    {items: [], total: 0, mode: REPORT.mode, execution_eligible: false};
 }
 function renderStats(id, stats) { out.stats = stats; }
 function renderTable(id, columns, rows, empty) { out.tables[id] = {rows, empty}; }
 """
         + source[head + 1 :].replace("export ", "")
         + r"""
-loadSpot().then(() => {
+loadSpot().then(async () => {
+  if (FAIL_AFTER) {
+    if (!out.stats || Object.keys(out.tables).length !== 4) throw Error("initial render failed");
+    refresh = true;
+    await loadSpot();
+  }
   out.status = document.getElementById('spot-status').textContent;
   console.log(JSON.stringify(out));
 }).catch(error => { console.error(error); process.exitCode = 1; });
@@ -197,3 +213,12 @@ def test_console_wording_holds_after_a_read_without_live_start(
     stats = {s["label"]: str(s["value"]) for s in out["stats"]}
     assert stats[EQUITY] == UNOBSERVED
     assert "1000.00" not in json.dumps(out, ensure_ascii=False)
+
+
+@pytest.mark.parametrize("route", ["report", "decisions", "assessments"])
+def test_console_clears_every_previous_panel_on_failed_refresh(tmp_path: Path, route: str) -> None:
+    run = tmp_path / "live"
+    open_live(run).close()
+    out = render(build_report(run), fail_after=f"/api/v1/spot/{route}")
+    assert out["stats"] is None and out["tables"] == {}
+    assert "日志不可用" in out["status"]

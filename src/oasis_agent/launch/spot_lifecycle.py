@@ -266,6 +266,10 @@ def run_status(schema: str | None, records: list[Record]) -> dict[str, Any]:
             blocking.add("live_order_unresolved")
         if ledger.unbooked:
             blocking.add("live_fill_not_booked")
+    if live:
+        # Balance-delta records can match internally without proving on-chain
+        # settlement, opening inventory, or release authority. Keep them read-only.
+        blocking.add("spot_live_execution_unreleased")
     if kinds[LIVE_HALT]:
         blocking.add("live_halt_recorded")
     human = [
@@ -293,6 +297,7 @@ def run_status(schema: str | None, records: list[Record]) -> dict[str, Any]:
         "unknown_live_orders": unknown,
         "unknown_live_orders_basis": "count_only_legacy" if legacy else "per_intent",
         "settled_live_orders": 0 if legacy else len(ledger.settled),
+        "settled_live_orders_basis": "journal_match_only" if live else "not_applicable",
         "human_review": human,
         # Current observation gaps (last completed tick only); never blocking on their own.
         "transient_unpriceable": transient,

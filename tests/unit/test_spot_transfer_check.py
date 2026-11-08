@@ -1,6 +1,6 @@
 """One bound spot fill: receipt Transfer nets of USDC and the order token vs the journal.
 
-Synthetic retained receipts only, through the production path: LiveExecutor +
+Synthetic retained receipts only, through the historical fixture path: LiveExecutor +
 rpc_receipt_reader -> real run journal; two persisted transaction_cost proofs whose
 receipts carry scripted logs; check_order_transfers and the report CLI read them
 read-only. No network, wallet, key or broadcast.
@@ -17,10 +17,11 @@ import scripts.report_spot_shadow as report_cli
 from oasis_agent.evidence.store import EvidenceStore, ReadOnlyEvidenceStore
 from oasis_agent.farming.owner_payments import TRANSFER
 from oasis_agent.launch.onchainos_source import BASE_USDC
-from oasis_agent.launch.spot_executor import APPROVED_WALLET, LiveExecutor, rpc_receipt_reader
+from oasis_agent.launch.spot_executor import APPROVED_WALLET
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.launch.spot_transfer_check import check_order_transfers
 
+from .spot_legacy_fixture import LiveExecutor, rpc_receipt_reader
 from .test_spot_agent import NOW, FakeCli
 from .test_spot_cost_binding import BLOCK, OTHER_BLOCK, PROVIDERS, World, cost_capture
 from .test_spot_executor import FakeWallet, gate
@@ -292,3 +293,39 @@ def test_report_cli_shows_the_check_and_default_report_is_unchanged(
     assert {
         k: v for k, v in out.items() if k not in ("cost_replay", "receipt_transfers")
     } == default
+
+
+@pytest.mark.parametrize("has_logs", [True, False])
+def test_report_can_require_two_receipts_to_corroborate_the_fill(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    has_logs: bool,
+) -> None:
+    order = buy(tmp_path)
+    world = order.world
+    logs = order.swap_logs() if has_logs else []
+    costs = [world.put(cost_capture(p, order.tx, logs=logs)) for p in PROVIDERS]
+    binding = tmp_path / "binding.json"
+    binding.write_text(json.dumps(world.binding(costs)))
+    world.store.close()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "report",
+            "--run",
+            str(world.run),
+            "--cost-binding",
+            str(binding),
+            "--evidence",
+            str(world.db),
+            "--require-receipt-match",
+        ],
+    )
+    capsys.readouterr()  # discard output from the historical fixture runner
+    assert report_cli.main() == (0 if has_logs else 2)
+    result = json.loads(capsys.readouterr().out)
+    assert result["receipt_transfers"]["status"] == ("matched" if has_logs else "unverified")
+    assert result["run_status"]["resumable"] is False
+    assert result["execution_eligible"] is False

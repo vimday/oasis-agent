@@ -102,7 +102,7 @@ SPOT_RUN ?= data/spot/shadow
 .PHONY: spot-shadow spot-report spot-live-preflight
 spot-shadow:
 	$(PYTHON) -m scripts.run_spot_agent --out "$(SPOT_RUN)" --interval $(or $(INTERVAL),120)
-# Live (Agentic Wallet): read-only preflight only; trading needs LIVE_ARGS from the owner.
+# Agentic Wallet diagnostics only; this entry point has no spot signing authority.
 spot-live-preflight:
 	$(PYTHON) -m scripts.run_spot_agent --out "$(or $(SPOT_LIVE_RUN),data/spot/live)" --live --preflight-only \
 		--max-trade-usd $(or $(MAX_TRADE_USD),20) --confirm "LIVE SPOT ON BASE FROM 0x95a91b0afbc5fb3dbbffa1be8aaff5c14772a900"

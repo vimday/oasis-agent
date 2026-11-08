@@ -413,15 +413,12 @@ autonomous trader. Its current verified boundary is:
   an optional GMGN cross-check and pluggable address-only nominators (`discovery_slot.py`, the FOMO
   slot; no FOMO access exists). Each tick journals hash-linked assessments, entries, exits and
   forward-return labels; resume takes money state from the journal and refuses an interrupted
-  tick. Default mode is a paper book. `launch/spot_executor.py` adds a gated live path for the
-  owner-approved OKX Agentic Wallet only: `--live` needs a per-trade cap, bounded slippage, the
-  exact confirmation phrase, a Base RPC and a read-only preflight (active CLI account equals the
-  gated wallet, USDC and gas present); the wallet's TEE signs, the process holds no key, each swap
-  is submitted once, a fill is the wallet's balance delta plus a status-1 receipt, and anything
-  unproven journals `live_unresolved` and halts. It is tested with fakes only; the real preflight
-  refused the unfunded wallet, no live swap has been submitted, swap-response parsing is unverified
-  against real output, and short live shadow runs produced no flip decisions, so there is no
-  evidence of selection edge or profitability;
+  tick. The operator entry point runs in shadow mode. Its Agentic Wallet diagnostics read the
+  wallet identity, USDC, and gas balance. Spot execution remains unreleased pending independently
+  enforced account limits and a signer bound to the same transaction verified by both simulations.
+  Historical live journals remain readable but cannot be resumed. Offline receipt replay compares
+  the wallet's USDC/token Transfer nets and native fee evidence for one journal-matched order
+  without treating the strategy book as verified account NAV.
 - CLI fixture commands are not evidence of a working backtester, simulator, or executor;
 - `contracts/` contains a deployable local research hook with deterministic bounded fees,
   owner-whitelisted LP additions, unrestricted removals by omission, CREATE2 permission mining, a

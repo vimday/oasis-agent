@@ -1,6 +1,6 @@
 """Receipt native-fee items: same receipt, settled orders only, evidence never booked.
 
-Synthetic RPC responses only, through the production path: LiveExecutor with
+Synthetic RPC responses only, through the historical fixture path: LiveExecutor with
 rpc_receipt_reader -> run_loop journal -> build_report. No network, wallet or signer.
 """
 
@@ -11,12 +11,11 @@ import pytest
 
 from oasis_agent.launch.spot_executor import (
     APPROVED_WALLET,
-    LiveExecutor,
     receipt_fees,
-    rpc_receipt_reader,
 )
 from oasis_agent.launch.spot_report import build_report, read_journal, receipt_fee_attribution
 
+from .spot_legacy_fixture import LiveExecutor, rpc_receipt_reader
 from .test_spot_agent import NOW, FakeCli
 from .test_spot_executor import FakeWallet, gate
 from .test_spot_runner import open_live, run_live
@@ -64,7 +63,7 @@ def live_run(tmp_path: Path, receipt: Any) -> tuple[Path, FakeWallet]:
             sleep=lambda _s: None,
             settle_attempts=1,
         )
-        assert run_live(run, executor, FakeCli(), ticks=1) == 0  # one proven buy
+        assert run_live(run, executor, FakeCli(), ticks=1) == 0
     return run, wallet
 
 
@@ -110,7 +109,7 @@ def test_missing_or_malformed_items_never_block_a_proven_fill(
     run, wallet = live_run(tmp_path, rpc_receipt_reader(Transport(**fields)))
     report = build_report(run)
     # The fill is still proven and booked, nothing was resubmitted, nothing reads as zero.
-    assert len(wallet.submits) == 1 and report["run_status"]["resumable"] is True
+    assert len(wallet.submits) == 1 and report["run_status"]["resumable"] is False
     (row,) = report["accounting"]["receipt_fees"]["rows"]
     assert (row["execution"], row["l1_data"]) == (execution, l1)
     if execution != "observed":

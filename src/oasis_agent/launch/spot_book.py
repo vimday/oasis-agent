@@ -36,6 +36,13 @@ def parse_quote(
     if not isinstance(data, list) or len(data) != 1 or not isinstance(data[0], dict):
         raise ValueError("one quote row required")
     row = data[0]
+    routes = row.get("dexRouterList")
+    if not isinstance(routes, list) or not routes or any(not isinstance(r, dict) for r in routes):
+        raise ValueError("quote route unavailable")
+    # Old paper captures predate the action field. When it is present the venue's
+    # decision wins over individual risk flags, including on an unwind quote.
+    if any("action" in route and route["action"] != "ok" for route in (row, *routes)):
+        raise ValueError("quote route risk refused")
 
     def token(side: str, expected: str) -> dict[str, Any]:
         meta = row.get(side)
@@ -55,8 +62,6 @@ def parse_quote(
     if (
         row.get("chainIndex") != str(chain)
         or row.get("swapMode", "exactIn") != "exactIn"
-        or not isinstance(row.get("dexRouterList"), list)
-        or not row["dexRouterList"]
         or amount_in != amount
         or not amount_out
         or amount_out >= 2**256

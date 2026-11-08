@@ -1,29 +1,27 @@
 """Budget ledger strictness through a real journal, and live-start admission before any call."""
 
-import argparse
 import contextlib
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-import scripts.run_spot_agent as runner
-from oasis_agent.launch.onchainos_source import OnchainosSource
-from oasis_agent.launch.spot_agent import AgentConfig, AgentState
+from oasis_agent.launch.onchainos_source import BASE_USDC, OnchainosSource
+from oasis_agent.launch.spot_agent import AgentConfig, AgentState, SpotAgent
 from oasis_agent.launch.spot_budget import (
     BudgetLedgerError,
     budget_ledger,
     full_cycle_calls,
     legacy_error_charge,
 )
-from oasis_agent.launch.spot_executor import APPROVED_WALLET, LiveExecutor, swap_call_bound
+from oasis_agent.launch.spot_executor import swap_call_bound
 from oasis_agent.launch.spot_lifecycle import LIVE_SCHEMA, SHADOW_SCHEMA
 from oasis_agent.launch.spot_report import build_report, read_journal
 from oasis_agent.sniping.journal import ExecutionJournal
 from scripts.run_spot_agent import resume
 
 from .test_spot_agent import NOW, FakeCli
-from .test_spot_executor import FakeWallet, gate
+from .test_spot_executor import FakeWallet
 from .test_spot_lifecycle import SUMMARY
 
 
@@ -115,28 +113,32 @@ class CountingWallet(FakeWallet):
 def start_live(
     run: Path, monkeypatch: pytest.MonkeyPatch, wallet: CountingWallet, budget: int
 ) -> Any:
-    """The real _build_agent fresh-live path; only network constructors are stubbed."""
+    """Materialize historical opening records with an injected fake wallet."""
     run.mkdir(exist_ok=True)
     policy = {"schema": LIVE_SCHEMA, "config": AgentConfig().model_dump(mode="json")}
     with ExecutionJournal(run / "journal.db", policy) as journal:
-        executor = LiveExecutor(
-            gate(),
-            read=wallet.read,
-            submit=wallet.submit,
-            receipt=lambda _tx: (1, 123, APPROVED_WALLET),
-            emit=journal.append,
-            clock=lambda: NOW,
-            sleep=lambda _s: None,
-        )
-        monkeypatch.setattr(runner, "LiveExecutor", lambda *a, **k: executor)
-        monkeypatch.setattr(runner, "JsonRpcTransport", lambda url: None)
-        monkeypatch.setattr(runner, "RpcClient", lambda *a, **k: None)
-        monkeypatch.setenv("SPOT_TEST_RPC", "unused")
-        args = argparse.Namespace(rpc_env="SPOT_TEST_RPC", binary=Path("/bin/true"))
-        source = OnchainosSource(FakeCli(), clock=lambda: NOW)
-        return runner._build_agent(
-            args, gate(), AgentConfig(), AgentState(0), source, None, journal, budget
-        )
+        spent = budget_ledger(journal.read(), 106)["charged"]
+        evidence = {"at": NOW, "mode": "live", "execution_eligible": False}
+        if spent >= budget:
+            journal.append(
+                "budget_stop",
+                stop(spent)
+                | evidence
+                | {
+                    "stage": "live_start_balance",
+                    "open_positions": None,
+                    "call_budget": budget,
+                    "reserved_needed": 1,
+                },
+            )
+            return None
+        key = str(len(journal.read()))
+        journal.append("budget_reserve", reserve(key, 1) | evidence)
+        wallet.read(("wallet", "balance", "--token-address", BASE_USDC))
+        journal.append("budget_settle", settle(key, 1) | evidence)
+        state = AgentState(wallet.balances[BASE_USDC])
+        journal.append("live_start", evidence | {"cash_usd_micros": state.cash_usd_micros})
+        return SpotAgent(OnchainosSource(FakeCli(), clock=lambda: NOW), AgentConfig(), state)
 
 
 def kinds(run: Path) -> list[str]:
@@ -175,8 +177,9 @@ def test_failed_start_restarts_never_exceed_the_budget(
     # every later restart is refused before touching the provider.
     assert wallet.read_count == 1
     assert kinds(run) == ["budget_reserve"] + ["budget_stop"] * 4
-    _, charged = resume(run, AgentConfig())
-    assert charged == 1
+    with pytest.raises(ValueError, match="spot_live_execution_unreleased"):
+        resume(run, AgentConfig())
+    assert budget_ledger(read_journal(run / "journal.db")[1], 106)["charged"] == 1
 
 
 def summary(calls: object) -> dict[str, Any]:

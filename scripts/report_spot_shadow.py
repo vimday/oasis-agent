@@ -24,9 +24,16 @@ def main() -> int:
     parser.add_argument("--run", type=Path, required=True, help="run directory of run_spot_agent")
     parser.add_argument("--cost-binding", type=Path, help="declared binding for one order")
     parser.add_argument("--evidence", type=Path, help="existing evidence store (read-only)")
+    parser.add_argument(
+        "--require-receipt-match",
+        action="store_true",
+        help="exit 2 unless both retained receipts corroborate the historical journal fill",
+    )
     args = parser.parse_args()
     if (args.cost_binding is None) != (args.evidence is None):
         parser.error("--cost-binding and --evidence must be given together")
+    if args.require_receipt_match and args.cost_binding is None:
+        parser.error("--require-receipt-match needs --cost-binding and --evidence")
     try:
         # ONE verified read of the journal: the base report and the optional cost
         # replay both derive from this snapshot, so a writer appending after it can
@@ -49,6 +56,8 @@ def main() -> int:
         print(f"spot shadow report refused: {type(error).__name__}", file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2, sort_keys=True))
+    if args.require_receipt_match and report["receipt_transfers"]["status"] != "matched":
+        return 2
     return 0
 
 

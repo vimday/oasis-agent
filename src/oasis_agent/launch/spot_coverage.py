@@ -46,8 +46,11 @@ def coverage_report(records: list[Record]) -> dict[str, Any]:
         coverage = summary["coverage"]
         discovery[str(coverage["discovery"])] += 1
         discovered += coverage["discovered"]
-        fates.update({f: coverage[f] for f in CANDIDATE_FATES})
-        if sum(coverage[f] for f in CANDIDATE_FATES) != coverage["discovered"]:
+        # Historical v2 records predate the stop-specific fate.
+        cycle_fates = {f: coverage[f] for f in CANDIDATE_FATES if f != "not_reached_stop"}
+        cycle_fates["not_reached_stop"] = coverage.get("not_reached_stop", 0)
+        fates.update(cycle_fates)
+        if sum(cycle_fates.values()) != coverage["discovered"]:
             unreconciled.append(int(summary["at"]))
         registration.update(coverage["label_registration"])
         emitted.update(coverage["labels_emitted"])
