@@ -46,6 +46,14 @@ from oasis_agent.launch.spot_executor import (
     preflight,
 )
 from oasis_agent.launch.spot_lifecycle import HUMAN_REVIEW_REASONS, LIVE_HALT, SHADOW_SCHEMA
+from oasis_agent.launch.spot_plan import (
+    ExperimentPlan,
+    PlanRefused,
+    binding,
+    plan_bound_in,
+    planned_session,
+    read_plan,
+)
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.sniping.journal import ExecutionJournal
@@ -124,6 +132,38 @@ def resume(out: Path, config: AgentConfig) -> tuple[AgentState, int]:
     # The call budget covers the whole run directory across restarts, including failed
     # and interrupted cycles (see spot_budget): restarts never forget spent calls.
     return state, budget_ledger(records, legacy_error_charge(policy))["charged"]
+
+
+def start_capture(
+    recorder: CaptureRecorder,
+    agent: SpotAgent,
+    run_policy_sha256: str,
+    plan: ExperimentPlan | None,
+    archive: Path,
+) -> str | None:
+    """Write the session's start record; a research run (`plan`) binds its plan into it.
+
+    None means the run may start; otherwise a fixed refusal. A research run refuses when
+    another session of the archive already binds the plan (one plan is one trial), and
+    when its own start record cannot be read back binding exactly that plan. Nothing here
+    calls a provider, so a refused research run has queried nothing.
+    """
+    if plan is None:
+        recorder.start_session(agent, run_policy_sha256)
+        return None
+    try:
+        if plan_bound_in(archive, plan):
+            return "plan_already_bound_in_this_archive"
+    except PlanRefused as refused:
+        return refused.category
+    recorder.start_session(agent, run_policy_sha256, binding(plan))
+    if not recorder.healthy:
+        return "plan_not_bound"
+    try:
+        planned_session(archive, plan, recorder.session_id)
+    except PlanRefused:
+        return "plan_not_bound"
+    return None
 
 
 def _error_record(
@@ -333,7 +373,15 @@ def main() -> int:
     live.add_argument(
         "--preflight-only", action="store_true", help="run read-only live checks and exit"
     )
+    parser.add_argument(
+        "--plan",
+        type=Path,
+        help="research mode: a pre-registered experiment plan (JSON) bound into the capture "
+        "before the first provider call; the run refuses to start if it cannot be bound",
+    )
     args = parser.parse_args()
+    if args.plan is not None and args.live:
+        parser.error("--plan is only valid for a shadow research run")
     if args.interval < 30:
         parser.error("--interval must be at least 30 seconds")
     if args.call_budget < 0:
@@ -388,6 +436,18 @@ def main() -> int:
     for binary in [args.binary] + ([] if args.no_gmgn else [args.gmgn]):
         if not binary.is_absolute() or not binary.is_file() or not os.access(binary, os.X_OK):
             parser.error(f"executable not found: {binary.name}")
+    plan = None
+    if args.plan is not None:
+        try:
+            plan = read_plan(args.plan)
+        except PlanRefused as refused:
+            print(f"spot research run refused: {refused.category}", file=sys.stderr)
+            return 2
+        if time.time() >= plan.window.start:
+            # Acceptance needs the plan bound before the window opens; a session started
+            # later could never be accepted, so it is not started.
+            print("spot research run refused: plan_window_already_open", file=sys.stderr)
+            return 2
     args.out.mkdir(parents=True, exist_ok=True)
     raw_dir = args.out / "raw"
     raw_dir.mkdir(exist_ok=True)
@@ -401,6 +461,10 @@ def main() -> int:
         archive = ExecutionJournal(args.out / "capture.db", {"schema": CAPTURE_SCHEMA})
     except (ValueError, sqlite3.Error):
         print("input capture disabled: archive unavailable", file=sys.stderr)
+    if plan is not None and archive is None:
+        # A research run without its archive could never show where its plan was bound.
+        print("spot research run refused: capture_unavailable", file=sys.stderr)
+        return 2
     recorder = None if archive is None else CaptureRecorder(archive, raw_dir)
 
     def wrap(provider: str, runner: Runner) -> Runner:
@@ -431,10 +495,15 @@ def main() -> int:
         print(f"spot agent refused to open journal: {error}", file=sys.stderr)
         return 2
     with journal_context as journal:
-        agent = SpotAgent(source, config, state, gmgn=gmgn)
-        if recorder is not None:
-            recorder.start_session(agent, sha256_hex(canonical_json(policy)))
         try:
+            agent = SpotAgent(source, config, state, gmgn=gmgn)
+            # A research run always has a recorder: it refused above without an archive.
+            if recorder is not None:
+                digest = sha256_hex(canonical_json(policy))
+                refusal = start_capture(recorder, agent, digest, plan, args.out / "capture.db")
+                if refusal is not None:
+                    print(f"spot research run refused: {refusal}", file=sys.stderr)
+                    return 2
             return run_loop(
                 agent,
                 journal,

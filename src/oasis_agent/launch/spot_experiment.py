@@ -32,6 +32,7 @@ slippage or exit capacity, which are all unobserved here. Two selected subsets a
 not a randomized or causal comparison.
 """
 
+import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from statistics import median
@@ -43,10 +44,13 @@ from .outcomes import MAX_LATENESS_SECONDS, REGISTRATION
 from .spot_agent import decision_policy, policy_digest
 
 Record = dict[str, Any]
-EXPERIMENT_SCHEMA = "oasis.spot-experiment.v2"
+# v3: the manifest states where its window came from (`window_basis`, `plan_sha256`).
+EXPERIMENT_SCHEMA = "oasis.spot-experiment.v3"
+_HEX64 = re.compile(r"[0-9a-f]{64}")
 COMPARATOR = "assess_without_smart_wallet_bonus.v1"
 HORIZON = 3_600
 EvidenceSource = Literal["synthetic", "provider_claims", "unknown"]
+WindowBasis = Literal["analysis_time_arguments", "pre_registered_plan"]
 # Mutually exclusive state of one primary sample's 1 h label:
 # - not_registered: the tracker never took the sample (reason in `registration`), so no
 #   label can exist; its return is unknown, never zero;
@@ -79,6 +83,19 @@ class Sample:
     registration: str
 
 
+def replay_inputs(replay: Record) -> Record:
+    """The frozen evidence one capture replay names, as an experiment manifest records it."""
+    return {
+        "capture_session_id": replay["session_id"],
+        "capture_archive_head_digest": replay["archive_head_digest"],
+        "code": replay["code"],
+        "run_policy_sha256": replay["run_policy_sha256"],
+        "session_complete": replay["session_complete"],
+        "termination": replay["termination"],
+        "cycles_replayed": replay["cycles_replayed"],
+    }
+
+
 def _assessment_record(a: Assessment) -> tuple[str, int, list[str]]:
     return a.action, a.score_bps, list(a.reasons)
 
@@ -86,6 +103,22 @@ def _assessment_record(a: Assessment) -> tuple[str, int, list[str]]:
 def _int(value: object) -> int | None:
     """A plain int (never bool, float or numeric string)."""
     return value if type(value) is int else None
+
+
+def check_window(start: object, end: object, label_cutoff: object) -> None:
+    """The window contract of an analysis-time window and of a pre-registered plan alike.
+
+    Plain integer unix seconds (UTC), a non-empty [start, end), and a label cutoff that
+    leaves the 1 h horizon plus the allowed lateness after `end`.
+    """
+    s, e, cutoff = _int(start), _int(end), _int(label_cutoff)
+    if s is None or e is None or cutoff is None:
+        raise ExperimentRefused("window_malformed")
+    if not s < e:
+        raise ExperimentRefused("empty_window")
+    if cutoff < e + HORIZON + MAX_LATENESS_SECONDS:
+        # A sample near `end` could not yet have its 1 h label: right-censored by design.
+        raise ExperimentRefused("label_cutoff_before_window_horizon")
 
 
 # The assessment actions `assess` can emit for a candidate (hold/exit are positions).
@@ -231,19 +264,31 @@ def run_experiment(
     label_cutoff: int,
     evidence: EvidenceSource,
     inputs: Record,
+    window_basis: WindowBasis = "analysis_time_arguments",
+    plan_sha256: str | None = None,
 ) -> dict[str, Any]:
-    """The comparison report. `inputs` names the frozen evidence (digests, completeness)."""
+    """The comparison report. `inputs` names the frozen evidence (digests, completeness).
+
+    `window_basis` says where the window came from: arguments given at analysis time
+    (exploration; the window may have been chosen after the data was seen) or a plan
+    bound into the capture before its first provider call (`spot_plan`), whose digest
+    must then be given. The basis is reported; this function does not verify a plan.
+    """
     if any(_int(v) is None for v in (start, end, label_cutoff)):
         raise ExperimentRefused("window_malformed")
     if evidence not in ("synthetic", "provider_claims", "unknown"):
         raise ExperimentRefused("evidence_source_unknown")
+    if window_basis == "analysis_time_arguments":
+        basis_ok = plan_sha256 is None
+    elif window_basis == "pre_registered_plan":
+        basis_ok = isinstance(plan_sha256, str) and _HEX64.fullmatch(plan_sha256) is not None
+    else:
+        basis_ok = False
+    if not basis_ok:
+        raise ExperimentRefused("window_basis_malformed")
     if not isinstance(records, list) or not all(isinstance(r, dict) for r in records):
         raise ExperimentRefused("records_malformed")
-    if not start < end:
-        raise ExperimentRefused("empty_window")
-    if label_cutoff < end + HORIZON + MAX_LATENESS_SECONDS:
-        # A sample near `end` could not yet have its 1 h label: right-censored by design.
-        raise ExperimentRefused("label_cutoff_before_window_horizon")
+    check_window(start, end, label_cutoff)
     policy = decision_policy(config)
     samples = rebuild(records, policy)  # every assessment, before any label is read
     in_window = [s for s in samples if start <= s.at < end]
@@ -329,6 +374,8 @@ def run_experiment(
             "inputs": inputs,
             "scope": SCOPE,
             "window": {"start": start, "end": end, "label_cutoff": label_cutoff},
+            "window_basis": window_basis,
+            "plan_sha256": plan_sha256,
             "horizon_seconds": HORIZON,
             "allowed_lateness_seconds": MAX_LATENESS_SECONDS,
             "sample_rule": "earliest_reproduced_decision_per_token_in_window",

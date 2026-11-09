@@ -3,7 +3,8 @@
 Capture. The runner wraps each read-only provider runner with `CaptureRecorder.logical`
 and journals, in a separate hash-linked archive next to the run journal:
 
-- `session_start`: the agent's exact initial state, config and code identity;
+- `session_start`: the agent's exact initial state, config and code identity, and for
+  a research run its pre-registered plan and plan digest (see `spot_plan`);
 - `cycle_start`: cycle number, the tick's `now` and whether it was `manage_only`;
 - `call`: one logical provider query in global order: provider, exact read-only argv,
   start and response-available times (integer ms), transport attempts (retries inside
@@ -124,13 +125,19 @@ class CaptureRecorder:
             return self._clock()
         return self._available_ms // 1000
 
-    def start_session(self, agent: SpotAgent, run_policy_sha256: str) -> None:
+    def start_session(
+        self, agent: SpotAgent, run_policy_sha256: str, plan: Record | None = None
+    ) -> None:
+        """`plan` is a research run's pre-registered plan binding (`spot_plan.binding`).
+        Without it the record is exactly an ordinary shadow session's start."""
         try:
-            self._start_session(agent, run_policy_sha256)
+            self._start_session(agent, run_policy_sha256, plan)
         except Exception:  # noqa: BLE001 - evidence loss must never alter the run itself
             self.healthy = False
 
-    def _start_session(self, agent: SpotAgent, run_policy_sha256: str) -> None:
+    def _start_session(self, agent: SpotAgent, run_policy_sha256: str, plan: Record | None) -> None:
+        if plan is not None and set(plan) != {"plan", "plan_sha256"}:
+            raise ValueError("plan binding malformed")
         reasons = []
         if agent.executor is not None:
             reasons.append("live_runs_are_not_captured")
@@ -150,6 +157,7 @@ class CaptureRecorder:
                 "state": state,
                 "state_sha256": sha256_hex(canonical_json(state)),
                 "wall_ms": _ms(self._clock()),
+                **(plan or {}),
             },
         )
         if reasons:
@@ -505,6 +513,9 @@ def replay_session(
         "run_policy_sha256": start["run_policy_sha256"],
         "code": start["code"],
         "config": start["config"],
+        # The session's own plan binding as recorded; empty for an unplanned session.
+        # spot_plan validates it; replay itself never reads a window from it.
+        "plan_binding": {k: start[k] for k in ("plan", "plan_sha256") if k in start},
         "initial_state_sha256": start["state_sha256"],
         "final_state_sha256": state_digest(agent),
         "cycles_replayed": len(cycle_results),

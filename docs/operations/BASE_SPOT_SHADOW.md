@@ -43,10 +43,59 @@ Use an existing shadow directory and a new output file.
 
 The capture retains ordered provider responses, decision code identity, state and outcomes.
 A session end record proves recorded completion. A partial capture can only replay its retained
-prefix. To compare against the fixed no-smart-wallet-bonus baseline, run
-[`scripts.run_spot_experiment`](../../scripts/run_spot_experiment.py) with a declared observation
-window, sufficient label cutoff, and input provenance. Forward midpoint returns describe signal
-groups. Promotion requires an untouched, cost-adjusted comparison using executable prices.
+prefix. Forward midpoint returns describe signal groups. Promotion requires an untouched,
+cost-adjusted comparison using executable prices.
+
+## Pre-register a baseline experiment
+
+Freeze the plan before its window opens. It names the fixed comparator, a UTC window
+`[start, end)` and a label cutoff, in integer Unix seconds. The cutoff must be at least
+`end + 4200`, which allows the 1 h horizon plus 600 s of lateness.
+
+```json
+{"schema": "oasis.spot-experiment-plan.v1",
+ "comparator": "assess_without_smart_wallet_bonus.v1",
+ "window": {"start": 1800003600, "end": 1800090000, "label_cutoff": 1800094200}}
+```
+
+Confirm the provider sources and request allowance first, as for any online read. Then start
+the research run in a new directory, with a tick count and call budget that reach past the
+label cutoff:
+
+```bash
+.venv/bin/python -m scripts.run_spot_agent --out data/spot/research-001 --plan PLAN.json \
+  --ticks "$TICKS" --interval 120 --call-budget "$CALL_BUDGET" --no-gmgn
+```
+
+The runner binds the normalized plan and its digest into the capture's `session_start` before
+any provider call. It refuses to start when the window is already open, when the plan is
+malformed, when the archive is unavailable, when the plan cannot be read back from its start
+record, or when another session of the archive already binds that plan. A refused run queries
+no provider. After the run, accept it with
+[`scripts.run_spot_experiment`](../../scripts/run_spot_experiment.py):
+
+```bash
+.venv/bin/python -m scripts.run_spot_experiment --run data/spot/research-001 \
+  --plan PLAN.json --evidence provider_claims --out /tmp/oasis-spot-acceptance.json
+```
+
+Acceptance takes the window only from the plan bound to the selected session. It refuses window
+arguments, `--allow-prefix`, a plan that matches no session, another session's plan, and a plan
+bound to more than one session. The record says `accepted` or `blocked` and lists every gap. A
+gap is one of: the session has no end record, the plan was bound after the window start, no
+cycle ran by the start, no discovery succeeded inside the window, or no cycle queried labels at
+or after the cutoff. A zero-cycle `budget_stop` blocks, and so does an early end. Cycles past
+the cutoff that only managed positions deferred their labels, so they block too. The command
+exits 3 and still writes the record, which keeps the
+cycles by phase and kind, the primary sample denominator, every label state and the
+fixed-baseline report. The plan's ordering is local to the archive's hash chain and the host
+clock (`independent_time_proof: not_established`). Hold or timestamp the plan digest elsewhere
+before the window when a time proof matters.
+
+Sessions started without a plan stay exploratory. Give `--start`, `--end` and
+`--label-cutoff` instead of `--plan`, and the report says
+`window_basis: analysis_time_arguments`. Acceptance is coverage only. It is no return,
+promotion or execution permit, and every output keeps `execution_eligible: false`.
 
 ## Corroborate a historical fill
 

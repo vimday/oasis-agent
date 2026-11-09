@@ -23,7 +23,7 @@ from oasis_agent.launch.spot_coverage import coverage_report
 from oasis_agent.launch.spot_report import read_journal
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.sniping.journal import ExecutionJournal
-from scripts.run_spot_agent import manage_budget, run_loop, tick_budget
+from scripts.run_spot_agent import manage_budget, run_loop, start_capture, tick_budget
 
 from .test_spot_agent import NOW, FakeCli, hot_row
 from .test_spot_gmgn import FakeGmgn, info
@@ -73,8 +73,13 @@ def capture_run(
     interval: int = 60,
     state: AgentState | None = None,
     each_cycle: Any = None,
+    plan: Any = None,
 ) -> dict[str, Any]:
-    """The real shadow run_loop with the recorder wired exactly as main() wires it."""
+    """The real shadow run_loop with the recorder wired exactly as main() wires it.
+
+    `plan` makes it a research run: the session starts through main()'s own
+    `start_capture`, and a refused binding returns code 2 before any provider call.
+    """
     run.mkdir(parents=True, exist_ok=True)
     raw = run / "raw"
     raw.mkdir(exist_ok=True)
@@ -99,7 +104,12 @@ def capture_run(
         return False
 
     with ExecutionJournal(run / "journal.db", SHADOW) as journal:
-        recorder.start_session(agent, sha256_hex(canonical_json(SHADOW)))
+        digest = sha256_hex(canonical_json(SHADOW))
+        refusal = start_capture(recorder, agent, digest, plan, run / "capture.db")
+        if refusal is not None:
+            archive.close()
+            run_records = read_journal(run / "journal.db")[1]
+            return {"code": 2, "refusal": refusal, "agent": agent, "run_records": run_records}
         code = run_loop(
             agent,
             journal,
