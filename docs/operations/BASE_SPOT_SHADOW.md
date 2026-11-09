@@ -84,6 +84,13 @@ as the bundle's own. Any other outcome is published and printed, including `resi
 `unverified` and receipts that contradict the block's own log list. Only the report's strict
 flag refuses it.
 
+To show one bundle in the dashboard, set `databases.spot_proof` to its directory alongside
+`databases.spot_run`. `GET /api/v1/spot/fill-proof` runs the same three checks as the report
+over one journal read and a read-only evidence store. It returns `configured: false` when no
+bundle is set, and `block_settlement: null` when the bundle has no `settlement.json`. A missing,
+incomplete or unreadable bundle returns 503. The spot tab labels every status and refusal
+reason and shows raw base units. Proof failures clear only the proof panel.
+
 ## Requirements for a future release
 
 A proposal must name a reviewed token and route and bind the account, nonce, target bytecode,

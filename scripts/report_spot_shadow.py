@@ -13,6 +13,7 @@ native, USDC and token balances across the fill's block, explained only by this 
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -73,7 +74,8 @@ def main() -> int:
                     )
             finally:
                 store.close()
-    except (OSError, ValueError, KeyError) as error:
+    except (OSError, ValueError, KeyError, sqlite3.Error) as error:
+        # sqlite3.Error: an --evidence file that is not a readable evidence store.
         print(f"spot shadow report refused: {type(error).__name__}", file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2, sort_keys=True))

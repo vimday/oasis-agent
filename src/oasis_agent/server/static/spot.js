@@ -41,6 +41,18 @@ const BLOCK_LABEL = {
   duplicate_fill: "重复成交记录",
   duplicate_booking: "重复入账",
   duplicate_intent: "重复订单意图",
+  intent_without_id: "订单意图缺少 ID",
+  live_fill_without_intent: "成交记录找不到对应订单",
+  live_unresolved_without_intent: "未确认记录找不到对应订单",
+  live_buy_without_intent: "买入入账找不到对应订单",
+  live_sell_without_intent: "卖出入账找不到对应订单",
+  fill_and_unresolved: "同一订单既有成交又有未确认记录",
+  booking_without_fill: "有入账但无成交记录",
+  fill_tx_hash_invalid: "成交交易哈希无效",
+  fill_amount_invalid: "成交金额字段缺失或无效",
+  fill_amount_mismatch: "成交金额与订单意图不符",
+  booking_amount_invalid: "入账金额字段缺失或无效",
+  booking_amount_mismatch: "入账金额与成交不符",
   status_unavailable: "状态不可用",
 };
 const VERDICT = {
@@ -53,6 +65,177 @@ const VERDICT = {
   flip_outperforms: "描述性：短线组中位标签收益较高（非因果，不代表选股优势）",
   no_selection_edge: "描述性：短线组中位标签收益不高（非因果，不能据此判定选股无优势）",
 };
+
+// One retained proof bundle (/api/v1/spot/fill-proof): the report CLI's three per-order
+// checks. Evidence only; every refusal is a fixed reason shown with its raw code.
+const PROOF_SCHEMA = "oasis.spot-fill-proof.v1";
+const PROOF_COLUMNS = ["检查", "状态", "原因", "数值（原始整数单位）"];
+const PROOF_CHECKS = [
+  ["cost_replay", "收据成本回放（两份收据的原生币费用）"],
+  ["receipt_transfers", "收据转账核对（USDC 与代币 Transfer 净额对日志）"],
+  ["block_settlement", "整块结算核对（钱包原生币、USDC、代币余额）"],
+];
+const PROOF_STATUS = {
+  replayed: ["已重放", "ok"], matched: ["一致", "ok"], reconciled: ["已对账", "ok"],
+  unbound: ["未绑定", "warn"], unverified: ["未验证", "warn"],
+  conflict: ["冲突", "bad"], journal_mismatch: ["与日志不符", "bad"], residual: ["有残差", "bad"],
+};
+const PROOF_BASIS = {
+  frozen_input_reconstruction_not_provider_observation: "由冻结输入重建，非提供方实时观测",
+  two_declared_providers_retained_raw_receipt_origin_unknown: "两个声明提供方的保留收据，来源未知",
+  not_replayed: "未重放",
+};
+const PROOF_REASON = {
+  binding_malformed: "成本绑定文件格式无效",
+  provider_pair_invalid: "提供方声明无效或两份证明不是各一份",
+  order_not_matched: "订单在日志中未完成匹配",
+  receipt_block_unknown: "成交未记录收据区块哈希",
+  block_mismatch: "证明区块不是成交所在区块",
+  origin_invalid: "证明来源声明无效或两份不一致",
+  providers_disagree: "两个提供方重建的交易成本不一致",
+  identity_mismatch: "交易、付款钱包、链或原生币精度与成交不符",
+  status_mismatch: "收据状态不是成功",
+  single_receipt_conflict: "与日志内已记录的收据费用不符",
+  receipt_logs_missing: "收据未保留日志",
+  receipt_transaction_index_missing: "收据未声明 transactionIndex（交易在区块中的位置）",
+  receipt_transaction_index_invalid: "收据的 transactionIndex 无效",
+  log_malformed: "日志格式无效或已标记移除",
+  duplicate_log_index: "日志序号重复",
+  log_identity_mismatch: "日志不属于该交易或区块",
+  log_transaction_index_mismatch: "日志位置与收据交易位置不符",
+  transfer_abi_invalid: "Transfer 事件编码无效",
+  token_is_settlement: "订单代币就是结算资产 USDC",
+  providers_disagree_on_transaction_index: "两个提供方的交易位置不一致",
+  providers_disagree_on_transfer_logs: "两个提供方的 Transfer 日志不一致",
+  journal_delta_invalid: "日志记录的成交数量无效",
+  no_in_scope_transfer_logs: "收据中没有涉及该钱包的 USDC 或代币转账",
+  journal_delta_differs_from_receipt_transfers: "收据转账净额与日志成交不符",
+  receipt_unreadable: "收据无法读取",
+  settlement_binding_malformed: "结算绑定文件格式无效",
+  settlement_binding_scope_mismatch: "结算绑定的订单或提供方与成本绑定不符",
+  settlement_provider_pair_invalid: "结算证明不是两个提供方各一份",
+  settlement_scope_invalid: "无法由成交确定结算范围",
+  settlement_evidence_invalid: "结算证明无法按该范围重放",
+  settlement_origin_differs_from_cost: "结算证明与成本证明来源不同",
+  providers_disagree_on_block_settlement: "两个提供方的整块结算不一致",
+  receipt_and_block_transfer_logs_differ: "收据日志与整块日志列表不一致",
+  token_balance_or_supply_not_explained_by_transfers: "代币余额或供应变化无法由 Transfer 解释",
+  native_balance_not_explained_by_receipt_fee: "原生币余额变化不等于收据费用",
+  other_transactions_moved_wallet_in_block: "同一区块内其他交易也触及该钱包",
+  block_balance_delta_differs_from_journal: "整块余额变化与日志成交不符",
+  settlement_unreadable: "结算证明无法读取",
+};
+const REASON_SCOPE = [["cost_binding_", "成本证明："], ["receipt_transfers_", "收据转账："]];
+
+// Own labels only: a code such as "constructor" is never read from the prototype.
+const own = (table, code) => typeof code === "string" && Object.hasOwn(table, code) ? table[code] : undefined;
+
+// "<中文>（<code>）"; a reason without a label stays visible as its raw code.
+export function proofReason(reason) {
+  if (reason == null) return "–";
+  const code = String(reason);
+  for (const [prefix, scope] of REASON_SCOPE) {
+    if (code.startsWith(prefix)) return scope + proofReason(code.slice(prefix.length));
+  }
+  const proof = /^evidence_invalid_(\d)$/.exec(code);
+  const text = proof ? `第 ${Number(proof[1]) + 1} 份证明无法重放` : own(PROOF_REASON, code);
+  return text ? `${text}（${code}）` : code;
+}
+
+// A labelled code, the raw code when unlabelled, never "undefined".
+const labelled = (labels, code) => own(labels, code) || (typeof code === "string" ? code : "未声明");
+
+function abbrev(value) {
+  const text = typeof value === "string" ? value : "";
+  return text.length > 18 ? text.slice(0, 10) + "…" + text.slice(-6) : text || "–";
+}
+
+// Raw integer base units exactly as sent (decimal strings); never parsed into floats.
+const units = value => typeof value === "string" && /^-?\d+$/.test(value) ? value
+  : Number.isSafeInteger(value) ? String(value) : "–";
+
+function proofValues(key, view) {
+  if (key === "cost_replay") {
+    const w = view.native_wei;
+    return w ? `总费用 ${units(w.total)} wei（执行 ${units(w.execution)} · L1 ${units(w.l1)}`
+      + ` · blob ${units(w.blob)} · 运营方 ${units(w.operator)}）` : "–";
+  }
+  if (key === "receipt_transfers") {
+    const a = view.assets;
+    return a ? `USDC 净额 ${units(a.usdc.net)} · 代币净额 ${units(a.token.net)}`
+      + ` · 交易位置 ${units(view.transaction_index)} · 涉及钱包的日志 ${units(view.logs_in_scope)} 条` : "–";
+  }
+  const n = view.native_wei, t = view.tokens;
+  if (!n || !t) return "–";
+  const token = (label, row) => `${label}余额变化 ${units(row.balance_delta)}（残差 ${units(row.residual)}`
+    + ` · 供应残差 ${units(row.supply_residual)} · 其他交易日志 ${units(row.other_transaction_logs)} 条）`;
+  return `原生币变化 ${units(n.delta)} wei（收据费 ${units(n.receipt_fee_total)} · 残差 ${units(n.residual)}）`
+    + ` · ${token("USDC ", t.usdc)} · ${token("代币", t.token)}`;
+}
+
+const INDEPENDENCE = { not_established: "两个来源的独立性未确立" };
+
+const isProofView = view => Boolean(view) && typeof view === "object"
+  && view.execution_eligible === false && typeof view.status === "string";
+
+function renderProof(result, mode) {
+  const status = document.getElementById("spot-proof-status");
+  const refuse = message => {
+    status.textContent = message;
+    status.classList.toggle("danger", true);
+    document.getElementById("spot-proof").replaceChildren();
+  };
+  const malformed = "单笔成交证明响应不符合只读约定，已拒绝显示。";
+  if ("error" in result) {
+    refuse(result.error?.status === 404 ? "未配置现货运行目录，未显示单笔成交证明。"
+      : "单笔成交证明不可用或校验失败，未显示任何证明。");
+    return;
+  }
+  const proof = result.value;
+  if (proof?.schema !== PROOF_SCHEMA || proof.execution_eligible !== false
+      || typeof proof.configured !== "boolean") {
+    refuse(malformed);
+    return;
+  }
+  if (!proof.configured) {
+    status.textContent = "未配置单笔成交证明包（databases.spot_proof）。";
+    status.classList.toggle("danger", false);
+    renderTable("spot-proof", PROOF_COLUMNS, [], "未配置证明包：用 capture_spot_cost 生成后在 databases.spot_proof 指定。");
+    return;
+  }
+  const views = PROOF_CHECKS.map(([key]) => proof[key]);
+  if (proof.mode !== mode || !isProofView(views[0]) || !isProofView(views[1])
+      || !(views[2] === null || isProofView(views[2]))) {
+    refuse(malformed);
+    return;
+  }
+  let rows, bad = false;
+  try {
+    rows = PROOF_CHECKS.map(([key, label], i) => {
+      const view = views[i];
+      if (view === null) {
+        // Absence is stated, never explained: the file may never have been captured.
+        return [esc(label), '<span class="warn">未提供</span>',
+          esc("证据包中没有 settlement.json，未做整块结算核对（采集时加 --with-settlement 才会生成）"), "–"];
+      }
+      const [text, tone] = own(PROOF_STATUS, view.status) || [view.status, "bad"];
+      bad = bad || tone === "bad";
+      return [esc(label), `<span class="${tone}">${esc(text)}</span>`, esc(proofReason(view.reason)),
+        esc(proofValues(key, view))];
+    });
+  } catch {
+    refuse(malformed);
+    return;
+  }
+  const cost = views[0], block = cost.block || {};
+  status.textContent = `订单 ${abbrev(cost.intent_id)} · 交易 ${abbrev(cost.tx_hash)} · 区块 ${units(block.number)}`
+    + ` · 绑定文件 ${abbrev((proof.bundle || {}).binding_sha256)}`
+    + ` · ${labelled(PROOF_BASIS, cost.basis)}`
+    + ` · ${labelled(INDEPENDENCE, cost.provider_independence)}`
+    + " · 仅为证据：不入账、不折算 USD，不是账户净值或最终性证明，不授予执行权限";
+  status.classList.toggle("danger", bad);
+  renderTable("spot-proof", PROOF_COLUMNS, rows, "无证明");
+}
 
 // "<wei> (<observed>/<matched> 笔)": orders without an observed item stay visible, never zero.
 export function receiptFees(report) {
@@ -76,15 +259,24 @@ function horizonRows(table) {
   return rows;
 }
 
+// Each load supersedes the previous one: an older, slower response never renders.
+let spotGeneration = 0;
+
 export async function loadSpot() {
+  const generation = ++spotGeneration;
   const status = document.getElementById("spot-status");
   const unavailable = message => {
     status.textContent = message;
     status.classList.toggle("danger", true);
-    for (const id of ["spot-stats", "spot-positions", "spot-quality", "spot-decisions", "spot-flips"]) {
+    for (const id of ["spot-stats", "spot-positions", "spot-quality", "spot-decisions", "spot-flips", "spot-proof"]) {
       document.getElementById(id).replaceChildren();
     }
+    const proofStatus = document.getElementById("spot-proof-status");
+    proofStatus.textContent = "现货日志未配置或不可用，未显示单笔成交证明。";
+    proofStatus.classList.toggle("danger", true);
   };
+  // A separate, optional source: its failure clears only its own panel.
+  const proofRead = apiGet("/api/v1/spot/fill-proof").then(value => ({ value }), error => ({ error }));
   let report, decisions, flips;
   try {
     [report, decisions, flips] = await Promise.all([
@@ -93,11 +285,14 @@ export async function loadSpot() {
       apiGet("/api/v1/spot/assessments?limit=30&action=flip"),
     ]);
   } catch (error) {
+    if (generation !== spotGeneration) return;
     unavailable(error && error.status === 404
       ? "未配置现货运行目录（databases.spot_run）。"
       : "现货日志不可用或校验失败，未显示任何数据。");
     return;
   }
+  const proof = await proofRead;
+  if (generation !== spotGeneration) return;
   if (report?.execution_eligible !== false || !["shadow", "live"].includes(report.mode)
       || !report.operations || !report.paper_book || !report.signal_quality?.by_horizon_seconds
       || !Array.isArray(report.open_positions)
@@ -167,4 +362,5 @@ export async function loadSpot() {
   renderTable("spot-flips", ["时间", "代币", "评分", "1h", "5m", "聪明钱钱包", "流动性 USD"],
     flips.items.map(a => [esc(when(a.at)), esc(a.symbol), esc(a.score_bps), esc(bps(a.change_1h_bps)),
       esc(bps(a.change_5m_bps)), esc(a.smart_wallets), esc(usd(a.liquidity_usd_micros))]), "尚无买入信号");
+  renderProof(proof, report.mode);
 }

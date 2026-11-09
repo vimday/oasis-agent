@@ -1,5 +1,6 @@
 """Strict TOML parsing for the observation server configuration."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -134,6 +135,23 @@ def test_chain_rpc_url_env_fails_closed_when_ambiguous_or_missing(tmp_path):
     )
     with pytest.raises(ConfigurationError, match="environment variable is missing"):
         load_server_config(path, environ={})
+
+
+def test_spot_proof_bundle_is_a_strict_path_bound_to_a_spot_run(tmp_path):
+    proof = 'spot_proof = "data/spot/proof-001"\n'
+    path = write_config(tmp_path, "[databases]\n" + proof)
+    unbound = re.escape("databases.spot_proof requires databases.spot_run")
+    with pytest.raises(ConfigurationError, match=unbound):
+        load_server_config(path)
+    path = write_config(tmp_path, '[databases]\nspot_run = "data/spot/run"\n' + proof)
+    databases = load_server_config(path).databases
+    assert databases.spot_run == Path("data/spot/run")
+    assert databases.spot_proof == Path("data/spot/proof-001")
+    path = write_config(tmp_path, '[databases]\nspot_run = "data/spot/run"\nspot_proof = ""\n')
+    empty = re.escape("databases.spot_proof must be a non-empty path")
+    with pytest.raises(ConfigurationError, match=empty):
+        load_server_config(path)
+    assert load_server_config(write_config(tmp_path, "")).databases.spot_proof is None
 
 
 def test_missing_journal_path_fails_closed(tmp_path):

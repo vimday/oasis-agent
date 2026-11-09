@@ -1,13 +1,19 @@
 """Shadow spot agent read model. GET-only; journals open read-only and are re-verified."""
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from ..evidence.store import ReadOnlyEvidenceStore
+from ..launch.spot_cost_binding import bind_order_cost
 from ..launch.spot_lifecycle import LIVE_SCHEMAS
 from ..launch.spot_report import build_report, read_journal, recent
+from ..launch.spot_settlement_check import check_block_settlement
+from ..launch.spot_transfer_check import check_order_transfers
+from ..models.common import sha256_hex
 from .deps import State
 
 router = APIRouter(prefix="/api/v1/spot", tags=["spot"])
@@ -81,3 +87,68 @@ def assessments(
         if action is None or r["action"] == action
     ][:limit]
     return {"execution_eligible": False, "mode": _mode(policy), "items": rows, "total": len(rows)}
+
+
+PROOF_SCHEMA = "oasis.spot-fill-proof.v1"
+# Binding files name a few evidence references; anything larger is not one of them.
+_PROOF_JSON_LIMIT = 1 << 20
+
+
+def _bundle_json(path: Path) -> tuple[object, str]:
+    """One bundle file read once, size-bounded; the digest is of exactly the parsed bytes."""
+    with path.open("rb") as handle:
+        raw = handle.read(_PROOF_JSON_LIMIT + 1)
+    if len(raw) > _PROOF_JSON_LIMIT:
+        raise ValueError("bundle file too large")
+    return json.loads(raw), sha256_hex(raw)
+
+
+@router.get("/fill-proof")
+def fill_proof(state: State) -> dict[str, Any]:
+    """The per-order proof checks of one `capture_spot_cost` bundle, as the report CLI runs them.
+
+    One verified journal snapshot and one read-only evidence snapshot feed all three views.
+    An unconfigured bundle is a state, not an error; a missing or unreadable one fails
+    closed. Evidence only: nothing is booked, converted to USD or made executable.
+    """
+    run = _run_dir(state)
+    bundle = state.config.databases.spot_proof
+    if bundle is None:
+        return {"schema": PROOF_SCHEMA, "configured": False, "execution_eligible": False}
+    binding_file, evidence = bundle / "binding.json", bundle / "evidence.db"
+    settlement_file = bundle / "settlement.json"
+    settled = settlement_file.exists() or settlement_file.is_symlink()
+    if (
+        not binding_file.is_file()
+        or not evidence.is_file()
+        or (settled and not settlement_file.is_file())
+    ):
+        raise HTTPException(status_code=503, detail="spot proof bundle not found or incomplete")
+    policy, records = _guard(run)
+    try:
+        binding, binding_digest = _bundle_json(binding_file)
+        settlement, settlement_digest = _bundle_json(settlement_file) if settled else (None, None)
+        store = ReadOnlyEvidenceStore(evidence)
+        try:
+            cost = bind_order_cost(records, binding, store)
+            transfers = check_order_transfers(records, binding, store)
+            block = (
+                None
+                if settlement is None
+                else check_block_settlement(records, binding, settlement, store)
+            )
+        finally:
+            store.close()
+    except Exception as exc:  # unreadable bundle or store: fail closed, details never leak
+        raise HTTPException(status_code=503, detail="spot proof unavailable or corrupt") from exc
+    return {
+        "schema": PROOF_SCHEMA,
+        "configured": True,
+        "execution_eligible": False,
+        "mode": _mode(policy),
+        "bundle": {"binding_sha256": binding_digest, "settlement_sha256": settlement_digest},
+        "cost_replay": cost,
+        "receipt_transfers": transfers,
+        # None: the bundle has no settlement.json, so the whole-block check was not run.
+        "block_settlement": block,
+    }
