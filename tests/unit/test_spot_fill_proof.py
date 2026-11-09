@@ -11,6 +11,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -22,6 +23,7 @@ import oasis_agent.launch.spot_cost_binding as cost_binding
 import oasis_agent.launch.spot_lifecycle as lifecycle
 import oasis_agent.launch.spot_settlement_check as settlement_check
 import oasis_agent.launch.spot_transfer_check as transfer_check
+import scripts.report_spot_shadow as report_cli
 from oasis_agent.launch.onchainos_source import BASE_USDC
 from oasis_agent.launch.spot_report import build_report
 from oasis_agent.server.databases import ReadOnlyError
@@ -1050,3 +1052,140 @@ def test_every_unbound_reason_names_its_kind_of_gap() -> None:
     assert {"order_not_matched", "settlement_evidence_invalid"} <= reasons
     # evidence_invalid_<n> and settlement_evidence_invalid are named by the evidence rule.
     assert sorted(reasons - set().union(*kinds) - {"settlement_evidence_invalid"}) == []
+
+
+# ---------------------------------------------------------------- settlement file presence
+#
+# Only an absent settlement.json is "not provided". A present file is a declared binding:
+# whatever it parses to (null, an array, an empty object, a partial object) is checked by
+# the report's own settlement check, and unparseable bytes keep the existing refusal.
+
+SCHEMA_ONLY = json.dumps({"schema": "oasis.spot-settlement-binding.v1"}).encode()
+SETTLEMENT_FILES: dict[str, bytes | None] = {
+    "absent": None,
+    "json_null": b"null",
+    "json_array": b"[]",
+    "json_empty_object": b"{}",
+    "json_string": b'"settlement"',
+    "json_number": b"0",
+    "json_schema_only": SCHEMA_ONLY,
+}
+UNPARSEABLE = {
+    "syntax_error": (b"{", "JSONDecodeError"),
+    "not_utf8": (b"\xff", "UnicodeDecodeError"),
+}
+
+
+def report_views(
+    bundle: Bundle,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    settlement: bool,
+) -> tuple[int, Any, str]:
+    """The report CLI over this bundle, naming settlement.json only when asked."""
+    argv = ["report", "--run", str(bundle.world.run)]
+    argv += ["--cost-binding", str(bundle.out / "binding.json")]
+    argv += ["--evidence", str(bundle.out / "evidence.db")]
+    if settlement:
+        argv += ["--settlement-binding", str(bundle.out / "settlement.json")]
+    capsys.readouterr()
+    monkeypatch.setattr(sys, "argv", argv)
+    code = report_cli.main()
+    out = capsys.readouterr()
+    return code, json.loads(out.out) if out.out.strip() else None, out.err.strip()
+
+
+@pytest.mark.parametrize("case", sorted(SETTLEMENT_FILES))
+def test_only_an_absent_settlement_file_is_not_provided(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    case: str,
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    content = SETTLEMENT_FILES[case]
+    settlement = bundle.out / "settlement.json"
+    if content is None:
+        settlement.unlink()
+    else:
+        settlement.write_bytes(content)
+    before = snapshot(bundle.world.run, bundle.out)
+    code, cli, err = report_views(bundle, monkeypatch, capsys, settlement=content is not None)
+    assert (code, err) == (0, "")
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        out = render_console(tmp_path, client)
+    answer = out["responses"]["/api/v1/spot/fill-proof"]
+    assert answer["status"] == 200
+    body = json.loads(answer["body"])
+    assert {key: body[key] for key in VIEWS[:2]} == {key: cli[key] for key in VIEWS[:2]}
+    rows = out["proof"]["rows"]
+    if content is None:
+        # Absent: the CLI was not asked, the API states null, the console says not provided.
+        assert "block_settlement" not in cli
+        assert body["block_settlement"] is None and body["bundle"]["settlement_sha256"] is None
+        assert tag_free(rows[2][1]) == "未提供" and out["danger"] is False
+        assert out["status"].startswith("收据核对通过")
+    else:
+        # Present: the same binding check as the CLI, never "not provided".
+        view = cli["block_settlement"]
+        assert (view["status"], view["reason"]) == ("unbound", "settlement_binding_malformed")
+        assert body["block_settlement"] == view
+        assert body["bundle"]["settlement_sha256"] == digest(settlement)
+        assert tag_free(rows[2][1]) == "未绑定" and 'class="warn"' in rows[2][1]
+        assert rows[2][2].endswith(f"{OPEN}settlement_binding_malformed{CLOSE}")
+        assert out["status"].startswith(f"证据包声明无效{COLON}") and out["danger"] is True
+        assert "未提供" not in json.dumps(out["proof"], ensure_ascii=False)
+    assert snapshot(bundle.world.run, bundle.out) == before
+
+
+@pytest.mark.parametrize("case", sorted(UNPARSEABLE))
+def test_an_unparseable_settlement_file_keeps_the_existing_refusal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    case: str,
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    content, error = UNPARSEABLE[case]
+    (bundle.out / "settlement.json").write_bytes(content)
+    before = snapshot(bundle.world.run, bundle.out)
+    code, cli, err = report_views(bundle, monkeypatch, capsys, settlement=True)
+    assert (code, cli, err) == (1, None, f"spot shadow report refused: {error}")
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        out = render_console(tmp_path, client)
+    answer = out["responses"]["/api/v1/spot/fill-proof"]
+    assert answer["status"] == 503 and json.loads(answer["body"])["code"] == "corrupt"
+    assert out["proof"] is None and "证据包或日志无法读取或校验失败" in out["status"]
+    assert snapshot(bundle.world.run, bundle.out) == before
+
+
+def test_a_valid_settlement_file_still_reconciles_on_all_three_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    before = snapshot(bundle.world.run, bundle.out)
+    code, cli, _ = report_views(bundle, monkeypatch, capsys, settlement=True)
+    assert code == 0 and cli["block_settlement"]["status"] == "reconciled"
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        out = render_console(tmp_path, client)
+    body = json.loads(out["responses"]["/api/v1/spot/fill-proof"]["body"])
+    assert {key: body[key] for key in VIEWS} == {key: cli[key] for key in VIEWS}
+    assert tag_free(out["proof"]["rows"][2][1]) == "范围内已对账" and out["danger"] is False
+    assert snapshot(bundle.world.run, bundle.out) == before
+
+
+@pytest.mark.parametrize("settlement", ["read_but_null", "view_without_a_read"])
+def test_console_refuses_a_settlement_view_that_contradicts_its_file_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, settlement: str
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    body = fill_proof(tmp_path, bundle)
+    if settlement == "read_but_null":
+        # The server read a file (digest set) but sent no view: never "not provided".
+        body["block_settlement"] = None
+    else:
+        body["bundle"] = body["bundle"] | {"settlement_sha256": None}
+    out = panel(build_report(bundle.world.run), {"body": body})
+    assert "spot-proof" not in out["tables"] and out["danger"] is True
+    assert "不符合只读约定" in out["proofStatus"]

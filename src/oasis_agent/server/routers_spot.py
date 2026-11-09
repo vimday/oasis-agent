@@ -124,25 +124,30 @@ def _fill_proof(state: AppState) -> dict[str, Any]:
         return {"schema": PROOF_SCHEMA, "configured": False, "execution_eligible": False}
     binding_file, evidence = bundle / "binding.json", bundle / "evidence.db"
     settlement_file = bundle / "settlement.json"
-    settled = settlement_file.exists() or settlement_file.is_symlink()
+    # Present means a directory entry exists (a dangling link too); its content is not consulted.
+    settlement_present = settlement_file.exists() or settlement_file.is_symlink()
     if (
         not binding_file.is_file()
         or not evidence.is_file()
-        or (settled and not settlement_file.is_file())
+        or (settlement_present and not settlement_file.is_file())
     ):
         raise ReadOnlyError("spot proof bundle not found or incomplete", code="missing")
     policy, records = _guard(run)
     try:
         binding, binding_digest = _bundle_json(binding_file)
-        settlement, settlement_digest = _bundle_json(settlement_file) if settled else (None, None)
+        settlement, settlement_digest = (
+            _bundle_json(settlement_file) if settlement_present else (None, None)
+        )
         store = ReadOnlyEvidenceStore(evidence)
         try:
             cost = bind_order_cost(records, binding, store)
             transfers = check_order_transfers(records, binding, store)
+            # Presence of the file decides, never its parsed value: a present `null` (or any
+            # other shape) is a declared binding and is checked exactly as the report does.
             block = (
-                None
-                if settlement is None
-                else check_block_settlement(records, binding, settlement, store)
+                check_block_settlement(records, binding, settlement, store)
+                if settlement_present
+                else None
             )
         finally:
             store.close()
@@ -161,6 +166,6 @@ def _fill_proof(state: AppState) -> dict[str, Any]:
         "bundle": {"binding_sha256": binding_digest, "settlement_sha256": settlement_digest},
         "cost_replay": cost,
         "receipt_transfers": transfers,
-        # None: the bundle has no settlement.json, so the whole-block check was not run.
+        # None only when settlement.json is absent: the whole-block check was not run.
         "block_settlement": block,
     }

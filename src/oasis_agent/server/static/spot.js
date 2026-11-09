@@ -284,8 +284,11 @@ function renderProof(result, mode) {
     return;
   }
   const views = PROOF_CHECKS.map(([key]) => proof[key]);
+  // "Not provided" means no settlement.json was read: a null view with a digest would claim
+  // absence for a file the server did read, so the two must agree.
+  const settlementRead = (proof.bundle || {}).settlement_sha256 != null;
   if (proof.mode !== mode || !isProofView(views[0]) || !isProofView(views[1])
-      || !(views[2] === null || isProofView(views[2]))) {
+      || !(views[2] === null ? !settlementRead : settlementRead && isProofView(views[2]))) {
     refuse(malformed);
     return;
   }
