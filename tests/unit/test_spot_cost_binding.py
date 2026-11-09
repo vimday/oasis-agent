@@ -132,9 +132,10 @@ def ref_json(ref: EvidenceRef) -> dict[str, Any]:
 class World:
     """One run with a proven buy whose receipt names BLOCK, plus an evidence store."""
 
-    def __init__(self, tmp_path: Path, **receipt: Any) -> None:
+    def __init__(self, tmp_path: Path, *, fill_out: int = 200_000_000_000, **receipt: Any) -> None:
         fields = {"blockHash": BLOCK} | receipt
-        self.run, _ = live_run(tmp_path, rpc_receipt_reader(Transport(**fields)))
+        reader = rpc_receipt_reader(Transport(**fields))
+        self.run, _ = live_run(tmp_path, reader, fill_out=fill_out)
         self.records = read_journal(self.run / "journal.db")[1]
         fill = next(r for r in self.records if r["kind"] == "live_fill")
         self.intent, self.tx = fill["intent_id"], fill["tx_hash"]

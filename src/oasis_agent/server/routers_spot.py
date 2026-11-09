@@ -13,8 +13,9 @@ from ..launch.spot_lifecycle import LIVE_SCHEMAS
 from ..launch.spot_report import build_report, read_journal, recent
 from ..launch.spot_settlement_check import check_block_settlement
 from ..launch.spot_transfer_check import check_order_transfers
-from ..models.common import sha256_hex
-from .deps import State
+from ..models.common import canonical_json, sha256_hex
+from .databases import ReadOnlyError
+from .deps import AppState, State
 
 router = APIRouter(prefix="/api/v1/spot", tags=["spot"])
 DECISIONS = frozenset(
@@ -104,13 +105,19 @@ def _bundle_json(path: Path) -> tuple[object, str]:
 
 
 @router.get("/fill-proof")
-def fill_proof(state: State) -> dict[str, Any]:
+async def fill_proof(state: State) -> dict[str, Any]:
     """The per-order proof checks of one `capture_spot_cost` bundle, as the report CLI runs them.
 
     One verified journal snapshot and one read-only evidence snapshot feed all three views.
-    An unconfigured bundle is a state, not an error; a missing or unreadable one fails
-    closed. Evidence only: nothing is booked, converted to USD or made executable.
+    An unconfigured bundle is a state, not an error. A missing or incomplete bundle fails
+    closed with code `missing`, an unreadable one with `corrupt`. The replay runs on the
+    bounded observation reader, so repeated polls cannot pile up (503 `busy` when full).
+    Evidence only: nothing is booked, converted to USD or made executable.
     """
+    return await state.reader.run(lambda _databases: _fill_proof(state))
+
+
+def _fill_proof(state: AppState) -> dict[str, Any]:
     run = _run_dir(state)
     bundle = state.config.databases.spot_proof
     if bundle is None:
@@ -123,7 +130,7 @@ def fill_proof(state: State) -> dict[str, Any]:
         or not evidence.is_file()
         or (settled and not settlement_file.is_file())
     ):
-        raise HTTPException(status_code=503, detail="spot proof bundle not found or incomplete")
+        raise ReadOnlyError("spot proof bundle not found or incomplete", code="missing")
     policy, records = _guard(run)
     try:
         binding, binding_digest = _bundle_json(binding_file)
@@ -140,12 +147,17 @@ def fill_proof(state: State) -> dict[str, Any]:
         finally:
             store.close()
     except Exception as exc:  # unreadable bundle or store: fail closed, details never leak
-        raise HTTPException(status_code=503, detail="spot proof unavailable or corrupt") from exc
+        raise ReadOnlyError("spot proof unavailable or corrupt", code="corrupt") from exc
     return {
         "schema": PROOF_SCHEMA,
         "configured": True,
         "execution_eligible": False,
         "mode": _mode(policy),
+        # The verified snapshot the checks ran on: its record count and head digest.
+        "journal": {
+            "records": len(records),
+            "head_sha256": sha256_hex(canonical_json(records[-1])) if records else None,
+        },
         "bundle": {"binding_sha256": binding_digest, "settlement_sha256": settlement_digest},
         "cost_replay": cost,
         "receipt_transfers": transfers,

@@ -34,8 +34,8 @@ OTHER_TX = "0x" + "ce" * 32
 class Scene:
     """A matched buy, its two cost proofs and two block settlement proofs."""
 
-    def __init__(self, tmp_path: Path) -> None:
-        self.order: Order = buy(tmp_path)
+    def __init__(self, tmp_path: Path, order: Order | None = None) -> None:
+        self.order: Order = buy(tmp_path) if order is None else order
         self.world = self.order.world
         fill = next(r for r in self.world.records if r["kind"] == "live_fill")
         self.wallet, self.tokens = settlement_scope(fill)

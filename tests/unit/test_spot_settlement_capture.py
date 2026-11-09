@@ -44,20 +44,31 @@ COST_SUMMARY_KEYS = {"bundle", "origin", "execution", "l1", "blob", "operator", 
 class Bundle:
     """A matched buy whose two frozen files answer both cost and settlement reads."""
 
-    def __init__(self, tmp_path: Path) -> None:
+    def __init__(self, tmp_path: Path, scene: Scene | None = None) -> None:
         self.tmp = tmp_path
-        self.scene = Scene(tmp_path)
+        self.scene = Scene(tmp_path) if scene is None else scene
         self.world = self.scene.world
         self.world.store.close()
         self.out = tmp_path / "bundle"
 
-    def files(self, **chain: Any) -> list[dict[str, Any]]:
-        """Each provider's cost responses plus the block settlement answers of `chain`."""
+    def files(
+        self,
+        *,
+        receipt_logs: list[dict[str, Any]] | None = None,
+        position: str = "0x0",
+        **chain: Any,
+    ) -> list[dict[str, Any]]:
+        """Each provider's cost responses plus the block settlement answers of `chain`.
+
+        `receipt_logs` and `position` are what both receipts list and state as their
+        transactionIndex; by default the fill's own two legs at position 0.
+        """
         block = self.scene.chain(**chain)
+        rows = self.scene.receipt_logs() if receipt_logs is None else receipt_logs
         specs = settlement_requests(HEADER, self.scene.wallet, self.scene.tokens)
         out = []
         for source in PROVIDERS:
-            retained = frozen(source, self.world.tx, logs=self.scene.receipt_logs())
+            retained = frozen(source, self.world.tx, logs=rows, transaction_index=position)
             seen = {json.dumps([r["method"], r["params"]]) for r in retained["responses"]}
             for (method, params), result in zip(specs, block.results(), strict=True):
                 key = json.dumps([method, params])

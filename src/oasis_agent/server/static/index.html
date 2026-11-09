@@ -50,7 +50,7 @@
       <div class="table-wrap"><table id="spot-quality" aria-label="Signal quality"></table></div>
       <h3>交易决策</h3><div class="table-wrap"><table id="spot-decisions" aria-label="Spot decisions"></table></div>
       <h3>单笔成交证明 · 只读证据包</h3>
-      <p class="muted">capture_spot_cost 生成的证据包，对照日志中的一笔成交：收据费用、收据转账、整块余额。仅为证据：不入账、不折算 USD、不授予执行权限。</p>
+      <p class="muted">capture_spot_cost 生成的证据包，对照日志中的一笔成交：原生币费用、收据资产匹配、区块对账。原生币只比较成交所在区块的钱包净余额变化与收据费用；没有逐交易原生币追踪，净额相符不代表区块内没有其他原生币进出。仅为证据：不入账、不参与策略 PnL 或执行门禁。</p>
       <p id="spot-proof-status" role="status" aria-live="polite">正在读取单笔成交证明…</p>
       <div class="table-wrap"><table id="spot-proof" aria-label="Spot fill proof"></table></div>
       <h3>最近买入信号</h3><div class="table-wrap"><table id="spot-flips" aria-label="Flip signals"></table></div>

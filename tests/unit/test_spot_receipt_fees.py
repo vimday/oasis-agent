@@ -48,10 +48,12 @@ class Transport:
         return {k: v for k, v in raw.items() if v is not None}  # None deletes a field
 
 
-def live_run(tmp_path: Path, receipt: Any) -> tuple[Path, FakeWallet]:
+def live_run(
+    tmp_path: Path, receipt: Any, *, fill_out: int = 200_000_000_000
+) -> tuple[Path, FakeWallet]:
     run = tmp_path / "run"
     wallet = FakeWallet(usdc=1_000_000_000)
-    wallet.fill_out = 200_000_000_000
+    wallet.fill_out = fill_out  # token base units the buy receives
     with open_live(run) as side:
         executor = LiveExecutor(
             gate(),

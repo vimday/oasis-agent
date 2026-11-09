@@ -69,14 +69,14 @@ const VERDICT = {
 // One retained proof bundle (/api/v1/spot/fill-proof): the report CLI's three per-order
 // checks. Evidence only; every refusal is a fixed reason shown with its raw code.
 const PROOF_SCHEMA = "oasis.spot-fill-proof.v1";
-const PROOF_COLUMNS = ["检查", "状态", "原因", "数值（原始整数单位）"];
+const PROOF_COLUMNS = ["检查", "状态", "原因", "来源与范围", "数值（原始整数单位）"];
 const PROOF_CHECKS = [
-  ["cost_replay", "收据成本回放（两份收据的原生币费用）"],
-  ["receipt_transfers", "收据转账核对（USDC 与代币 Transfer 净额对日志）"],
-  ["block_settlement", "整块结算核对（钱包原生币、USDC、代币余额）"],
+  ["cost_replay", "原生币费用（两份收据重放）"],
+  ["receipt_transfers", "收据资产匹配（USDC 与代币 Transfer 净额对日志）"],
+  ["block_settlement", "区块对账（成交所在区块的钱包余额）"],
 ];
 const PROOF_STATUS = {
-  replayed: ["已重放", "ok"], matched: ["一致", "ok"], reconciled: ["已对账", "ok"],
+  replayed: ["已重放", "ok"], matched: ["与日志一致", "ok"], reconciled: ["范围内已对账", "ok"],
   unbound: ["未绑定", "warn"], unverified: ["未验证", "warn"],
   conflict: ["冲突", "bad"], journal_mismatch: ["与日志不符", "bad"], residual: ["有残差", "bad"],
 };
@@ -130,17 +130,31 @@ const REASON_SCOPE = [["cost_binding_", "成本证明："], ["receipt_transfers_
 // Own labels only: a code such as "constructor" is never read from the prototype.
 const own = (table, code) => typeof code === "string" && Object.hasOwn(table, code) ? table[code] : undefined;
 
-// "<中文>（<code>）"; a reason without a label stays visible as its raw code.
-export function proofReason(reason) {
-  if (reason == null) return "–";
-  const code = String(reason);
+// The label of one code, scope prefixes included; undefined when any part is unlabelled.
+function reasonText(code) {
   for (const [prefix, scope] of REASON_SCOPE) {
-    if (code.startsWith(prefix)) return scope + proofReason(code.slice(prefix.length));
+    if (code.startsWith(prefix)) {
+      const inner = reasonText(code.slice(prefix.length));
+      return inner && scope + inner;
+    }
   }
   const proof = /^evidence_invalid_(\d)$/.exec(code);
-  const text = proof ? `第 ${Number(proof[1]) + 1} 份证明无法重放` : own(PROOF_REASON, code);
+  return proof ? `第 ${Number(proof[1]) + 1} 份证明无法重放` : own(PROOF_REASON, code);
+}
+
+// "<中文>（<full code>）", the same code the report CLI prints; unlabelled stays the raw code.
+export function proofReason(reason) {
+  if (reason == null) return "–";
+  const code = String(reason), text = reasonText(code);
   return text ? `${text}（${code}）` : code;
 }
+
+const rootCode = code => {
+  for (const [prefix] of REASON_SCOPE) {
+    if (code.startsWith(prefix)) return rootCode(code.slice(prefix.length));
+  }
+  return code;
+};
 
 // A labelled code, the raw code when unlabelled, never "undefined".
 const labelled = (labels, code) => own(labels, code) || (typeof code === "string" ? code : "未声明");
@@ -153,8 +167,12 @@ function abbrev(value) {
 // Raw integer base units exactly as sent (decimal strings); never parsed into floats.
 const units = value => typeof value === "string" && /^-?\d+$/.test(value) ? value
   : Number.isSafeInteger(value) ? String(value) : "–";
+// Full identifiers (hashes, addresses, providers) so a fill can be located, never shortened.
+const named = value => typeof value === "string" && value ? value : "–";
 
 function proofValues(key, view) {
+  const journal = view.journal
+    ? ` · 日志 USDC ${units(view.journal.usdc_delta)} · 日志代币 ${units(view.journal.token_delta)}` : "";
   if (key === "cost_replay") {
     const w = view.native_wei;
     return w ? `总费用 ${units(w.total)} wei（执行 ${units(w.execution)} · L1 ${units(w.l1)}`
@@ -162,18 +180,78 @@ function proofValues(key, view) {
   }
   if (key === "receipt_transfers") {
     const a = view.assets;
-    return a ? `USDC 净额 ${units(a.usdc.net)} · 代币净额 ${units(a.token.net)}`
+    return a ? `收据 USDC 净额 ${units(a.usdc.net)} · 收据代币净额 ${units(a.token.net)}${journal}`
       + ` · 交易位置 ${units(view.transaction_index)} · 涉及钱包的日志 ${units(view.logs_in_scope)} 条` : "–";
   }
   const n = view.native_wei, t = view.tokens;
   if (!n || !t) return "–";
   const token = (label, row) => `${label}余额变化 ${units(row.balance_delta)}（残差 ${units(row.residual)}`
     + ` · 供应残差 ${units(row.supply_residual)} · 其他交易日志 ${units(row.other_transaction_logs)} 条）`;
-  return `原生币变化 ${units(n.delta)} wei（收据费 ${units(n.receipt_fee_total)} · 残差 ${units(n.residual)}）`
-    + ` · ${token("USDC ", t.usdc)} · ${token("代币", t.token)}`;
+  return `原生币整块净变化 ${units(n.delta)} wei（${units(n.before)} → ${units(n.after)}`
+    + ` · 收据费 ${units(n.receipt_fee_total)} · 残差 ${units(n.residual)}）`
+    + ` · ${token("USDC ", t.usdc)} · ${token("代币", t.token)}${journal}`;
+}
+
+// Who answered and what the check covers. A refusal reached no outcome and states no scope.
+function proofScope(key, view) {
+  if (!Array.isArray(view.providers)) return "–";
+  const from = "提供方 " + view.providers.map(named).join(" + ");
+  if (key === "cost_replay") return `${from} · 交易 ${named(view.tx_hash)} · 付款钱包 ${named(view.payer)}`;
+  if (key === "receipt_transfers") {
+    const a = view.assets || {};
+    return `${from} · 钱包 ${named(view.wallet)} · USDC ${named(a.usdc?.token)} · 代币 ${named(a.token?.token)}`;
+  }
+  const t = view.tokens || {}, b = view.block || {};
+  return `${from} · 区块 ${units(b.number)} ${named(b.block_hash)} · 钱包 ${named(view.wallet)}`
+    + ` · 仅 USDC ${named(t.usdc?.token)} 与代币 ${named(t.token?.token)}`
+    + " · 原生币只比较整块净余额，无逐交易追踪";
 }
 
 const INDEPENDENCE = { not_established: "两个来源的独立性未确立" };
+const PROOF_FAILURE = {
+  missing: "证据包缺失或不完整（缺 binding.json、evidence.db，或 settlement.json 不是普通文件），未显示任何证明。",
+  corrupt: "证据包或日志无法读取或校验失败，未显示任何证明。",
+  busy: "服务器读取队列已满，本次未刷新单笔成交证明，未显示旧结果。",
+};
+// Kinds of `unbound`: the bundle names another fill, or declares itself badly, or a
+// referenced record is gone or changed. Shown apart, never as one "unavailable".
+const MISBOUND = new Set([
+  "order_not_matched", "block_mismatch", "settlement_binding_scope_mismatch",
+  "settlement_origin_differs_from_cost",
+]);
+const MALFORMED = new Set([
+  "binding_malformed", "settlement_binding_malformed", "provider_pair_invalid",
+  "settlement_provider_pair_invalid", "origin_invalid",
+]);
+const GAP = {
+  conflict: "证据之间矛盾", residual: "有未解释的残差",
+  unverified: "证据不足以核对", journal_mismatch: "证据与日志成交不符",
+};
+const passed = view => own(PROOF_STATUS, view.status)?.[1] === "ok";
+
+// The journal's fill itself cannot be bound: no receipt block hash, or no settlement scope.
+const JOURNAL_SIDE = new Set(["receipt_block_unknown", "settlement_scope_invalid"]);
+
+function unboundKind(code) {
+  if (/^evidence_invalid_\d$/.test(code) || code === "settlement_evidence_invalid") {
+    return "证据记录缺失、过期或被修改";
+  }
+  if (MISBOUND.has(code)) return "证据包与这笔成交不匹配（错绑）";
+  if (MALFORMED.has(code)) return "证据包声明无效";
+  return JOURNAL_SIDE.has(code) ? "日志成交缺少可绑定的收据字段" : "证据未绑定";
+}
+
+// The first failing check and its kind of gap; "reconciled" only when every check passed.
+function proofSummary(views) {
+  const index = views.findIndex(view => view !== null && !passed(view));
+  if (index < 0) {
+    return [views[2] === null ? "收据核对通过；未提供整块结算证明，未做区块对账"
+      : "范围内已对账：仅这笔交易、USDC 与该代币、原生币整块净额", false];
+  }
+  const view = views[index], code = rootCode(typeof view.reason === "string" ? view.reason : "");
+  const kind = view.status === "unbound" ? unboundKind(code) : own(GAP, view.status) || "证据缺口";
+  return [`${kind}：${PROOF_CHECKS[index][1]} · ${proofReason(view.reason)}`, true];
+}
 
 const isProofView = view => Boolean(view) && typeof view === "object"
   && view.execution_eligible === false && typeof view.status === "string";
@@ -187,8 +265,10 @@ function renderProof(result, mode) {
   };
   const malformed = "单笔成交证明响应不符合只读约定，已拒绝显示。";
   if ("error" in result) {
-    refuse(result.error?.status === 404 ? "未配置现货运行目录，未显示单笔成交证明。"
-      : "单笔成交证明不可用或校验失败，未显示任何证明。");
+    // Missing, unreadable and busy are different states: never one "unavailable".
+    const failure = result.error || {};
+    refuse(failure.status === 404 ? "未配置现货运行目录，未显示单笔成交证明。"
+      : own(PROOF_FAILURE, failure.code) || "单笔成交证明读取失败，未显示任何证明。");
     return;
   }
   const proof = result.value;
@@ -209,31 +289,31 @@ function renderProof(result, mode) {
     refuse(malformed);
     return;
   }
-  let rows, bad = false;
+  let rows, summary, gap;
   try {
     rows = PROOF_CHECKS.map(([key, label], i) => {
       const view = views[i];
       if (view === null) {
         // Absence is stated, never explained: the file may never have been captured.
         return [esc(label), '<span class="warn">未提供</span>',
-          esc("证据包中没有 settlement.json，未做整块结算核对（采集时加 --with-settlement 才会生成）"), "–"];
+          esc("证据包中没有 settlement.json，未做区块对账（采集时加 --with-settlement 才会生成）"), "–", "–"];
       }
       const [text, tone] = own(PROOF_STATUS, view.status) || [view.status, "bad"];
-      bad = bad || tone === "bad";
       return [esc(label), `<span class="${tone}">${esc(text)}</span>`, esc(proofReason(view.reason)),
-        esc(proofValues(key, view))];
+        esc(proofScope(key, view)), esc(proofValues(key, view))];
     });
+    [summary, gap] = proofSummary(views);
   } catch {
     refuse(malformed);
     return;
   }
-  const cost = views[0], block = cost.block || {};
-  status.textContent = `订单 ${abbrev(cost.intent_id)} · 交易 ${abbrev(cost.tx_hash)} · 区块 ${units(block.number)}`
+  const cost = views[0], block = cost.block || {}, journal = proof.journal || {};
+  status.textContent = `${summary} · 订单 ${named(cost.intent_id)} · 交易 ${named(cost.tx_hash)}`
+    + ` · 区块 ${units(block.number)} · 日志快照 ${units(journal.records)} 条（链头 ${abbrev(journal.head_sha256)}）`
     + ` · 绑定文件 ${abbrev((proof.bundle || {}).binding_sha256)}`
-    + ` · ${labelled(PROOF_BASIS, cost.basis)}`
-    + ` · ${labelled(INDEPENDENCE, cost.provider_independence)}`
-    + " · 仅为证据：不入账、不折算 USD，不是账户净值或最终性证明，不授予执行权限";
-  status.classList.toggle("danger", bad);
+    + ` · ${labelled(PROOF_BASIS, cost.basis)} · ${labelled(INDEPENDENCE, cost.provider_independence)}`
+    + " · 仅为证据：不入账、不参与策略 PnL 或执行门禁，不授予执行权限，不是账户净值或最终性证明";
+  status.classList.toggle("danger", gap);
   renderTable("spot-proof", PROOF_COLUMNS, rows, "无证明");
 }
 

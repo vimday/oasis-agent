@@ -85,11 +85,20 @@ as the bundle's own. Any other outcome is published and printed, including `resi
 flag refuses it.
 
 To show one bundle in the dashboard, set `databases.spot_proof` to its directory alongside
-`databases.spot_run`. `GET /api/v1/spot/fill-proof` runs the same three checks as the report
-over one journal read and a read-only evidence store. It returns `configured: false` when no
-bundle is set, and `block_settlement: null` when the bundle has no `settlement.json`. A missing,
-incomplete or unreadable bundle returns 503. The spot tab labels every status and refusal
-reason and shows raw base units. Proof failures clear only the proof panel.
+`databases.spot_run`. The browser cannot name a path. `GET /api/v1/spot/fill-proof` runs the
+same three checks as the report on the bounded observation reader, over one journal read and a
+read-only evidence store. It returns `configured: false` when no bundle is set, and
+`block_settlement: null` when the bundle has no `settlement.json`. A missing or incomplete
+bundle returns 503 with code `missing`, an unreadable one `corrupt`, and a full reader `busy`.
+
+The spot tab lists native fees, receipt asset matching and block reconciliation with their
+providers, scope and raw base units. Its summary names the first gap: a mis-bound bundle, a
+missing or stale record, a contradiction, a residual or another transaction in the block. Only
+a clean pass reads as reconciled, and that covers this transaction, USDC and the order token.
+Native is a whole-block net balance change compared with the receipt fee. Without a
+per-transaction native trace, a matching net does not rule out other native movements in that
+block. Nothing here enters strategy PnL or an execution gate. Proof failures clear only the
+proof panel.
 
 ## Requirements for a future release
 

@@ -11,6 +11,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -21,16 +22,22 @@ import oasis_agent.launch.spot_cost_binding as cost_binding
 import oasis_agent.launch.spot_lifecycle as lifecycle
 import oasis_agent.launch.spot_settlement_check as settlement_check
 import oasis_agent.launch.spot_transfer_check as transfer_check
+from oasis_agent.launch.onchainos_source import BASE_USDC
 from oasis_agent.launch.spot_report import build_report
+from oasis_agent.server.databases import ReadOnlyError
+from oasis_agent.server.read_worker import ReadWorker
 from oasis_agent.server.routers_spot import PROOF_SCHEMA
 from scripts.check_dashboard import dashboard_sources
 
 from .server_helpers import make_server_config
+from .test_block_settlement import log
 from .test_server_api import client_for
 from .test_spot_agent import NOW
+from .test_spot_cost_binding import OTHER_BLOCK, PROVIDERS, World
 from .test_spot_report_api import shadow_run
 from .test_spot_settlement_capture import Bundle, digest
-from .test_spot_settlement_check import FEE, NATIVE
+from .test_spot_settlement_check import FEE, NATIVE, OTHER_TX, Scene
+from .test_spot_transfer_check import STRANGER, Order, at
 
 VIEWS = ("cost_replay", "receipt_transfers", "block_settlement")
 UNCONFIGURED = {"schema": PROOF_SCHEMA, "configured": False, "execution_eligible": False}
@@ -153,10 +160,8 @@ def test_a_missing_incomplete_or_unreadable_bundle_fails_closed(
     assert str(tmp_path) not in response.text and "Error" not in response.text
 
 
-def test_a_tampered_evidence_record_is_a_refusal_shown_in_every_view(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+def tamper_second_cost_proof(bundle: Bundle) -> None:
+    """Rewrite the second provider's cost proof payload: its reference no longer verifies."""
     db = sqlite3.connect(bundle.out / "evidence.db")
     with db:
         changed = db.execute(
@@ -165,6 +170,13 @@ def test_a_tampered_evidence_record_is_a_refusal_shown_in_every_view(
         ).rowcount
     db.close()
     assert changed == 1
+
+
+def test_a_tampered_evidence_record_is_a_refusal_shown_in_every_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    tamper_second_cost_proof(bundle)
     body = fill_proof(tmp_path, bundle)
     assert (body["cost_replay"]["status"], body["cost_replay"]["reason"]) == (
         "unbound",
@@ -243,7 +255,7 @@ async function apiGet(path) {
   const answer = SCENE.routes[key];
   const step = Array.isArray(answer) ? answer[Math.min(round, answer.length - 1)] : answer;
   if (step && step.delay) await new Promise(resolve => setTimeout(resolve, step.delay));
-  if (step && step.fail) throw {status: step.fail};
+  if (step && step.fail) throw {status: step.fail, code: step.code || ''};
   return step.body;
 }
 function renderStats(id, stats) { out.stats = stats; }
@@ -324,10 +336,10 @@ def test_console_explains_a_reconciled_bundle_with_raw_units_and_limits(
     body = fill_proof(tmp_path, bundle)
     out = panel(build_report(bundle.world.run), {"body": body})
     rows = proof_rows(out)
-    assert [tag_free(row[1]) for row in rows] == ["已重放", "一致", "已对账"]
+    assert [tag_free(row[1]) for row in rows] == ["已重放", "与日志一致", "范围内已对账"]
     assert all('class="ok"' in row[1] for row in rows)
-    assert f"总费用 {FEE} wei" in rows[0][3]
-    assert f"原生币变化 {-FEE} wei" in rows[2][3] and "残差 0" in rows[2][3]
+    assert f"总费用 {FEE} wei" in rows[0][4]
+    assert f"原生币整块净变化 {-FEE} wei" in rows[2][4] and "残差 0" in rows[2][4]
     assert f"由冻结输入重建{COMMA}非提供方实时观测" in out["proofStatus"]
     assert "两个来源的独立性未确立" in out["proofStatus"]
     assert "不授予执行权限" in out["proofStatus"] and out["danger"] is False
@@ -344,7 +356,7 @@ def test_console_shows_a_residual_as_a_failure_with_its_reason_and_numbers(
     assert tag_free(settled[1]) == "有残差" and 'class="bad"' in settled[1]
     reason = "native_balance_not_explained_by_receipt_fee"
     assert settled[2] == f"原生币余额变化不等于收据费用{OPEN}{reason}{CLOSE}"
-    assert f"原生币变化 {-FEE - 1} wei" in settled[3] and "残差 -1" in settled[3]
+    assert f"原生币整块净变化 {-FEE - 1} wei" in settled[4] and "残差 -1" in settled[4]
     assert out["danger"] is True
 
 
@@ -365,19 +377,22 @@ def test_console_labels_scoped_refusals_and_keeps_unknown_codes_visible(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     bundle = captured(tmp_path, monkeypatch, "--with-settlement")
-    body = fill_proof(tmp_path, bundle)
-    unbound = {"status": "unbound", "native_wei": None, "assets": None, "tokens": None}
-    body["cost_replay"] |= unbound | {"reason": "evidence_invalid_1"}
-    body["receipt_transfers"] |= unbound | {"reason": "cost_binding_evidence_invalid_1"}
-    body["block_settlement"] |= {"status": "brand_new", "reason": "constructor", "tokens": None}
-    rows = proof_rows(panel(build_report(bundle.world.run), {"body": body}))
-    second = f"第 2 份证明无法重放{OPEN}evidence_invalid_1{CLOSE}"
-    assert rows[0][2] == second
-    assert rows[1][2] == f"成本证明{COLON}{second}"
+    tamper_second_cost_proof(bundle)
+    body = fill_proof(tmp_path, bundle)  # the server's own refusal views, unedited
+    body["block_settlement"] |= {"status": "brand_new", "reason": "constructor"}
+    out = panel(build_report(bundle.world.run), {"body": body})
+    rows = proof_rows(out)
+    second = "第 2 份证明无法重放"
+    assert rows[0][2] == f"{second}{OPEN}evidence_invalid_1{CLOSE}"
+    scoped = f"{OPEN}cost_binding_evidence_invalid_1{CLOSE}"
+    assert rows[1][2] == f"成本证明{COLON}{second}{scoped}"
     # An unknown status is a failure shown by its code; a prototype name is not a label.
     assert tag_free(rows[2][1]) == "brand_new" and 'class="bad"' in rows[2][1]
     assert rows[2][2] == "constructor"
-    assert all(row[3] == NONE for row in rows)
+    # A refusal reached no outcome: it states no providers, scope or values.
+    assert all(row[3] == row[4] == NONE for row in rows)
+    assert out["proofStatus"].startswith(f"证据记录缺失、过期或被修改{COLON}")
+    assert out["danger"] is True
 
 
 def test_console_escapes_every_proof_string(
@@ -419,9 +434,10 @@ def test_a_failed_proof_refresh_clears_only_the_proof_panel(
 ) -> None:
     bundle = captured(tmp_path, monkeypatch, "--with-settlement")
     body = fill_proof(tmp_path, bundle)
-    out = panel(build_report(bundle.world.run), [{"body": body}, {"fail": 503}], rounds=2)
+    steps = [{"body": body}, {"fail": 503, "code": "corrupt"}]
+    out = panel(build_report(bundle.world.run), steps, rounds=2)
     assert "spot-proof" not in out["tables"] and out["danger"] is True
-    assert "单笔成交证明不可用或校验失败" in out["proofStatus"]
+    assert "证据包或日志无法读取或校验失败" in out["proofStatus"]
     assert out["stats"] is not None and len(out["tables"]) == 4
 
 
@@ -450,7 +466,7 @@ def test_a_slower_earlier_load_never_overwrites_a_newer_one(
     out = panel(
         build_report(bundle.world.run), [{"body": stale, "delay": 50}, {"body": body}], race=True
     )
-    assert [tag_free(row[1]) for row in proof_rows(out)] == ["已重放", "一致", "已对账"]
+    assert [tag_free(row[1]) for row in proof_rows(out)] == ["已重放", "与日志一致", "范围内已对账"]
     assert out["calls"].count("/api/v1/spot/fill-proof") == 2
 
 
@@ -594,3 +610,443 @@ def test_every_lifecycle_blocking_reason_has_a_console_label() -> None:
     }
     assert {"fill_amount_mismatch", "spot_live_execution_unreleased"} <= reasons
     assert sorted(reasons - labels) == []
+
+
+# ---------------------------------------------------------------- CLI / API / UI parity
+#
+# One synthetic frozen bundle per case, published by the real capture CLI. The report CLI
+# prints the three views, the real server serves the same bundle over HTTP, and the real
+# core.js client parses those exact bytes for spot.js to render. All three must agree.
+
+BIG_UNITS = 10**30 + 7  # token base units: far beyond Number.MAX_SAFE_INTEGER (2**53 - 1)
+# A transactionIndex beyond 2**53 that a float cannot hold (synthetic, not a real block
+# size): only an exact integer parse renders it, and a rounded value would differ.
+BIG_POSITION = 2**60 + 1
+CONSOLE_READS = (
+    "/api/v1/spot/report",
+    "/api/v1/spot/decisions?limit=50",
+    "/api/v1/spot/assessments?limit=30&action=flip",
+    "/api/v1/spot/fill-proof",
+)
+STATUS_LABEL = {
+    "replayed": "已重放",
+    "matched": "与日志一致",
+    "reconciled": "范围内已对账",
+    "unbound": "未绑定",
+    "unverified": "未验证",
+    "conflict": "冲突",
+    "journal_mismatch": "与日志不符",
+    "residual": "有残差",
+}
+NATIVE_NET_ONLY = f"原生币只比较整块净余额{COMMA}无逐交易追踪"
+
+CONSOLE_HARNESS = r"""
+const nodes = new Map();
+class Element {
+  constructor(tag) {
+    this.tag = tag; this.children = []; this.text = ''; this.markup = '';
+    this.className = ''; this.danger = false;
+  }
+  get textContent() { return this.text; }
+  set textContent(value) { this.text = String(value); this.children = []; }
+  get innerHTML() { return this.markup; }
+  set innerHTML(value) { this.markup = String(value); }
+  get classList() {
+    const element = this;
+    return {toggle(name, on) { if (name === 'danger') element.danger = Boolean(on); }};
+  }
+  appendChild(node) { this.children.push(node); return node; }
+  append(...more) { this.children.push(...more); }
+  replaceChildren(...more) { this.children = more; }
+}
+globalThis.document = {
+  getElementById(id) {
+    if (!nodes.has(id)) nodes.set(id, new Element('#' + id));
+    return nodes.get(id);
+  },
+  createElement: tag => new Element(tag),
+  createDocumentFragment: () => new Element('#fragment'),
+};
+// Read retries and toasts sleep; run those timers at once so a 503 settles promptly.
+globalThis.setTimeout = fn => { Promise.resolve().then(fn); return 0; };
+globalThis.clearTimeout = () => {};
+const RESPONSES = __RESPONSES__;
+globalThis.fetch = async path => {
+  const answer = RESPONSES[path];
+  if (!answer) throw new Error('unexpected request ' + path);
+  return {status: answer.status, ok: answer.status >= 200 && answer.status < 300,
+    text: async () => answer.body, json: async () => JSON.parse(answer.body)};
+};
+const {loadSpot} = await import('./spot.js');
+await loadSpot();
+const table = id => {
+  const fragment = nodes.get(id)?.children[0];
+  if (!fragment) return null;
+  const rows = fragment.children[1].children.map(tr => tr.children);
+  if (rows.length === 1 && rows[0].length === 1 && rows[0][0].className === 'empty') {
+    return {rows: [], empty: rows[0][0].textContent};
+  }
+  return {rows: rows.map(cells => cells.map(td => td.innerHTML)), empty: null};
+};
+const proof = nodes.get('spot-proof-status');
+console.log(JSON.stringify({proof: table('spot-proof'), status: proof.textContent,
+  danger: proof.danger, spot: nodes.get('spot-status').textContent}));
+"""
+
+
+def render_console(tmp_path: Path, client: Any) -> dict[str, Any]:
+    """Render the spot tab under Node from the exact bytes the real server returned."""
+    node = shutil.which("node")
+    assert node, "Node.js is required"
+    work = tmp_path / "console"
+    work.mkdir(exist_ok=True)
+    sources = dashboard_sources()
+    for name in ("core.js", "spot.js"):
+        (work / name).write_text(sources[name])
+    (work / "package.json").write_text('{"type":"module"}')
+    responses = {}
+    for path in CONSOLE_READS:
+        response = client.get(path)
+        responses[path] = {"status": response.status_code, "body": response.text}
+    program = CONSOLE_HARNESS.replace("__RESPONSES__", json.dumps(responses))
+    result = subprocess.run(
+        [node, "--input-type=module"],
+        input=program,
+        cwd=work,
+        text=True,
+        capture_output=True,
+        timeout=20,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    rendered: dict[str, Any] = json.loads(result.stdout)
+    rendered["responses"] = responses
+    return rendered
+
+
+def _word(amount: int) -> str:
+    return "0x" + amount.to_bytes(32, "big").hex()
+
+
+def _rewrite(path: Path, change: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
+    path.write_text(json.dumps(change(json.loads(path.read_text()))))
+
+
+class Parity:
+    """A matched buy of BIG_UNITS at BIG_POSITION, captured from two frozen files."""
+
+    def __init__(self, tmp_path: Path) -> None:
+        self.scene = Scene(tmp_path, Order(World(tmp_path, fill_out=BIG_UNITS), "buy"))
+        self.bundle = Bundle(tmp_path, self.scene)
+        self.logs = at(self.scene.receipt_logs(), hex(BIG_POSITION), hex(BIG_POSITION))
+        token = self.scene.order.token
+        self.chain: dict[str, Any] = {
+            "receipt_logs": self.logs,
+            "position": hex(BIG_POSITION),
+            "logs": self.logs,
+            "supply": {BASE_USDC: (10**15, 10**15), token: (10**33, 10**33)},
+        }
+
+    def capture(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        files: list[dict[str, Any]] | None = None,
+        **change: Any,
+    ) -> None:
+        retained = self.bundle.files(**(self.chain | change)) if files is None else files
+        assert self.bundle.capture(monkeypatch, retained, "--with-settlement") == 0
+
+
+def _reconciled(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch)
+
+
+def _residual(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch, native=(NATIVE, NATIVE - FEE - 1))  # one wei more left the wallet
+
+
+def _other_transaction(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    wallet = p.scene.wallet
+    gift = log(BASE_USDC, STRANGER, wallet, 9, 7, tx=OTHER_TX, pos=BIG_POSITION + 1)
+    balances = p.scene.chain().balances
+    before, after = balances[BASE_USDC]
+    moved = balances | {BASE_USDC: (before, after + 9)}
+    p.capture(monkeypatch, logs=[*p.logs, gift], balances=moved)
+
+
+def _provider_conflict(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Same fee, same net, but the second provider's receipt lists the token leg as two rows.
+    files = p.bundle.files(**p.chain)
+    usdc, token = p.logs
+    units = p.scene.units
+    split = [
+        usdc,
+        token | {"data": _word(units - 1)},
+        token | {"logIndex": "0x2", "data": _word(1)},
+    ]
+    (receipt,) = [r for r in files[1]["responses"] if r["method"] == "eth_getTransactionReceipt"]
+    receipt["result"] = receipt["result"] | {"logs": split}
+    p.capture(monkeypatch, files)
+
+
+def _wrong_intent(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch)
+    _rewrite(p.bundle.out / "binding.json", lambda b: b | {"intent_id": "another-intent"})
+
+
+def _wrong_block(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch)
+    _rewrite(
+        p.bundle.out / "binding.json",
+        lambda b: b | {"header": b["header"] | {"block_hash": OTHER_BLOCK}},
+    )
+
+
+def _missing_cost_record(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch)
+    db = sqlite3.connect(p.bundle.out / "evidence.db")
+    with db:
+        deleted = db.execute(
+            "DELETE FROM evidence WHERE kind = 'transaction_cost' AND source = ?",
+            (PROVIDERS[1],),
+        ).rowcount
+    db.close()
+    assert deleted == 1
+
+
+def _stale_settlement_reference(p: Parity, monkeypatch: pytest.MonkeyPatch) -> None:
+    p.capture(monkeypatch)
+
+    def stale(declared: dict[str, Any]) -> dict[str, Any]:
+        first, second = declared["settlements"]
+        return declared | {"settlements": [first, second | {"content_hash": "0" * 64}]}
+
+    _rewrite(p.bundle.out / "settlement.json", stale)
+
+
+RECEIPTS_OK = (("replayed", None), ("matched", None))
+MISBOUND_GAP = f"证据包与这笔成交不匹配{OPEN}错绑{CLOSE}"
+EVIDENCE_GAP = "证据记录缺失、过期或被修改"
+PARITY: dict[str, tuple[Any, tuple[tuple[str, str | None], ...], str]] = {
+    "reconciled": (_reconciled, (*RECEIPTS_OK, ("reconciled", None)), "范围内已对账"),
+    "residual": (
+        _residual,
+        (*RECEIPTS_OK, ("residual", "native_balance_not_explained_by_receipt_fee")),
+        "有未解释的残差",
+    ),
+    "other_transaction_in_block": (
+        _other_transaction,
+        (*RECEIPTS_OK, ("unverified", "other_transactions_moved_wallet_in_block")),
+        "证据不足以核对",
+    ),
+    "provider_conflict": (
+        _provider_conflict,
+        (
+            ("replayed", None),
+            ("conflict", "providers_disagree_on_transfer_logs"),
+            ("conflict", "receipt_transfers_providers_disagree_on_transfer_logs"),
+        ),
+        "证据之间矛盾",
+    ),
+    "wrong_intent": (
+        _wrong_intent,
+        (
+            ("unbound", "order_not_matched"),
+            ("unbound", "cost_binding_order_not_matched"),
+            ("unbound", "cost_binding_order_not_matched"),
+        ),
+        MISBOUND_GAP,
+    ),
+    "wrong_block": (
+        _wrong_block,
+        (
+            ("unbound", "block_mismatch"),
+            ("unbound", "cost_binding_block_mismatch"),
+            ("unbound", "cost_binding_block_mismatch"),
+        ),
+        MISBOUND_GAP,
+    ),
+    "missing_cost_record": (
+        _missing_cost_record,
+        (
+            ("unbound", "evidence_invalid_1"),
+            ("unbound", "cost_binding_evidence_invalid_1"),
+            ("unbound", "cost_binding_evidence_invalid_1"),
+        ),
+        EVIDENCE_GAP,
+    ),
+    "stale_settlement_reference": (
+        _stale_settlement_reference,
+        (*RECEIPTS_OK, ("unbound", "settlement_evidence_invalid")),
+        EVIDENCE_GAP,
+    ),
+}
+
+
+def raw_values(key: str, view: dict[str, Any]) -> list[str]:
+    """Raw integers the console must show verbatim for one CLI view (none for a refusal)."""
+    if key == "cost_replay" and view.get("native_wei"):
+        w = view["native_wei"]
+        return [f"总费用 {w['total']} wei", f"执行 {w['execution']}", f"L1 {w['l1']}"]
+    if key == "receipt_transfers" and view.get("assets"):
+        a = view["assets"]
+        return [
+            f"收据 USDC 净额 {a['usdc']['net']}",
+            f"收据代币净额 {a['token']['net']}",
+            f"交易位置 {view['transaction_index']}",
+        ]
+    if key == "block_settlement" and view.get("tokens"):
+        n, t = view["native_wei"], view["tokens"]
+        return [
+            f"原生币整块净变化 {n['delta']} wei",
+            f"收据费 {n['receipt_fee_total']}",
+            f"残差 {n['residual']}",
+            f"USDC 余额变化 {t['usdc']['balance_delta']}",
+            f"代币余额变化 {t['token']['balance_delta']}",
+        ]
+    return []
+
+
+def snapshot(*directories: Path) -> dict[Path, str]:
+    """Every file in the journal and bundle directories, by content digest."""
+    return {p: digest(p) for d in directories for p in sorted(d.iterdir()) if p.is_file()}
+
+
+@pytest.mark.parametrize("case", sorted(PARITY))
+def test_cli_api_and_console_agree_on_one_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    case: str,
+) -> None:
+    build, expected, gap = PARITY[case]
+    parity = Parity(tmp_path)
+    build(parity, monkeypatch)
+    bundle = parity.bundle
+    before = snapshot(bundle.world.run, bundle.out)
+    capsys.readouterr()
+    assert bundle.report(monkeypatch) == 0
+    cli = json.loads(capsys.readouterr().out)
+    # A replayed cost view states no reason at all; every other view states one or None.
+    assert tuple((cli[key]["status"], cli[key].get("reason")) for key in VIEWS) == expected
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        out = render_console(tmp_path, client)
+    body = json.loads(out["responses"]["/api/v1/spot/fill-proof"]["body"])
+    assert {key: body[key] for key in VIEWS} == {key: cli[key] for key in VIEWS}
+    rows = out["proof"]["rows"]
+    for row, key in zip(rows, VIEWS, strict=True):
+        view = cli[key]
+        assert tag_free(row[1]) == STATUS_LABEL[view["status"]]
+        reason = view.get("reason")
+        assert row[2] == NONE if reason is None else row[2].endswith(f"{OPEN}{reason}{CLOSE}")
+        values = raw_values(key, view)
+        assert all(value in row[4] for value in values) if values else row[4] == NONE
+        if "providers" in view:
+            assert all(provider in row[3] for provider in view["providers"])
+        else:
+            assert row[3] == NONE
+    if "providers" in cli["block_settlement"]:
+        # The scope names this block, wallet and both tokens, and native is a net only.
+        assert NATIVE_NET_ONLY in rows[2][3]
+        assert cli["block_settlement"]["block"]["block_hash"] in rows[2][3]
+    assert out["status"].startswith(gap) and out["danger"] is (case != "reconciled")
+    if case != "reconciled":
+        assert "范围内已对账" not in out["status"] and "范围内已对账" not in str(rows)
+    assert "不可用" not in out["spot"]  # the journal panels are a separate source
+    # Evidence store, journal and bundle files are only read.
+    assert snapshot(bundle.world.run, bundle.out) == before
+
+
+def test_integers_beyond_two_to_the_53_render_exactly_through_the_real_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parity = Parity(tmp_path)
+    _reconciled(parity, monkeypatch)
+    bundle = parity.bundle
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        out = render_console(tmp_path, client)
+    raw = out["responses"]["/api/v1/spot/fill-proof"]["body"]
+    # The server sends the position as a bare JSON integer a float would round.
+    assert f'"transaction_index":{BIG_POSITION}' in raw
+    assert float(BIG_POSITION) != BIG_POSITION
+    rows = out["proof"]["rows"]
+    assert f"交易位置 {BIG_POSITION}" in rows[1][4]
+    assert f"收据代币净额 {BIG_UNITS}" in rows[1][4]
+    assert f"代币余额变化 {BIG_UNITS}" in rows[2][4]
+    assert str(int(float(BIG_POSITION))) not in str(rows)
+
+
+async def _busy(self: ReadWorker, operation: Any) -> Any:
+    raise ReadOnlyError("observation reader unavailable or busy", code="busy")
+
+
+@pytest.mark.parametrize(
+    ("harm", "code", "text"),
+    [
+        (_remove("binding.json"), "missing", "证据包缺失或不完整"),
+        (_write("binding.json", b"{"), "corrupt", "证据包或日志无法读取或校验失败"),
+        (None, "busy", "服务器读取队列已满"),
+    ],
+)
+def test_console_tells_missing_corrupt_and_busy_apart_over_http(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, harm: Any, code: str, text: str
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    if harm is not None:
+        harm(bundle.out)
+    with serve(tmp_path, bundle.world.run, bundle.out) as client:
+        if harm is None:
+            # The replay runs on the bounded reader: a full reader refuses it.
+            monkeypatch.setattr(ReadWorker, "run", _busy)
+        out = render_console(tmp_path, client)
+    proof = json.loads(out["responses"]["/api/v1/spot/fill-proof"]["body"])
+    assert out["responses"]["/api/v1/spot/fill-proof"]["status"] == 503
+    assert proof["code"] == code
+    assert out["proof"] is None and out["danger"] is True and text in out["status"]
+    assert "不可用" not in out["spot"]  # the report still renders without the proof
+
+
+def test_console_without_a_bundle_keeps_the_default_report_over_http(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = captured(tmp_path, monkeypatch, "--with-settlement")
+    with serve(tmp_path, bundle.world.run) as client:
+        out = render_console(tmp_path, client)
+    assert json.loads(out["responses"]["/api/v1/spot/fill-proof"]["body"]) == UNCONFIGURED
+    assert out["proof"]["rows"] == [] and "databases.spot_proof" in out["proof"]["empty"]
+    assert out["danger"] is False and "不可用" not in out["spot"]
+
+
+def _js_set(source: str, name: str) -> set[str]:
+    start = source.index(f"const {name} = new Set([")
+    return set(re.findall(r'"([a-z0-9_]+)"', source[start : source.index("]);", start)]))
+
+
+def _unbound_reasons() -> set[str]:
+    """Every literal reason refused with status `unbound` by the three checks."""
+    out = _refusals(cost_binding, "_unbound")
+    for module in (transfer_check, settlement_check):
+        for node in ast.walk(ast.parse(Path(module.__file__).read_text())):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+                continue
+            if node.func.id != "_Refused" or len(node.args) != 2:
+                continue
+            status, reason = node.args
+            if (
+                isinstance(status, ast.Constant)
+                and status.value == "unbound"
+                and isinstance(reason, ast.Constant)
+                and isinstance(reason.value, str)
+            ):
+                out.add(reason.value)
+    return out
+
+
+def test_every_unbound_reason_names_its_kind_of_gap() -> None:
+    source = dashboard_sources()["spot.js"]
+    kinds = [_js_set(source, name) for name in ("MISBOUND", "MALFORMED", "JOURNAL_SIDE")]
+    assert not (kinds[0] & kinds[1] or kinds[0] & kinds[2] or kinds[1] & kinds[2])
+    reasons = _unbound_reasons()
+    assert {"order_not_matched", "settlement_evidence_invalid"} <= reasons
+    # evidence_invalid_<n> and settlement_evidence_invalid are named by the evidence rule.
+    assert sorted(reasons - set().union(*kinds) - {"settlement_evidence_invalid"}) == []
