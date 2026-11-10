@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320"
+     role="img" aria-labelledby="title description">
+  <title id="title">Oasis Agent research and control</title>
+  <desc id="description">A dark cover showing verified market evidence moving through independent
+    risk checks into bounded execution.</desc>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#07151c"/>
+      <stop offset="1" stop-color="#0b272a"/>
+    </linearGradient>
+    <radialGradient id="light">
+      <stop stop-color="#37ba9f" stop-opacity=".29"/>
+      <stop offset="1" stop-color="#37ba9f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="orbit" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8ef9db"/>
+      <stop offset="1" stop-color="#36ad9f"/>
+    </linearGradient>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M24 0H0V24" fill="none" stroke="#88d9c6" stroke-opacity=".13"/>
+    </pattern>
+    <clipPath id="frame">
+      <rect x="1" y="1" width="1198" height="318" rx="26"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="320" fill="url(#surface)"/>
+    <ellipse cx="938" cy="145" rx="330" ry="208" fill="url(#light)"/>
+    <path d="M694 0H1200V320H694Z" fill="url(#grid)"/>
+    <path d="M694 0V320" stroke="#88d9c6" stroke-opacity=".2"/>
+    <path d="M64 257H632" stroke="#88d9c6" stroke-opacity=".23"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Consolas, monospace" font-size="15">
+      <rect x="64" y="52" width="9" height="9" rx="2" fill="#8ef9db"/>
+      <text x="86" y="61" fill="#8ef9db" letter-spacing="2.8">OASIS / SYSTEM OVERVIEW</text>
+      <text x="64" y="283" fill="#a1c0bd" letter-spacing="1.8">EVIDENCE</text>
+      <text x="237" y="283" fill="#a1c0bd" letter-spacing="1.8">RISK</text>
+      <text x="376" y="283" fill="#a1c0bd" letter-spacing="1.8">EXECUTION</text>
+      <path d="M169 278H206M307 278H345" stroke="#58c8b0" stroke-opacity=".66"/>
+    </g>
+
+    <g font-family="Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+       font-size="56" font-weight="700" letter-spacing="-1.6">
+      <text x="60" y="145" fill="#f1faf7">On-chain strategy</text>
+      <text x="60" y="211" fill="#8ef9db">research &amp; execution</text>
+    </g>
+
+    <g transform="translate(944 157)">
+      <circle r="111" fill="#0d242b" stroke="#74c6b8" stroke-opacity=".32"/>
+      <circle r="87" fill="none" stroke="#74c6b8" stroke-opacity=".33" stroke-dasharray="2 8"/>
+      <circle r="63" fill="none" stroke="url(#orbit)" stroke-width="2"/>
+      <path d="M-154 0H-111M111 0H154M0-138V-111M0 111V138"
+            stroke="#74c6b8" stroke-opacity=".5"/>
+      <path d="M-82 74 74-82M-82-74 74 82" stroke="#74c6b8" stroke-opacity=".23"/>
+      <path d="m-34 7 17-18 16 14 18-26 19 12" fill="none"
+            stroke="#8ef9db" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M-34 30H36" stroke="#74c6b8" stroke-opacity=".5"/>
+      <circle cx="-111" r="5" fill="#8ef9db"/>
+      <circle cx="79" cy="-79" r="5" fill="#8ef9db"/>
+      <circle cx="79" cy="79" r="5" fill="#8ef9db"/>
+      <circle cx="111" r="3" fill="#58c8b0"/>
+    </g>
+
+    <g fill="#b6cfcc" font-family="ui-monospace, SFMono-Regular, Consolas, monospace"
+       font-size="13" letter-spacing="1.3">
+      <text x="721" y="143">PINNED STATE</text>
+      <text x="1032" y="65">POLICY GATE</text>
+      <text x="1029" y="263">SETTLEMENT</text>
+    </g>
+  </g>
+  <rect x="1" y="1" width="1198" height="318" rx="26" fill="none" stroke="#315b58" stroke-width="2"/>
+</svg>

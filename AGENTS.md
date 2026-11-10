@@ -34,6 +34,11 @@ the applicable rule files explicitly. Read only the guidance needed for the task
 
 ## Authority and capital
 
+- **Never stage, commit, or push private keys or signing seeds. There are no exceptions.** This
+  covers every network, fixture, example, backup, wallet export, and encrypted or encoded copy.
+  Use placeholders in committed files and generate ephemeral test keys at runtime. Treat suspected
+  signing material as a hard stop. Remove it from the index without displaying it, and follow the
+  [incident runbook](docs/runbooks/INCIDENT_RESPONSE.md) if it has already entered Git history.
 - Default to offline, observation, simulation, or shadow. Repository commands, historical approvals,
   passing tests, and an earlier canary run do not grant permission to act on capital. Live startup,
   signing, broadcasting, transfers, spending, and production state changes require explicit

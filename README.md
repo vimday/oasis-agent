@@ -1,64 +1,78 @@
 # Oasis Agent
 
-Oasis Agent researches and operates bounded on-chain strategies with replayable evidence,
-independent risk checks, and explicit signing authority. The long-term objective is risk-adjusted
-net NAV growth after all costs. The first research program is transparent Uniswap v4 LP, with
-Robinhood as the benchmark and Base as the current bounded operating target.
+![On-chain research with replayable evidence and bounded authority](docs/assets/oasis-agent-hero.svg)
 
-## What you can use today
+[Quickstart](#quickstart) · [System design](#system-design) · [Operating tracks](#operating-tracks) · [Evidence index](docs/CURRENT_IMPLEMENTATION.md)
 
-| Track | Implemented boundary |
+Oasis Agent is an evidence-driven on-chain research and execution system. It evaluates strategy
+decisions against pinned chain state and reconciled accounting. Its objective is risk-adjusted
+net asset value growth after all costs.
+
+## System design
+
+| Layer | What it establishes |
 | --- | --- |
-| Offline LP research | Replay pinned inputs, attribute token and gas movements, evaluate a shadow decision, and prepare bounded calldata for simulation. |
-| Base ETH/USDC v4 LP | The operator can run a release-gated Docker canary for one to three ticks. Historical evidence includes a two-tick hold and verified shutdown. Every new run needs current evidence and authorization. |
-| Base autonomous spot | Shadow discovery, entry and exit decisions, a paper book, deterministic replay, and historical receipt review. GMGN is an optional check on OKX data. FOMO is an integration slot. The spot execution entry refuses live trading. |
-| Dashboard | Read-only financial evidence and status, plus separately authenticated observation and shadow campaigns. |
-| Later strategies | Atomic arbitrage, hedging, market making, and portfolio allocation are research and architecture tracks. |
+| **Evidence** | Retains original provider responses and binds observations to a chain, block hash, source, and input configuration. |
+| **Research** | Replays decisions, attributes inventory and gas movements, and tests strategy behavior in shadow and simulation. |
+| **Risk** | Checks account state, loss and exposure limits, transaction scope, and release authority independently of the strategy. |
+| **Execution and settlement** | Isolates signing authority, reconciles receipts and balances, and preserves STOP and recovery state. |
 
-See the [current capability and evidence index](docs/CURRENT_IMPLEMENTATION.md) for exact
-acceptance results and open gates. No strategy has demonstrated sustained net profitability.
+The [project charter](docs/PROJECT_CHARTER.md) defines the objective and promotion gates.
+The [production control framework](docs/governance/PRODUCTION_CONTROL_FRAMEWORK.md) defines the
+operating boundaries. **Private keys and signing seeds stay outside Git.**
+The [custody model](docs/security/CUSTODY_AND_AGENT_KEY_MODEL.md) describes how signing authority is isolated.
 
-## Start locally
+## Operating tracks
 
-Use Python 3.12, `uv`, Node.js 22, and Foundry 1.8.1 as pinned by
-[CI](.github/workflows/ci.yml). Install the locked dependencies and run the offline demo.
+| Track | Current scope |
+| --- | --- |
+| **Robinhood · Uniswap v4 LP benchmark** | Fixed-block research on pool state, fees, inventory, and routing. See the [Phase 1 LP blueprint](docs/strategies/ROBINHOOD_V4_AUTOLP_BLUEPRINT.md). |
+| **Base · ETH/USDC v4 LP** | Release-gated Docker canary for one to three ticks. Retained evidence includes a two-tick hold and verified shutdown. Every new run requires current evidence and operator authorization. |
+| **Base · Autonomous spot** | Shadow discovery, entry and exit decisions, a paper ledger, deterministic replay, and historical receipt review. OKX supplies market data with optional GMGN cross-checks. |
+| **Local console** | Read-only financial evidence and operating status, with authenticated observation and shadow campaigns. |
+| **Strategy research** | Atomic arbitrage, hedging, market making, and portfolio allocation follow the [research roadmap](docs/strategies/LONG_TERM_PROFIT_ROADMAP.md). |
+
+Sustained net profitability remains unverified. The
+[current capability index](docs/CURRENT_IMPLEMENTATION.md) links each acceptance result to the
+evidence and conditions for that run.
+
+## Quickstart
+
+Use Python 3.12 and `uv` for the offline demo. The full development environment also uses Node.js 22
+and Foundry 1.8.1, as pinned in [CI](.github/workflows/ci.yml).
 
 ```bash
 make install
 make report
 ```
 
-Open `reports/benchmark-hook-analysis.md` for the offline fixture report. Install locked
-contract dependencies with `make contract-install` before running Solidity tests.
-The full `make run` workflow needs its retained evidence and hash manifests. Follow the
-[offline workflow guide](docs/operations/ONE_COMMAND_WORKFLOW.md) to supply those inputs
-and interpret its exit status.
+Open the [benchmark fixture report](reports/benchmark-hook-analysis.md) to inspect the offline LP
+example. For the full retained-evidence replay, use the
+[offline workflow guide](docs/operations/ONE_COMMAND_WORKFLOW.md). Run `make contract-install` before
+the Solidity checks.
 
-Start the local dashboard with `make run-server` and open
-[localhost:8666](http://127.0.0.1:8666). The default loopback configuration reads retained
-journals. Configure the operations token and approved sources before running a campaign.
+Start the local dashboard with `make run-server`, then open
+[127.0.0.1:8666](http://127.0.0.1:8666). The loopback configuration reads retained journals.
+Observation campaigns require an operations token and approved data sources.
 
-## Choose an entry point
+## Operator entry points
 
-| Task | Entry point |
+| Task | Start here |
 | --- | --- |
-| Inspect static Base LP release and Docker readiness | `make live-docker-readiness`. Runs offline. A local check pass leaves runtime admission unresolved. |
-| Inspect the dedicated Base LP account | `make live-check`. Uses the configured RPC pair. Run only with a current request allowance. |
-| Recover a pending Base LP transaction | Follow the [release and recovery guide](docs/operations/LIVE_RELEASE.md). Recovery can read chain data and update existing accounting. |
-| Run an authorized bounded Base LP canary | Follow the [Base runbook](docs/operations/BASE_BOUNDED_RUN.md) for preflight, original ledgers, STOP recovery, and post-run verification. |
-| Run or replay Base spot shadow | Follow the [spot runbook](docs/operations/BASE_SPOT_SHADOW.md) for provider scope, replay, and receipt verification. |
+| Inspect static Base LP release and Docker readiness | `make live-docker-readiness` for offline checks. Runtime admission is evaluated separately. |
+| Inspect the dedicated Base LP account | `make live-check` with the configured RPC pair and a current request allowance. |
+| Run an authorized Base LP canary | [Base runbook](docs/operations/BASE_BOUNDED_RUN.md) for preflight, original ledgers, and STOP verification. |
+| Recover a pending Base LP transaction | [Release and recovery guide](docs/operations/LIVE_RELEASE.md). Recovery can read chain state and update existing accounting. |
+| Run or replay Base spot shadow | [Spot runbook](docs/operations/BASE_SPOT_SHADOW.md) for provider scope, replay, and receipt verification. |
 
-## Project and contribution
+## Repository map
 
-- [Charter](docs/PROJECT_CHARTER.md), [Phase 1 LP blueprint](docs/strategies/ROBINHOOD_V4_AUTOLP_BLUEPRINT.md),
-  and [long-term roadmap](docs/strategies/LONG_TERM_PROFIT_ROADMAP.md) define objectives and gates.
-- [Control framework](docs/governance/PRODUCTION_CONTROL_FRAMEWORK.md),
-  [custody model](docs/security/CUSTODY_AND_AGENT_KEY_MODEL.md), and [incident response](docs/runbooks/INCIDENT_RESPONSE.md)
-  govern execution and recovery.
-- [Contributing](CONTRIBUTING.md), [AGENTS.md](AGENTS.md), and [review policy](REVIEW.md) define
-  development checks and review. [SECURITY.md](SECURITY.md) covers private vulnerability reports.
+| Path | Responsibility |
+| --- | --- |
+| [src/oasis_agent](src/oasis_agent/) | Market data, evidence, strategies, risk, execution, and the console |
+| [contracts](contracts/) | Solidity hook, bounded executor, and invariant tests |
+| [scripts](scripts/) | Research, verification, and operator entry points |
+| [docs/verification](docs/verification/) | Dated inputs, acceptance results, and unresolved evidence |
 
-`src/oasis_agent/` holds acquisition, evidence, strategies, execution, risk, and the dashboard.
-`contracts/` contains the Solidity hook and executor, and `scripts/` exposes operator and
-research entry points. Dated verification reports retain what ran, against which inputs, with
-which outcome. Match their scope to the claim you are checking.
+Start with [Contributing](CONTRIBUTING.md), the [engineering rules](AGENTS.md), and the
+[review policy](REVIEW.md). Use the [security policy](SECURITY.md) for private vulnerability reports.
