@@ -1,6 +1,6 @@
 """Two-provider retained account NAV, including v4 fees and both USD feeds.
 
-Feed pins are the Base declarations recorded in OBSERVED_LP_INVENTORY_PRICE_20261002.
+Feed pin provenance is recorded in docs/verification/BASE_LP_RESEARCH_CHECKPOINTS.md.
 Every capture verifies them again; a declaration alone supplies no observed price.
 USD values floor each asset leg. Raw units and feed answers never pass through float.
 """

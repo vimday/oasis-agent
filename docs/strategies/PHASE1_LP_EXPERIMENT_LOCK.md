@@ -52,7 +52,7 @@ disagree, the blueprint controls.
   a sufficient pin for a reproduced result.
 - **Dataset/evidence manifest hash (materialized):** produced by the replay producer as
   `observation_dataset_hash()` over the ordered observation payload — the exact digest
-  [`ExperimentLock`](file:///Users/metaverse/funspace/oasis-agent/src/oasis_agent/farming/backtest.py#L214-L225)
+  [`ExperimentLock`](../../src/oasis_agent/farming/backtest.py)
   already enforces. No window may be opened before it exists.
 - **Chain, pool, tokens (decided as a rule; see below).**
 - **Created:** 2026-09-26. **Decided:** 2026-09-27. **Materialized/locked timestamp (materialized):** the
@@ -80,7 +80,7 @@ Chain and pool are facts, so the lock fixes the *rule* that selects them rather 
   evaluates to `0.0000001 ETH`, too small to mint after gas and minimum useful liquidity. The first
   eligible pool has therefore not yet been established, and the experiment is blocked at WP1.
   This is an evidence status, not proof that no eligible pool exists. The subsequent
-  [2026-09-27 screening](../verification/LP_TARGET_PROGRESS_20260927.md) verified Base
+  [2026-09-27 screening](../verification/BASE_LP_RESEARCH_CHECKPOINTS.md#target-screening-and-coverage) verified Base
   ETH/USDC and USDC/cbBTC direct quotes at block 51826740 and ETH/USDC's local
   standard-router settlement and LP lifecycle. Complete two-sided admission depth,
   cost and economic evidence remain unresolved; neither candidate is promoted by
@@ -239,7 +239,7 @@ free-form operator number at decision time.
 
 | Term | Decided source | Where it comes from |
 | --- | --- | --- |
-| `expected_incremental_fees` | estimated from the frozen dataset | `gross_routable_volume1 × fee_pips × liquidity share`, with the elasticity-scaled routed volume — the arithmetic [`_fee_income`](file:///Users/metaverse/funspace/oasis-agent/src/oasis_agent/farming/backtest.py#L228-L236) already applies. Never a headline APR. |
+| `expected_incremental_fees` | estimated from the frozen dataset | `gross_routable_volume1 × fee_pips × liquidity share`, with the elasticity-scaled routed volume — the arithmetic [`_fee_income`](../../src/oasis_agent/farming/backtest.py) already applies. Never a headline APR. |
 | `expected_incremental_lvr` | estimated from the frozen dataset | realized adverse markouts (`adverse_selection_fixed1` / `adverse_selection_active1`) at the named horizons |
 | `inventory_risk_charge` | estimated from the frozen dataset | the 95th percentile of the calibration segment's own `fixed_inventory_pnl1` / `active_inventory_pnl1` dispersion at the primary horizon |
 | `swap_rebalance_gas_mev_cost` | measured, not estimated | `gas_cost_active1 + rebalance_cost_active1`, measured per action by the pinned-fork simulation of the exact atomic action |
@@ -261,7 +261,7 @@ declarations, and no cycle may be treated as an economic estimate.
   test ≥ 7 days and ≥ 20% of the span. Both swap directions must be present in every fold. These are stated
   operator minima, not chain facts.
 - **Walk-forward:** the purged four-cell evaluation already implemented in
-  [`backtest_strategy`](file:///Users/metaverse/funspace/oasis-agent/src/oasis_agent/farming/backtest.py#L272-L324),
+  [`backtest_strategy`](../../src/oasis_agent/farming/backtest.py),
   with `minimum_folds = 4`, `calibration_size = evaluation_size`, and
   `purge_size = ceil(max input horizon / observation cadence)`. Calibration and evaluation must cross a
   strict block boundary, and the per-fold control excesses are compared with the same materiality floor as
@@ -280,7 +280,7 @@ and a 3600-second minimum purge, and refuses insufficient 21-day development or
 7-day test coverage. This does not seal an untouched test, implement the economic
 estimator, prove chain finality or a longer finality-driven purge, or establish
 economic acceptance. Its `out_of_sample_accepted` remains false. See
-[price/account/coverage verification](../verification/PRICE_ACCOUNT_OOS_20260927.md).
+[price and coverage verification](../verification/BASE_LP_RESEARCH_CHECKPOINTS.md).
 
 - Buy-and-hold the volatile token for the identical window at the same valuation (`hold_pnl1`).
 - `R00` — static fee, fixed range: the primary control.

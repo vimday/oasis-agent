@@ -1,0 +1,66 @@
+{
+  "schema": "oasis-cycle-plan-v1",
+  "scenario": "historical",
+  "chain_id": 99901,
+  "sources": ["elysium_export"],
+  "assets": [
+    {"address": null, "symbol": "HYPE", "decimals": 18},
+    {"address": "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0", "symbol": "KNTQ", "decimals": 18},
+    {"address": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65", "symbol": "USDC", "decimals": 6},
+    {"address": "0xba876237b0f021a6c6d852d6c26e107997cc5e81", "symbol": "WHYPE", "decimals": 18}
+  ],
+  "wrapped_native": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+  "pools": [
+    {
+      "name": "hype-kntq-v4", "protocol": "v4",
+      "address": "0xe2e105d3f7209a9da11f83ccf3e7398a753823f1",
+      "token0": "0x0000000000000000000000000000000000000000",
+      "token1": "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0",
+      "pool_id": "0xf9b8a9101438145d62c9f03156b203c6c573931167e2d36f9061a32575706c8a"
+    },
+    {
+      "name": "kntq-usdc-v3", "protocol": "v3",
+      "address": "0x4d5cca6bf05af4fd6c59714b2f7caa6dbfeeca79",
+      "token0": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+      "token1": "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0"
+    },
+    {
+      "name": "usdc-whype-volatile", "protocol": "solidly_volatile",
+      "address": "0x1b4f02f7881958c9a02d3e1906dcec56005885fd",
+      "token0": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+      "token1": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+      "factory": "0x8b3f6eb2c9bfbee74cfc5372eb88a6353ea0a887"
+    }
+  ],
+  "windows": [
+    {"name": "before-trigger", "block": 3628114},
+    {"name": "after-trigger-block-end", "block": 3628115},
+    {"name": "after-winner-block-end", "block": 3628116}
+  ],
+  "sizes_raw": [10000000000000000, 25000000000000000, 50000000000000000, 100000000000000000],
+  "inventory_raw": null,
+  "gas_reserve_raw": null,
+  "commitments_raw": null,
+  "costs": [
+    {"kind": "gas", "status": "unknown", "raw": null, "source": null},
+    {"kind": "builder", "status": "unknown", "raw": null, "source": null},
+    {"kind": "protocol", "status": "unknown", "raw": null, "source": null},
+    {"kind": "financing", "status": "unknown", "raw": null, "source": null}
+  ],
+  "anomaly_ratio_bps": 20000,
+  "max_points": 16,
+  "max_queries_per_window": 128,
+  "case": {
+    "trigger_hash": "0xbdfce4e2f04b27b266d61a77077d2e857a0c69b66524742396e27c30df233a59",
+    "trigger_block": 3628115,
+    "trigger_index": 26,
+    "router": "0xf5a91fcb09b5c68f98a8f92ede96f9300f3b74f0",
+    "winner_hash": "0x4c88853a130363551076e2c66ae13bcd2fcb049b43494d615fc4aeb76d478ef7",
+    "winner_block": 3628116,
+    "winner_index": 5,
+    "sender": "0xbc3f59673a582cb32dbbc0d2936f9685c2faeb32",
+    "executor": "0x96a5f7e210a8d9b4981b948e95b7d505cd03713b",
+    "route": ["hype-kntq-v4", "kntq-usdc-v3", "usdc-whype-volatile"],
+    "prefix_system_type": 106
+  }
+}
