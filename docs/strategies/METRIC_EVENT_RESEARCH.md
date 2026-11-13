@@ -20,7 +20,9 @@ Base 现货 shadow 的既有边界。[本轮验证](../verification/METRIC_RESEA
 | P3 | 跨链、新链流动性迁移、权益资产 | 转移摩擦、市场时段和不等价资产风险 | 桥和赎回延迟不能计作原子套利；最后推进 |
 
 上述顺序是研究资源建议，不调整资本上限，也不把任何研究提升为 canary。
-先把一个闭环从事件、状态、规模、失败到净结算测清楚，再扩大链和资产范围。
+并行研究多条 EVM 链上的同链机会；每条链分别通过状态、规模、失败到净结算的验收。
+这里的 P3 是依赖桥/转账的跨链策略，不是限制 Ethereum、Base、Robinhood、Elysium 的研究。
+四链发现与借贷压力核算已加入[后续实验](MULTICHAIN_LENDING_EXPERIMENT.md)。
 
 ## 2. Metric 是否存在套利空间
 
@@ -91,15 +93,21 @@ BSC 的保护通道和 Robinhood 到达顺序也不能互换。文档未在该�
 
 ## 4. Aave 与事件型价差的闭环条件
 
-用户提及的“Binance 被盗导致 ETH 主网溢价”尚缺日期、交易和市场数据。能查到的相近大型
-事件是 2025-02-21 Bybit ETH 冷钱包事故，但不能据此替用户确定事件，也不能证明当时的套利
-方向或利润。本轮只研究机制，不把该故事编码为历史成功样本。
-[Bybit 官方时间线](https://www.bybit.com/en/learn/this-week-in-bybit/bybit-security-incident-timeline)
+**2026-11-14 纠正：** 用户指的是 2026-10-29 Binance 热钱包事件，已由
+[币安官方公告](https://www.binance.com/en-AU/support/announcement/detail/d3306d9dca5243548c813b605e1d1751)
+及 [Aave 风险响应](https://governance.aave.com/t/binance-hot-wallet-exploit-aaves-response/25954/1)
+确认。前一轮查证不充分，关联 Bybit 的说明不适用；原记录保留并链接
+[后续证据与纠错](../verification/MULTICHAIN_LENDING_20261114.md)。用户给出的
+[地址](https://etherscan.io/address/0x0cdd9cbb825212c6cc5b0b36239e94218ee661d8)
+也是 Bitquery 当晚卖方分析中的地址，但其价差归因不是完整偿债后 NAV 的证明。
 
 Aave 不是按 CEX 价格出售 ETH 的现货交易所。特定市场的 `AaveOracle.getSourceOfAsset`
 决定资产的价格源；版本、feed/adapter、base currency、精度、更新时间和风险参数必须
-在目标区块查证。“Aave 主要使用交易所价”不能作为固定规则。
+在目标区块查证。用户描述的机制有研究依据，但更准确的表述是“借贷 oracle 估值与
+DEX 可执行卖价分离”。Chainlink 的 crypto price 数据可来自多个聚合商的 CEX 和/或 DEX
+数据，并不保证恒等于某个 CEX 价格。
 [Aave V3 Oracle](https://aave.com/docs/aave-v3/smart-contracts/oracles)
+[Chainlink 数据源](https://docs.chain.link/data-feeds/data-sources)
 
 假设链上 ETH 卖价高于其他可成交市场：
 

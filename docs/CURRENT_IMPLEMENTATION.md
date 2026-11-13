@@ -13,6 +13,7 @@
 | 证据、账本和控制台 | 区块绑定、原始 RPC 回放、SQLite 请求预算和持久风险状态、只读财务状态和受鉴权的观察任务 | 控制台无法授权交易。日志匹配、显示估值和链上资金对账分别呈现，缺失证据保持未知。 |
 | 同链闭环套利 | 固定块末报价、真实收据与块末整笔调用离线复核、V4 新池发现与事件触发的定向报价回放 | Elysium 三个块头和两笔收据跨端点一致，单源块末无签名调用成功。合成窗口验证了定向报价。赢家精确 prestate、真实前瞻采集和结算仍缺。见[验证与复现](verification/ELYSIUM_CYCLE_RESEARCH_20261111.md)。 |
 | Metric 事件型套利研究 | 有界公开 metadata/depth 采集、哈希绑定的离线回放、整数深度与双池闭环筛选 | 单提供者估算，不是链上报价或执行准入。本轮真实两池六个候选因空深度全部拒绝；成本和资本保持未知。见[本轮验证](verification/METRIC_RESEARCH_20261114.md)和[下一阶段目标](strategies/METRIC_EVENT_RESEARCH.md)。 |
+| 多链发现与借贷压力研究 | 按 chain ID 隔离的 Metric 目录；合成抵押/借款循环、HF、cap、深度、利息与先偿还再撤款核算 | Ethereum/Robinhood 目录有响应；Base/Elysium 公开 API 报未知 chain ID，各采集保留为失败。没有部署/收益证明；Binance 事件已纠错。见[后续验证](verification/MULTICHAIN_LENDING_20261114.md)。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
 
 ## Base LP 验收记录

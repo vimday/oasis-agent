@@ -1,0 +1,7 @@
+{
+  "schema": "oasis-metric-universe-v1",
+  "scenario": "provider_observation",
+  "chain_ids": [1, 8453, 4663, 99901],
+  "pools_per_chain": 32,
+  "max_capture_seconds": 60
+}

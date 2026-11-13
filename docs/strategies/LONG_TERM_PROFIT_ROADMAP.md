@@ -37,6 +37,12 @@ Cross-chain arbitrage is not an early target. Bridge latency, finality, message 
 inventory, and correlated bridge risk often dominate an apparent price gap. Begin with inventory
 already isolated on each chain and never make a bridge completion part of an atomic-profit claim.
 
+This does not serialize research by chain. Ethereum, Base, Robinhood and Elysium should use shared
+EVM research interfaces concurrently, with separate deployment identities, inventory, evidence and
+promotion gates. The [multi-chain and lending experiment](MULTICHAIN_LENDING_EXPERIMENT.md) adds
+bounded directory discovery and synthetic oracle/spot divergence accounting. A public API refusing
+a chain is an availability gap, not evidence that the chain lacks a deployment or opportunity.
+
 ## 3. Stage 1 — Robinhood v4 automated LP
 
 The detailed normative plan is

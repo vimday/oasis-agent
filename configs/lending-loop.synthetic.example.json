@@ -1,0 +1,80 @@
+{
+  "schema": "oasis-lending-loop-v1",
+  "evidence_class": "synthetic",
+  "market_mode": "plain_single_collateral",
+  "chain_id": 1,
+  "collateral": {
+    "address": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "symbol": "SYNUSD",
+    "decimals": 6
+  },
+  "debt_asset": {
+    "address": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "symbol": "SYNETH",
+    "decimals": 18
+  },
+  "initial_debt_asset_raw": 1000000000000000000,
+  "initial_collateral_raw": 0,
+  "exit_cash_reserve_raw": 20000000000,
+  "oracle_collateral_usd_e8": 100000000,
+  "oracle_debt_usd_e8": 230000000000,
+  "sell_price_collateral_raw_per_debt_token": 2600000000,
+  "sell_depth_debt_raw": 100000000000000000000,
+  "target_ltv_bps": 7500,
+  "protocol_ltv_bps": 7800,
+  "liquidation_threshold_bps": 8000,
+  "supply_cap_remaining_raw": 100000000000,
+  "borrow_cap_remaining_raw": 100000000000000000000,
+  "borrow_liquidity_raw": 100000000000000000000,
+  "supply_enabled": true,
+  "borrow_enabled": true,
+  "freeze_after_rounds": 32,
+  "max_rounds": 4,
+  "non_interest_cost_raw": 25000000,
+  "exits": [
+    {
+      "name": "convergence",
+      "oracle_collateral_usd_e8": 100000000,
+      "oracle_debt_usd_e8": 230000000000,
+      "buy_price_collateral_raw_per_debt_token": 2300000000,
+      "buy_depth_debt_raw": 100000000000000000000,
+      "debt_growth_e18": 1000100000000000000,
+      "collateral_withdraw_liquidity_raw": 100000000000,
+      "repay_paused": false,
+      "withdraw_paused": false
+    },
+    {
+      "name": "premium_persists",
+      "oracle_collateral_usd_e8": 100000000,
+      "oracle_debt_usd_e8": 230000000000,
+      "buy_price_collateral_raw_per_debt_token": 2600000000,
+      "buy_depth_debt_raw": 100000000000000000000,
+      "debt_growth_e18": 1000100000000000000,
+      "collateral_withdraw_liquidity_raw": 100000000000,
+      "repay_paused": false,
+      "withdraw_paused": false
+    },
+    {
+      "name": "oracle_jump",
+      "oracle_collateral_usd_e8": 100000000,
+      "oracle_debt_usd_e8": 460000000000,
+      "buy_price_collateral_raw_per_debt_token": 4600000000,
+      "buy_depth_debt_raw": 100000000000000000000,
+      "debt_growth_e18": 1000100000000000000,
+      "collateral_withdraw_liquidity_raw": 100000000000,
+      "repay_paused": false,
+      "withdraw_paused": false
+    },
+    {
+      "name": "collateral_depeg",
+      "oracle_collateral_usd_e8": 80000000,
+      "oracle_debt_usd_e8": 230000000000,
+      "buy_price_collateral_raw_per_debt_token": 2875000000,
+      "buy_depth_debt_raw": 100000000000000000000,
+      "debt_growth_e18": 1000100000000000000,
+      "collateral_withdraw_liquidity_raw": 100000000000,
+      "repay_paused": false,
+      "withdraw_paused": false
+    }
+  ]
+}

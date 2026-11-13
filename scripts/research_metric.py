@@ -41,6 +41,13 @@ def capture(plan_path: Path, directory: Path) -> int:
     plan, raw = load_plan(plan_path)
     if plan.scenario != "provider_observation":
         raise ValueError("only provider observations may collect")
+    return capture_requests(raw, metric.requests(plan), plan.max_capture_seconds, directory)
+
+
+def capture_requests(
+    raw: bytes, specs: tuple[dict[str, Any], ...], max_seconds: int, directory: Path
+) -> int:
+    """Shared recorder for internally generated, prebounded public Metric reads."""
     # Exclusive directory creation prevents retries/resume or competing writers
     # from replacing a failed attempt. The plan is retained before the first I/O.
     directory.mkdir()
@@ -54,7 +61,7 @@ def capture(plan_path: Path, directory: Path) -> int:
         "status": "incomplete",
     }
     with httpx.Client(timeout=10, follow_redirects=False, trust_env=False) as client:
-        for index, spec in enumerate(metric.requests(plan)):
+        for index, spec in enumerate(specs):
             request_raw = canonical_json(spec)
             write_new(directory / f"{index}.request.json", request_raw)
             row: dict[str, Any] = {
@@ -67,7 +74,7 @@ def capture(plan_path: Path, directory: Path) -> int:
             }
             body = bytearray()
             try:
-                if row["started"] - started > plan.max_capture_seconds:
+                if row["started"] - started > max_seconds:
                     raise ValueError("capture_deadline")
                 with client.stream(**spec) as response:
                     row["http_status"] = response.status_code
@@ -75,9 +82,9 @@ def capture(plan_path: Path, directory: Path) -> int:
                         if len(body) + len(chunk) > LIMIT:
                             raise ValueError("response_size_limit")
                         body.extend(chunk)
-                        if int(time.time()) - started > plan.max_capture_seconds:
+                        if int(time.time()) - started > max_seconds:
                             raise ValueError("capture_deadline")
-                if int(time.time()) - started > plan.max_capture_seconds:
+                if int(time.time()) - started > max_seconds:
                     raise ValueError("capture_deadline")
                 if row["http_status"] == 200:
                     strict_json_object(bytes(body))
@@ -97,6 +104,25 @@ def capture(plan_path: Path, directory: Path) -> int:
 
 def replay(directory: Path) -> dict[str, Any]:
     plan, plan_raw = load_plan(directory / "plan.json")
+    payloads, provenance = replay_requests(
+        plan_raw, metric.requests(plan), plan.max_capture_seconds, directory
+    )
+    report = metric.screen(plan, payloads[0], payloads[1], provenance["exchanges"][-1]["received"])
+    report.update(provenance)
+    report["implementation_sha256"] = sha256_hex(
+        canonical_json(
+            {
+                "screen": sha256_hex(Path(metric.__file__).read_bytes()),
+                "entrypoint": sha256_hex(Path(__file__).read_bytes()),
+            }
+        )
+    )
+    return report
+
+
+def replay_requests(
+    plan_raw: bytes, specs: tuple[dict[str, Any], ...], max_seconds: int, directory: Path
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     capture_raw = read_bounded(directory / "capture.json", 32 * 1024)
     manifest = strict_json_object(capture_raw)
     if (
@@ -108,11 +134,11 @@ def replay(directory: Path) -> dict[str, Any]:
         raise ValueError("incomplete_or_mismatched_capture")
     started = strict_integer(manifest.get("started"), "started")
     rows = strict_list(manifest.get("exchanges"), "exchanges")
-    if len(rows) != 2:
+    if len(rows) != len(specs):
         raise ValueError("capture_coverage")
     previous = started
     payloads = []
-    for index, (item, spec) in enumerate(zip(rows, metric.requests(plan), strict=True)):
+    for index, (item, spec) in enumerate(zip(rows, specs, strict=True)):
         row = strict_object(item, "exchange")
         if set(row) != {
             "request_sha256",
@@ -125,7 +151,7 @@ def replay(directory: Path) -> dict[str, Any]:
             raise ValueError("unexpected_exchange_fields")
         begin = strict_integer(row.get("started"), "started")
         received = strict_integer(row.get("received"), "received")
-        if not 0 <= started <= previous <= begin <= received <= started + plan.max_capture_seconds:
+        if not 0 <= started <= previous <= begin <= received <= started + max_seconds:
             raise ValueError("capture_clock_incoherent")
         previous = received
         request_raw = read_bounded(directory / f"{index}.request.json", 32 * 1024)
@@ -139,24 +165,14 @@ def replay(directory: Path) -> dict[str, Any]:
         ):
             raise ValueError("capture_integrity_failure")
         payloads.append(strict_json_object(body))
-    report = metric.screen(plan, payloads[0], payloads[1], previous)
-    report.update(
-        plan_sha256=sha256_hex(plan_raw),
-        capture_sha256=sha256_hex(capture_raw),
-        implementation_sha256=sha256_hex(
-            canonical_json(
-                {
-                    "screen": sha256_hex(Path(metric.__file__).read_bytes()),
-                    "entrypoint": sha256_hex(Path(__file__).read_bytes()),
-                }
-            )
-        ),
-        exchanges=rows,
-        request_specs=metric.requests(plan),
-        response_body_bytes_retained=True,
-        capture_clocks="local_declarations_not_independent_attestation",
-    )
-    return report
+    return payloads, {
+        "plan_sha256": sha256_hex(plan_raw),
+        "capture_sha256": sha256_hex(capture_raw),
+        "exchanges": rows,
+        "request_specs": specs,
+        "response_body_bytes_retained": True,
+        "capture_clocks": "local_declarations_not_independent_attestation",
+    }
 
 
 def publish(path: Path, report: dict[str, Any]) -> None:
