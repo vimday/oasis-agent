@@ -2,7 +2,7 @@
 
 **Status:** Strategy dependencies and promotion order
 
-**Updated:** 2026-11-08
+**Updated:** 2026-11-14
 
 ## 1. Portfolio thesis
 
@@ -229,3 +229,15 @@ shadow experiments while operational gates are being completed. Engineering impr
 leave a reusable path from proposal to reconciliation, with independent risk and custody controls.
 See the [current evidence index](../CURRENT_IMPLEMENTATION.md) for observed results.
 
+
+## 12. Next research increment — event-driven cycles and Metric
+
+The [2026-11-14 research design](METRIC_EVENT_RESEARCH.md) prioritizes Elysium exact-prestate and
+prospective event evidence, Metric same-chain executable quote comparisons, and independent LP
+economics. A bounded public API capture and offline two-pool depth screen now exist; they produce
+provider estimates only. Conditional maker updates, empty or one-sided depth, caller extensions,
+unknown costs, and outstanding debt must not become executable-profit claims.
+
+Aave-funded dislocations and CEX/bridge legs remain separate non-atomic research until repayment,
+health-factor stress, transfer delay, exact simulation, and reconciliation are demonstrated. This
+increment does not change the capital promotion order or grant live authority.

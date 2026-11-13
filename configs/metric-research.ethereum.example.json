@@ -1,0 +1,55 @@
+{
+  "schema": "oasis-metric-plan-v1",
+  "scenario": "provider_observation",
+  "chain_id": 1,
+  "tokens": [
+    {
+      "address": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "symbol": "WETH",
+      "decimals": 18
+    },
+    {
+      "address": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+      "symbol": "USDC",
+      "decimals": 6
+    }
+  ],
+  "pools": [
+    "0xe9c19e5bd10e5096519fe1d2a9d783f79b8211da",
+    "0xf85afbadecc7f23dd173ed706f07d9c7e2473e24"
+  ],
+  "start_token": 0,
+  "sizes_raw": [
+    1000000000000000,
+    10000000000000000,
+    50000000000000000
+  ],
+  "max_age_seconds": 15,
+  "max_skew_seconds": 2,
+  "max_capture_seconds": 30,
+  "capital_raw": null,
+  "commitments_raw": null,
+  "reserve_raw": null,
+  "costs": [
+    {
+      "kind": "gas",
+      "raw": null
+    },
+    {
+      "kind": "builder",
+      "raw": null
+    },
+    {
+      "kind": "financing",
+      "raw": null
+    },
+    {
+      "kind": "failure_buffer",
+      "raw": null
+    },
+    {
+      "kind": "opportunity",
+      "raw": null
+    }
+  ]
+}
