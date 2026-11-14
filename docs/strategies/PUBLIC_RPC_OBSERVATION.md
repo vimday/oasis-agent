@@ -62,6 +62,12 @@ block_number、block_hash 和 `accounts`。每项包含 address 和最多 32 个
 中输出 `state_root` 与 `accounts`。真实读取记录与本地证明对照见
 [历史状态证明](../verification/METRIC_STATE_PROOFS_20261114.md)。
 
+`oasis-public-nitro-receipts-v1` 接受 Elysium 99901 已观察的 Nitro 块头和收据类型，
+固定号/hash，按哈希取得全块收据并重算根。四次请求，核对累计 gas 和日志索引。
+`oasis-public-nitro-state-proof-v1` 在同样的头哈希约束下用块号请求 proof 和 code，
+以 MPT 和 code hash 验证返回值。合成证明已通过，真实父块证明首笔失败并保留 STOP。
+版本与复现见 [Elysium Nitro 核验](../verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md)。
+
 ## Metric 诊断
 
 `scripts.research_metric_oracle` 读取 `oasis-metric-oracle-plan-v1`，固定链、块/hash/cutoff、

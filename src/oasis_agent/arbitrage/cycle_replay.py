@@ -10,6 +10,8 @@ from typing import Any
 from eth_hash.auto import keccak
 
 from ..evidence.exact_capture import successful_results
+from ..evidence.nitro_block import nitro_header, verify_receipt_root, verify_transactions_root
+from ..evidence.public_receipts import decode_receipt
 from ..evidence.rpc_validation import rpc_quantity, strict_json_object, strict_list, strict_object
 from ..models.common import canonical_json, sha256_hex
 from ..rpc.transport import RpcExchange
@@ -98,6 +100,8 @@ def replay_case(
     primary: Path,
     secondary: Path,
     block_end: Path,
+    *,
+    receipt_blocks: tuple[tuple[object, str], tuple[object, str]] | None = None,
 ) -> dict[str, Any]:
     case = plan.case
     if case is None or len(plan.sources) != 1:
@@ -184,7 +188,7 @@ def replay_case(
     if initial_balance < principal or returned != winner["wrapped_output_raw"] - principal:
         raise ValueError("block-end response disagrees with case principal or output")
 
-    return {
+    result: dict[str, Any] = {
         "schema": "oasis-cycle-case-wire-review-v1",
         "scenario": plan.scenario,
         "plan_sha256": sha256_hex(canonical_json(plan.model_dump(mode="json", by_alias=True))),
@@ -228,3 +232,46 @@ def replay_case(
         "wire_manifest": {"primary": a_wire, "secondary": b_wire, "block_end": c_wire},
         "execution_eligible": False,
     }
+    if receipt_blocks is not None:
+        committed = []
+        for i, (raw_receipts, capture_sha256) in enumerate(receipt_blocks):
+            offset = i + 1
+            anchor = context[offset]
+            full_result = a[4 + i]
+            selected_index = case.trigger_index if i == 0 else case.winner_index
+            selected_hash = case.trigger_hash if i == 0 else case.winner_hash
+            cohort = nitro_header(a[2 + i], anchor.ref.number, anchor.ref.block_hash)
+            summaries = verify_receipt_root(cohort, raw_receipts)
+            start = verify_transactions_root(cohort, full_result, summaries)
+            raw_selected = strict_list(raw_receipts, "verified receipt list")[selected_index]
+            if decode_receipt(raw_selected, anchor.ref, selected_hash, selected_index) != (
+                decode_receipt(a[6 + i], anchor.ref, selected_hash, selected_index)
+            ):
+                raise ValueError("nitro_case_receipt_disagreement")
+            failed = [row for row in summaries if not row.status]
+            committed.append(
+                {
+                    "block": asdict(anchor.ref),
+                    "receipts_root": cohort.receipts_root,
+                    "transactions_root": cohort.transactions_root,
+                    "state_root": cohort.state_root,
+                    "capture_sha256": capture_sha256,
+                    "receipt_count": len(summaries),
+                    "start_block": asdict(start),
+                    "selected_index": selected_index,
+                    "failed_transactions": [asdict(row) for row in failed],
+                    "prior_transactions": [
+                        {
+                            **asdict(row),
+                            "mapped_route_pool_log_addresses": sorted(
+                                {pool.address for pool in plan.pools if pool.name in case.route}
+                                & set(row.log_addresses)
+                            ),
+                        }
+                        for row in summaries[:selected_index]
+                    ],
+                }
+            )
+        result["nitro_block_commitments"] = committed
+        result["exact_winner_prestate"]["committed_block_inputs_verified"] = True
+    return result

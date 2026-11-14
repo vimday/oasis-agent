@@ -1,6 +1,7 @@
 """Ethereum execution-header and EIP-1186 account/storage proof validation."""
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 from eth_hash.auto import keccak
@@ -10,7 +11,7 @@ from rlp import encode as rlp_encode
 
 from ..arbitrage.cycle_evidence import header
 from ..models.chain import BlockSnapshot
-from .public_rpc_plan import PublicProofPlan
+from .public_rpc_plan import PublicNitroProofPlan, PublicProofPlan
 from .rpc_validation import rpc_quantity, strict_list, strict_object
 
 EMPTY_TRIE = keccak(b"\x80")
@@ -244,10 +245,14 @@ class ProofSnapshot(BlockSnapshot):
 
 
 def proof_context(
-    plan: PublicProofPlan, index: int, result: object, first: object
+    plan: PublicProofPlan | PublicNitroProofPlan,
+    index: int,
+    result: object,
+    first: object,
+    decode_header: Callable[[object, int, str], tuple[BlockSnapshot, str]] = prague_header,
 ) -> ProofSnapshot:
     if index in (1, len(plan.requests()) - 1):
-        block, root = prague_header(result, plan.block_number, plan.block_hash)
+        block, root = decode_header(result, plan.block_number, plan.block_hash)
         snapshot = ProofSnapshot(block.ref, block.parent_hash, root)
         if index == 1:
             return snapshot

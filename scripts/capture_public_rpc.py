@@ -17,6 +17,12 @@ import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
 from oasis_agent.arbitrage.titan_state import decode_snapshot
+from oasis_agent.evidence.nitro_block import (
+    NitroHeader,
+    nitro_header,
+    nitro_state_header,
+    verify_receipt_root,
+)
 from oasis_agent.evidence.public_event_index import index_logs
 from oasis_agent.evidence.public_ranges import range_context
 from oasis_agent.evidence.public_receipts import (
@@ -29,6 +35,8 @@ from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicEventIndexPlan,
     PublicHeadPlan,
+    PublicNitroProofPlan,
+    PublicNitroReceiptPlan,
     PublicProofPlan,
     PublicRangePlan,
     PublicReadPlan,
@@ -81,8 +89,10 @@ def load_plan(path: Path):
         "oasis-public-rpc-read-plan-v1": PublicReadPlan,
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
+        "oasis-public-nitro-receipts-v1": PublicNitroReceiptPlan,
         "oasis-public-log-range-plan-v1": PublicRangePlan,
         "oasis-public-state-proof-plan-v1": PublicProofPlan,
+        "oasis-public-nitro-state-proof-v1": PublicNitroProofPlan,
         "oasis-public-event-index-plan-v1": PublicEventIndexPlan,
     }.get(obj.get("schema"))
     if model is None:
@@ -139,8 +149,10 @@ def validate_context(
     | PublicHeadPlan
     | PublicTitanPlan
     | PublicReceiptPlan
+    | PublicNitroReceiptPlan
     | PublicRangePlan
     | PublicProofPlan
+    | PublicNitroProofPlan
     | PublicEventIndexPlan,
     index: int,
     result: object,
@@ -156,8 +168,20 @@ def validate_context(
         return range_context(plan, index, result, first)
     elif isinstance(plan, PublicProofPlan):
         return proof_context(plan, index, result, first)
+    elif isinstance(plan, PublicNitroProofPlan):
+        return proof_context(plan, index, result, first, nitro_state_header)
     elif isinstance(plan, PublicEventIndexPlan):
         index_logs(plan, result)
+    elif isinstance(plan, PublicNitroReceiptPlan):
+        if index == 2:
+            if not isinstance(first, NitroHeader):
+                raise ValueError("nitro_block_receipts_without_header")
+            verify_receipt_root(first, result)
+        else:
+            snap = nitro_header(result, plan.block_number, plan.block_hash)
+            if index == 3 and snap != first:
+                raise ValueError("nitro_closing_block_changed")
+            return snap
     elif index in (1, len(plan.requests()) - 1):
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
@@ -496,7 +520,7 @@ def replay(directory: Path) -> dict[str, Any]:
         ):
             raise ValueError("budget_count_mismatch")
     block_verified = first is not None and (
-        not isinstance(plan, PublicProofPlan) or m["status"] == "complete"
+        not isinstance(plan, (PublicProofPlan, PublicNitroProofPlan)) or m["status"] == "complete"
     )
     return {
         "schema": "oasis-public-rpc-replay-v1",
@@ -505,10 +529,12 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicTitanPlan)
         else "pinned_receipts"
         if isinstance(plan, PublicReceiptPlan)
+        else "nitro_receipts_root"
+        if isinstance(plan, PublicNitroReceiptPlan)
         else "prospective_log_range"
         if isinstance(plan, PublicRangePlan)
         else "pinned_state_proofs"
-        if isinstance(plan, PublicProofPlan)
+        if isinstance(plan, (PublicProofPlan, PublicNitroProofPlan))
         else "historical_index_leads"
         if isinstance(plan, PublicEventIndexPlan)
         else "head_observation"

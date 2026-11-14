@@ -45,6 +45,8 @@
 `e652cf12deedffd063915fd860edf3fd5fe4cddd4466f8b27bbc7129e1cd32fa`。
 对照报告是同级目录下的 `elysium-prefix-comparison.json`。底层节点独立性未确认。
 
+后续取得两块全部收据并核对交易根、收据根和 ArbOS 参数。见[Nitro 核验](ELYSIUM_NITRO_COMMITMENTS_20261114.md)。
+
 ## 报价与发现
 
 - 计划限定 native → ERC-20 → ERC-20 → wrapped native，再做已审核的 1:1 unwrap。

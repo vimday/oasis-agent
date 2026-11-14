@@ -169,6 +169,32 @@ class PublicProofPlan(Frozen):
         return (*requests, head)
 
 
+class PublicNitroProofPlan(Frozen):
+    """Number-addressed proof queries authenticated against an exact Nitro header hash."""
+
+    schema_version: Literal["oasis-public-nitro-state-proof-v1"] = Field(alias="schema")
+    source: Literal["publicnode_elysium"]
+    chain_id: Annotated[int, Field(ge=99901, le=99901)]
+    block_number: BlockNumber
+    block_hash: Hash
+    accounts: Annotated[tuple[ProofTarget, ...], Field(min_length=1, max_length=16)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if len({item.address for item in self.accounts}) != len(self.accounts):
+            raise ValueError("duplicate_proof_account")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        number = hex(self.block_number)
+        head: tuple[str, list[object]] = ("eth_getBlockByNumber", [number, False])
+        requests: list[tuple[str, list[object]]] = [("eth_chainId", []), head]
+        for target in self.accounts:
+            requests.append(("eth_getProof", [target.address, list(target.slots), number]))
+            requests.append(("eth_getCode", [target.address, number]))
+        return (*requests, head)
+
+
 class PublicTitanPlan(Frozen):
     """Builder declarations only. No chain proof, state application or submission."""
 
@@ -209,6 +235,25 @@ class PublicReceiptPlan(Frozen):
             ("eth_chainId", []),
             head,
             *reads,
+            head,
+        )
+
+
+class PublicNitroReceiptPlan(Frozen):
+    """Read the receipt list for one hash-pinned Elysium block."""
+
+    schema_version: Literal["oasis-public-nitro-receipts-v1"] = Field(alias="schema")
+    source: Literal["publicnode_elysium"]
+    chain_id: Annotated[int, Field(ge=99901, le=99901)]
+    block_number: BlockNumber
+    block_hash: Hash
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        head: tuple[str, list[object]] = ("eth_getBlockByNumber", [hex(self.block_number), False])
+        return (
+            ("eth_chainId", []),
+            head,
+            ("eth_getBlockReceipts", [self.block_hash]),
             head,
         )
 
