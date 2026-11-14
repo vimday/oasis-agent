@@ -87,9 +87,8 @@ def headers(design: Design, parent: object, target: object) -> tuple[BlockSnapsh
         "prevRandao": "mixHash",
         "baseFeePerGas": "baseFeePerGas",
     }
-    overrides = {key: str(raw[field]) for key, field in block_fields.items()}
-    overrides["prevRandao"] = hex(int(overrides["prevRandao"], 16))
-    return parent_block, overrides
+    # prevRandao is a bytes32 block field. Its leading zeroes are part of the wire value.
+    return parent_block, {key: str(raw[field]) for key, field in block_fields.items()}
 
 
 def selected_diff(

@@ -27,7 +27,8 @@
 | Aave 缩放及钱包账本 | 固定指数逐步复核、余额/索引残差与收据转移匹配 | 62 步缩放轨迹期末残差为零，ETH 差额定位到四段。原钱包报告缺 131 笔候选的完整收据，最新缺口见下文。见[钱包对账](verification/AAVE_WALLET_LEDGER_20261114.md)。 |
 | Aave Core 冻结与实际 oracle | 带交易位置的冻结收据、父块价格及轮次、两笔买回与解包收据 | USDC/WETH 在 26301183 同时冻结，买回与解包的 WETH 和原生余额差核对通过。净收益仍未知。见[冻结与价格验证](verification/AAVE_FREEZE_ORACLE_20261114.md)。 |
 | Aave 借卖再抵押 | 固定交易 value、封闭的余额区段、费用与借贷收据 | 一次 500 ETH 卖出及同额 USDC 再抵押已复核，估值价差 19.11%，包含失败 gas。见[卖出回放](verification/AAVE_SALE_CYCLE_20261114.md)。 |
-| Aave 五笔余额约束 | 五笔成功收据和十个固定块末余额、同源索引计数复核 | [五笔优先核验](verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)覆盖 422.0038 ETH 差额，逐块支持每组只计一次，[独立调用树](verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)确认六组各有一条随祖先回滚，五块余额对平。全窗校正后剩 87.1996 ETH 差额，收据缺 126 笔。 |
+| Aave 五笔余额约束 | 五笔成功收据和十个固定块末余额、同源索引计数复核 | [五笔优先核验](verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)覆盖 422.0038 ETH 差额，逐块支持每组只计一次，[独立调用树](verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)确认六组各有一条随祖先回滚，五块余额对平。该阶段剩 87.1996 ETH 差额和 126 笔收据。最新对账见下行。 |
+| Ethereum 前瞻流与 Aave 钱包对账 | 公共 Titan 流首收、同秒槽与最终块证明、冻结候选收据回放 | [前瞻与对账](verification/METRIC_STREAM_AAVE_WALLET_20261114.md)六个预选 slot 有声明，最终区块同秒 0/6，24 条模拟本金不足。Aave 冻结候选收据 204/204，校正后原生差额为零，完整净 PnL 待归因。 |
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；按所报高度及固定偏移选择未来块 | [Base 12 块](verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)三个过滤器观察到 1 Swap、0 Mint、0 Burn；Elysium 8 块六个过滤器为空，原 Base 14/32 停止记录保留。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。前瞻实时唤醒及等预算报价仍待验证。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |

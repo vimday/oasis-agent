@@ -8,6 +8,7 @@ import pytest
 import rlp
 from eth_hash.auto import keccak
 
+from oasis_agent.arbitrage.metric_pair import Design, headers
 from oasis_agent.evidence import state_trie as trie
 from oasis_agent.models.common import canonical_json
 from scripts import capture_public_rpc as capture
@@ -24,6 +25,30 @@ def hex_data(value):
 
 def leaf(key, value):
     return rlp.encode([b"\x20" + keccak(key), value])
+
+
+def test_metric_block_overrides_preserve_leading_zero_prev_randao():
+    parent, _ = vector()
+    target = dict(
+        parent,
+        number="0x65",
+        timestamp=hex(int(parent["timestamp"], 16) + 12),
+        parentHash=parent["hash"],
+        mixHash="0x0" + "f" * 63,
+    )
+    fields = [
+        int(target[name], 16) if width < 0 else bytes.fromhex(target[name][2:])
+        for name, width in trie.PRAGUE_FIELDS
+    ]
+    target["hash"] = hex_data(keccak(rlp.encode(fields)))
+    design = Design.model_construct(
+        parent_hash=parent["hash"],
+        target_hash=target["hash"],
+        target_number=101,
+        target_timestamp=int(target["timestamp"], 16),
+    )
+    _, overrides = headers(design, parent, target)
+    assert overrides["prevRandao"] == target["mixHash"]
 
 
 def vector():
