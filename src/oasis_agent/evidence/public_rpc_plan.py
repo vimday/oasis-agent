@@ -93,6 +93,23 @@ class PublicHeadPlan(Frozen):
         return (("eth_chainId", []), ("eth_getBlockByNumber", [tag, False]))
 
 
+class PublicWatermarkPlan(Frozen):
+    """A reported height used to preselect later blocks without reading tip state."""
+
+    schema_version: Literal["oasis-public-rpc-watermark-plan-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("source_chain_mismatch")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        return (("eth_chainId", []), ("eth_blockNumber", []))
+
+
 class PublicReadPlan(Frozen):
     schema_version: Literal["oasis-public-rpc-read-plan-v1"] = Field(alias="schema")
     source: ChainSource
@@ -313,6 +330,8 @@ class PublicRangePlan(Frozen):
     address: Address
     topics: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=4)]
     locked_utc: str
+    expected_hashes: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=16)] | None = None
+    parent_timestamp: BlockNumber | None = None
 
     @model_validator(mode="after")
     def valid(self) -> Self:
@@ -321,6 +340,10 @@ class PublicRangePlan(Frozen):
             raise ValueError("source_chain_mismatch")
         if not 1 <= self.end_block - self.start_block + 1 <= 16:
             raise ValueError("range_block_limit")
+        if self.expected_hashes is not None and len(self.expected_hashes) != (
+            self.end_block - self.start_block + 1
+        ):
+            raise ValueError("range_hash_coverage")
         if self.address == ZERO_ADDRESS:
             raise ValueError("zero_filter_target")
         return self
@@ -346,3 +369,37 @@ class PublicRangePlan(Frozen):
             ),
             headers[-1],
         )
+
+
+class PublicWindowFilter(Frozen):
+    name: Label
+    address: Address
+    topics: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=4)]
+
+
+class PublicEventWindowPlan(Frozen):
+    """Freeze the selection rule and all watches before obtaining a source watermark."""
+
+    schema_version: Literal["oasis-public-event-window-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
+    parent_offset: Annotated[int, Field(ge=2, le=1024)]
+    window_blocks: Annotated[int, Field(ge=1, le=16)]
+    wait_ms: Annotated[int, Field(ge=1000, le=45000)]
+    filters: Annotated[tuple[PublicWindowFilter, ...], Field(min_length=1, max_length=12)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("source_chain_mismatch")
+        if len({watch.name for watch in self.filters}) != len(self.filters) or len(
+            {(watch.address, watch.topics) for watch in self.filters}
+        ) != len(self.filters):
+            raise ValueError("duplicate_window_filter")
+        if any(watch.address == ZERO_ADDRESS for watch in self.filters):
+            raise ValueError("zero_filter_target")
+        return self
+
+    @property
+    def max_requests(self) -> int:
+        return 4 + len(self.filters) * (self.window_blocks + 3)

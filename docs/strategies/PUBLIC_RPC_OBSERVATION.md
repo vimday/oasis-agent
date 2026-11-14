@@ -130,6 +130,44 @@ address、topics 和 locked_utc。仅接受连续 1–16 块和 1–4 个精确�
 N 块需要 N+3 请求。空日志数组可以形成覆盖，null、移除日志、错位/重复/乱序事件、
 祖先或关闭块变化均停止原 campaign。首次真实尝试及边界见[事件覆盖验证](../verification/EVENT_COVERAGE_20261114.md)。
 
+`scripts.observe_public_window` 在发请求前留存 `oasis-public-event-window-v1` 和 scope，
+固定链、匿名来源、过滤器顺序、`parent_offset`、`window_blocks` 和 `wait_ms`。
+从 `eth_blockNumber` 所报高度加偏移选父块，按固定时间等待后读取该编号的父块和后续连续范围。
+第一个过滤器确定整组区块哈希，后续过滤器逐块核对。每个 block 时间仍须晚于水位响应的
+整秒且不晚于收包时间，允许多个连续块共享同一秒。总 cap 为 `4 + 过滤器数 × (N + 3)`。
+原账本、第一次失败停止及无重试规则继续适用。完整 replay 校验原始字节、组件顺序、冻结规则
+及原账本；中断或失败留存支出和已处理组件，清空可用的全窗口输出。
+[Base 与 Elysium 实测](../verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)。
+
+以下计划只观察 Base 已研究池的 Swap。对应 scope 中的 source 限额为 19 次。
+
+```json
+{
+  "schema": "oasis-public-event-window-v1",
+  "source": "publicnode_base",
+  "chain_id": 8453,
+  "parent_offset": 32,
+  "window_blocks": 12,
+  "wait_ms": 13000,
+  "filters": [{
+    "name": "swap",
+    "address": "0xd0b53d9277642d899df5c87a3966a349a798f224",
+    "topics": ["0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"]
+  }]
+}
+```
+
+```sh
+.venv/bin/python -m scripts.observe_public_window capture \
+  --plan "$design" --scope "$scope" --run "$new_run"
+.venv/bin/python -m scripts.observe_public_window replay \
+  --run "$new_run" --output "$replay_report"
+```
+
+两条命令要求各自的输出位置尚不存在。`capture` 需要网络，`replay` 只读原本机目录与账本。
+退出 0 为完整，3 为有记录的停止或回放发现中断，2 为输入、账本、完整性或输出拒绝。
+本机冻结及接收时间是研究证据，独立时钟、终局和完整日志需另外核对。
+
 ```sh
 .venv/bin/python -m scripts.import_public_range \
   --capture "$campaign/swap" --store "$evidence_db" --chain-store "$chain_db" \
@@ -139,7 +177,7 @@ N 块需要 N+3 请求。空日志数组可以形成覆盖，null、移除日志
   --capture "pool.swap=$campaign/swap" --chain-store "$chain_db" --output "$shadow_report"
 ```
 
-第二个示例只传一个过滤器；其余必需过滤器未提供时结果应为 coverage_incomplete，不能报价。
+`replay_cycle_shadow` 示例只传一个过滤器，其余必需过滤器未提供时结果应为 coverage_incomplete，不能报价。
 完整运行逐个传入冻结计划对应的 `--capture FILTER=DIR`，也可保留原有 `--refs` 离线入口；
 同名输入不能混用。导入与回放不请求网络。链存储按 chain/stream/filter 记录空块、缺口、
 连续前沿及原始证据引用；重组撤销受影响的覆盖，保留历史来源。旧数据库不能从全局 tip

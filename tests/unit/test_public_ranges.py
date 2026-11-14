@@ -2,6 +2,7 @@
 
 import json
 import sys
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -14,7 +15,7 @@ from oasis_agent.evidence.public_rpc_plan import PublicRangePlan
 from oasis_agent.evidence.store import EvidenceStore
 from oasis_agent.models.common import canonical_json
 from scripts import capture_public_rpc as cli
-from scripts import import_public_range, replay_cycle_shadow
+from scripts import import_public_range, observe_public_window, replay_cycle_shadow
 from tests.fixtures import cycle_research as fixture
 from tests.unit.test_public_rpc_capture import HASH, TARGET, counts, setup
 
@@ -83,6 +84,96 @@ def install_mock(monkeypatch, root, plan, mutate=None, quiet=False):
         cli.httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw)
     )
     return calls
+
+
+@pytest.mark.parametrize("fault", [None, "changed_branch", "null_parent", "same_second"])
+def test_frozen_window_replays_original_ledger_and_cohort(tmp_path, monkeypatch, fault):
+    run = tmp_path / "event-window"
+    clock = [int(datetime(2026, 1, 1, tzinfo=UTC).timestamp()) * 1000]
+    monkeypatch.setattr(cli.time, "time_ns", lambda: clock[0] * 1_000_000)
+    monkeypatch.setattr(
+        cli.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + int(seconds * 1000))
+    )
+    data = {
+        "schema": "oasis-public-event-window-v1",
+        "source": "publicnode_base",
+        "chain_id": 8453,
+        "parent_offset": 10,
+        "window_blocks": 2,
+        "wait_ms": 3000,
+        "filters": [
+            {"name": "swap", "address": TARGET, "topics": [TOPIC]},
+            {"name": "mint", "address": TARGET, "topics": ["0x" + "88" * 32]},
+        ],
+    }
+    scope = {
+        "schema": "oasis-public-rpc-scope-v1",
+        "purpose": "synthetic_height_window",
+        "expires_utc": "2100-01-01T00:00:00Z",
+        "sources": [{"source": "publicnode_base", "max_requests": 14}],
+        "max_capture_seconds": 60,
+    }
+    design_path, scope_path = tmp_path / "design.json", tmp_path / "scope.json"
+    design_path.write_bytes(canonical_json(data))
+    scope_path.write_bytes(canonical_json(scope))
+    requests = []
+    original = httpx.Client
+
+    def pinned_hash(n):
+        return "0x" + f"{n:064x}"
+
+    def handler(req):
+        request = json.loads(req.content)
+        requests.append(request)
+        assert counts(run / "campaign")["publicnode_base"] == len(requests)
+        method = request["method"]
+        if method == "eth_chainId":
+            result = hex(8453)
+        elif method == "eth_blockNumber":
+            result = hex(90)
+        elif method == "eth_getBlockByNumber":
+            height = int(request["params"][0], 16)
+            assert height in (100, 101, 102)
+            result = {
+                "number": hex(height),
+                "hash": pinned_hash(height),
+                "parentHash": pinned_hash(height - 1),
+                "timestamp": hex(1767225600 + (fault != "same_second")),
+            }
+            if fault == "null_parent" and height == 100:
+                result = None
+            if fault == "changed_branch" and height == 101 and len(requests) > 9:
+                result["hash"] = LAST
+        else:
+            assert method == "eth_getLogs"
+            result = []
+        return httpx.Response(200, json={"jsonrpc": "2.0", "id": request["id"], "result": result})
+
+    monkeypatch.setattr(
+        cli.httpx, "Client", lambda **kw: original(transport=httpx.MockTransport(handler), **kw)
+    )
+    assert observe_public_window.capture(design_path, scope_path, run) == (3 if fault else 0)
+    replay = observe_public_window.replay(run)
+    assert replay["selected_parent"] == 100
+    assert replay["watermark"] == 90
+    assert replay["status"] == ("stopped" if fault else "complete")
+    assert (
+        replay["reserved_requests"]
+        == {None: 14, "changed_branch": 11, "null_parent": 4, "same_second": 6}[fault]
+    )
+    assert replay["usable_filter_count"] == (0 if fault else 2)
+    assert sum(r["method"] == "eth_getLogs" for r in requests) == (
+        2 if fault is None else int(fault == "changed_branch")
+    )
+    assert bool(replay["blocks"]) != bool(fault)
+    with pytest.raises(FileExistsError):
+        observe_public_window.capture(design_path, scope_path, run)
+    if not fault:
+        assert replay["filters"]["mint"]["logs"] == []
+        path = run / "design.json"
+        path.write_bytes(path.read_bytes() + b"\n")
+        with pytest.raises(ValueError, match="lock_mismatch"):
+            observe_public_window.replay(run)
 
 
 @pytest.mark.parametrize("quiet", [False, True])

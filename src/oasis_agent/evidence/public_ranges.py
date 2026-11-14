@@ -35,10 +35,17 @@ def range_context(
         parent = prior.ref.block_hash if prior else plan.parent_hash
         if block.parent_hash != parent:
             raise ValueError("range_ancestry_mismatch")
+        if (
+            plan.expected_hashes is not None
+            and block.ref.block_hash != plan.expected_hashes[index - 1]
+        ):
+            raise ValueError("range_block_hash_changed")
         if block.ref.timestamp is None or block.ref.timestamp <= int(
             utc(plan.locked_utc).timestamp()
         ):
             raise ValueError("range_predates_declared_lock")
+        if plan.parent_timestamp is not None and block.ref.timestamp < plan.parent_timestamp:
+            raise ValueError("range_predates_parent")
         context = RangeContext((*prior.blocks, block) if prior else (block,))
         context.dataset(plan)  # Contiguity, monotone timestamps and bounded domain.
         return context

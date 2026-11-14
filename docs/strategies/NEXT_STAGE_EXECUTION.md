@@ -6,11 +6,11 @@
 
 | 交付 | 当前证据 | 完成验收与后续依赖 |
 | --- | --- | --- |
-| 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 已支持 code/storage/call、收据及日志范围；[真实事件尝试](../verification/EVENT_COVERAGE_20261114.md)在锚点时间检查停止；独立源、真实前瞻窗口继续补齐 |
+| 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | [Base/Elysium 固定未来日志窗口](../verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)完整回放；独立源及时间、Ethereum/Robinhood 前瞻验证继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；原 Ethereum 范围补得[目标块五部署 runtime](../verification/METRIC_LOCAL_STATE_20261114.md)，累计 18/32；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；Titan 三次公开状态已[按源码布局解释 17 个 feed 槽](../verification/METRIC_BUILDER_FEEDS_20261114.md)，官方目录确认 ETH/USD 与 USDC/USD 编号 | 原块 price 数据、目标块配置、source shaping、canonical parent hash 与整笔模拟仍缺；4 秒旧是声明诊断，不得解释原 FeedStalled 或当成成交证明 |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放；[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)、[调用/回滚解析](../verification/METRIC_PROBE_CODEC_20261114.md)和[自有 Anvil 合成状态执行](../verification/METRIC_LOCAL_STATE_20261114.md)通过 | caller/recipient/extension/价格界、完整 runtime、付款回调及本地前后状态已核对；真实目标 pool/provider/config、独立上下文、历史状态装载和 pinned 整笔两腿 replay 仍缺 |
-| 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次及[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)已接入正常入口；现货冻结窗口接口 | 真实事件窗口、maker/oracle 触发；冻结窗口与等预算轮询对照 |
+| 主动事件触发与 shadow | Base 前瞻窗口取得 1 Swap，Elysium 路线真实空窗已进[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)；合成事件定向报价、重组失效与现货冻结窗口已验证 | 真实非空路线的低延迟触发/报价、maker/oracle 唤醒；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | [62 笔历史收据](../verification/AAVE_HISTORICAL_FLOWS_20261114.md)确认 18 笔借款和 12 笔还款；[钱包对账](../verification/AAVE_WALLET_LEDGER_20261114.md)定位原生余额残差；[Core 冻结及买回](../verification/AAVE_FREEZE_ORACLE_20261114.md)和[借卖再抵押](../verification/AAVE_SALE_CYCLE_20261114.md)各复核选定现金流及父块 oracle | 实现等价、131 笔缺少的完整收据、交易级原生证据、资金归属、卖出与买回的全窗价格、独立源和净收益 |
 | Elysium 精确 prestate | [两个块的交易根与收据根](../verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md)已重算，ArbOS `startBlock` 参数、完整前序和两个同块失败收据已核对 | 匿名历史证明在第一笔停止；系统交易和前序的读写状态、精确 prestate、整笔模拟与原生结算待验证 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
@@ -38,6 +38,8 @@ oracle 年龄/guard 无法解释回滚。不能放宽价格鲜度以得到正报
 逐过滤器覆盖及原始日志范围已接入正常 shadow 回放，见[事件覆盖验证](../verification/EVENT_COVERAGE_20261114.md)。
 Base 三块观察实验在锚点阶段因块时间比本机响应时钟晚 30 ms 而停止，未发出日志查询；
 原 14/32 账本和失败不重试。后续真实采集先解决独立时钟与数据源证据，不能修改旧结果。
+新观测以冻结规则选择水位之后的块。Base/Elysium 两个窗口完成单源覆盖，未放宽未来时间判定。
+区块窗结束后的拉取延时已经量到，独立时钟与事件到报价的可执行时延仍需另行测量。
 
 持久候选 outbox 已完成正常入口与合成验收：冻结配置/窗口、原子覆盖与候选、租约重投、
 进程退出恢复、旧 worker 拒绝和重组失效均已验证。下一研究步骤回到 Metric 的已保留
@@ -52,5 +54,5 @@ Anvil 合成证明通过。[公开尝试](../verification/METRIC_STATE_PROOFS_20
 父块读取 429（2/38）及新近 `safe` 块的证明窗口拒绝（5/21）后各自停止。下一项是
 独立上下文、目标代码/配置、有历史 trie 的来源、完整读集装载及真实 pinned replay；
 逐账户余额/nonce 含义和实际目标池调用权限仍未知，不能将本地探针用例标为完成实证。
-maker/oracle 触发、真实窗口与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
+maker/oracle 触发、实时非空路线与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
 不能以队列工程或合成正报价替代完整债务账本、真实可执行利润与收益验收。

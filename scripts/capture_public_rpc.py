@@ -43,6 +43,7 @@ from oasis_agent.evidence.public_rpc_plan import (
     PublicReceiptPlan,
     PublicScope,
     PublicTitanPlan,
+    PublicWatermarkPlan,
 )
 from oasis_agent.evidence.rpc_validation import (
     rpc_quantity,
@@ -86,6 +87,7 @@ def load_plan(path: Path):
     obj = strict_json_object(raw)
     model = {
         "oasis-public-rpc-head-plan-v1": PublicHeadPlan,
+        "oasis-public-rpc-watermark-plan-v1": PublicWatermarkPlan,
         "oasis-public-rpc-read-plan-v1": PublicReadPlan,
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
@@ -147,6 +149,7 @@ def locked(root: Path):
 def validate_context(
     plan: PublicReadPlan
     | PublicHeadPlan
+    | PublicWatermarkPlan
     | PublicTitanPlan
     | PublicReceiptPlan
     | PublicNitroReceiptPlan
@@ -164,6 +167,9 @@ def validate_context(
     if index == 0:
         if rpc_quantity(result) != plan.chain_id:
             raise ValueError("chain_id_mismatch")
+    elif isinstance(plan, PublicWatermarkPlan):
+        if rpc_quantity(result) >= 1 << 64:
+            raise ValueError("watermark_overflow")
     elif isinstance(plan, PublicRangePlan):
         return range_context(plan, index, result, first)
     elif isinstance(plan, PublicProofPlan):
@@ -539,6 +545,8 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicEventIndexPlan)
         else "head_observation"
         if isinstance(plan, PublicHeadPlan)
+        else "height_watermark"
+        if isinstance(plan, PublicWatermarkPlan)
         else "pinned_reads",
         "block": asdict(first) if block_verified else None,
         "finality_independently_verified": False,
