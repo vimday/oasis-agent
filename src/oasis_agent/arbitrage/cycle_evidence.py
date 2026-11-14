@@ -1,5 +1,6 @@
 """Read parsed historical exports without promoting them to transport evidence."""
 
+import re
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
@@ -60,6 +61,7 @@ class Export:
     response_sha256: str
     result: object
     error_code: int | None
+    error_selector: str | None = None
 
     @property
     def identity(self) -> str:
@@ -76,7 +78,7 @@ class Export:
         )
 
     def manifest(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "id": self.identity,
             "kind": "parsed_historical_export",
             "source": self.source,
@@ -93,6 +95,9 @@ class Export:
             "original_http_response_sha256": None,
             "first_observed_utc": None,
         }
+        if self.error_selector is not None:
+            result["provider_error_selector"] = self.error_selector
+        return result
 
     def reference(self, block: BlockRef | None) -> dict[str, object]:
         if self.fetched is None:
@@ -138,8 +143,17 @@ def _decode(value: object, source: str, digest: str, index: int) -> Export:
         raise ValueError("invalid parsed RPC envelope")
     params = tuple(strict_list(req["params"], "params"))
     error_code = None
+    error_selector = None
     if "error" in res:
-        error_code = strict_integer(strict_object(res["error"], "RPC error").get("code"), "code")
+        error = strict_object(res["error"], "RPC error")
+        error_code = strict_integer(error.get("code"), "code")
+        error_data = error.get("data")
+        # Retain only a bounded bytes4 diagnostic, never hostile messages or revert arguments.
+        # A selector match is a hint, not proof of the reverting contract or ABI identity.
+        if isinstance(error_data, str) and re.fullmatch(
+            r"0x(?:[0-9a-fA-F]{2}){4,4096}", error_data
+        ):
+            error_selector = error_data[:10].lower()
     return Export(
         source,
         digest,
@@ -152,6 +166,7 @@ def _decode(value: object, source: str, digest: str, index: int) -> Export:
         sha256_hex(canonical_json(res)),
         res.get("result"),
         error_code,
+        error_selector,
     )
 
 

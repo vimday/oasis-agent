@@ -31,7 +31,7 @@ The [custody model](docs/security/CUSTODY_AND_AGENT_KEY_MODEL.md) describes how 
 | **Base · Autonomous spot** | Shadow discovery, entry and exit decisions, a paper ledger, deterministic replay, and historical receipt review. OKX supplies market data with optional GMGN cross-checks. |
 | **Local console** | Read-only financial evidence and operating status, with authenticated observation and shadow campaigns. |
 | **Elysium · Same-chain arbitrage research** | Block-pinned quotes, historical receipt replay, and event-driven pool discovery on retained inputs. See the [verification and replay guide](docs/verification/ELYSIUM_CYCLE_RESEARCH_20261111.md). |
-| **Metric · Event-driven research** | Chain-scoped public directory/depth capture, offline cycle screening and synthetic lending-loop stress accounting. See the [next-stage research design](docs/strategies/METRIC_EVENT_RESEARCH.md) and [multi-chain experiment](docs/strategies/MULTICHAIN_LENDING_EXPERIMENT.md). |
+| **Metric · Event-driven research** | Chain-scoped discovery, pinned Metric/V3 quote composition and synthetic lending-loop stress accounting. The [quote experiment](docs/strategies/METRIC_V3_QUOTE_EXPERIMENT.md) retains failed observations; executable profit remains unproven. See the [multi-chain plan](docs/strategies/MULTICHAIN_LENDING_EXPERIMENT.md). |
 | **Strategy research** | Hedging, market making, and portfolio allocation follow the [research roadmap](docs/strategies/LONG_TERM_PROFIT_ROADMAP.md). |
 
 Sustained net profitability remains unverified. The

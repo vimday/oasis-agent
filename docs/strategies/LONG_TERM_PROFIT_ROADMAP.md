@@ -244,6 +244,12 @@ economics. A bounded public API capture and offline two-pool depth screen now ex
 provider estimates only. Conditional maker updates, empty or one-sided depth, caller extensions,
 unknown costs, and outstanding debt must not become executable-profit claims.
 
+The [pinned Metric/V3 quote experiment](METRIC_V3_QUOTE_EXPERIMENT.md) now composes both venue
+orders from retained block-bound inputs. Its first Ethereum observation stopped on a Metric
+quoter revert before any complete cycle. Feed state, exact-caller atomic simulation, independent
+providers and prospective coverage remain evidence requirements; runtime pins alone do not prove
+source equivalence or executable edge.
+
 Aave-funded dislocations and CEX/bridge legs remain separate non-atomic research until repayment,
 health-factor stress, transfer delay, exact simulation, and reconciliation are demonstrated. This
 increment does not change the capital promotion order or grant live authority.
