@@ -404,7 +404,13 @@ def replay(directory: Path) -> dict[str, Any]:
     return replay_loaded(directory, plan, plan_raw)
 
 
-def replay_loaded(directory: Path, plan, plan_raw: bytes) -> dict[str, Any]:
+def replay_loaded(
+    directory: Path,
+    plan,
+    plan_raw: bytes,
+    *,
+    validate: Callable[[int, dict[str, object], object], object] | None = None,
+) -> dict[str, Any]:
     scope, scope_raw = load(directory / "scope.json", PublicScope)
     if read_bounded(directory / "plan.json", 128 * 1024) != plan_raw:
         raise ValueError("capture_plan_bytes_changed")
@@ -512,7 +518,11 @@ def replay_loaded(directory: Path, plan, plan_raw: bytes) -> dict[str, Any]:
                 raise
             continue
         if not failed:
-            first = checked_response(plan, index, response, first)
+            first = (
+                checked_response(plan, index, response, first)
+                if validate is None
+                else validate(index, response, first)
+            )
             if first is not None and first.ref.timestamp * 1000 > received:
                 raise ValueError("retrieval_before_block")
         # A failed context/clock/resource read must never be exported as a usable result.
