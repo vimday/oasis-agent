@@ -157,3 +157,50 @@ class PublicReceiptPlan(Frozen):
             *receipts,
             head,
         )
+
+
+class PublicRangePlan(Frozen):
+    """Prospective bounded filter, anchored to an already observed parent."""
+
+    schema_version: Literal["oasis-public-log-range-plan-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
+    start_block: BlockNumber
+    end_block: BlockNumber
+    parent_hash: Hash
+    address: Address
+    topics: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=4)]
+    locked_utc: str
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        utc(self.locked_utc)
+        if SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("source_chain_mismatch")
+        if not 1 <= self.end_block - self.start_block + 1 <= 16:
+            raise ValueError("range_block_limit")
+        if self.address == ZERO_ADDRESS:
+            raise ValueError("zero_filter_target")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        headers: list[tuple[str, list[object]]] = [
+            ("eth_getBlockByNumber", [hex(number), False])
+            for number in range(self.start_block, self.end_block + 1)
+        ]
+        return (
+            ("eth_chainId", []),
+            *headers,
+            (
+                "eth_getLogs",
+                [
+                    {
+                        "fromBlock": hex(self.start_block),
+                        "toBlock": hex(self.end_block),
+                        "address": self.address,
+                        "topics": list(self.topics),
+                    }
+                ],
+            ),
+            headers[-1],
+        )

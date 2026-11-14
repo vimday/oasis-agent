@@ -76,3 +76,26 @@ quote feed 为零时是单腿模型。缺任一必需回复保持 unavailable，
 [历史收据计划](../verification/AAVE_RECEIPTS_20261114.md)固定块/hash 和最多八笔交易，
 交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、
 收款人和融资流量，不能代替完整债务或现金流账本。
+
+## 日志范围与持久覆盖
+
+`oasis-public-log-range-plan-v1` 指定 source、chain_id、start_block、end_block、parent_hash、
+address、topics 和 locked_utc。仅接受连续 1–16 块和 1–4 个精确前缀 topic；不接受 OR、
+通配符或任意 URL。所有块的秒级时间须晚于声明的锁定时间，且不能晚于本机响应时钟。
+N 块需要 N+3 请求。空日志数组可以形成覆盖，null、移除日志、错位/重复/乱序事件、
+祖先或关闭块变化均停止原 campaign。首次真实尝试及边界见[事件覆盖验证](../verification/EVENT_COVERAGE_20261114.md)。
+
+```sh
+.venv/bin/python -m scripts.import_public_range \
+  --capture "$campaign/swap" --store "$evidence_db" --chain-store "$chain_db" \
+  --stream pool.swap --output "$import_report"
+.venv/bin/python -m scripts.replay_cycle_shadow \
+  --cycle-plan "$cycle_plan" --window "$window" --store "$evidence_db" \
+  --capture "pool.swap=$campaign/swap" --chain-store "$chain_db" --output "$shadow_report"
+```
+
+第二个示例只传一个过滤器；其余必需过滤器未提供时结果应为 coverage_incomplete，不能报价。
+完整运行逐个传入冻结计划对应的 `--capture FILTER=DIR`，也可保留原有 `--refs` 离线入口；
+同名输入不能混用。导入与回放不请求网络。链存储按 chain/stream/filter 记录空块、缺口、
+连续前沿及原始证据引用；重组撤销受影响的覆盖，保留历史来源。旧数据库不能从全局 tip
+补造覆盖。该覆盖不是独立最终性证明，也不是后台任务的投递游标。

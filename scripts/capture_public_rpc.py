@@ -17,10 +17,12 @@ import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
 from oasis_agent.arbitrage.titan_state import decode_snapshot
+from oasis_agent.evidence.public_ranges import range_context
 from oasis_agent.evidence.public_receipts import decode_receipt, receipt_header
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicHeadPlan,
+    PublicRangePlan,
     PublicReadPlan,
     PublicReceiptPlan,
     PublicScope,
@@ -70,6 +72,7 @@ def load_plan(path: Path):
         "oasis-public-rpc-read-plan-v1": PublicReadPlan,
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
+        "oasis-public-log-range-plan-v1": PublicRangePlan,
     }.get(obj.get("schema"))
     if model is None:
         raise ValueError("unsupported_capture_schema")
@@ -121,7 +124,7 @@ def locked(root: Path):
 
 
 def validate_context(
-    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan | PublicReceiptPlan,
+    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan | PublicReceiptPlan | PublicRangePlan,
     index: int,
     result: object,
     first: object,
@@ -132,6 +135,8 @@ def validate_context(
     if index == 0:
         if rpc_quantity(result) != plan.chain_id:
             raise ValueError("chain_id_mismatch")
+    elif isinstance(plan, PublicRangePlan):
+        return range_context(plan, index, result, first)
     elif index in (1, len(plan.requests()) - 1):
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
@@ -182,6 +187,10 @@ def capture(root: Path, plan_path: Path, name: str) -> int:
                 raise ValueError("insufficient_whole_capture_budget")
             if datetime.now(UTC) >= datetime.fromisoformat(scope.expires_utc):
                 raise ValueError("expired_scope")
+            if isinstance(plan, PublicRangePlan) and datetime.now(UTC) < datetime.fromisoformat(
+                plan.locked_utc
+            ):
+                raise ValueError("capture_before_declared_lock")
             out = root / name
             out.mkdir()
             durable_new(out / "plan.json", plan_raw)
@@ -334,6 +343,11 @@ def replay(directory: Path) -> dict[str, Any]:
     ):
         raise ValueError("capture_coverage")
     prior = started = strict_integer(m["started_ms"], "started_ms")
+    if (
+        isinstance(plan, PublicRangePlan)
+        and started / 1000 < datetime.fromisoformat(plan.locked_utc).timestamp()
+    ):
+        raise ValueError("capture_before_declared_lock")
     first = None
     records = []
     reserved = 0
@@ -460,6 +474,8 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicTitanPlan)
         else "pinned_receipts"
         if isinstance(plan, PublicReceiptPlan)
+        else "prospective_log_range"
+        if isinstance(plan, PublicRangePlan)
         else "head_observation"
         if isinstance(plan, PublicHeadPlan)
         else "pinned_reads",

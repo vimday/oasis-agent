@@ -269,7 +269,7 @@ def apply_verified_block_range(
 ) -> VerifiedIngestionResult:
     return VerifiedIngestionResult(
         verified,
-        chain_store.apply(stream_id, verified.dataset),
+        chain_store.apply(stream_id, verified.dataset, evidence=verified.evidence),
     )
 
 

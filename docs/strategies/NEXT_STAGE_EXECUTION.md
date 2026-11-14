@@ -6,11 +6,11 @@
 
 | 交付 | 当前证据 | 完成验收与后续依赖 |
 | --- | --- | --- |
-| 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 当前支持 code/storage/call 及观察头；日志范围、独立源、前瞻持久游标继续补齐 |
+| 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 已支持 code/storage/call、收据及日志范围；[真实事件尝试](../verification/EVENT_COVERAGE_20261114.md)在锚点时间检查停止；独立源、真实前瞻窗口继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；[Titan 三次公开状态](../verification/TITAN_STATE_20261114.md)覆盖目标池并观察到更新 | 原块 price 数据、source shaping、构块者状态与 canonical base 的关系及整笔模拟；不得用新时点声明解释原 FeedStalled |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放 | 固定完整 caller/recipient/extension、付款与余额；整笔两腿模拟及状态变化，双源核验 |
-| 主动事件触发与 shadow | Elysium 合成事件与定向报价；现货冻结窗口接口 | 链级持久游标、去重/断线/重组缺口、maker/oracle/LP/swap 触发；冻结窗口与等预算轮询对照 |
+| 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次已接入正常入口；现货冻结窗口接口 | 真实事件窗口、持久 outbox/恢复投递与候选失效、maker/oracle 触发；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | [收据位置与 V3 事件角色解释](../verification/AAVE_RECEIPTS_20261114.md)已实现；单源块头列出目标交易，receipt 为 null 后停止；循环及退出模型仍为合成 | 独立历史收据、代理身份、全部借还款与转移、债务指数、余额、外部资金和冻结时点；完整账本与残差 |
 | Elysium 精确 prestate | 两笔收据与三个块头；块末无签名调用 | 交易前状态与区块内前序调用，完整重放、失败样本及成本，不能以块末成功替代 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
@@ -32,3 +32,14 @@
 反证包括：源代码与部署不对应、ABI/区块冲突、feed 状态不可得、caller 路径不同、
 oracle 年龄/guard 无法解释回滚。不能放宽价格鲜度以得到正报价。采集器的合成验证
 覆盖失败、截断、时间倒退、重组、重复运行与并发；真实观察只证明其具体读取范围。
+
+## 当前事件管线增量与下一依赖
+
+逐过滤器覆盖及原始日志范围已接入正常 shadow 回放，见[事件覆盖验证](../verification/EVENT_COVERAGE_20261114.md)。
+Base 三块观察实验在锚点阶段因块时间比本机响应时钟晚 30 ms 而停止，未发出日志查询；
+原 14/32 账本和失败不重试。后续真实采集先解决独立时钟与数据源证据，不能修改旧结果。
+
+下一个可离线推进的交付是持久候选 outbox：冻结配置与窗口，游标推进和候选写入同一事务；
+明确进程退出后的重复投递语义，在缺口、冲突及重组后使旧候选失效。接入当前正常回放入口，
+再扩展 maker/oracle 触发与同预算轮询实验。其余 Metric、Aave、Elysium 和经济评估条目继续保留，
+不能以本次覆盖工程替代真实报价、完整债务账本或收益验收。
