@@ -5,9 +5,28 @@ from dataclasses import replace
 import pytest
 
 from oasis_agent.arbitrage import aave_wallet as wallet
+from oasis_agent.models.common import canonical_json
+from scripts.research_aave_priority import indexed_value_counts
 from tests.unit.test_aave_cashflows import transfer
 from tests.unit.test_aave_history import ACCOUNT, ACTOR, RESERVE, receipt
 from tests.unit.test_public_receipts import BLOCK, TX
+
+
+def test_priority_index_preserves_successful_value_multiplicity():
+    row = {
+        "blockNumber": str(BLOCK.number),
+        "from": ACTOR,
+        "to": ACCOUNT,
+        "value": "5",
+        "isError": "0",
+        "type": "call",
+    }
+    envelope = {"status": "1", "message": "OK", "result": [row, dict(row), {**row, "isError": "1"}]}
+    assert indexed_value_counts(canonical_json(envelope), BLOCK.number, ACCOUNT) == {
+        (ACTOR, ACCOUNT, 5): 2
+    }
+    with pytest.raises(ValueError, match="context"):
+        indexed_value_counts(canonical_json(envelope), BLOCK.number + 1, ACCOUNT)
 
 
 def indexed(kind="erc20", **changes):

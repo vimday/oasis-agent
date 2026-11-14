@@ -9,7 +9,11 @@ from eth_hash.auto import keccak
 
 from oasis_agent.arbitrage import metric_probe as p
 from oasis_agent.arbitrage import metric_probe_build as build
-from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.arbitrage.cycle_protocols import calldata
+from oasis_agent.arbitrage.metric_pair import PROBE, PairedCalls
+from oasis_agent.models.chain import BlockSnapshot
+from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
+from scripts import capture_public_rpc
 from scripts import research_metric_probe as cli
 
 
@@ -442,6 +446,62 @@ def test_request_change_cannot_reuse_previous_revert():
     obj["request"]["extension_data"] = "0xabce"
     with pytest.raises(ValueError, match="binding_mismatch"):
         p.decode_result(parse(obj), before)
+
+
+def test_metric_pair_requests_differ_only_in_titan_slots():
+    obj, artifact, runtime = setup()
+    plan = parse(obj)
+    oracle, slot = address(90), digest(91)
+    pair = PairedCalls(
+        (plan,),
+        runtime,
+        oracle,
+        {slot: digest(92)},
+        {"number": "0x4d2"},
+        digest(93),
+        "publicnode_ethereum",
+    )
+    pairs = pair.requests()
+    assert len(pairs) == 5 and build.build_runtime(plan, canonical_json(artifact)) == runtime
+    method, (base_call, base_pin, base_state, base_block) = pairs[2]
+    overlay_method, (call, pin, state, block) = pairs[3]
+    assert overlay_method == method == "eth_call"
+    assert (call, pin, block) == (base_call, base_pin, base_block)
+    assert base_state == {PROBE: {"code": "0x" + runtime.hex()}}
+    assert state == {**base_state, oracle: {"stateDiff": {slot: digest(92)}}}
+
+
+@pytest.mark.parametrize(
+    "value,accepted", [("known", True), ("unknown", False), ("normal", False), ("wrong_id", False)]
+)
+def test_metric_pair_replays_only_expected_reverts(value, accepted):
+    obj, _, runtime = setup()
+    pair = PairedCalls(
+        (parse(obj),), runtime, address(90), {}, {}, digest(93), "publicnode_ethereum"
+    )
+    reply = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+            "code": 3,
+            "message": "execution reverted",
+            "data": calldata("ExternalFailure(uint8)", ("uint8",), (1,)),
+        },
+    }
+    if value == "unknown":
+        reply["error"]["data"] = "0x9a0423af"
+    elif value == "normal":
+        del reply["error"]
+        reply["result"] = "0x"
+    elif value == "wrong_id":
+        reply["id"] = 4
+    parent = BlockSnapshot(BlockRef(1, 1233, digest(93), 1799999988), digest(94))
+    if accepted:
+        assert pair.outcome(2, reply) == {"status": "external_failure", "code": 1}
+        assert capture_public_rpc.checked_response(pair, 2, reply, parent) == parent
+    else:
+        with pytest.raises(ValueError):
+            capture_public_rpc.checked_response(pair, 2, reply, parent)
 
 
 def test_build_file_hash_and_missing_ast_are_not_trusted():

@@ -19,6 +19,14 @@ SOURCE_HASHES = {
 
 
 def materialize(plan: Plan, artifact_raw: bytes) -> bytes:
+    runtime = build_runtime(plan, artifact_raw)
+    if "0x" + keccak(runtime).hex() != plan.probe_runtime_hash:
+        raise ValueError("probe_build_materialized_hash_mismatch")
+    return runtime
+
+
+def build_runtime(plan: Plan, artifact_raw: bytes) -> bytes:
+    """Build the immutable runtime before its digest is fixed in a research plan."""
     if sha256_hex(artifact_raw) != plan.build_artifact_sha256:
         raise ValueError("probe_build_artifact_hash_mismatch")
     artifact = strict_json_object(artifact_raw)
@@ -100,6 +108,4 @@ def materialize(plan: Plan, artifact_raw: bytes) -> bytes:
             occupied |= offsets
             kind, value = values[name]
             runtime[start : start + size] = encode((kind,), (value,))
-    if "0x" + keccak(runtime).hex() != plan.probe_runtime_hash:
-        raise ValueError("probe_build_materialized_hash_mismatch")
     return bytes(runtime)

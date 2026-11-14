@@ -275,6 +275,38 @@ class PublicNitroReceiptPlan(Frozen):
         )
 
 
+class PublicTracePlan(Frozen):
+    """One Ethereum transaction with a bounded call tree, behind pinned inclusion reads."""
+
+    schema_version: Literal["oasis-public-call-trace-v1"] = Field(alias="schema")
+    source: Literal["publicnode_ethereum"]
+    chain_id: Annotated[int, Field(ge=1, le=1)]
+    block_number: BlockNumber
+    block_hash: Hash
+    transaction: Hash
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        head: tuple[str, list[object]] = ("eth_getBlockByNumber", [hex(self.block_number), False])
+        return (
+            ("eth_chainId", []),
+            head,
+            ("eth_getTransactionReceipt", [self.transaction]),
+            ("eth_getTransactionByHash", [self.transaction]),
+            (
+                "debug_traceTransaction",
+                [
+                    self.transaction,
+                    {
+                        "tracer": "callTracer",
+                        "timeout": "5s",
+                        "tracerConfig": {"onlyTopCall": False},
+                    },
+                ],
+            ),
+            head,
+        )
+
+
 class PublicEventIndexPlan(Frozen):
     """Historical index leads for one exact signature and one indexed account."""
 

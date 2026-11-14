@@ -8,13 +8,13 @@
 | --- | --- | --- |
 | 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | [Base/Elysium 固定未来日志窗口](../verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)完整回放；独立源及时间、Ethereum/Robinhood 前瞻验证继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；原 Ethereum 范围补得[目标块五部署 runtime](../verification/METRIC_LOCAL_STATE_20261114.md)，累计 18/32；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
-| Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；Titan 三次公开状态已[按源码布局解释 17 个 feed 槽](../verification/METRIC_BUILDER_FEEDS_20261114.md)，官方目录确认 ETH/USD 与 USDC/USD 编号 | 原块 price 数据、目标块配置、source shaping、canonical parent hash 与整笔模拟仍缺；4 秒旧是声明诊断，不得解释原 FeedStalled 或当成成交证明 |
-| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放；[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)、[调用/回滚解析](../verification/METRIC_PROBE_CODEC_20261114.md)和[自有 Anvil 合成状态执行](../verification/METRIC_LOCAL_STATE_20261114.md)通过 | caller/recipient/extension/价格界、完整 runtime、付款回调及本地前后状态已核对；真实目标 pool/provider/config、独立上下文、历史状态装载和 pinned 整笔两腿 replay 仍缺 |
+| Metric provider / feed | 原块配置、Titan 槽位、[真实父块代码与配置及覆盖回读](../verification/METRIC_TITAN_PAIRED_20261114.md)已核验。目标块两槽覆盖后年龄 4 秒，池价格仍 `FeedStalled()` | 旧块错误归因、覆盖后 provider 分支、完整 builder 环境和实际流仍需验证 |
+| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末回放、[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)及本地合成验证；Ethereum 同父状态真实对照 0/8 完成 | 查明内层回滚，取得可复现完整两腿、独立模拟、费用和排序，再提交经济验收 |
 | 主动事件触发与 shadow | Base 前瞻窗口取得 1 Swap，Elysium 路线真实空窗已进[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)；合成事件定向报价、重组失效与现货冻结窗口已验证 | 真实非空路线的低延迟触发/报价、maker/oracle 唤醒；冻结窗口与等预算轮询对照 |
-| Aave 历史借还款 | [62 笔历史收据](../verification/AAVE_HISTORICAL_FLOWS_20261114.md)确认 18 笔借款和 12 笔还款；[钱包对账](../verification/AAVE_WALLET_LEDGER_20261114.md)定位原生余额残差；[Core 冻结及买回](../verification/AAVE_FREEZE_ORACLE_20261114.md)和[借卖再抵押](../verification/AAVE_SALE_CYCLE_20261114.md)各复核选定现金流及父块 oracle | 实现等价、131 笔缺少的完整收据、交易级原生证据、资金归属、卖出与买回的全窗价格、独立源和净收益 |
+| Aave 历史借还款 | [借卖再抵押](../verification/AAVE_SALE_CYCLE_20261114.md)复核选定现金流及父块 oracle；[五笔优先核验](../verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)补齐收据并逐块约束 422.0038 ETH | 实现等价、126 笔缺少的完整收据、交易级原生证据、资金归属、卖出与买回的全窗价格、独立源和净收益 |
 | Elysium 精确 prestate | [两个块的交易根与收据根](../verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md)已重算，ArbOS `startBlock` 参数、完整前序和两个同块失败收据已核对 | 匿名历史证明在第一笔停止；系统交易和前序的读写状态、精确 prestate、整笔模拟与原生结算待验证 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
-| LP 与现货共用控制 | Base 有界 LP、现货 shadow、独立 signer / 风控基础 | 逐个具体策略完成 NAV、双源精确模拟、结算/恢复证据；另行取得当次资本发布授权 |
+| LP 与现货共用控制 | Base 有界 LP 按 owner 要求暂停，保留原记录；现货 shadow、独立 signer / 风控基础 | 逐个具体策略完成 NAV、双源精确模拟、结算/恢复证据；另行取得当次资本发布授权 |
 | 后续多市场与组合 | 长期路线中的 perp、做市、股权关系及分配提案 | 依赖前序真实分布与对冲/偿还控制；先补研究和模拟，不用提案替代实证 |
 
 执行时更新本清单的事实和链接，不删除失败观察。完成一个工程交付后继续下一依赖；
@@ -54,5 +54,8 @@ Anvil 合成证明通过。[公开尝试](../verification/METRIC_STATE_PROOFS_20
 父块读取 429（2/38）及新近 `safe` 块的证明窗口拒绝（5/21）后各自停止。下一项是
 独立上下文、目标代码/配置、有历史 trie 的来源、完整读集装载及真实 pinned replay；
 逐账户余额/nonce 含义和实际目标池调用权限仍未知，不能将本地探针用例标为完成实证。
+后续新范围从 Alchemy 取得探针地址的真实排除证明，父子块头与原 PublicNode 观察一致。
+同一父状态的公开节点对照已执行，价格层留下 `FeedStalled()`，0/8 两腿完成。原停止记录保留。
+五笔 Aave 对账均支持重复索引的数量解释，尚缺可审计的交易级原生调用树。
 maker/oracle 触发、实时非空路线与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
 不能以队列工程或合成正报价替代完整债务账本、真实可执行利润与收益验收。

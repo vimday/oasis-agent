@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
+from oasis_agent.arbitrage.metric_pair import PairedCalls
 from oasis_agent.arbitrage.titan_state import decode_snapshot
 from oasis_agent.evidence.nitro_block import (
     NitroHeader,
@@ -43,6 +44,7 @@ from oasis_agent.evidence.public_rpc_plan import (
     PublicReceiptPlan,
     PublicScope,
     PublicTitanPlan,
+    PublicTracePlan,
     PublicWatermarkPlan,
 )
 from oasis_agent.evidence.rpc_validation import (
@@ -92,6 +94,7 @@ def load_plan(path: Path):
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
         "oasis-public-nitro-receipts-v1": PublicNitroReceiptPlan,
+        "oasis-public-call-trace-v1": PublicTracePlan,
         "oasis-public-log-range-plan-v1": PublicRangePlan,
         "oasis-public-state-proof-plan-v1": PublicProofPlan,
         "oasis-public-nitro-state-proof-v1": PublicNitroProofPlan,
@@ -153,6 +156,7 @@ def validate_context(
     | PublicTitanPlan
     | PublicReceiptPlan
     | PublicNitroReceiptPlan
+    | PublicTracePlan
     | PublicRangePlan
     | PublicProofPlan
     | PublicNitroProofPlan
@@ -195,14 +199,17 @@ def validate_context(
                 raise ValueError("historical_observation_number_mismatch")
             return header(result, plan.chain_id, number)
         snap = header(result, plan.chain_id, plan.block_number)
-        if isinstance(plan, PublicReceiptPlan):
-            snap = receipt_header(result, plan.chain_id, plan.block_number, plan.transactions)
+        if isinstance(plan, (PublicReceiptPlan, PublicTracePlan)):
+            transactions = (
+                plan.transactions if isinstance(plan, PublicReceiptPlan) else (plan.transaction,)
+            )
+            snap = receipt_header(result, plan.chain_id, plan.block_number, transactions)
         if snap.ref.block_hash != plan.block_hash:
             raise ValueError("block_hash_mismatch")
         if index != 1 and snap != first:
             raise ValueError("closing_block_changed")
         return snap
-    elif isinstance(plan, PublicReceiptPlan):
+    elif isinstance(plan, (PublicReceiptPlan, PublicTracePlan)):
         if first is None:
             raise ValueError("receipt_without_opening_header")
         method, params = plan.requests()[index]
@@ -210,8 +217,12 @@ def validate_context(
         position = dict(first.receipt_positions)[tx_hash]
         if method == "eth_getTransactionByHash":
             decode_transaction(result, first.ref, tx_hash, position)
-        else:
+        elif method == "eth_getTransactionReceipt":
             decode_receipt(result, first.ref, tx_hash, position)
+        else:
+            trace = strict_object(result, "call trace root")
+            if trace.get("type") != "CALL":
+                raise ValueError("unsupported_call_trace_root")
     elif plan.requests()[index][0] == "eth_getBalance":
         quantity(result)
     elif not isinstance(result, str) or re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", result) is None:
@@ -222,11 +233,15 @@ def validate_context(
 
 
 def capture(root: Path, plan_path: Path, name: str) -> int:
+    plan, plan_raw = load_plan(plan_path)
+    return capture_loaded(root, plan, plan_raw, name)
+
+
+def capture_loaded(root: Path, plan, plan_raw: bytes, name: str) -> int:
     if re.fullmatch(r"[a-z0-9_-]{1,64}", name) is None:
         raise ValueError("capture_name")
     with locked(root):
         scope, scope_raw = load(root / "scope.json", PublicScope)
-        plan, plan_raw = load_plan(plan_path)
         expected = strict_json_object(read_bounded(root / "identity.json", 4096))
         if expected != {
             "scope_sha256": sha256_hex(scope_raw),
@@ -277,6 +292,18 @@ def capture(root: Path, plan_path: Path, name: str) -> int:
             return result
         finally:
             budget.db.close()
+
+
+def checked_response(plan, index: int, response: dict[str, object], first: object) -> object:
+    if isinstance(plan, PairedCalls):
+        return plan.check_response(index, response, first)
+    if "error" in response:
+        raise RpcReadError
+    return validate_context(plan, index, response["result"], first)
+
+
+class RpcReadError(ValueError):
+    pass
 
 
 def collect(scope, plan, plan_raw, scope_raw, out, budget, guard: Callable[[], None]) -> int:
@@ -347,10 +374,9 @@ def collect(scope, plan, plan_raw, scope_raw, out, budget, guard: Callable[[], N
                     row["error"] = "http_error"
                 else:
                     value = response_envelope(bytes(body), index + 1)
-                    if "error" in value:
-                        row["error"] = "rpc_error"
-                    else:
-                        first = validate_context(plan, index, value["result"], first)
+                    first = checked_response(plan, index, value, first)
+            except RpcReadError:
+                row["error"] = "rpc_error"
             except (httpx.HTTPError, ValueError, TypeError, OSError):
                 row["error"] = "transport_context_or_resource_failure"
             row["received_ms"] = time.time_ns() // 1_000_000
@@ -374,8 +400,14 @@ def collect(scope, plan, plan_raw, scope_raw, out, budget, guard: Callable[[], N
 
 
 def replay(directory: Path) -> dict[str, Any]:
-    scope, scope_raw = load(directory / "scope.json", PublicScope)
     plan, plan_raw = load_plan(directory / "plan.json")
+    return replay_loaded(directory, plan, plan_raw)
+
+
+def replay_loaded(directory: Path, plan, plan_raw: bytes) -> dict[str, Any]:
+    scope, scope_raw = load(directory / "scope.json", PublicScope)
+    if read_bounded(directory / "plan.json", 128 * 1024) != plan_raw:
+        raise ValueError("capture_plan_bytes_changed")
     manifest_raw = read_bounded(directory / "capture.json", 256 * 1024)
     m = strict_json_object(manifest_raw)
     if set(m) != {
@@ -480,9 +512,7 @@ def replay(directory: Path) -> dict[str, Any]:
                 raise
             continue
         if not failed:
-            if "error" in response:
-                raise ValueError("hidden_rpc_failure")
-            first = validate_context(plan, index, response["result"], first)
+            first = checked_response(plan, index, response, first)
             if first is not None and first.ref.timestamp * 1000 > received:
                 raise ValueError("retrieval_before_block")
         # A failed context/clock/resource read must never be exported as a usable result.
@@ -537,6 +567,8 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicReceiptPlan)
         else "nitro_receipts_root"
         if isinstance(plan, PublicNitroReceiptPlan)
+        else "pinned_call_trace"
+        if isinstance(plan, PublicTracePlan)
         else "prospective_log_range"
         if isinstance(plan, PublicRangePlan)
         else "pinned_state_proofs"
@@ -547,6 +579,8 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicHeadPlan)
         else "height_watermark"
         if isinstance(plan, PublicWatermarkPlan)
+        else "metric_parent_pair"
+        if isinstance(plan, PairedCalls)
         else "pinned_reads",
         "block": asdict(first) if block_verified else None,
         "finality_independently_verified": False,
