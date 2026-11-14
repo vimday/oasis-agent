@@ -285,6 +285,42 @@ contract MetricV3RevertingProbeTest is Test {
         }
     }
 
+    /// @dev Full nonzero storage of these fresh synthetic constructors, not historical witnesses.
+    function testExportLocalStateImage() public {
+        bytes32[] memory tokenSlots = new bytes32[](2);
+        tokenSlots[0] = keccak256(abi.encode(address(metric), uint256(0)));
+        tokenSlots[1] = keccak256(abi.encode(address(v3), uint256(0)));
+        for (uint256 i; i < tokenSlots.length; ++i) {
+            assertEq(uint256(vm.load(address(a), tokenSlots[i])), STOCK);
+            assertEq(uint256(vm.load(address(b), tokenSlots[i])), STOCK);
+        }
+        bytes32[] memory poolSlots = new bytes32[](2);
+        poolSlots[0] = bytes32(uint256(1));
+        poolSlots[1] = bytes32(uint256(2));
+        assertEq(uint256(vm.load(address(metric), poolSlots[0])), metric.numerator());
+        assertEq(uint256(vm.load(address(metric), poolSlots[1])), metric.denominator());
+        assertEq(uint256(vm.load(address(v3), poolSlots[0])), v3.numerator());
+        assertEq(uint256(vm.load(address(v3), poolSlots[1])), v3.denominator());
+        _exportAccount(address(a), tokenSlots);
+        _exportAccount(address(b), tokenSlots);
+        _exportAccount(address(metric), poolSlots);
+        _exportAccount(address(v3), poolSlots);
+    }
+
+    function _exportAccount(address account, bytes32[] memory slots) private {
+        bytes32[] memory values = new bytes32[](slots.length);
+        for (uint256 i; i < slots.length; ++i) {
+            values[i] = vm.load(account, slots[i]);
+        }
+        string memory key = "account-image";
+        vm.serializeAddress(key, "address", account);
+        vm.serializeUint(key, "nonce", vm.getNonce(account));
+        vm.serializeUint(key, "balance", account.balance);
+        vm.serializeBytes(key, "code", account.code);
+        vm.serializeBytes32(key, "slots", slots);
+        emit log_named_string("PROBE_ACCOUNT", vm.serializeBytes32(key, "values", values));
+    }
+
     function _success(bool metricFirst, bool startA, uint128 amount) private {
         MetricV3RevertingProbe.Request memory r = _request(metricFirst, startA, amount);
         bytes memory raw = _invoke(r);

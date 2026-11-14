@@ -7,9 +7,9 @@
 | 交付 | 当前证据 | 完成验收与后续依赖 |
 | --- | --- | --- |
 | 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 已支持 code/storage/call、收据及日志范围；[真实事件尝试](../verification/EVENT_COVERAGE_20261114.md)在锚点时间检查停止；独立源、真实前瞻窗口继续补齐 |
-| 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
+| 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；原 Ethereum 范围补得[目标块五部署 runtime](../verification/METRIC_LOCAL_STATE_20261114.md)，累计 18/32；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；Titan 三次公开状态已[按源码布局解释 17 个 feed 槽](../verification/METRIC_BUILDER_FEEDS_20261114.md)，官方目录确认 ETH/USD 与 USDC/USD 编号 | 原块 price 数据、目标块配置、source shaping、canonical parent hash 与整笔模拟仍缺；4 秒旧是声明诊断，不得解释原 FeedStalled 或当成成交证明 |
-| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放；[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)与[固定调用/回滚解析](../verification/METRIC_PROBE_CODEC_20261114.md)均通过本地合成验证 | 已固定 probe 的 caller/recipient/extension/价格界及回调，并核对完整 runtime 与 Solidity 字节；真实目标 runtime/config、独立上下文、受约束采集和 pinned 整笔两腿 replay 仍缺 |
+| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放；[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)、[调用/回滚解析](../verification/METRIC_PROBE_CODEC_20261114.md)和[自有 Anvil 合成状态执行](../verification/METRIC_LOCAL_STATE_20261114.md)通过 | caller/recipient/extension/价格界、完整 runtime、付款回调及本地前后状态已核对；真实目标 pool/provider/config、独立上下文、历史状态装载和 pinned 整笔两腿 replay 仍缺 |
 | 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次及[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)已接入正常入口；现货冻结窗口接口 | 真实事件窗口、maker/oracle 触发；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | [收据位置与 V3 事件角色解释](../verification/AAVE_RECEIPTS_20261114.md)已实现；单源块头列出目标交易，receipt 为 null 后停止；循环及退出模型仍为合成 | 独立历史收据、代理身份、全部借还款与转移、债务指数、余额、外部资金和冻结时点；完整账本与残差 |
 | Elysium 精确 prestate | 两笔收据与三个块头；块末无签名调用 | 交易前状态与区块内前序调用，完整重放、失败样本及成本，不能以块末成功替代 |
@@ -45,6 +45,8 @@ Base 三块观察实验在锚点阶段因块时间比本机响应时钟晚 30 ms
 源码布局与目录解释已完成；目标 26410517 与 parent 26410516 的单源块头已关联，第二
 来源传输失败后新原范围 6/96 STOP，未补读或模拟。整笔探针已通过合成支付/回调验证。
 调用包与回滚结果已接上离线 CLI，四方向 Solidity 字节交叉一致；仍未取得真实模拟回包。
+自有零账户 Anvil 的固定调用、完整状态核对和原始 IPC 回放已通过，属于合成 genesis，
+拒绝历史声明。原五部署地址在目标块的 runtime 已补齐；pool/provider/config 并未补读。
 下一项是独立上下文、目标代码/配置、历史状态装载/受约束采集及真实 pinned replay；
 逐账户余额/nonce 含义和实际目标池调用权限仍未知，不能将本地探针用例标为完成实证。
 maker/oracle 触发、真实窗口与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
