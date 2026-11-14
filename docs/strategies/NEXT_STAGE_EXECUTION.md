@@ -11,7 +11,7 @@
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；[Titan 三次公开状态](../verification/TITAN_STATE_20261114.md)覆盖目标池并观察到更新 | 原块 price 数据、source shaping、构块者状态与 canonical base 的关系及整笔模拟；不得用新时点声明解释原 FeedStalled |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放 | 固定完整 caller/recipient/extension、付款与余额；整笔两腿模拟及状态变化，双源核验 |
 | 主动事件触发与 shadow | Elysium 合成事件与定向报价；现货冻结窗口接口 | 链级持久游标、去重/断线/重组缺口、maker/oracle/LP/swap 触发；冻结窗口与等预算轮询对照 |
-| Aave 历史借还款 | 事件与用户地址线索，循环及退出压力模型 | Supply/Borrow/Repay/Withdraw、债务指数、余额、外部资金、冻结时点；完整账本与残差 |
+| Aave 历史借还款 | [收据位置与 V3 事件角色解释](../verification/AAVE_RECEIPTS_20261114.md)已实现；单源块头列出目标交易，receipt 为 null 后停止；循环及退出模型仍为合成 | 独立历史收据、代理身份、全部借还款与转移、债务指数、余额、外部资金和冻结时点；完整账本与残差 |
 | Elysium 精确 prestate | 两笔收据与三个块头；块末无签名调用 | 交易前状态与区块内前序调用，完整重放、失败样本及成本，不能以块末成功替代 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
 | LP 与现货共用控制 | Base 有界 LP、现货 shadow、独立 signer / 风控基础 | 逐个具体策略完成 NAV、双源精确模拟、结算/恢复证据；另行取得当次资本发布授权 |

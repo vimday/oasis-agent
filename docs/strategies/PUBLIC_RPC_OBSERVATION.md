@@ -21,6 +21,7 @@
 ```
 
 `oasis-public-rpc-head-plan-v1` 只接受 source、chain_id、block_tag（latest/safe/finalized）；
+block_tag 也可为严格非负整数，用于观察指定历史块；返回块号必须相符。
 它用两次请求观察链 ID 与块头。tag 不提供独立最终性保证。
 随后冻结 `oasis-public-rpc-read-plan-v1`：source、chain_id、block_number、block_hash、reads。
 每个 read 指定 method 和 target；eth_call 额外指定 data，可选 sender；eth_getStorageAt
@@ -71,3 +72,7 @@ quote feed 为零时是单腿模型。缺任一必需回复保持 unavailable，
 
 [Titan 状态研究](../verification/TITAN_STATE_20261114.md)另行解释构块者状态声明。采集器
 只保留该公开接口的原始字节；分析输出状态摘要，不应用收到的 override，也不提交候选交易。
+
+[历史收据计划](../verification/AAVE_RECEIPTS_20261114.md)固定块/hash 和最多八笔交易，
+交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、
+收款人和融资流量，不能代替完整债务或现金流账本。

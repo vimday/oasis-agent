@@ -68,7 +68,7 @@ class PublicHeadPlan(Frozen):
     schema_version: Literal["oasis-public-rpc-head-plan-v1"] = Field(alias="schema")
     source: ChainSource
     chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
-    block_tag: Literal["latest", "safe", "finalized"]
+    block_tag: Literal["latest", "safe", "finalized"] | BlockNumber
 
     @model_validator(mode="after")
     def valid(self) -> Self:
@@ -77,7 +77,8 @@ class PublicHeadPlan(Frozen):
         return self
 
     def requests(self) -> tuple[tuple[str, list[object]], ...]:
-        return (("eth_chainId", []), ("eth_getBlockByNumber", [self.block_tag, False]))
+        tag = hex(self.block_tag) if isinstance(self.block_tag, int) else self.block_tag
+        return (("eth_chainId", []), ("eth_getBlockByNumber", [tag, False]))
 
 
 class PublicReadPlan(Frozen):
@@ -122,8 +123,37 @@ class PublicTitanPlan(Frozen):
 
     schema_version: Literal["oasis-titan-state-capture-plan-v1"] = Field(alias="schema")
     source: Literal["titan_ap"]
-    chain_id: Literal[1]
+    chain_id: Annotated[int, Field(ge=1, le=1)]
     samples: Annotated[int, Field(ge=1, le=3)]
 
     def requests(self) -> tuple[tuple[str, list[object]], ...]:
         return tuple(("titan_getPammVenues", []) for _ in range(self.samples))
+
+
+class PublicReceiptPlan(Frozen):
+    schema_version: Literal["oasis-public-receipt-plan-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
+    block_number: BlockNumber
+    block_hash: Hash
+    transactions: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=8)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("source_chain_mismatch")
+        if len(set(self.transactions)) != len(self.transactions):
+            raise ValueError("duplicate_receipt")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        head: tuple[str, list[object]] = ("eth_getBlockByNumber", [hex(self.block_number), False])
+        receipts: list[tuple[str, list[object]]] = [
+            ("eth_getTransactionReceipt", [tx]) for tx in self.transactions
+        ]
+        return (
+            ("eth_chainId", []),
+            head,
+            *receipts,
+            head,
+        )

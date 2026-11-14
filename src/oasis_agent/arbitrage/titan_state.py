@@ -179,7 +179,7 @@ def decode_snapshot(value: object) -> list[dict[str, Any]]:
 
 class TitanAnalysisPlan(Frozen):
     schema_version: Literal["oasis-titan-state-analysis-v1"] = Field(alias="schema")
-    chain_id: Literal[1]
+    chain_id: Annotated[int, Field(ge=1, le=1)]
     metric_quote_addresses: Annotated[tuple[Address, ...], Field(min_length=1, max_length=8)]
     max_snapshot_age_ms: Annotated[int, Field(ge=1, le=60000)]
     max_future_ms: Annotated[int, Field(ge=0, le=1000)]

@@ -17,10 +17,12 @@ import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
 from oasis_agent.arbitrage.titan_state import decode_snapshot
+from oasis_agent.evidence.public_receipts import decode_receipt, receipt_header
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicHeadPlan,
     PublicReadPlan,
+    PublicReceiptPlan,
     PublicScope,
     PublicTitanPlan,
 )
@@ -67,6 +69,7 @@ def load_plan(path: Path):
         "oasis-public-rpc-head-plan-v1": PublicHeadPlan,
         "oasis-public-rpc-read-plan-v1": PublicReadPlan,
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
+        "oasis-public-receipt-plan-v1": PublicReceiptPlan,
     }.get(obj.get("schema"))
     if model is None:
         raise ValueError("unsupported_capture_schema")
@@ -118,7 +121,7 @@ def locked(root: Path):
 
 
 def validate_context(
-    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan,
+    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan | PublicReceiptPlan,
     index: int,
     result: object,
     first: object,
@@ -132,13 +135,22 @@ def validate_context(
     elif index in (1, len(plan.requests()) - 1):
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
+            if isinstance(plan.block_tag, int) and number != plan.block_tag:
+                raise ValueError("historical_observation_number_mismatch")
             return header(result, plan.chain_id, number)
         snap = header(result, plan.chain_id, plan.block_number)
+        if isinstance(plan, PublicReceiptPlan):
+            snap = receipt_header(result, plan.chain_id, plan.block_number, plan.transactions)
         if snap.ref.block_hash != plan.block_hash:
             raise ValueError("block_hash_mismatch")
         if index != 1 and snap != first:
             raise ValueError("closing_block_changed")
         return snap
+    elif isinstance(plan, PublicReceiptPlan):
+        if first is None:
+            raise ValueError("receipt_without_opening_header")
+        tx_hash = plan.transactions[index - 2]
+        decode_receipt(result, first.ref, tx_hash, dict(first.receipt_positions)[tx_hash])
     elif not isinstance(result, str) or re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", result) is None:
         raise ValueError("invalid_read_hex")
     elif plan.requests()[index][0] == "eth_getStorageAt" and len(result) != 66:
@@ -446,6 +458,8 @@ def replay(directory: Path) -> dict[str, Any]:
         "status": m["status"],
         "plan_kind": "builder_state_declaration"
         if isinstance(plan, PublicTitanPlan)
+        else "pinned_receipts"
+        if isinstance(plan, PublicReceiptPlan)
         else "head_observation"
         if isinstance(plan, PublicHeadPlan)
         else "pinned_reads",

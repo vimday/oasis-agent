@@ -337,3 +337,22 @@ def test_titan_cannot_be_a_chain_source_or_inject_an_rpc():
                 }
             )
         )
+
+
+@pytest.mark.parametrize("bad", [True, False, 1.0, "1", 2])
+def test_chain_claim_requires_exact_integer_one(bad):
+    for model, payload in (
+        (
+            PublicTitanPlan,
+            {
+                "schema": "oasis-titan-state-capture-plan-v1",
+                "source": "titan_ap",
+                "chain_id": 1,
+                "samples": 1,
+            },
+        ),
+        (TitanAnalysisPlan, plan_data()),
+    ):
+        payload["chain_id"] = bad
+        with pytest.raises(ValueError):
+            model.model_validate_json(json.dumps(payload))
