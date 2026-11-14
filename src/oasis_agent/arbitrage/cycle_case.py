@@ -239,7 +239,7 @@ def _trigger(
             expected[plan.wrapped_native, fee.recipient] += fee.raw
         actual: Counter[tuple[str, str]] = Counter()
         for transfer in inclusion.logs:
-            if transfer.topics[0] != TRANSFER or transfer.address not in (
+            if transfer.topics[:1] != (TRANSFER,) or transfer.address not in (
                 plan.wrapped_native,
                 token_out,
             ):

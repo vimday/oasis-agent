@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from oasis_agent.arbitrage import aave_cashflows, aave_history
+from oasis_agent.arbitrage import aave_cashflows, aave_history, aave_scaled
 from oasis_agent.arbitrage.cycle_evidence import read_bounded
 from oasis_agent.evidence.public_receipts import decode_receipt
 from oasis_agent.evidence.public_rpc_plan import PublicReadPlan, PublicReceiptPlan
@@ -56,9 +56,12 @@ def replay(
     paths: list[Path],
     cashflow_path: Path | None = None,
     boundaries: tuple[Path, Path] | None = None,
+    scaled: bool = False,
 ) -> dict[str, Any]:
     if not 1 <= len(paths) <= 64:
         raise ValueError("capture_count_limit")
+    if scaled and (cashflow_path is None or boundaries is None):
+        raise ValueError("scaled_replay_requires_cashflows_and_boundaries")
     raw = read_bounded(plan_path, 32 * 1024)
     strict_json_object(raw)
     plan = aave_history.AaveHistoryPlan.model_validate_json(raw)
@@ -152,6 +155,24 @@ def replay(
             "evidence_class": "pinned_view_call_observations",
             "independently_reconciled": False,
         }
+        if scaled:
+            flows = report["underlying_cashflows"]
+            if any(row["status"] != "matched" for row in flows["matches"]):
+                raise ValueError("scaled_replay_requires_matched_underlying")
+            scaled_balances = [
+                {
+                    row["token"]: row["scaled_balance_raw"]
+                    for row in endpoint["reserves"]
+                    if row["scaled_balance_raw"] is not None
+                }
+                for endpoint in (opening, closing)
+            ]
+            report["scaled_positions"] = aave_scaled.replay(
+                plan, bindings, ordered, scaled_balances[0], scaled_balances[1]
+            )
+            report["scaled_implementation_sha256"] = sha256_hex(
+                Path(aave_scaled.__file__).read_bytes()
+            )
     return report
 
 
@@ -161,13 +182,16 @@ def main() -> int:
     parser.add_argument("--capture", action="append", required=True, type=Path)
     parser.add_argument("--cashflows", type=Path)
     parser.add_argument("--boundaries", type=Path, nargs=2, metavar=("START", "END"))
+    parser.add_argument("--scaled", action="store_true")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     try:
         boundaries = (args.boundaries[0], args.boundaries[1]) if args.boundaries else None
-        report = replay(args.plan, args.capture, args.cashflows, boundaries)
+        report = replay(args.plan, args.capture, args.cashflows, boundaries, args.scaled)
         publish(args.output, report)
         print(f"{report['status']} | selected receipts only | net profit unknown")
+        if args.scaled and report["scaled_positions"]["status"] == "residual":
+            return 3
         return 0
     except (ValueError, TypeError, OSError):
         print("Aave receipt interpretation refused; no complete ledger claim", file=sys.stderr)

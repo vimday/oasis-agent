@@ -11,7 +11,7 @@
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；Titan 三次公开状态已[按源码布局解释 17 个 feed 槽](../verification/METRIC_BUILDER_FEEDS_20261114.md)，官方目录确认 ETH/USD 与 USDC/USD 编号 | 原块 price 数据、目标块配置、source shaping、canonical parent hash 与整笔模拟仍缺；4 秒旧是声明诊断，不得解释原 FeedStalled 或当成成交证明 |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放；[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)、[调用/回滚解析](../verification/METRIC_PROBE_CODEC_20261114.md)和[自有 Anvil 合成状态执行](../verification/METRIC_LOCAL_STATE_20261114.md)通过 | caller/recipient/extension/价格界、完整 runtime、付款回调及本地前后状态已核对；真实目标 pool/provider/config、独立上下文、历史状态装载和 pinned 整笔两腿 replay 仍缺 |
 | 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次及[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)已接入正常入口；现货冻结窗口接口 | 真实事件窗口、maker/oracle 触发；冻结窗口与等预算轮询对照 |
-| Aave 历史借还款 | [62 笔历史收据](../verification/AAVE_HISTORICAL_FLOWS_20261114.md)确认 18 笔借款和 12 笔还款，60 笔 Pool 事件均匹配底层转账；观察先后块末债务为零与两笔 aUSDC 转出 | 实现身份、独立账本和计息、资金归属、全部 swap 和原生现金流、冻结与预言机时点、净收益；保留两端与中途残差 |
+| Aave 历史借还款 | [62 笔历史收据](../verification/AAVE_HISTORICAL_FLOWS_20261114.md)确认 18 笔借款和 12 笔还款；[缩放及钱包对账](../verification/AAVE_WALLET_LEDGER_20261114.md)复核缩放期末值、量化并定位原生余额残差 | 实现等价、133 笔缺少的完整收据、交易级原生证据、资金归属、现货价格、冻结与 oracle 时点及净收益 |
 | Elysium 精确 prestate | 两笔收据与三个块头；块末无签名调用 | 交易前状态与区块内前序调用，完整重放、失败样本及成本，不能以块末成功替代 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
 | LP 与现货共用控制 | Base 有界 LP、现货 shadow、独立 signer / 风控基础 | 逐个具体策略完成 NAV、双源精确模拟、结算/恢复证据；另行取得当次资本发布授权 |

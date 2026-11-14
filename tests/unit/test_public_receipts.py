@@ -48,6 +48,17 @@ def test_receipt_exact_identity_and_gas_component():
     assert r.gas_used * r.effective_gas_price == 21000 * 10**9
 
 
+def test_anonymous_log_retains_bytes_and_position():
+    value = receipt()
+    value["logs"][0].update(topics=[], data="0xabcd")
+    result = decode_receipt(value, BLOCK, TX)
+    assert result.logs[0].topics == ()
+    assert result.logs[0].data == "0xabcd" and result.logs[0].log_index == 3
+    value["logs"][0]["transactionIndex"] = "0x4"
+    with pytest.raises(ValueError, match="position"):
+        decode_receipt(value, BLOCK, TX)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

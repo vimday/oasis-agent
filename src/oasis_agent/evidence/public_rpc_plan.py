@@ -36,7 +36,7 @@ HexData = Annotated[str, StringConstraints(pattern=r"^0x(?:[0-9a-f]{2}){4,8192}$
 
 class SourceLimit(Frozen):
     source: Source
-    max_requests: Annotated[int, Field(ge=1, le=256)]
+    max_requests: Annotated[int, Field(ge=1, le=512)]
 
 
 class PublicScope(Frozen):
@@ -55,7 +55,7 @@ class PublicScope(Frozen):
 
 
 class PublicRead(Frozen):
-    method: Literal["eth_getCode", "eth_getStorageAt", "eth_call"]
+    method: Literal["eth_getCode", "eth_getStorageAt", "eth_getBalance", "eth_call"]
     target: Address
     data: HexData | None = None
     slot: Hash | None = None

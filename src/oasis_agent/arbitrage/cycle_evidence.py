@@ -218,7 +218,7 @@ def log_record(value: object, block: BlockRef, tx_hash: str, tx_index: int) -> L
     obj = strict_object(value, "receipt log")
     topics = tuple(hash32(v) for v in strict_list(obj.get("topics"), "log topics"))
     if (
-        not 1 <= len(topics) <= 4
+        len(topics) > 4
         or obj.get("removed", False) is not False
         or hash32(obj.get("blockHash")) != block.block_hash
         or rpc_quantity(obj.get("blockNumber")) != block.number

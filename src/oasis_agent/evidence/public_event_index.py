@@ -29,8 +29,8 @@ def index_logs(plan: PublicEventIndexPlan, result: object) -> tuple[LogRecord, .
         if (
             not plan.start_block <= number <= plan.end_block
             or log.address != plan.address
-            or log.topics[0] != plan.signature
             or len(log.topics) <= plan.account_topic_index
+            or log.topics[0] != plan.signature
             or log.topics[plan.account_topic_index] != account_topic
             or log.log_index >= 1 << 32
             or re.fullmatch(r"0x(?:[0-9a-f]{2})*", log.data) is None

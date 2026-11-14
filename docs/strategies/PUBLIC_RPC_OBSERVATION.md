@@ -28,7 +28,8 @@ block_tag 也可为严格非负整数，用于观察指定历史块；返回块�
 它用两次请求观察链 ID 与块头。tag 不提供独立最终性保证。
 随后冻结 `oasis-public-rpc-read-plan-v1`：source、chain_id、block_number、block_hash、reads。
 每个 read 指定 method 和 target；eth_call 额外指定 data，可选 sender；eth_getStorageAt
-额外指定完整 32 字节 slot。没有 value、state override、任意 URL、认证或广播参数。
+额外指定完整 32 字节 slot。eth_getBalance 返回严格 JSON-RPC quantity，按 uint256
+校验原生余额。没有 value、state override、任意 URL、认证或广播参数。
 每次固定读取额外消耗三请求（链 ID、首尾块头），全程使用 EIP-1898 requireCanonical。
 不支持该参数的提供者会停止，不自动降级到块号。
 
@@ -43,6 +44,7 @@ block_tag 也可为严格非负整数，用于观察指定历史块；返回块�
 ```
 
 网络前检查原账本身份、完整请求预算和范围期限，逐次预占；失败同样计费。
+计划格式接受每来源最多 512 次读取。实际运行遵守原始 scope 冻结的限额。
 首个传输、HTTP、RPC、内容、上下文或资源错误立即停止并持久化 STOP。崩溃遗留 ACTIVE
 拒绝自动继续；并发 writer 拒绝。采集文件只新建，原始 request、response、时钟、hash、
 预算计数和失败均保留。单响应上限 2 MiB，总响应上限 32 MiB，最多 120 秒。
