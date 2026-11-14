@@ -19,7 +19,12 @@ from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
 from oasis_agent.arbitrage.titan_state import decode_snapshot
 from oasis_agent.evidence.public_event_index import index_logs
 from oasis_agent.evidence.public_ranges import range_context
-from oasis_agent.evidence.public_receipts import decode_receipt, quantity, receipt_header
+from oasis_agent.evidence.public_receipts import (
+    decode_receipt,
+    decode_transaction,
+    quantity,
+    receipt_header,
+)
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicEventIndexPlan,
@@ -170,8 +175,13 @@ def validate_context(
     elif isinstance(plan, PublicReceiptPlan):
         if first is None:
             raise ValueError("receipt_without_opening_header")
-        tx_hash = plan.transactions[index - 2]
-        decode_receipt(result, first.ref, tx_hash, dict(first.receipt_positions)[tx_hash])
+        method, params = plan.requests()[index]
+        tx_hash = params[0]
+        position = dict(first.receipt_positions)[tx_hash]
+        if method == "eth_getTransactionByHash":
+            decode_transaction(result, first.ref, tx_hash, position)
+        else:
+            decode_receipt(result, first.ref, tx_hash, position)
     elif plan.requests()[index][0] == "eth_getBalance":
         quantity(result)
     elif not isinstance(result, str) or re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", result) is None:

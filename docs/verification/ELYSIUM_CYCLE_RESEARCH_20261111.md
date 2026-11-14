@@ -32,6 +32,19 @@
 [EIP-1898](https://eips.ethereum.org/EIPS/eip-1898)
 [Nitro 执行语义](https://docs.arbitrum.io/how-arbitrum-works/inside-arbitrum-nitro)
 
+### 2026-11-14 赢家前序收据
+
+使用免费 [PublicNode Elysium](https://elysium.publicnode.com/) 的新收据查询范围，
+固定原留存完整块 3628116 的哈希和索引 0–5 的六笔交易。九次预算请求全部成功，
+原 trace 尝试和原账本仍保留。赢家收据经同一解码器与留存官方收据逐字段一致。
+索引 0 的系统交易类型为 `0x6a`，无日志。索引 1 有七条日志，2–4 无日志。
+索引 0–4 均未见赢家三池地址发出的日志。精确 prestate 仍需核对系统交易和这五笔的
+实际读写、区块内执行上下文及独立来源。零日志的交易仍可能修改影响执行的状态。
+
+原始证据保存在 `reports/research/aave-sale-20261114/elysium-prefix/`，capture SHA-256
+`e652cf12deedffd063915fd860edf3fd5fe4cddd4466f8b27bbc7129e1cd32fa`。
+对照报告是同级目录下的 `elysium-prefix-comparison.json`。底层节点独立性未确认。
+
 ## 报价与发现
 
 - 计划限定 native → ERC-20 → ERC-20 → wrapped native，再做已审核的 1:1 unwrap。

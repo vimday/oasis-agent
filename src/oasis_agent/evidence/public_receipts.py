@@ -35,6 +35,48 @@ class ReceiptBlockSnapshot(BlockSnapshot):
     receipt_positions: tuple[tuple[str, int], ...]
 
 
+@dataclass(frozen=True, slots=True)
+class ObservedTransaction:
+    sender: str
+    recipient: str | None
+    value_raw: int
+    selector: str | None
+
+
+def decode_transaction(
+    value: object, block: BlockRef, tx_hash: str, expected_index: int
+) -> ObservedTransaction:
+    obj = strict_object(value, "transaction")
+    if (
+        hash32(obj.get("hash")) != tx_hash
+        or hash32(obj.get("blockHash")) != block.block_hash
+        or quantity(obj.get("blockNumber"), 64) != block.number
+        or quantity(obj.get("transactionIndex"), 32) != expected_index
+        or ("chainId" in obj and quantity(obj["chainId"], 64) != block.chain_id)
+    ):
+        raise ValueError("transaction_inclusion_mismatch")
+    data = obj.get("input")
+    if not isinstance(data, str) or re.fullmatch(r"0x(?:[0-9a-fA-F]{2})*", data) is None:
+        raise ValueError("transaction_input_bytes")
+    if "to" not in obj:
+        raise ValueError("transaction_recipient_missing")
+    return ObservedTransaction(
+        address(obj.get("from")),
+        address(obj["to"]) if obj["to"] is not None else None,
+        quantity(obj.get("value")),
+        data[:10].lower() if len(data) >= 10 else None,
+    )
+
+
+def transaction_for_receipt(value: object, receipt: ObservedReceipt) -> ObservedTransaction:
+    tx = decode_transaction(
+        value, receipt.block, receipt.transaction_hash, receipt.transaction_index
+    )
+    if (tx.sender, tx.recipient) != (receipt.sender, receipt.recipient):
+        raise ValueError("transaction_receipt_role_mismatch")
+    return tx
+
+
 def receipt_header(
     value: object, chain_id: int, number: int, transactions: tuple[str, ...]
 ) -> ReceiptBlockSnapshot:

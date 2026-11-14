@@ -188,6 +188,7 @@ class PublicReceiptPlan(Frozen):
     block_number: BlockNumber
     block_hash: Hash
     transactions: Annotated[tuple[Hash, ...], Field(min_length=1, max_length=8)]
+    include_transactions: bool = False
 
     @model_validator(mode="after")
     def valid(self) -> Self:
@@ -199,13 +200,15 @@ class PublicReceiptPlan(Frozen):
 
     def requests(self) -> tuple[tuple[str, list[object]], ...]:
         head: tuple[str, list[object]] = ("eth_getBlockByNumber", [hex(self.block_number), False])
-        receipts: list[tuple[str, list[object]]] = [
-            ("eth_getTransactionReceipt", [tx]) for tx in self.transactions
-        ]
+        reads: list[tuple[str, list[object]]] = []
+        for tx in self.transactions:
+            reads.append(("eth_getTransactionReceipt", [tx]))
+            if self.include_transactions:
+                reads.append(("eth_getTransactionByHash", [tx]))
         return (
             ("eth_chainId", []),
             head,
-            *receipts,
+            *reads,
             head,
         )
 

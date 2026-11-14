@@ -5,7 +5,11 @@ import json
 import httpx
 import pytest
 
-from oasis_agent.evidence.public_receipts import decode_receipt, receipt_header
+from oasis_agent.evidence.public_receipts import (
+    decode_receipt,
+    receipt_header,
+    transaction_for_receipt,
+)
 from oasis_agent.evidence.public_rpc_plan import PublicHeadPlan
 from oasis_agent.models.common import BlockRef, canonical_json
 from scripts import capture_public_rpc as cli
@@ -169,8 +173,27 @@ def test_historical_header_request_checks_requested_number(tmp_path, monkeypatch
     assert result["status"] == ("incomplete" if wrong_block else "complete")
 
 
-@pytest.mark.parametrize("failed", [False, "hash", "null"])
-def test_receipt_capture_uses_frozen_hash_and_stops_on_mismatch(tmp_path, monkeypatch, failed):
+def transaction():
+    return {
+        "hash": TX,
+        "blockHash": HASH,
+        "blockNumber": "0x64",
+        "transactionIndex": "0x2",
+        "chainId": "0x1",
+        "from": TARGET,
+        "to": TARGET,
+        "value": "0x3",
+        "input": "0xaabbccdd",
+    }
+
+
+@pytest.mark.parametrize(
+    "failed, with_tx",
+    [(False, False), ("hash", False), ("null", False), (False, True), ("tx_index", True)],
+)
+def test_receipt_capture_uses_frozen_hash_and_stops_on_mismatch(
+    tmp_path, monkeypatch, failed, with_tx
+):
     root, path, plan = setup(tmp_path)
     path.write_bytes(
         canonical_json(
@@ -181,6 +204,7 @@ def test_receipt_capture_uses_frozen_hash_and_stops_on_mismatch(tmp_path, monkey
                 "block_number": 100,
                 "block_hash": HASH,
                 "transactions": [TX],
+                **({"include_transactions": True} if with_tx else {}),
             }
         )
     )
@@ -201,13 +225,18 @@ def test_receipt_capture_uses_frozen_hash_and_stops_on_mismatch(tmp_path, monkey
                 "timestamp": hex(BLOCK.timestamp),
                 "transactions": ["0x" + "ab" * 32, "0x" + "cd" * 32, TX],
             }
-        else:
-            assert q["method"] == "eth_getTransactionReceipt" and q["params"] == [TX]
+        elif q["method"] == "eth_getTransactionReceipt":
+            assert q["params"] == [TX]
             value = receipt()
             if failed == "hash":
                 value["blockHash"] = TX
             elif failed == "null":
                 value = None
+        else:
+            assert q["method"] == "eth_getTransactionByHash" and q["params"] == [TX]
+            value = transaction()
+            if failed == "tx_index":
+                value["transactionIndex"] = "0x1"
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": q["id"], "result": value})
 
     monkeypatch.setattr(
@@ -216,9 +245,19 @@ def test_receipt_capture_uses_frozen_hash_and_stops_on_mismatch(tmp_path, monkey
     assert cli.capture(root, path, "receipt") == (3 if failed else 0)
     r = cli.replay(root / "receipt")
     assert r["plan_kind"] == "pinned_receipts"
-    assert r["attempted_requests"] == (3 if failed else 4)
-    assert len(r["exports"]["records"]) == (2 if failed else 4)
+    attempts = 4 if failed == "tx_index" else 3 if failed else 4 + int(with_tx)
+    assert r["attempted_requests"] == attempts
+    assert len(r["exports"]["records"]) == attempts - int(bool(failed))
     assert (root / "STOP").exists() is bool(failed)
+
+
+def test_transaction_value_requires_same_receipt_roles_and_canonical_quantity():
+    observed = decode_receipt(receipt(), BLOCK, TX)
+    assert transaction_for_receipt(transaction(), observed).value_raw == 3
+    with pytest.raises(ValueError, match="role_mismatch"):
+        transaction_for_receipt({**transaction(), "to": None}, observed)
+    with pytest.raises(ValueError, match="quantity"):
+        transaction_for_receipt({**transaction(), "value": "0x03"}, observed)
 
 
 def test_receipt_position_must_match_the_block_transaction_list():
