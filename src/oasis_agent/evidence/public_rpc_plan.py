@@ -14,6 +14,8 @@ ChainSource = Literal[
     "publicnode_elysium",
     "mevblocker_ethereum",
     "automata_ethereum",
+    "blockscout_ethereum",
+    "alchemy_public_ethereum",
 ]
 # Official public pages verified 2026-11-14. PublicNode aliases share an operator.
 # Different service names alone do not establish independent underlying state providers.
@@ -24,6 +26,8 @@ CHAIN_SOURCES = {
     "publicnode_elysium": (99901, "https://elysium-rpc.publicnode.com"),
     "mevblocker_ethereum": (1, "https://rpc.mevblocker.io"),
     "automata_ethereum": (1, "https://public.1rpc.io/eth"),
+    "blockscout_ethereum": (1, "https://eth.blockscout.com/api/eth-rpc"),
+    "alchemy_public_ethereum": (1, "https://eth-mainnet.g.alchemy.com/public"),
 }
 Source = ChainSource | Literal["titan_ap"]
 SOURCES = {**CHAIN_SOURCES, "titan_ap": (1, "https://ap.data.titanbuilder.xyz/data")}
@@ -203,6 +207,49 @@ class PublicReceiptPlan(Frozen):
             head,
             *receipts,
             head,
+        )
+
+
+class PublicEventIndexPlan(Frozen):
+    """Historical index leads for one exact signature and one indexed account."""
+
+    schema_version: Literal["oasis-public-event-index-plan-v1"] = Field(alias="schema")
+    source: Literal["blockscout_ethereum"]
+    chain_id: Annotated[int, Field(ge=1, le=1)]
+    start_block: BlockNumber
+    end_block: BlockNumber
+    address: Address
+    account: Address
+    signature: Hash
+    account_topic_index: Annotated[int, Field(ge=1, le=3)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if not 1 <= self.end_block - self.start_block + 1 <= 4096:
+            raise ValueError("index_block_range_limit")
+        if ZERO_ADDRESS in (self.address, self.account):
+            raise ValueError("index_requires_nonzero_addresses")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        topics = [
+            self.signature,
+            *([None] * (self.account_topic_index - 1)),
+            "0x" + self.account[2:].zfill(64),
+        ]
+        return (
+            ("eth_chainId", []),
+            (
+                "eth_getLogs",
+                [
+                    {
+                        "fromBlock": hex(self.start_block),
+                        "toBlock": hex(self.end_block),
+                        "address": self.address,
+                        "topics": topics,
+                    }
+                ],
+            ),
         )
 
 

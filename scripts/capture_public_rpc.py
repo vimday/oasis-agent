@@ -17,10 +17,12 @@ import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
 from oasis_agent.arbitrage.titan_state import decode_snapshot
+from oasis_agent.evidence.public_event_index import index_logs
 from oasis_agent.evidence.public_ranges import range_context
 from oasis_agent.evidence.public_receipts import decode_receipt, receipt_header
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
+    PublicEventIndexPlan,
     PublicHeadPlan,
     PublicProofPlan,
     PublicRangePlan,
@@ -76,6 +78,7 @@ def load_plan(path: Path):
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
         "oasis-public-log-range-plan-v1": PublicRangePlan,
         "oasis-public-state-proof-plan-v1": PublicProofPlan,
+        "oasis-public-event-index-plan-v1": PublicEventIndexPlan,
     }.get(obj.get("schema"))
     if model is None:
         raise ValueError("unsupported_capture_schema")
@@ -132,7 +135,8 @@ def validate_context(
     | PublicTitanPlan
     | PublicReceiptPlan
     | PublicRangePlan
-    | PublicProofPlan,
+    | PublicProofPlan
+    | PublicEventIndexPlan,
     index: int,
     result: object,
     first: object,
@@ -147,6 +151,8 @@ def validate_context(
         return range_context(plan, index, result, first)
     elif isinstance(plan, PublicProofPlan):
         return proof_context(plan, index, result, first)
+    elif isinstance(plan, PublicEventIndexPlan):
+        index_logs(plan, result)
     elif index in (1, len(plan.requests()) - 1):
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
@@ -491,6 +497,8 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicRangePlan)
         else "pinned_state_proofs"
         if isinstance(plan, PublicProofPlan)
+        else "historical_index_leads"
+        if isinstance(plan, PublicEventIndexPlan)
         else "head_observation"
         if isinstance(plan, PublicHeadPlan)
         else "pinned_reads",

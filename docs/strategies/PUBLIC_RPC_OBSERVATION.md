@@ -109,6 +109,11 @@ genesis、固定 probe 地址的 code/空 state override，核对全部初始账
 交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、
 收款人和融资流量，不能代替完整债务或现金流账本。
 
+`oasis-public-event-index-plan-v1` 固定历史窗口、合约、事件签名与一个索引账户，
+使用 Blockscout Ethereum 匿名接口。每过滤器两次请求，返回 `historical_index_leads`，
+包括可能为空的索引列表。使用头寸代币进一步定位交易，并走固定收据和账户余额入口。
+实证见[历史借还款](../verification/AAVE_HISTORICAL_FLOWS_20261114.md)。
+
 ## 日志范围与持久覆盖
 
 `oasis-public-log-range-plan-v1` 指定 source、chain_id、start_block、end_block、parent_hash、
