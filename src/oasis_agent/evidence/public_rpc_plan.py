@@ -13,6 +13,7 @@ ChainSource = Literal[
     "publicnode_robinhood",
     "publicnode_elysium",
     "mevblocker_ethereum",
+    "automata_ethereum",
 ]
 # Official public pages verified 2026-11-14. PublicNode aliases share an operator.
 # Different service names alone do not establish independent underlying state providers.
@@ -22,6 +23,7 @@ CHAIN_SOURCES = {
     "publicnode_robinhood": (4663, "https://robinhood-rpc.publicnode.com"),
     "publicnode_elysium": (99901, "https://elysium-rpc.publicnode.com"),
     "mevblocker_ethereum": (1, "https://rpc.mevblocker.io"),
+    "automata_ethereum": (1, "https://public.1rpc.io/eth"),
 }
 Source = ChainSource | Literal["titan_ap"]
 SOURCES = {**CHAIN_SOURCES, "titan_ap": (1, "https://ap.data.titanbuilder.xyz/data")}
@@ -122,6 +124,45 @@ class PublicReadPlan(Frozen):
                 params = [read.target, pin]
             result.append((read.method, params))
         return (*result, header)
+
+
+class ProofTarget(Frozen):
+    address: Address
+    slots: Annotated[tuple[Hash, ...], Field(max_length=32)]
+
+    @model_validator(mode="after")
+    def unique_slots(self) -> Self:
+        if len(set(self.slots)) != len(self.slots):
+            raise ValueError("duplicate_proof_slot")
+        return self
+
+
+class PublicProofPlan(Frozen):
+    """Prove explicit accounts and slots against a pinned Prague execution header."""
+
+    schema_version: Literal["oasis-public-state-proof-plan-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Literal[1]
+    block_number: BlockNumber
+    block_hash: Hash
+    accounts: Annotated[tuple[ProofTarget, ...], Field(min_length=1, max_length=16)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if type(self.chain_id) is not int or CHAIN_SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("proof_source_chain_mismatch")
+        if len({item.address for item in self.accounts}) != len(self.accounts):
+            raise ValueError("duplicate_proof_account")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        pin = {"blockHash": self.block_hash, "requireCanonical": True}
+        head: tuple[str, list[object]] = ("eth_getBlockByNumber", [hex(self.block_number), False])
+        requests: list[tuple[str, list[object]]] = [("eth_chainId", []), head]
+        for account in self.accounts:
+            requests.append(("eth_getProof", [account.address, list(account.slots), pin]))
+            requests.append(("eth_getCode", [account.address, pin]))
+        return (*requests, head)
 
 
 class PublicTitanPlan(Frozen):

@@ -22,6 +22,7 @@ from oasis_agent.evidence.public_receipts import decode_receipt, receipt_header
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicHeadPlan,
+    PublicProofPlan,
     PublicRangePlan,
     PublicReadPlan,
     PublicReceiptPlan,
@@ -35,6 +36,7 @@ from oasis_agent.evidence.rpc_validation import (
     strict_list,
     strict_object,
 )
+from oasis_agent.evidence.state_trie import proof_context
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
 from oasis_agent.rpc.protocol import response_envelope
@@ -73,6 +75,7 @@ def load_plan(path: Path):
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
         "oasis-public-log-range-plan-v1": PublicRangePlan,
+        "oasis-public-state-proof-plan-v1": PublicProofPlan,
     }.get(obj.get("schema"))
     if model is None:
         raise ValueError("unsupported_capture_schema")
@@ -124,7 +127,12 @@ def locked(root: Path):
 
 
 def validate_context(
-    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan | PublicReceiptPlan | PublicRangePlan,
+    plan: PublicReadPlan
+    | PublicHeadPlan
+    | PublicTitanPlan
+    | PublicReceiptPlan
+    | PublicRangePlan
+    | PublicProofPlan,
     index: int,
     result: object,
     first: object,
@@ -137,6 +145,8 @@ def validate_context(
             raise ValueError("chain_id_mismatch")
     elif isinstance(plan, PublicRangePlan):
         return range_context(plan, index, result, first)
+    elif isinstance(plan, PublicProofPlan):
+        return proof_context(plan, index, result, first)
     elif index in (1, len(plan.requests()) - 1):
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
@@ -467,6 +477,9 @@ def replay(directory: Path) -> dict[str, Any]:
             reserved if limit.source == plan.source else 0
         ):
             raise ValueError("budget_count_mismatch")
+    block_verified = first is not None and (
+        not isinstance(plan, PublicProofPlan) or m["status"] == "complete"
+    )
     return {
         "schema": "oasis-public-rpc-replay-v1",
         "status": m["status"],
@@ -476,10 +489,12 @@ def replay(directory: Path) -> dict[str, Any]:
         if isinstance(plan, PublicReceiptPlan)
         else "prospective_log_range"
         if isinstance(plan, PublicRangePlan)
+        else "pinned_state_proofs"
+        if isinstance(plan, PublicProofPlan)
         else "head_observation"
         if isinstance(plan, PublicHeadPlan)
         else "pinned_reads",
-        "block": asdict(first) if first is not None else None,
+        "block": asdict(first) if block_verified else None,
         "finality_independently_verified": False,
         "plan_sha256": sha256_hex(plan_raw),
         "scope_sha256": sha256_hex(scope_raw),

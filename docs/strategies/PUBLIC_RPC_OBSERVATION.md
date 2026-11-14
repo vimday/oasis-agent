@@ -53,6 +53,13 @@ replay 完全离线，核对精确请求、字节和计数，不重新请求网�
 本地时钟不等于独立时间见证；哈希不是签名；解析导出另作 parsed evidence，不能继承
 原始传输验证、源独立性或交易权限。
 
+`oasis-public-state-proof-plan-v1` 为 Ethereum Prague 块固定 source、chain_id、
+block_number、block_hash 和 `accounts`。每项包含 address 和最多 32 个完整槽键；
+每账户 `eth_getProof` 和 `eth_getCode` 各一次，另加链号与首尾块头三次。校验按固定
+块哈希重算头部 RLP、检查账户和槽证明以及代码哈希。只有完整采集才在回放 `block`
+中输出 `state_root` 与 `accounts`。真实读取记录与本地证明对照见
+[历史状态证明](../verification/METRIC_STATE_PROOFS_20261114.md)。
+
 ## Metric 诊断
 
 `scripts.research_metric_oracle` 读取 `oasis-metric-oracle-plan-v1`，固定链、块/hash/cutoff、

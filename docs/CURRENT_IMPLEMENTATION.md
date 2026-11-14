@@ -21,6 +21,7 @@
 | Metric 父块关联与整笔探针 | 原始 header/Titan 关联；始终回滚的两池完整 swap/回调/还款探针及合成余额验证 | 单源父子块已观察，第二来源传输失败后原范围 6/96 STOP；probe 本地 10 项测试、10,000 fuzz 通过，无真实 pinned fork 或可执行收益证明。见[探针验证](verification/METRIC_ATOMIC_PROBE_20261114.md)。 |
 | Metric 探针调用与回滚解析 | 固定计划、完整 immutable runtime 重建、四项调用包、原始字节与 request hash/数量校验 | 四种路线与 Solidity 实际字节一致；67 项新增 Python 拒绝回归，RPC 包装和池仍为合成。无网络入口或真实历史状态证明。见[编解码验证](verification/METRIC_PROBE_CODEC_20261114.md)。 |
 | Metric 自有本地节点执行 | 合成 genesis 全账户比对、空 probe 的单次受限 override、实际 IPC、前后 state dump 与子进程退出核对 | 四方向真实本地执行及负例通过，历史输入仍拒绝；另在原部署档案范围补得目标块五 runtime，原账本 18/32。见[本地状态验证](verification/METRIC_LOCAL_STATE_20261114.md)。 |
+| Metric 历史状态证明 | Prague 块头哈希、账户/槽 MPT 路径与 runtime 核验，接入只读采集和离线回放 | 两个原块锚重算一致；实际 Anvil 合成证明通过；公开尝试分别因 429 和证明窗口 STOP，未取得真实链证明。见[状态证明验证](verification/METRIC_STATE_PROOFS_20261114.md)。 |
 | Aave 历史事件与收据 | 固定历史块/hash/交易位置、收据日志校验；V3 借贷、代偿、aToken 偿还和清算的整数角色解释 | 用户线索交易在单源块头索引 162，receipt 返回 null 后累计 5/24 停止；没有完整借贷账本或收益证明。见[收据验证](verification/AAVE_RECEIPTS_20261114.md)。 |
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；接入正常 cycle shadow 回放 | Base registry/getter 一致性观察成功，锚点块时间比本机收包时钟晚 30 ms 而拒绝，累计 14/32 停止；真实事件窗口仍缺；持久 outbox 的后续合成验收见下行。见[本次验证](verification/EVENT_COVERAGE_20261114.md)。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | 33 项新增合成回归及离线演练通过；无新 RPC、真实窗口或执行授权。见[队列验证](verification/CYCLE_OUTBOX_20261114.md)。 |
