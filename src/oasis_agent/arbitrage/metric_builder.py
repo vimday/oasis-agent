@@ -13,7 +13,7 @@ from pydantic import Field, StringConstraints, model_validator
 
 from ..evidence.rpc_validation import strict_json_object, strict_list, strict_object
 from ..models.common import ZERO_ADDRESS, canonical_json, sha256_hex
-from .cycle_plan import Address, Frozen
+from .cycle_plan import Address, Frozen, hash32
 from .titan_state import address, decode_snapshot, integer, storage
 
 LAYOUT_RUNTIME = "0xd7169b763899b0e9a19b2b26ed2b566375440905f62964bd08817f9f1cb37ca2"
@@ -84,6 +84,10 @@ def catalog(plan: BuilderFeedPlan, payload: bytes) -> dict[str, dict[str, Any]]:
         if result.get(feed_slot(feed.feed_id), {}).get("symbol") != feed.symbol:
             raise ValueError("feed_binding_catalog_mismatch")
     return result
+
+
+def compressed_time(word: object) -> int:
+    return (int(hash32(word), 16) >> 8) & ((1 << 56) - 1)
 
 
 def decode_word(word: str) -> dict[str, int]:

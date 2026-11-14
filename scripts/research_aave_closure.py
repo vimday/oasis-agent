@@ -12,7 +12,7 @@ from oasis_agent.arbitrage.aave_wallet import reconcile_wallet
 from oasis_agent.arbitrage.cycle_evidence import read_bounded
 from oasis_agent.arbitrage.cycle_plan import address, hash32, utc
 from oasis_agent.evidence.public_receipts import decode_receipt, quantity, receipt_header
-from oasis_agent.evidence.research_traces import first_failure, flat_calls
+from oasis_agent.evidence.research_traces import trace_correction
 from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.evidence.state_trie import prague_header
 from oasis_agent.models.common import BlockRef, canonical_json, sha256_hex
@@ -192,36 +192,6 @@ def balances(root, first, account, indexed_hashes):
         values.append((block, prior, value))
     prague_header(read("eth_getBlockByNumber", [hex(last), False]), last, prior)
     return values
-
-
-def trace_correction(body, receipt, account, indexed):
-    frames = flat_calls(strict_json_object(b'{"frames":' + body + b"}")["frames"])
-    root = frames[()]
-    if (root.sender, root.recipient, root.error is None) != (
-        receipt.sender,
-        receipt.recipient,
-        bool(receipt.status),
-    ) or account in (root.sender, root.recipient):
-        raise ValueError("trace root does not match retained receipt")
-    movements = []
-    for path, frame in sorted(frames.items()):
-        if (
-            not path
-            or frame.kind != "CALL"
-            or not frame.value
-            or account not in (frame.sender, frame.recipient)
-        ):
-            continue
-        native = ((frame.recipient == account) - (frame.sender == account)) * frame.value
-        movements.append(
-            {
-                "path": path,
-                "first_failed_path": first_failure(frames, path),
-                "native_delta_raw": native,
-            }
-        )
-    observed = sum(m["native_delta_raw"] for m in movements if m["first_failed_path"] is None)
-    return {"frames": len(frames), "correction": observed - indexed, "movements": movements}
 
 
 def residuals(root, movements, indexed_hashes, prior, receipts, account):

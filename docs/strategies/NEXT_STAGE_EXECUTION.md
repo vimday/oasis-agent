@@ -9,8 +9,8 @@
 | 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | [Base/Elysium 固定未来日志窗口](../verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)完整回放；独立源及时间、Ethereum/Robinhood 前瞻验证继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；原 Ethereum 范围补得[目标块五部署 runtime](../verification/METRIC_LOCAL_STATE_20261114.md)，累计 18/32；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
 | Metric provider / feed | 原块配置、Titan 槽位、[真实父块代码与配置及覆盖回读](../verification/METRIC_TITAN_PAIRED_20261114.md)已核验。目标块两槽覆盖后 Pyth 年龄 4 秒，[调用树](../verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)证实自定义报价源仍要求压缩 feed 同秒 | 旧块错误归因、其他池/源配置、完整 builder 环境和实际流继续验证 |
-| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末回放、[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)及本地合成验证；Ethereum 同父状态对照 0/8 完成，三槽补充实验 4/4 到第二腿且本金均不足。[六块前瞻先导](../verification/METRIC_STREAM_AAVE_WALLET_20261114.md)的 24 条固定规模路线亦全部本金不足 | Titan 确认块同秒落地 0/3，规模阶梯 18 条全负，此窗口拒绝；其他时段另行预注册 |
-| 主动事件触发与 shadow | Base 前瞻窗口取得 1 Swap，Elysium 路线真实空窗已进[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)；合成事件定向报价、重组失效与现货冻结窗口已验证；[双链 WebSocket 首收](../verification/METRIC_TITAN_BUILDERS_AAVE_CLOSE_20261114.md)取得真实非空事件及收据 | 接入实时定向报价，量接收至报价时延，记录断点覆盖及同预算轮询对照 |
+| 同链精确模拟 | 双 venue 单跳组合、Elysium 块末回放、[完整付款探针](../verification/METRIC_ATOMIC_PROBE_20261114.md)及本地合成验证；Ethereum 同父状态对照 0/8 完成，三槽补充实验 4/4 到第二腿且本金均不足。[六块前瞻先导](../verification/METRIC_STREAM_AAVE_WALLET_20261114.md)的 24 条固定规模路线亦全部本金不足 | Titan 确认块同秒落地 0/3，规模阶梯 18 条全负，此窗口拒绝，固定公开流路线挂起；新结构性来源单独预注册 |
+| 主动事件触发与 shadow | Base 前瞻窗口取得 1 Swap，Elysium 路线真实空窗已进[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)；合成事件定向报价、重组失效与现货冻结窗口已验证；[双链 WebSocket 首收](../verification/METRIC_TITAN_BUILDERS_AAVE_CLOSE_20261114.md)取得真实非空事件及收据 | [90 秒双链实测](../verification/EVENT_QUOTE_RESULTS_20261114.md)量得 Base 事件组 2/4、轮询 0/4 两腿按时，固定路线毛差全负并关闭。Elysium 的 Aero 三腿实时报价均超时限且毛差全负，原范围收尾复核停止。真实断线及重组场景待核验 |
 | Aave 历史借还款 | [借卖再抵押](../verification/AAVE_SALE_CYCLE_20261114.md)复核选定现金流及父块 oracle；[五笔优先核验](../verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)补齐收据；[调用树](../verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)确认 422.0038 ETH 祖先回滚多计；[后续对账](../verification/METRIC_STREAM_AAVE_WALLET_20261114.md)校正剩余 87.1996 ETH，冻结候选收据 204/204 | 冻结案例结项，已识别补款和固定价格净资产报告留存；完整策略净收益未知。见[构块归因与案例结项](../verification/METRIC_TITAN_BUILDERS_AAVE_CLOSE_20261114.md)。 |
 | Elysium 精确 prestate | [两个块的交易根与收据根](../verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md)已重算，ArbOS `startBlock` 参数、完整前序和两个同块失败收据已核对 | 匿名历史证明在第一笔停止；系统交易和前序的读写状态、精确 prestate、整笔模拟与原生结算待验证 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
@@ -58,5 +58,5 @@ Anvil 合成证明通过。[公开尝试](../verification/METRIC_STATE_PROOFS_20
 同一父状态的公开节点对照已执行，价格层留下 `FeedStalled()`，0/8 两腿完成。原停止记录保留。
 后续 Ethereum 调用树确认 Metric 两条 Pyth feed 通过后仍需要同秒的压缩报价。三槽覆盖后四种路线均到第二腿，本金皆不足。
 五笔 Aave 原生调用树确认六组每组一次有效入账、一次祖先回滚，五块中该类差额已对平。
-maker/oracle 触发、实时非空路线与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
-不能以队列工程或合成正报价替代完整债务账本、真实可执行利润与收益验收。
+Base 实时 Swap 与同预算轮询已实测，关闭本次固定路线。Elysium 已实测同池三腿报价，收尾与故障场景待验，
+maker/oracle 触发和经济评估继续待证。Aave 账本结项，策略净收益仍未知。

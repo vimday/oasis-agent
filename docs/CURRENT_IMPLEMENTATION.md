@@ -31,7 +31,8 @@
 | Ethereum 前瞻流与 Aave 钱包对账 | 公共 Titan 流首收、同秒槽与最终块证明、冻结候选收据回放 | [前瞻与对账](verification/METRIC_STREAM_AAVE_WALLET_20261114.md)六个预选 slot 有声明，最终区块同秒 0/6，24 条模拟本金不足。Aave 冻结候选收据 204/204，校正后原生差额为零，完整净 PnL 待归因。 |
 | Titan 构块归因与 Aave 结项 | Relay 与官方公钥核对，固定规模双腿；可从仓库重放收据、余额与 trace | Titan 确认块 3，区块末同秒 0/3。18 条规模路线本金不足。Aave 原生余额对平，固定估值有数值，策略净 PnL 保留未知。见[构块归因与案例结项](verification/METRIC_TITAN_BUILDERS_AAVE_CLOSE_20261114.md)。 |
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；按所报高度及固定偏移选择未来块 | [Base 12 块](verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)三个过滤器观察到 1 Swap、0 Mint、0 Burn；Elysium 8 块六个过滤器为空，原 Base 14/32 停止记录保留。 |
-| 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。前瞻实时唤醒及等预算报价仍待验证。 |
+| 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。实时唤醒另见下一行。 |
+| 实时 Swap 定向报价 | 冻结触发、费用模型、等预算轮询、原始证据与独立收据复核 | [双链实测](verification/EVENT_QUOTE_RESULTS_20261114.md)。Base 事件组 2/4 两腿在 750 ms 内，轮询 0/4，八条毛差全负，按门槛关闭固定路线。Elysium 改用匹配池的 Aero MetaQuoter，三腿报价两组各 4/4，均超时限且毛差全负，重复收尾块读取超时。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
 
 ## Base LP 验收记录

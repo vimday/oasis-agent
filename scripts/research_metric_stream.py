@@ -9,9 +9,10 @@ from pathlib import Path
 from sqlite3 import Error as DatabaseError
 
 from oasis_agent.arbitrage import metric_builder, titan_state
-from oasis_agent.arbitrage.aave_wallet import decimal_quantity
 from oasis_agent.arbitrage.cycle_evidence import read_bounded
 from oasis_agent.arbitrage.cycle_plan import address, hash32, utc
+from oasis_agent.arbitrage.metric_builder import compressed_time
+from oasis_agent.arbitrage.titan_state import attribution
 from oasis_agent.evidence.rpc_validation import strict_integer, strict_json_object
 from oasis_agent.evidence.state_trie import account_proof, prague_header
 from oasis_agent.models.common import canonical_json, sha256_hex
@@ -53,10 +54,6 @@ def original(root, source, count, interval, plan_raw, *, stream=False):
     with RpcBudget(ledger, (BudgetPolicy(source, count, interval),), read_only=True) as budget:
         if budget.counts() != {source: 1 if stream else count}:
             raise ValueError("campaign reservation mismatch")
-
-
-def compressed_time(word):
-    return (int(hash32(word), 16) >> 8) & ((1 << 56) - 1)
 
 
 def diff(venue, oracle):
@@ -323,31 +320,6 @@ def get_replay(root, source, urls):
             raise ValueError("relay response provenance mismatch")
         last = finish
         yield body
-
-
-def attribution(data, slot, row, keys):
-    rows = titan_state.bounded_list(data, 64, "relay rows")
-    known = set()
-    for bid in rows:
-        if decimal_quantity(bid["slot"], 64) != slot:
-            raise ValueError("relay changed slot")
-        if hash32(bid["block_hash"]) != row["hash"]:
-            continue
-        if (
-            hash32(bid["parent_hash"]) != row["parent_hash"]
-            or decimal_quantity(bid["block_number"], 64) != row["block"]
-        ):
-            raise ValueError("relay changed canonical header context")
-        key = bid["builder_pubkey"]
-        if not isinstance(key, str) or re.fullmatch(r"0x[0-9a-f]{96}", key) is None:
-            raise ValueError("invalid relay builder pubkey")
-        known.add(key)
-    if len(known) > 1:
-        raise ValueError("conflicting relay builder identities")
-    if not known:
-        return "no_matching_delivery", None
-    (key,) = known
-    return ("titan_confirmed" if key in keys else "unlisted_builder_key"), key
 
 
 def run(research, relay):

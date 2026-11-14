@@ -176,13 +176,12 @@ def reserves(reads: Reads, pool: Pool) -> Reserves:
     return Reserves(reserve0, reserve1, last_update, refs)
 
 
-def quote(
-    reads: Reads,
+def quote_request(
     pool: Pool,
     token_in: str,
     amount: int,
     state: Reserves | None,
-) -> tuple[int, tuple[str, ...]]:
+) -> tuple[str, str]:
     if token_in not in (pool.token0, pool.token1) or not 0 < amount < 1 << 255:
         raise Unavailable("invalid_quote_input")
     if pool.protocol == "solidly_volatile":
@@ -211,19 +210,39 @@ def quote(
         data = encode_single_pool_quote(
             v4_key(pool), SinglePoolQuoteRequest(QuoteKind.EXACT_INPUT, direction, amount)
         )
-    raw, refs = call(reads, target, data)
+    return target, data
+
+
+def quote_result(
+    pool: Pool, token_in: str, raw: bytes, state: Reserves | None
+) -> tuple[int, int | None]:
     if pool.protocol == "v4":
-        output = decode_single_pool_quote("0x" + raw.hex()).quoted_amount
+        result = decode_single_pool_quote("0x" + raw.hex())
+        output, gas = result.quoted_amount, result.gas_estimate
         ceiling = INT128
     elif pool.protocol == "v3":
-        output, sqrt_price, _, _ = abi(("uint256", "uint160", "uint32", "uint256"), raw)
+        output, sqrt_price, _, gas = abi(("uint256", "uint160", "uint32", "uint256"), raw)
         if not MIN_SQRT_PRICE + 1 < sqrt_price < MAX_SQRT_PRICE - 1:
             raise Unavailable("v3_partial_fill_possible")
         ceiling = 1 << 255
     else:
         assert state is not None
         output = abi(("uint256",), raw)[0]
+        gas = None
         ceiling = state.reserve1 if token_in == pool.token0 else state.reserve0
     if not 0 < output < ceiling:
         raise Unavailable("quote_output_outside_bounds")
+    return output, gas
+
+
+def quote(
+    reads: Reads,
+    pool: Pool,
+    token_in: str,
+    amount: int,
+    state: Reserves | None,
+) -> tuple[int, tuple[str, ...]]:
+    target, data = quote_request(pool, token_in, amount, state)
+    raw, refs = call(reads, target, data)
+    output, _ = quote_result(pool, token_in, raw, state)
     return output, refs

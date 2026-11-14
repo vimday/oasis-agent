@@ -2,10 +2,11 @@
 
 import pytest
 
+from oasis_agent.arbitrage.metric_builder import compressed_time
+from oasis_agent.arbitrage.titan_state import attribution
 from oasis_agent.evidence.public_receipts import ObservedReceipt
+from oasis_agent.evidence.research_traces import trace_correction
 from oasis_agent.models.common import BlockRef, canonical_json
-from scripts.research_aave_closure import trace_correction
-from scripts.research_metric_stream import attribution, compressed_time
 
 ACCOUNT = "0x" + "aa" * 20
 SENDER = "0x" + "bb" * 20

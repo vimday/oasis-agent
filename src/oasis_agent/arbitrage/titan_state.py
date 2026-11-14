@@ -7,7 +7,8 @@ from pydantic import Field, model_validator
 
 from ..evidence.rpc_validation import strict_integer, strict_list, strict_object, strict_string
 from ..models.common import ZERO_ADDRESS, canonical_json, sha256_hex
-from .cycle_plan import Address, Frozen
+from .aave_wallet import decimal_quantity
+from .cycle_plan import Address, Frozen, hash32
 
 BEACON_GENESIS = 1606824023
 
@@ -268,3 +269,31 @@ def compare(previous: dict[str, Any], current: dict[str, Any]) -> list[dict[str,
             )
         changes.append({"quote_address": quote, "status": status})
     return changes
+
+
+def attribution(
+    data: object, slot: int, header: dict[str, Any], keys: set[str]
+) -> tuple[str, str | None]:
+    """Match a delivered payload to a pinned header and the published builder keys."""
+    known = set()
+    for value in bounded_list(data, 64, "relay rows"):
+        bid = strict_object(value, "relay bid")
+        if decimal_quantity(bid.get("slot"), 64) != slot:
+            raise ValueError("relay changed slot")
+        if hash32(bid.get("block_hash")) != header["hash"]:
+            continue
+        if (
+            hash32(bid.get("parent_hash")) != header["parent_hash"]
+            or decimal_quantity(bid.get("block_number"), 64) != header["block"]
+        ):
+            raise ValueError("relay changed canonical header context")
+        key = strict_string(bid.get("builder_pubkey"), "relay builder pubkey")
+        if re.fullmatch(r"0x[0-9a-f]{96}", key) is None:
+            raise ValueError("invalid relay builder pubkey")
+        known.add(key)
+    if len(known) > 1:
+        raise ValueError("conflicting relay builder identities")
+    if not known:
+        return "no_matching_delivery", None
+    (key,) = known
+    return ("titan_confirmed" if key in keys else "unlisted_builder_key"), key

@@ -1,11 +1,18 @@
 """Validate the two call trace formats used in historical Ethereum research."""
 
 from dataclasses import dataclass
+from typing import TypedDict
 
 from ..arbitrage.cycle_plan import address
 from ..arbitrage.cycle_protocols import data_bytes
-from .public_receipts import quantity
-from .rpc_validation import strict_integer, strict_list, strict_object, strict_string
+from .public_receipts import ObservedReceipt, quantity
+from .rpc_validation import (
+    strict_integer,
+    strict_json_object,
+    strict_list,
+    strict_object,
+    strict_string,
+)
 
 MAX_FRAMES = 4096
 MAX_DEPTH = 64
@@ -150,3 +157,47 @@ def first_failure(frames: dict[TracePath, Frame], path: TracePath) -> TracePath 
     return next(
         (path[:depth] for depth in range(len(path) + 1) if frames[path[:depth]].error), None
     )
+
+
+class NativeMovement(TypedDict):
+    path: TracePath
+    first_failed_path: TracePath | None
+    native_delta_raw: int
+
+
+class TraceCorrection(TypedDict):
+    frames: int
+    correction: int
+    movements: list[NativeMovement]
+
+
+def trace_correction(
+    body: bytes, receipt: ObservedReceipt, account: str, indexed: int
+) -> TraceCorrection:
+    frames = flat_calls(strict_json_object(b'{"frames":' + body + b"}")["frames"])
+    root = frames[()]
+    if (root.sender, root.recipient, root.error is None) != (
+        receipt.sender,
+        receipt.recipient,
+        bool(receipt.status),
+    ) or account in (root.sender, root.recipient):
+        raise ValueError("trace root does not match retained receipt")
+    movements: list[NativeMovement] = []
+    for path, frame in sorted(frames.items()):
+        if (
+            not path
+            or frame.kind != "CALL"
+            or not frame.value
+            or account not in (frame.sender, frame.recipient)
+        ):
+            continue
+        native = ((frame.recipient == account) - (frame.sender == account)) * frame.value
+        movements.append(
+            {
+                "path": path,
+                "first_failed_path": first_failure(frames, path),
+                "native_delta_raw": native,
+            }
+        )
+    observed = sum(m["native_delta_raw"] for m in movements if m["first_failed_path"] is None)
+    return {"frames": len(frames), "correction": observed - indexed, "movements": movements}
