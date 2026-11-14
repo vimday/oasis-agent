@@ -15,6 +15,7 @@
 | Metric 事件型套利研究 | 有界公开 metadata/depth 采集、哈希绑定的离线回放、整数深度与双池闭环筛选 | 单提供者估算，不是链上报价或执行准入。本轮真实两池六个候选因空深度全部拒绝；成本和资本保持未知。见[本轮验证](verification/METRIC_RESEARCH_20261114.md)和[下一阶段目标](strategies/METRIC_EVENT_RESEARCH.md)。 |
 | 多链发现与借贷压力研究 | 按 chain ID 隔离的 Metric 目录；合成抵押/借款循环、HF、cap、深度、利息与先偿还再撤款核算 | Ethereum/Robinhood 目录有响应；Base/Elysium 公开 API 报未知 chain ID，各采集保留为失败。没有部署/收益证明；Binance 事件已纠错。见[后续验证](verification/MULTICHAIN_LENDING_20261114.md)。 |
 | Metric / V3 跨 venue 报价 | 固定块、双起点与双顺序的离线报价组合；身份、实际输入、成本、资金和来源校验 | Ethereum 单源观察共 22 次免费读取，首笔 Metric quote 回滚后停止；选择器匹配 `FeedStalled()`，具体原因未证实。0/4 完整报价；无原子模拟或收益证明。见[报价验证](verification/METRIC_V3_QUOTES_20261114.md)。 |
+| 公共链观察及 Metric oracle 诊断 | 四链固定来源、原预算、字节回放与 STOP；immutable provider/runtime/config 和 reference guards 的离线核验 | Ethereum/Base 五合约身份已观察，Robinhood 时间边界缺陷已修正并保留原失败，Elysium 固定哈希调用被拒。原块 15 秒配置已知，feed 仍缺；全为单运营商。见[验证记录](verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
 
 ## Base LP 验收记录
@@ -56,6 +57,7 @@
 
 ## 证据导航
 
+- [持续执行及未完成项](strategies/NEXT_STAGE_EXECUTION.md)与[公共只读采集](strategies/PUBLIC_RPC_OBSERVATION.md)
 - [Base 发布和恢复边界](operations/LIVE_RELEASE.md)
 - [Phase 1 实验锁](strategies/PHASE1_LP_EXPERIMENT_LOCK.md)和[生产准备记录](operations/PREPRODUCTION_COMPLETION.md)
 - [RPC 与证据管线](architecture/LP_MARKET_FEATURE_PIPELINE.md)和[控制台读模型](architecture/CONSOLE_READ_MODEL.md)
