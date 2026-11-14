@@ -8,14 +8,20 @@ from ..arbitrage.cycle_plan import Address, BlockNumber, Frozen, Hash, Label, ut
 from ..models.common import ZERO_ADDRESS, canonical_json
 
 ChainSource = Literal[
-    "publicnode_ethereum", "publicnode_base", "publicnode_robinhood", "publicnode_elysium"
+    "publicnode_ethereum",
+    "publicnode_base",
+    "publicnode_robinhood",
+    "publicnode_elysium",
+    "mevblocker_ethereum",
 ]
-# Official public pages verified 2026-11-14. These are one operator, not independent providers.
+# Official public pages verified 2026-11-14. PublicNode aliases share an operator.
+# Different service names alone do not establish independent underlying state providers.
 CHAIN_SOURCES = {
     "publicnode_ethereum": (1, "https://ethereum-rpc.publicnode.com"),
     "publicnode_base": (8453, "https://base-rpc.publicnode.com"),
     "publicnode_robinhood": (4663, "https://robinhood-rpc.publicnode.com"),
     "publicnode_elysium": (99901, "https://elysium-rpc.publicnode.com"),
+    "mevblocker_ethereum": (1, "https://rpc.mevblocker.io"),
 }
 Source = ChainSource | Literal["titan_ap"]
 SOURCES = {**CHAIN_SOURCES, "titan_ap": (1, "https://ap.data.titanbuilder.xyz/data")}

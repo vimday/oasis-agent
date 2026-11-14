@@ -3,6 +3,9 @@
 本入口将只读网络采集与离线解释分开。四个 PublicNode 别名分别绑定 Ethereum 1、Base
 8453、Robinhood 4663 和 Elysium 99901，属于同一运营商，不构成独立双源。
 另有固定的 Titan AP 公共状态来源，仅允许专用观察计划；它不提供链 ID/块头证明。
+`mevblocker_ethereum` 另绑定 Ethereum 的免费匿名 MEV Blocker base URL，仅开放同一只读
+方法集合；服务标签不代表底层节点已独立验证，失败不触发来源回退。首次父块观察失败
+保留在[探针记录](../verification/METRIC_ATOMIC_PROBE_20261114.md)。
 实际观察、失败及哈希见[验证记录](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)。
 
 ## 冻结采集
@@ -77,6 +80,12 @@ quote feed 为零时是单腿模型。缺任一必需回复保持 unavailable，
 依源码取整为秒；未知槽、代码/完整状态覆盖、其他账户存储修改和缺必需 feed 均拒绝部分
 价格，feed 退序和同时间不同值也拒绝。结果仍是构块者声明，不是签名更新、目标块权限、
 canonical 状态或可执行收益；格式和原始回放见[feed 验证](../verification/METRIC_BUILDER_FEEDS_20261114.md)。
+
+`scripts.research_metric_context` 通过 `--plan`、`--titan-plan`、`--titan-capture` 和最多四个
+`--header-capture` 离线关联固定父子块。计划绑定原 Titan 两个文件 hash 和必需来源，
+拒绝重复/跨链/不符块号、来源分歧、父子关系或时间矛盾；缺源退出 3，输入拒绝退出 2。
+缺第二源时保留明确的单源观察，矛盾时清空共同上下文，所有执行/最终性标志保持 false。
+本地始终回滚的两池探针不在 RPC 采集方法集合内；没有新增任意 override 或提交入口。
 
 [历史收据计划](../verification/AAVE_RECEIPTS_20261114.md)固定块/hash 和最多八笔交易，
 交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、
