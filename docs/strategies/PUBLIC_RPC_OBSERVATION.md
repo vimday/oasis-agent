@@ -72,6 +72,11 @@ quote feed 为零时是单腿模型。缺任一必需回复保持 unavailable，
 
 [Titan 状态研究](../verification/TITAN_STATE_20261114.md)另行解释构块者状态声明。采集器
 只保留该公开接口的原始字节；分析输出状态摘要，不应用收到的 override，也不提交候选交易。
+可成对提供 `--feed-plan` 和 `--feed-catalog`，按已审阅源码布局解释 Metric 的 oracle diff；
+目录原始字节哈希、feed/token/symbol 与年龄边界均固定在计划内。它保留毫秒 reference，
+依源码取整为秒；未知槽、代码/完整状态覆盖、其他账户存储修改和缺必需 feed 均拒绝部分
+价格，feed 退序和同时间不同值也拒绝。结果仍是构块者声明，不是签名更新、目标块权限、
+canonical 状态或可执行收益；格式和原始回放见[feed 验证](../verification/METRIC_BUILDER_FEEDS_20261114.md)。
 
 [历史收据计划](../verification/AAVE_RECEIPTS_20261114.md)固定块/hash 和最多八笔交易，
 交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、

@@ -17,6 +17,7 @@
 | Metric / V3 跨 venue 报价 | 固定块、双起点与双顺序的离线报价组合；身份、实际输入、成本、资金和来源校验 | Ethereum 单源观察共 22 次免费读取，首笔 Metric quote 回滚后停止；选择器匹配 `FeedStalled()`，具体原因未证实。0/4 完整报价；无原子模拟或收益证明。见[报价验证](verification/METRIC_V3_QUOTES_20261114.md)。 |
 | 公共链观察及 Metric oracle 诊断 | 四链固定来源、原预算、字节回放与 STOP；immutable provider/runtime/config 和 reference guards 的离线核验 | Ethereum/Base 五合约身份已观察，Robinhood 时间边界缺陷已修正并保留原失败，Elysium 固定哈希调用被拒。原块 15 秒配置已知，feed 仍缺；全为单运营商。见[验证记录](verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)。 |
 | Titan 条件状态观察 | 复用有界公共采集，严格整数时间/序列、状态摘要与相邻快照比较 | 三次真实匿名读取覆盖目标 Metric oracle 和 ETH/USDC 池；属于构块者声明，未应用 override、未验证 canonical base 或可执行收益。见[首次观察](verification/TITAN_STATE_20261114.md)。 |
+| Metric 构块 feed 解释 | 源码布局固定、目录字节绑定、17 槽解码、毫秒/秒转换与 feed 冲突检查；接入原离线命令 | 原三份快照的 ETH/USDC 声明在目标时刻均为 4 秒旧；仅声明诊断。源码执行代码排除 immutable/CBOR 后匹配，metadata 不同；未验证目标配置或两腿执行。见[feed 验证](verification/METRIC_BUILDER_FEEDS_20261114.md)。 |
 | Aave 历史事件与收据 | 固定历史块/hash/交易位置、收据日志校验；V3 借贷、代偿、aToken 偿还和清算的整数角色解释 | 用户线索交易在单源块头索引 162，receipt 返回 null 后累计 5/24 停止；没有完整借贷账本或收益证明。见[收据验证](verification/AAVE_RECEIPTS_20261114.md)。 |
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；接入正常 cycle shadow 回放 | Base registry/getter 一致性观察成功，锚点块时间比本机收包时钟晚 30 ms 而拒绝，累计 14/32 停止；真实事件窗口仍缺；持久 outbox 的后续合成验收见下行。见[本次验证](verification/EVENT_COVERAGE_20261114.md)。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | 33 项新增合成回归及离线演练通过；无新 RPC、真实窗口或执行授权。见[队列验证](verification/CYCLE_OUTBOX_20261114.md)。 |

@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 已支持 code/storage/call、收据及日志范围；[真实事件尝试](../verification/EVENT_COVERAGE_20261114.md)在锚点时间检查停止；独立源、真实前瞻窗口继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
-| Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；[Titan 三次公开状态](../verification/TITAN_STATE_20261114.md)覆盖目标池并观察到更新 | 原块 price 数据、source shaping、构块者状态与 canonical base 的关系及整笔模拟；不得用新时点声明解释原 FeedStalled |
+| Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；Titan 三次公开状态已[按源码布局解释 17 个 feed 槽](../verification/METRIC_BUILDER_FEEDS_20261114.md)，官方目录确认 ETH/USD 与 USDC/USD 编号 | 原块 price 数据、目标块配置、source shaping、canonical parent hash 与整笔模拟仍缺；4 秒旧是声明诊断，不得解释原 FeedStalled 或当成成交证明 |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放 | 固定完整 caller/recipient/extension、付款与余额；整笔两腿模拟及状态变化，双源核验 |
 | 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次及[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)已接入正常入口；现货冻结窗口接口 | 真实事件窗口、maker/oracle 触发；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | [收据位置与 V3 事件角色解释](../verification/AAVE_RECEIPTS_20261114.md)已实现；单源块头列出目标交易，receipt 为 null 后停止；循环及退出模型仍为合成 | 独立历史收据、代理身份、全部借还款与转移、债务指数、余额、外部资金和冻结时点；完整账本与残差 |
@@ -42,5 +42,7 @@ Base 三块观察实验在锚点阶段因块时间比本机响应时钟晚 30 ms
 持久候选 outbox 已完成正常入口与合成验收：冻结配置/窗口、原子覆盖与候选、租约重投、
 进程退出恢复、旧 worker 拒绝和重组失效均已验证。下一研究步骤回到 Metric 的已保留
 构块者状态与 canonical base 的关系，以及精确两 venue 模拟；不重试已停止的原采集。
+源码布局与目录解释已完成，下一项固定为目标 26410517 的 parent 26410516 hash、目标
+代码/配置与受约束的全交易模拟证据；逐账户余额/nonce 含义和真实调用者检查仍未知。
 maker/oracle 触发、真实窗口与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
 不能以队列工程或合成正报价替代完整债务账本、真实可执行利润与收益验收。
