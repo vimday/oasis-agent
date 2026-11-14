@@ -87,6 +87,12 @@ canonical 状态或可执行收益；格式和原始回放见[feed 验证](../ve
 缺第二源时保留明确的单源观察，矛盾时清空共同上下文，所有执行/最终性标志保持 false。
 本地始终回滚的两池探针不在 RPC 采集方法集合内；没有新增任意 override 或提交入口。
 
+`scripts.research_metric_probe prepare|replay` 是另一条纯离线入口，生成固定四项调用包，
+对 hash 固定且带 AST 的构建 artifact 重建完整 immutable runtime，并解码保留的原始
+请求/响应字节。它不发送该调用包，也不修改本采集器的方法集合。成功只标记返回字节
+绑定，拒绝或不完整退出 3，输入冲突退出 2。合成 EVM 与 Python 的四方向交叉验证及
+尚缺的历史状态证据见[编解码记录](../verification/METRIC_PROBE_CODEC_20261114.md)。
+
 [历史收据计划](../verification/AAVE_RECEIPTS_20261114.md)固定块/hash 和最多八笔交易，
 交叉核对块内交易位置及日志；null 或错位立即停止。Aave 事件解释单列账户、代操作者、
 收款人和融资流量，不能代替完整债务或现金流账本。

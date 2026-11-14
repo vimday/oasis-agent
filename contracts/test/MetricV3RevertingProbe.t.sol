@@ -238,6 +238,53 @@ contract MetricV3RevertingProbeTest is Test {
         assertEq(b.balanceOf(address(v3)), STOCK);
     }
 
+    /// @dev Emit actual local EVM bytes for differential Python ABI/build verification, no file I/O.
+    function testExportProbeCodecVectors() public {
+        for (uint256 i; i < 4; ++i) {
+            bool metricFirst = i < 2;
+            bool startA = i % 2 == 0;
+            MetricV3RevertingProbe.Request memory r = _request(metricFirst, startA, 10_000);
+            bytes memory result = _invoke(r);
+            assertEq(bytes4(result), MetricV3RevertingProbe.ProbeResult.selector);
+            _unchanged();
+            string memory key = "probe-vector";
+            vm.serializeUint(key, "chain_id", block.chainid);
+            vm.serializeUint(key, "block_number", block.number);
+            vm.serializeUint(key, "block_timestamp", block.timestamp);
+            vm.serializeAddress(key, "probe", address(probe));
+            vm.serializeAddress(key, "observer", address(this));
+            vm.serializeAddress(key, "metric", address(metric));
+            vm.serializeAddress(key, "v3", address(v3));
+            vm.serializeAddress(key, "asset_a", address(a));
+            vm.serializeAddress(key, "asset_b", address(b));
+            vm.serializeUint(key, "decimals_a", a.decimals());
+            vm.serializeUint(key, "decimals_b", b.decimals());
+            vm.serializeBytes32(key, "metric_runtime_hash", address(metric).codehash);
+            vm.serializeBytes32(key, "v3_runtime_hash", address(v3).codehash);
+            vm.serializeBytes32(key, "asset_a_runtime_hash", address(a).codehash);
+            vm.serializeBytes32(key, "asset_b_runtime_hash", address(b).codehash);
+            vm.serializeBool(key, "metric_first", metricFirst);
+            vm.serializeBool(key, "start_with_a", startA);
+            vm.serializeBytes(key, "runtime", address(probe).code);
+            vm.serializeBytes(key, "calldata", abi.encodeCall(probe.probe, (r)));
+            vm.serializeBytes32(
+                key,
+                "request_hash",
+                keccak256(
+                    abi.encode(
+                        address(probe),
+                        address(this),
+                        block.chainid,
+                        block.number,
+                        block.timestamp,
+                        r
+                    )
+                )
+            );
+            emit log_named_string("PROBE_VECTOR", vm.serializeBytes(key, "revert_data", result));
+        }
+    }
+
     function _success(bool metricFirst, bool startA, uint128 amount) private {
         MetricV3RevertingProbe.Request memory r = _request(metricFirst, startA, amount);
         bytes memory raw = _invoke(r);
