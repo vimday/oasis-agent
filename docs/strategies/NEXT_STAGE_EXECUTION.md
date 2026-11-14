@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | 通用只读链证据采集 | [正式入口](PUBLIC_RPC_OBSERVATION.md)已实现冻结请求、原预算预占、原始字节、首尾块头、失败停止、崩溃/并发拒绝、离线重放；四链有实际尝试 | 当前支持 code/storage/call 及观察头；日志范围、独立源、前瞻持久游标继续补齐 |
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
-| Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止，离线诊断保持 feed 未知 | 正确 price 路径的原块数据、source shaping、Titan 条件更新状态及整笔模拟；不得以缺失数据解释原 FeedStalled |
+| Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；[Titan 三次公开状态](../verification/TITAN_STATE_20261114.md)覆盖目标池并观察到更新 | 原块 price 数据、source shaping、构块者状态与 canonical base 的关系及整笔模拟；不得用新时点声明解释原 FeedStalled |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放 | 固定完整 caller/recipient/extension、付款与余额；整笔两腿模拟及状态变化，双源核验 |
 | 主动事件触发与 shadow | Elysium 合成事件与定向报价；现货冻结窗口接口 | 链级持久游标、去重/断线/重组缺口、maker/oracle/LP/swap 触发；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | 事件与用户地址线索，循环及退出压力模型 | Supply/Borrow/Repay/Withdraw、债务指数、余额、外部资金、冻结时点；完整账本与残差 |

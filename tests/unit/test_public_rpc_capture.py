@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 
-from oasis_agent.evidence.public_rpc_plan import SOURCES, PublicReadPlan
+from oasis_agent.evidence.public_rpc_plan import CHAIN_SOURCES, SOURCES, PublicReadPlan
 from oasis_agent.models.common import canonical_json
 from oasis_agent.rpc.budget import RpcBudget
 from scripts import capture_public_rpc as cli
@@ -88,7 +88,7 @@ def mock(monkeypatch, root, plan, mutation=None):
     return calls
 
 
-@pytest.mark.parametrize("source", list(SOURCES))
+@pytest.mark.parametrize("source", list(CHAIN_SOURCES))
 def test_success_is_pinned_replayable_and_cumulative(tmp_path, monkeypatch, source):
     root, path, plan = setup(tmp_path, source)
     calls = mock(monkeypatch, root, plan)

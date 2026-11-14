@@ -16,11 +16,13 @@ from typing import Any
 import httpx
 
 from oasis_agent.arbitrage.cycle_evidence import header, read_bounded
+from oasis_agent.arbitrage.titan_state import decode_snapshot
 from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicHeadPlan,
     PublicReadPlan,
     PublicScope,
+    PublicTitanPlan,
 )
 from oasis_agent.evidence.rpc_validation import (
     rpc_quantity,
@@ -61,9 +63,13 @@ def load(path: Path, model):
 def load_plan(path: Path):
     raw = read_bounded(path, 128 * 1024)
     obj = strict_json_object(raw)
-    model = (
-        PublicHeadPlan if obj.get("schema") == "oasis-public-rpc-head-plan-v1" else PublicReadPlan
-    )
+    model = {
+        "oasis-public-rpc-head-plan-v1": PublicHeadPlan,
+        "oasis-public-rpc-read-plan-v1": PublicReadPlan,
+        "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
+    }.get(obj.get("schema"))
+    if model is None:
+        raise ValueError("unsupported_capture_schema")
     return model.model_validate_json(raw), raw
 
 
@@ -112,8 +118,14 @@ def locked(root: Path):
 
 
 def validate_context(
-    plan: PublicReadPlan | PublicHeadPlan, index: int, result: object, first: object
+    plan: PublicReadPlan | PublicHeadPlan | PublicTitanPlan,
+    index: int,
+    result: object,
+    first: object,
 ) -> object:
+    if isinstance(plan, PublicTitanPlan):
+        decode_snapshot(result)
+        return None
     if index == 0:
         if rpc_quantity(result) != plan.chain_id:
             raise ValueError("chain_id_mismatch")
@@ -432,7 +444,11 @@ def replay(directory: Path) -> dict[str, Any]:
     return {
         "schema": "oasis-public-rpc-replay-v1",
         "status": m["status"],
-        "plan_kind": "head_observation" if isinstance(plan, PublicHeadPlan) else "pinned_reads",
+        "plan_kind": "builder_state_declaration"
+        if isinstance(plan, PublicTitanPlan)
+        else "head_observation"
+        if isinstance(plan, PublicHeadPlan)
+        else "pinned_reads",
         "block": asdict(first) if first is not None else None,
         "finality_independently_verified": False,
         "plan_sha256": sha256_hex(plan_raw),

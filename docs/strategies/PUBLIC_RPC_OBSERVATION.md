@@ -2,6 +2,7 @@
 
 本入口将只读网络采集与离线解释分开。四个 PublicNode 别名分别绑定 Ethereum 1、Base
 8453、Robinhood 4663 和 Elysium 99901，属于同一运营商，不构成独立双源。
+另有固定的 Titan AP 公共状态来源，仅允许专用观察计划；它不提供链 ID/块头证明。
 实际观察、失败及哈希见[验证记录](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)。
 
 ## 冻结采集
@@ -67,3 +68,6 @@ quote feed 为零时是单腿模型。缺任一必需回复保持 unavailable，
 
 零 origin 的 eth_call 只是模拟读取路径。reference guards 通过也不证明 source shaping、
 经济报价对、真实调用者权限、流动性、两腿原子成功或盈利。诊断所有执行准入标志均为 false。
+
+[Titan 状态研究](../verification/TITAN_STATE_20261114.md)另行解释构块者状态声明。采集器
+只保留该公开接口的原始字节；分析输出状态摘要，不应用收到的 override，也不提交候选交易。

@@ -7,29 +7,31 @@ from pydantic import Field, StringConstraints, model_validator
 from ..arbitrage.cycle_plan import Address, BlockNumber, Frozen, Hash, Label, utc
 from ..models.common import ZERO_ADDRESS, canonical_json
 
-Source = Literal[
+ChainSource = Literal[
     "publicnode_ethereum", "publicnode_base", "publicnode_robinhood", "publicnode_elysium"
 ]
 # Official public pages verified 2026-11-14. These are one operator, not independent providers.
-SOURCES = {
+CHAIN_SOURCES = {
     "publicnode_ethereum": (1, "https://ethereum-rpc.publicnode.com"),
     "publicnode_base": (8453, "https://base-rpc.publicnode.com"),
     "publicnode_robinhood": (4663, "https://robinhood-rpc.publicnode.com"),
     "publicnode_elysium": (99901, "https://elysium-rpc.publicnode.com"),
 }
+Source = ChainSource | Literal["titan_ap"]
+SOURCES = {**CHAIN_SOURCES, "titan_ap": (1, "https://ap.data.titanbuilder.xyz/data")}
 HexData = Annotated[str, StringConstraints(pattern=r"^0x(?:[0-9a-f]{2}){4,8192}$")]
 
 
 class SourceLimit(Frozen):
     source: Source
-    max_requests: Annotated[int, Field(ge=3, le=256)]
+    max_requests: Annotated[int, Field(ge=1, le=256)]
 
 
 class PublicScope(Frozen):
     schema_version: Literal["oasis-public-rpc-scope-v1"] = Field(alias="schema")
     purpose: Label
     expires_utc: str
-    sources: Annotated[tuple[SourceLimit, ...], Field(min_length=1, max_length=4)]
+    sources: Annotated[tuple[SourceLimit, ...], Field(min_length=1, max_length=5)]
     max_capture_seconds: Annotated[int, Field(ge=1, le=120)]
 
     @model_validator(mode="after")
@@ -64,7 +66,7 @@ class PublicHeadPlan(Frozen):
     """An observation to choose a later pinned plan, never a settled-state claim."""
 
     schema_version: Literal["oasis-public-rpc-head-plan-v1"] = Field(alias="schema")
-    source: Source
+    source: ChainSource
     chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
     block_tag: Literal["latest", "safe", "finalized"]
 
@@ -80,7 +82,7 @@ class PublicHeadPlan(Frozen):
 
 class PublicReadPlan(Frozen):
     schema_version: Literal["oasis-public-rpc-read-plan-v1"] = Field(alias="schema")
-    source: Source
+    source: ChainSource
     chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
     block_number: BlockNumber
     block_hash: Hash
@@ -113,3 +115,15 @@ class PublicReadPlan(Frozen):
                 params = [read.target, pin]
             result.append((read.method, params))
         return (*result, header)
+
+
+class PublicTitanPlan(Frozen):
+    """Builder declarations only. No chain proof, state application or submission."""
+
+    schema_version: Literal["oasis-titan-state-capture-plan-v1"] = Field(alias="schema")
+    source: Literal["titan_ap"]
+    chain_id: Literal[1]
+    samples: Annotated[int, Field(ge=1, le=3)]
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        return tuple(("titan_getPammVenues", []) for _ in range(self.samples))
