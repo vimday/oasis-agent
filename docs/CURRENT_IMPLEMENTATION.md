@@ -22,12 +22,12 @@
 | Metric 探针调用与回滚解析 | 固定计划、完整 immutable runtime 重建、四项调用包、原始字节与 request hash/数量校验 | 四种路线与 Solidity 实际字节一致；67 项新增 Python 拒绝回归，RPC 包装和池仍为合成。无网络入口或真实历史状态证明。见[编解码验证](verification/METRIC_PROBE_CODEC_20261114.md)。 |
 | Metric 自有本地节点执行 | 合成 genesis 全账户比对、空 probe 的单次受限 override、实际 IPC、前后 state dump 与子进程退出核对 | 四方向真实本地执行及负例通过，历史输入仍拒绝；另在原部署档案范围补得目标块五 runtime，原账本 18/32。见[本地状态验证](verification/METRIC_LOCAL_STATE_20261114.md)。 |
 | Metric 历史状态证明 | Prague 块头哈希、账户/槽 MPT 路径与 runtime 核验，接入只读采集和离线回放 | 两个原块锚重算一致，Anvil 合成证明通过。早期两次公开尝试分别因 429 和证明窗口 STOP。新固定父块的空账户证明见下文。见[状态证明验证](verification/METRIC_STATE_PROOFS_20261114.md)。 |
-| Metric 两腿有无 Titan 对照 | 固定真实父状态和目标块参数、探针地址的空账户证明、仅两槽 oracle 覆盖 | [真实模拟对照](verification/METRIC_TITAN_PAIRED_20261114.md) 0/8 完成；回读确认两 feed 从 42/48 秒变为 4 秒，池级两组仍报 `FeedStalled()`。内层原因待追踪。 |
+| Metric 两腿有无 Titan 对照 | 固定真实父状态和目标块参数、探针地址的空账户证明、仅两槽 oracle 覆盖 | [真实模拟对照](verification/METRIC_TITAN_PAIRED_20261114.md) 0/8 完成；回读确认两 feed 从 42/48 秒变为 4 秒，池级两组仍报 `FeedStalled()`。[调用树验证](verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)显示覆盖后卡在要求与区块同秒的压缩报价源。加第三槽后四种路径均到第二腿，返回均低于本金。 |
 | Aave 历史事件与收据 | 历史索引候选、固定块/hash/交易位置、V3 角色解释、底层转账匹配及块末账户读数 | 62 笔实际收据，60 笔 Pool 事件都匹配底层转账；18 笔借款 11,701 WETH，12 笔还款；起止块末债务均为零。完整资金及收益继续对账。见[历史借还款](verification/AAVE_HISTORICAL_FLOWS_20261114.md)。 |
 | Aave 缩放及钱包账本 | 固定指数逐步复核、余额/索引残差与收据转移匹配 | 62 步缩放轨迹期末残差为零，ETH 差额定位到四段。原钱包报告缺 131 笔候选的完整收据，最新缺口见下文。见[钱包对账](verification/AAVE_WALLET_LEDGER_20261114.md)。 |
 | Aave Core 冻结与实际 oracle | 带交易位置的冻结收据、父块价格及轮次、两笔买回与解包收据 | USDC/WETH 在 26301183 同时冻结，买回与解包的 WETH 和原生余额差核对通过。净收益仍未知。见[冻结与价格验证](verification/AAVE_FREEZE_ORACLE_20261114.md)。 |
 | Aave 借卖再抵押 | 固定交易 value、封闭的余额区段、费用与借贷收据 | 一次 500 ETH 卖出及同额 USDC 再抵押已复核，估值价差 19.11%，包含失败 gas。见[卖出回放](verification/AAVE_SALE_CYCLE_20261114.md)。 |
-| Aave 五笔余额约束 | 五笔成功收据和十个固定块末余额、同源索引计数复核 | [五笔优先核验](verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)覆盖 422.0038 ETH 差额，逐块支持每组只计一次，具体内部调用仍待验证。原全窗残差 509.2034 ETH，当前收据缺 126 笔。 |
+| Aave 五笔余额约束 | 五笔成功收据和十个固定块末余额、同源索引计数复核 | [五笔优先核验](verification/AAVE_FIVE_PRIORITY_TRACES_20261114.md)覆盖 422.0038 ETH 差额，逐块支持每组只计一次，[独立调用树](verification/ETHEREUM_AAVE_METRIC_TRACES_20261114.md)确认六组各有一条随祖先回滚，五块余额对平。全窗校正后剩 87.1996 ETH 差额，收据缺 126 笔。 |
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；按所报高度及固定偏移选择未来块 | [Base 12 块](verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)三个过滤器观察到 1 Swap、0 Mint、0 Burn；Elysium 8 块六个过滤器为空，原 Base 14/32 停止记录保留。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。前瞻实时唤醒及等预算报价仍待验证。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
