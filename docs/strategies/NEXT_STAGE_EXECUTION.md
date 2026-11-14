@@ -10,7 +10,7 @@
 | 多链部署与数据源档案 | [Ethereum/Base 五个 Metric runtime 已观察](../verification/PUBLIC_RPC_AND_METRIC_IDENTITY_20261114.md)；Robinhood/Elysium 保留失败 | 每链分别确认 proxy/config、数据源能力和独立性；未知 API 不推断不存在部署 |
 | Metric provider / feed | 原块 immutable provider、pyth-lazer oracle、15 秒配置已观察；raw getter ReadDisabled 后停止；[Titan 三次公开状态](../verification/TITAN_STATE_20261114.md)覆盖目标池并观察到更新 | 原块 price 数据、source shaping、构块者状态与 canonical base 的关系及整笔模拟；不得用新时点声明解释原 FeedStalled |
 | 同链精确模拟 | 双 venue 单跳组合、Elysium 块末调用回放 | 固定完整 caller/recipient/extension、付款与余额；整笔两腿模拟及状态变化，双源核验 |
-| 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次已接入正常入口；现货冻结窗口接口 | 真实事件窗口、持久 outbox/恢复投递与候选失效、maker/oracle 触发；冻结窗口与等预算轮询对照 |
+| 主动事件触发与 shadow | Elysium 合成事件与定向报价；逐过滤器覆盖、空块/缺口与重组失效、原子批次及[持久离线报价队列](../verification/CYCLE_OUTBOX_20261114.md)已接入正常入口；现货冻结窗口接口 | 真实事件窗口、maker/oracle 触发；冻结窗口与等预算轮询对照 |
 | Aave 历史借还款 | [收据位置与 V3 事件角色解释](../verification/AAVE_RECEIPTS_20261114.md)已实现；单源块头列出目标交易，receipt 为 null 后停止；循环及退出模型仍为合成 | 独立历史收据、代理身份、全部借还款与转移、债务指数、余额、外部资金和冻结时点；完整账本与残差 |
 | Elysium 精确 prestate | 两笔收据与三个块头；块末无签名调用 | 交易前状态与区块内前序调用，完整重放、失败样本及成本，不能以块末成功替代 |
 | 独立经济评估 | 合成成本/资金/压力逻辑；未证明持续净收益 | untouched 窗口、独立价格、净 NAV、基准、容量、尾损、失败与未覆盖样本 |
@@ -39,7 +39,8 @@ oracle 年龄/guard 无法解释回滚。不能放宽价格鲜度以得到正报
 Base 三块观察实验在锚点阶段因块时间比本机响应时钟晚 30 ms 而停止，未发出日志查询；
 原 14/32 账本和失败不重试。后续真实采集先解决独立时钟与数据源证据，不能修改旧结果。
 
-下一个可离线推进的交付是持久候选 outbox：冻结配置与窗口，游标推进和候选写入同一事务；
-明确进程退出后的重复投递语义，在缺口、冲突及重组后使旧候选失效。接入当前正常回放入口，
-再扩展 maker/oracle 触发与同预算轮询实验。其余 Metric、Aave、Elysium 和经济评估条目继续保留，
-不能以本次覆盖工程替代真实报价、完整债务账本或收益验收。
+持久候选 outbox 已完成正常入口与合成验收：冻结配置/窗口、原子覆盖与候选、租约重投、
+进程退出恢复、旧 worker 拒绝和重组失效均已验证。下一研究步骤回到 Metric 的已保留
+构块者状态与 canonical base 的关系，以及精确两 venue 模拟；不重试已停止的原采集。
+maker/oracle 触发、真实窗口与同预算轮询仍待补齐。Aave、Elysium 和经济评估条目继续保留，
+不能以队列工程或合成正报价替代完整债务账本、真实可执行利润与收益验收。

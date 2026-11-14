@@ -7,6 +7,7 @@ from pathlib import Path
 
 from oasis_agent.arbitrage.cycle_evidence import load_exports, read_bounded
 from oasis_agent.arbitrage.cycle_plan import Plan
+from oasis_agent.arbitrage.cycle_queue import CycleShadowQueue
 from oasis_agent.arbitrage.cycle_shadow import ShadowWindow, replay_shadow
 from oasis_agent.evidence.chain_store import CanonicalChainStore
 from oasis_agent.evidence.ingestion import replay_block_range_evidence
@@ -27,8 +28,14 @@ def main() -> int:
     )
     parser.add_argument("--export", type=_source, action="append", default=[])
     parser.add_argument("--chain-store", type=Path, help="persist verified per-filter coverage")
+    parser.add_argument("--queue-session", help="freeze a named offline replay outbox session")
     args = parser.parse_args()
+    if args.queue_session and args.chain_store is None:
+        parser.error("--queue-session requires --chain-store")
+    queue = None
     try:
+        if args.queue_session:
+            queue = CycleShadowQueue(args.chain_store)
         cycle_raw = read_bounded(args.cycle_plan, 128 * 1024)
         window_raw = read_bounded(args.window, 16 * 1024)
         strict_json_object(cycle_raw)
@@ -52,8 +59,12 @@ def main() -> int:
                     raise ValueError("duplicate filter capture")
                 refs[name] = import_range(path, store).evidence
             quotes = load_exports(args.export, plan.sources) if args.export else None
-            report = replay_shadow(plan, window, store, refs, quote_records=quotes)
-            if args.chain_store is not None:
+            report = (
+                queue.publish(args.queue_session, plan, window, store, refs, quote_records=quotes)
+                if queue is not None
+                else replay_shadow(plan, window, store, refs, quote_records=quotes)
+            )
+            if args.chain_store is not None and queue is None:
                 chain_store = CanonicalChainStore(args.chain_store)
                 try:
                     # Validate the complete input before mutating; all filters commit together.
@@ -78,9 +89,26 @@ def main() -> int:
                     chain_store.close()
         finally:
             store.close()
-        _publish(args.output, report)
     except (ValueError, TypeError, OSError, sqlite3.Error) as exc:
+        if queue is not None:
+            try:
+                queue.fault(args.queue_session)
+            except (ValueError, OSError, sqlite3.Error):
+                print(
+                    "Queue fault could not be recorded; inspect its original database",
+                    file=sys.stderr,
+                )
         print(f"Shadow replay refused ({type(exc).__name__})", file=sys.stderr)
+        return 2
+    finally:
+        if queue is not None:
+            queue.close()
+    try:
+        _publish(args.output, report)
+    except (ValueError, TypeError, OSError) as exc:
+        print(
+            f"Shadow output refused ({type(exc).__name__}); inspect retained queue", file=sys.stderr
+        )
         return 2
     print(report["status"])
     return 0

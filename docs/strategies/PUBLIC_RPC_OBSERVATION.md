@@ -99,3 +99,30 @@ N 块需要 N+3 请求。空日志数组可以形成覆盖，null、移除日志
 同名输入不能混用。导入与回放不请求网络。链存储按 chain/stream/filter 记录空块、缺口、
 连续前沿及原始证据引用；重组撤销受影响的覆盖，保留历史来源。旧数据库不能从全局 tip
 补造覆盖。该覆盖不是独立最终性证明，也不是后台任务的投递游标。
+
+## 持久离线报价队列
+
+为既有 shadow 命令加上 `--queue-session NAME --chain-store "$chain_db"`，可将冻结窗口、
+覆盖记录、报告和候选任务放进同一事务。session 名称绑定完整配置、窗口和相关策略/证据源码指纹，不能在原名称上
+换配置或清除失效状态。任务只允许已保留输入的历史报价复核；没有实时 RPC 或交易权限。
+
+```sh
+.venv/bin/python -m scripts.replay_cycle_shadow \
+  --cycle-plan "$cycle_plan" --window "$window" --store "$evidence_db" --refs "$refs" \
+  --chain-store "$chain_db" --queue-session "$session" --output "$producer_report"
+.venv/bin/python -m scripts.process_cycle_shadow_queue run-one \
+  --chain-store "$chain_db" --store "$evidence_db" --session "$session" \
+  --worker offline-worker --export "synthetic=$quote_export" --output "$worker_report"
+.venv/bin/python -m scripts.process_cycle_shadow_queue show \
+  --chain-store "$chain_db" --store "$evidence_db" --session "$session" --output "$queue_view"
+```
+
+`synthetic` 是示例别名，实际使用冻结计划中的来源；报价输入须通过原有来源、区块、身份和
+cutoff 检查。`run-one` 必须提供报价导出文件，只计算一个任务。租约默认 30 秒，
+`--lease-ms` 上限 60 秒，至多八次领取；崩溃后过期重投同一任务 ID，旧 attempt 不能提交。
+完成表示离线结果已持久化，结果可为 unavailable；不代表交易或盈利。
+
+`show` 退出 3 表示窗口已失效，正常观察为 0；输入、租约或完整性拒绝为 2。
+重组会同步撤下已完成结果的当前展示，保留历史字节。输出文件写入失败不会撤销已提交的
+队列状态，重启应检查原数据库。租约的本机处理时钟与冻结行情 cutoff 分开，旧窗口始终是
+历史复核。细节与合成验收见[队列验证记录](../verification/CYCLE_OUTBOX_20261114.md)。
