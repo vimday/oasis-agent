@@ -33,6 +33,13 @@ block_tag 也可为严格非负整数，用于观察指定历史块；返回块�
 每次固定读取额外消耗三请求（链 ID、首尾块头），全程使用 EIP-1898 requireCanonical。
 不支持该参数的提供者会停止，不自动降级到块号。
 
+`oasis-public-rpc-latest-read-plan-v1` 是单独标注的筛查模式：同样的只读方法使用
+`latest` 标签，首尾各读一次块头，两个块头必须完全一致；任一读取或块头变化即停止。
+它不把每次读取绑定到块 hash，因此不是固定块证据，不能进入 LP 经济、收益或执行准入。
+决策关键值仍需固定块计划和具备归档能力的 provider。该模式不改变上面的零重试、
+原预算、STOP 和原始字节回放规则。在约 1 秒出块的链上，多读取计划很容易跨块并停止；
+此时应改用单读取计划或归档 provider。
+
 ```sh
 .venv/bin/python -m scripts.capture_public_rpc init --scope "$scope" --root "$campaign"
 .venv/bin/python -m scripts.capture_public_rpc capture \

@@ -36,6 +36,7 @@ from oasis_agent.evidence.public_rpc_plan import (
     SOURCES,
     PublicEventIndexPlan,
     PublicHeadPlan,
+    PublicLatestReadPlan,
     PublicNitroProofPlan,
     PublicNitroReceiptPlan,
     PublicProofPlan,
@@ -91,6 +92,7 @@ def load_plan(path: Path):
         "oasis-public-rpc-head-plan-v1": PublicHeadPlan,
         "oasis-public-rpc-watermark-plan-v1": PublicWatermarkPlan,
         "oasis-public-rpc-read-plan-v1": PublicReadPlan,
+        "oasis-public-rpc-latest-read-plan-v1": PublicLatestReadPlan,
         "oasis-titan-state-capture-plan-v1": PublicTitanPlan,
         "oasis-public-receipt-plan-v1": PublicReceiptPlan,
         "oasis-public-nitro-receipts-v1": PublicNitroReceiptPlan,
@@ -151,6 +153,7 @@ def locked(root: Path):
 
 def validate_context(
     plan: PublicReadPlan
+    | PublicLatestReadPlan
     | PublicHeadPlan
     | PublicWatermarkPlan
     | PublicTitanPlan
@@ -193,6 +196,14 @@ def validate_context(
                 raise ValueError("nitro_closing_block_changed")
             return snap
     elif index in (1, len(plan.requests()) - 1):
+        if isinstance(plan, PublicLatestReadPlan):
+            number = rpc_quantity(strict_object(result, "head").get("number"))
+            snap = header(result, plan.chain_id, number)
+            if index == 1:
+                return snap
+            if snap != first:
+                raise ValueError("latest_head_changed")
+            return first
         if isinstance(plan, PublicHeadPlan):
             number = rpc_quantity(strict_object(result, "head").get("number"))
             if isinstance(plan.block_tag, int) and number != plan.block_tag:
@@ -591,6 +602,8 @@ def replay_loaded(
         if isinstance(plan, PublicWatermarkPlan)
         else "metric_parent_pair"
         if isinstance(plan, PairedCalls)
+        else "latest_screening_reads"
+        if isinstance(plan, PublicLatestReadPlan)
         else "pinned_reads",
         "block": asdict(first) if block_verified else None,
         "finality_independently_verified": False,

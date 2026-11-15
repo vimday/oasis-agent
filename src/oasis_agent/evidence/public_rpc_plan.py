@@ -110,6 +110,19 @@ class PublicWatermarkPlan(Frozen):
         return (("eth_chainId", []), ("eth_blockNumber", []))
 
 
+def _read_request(read: PublicRead, block: object) -> tuple[str, list[object]]:
+    if read.method == "eth_call":
+        tx: dict[str, object] = {"to": read.target, "data": read.data}
+        if read.sender is not None:
+            tx["from"] = read.sender
+        params: list[object] = [tx, block]
+    elif read.method == "eth_getStorageAt":
+        params = [read.target, read.slot, block]
+    else:
+        params = [read.target, block]
+    return read.method, params
+
+
 class PublicReadPlan(Frozen):
     schema_version: Literal["oasis-public-rpc-read-plan-v1"] = Field(alias="schema")
     source: ChainSource
@@ -133,17 +146,30 @@ class PublicReadPlan(Frozen):
             [hex(self.block_number), False],
         )
         result: list[tuple[str, list[object]]] = [("eth_chainId", []), header]
-        for read in self.reads:
-            if read.method == "eth_call":
-                tx = {"to": read.target, "data": read.data}
-                if read.sender is not None:
-                    tx["from"] = read.sender
-                params: list[object] = [tx, pin]
-            elif read.method == "eth_getStorageAt":
-                params = [read.target, read.slot, pin]
-            else:
-                params = [read.target, pin]
-            result.append((read.method, params))
+        result.extend(_read_request(read, pin) for read in self.reads)
+        return (*result, header)
+
+
+class PublicLatestReadPlan(Frozen):
+    """Same methods at the latest tag; screening only, never a pinned state claim."""
+
+    schema_version: Literal["oasis-public-rpc-latest-read-plan-v1"] = Field(alias="schema")
+    source: ChainSource
+    chain_id: Annotated[int, Field(gt=0, lt=1 << 64)]
+    reads: Annotated[tuple[PublicRead, ...], Field(min_length=1, max_length=125)]
+
+    @model_validator(mode="after")
+    def valid(self) -> Self:
+        if SOURCES[self.source][0] != self.chain_id:
+            raise ValueError("source_chain_mismatch")
+        if len({canonical_json(v.model_dump()) for v in self.reads}) != len(self.reads):
+            raise ValueError("duplicate_read")
+        return self
+
+    def requests(self) -> tuple[tuple[str, list[object]], ...]:
+        header: tuple[str, list[object]] = ("eth_getBlockByNumber", ["latest", False])
+        result: list[tuple[str, list[object]]] = [("eth_chainId", []), header]
+        result.extend(_read_request(read, "latest") for read in self.reads)
         return (*result, header)
 
 

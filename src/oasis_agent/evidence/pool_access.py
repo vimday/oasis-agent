@@ -55,6 +55,7 @@ REQUIRED_ACCESS_CHECKS = frozenset(
         "external_lp_add",
         "owner_remove",
         "two_sided_routing",
+        "router_whitelist",
     }
 )
 

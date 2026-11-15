@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..evidence.base_denim import validate_header_timestamp_ms
 from ..evidence.rpc_validation import (
     rpc_quantity,
     strict_integer,
@@ -208,6 +209,7 @@ def header(value: object, chain_id: int, number: int) -> BlockSnapshot:
     timestamp = rpc_quantity(obj.get("timestamp"))
     if timestamp >= 1 << 64:
         raise ValueError("block timestamp overflow")
+    validate_header_timestamp_ms(obj, chain_id=chain_id)
     return BlockSnapshot(
         BlockRef(chain_id, number, hash32(obj.get("hash")), timestamp),
         hash32(obj.get("parentHash")),

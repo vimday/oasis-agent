@@ -76,6 +76,19 @@ address bits, and actual PoolKey. Agreement in only one representation is insuff
 - Phase 1 enables no removal callback: whitelist revocation, pause, or lost governance must not block
   collection and removal by the legitimate position owner.
 - Whitelist events and current state are part of the signed identity/config manifest.
+- A dynamic-fee hook pool that depends on aggregator flow must retain current router/aggregator
+  allowlist evidence. Absence of that evidence is a routing risk, not a liquidity claim; the pool
+  access assessment treats it as unresolved and not execution-eligible.
+
+### Authorization-registry disclosure
+
+- An authorization registry must not make the strategy's next token, pool, target, or spender set
+  enumerable from public storage. Use salted commitments or per-target mappings; if public
+  enumeration is required for audit, publish only commitments or aggregates and record the
+  information leak and its competitive impact in the manifest.
+- This does not prohibit the Phase 1 LP-owner allowlist, which is disclosed by design. It prohibits
+  reusing that allowlist, or any similarly enumerable set, as a trading-target or pending-order
+  registry.
 
 ## 4. Dynamic-fee semantics
 

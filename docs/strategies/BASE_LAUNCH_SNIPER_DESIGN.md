@@ -32,11 +32,11 @@
 
 ### 2.2 执行环境事实（Base 官方文档，今日核实）
 
-- 排序机制：优先费竞拍每 200ms 一轮；Flashblock 一旦构建并广播，交易排序即锁定，后续更高优先费交易不能进入更早 Flashblock；动态 mempool 按选择时点的费用排序，非窗口内全局排序。"发现 LP → Flashblock N+1 买入"是目标，不是保证的执行结果。[$TRAE_REF](https://docs.base.org/specifications/transactions/transaction-ordering)
-- pendingLogs：订阅预确认交易的日志，用于亚块级事件监控；收到日志时加池交易已完成预确认，同一 Flashblock 内可能已含他人买单。[$TRAE_REF](https://docs.base.org/base-chain/api-reference/flashblocks-api/pendingLogs)
-- Flashblock 可用 gas 递增：FB1 约 1/10 上限（约 40M），FB10 才到全量。
-- `eth_simulateV1`：Base 提供交易序列模拟、状态覆盖与 nonce/余额验证，可针对 pending 执行。[$TRAE_REF](https://docs.base.org/base-chain/api-reference/flashblocks-api/eth_simulateV1)
-- Denim 升级计划拟转原生 200ms 区块，尚未最终确定；不得把 Flashblock 特有接口写死为永久假设，上线时检测实际网络能力。[$TRAE_REF](https://docs.base.org/base-chain/flashblocks/faq)
+- 排序机制：Base 每 200 ms 产生一个原生区块，按优先费降序执行；同一槽位内排序在区块构建后锁定，后续更高优先费交易不能改写已构建区块。"发现 LP → 下一区块买入"是目标，不是保证的执行结果。[$TRAE_REF](https://docs.base.org/specifications/transactions/transaction-ordering)
+- 事件提示：使用标准 `eth_subscribe("logs")` 做亚块级提示，断线后用 HTTP `eth_getLogs` 回补；不再依赖已退役的 Flashblocks `pendingLogs`。事件只触发重新报价，不直接触发买入。
+- 区块头时间：EVM `block.timestamp` 仍按整秒递增；精确毫秒读取区块头 `timestampMs`，合约侧读取 BaseTime `0x4200000000000000000000000000000000000030` 的 `timestampMs()`。禁止用 `block.number` 推算秒数。
+- `eth_simulateV1`：Base 提供交易序列模拟、状态覆盖与 nonce/余额验证；是否可用于 pending 状态必须按当前节点能力实测，不能假设。[$TRAE_REF](https://docs.base.org/base-chain/api-reference/flashblocks-api/eth_simulateV1)
+- Denim 已于 2026-11-05 激活；本仓库 2026-11-15 观察到 Base 头部携带 `timestampMs`，见[验证记录](../verification/BASE_DENIM_HEADER_20261115.md)。旧 Flashblocks 专用接口不作为设计前提。
 
 ### 2.3 合约与协议结构
 
@@ -98,7 +98,7 @@
 
 ### 5.2 launch/watcher.py
 
-池创建事件与已有池流动性变化并行监听；与目标代币相关的转移、加池、撤池、Mint/Burn、Position 变化进入候选流。使用 Flashblocks pendingLogs WebSocket 双源订阅（亚块级）+ 最近 N 块 `eth_getLogs` 对账窗口；按 `(factory, pool, block, tx_hash)` 去重；事件与块头固定存档；pending 与 final 分离，决策输入只来自单一固定区块快照。
+池创建事件与已有池流动性变化并行监听；与目标代币相关的转移、加池、撤池、Mint/Burn、Position 变化进入候选流。使用标准 `eth_subscribe("logs")` WebSocket 提示 + 最近 N 块 `eth_getLogs` 对账窗口；按 `(factory, pool, block, tx_hash)` 去重；事件与块头固定存档；pending 与 final 分离，决策输入只来自单一固定区块快照。
 
 ### 5.3 launch/pool_verify.py（G3–G6）
 
@@ -214,9 +214,9 @@ Q_max = min(Q_资金预算, Q_买入冲击约束, Q_压力退出约束) = 0.2 ET
 
 ## 7. 执行模型（设计态）
 
-- 时序：观察到可执行流动性 → 验证 → 只争取仍符合价格上限的早期成交；不承诺第一笔，不承诺下一个 Flashblock。原子加池+首买交易无法插入其内部调用。
+- 时序：观察到可执行流动性 → 验证 → 只争取仍符合价格上限的早期成交；不承诺第一笔，不承诺下一个区块。原子加池+首买交易无法插入其内部调用。
 - 提前广播条件买单：增加抢先加池回滚、gas、nonce 管理与失效交易处理成本；未经实测的排序优势不视为免费先手，默认不启用。
-- 提交方式：私有 order flow 为可选配置并显式声明假设；公开 fallback 单独风险评分。上线时检测实际网络能力（Flashblocks vs vanilla；Denim 未定，不写死接口）。
+- 提交方式：私有 order flow 为可选配置并显式声明假设；公开 fallback 单独风险评分。Denim 已激活，使用标准 `newHeads`/`logs` 与 `timestampMs`，不依赖 Flashblocks 专用接口。
 - 持仓后：止损、时间止损、库存上限与连续模拟卖单的自动退出；对账复用 `farming` 账本；异常 → HALT + 证据门禁全退闭环。
 
 ## 8. 机会定义与退出流动性

@@ -56,6 +56,13 @@ def test_unknown_or_other_failure_is_unresolved_and_never_eligible():
     assert result.reasons == ("two_sided_routing: blocked",)
 
 
+def test_router_whitelist_absence_blocks_execution_even_when_pool_is_accessible():
+    result = PoolAccessAssessment(checks(router_whitelist=CheckStatus.UNKNOWN))
+    assert result.decision is PoolAccessDecision.UNRESOLVED
+    assert not result.execution_eligible
+    assert result.reasons == ("router_whitelist: blocked",)
+
+
 def test_missing_checks_and_incomplete_confirmed_evidence_fail_closed():
     with pytest.raises(ValueError, match="canonical"):
         PoolAccessAssessment(checks()[:-1])

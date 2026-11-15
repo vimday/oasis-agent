@@ -311,6 +311,47 @@ def test_head_observation_is_separate_from_pinned_reads(tmp_path, monkeypatch, t
     assert not r["finality_independently_verified"]
 
 
+def test_latest_screening_reads_use_latest_and_require_same_head(tmp_path, monkeypatch):
+    root, _, plan = setup(tmp_path)
+    latest = {
+        "schema": "oasis-public-rpc-latest-read-plan-v1",
+        "source": plan["source"],
+        "chain_id": plan["chain_id"],
+        "reads": plan["reads"],
+    }
+    path = tmp_path / "latest.json"
+    path.write_bytes(canonical_json(latest))
+    calls = mock(monkeypatch, root, plan)
+    assert cli.capture(root, path, "latest") == 0
+    r = cli.replay(root / "latest")
+    assert r["status"] == "complete" and r["plan_kind"] == "latest_screening_reads"
+    assert len(calls) == 6 and len(r["exports"]["records"]) == 6
+    assert all(c["params"][-1] == "latest" for c in calls[2:5])
+    assert not r["execution_eligible"] and not r["finality_independently_verified"]
+
+
+def test_latest_screening_rejects_changed_head(tmp_path, monkeypatch):
+    root, _, plan = setup(tmp_path)
+    latest = {
+        "schema": "oasis-public-rpc-latest-read-plan-v1",
+        "source": plan["source"],
+        "chain_id": plan["chain_id"],
+        "reads": plan["reads"],
+    }
+    path = tmp_path / "latest.json"
+    path.write_bytes(canonical_json(latest))
+
+    def mutate(number, response):
+        if number == 6:
+            response["result"]["hash"] = "0x" + "99" * 32
+
+    calls = mock(monkeypatch, root, plan, mutate)
+    assert cli.capture(root, path, "changed") == 3
+    r = cli.replay(root / "changed")
+    assert r["status"] == "incomplete"
+    assert len(calls) == 6
+
+
 def test_expired_scope_refuses_before_network(tmp_path, monkeypatch):
     root, path, plan = setup(tmp_path)
     calls = mock(monkeypatch, root, plan)

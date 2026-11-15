@@ -85,6 +85,23 @@ Requirements:
 - failed/reverted transaction cost and competition-induced inclusion probability enter expected PnL;
 - no sandwiching, deceptive flow, oracle manipulation, griefing, or fake volume.
 
+Builder and inclusion-cost rules:
+
+- The private-submission bid cap is an explicit owner-approved parameter. Do not infer a default from
+  a third-party observed margin or builder payment.
+- The cap applies per attempt and covers priority fee, direct coinbase/validator transfer, and any
+  bundled payment; compare the total against the conservative gross edge, not a midpoint estimate.
+- Reverted, dropped, replaced, and non-included attempts are expensed at realized cost; they do not
+  restore or enlarge the next attempt's cap.
+- Any builder/relay payment is conditional on the exact output check and an allowlisted beneficiary.
+  The signer compares the broadcast bytes to the authorized envelope before release.
+- Undisclosed last-look, selective session cancellation, or any practice that disadvantages
+  counterparties without disclosure is not permitted.
+
+Named market-maker and searcher analyses are hypotheses about competition and informed flow, not
+evidence of our edge. Before they affect pool selection or LP economics, verify code, balances,
+approvals, and flow at a pinned block with declared sources.
+
 Start with two-pool cycles and a small token universe. Add graph search only after the exact reference
 implementation and pruning rules are tested against false-positive/revert rates.
 
@@ -253,3 +270,27 @@ source equivalence or executable edge.
 Aave-funded dislocations and CEX/bridge legs remain separate non-atomic research until repayment,
 health-factor stress, transfer delay, exact simulation, and reconciliation are demonstrated. This
 increment does not change the capital promotion order or grant live authority.
+
+## 13. 2026-11-15 external audit response
+
+An external report based on public material argues that three current strategy families are
+structurally negative EV at small size: custom v4 LP without aggregator routing, blind launchpad
+sniping, and generic-router two-hop atomic arbitrage. Treat the report's specific returns, weights,
+and latency numbers as hypotheses; adopt only the controls that survive our evidence gates.
+
+- **Custom v4 LP.** Router/aggregator whitelist evidence is now a required pool-access check. Absence
+  of that evidence keeps the pool unresolved and not execution-eligible. Base LP remains paused under
+  the owner instruction; Robinhood LP remains a research benchmark.
+- **Launchpad sniping.** No live launchpad buy without launchpad-safety evidence covering the current
+  buy/sell tax, sellability, anti-snipe or lock window, honeypot simulation, and creator context.
+  Spot remains shadow.
+- **Atomic arbitrage.** Generic-router two-hop cycles remain research only. Any candidate needs direct
+  allowlisted pool adapters, exact pinned simulation, revert and builder-cost accounting, and the
+  existing Stage 2 gates.
+- **CEX-DEX lead-lag and ERC-1271 intent/RFQ.** These are later research priorities, not authorized
+  execution. They require non-atomic hedge accounting, external venue data, independent fill and
+  inventory reconciliation, and a separate release decision. The report's capital weights and return
+  targets are not adopted; any allocation is an owner decision.
+- **Base Denim.** Base headers now expose `timestampMs`; evidence parsing validates it against the
+  whole-second header timestamp. Do not infer seconds from `block.number` or treat a missing
+  millisecond field after activation as valid.
