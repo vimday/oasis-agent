@@ -16,7 +16,10 @@ RPC_NAMES = ("BASE_RPC_PRIMARY_ALT", "BASE_RPC_PRIMARY")
 POLICY_FLAG = ["--policy-config", "/state/profit_policy.json"]
 STATE_FLAG = ["--state-dir", "/state"]
 SOCKET_PATH = "/run/oasis/profit_authority.sock"
+RISK_CONFIG_TARGET = "/etc/oasis/profit-engine-risk.json"
+RISK_CONFIG_SOURCE_REL = "configs/profit-engine-risk.example.json"
 AUTHORITY_CMD = ["python", "-m", "scripts.run_profit_authority"]
+STRATEGY_CMD = ["python", "-m", "scripts.run_profit_strategy"]
 TMPFS_OPT_SUFFIX = ":rw,noexec,nosuid,size=16m,mode=1777"
 FORBIDDEN_ENV_RE = re.compile(r"(KEY|SECRET|MNEMONIC|SEED|PASSWORD|TOKEN)", re.IGNORECASE)
 READONLY_KEYS_TARGET = "/secrets"
@@ -44,17 +47,18 @@ COMMANDS: dict[str, list[str]] = {
         "86400",
     ],
     "profit-strategy": [
-        "python",
-        "-m",
-        "scripts.run_multicall_100tick_campaign",
+        *STRATEGY_CMD,
         "--mode",
-        "public-shadow",
-        "--ticks",
-        "100",
-        "--max-rpc-calls",
-        "3000",
-        "--out",
-        "/state/shadow-run",
+        "shadow",
+        "--authority-socket",
+        SOCKET_PATH,
+        "--risk-config",
+        RISK_CONFIG_TARGET,
+        *STATE_FLAG,
+        "--out-json",
+        "/state/strategy_status.json",
+        "--poll-interval-ms",
+        "1000",
     ],
     "profit-authority-status": [
         *AUTHORITY_CMD,
@@ -75,13 +79,17 @@ COMMANDS: dict[str, list[str]] = {
         *STATE_FLAG,
     ],
     "profit-strategy-recovery": [
-        "python",
-        "-m",
-        "scripts.check_profit_engine_readiness",
-        "--shadow-summary",
-        "/state/shadow-run/shadow_summary.json",
-        "--out",
-        "/state/readiness-report.json",
+        *STRATEGY_CMD,
+        "--mode",
+        "shadow",
+        "--reconcile-only",
+        "--authority-socket",
+        SOCKET_PATH,
+        "--risk-config",
+        RISK_CONFIG_TARGET,
+        *STATE_FLAG,
+        "--out-json",
+        "/state/strategy_recovery.json",
     ],
 }
 
@@ -99,6 +107,7 @@ MOUNTS: dict[str, dict[str, str]] = {
     "profit-strategy": {
         "/state": "profit-strategy-state",
         "/run/oasis": "profit-authority-socket",
+        RISK_CONFIG_TARGET: RISK_CONFIG_SOURCE_REL,
     },
     "profit-authority-status": {
         "/state": "profit-authority-state",
@@ -109,15 +118,28 @@ MOUNTS: dict[str, dict[str, str]] = {
     },
     "profit-strategy-recovery": {
         "/state": "profit-strategy-state",
+        "/run/oasis": "profit-authority-socket",
+        RISK_CONFIG_TARGET: RISK_CONFIG_SOURCE_REL,
     },
 }
 
 
-def verify_services(document: dict[str, Any], expected_rpc: dict[str, str | None]) -> None:
+def verify_services(
+    document: dict[str, Any],
+    expected_rpc: dict[str, str | None],
+    *,
+    expected_risk_config: Path | None = None,
+) -> None:
     """Verify every service, confinement boundary, volume mount, and command in Compose."""
     services = document.get("services", {})
     if not isinstance(services, dict) or set(services) != set(MOUNTS):
         raise ValueError("profit-engine service inventory differs")
+
+    risk_config_path = (
+        (ROOT / RISK_CONFIG_SOURCE_REL).resolve()
+        if expected_risk_config is None
+        else expected_risk_config.resolve()
+    )
 
     for name, service in services.items():
         if not isinstance(service, dict):
@@ -164,14 +186,20 @@ def verify_services(document: dict[str, Any], expected_rpc: dict[str, str | None
             raise ValueError("profit-engine volume inventory differs")
         actual: dict[str, object] = {}
         for mount in mounts:
-            if (
-                not isinstance(mount, dict)
-                or mount.get("type") != "volume"
-                or mount.get("target") in actual
-            ):
-                raise ValueError("profit-engine requires unique named-volume mounts")
+            if not isinstance(mount, dict) or mount.get("target") in actual:
+                raise ValueError("profit-engine requires unique mounts")
             target = str(mount["target"])
             source = mount.get("source")
+            if target == RISK_CONFIG_TARGET:
+                if mount.get("type") != "bind" or mount.get("read_only", False) is not True:
+                    raise ValueError("risk config mount must be a read-only bind")
+                if not isinstance(source, str) or Path(source).resolve() != risk_config_path:
+                    raise ValueError("risk config bind source differs")
+                actual[target] = RISK_CONFIG_SOURCE_REL
+                continue
+
+            if mount.get("type") != "volume":
+                raise ValueError("profit-engine requires named-volume mounts for state/sockets")
             actual[target] = source
             if mount.get("read_only", False) is not (target == READONLY_KEYS_TARGET):
                 raise ValueError("profit-engine volume access differs")
@@ -200,15 +228,32 @@ def verify_services(document: dict[str, Any], expected_rpc: dict[str, str | None
             arg in ("--key-file", "--key-env") for arg in command
         ):
             raise ValueError("key argument leaked outside profit-authority")
+        if "strategy" in name and "--mode" in command:
+            mode_idx = command.index("--mode")
+            if mode_idx + 1 >= len(command) or command[mode_idx + 1] != "shadow":
+                raise ValueError("profit-strategy service must remain bounded to shadow mode")
+
+    if (
+        actual_socket := {
+            m.get("target"): m.get("source") for m in services["profit-strategy"].get("volumes", [])
+        }.get("/run/oasis")
+    ) != "profit-authority-socket" or actual_socket != {
+        m.get("target"): m.get("source") for m in services["profit-authority"].get("volumes", [])
+    }.get("/run/oasis"):
+        raise ValueError("profit-strategy must share profit-authority-socket with profit-authority")
 
     key_volume = document.get("volumes", {}).get("canary-keys", {})
     if key_volume.get("external") is not True or key_volume.get("name") != "oasis-canary-keys":
         raise ValueError("production key volume must remain external")
 
 
-def inspect() -> dict[str, Any]:
+def inspect(compose_file: Path = COMPOSE) -> dict[str, Any]:
     """Expand `deploy/profit-engine/compose.yaml` offline and verify confinement."""
-    snapshot = COMPOSE.read_bytes()
+    target = compose_file
+    if target.is_symlink() or not target.is_file():
+        raise ValueError("compose file must be a regular non-symlink file")
+    snapshot = target.read_bytes()
+    expected_risk_config = (target.resolve().parent / "../../" / RISK_CONFIG_SOURCE_REL).resolve()
     environment = {k: os.environ[k] for k in ("PATH", "HOME") if k in os.environ}
     for configured in (False, True):
         expected = {
@@ -225,7 +270,7 @@ def inspect() -> dict[str, Any]:
                 "--env-file",
                 os.devnull,
                 "--project-directory",
-                str(COMPOSE.parent),
+                str(target.parent),
                 "-f",
                 "-",
                 "--profile",
@@ -240,8 +285,12 @@ def inspect() -> dict[str, Any]:
             timeout=20,
             check=True,
         )
-        verify_services(json.loads(result.stdout), expected)
-    if COMPOSE.read_bytes() != snapshot:
+        verify_services(
+            json.loads(result.stdout),
+            expected,
+            expected_risk_config=expected_risk_config,
+        )
+    if target.read_bytes() != snapshot:
         raise ValueError("profit-engine compose configuration changed during verification")
     report: dict[str, Any] = {
         "schema": "oasis.profit-compose-policy-verification.v1",
@@ -261,12 +310,13 @@ def inspect() -> dict[str, Any]:
 def main() -> None:
     """CLI entrypoint for offline profit-engine compose verification."""
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--compose-file", type=Path, default=COMPOSE)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
     if args.out is not None and (args.out.exists() or args.out.is_symlink()):
         parser.error("output exists or is a symlink; preserve previous evidence")
     try:
-        report = inspect()
+        report = inspect(compose_file=args.compose_file)
     except Exception:  # noqa: BLE001 - never echo arbitrary parser output or environment
         parser.exit(3, "Profit-engine deployment verification refused; details redacted.\n")
     if args.out is not None:

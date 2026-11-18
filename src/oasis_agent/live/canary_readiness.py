@@ -11,8 +11,10 @@ permanently `False`).
 import json
 import math
 import re
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final, Literal
 
@@ -31,6 +33,7 @@ BASE_TIME_PREDEPLOY: Final[str] = "0x4200000000000000000000000000000000000030"
 MAX_EARLY_ABORT_GAS: Final[int] = 65_000
 DEFAULT_MIN_SHADOW_TICKS: Final[int] = 100
 DEFAULT_MIN_LCB_NET_EDGE_BPS: Final[int] = 5
+DEFAULT_MIN_OOS_TRADES: Final[int] = 5
 MAX_APPROVED_CAPITAL_USD: Final[int] = 500
 MAX_APPROVED_DAILY_LOSS_USD: Final[int] = 200
 MAX_APPROVED_CUMULATIVE_LOSS_USD: Final[int] = 500
@@ -106,6 +109,7 @@ class ProfitEngineReadinessReport:
     report_sha256: str
     schema_version: str = READINESS_SCHEMA_VERSION
     execution_eligible: Literal[False] = False
+    evidence: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.schema_version != READINESS_SCHEMA_VERSION:
@@ -139,6 +143,8 @@ class ProfitEngineReadinessReport:
             raise TypeError("next_operator_actions must be a tuple of non-empty strings")
         if _SHA256_RE.fullmatch(self.report_sha256) is None:
             raise ValueError("report_sha256 must be a lowercase 64-hex SHA-256 digest")
+        if not isinstance(self.evidence, dict):
+            raise TypeError("evidence must be a dictionary")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize report to a JSON-compatible dictionary."""
@@ -151,6 +157,7 @@ class ProfitEngineReadinessReport:
             "gates": [asdict(gate) for gate in self.gates],
             "blocked_gates": list(self.blocked_gates),
             "next_operator_actions": list(self.next_operator_actions),
+            "evidence": self.evidence,
             "report_sha256": self.report_sha256,
         }
 
@@ -642,7 +649,94 @@ def _eval_untouched_shadow_sample_size(
     )
 
 
-def _eval_positive_cost_adjusted_lcb_edge(
+def _sanitize_evidence_value(value: object) -> Any:
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else str(value)
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, Mapping):
+        return {str(k): _sanitize_evidence_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_evidence_value(v) for v in value]
+    return str(value)
+
+
+def _validate_oos_execution_summary(
+    raw_summary: object,
+    *,
+    source: str,
+    min_oos_trades: int,
+    min_lcb_net_edge_bps: int,
+) -> tuple[bool, str | None, dict[str, Any]]:
+    if not isinstance(raw_summary, Mapping):
+        err = f"oos_execution_summary must be a mapping, got {type(raw_summary).__name__}"
+        return (
+            False,
+            err,
+            {
+                "source": source,
+                "validated": False,
+                "min_oos_trades": min_oos_trades,
+                "min_lcb_net_edge_bps": min_lcb_net_edge_bps,
+                "validation_error": err,
+                "raw_type": type(raw_summary).__name__,
+            },
+        )
+
+    metrics = _sanitize_evidence_value(raw_summary)
+    errors: list[str] = []
+
+    if raw_summary.get("execution_eligible", False) is not False:
+        errors.append("oos_execution_summary must keep execution_eligible=False")
+
+    trades_count = raw_summary.get("oos_trades_count")
+    if type(trades_count) is not int or trades_count < min_oos_trades:
+        errors.append(
+            f"oos_trades_count ({trades_count!r}) must be an integer >= {min_oos_trades}"
+        )
+
+    pos_trades = raw_summary.get("oos_positive_trades")
+    if type(pos_trades) is not int or pos_trades <= 0:
+        errors.append(f"oos_positive_trades ({pos_trades!r}) must be an integer > 0")
+    elif type(trades_count) is int and pos_trades > trades_count:
+        errors.append(
+            f"oos_positive_trades ({pos_trades}) exceeds oos_trades_count ({trades_count})"
+        )
+
+    raw_profit = raw_summary.get("oos_total_net_profit_usd")
+    if raw_profit is None or isinstance(raw_profit, bool):
+        errors.append(f"oos_total_net_profit_usd ({raw_profit!r}) must be > 0")
+    else:
+        try:
+            profit_text = str(raw_profit).strip()
+            profit_dec = Decimal(profit_text) if profit_text else Decimal("NaN")
+        except InvalidOperation:
+            profit_dec = Decimal("NaN")
+        if not profit_dec.is_finite() or profit_dec <= 0:
+            errors.append(f"oos_total_net_profit_usd ({raw_profit!r}) must be finite and > 0")
+
+    oos_lcb = raw_summary.get("oos_lcb_net_edge_bps")
+    if type(oos_lcb) is not int or oos_lcb < min_lcb_net_edge_bps:
+        errors.append(
+            f"oos_lcb_net_edge_bps ({oos_lcb!r}) must be an integer >= {min_lcb_net_edge_bps}"
+        )
+
+    passed = len(errors) == 0
+    err_msg = "; ".join(errors) if errors else None
+    evidence_entry: dict[str, Any] = {
+        **metrics,
+        "source": source,
+        "validated": passed,
+        "min_oos_trades": min_oos_trades,
+        "min_lcb_net_edge_bps": min_lcb_net_edge_bps,
+        "validation_error": err_msg,
+    }
+    return passed, err_msg, evidence_entry
+
+
+def _eval_legacy_positive_cost_adjusted_lcb_edge(
     shadow_data: dict[str, Any] | None,
     shadow_err: str | None,
     *,
@@ -721,6 +815,120 @@ def _eval_positive_cost_adjusted_lcb_edge(
             observed_value=observed,
         ),
         None,
+    )
+
+
+def _eval_positive_cost_adjusted_lcb_edge(
+    shadow_data: dict[str, Any] | None,
+    shadow_err: str | None,
+    *,
+    min_lcb_net_edge_bps: int,
+    min_oos_trades: int = DEFAULT_MIN_OOS_TRADES,
+    oos_execution_summary: object = None,
+) -> tuple[GateCheckResult, str | None, dict[str, Any] | None]:
+    legacy_gate, legacy_action = _eval_legacy_positive_cost_adjusted_lcb_edge(
+        shadow_data,
+        shadow_err,
+        min_lcb_net_edge_bps=min_lcb_net_edge_bps,
+    )
+
+    effective_oos: object = None
+    oos_source: str | None = None
+    if oos_execution_summary is not None:
+        effective_oos = oos_execution_summary
+        oos_source = "explicit_arg"
+    elif (
+        shadow_data is not None
+        and "oos_execution_summary" in shadow_data
+        and shadow_data["oos_execution_summary"] is not None
+    ):
+        effective_oos = shadow_data["oos_execution_summary"]
+        oos_source = "shadow_summary"
+
+    if effective_oos is None or oos_source is None:
+        return legacy_gate, legacy_action, None
+
+    oos_passed, oos_err, oos_evidence = _validate_oos_execution_summary(
+        effective_oos,
+        source=oos_source,
+        min_oos_trades=min_oos_trades,
+        min_lcb_net_edge_bps=min_lcb_net_edge_bps,
+    )
+    threshold = (
+        f"(positive_net_ticks>0 and lcb_net_edge_bps>={min_lcb_net_edge_bps}) OR "
+        f"(oos_trades_count>={min_oos_trades}, oos_positive_trades>0, "
+        f"oos_total_net_profit_usd>0, oos_lcb_net_edge_bps>={min_lcb_net_edge_bps})"
+    )
+    oos_obs = (
+        f"oos_trades={oos_evidence.get('oos_trades_count')!r},"
+        f"oos_pos={oos_evidence.get('oos_positive_trades')!r},"
+        f"oos_profit_usd={oos_evidence.get('oos_total_net_profit_usd')!r},"
+        f"oos_lcb_bps={oos_evidence.get('oos_lcb_net_edge_bps')!r}"
+    )
+    combined_obs = f"{legacy_gate.observed_value};{oos_obs}"
+
+    if oos_passed and legacy_gate.passed:
+        return (
+            GateCheckResult(
+                name="positive_cost_adjusted_lcb_edge",
+                passed=True,
+                detail=f"{legacy_gate.detail} OOS execution also validated ({oos_obs}).",
+                required_threshold=threshold,
+                observed_value=combined_obs,
+            ),
+            None,
+            oos_evidence,
+        )
+    if oos_passed:
+        return (
+            GateCheckResult(
+                name="positive_cost_adjusted_lcb_edge",
+                passed=True,
+                detail=(
+                    f"Out-of-sample execution validated ({oos_obs}); "
+                    f"legacy shadow check did not pass ({legacy_gate.detail})."
+                ),
+                required_threshold=threshold,
+                observed_value=combined_obs,
+            ),
+            None,
+            oos_evidence,
+        )
+    if legacy_gate.passed:
+        return (
+            GateCheckResult(
+                name="positive_cost_adjusted_lcb_edge",
+                passed=True,
+                detail=(
+                    f"{legacy_gate.detail} "
+                    f"(OOS execution summary failed strict validation: {oos_err})."
+                ),
+                required_threshold=threshold,
+                observed_value=combined_obs,
+            ),
+            None,
+            oos_evidence,
+        )
+
+    action = (
+        f"Demonstrate positive cost-adjusted out-of-sample edge via >= {min_oos_trades} "
+        f"OOS trades with positive net profit and oos_lcb_net_edge_bps >= "
+        f"{min_lcb_net_edge_bps}, or public-shadow lcb_net_edge_bps >= "
+        f"{min_lcb_net_edge_bps}."
+    )
+    return (
+        GateCheckResult(
+            name="positive_cost_adjusted_lcb_edge",
+            passed=False,
+            detail=(
+                f"Legacy shadow check failed ({legacy_gate.detail}) "
+                f"and OOS execution check failed ({oos_err})."
+            ),
+            required_threshold=threshold,
+            observed_value=combined_obs,
+        ),
+        action,
+        oos_evidence,
     )
 
 
@@ -1573,6 +1781,8 @@ def evaluate_profit_engine_readiness(
     infra_proof_path: Path | None = None,
     min_shadow_ticks: int = DEFAULT_MIN_SHADOW_TICKS,
     min_lcb_net_edge_bps: int = DEFAULT_MIN_LCB_NET_EDGE_BPS,
+    min_oos_trades: int = DEFAULT_MIN_OOS_TRADES,
+    oos_execution_summary: Mapping[str, Any] | None = None,
     risk_config: CapitalRiskConfig | None = None,
     risk_config_path: Path | None = None,
 ) -> ProfitEngineReadinessReport:
@@ -1581,6 +1791,10 @@ def evaluate_profit_engine_readiness(
         raise ValueError("min_shadow_ticks must be a positive integer")
     if type(min_lcb_net_edge_bps) is not int or min_lcb_net_edge_bps < 0:
         raise ValueError("min_lcb_net_edge_bps must be a non-negative integer")
+    if type(min_oos_trades) is not int or min_oos_trades <= 0:
+        raise ValueError("min_oos_trades must be a positive integer")
+    if oos_execution_summary is not None and not isinstance(oos_execution_summary, Mapping):
+        raise TypeError("oos_execution_summary must be a Mapping or None")
     if risk_config is not None and not isinstance(risk_config, CapitalRiskConfig):
         raise TypeError("risk_config must be a CapitalRiskConfig")
     if risk_config is not None and risk_config_path is not None:
@@ -1610,6 +1824,17 @@ def evaluate_profit_engine_readiness(
     signoff_data, signoff_err = _load_json_object(operator_signoff_path, "operator_signoff")
     infra_data, infra_err = _load_json_object(infra_proof_path, "infra_proof")
 
+    gate5_result, gate5_action, oos_evidence = _eval_positive_cost_adjusted_lcb_edge(
+        shadow_data,
+        shadow_err,
+        min_lcb_net_edge_bps=min_lcb_net_edge_bps,
+        min_oos_trades=min_oos_trades,
+        oos_execution_summary=oos_execution_summary,
+    )
+    evidence: dict[str, Any] = {}
+    if oos_evidence is not None:
+        evidence["oos_execution"] = oos_evidence
+
     evaluations = (
         _eval_compiled_contracts_pinned(out_dir),
         _eval_anvil_e2e_settlement_reconciled(anvil_data, anvil_err),
@@ -1617,9 +1842,7 @@ def evaluate_profit_engine_readiness(
         _eval_untouched_shadow_sample_size(
             shadow_data, shadow_err, min_shadow_ticks=min_shadow_ticks
         ),
-        _eval_positive_cost_adjusted_lcb_edge(
-            shadow_data, shadow_err, min_lcb_net_edge_bps=min_lcb_net_edge_bps
-        ),
+        (gate5_result, gate5_action),
         _eval_revert_budget_healthy(anvil_data, radar_data, shadow_data),
         _eval_dual_rpc_quorum_verified(signoff_data, signoff_err, infra_data, infra_err),
         _eval_isolated_signer_authority_ready(signoff_data, signoff_err, infra_data, infra_err),
@@ -1646,6 +1869,7 @@ def evaluate_profit_engine_readiness(
         "gates": [asdict(gate) for gate in gates],
         "blocked_gates": list(blocked_gates),
         "next_operator_actions": list(actions),
+        "evidence": evidence,
     }
     report_sha256 = sha256_hex(canonical_json(unsigned_payload))
 
@@ -1659,6 +1883,7 @@ def evaluate_profit_engine_readiness(
         report_sha256=report_sha256,
         schema_version=READINESS_SCHEMA_VERSION,
         execution_eligible=False,
+        evidence=evidence,
     )
 
 
@@ -1668,6 +1893,7 @@ __all__ = [
     "BASE_TIME_PREDEPLOY",
     "DEFAULT_CONTRACTS_OUT_DIR",
     "DEFAULT_MIN_LCB_NET_EDGE_BPS",
+    "DEFAULT_MIN_OOS_TRADES",
     "DEFAULT_MIN_SHADOW_TICKS",
     "DUAL_RPC_QUORUM_SCHEMA_VERSION",
     "GATE_NAMES",
