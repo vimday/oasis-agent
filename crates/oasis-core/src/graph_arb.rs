@@ -376,12 +376,75 @@ impl PartialOrd for SignedU512 {
 }
 
 const MAX_SUPPORTED_HOPS: usize = 4;
+const SPOT_UPPER_SAFETY_MULT: f64 = 1.000_001;
+
+#[allow(clippy::cast_precision_loss)]
+fn u256_to_f64_lossy(v: U256) -> f64 {
+    const TWO_POW_64: f64 = 18_446_744_073_709_551_616.0;
+    const TWO_POW_128: f64 = TWO_POW_64 * TWO_POW_64;
+    const TWO_POW_192: f64 = TWO_POW_128 * TWO_POW_64;
+    (v.0[0] as f64)
+        + (v.0[1] as f64) * TWO_POW_64
+        + (v.0[2] as f64) * TWO_POW_128
+        + (v.0[3] as f64) * TWO_POW_192
+}
+
+fn edge_max_rate_upper(pool: &PoolState, zero_for_one: bool) -> f64 {
+    let fee_mult = f64::from(FEE_PIPS_DENOM - pool.fee_pips) / f64::from(FEE_PIPS_DENOM);
+    match pool.kind {
+        PoolKind::AerodromeStable => f64::INFINITY,
+        PoolKind::V2 => {
+            let (Some(r0), Some(r1)) = (pool.reserve0, pool.reserve1) else {
+                return f64::INFINITY;
+            };
+            let (rin, rout) = if zero_for_one { (r0, r1) } else { (r1, r0) };
+            if rin.is_zero() || rout.is_zero() {
+                return f64::INFINITY;
+            }
+            let rin_f64 = u256_to_f64_lossy(rin);
+            let rout_f64 = u256_to_f64_lossy(rout);
+            if !rin_f64.is_finite() || rin_f64 <= 0.0 || !rout_f64.is_finite() || rout_f64 <= 0.0 {
+                return f64::INFINITY;
+            }
+            let val = (rout_f64 / rin_f64) * fee_mult * SPOT_UPPER_SAFETY_MULT;
+            if !val.is_finite() || val <= 0.0 {
+                f64::INFINITY
+            } else {
+                val
+            }
+        }
+        PoolKind::V3 | PoolKind::Slipstream | PoolKind::V4 => {
+            let Some(sqrt_p) = pool.sqrt_price_x96 else {
+                return f64::INFINITY;
+            };
+            if sqrt_p.is_zero() {
+                return f64::INFINITY;
+            }
+            let sp = u256_to_f64_lossy(sqrt_p) / 2.0_f64.powi(96);
+            if !sp.is_finite() || sp <= 0.0 {
+                return f64::INFINITY;
+            }
+            let sp2 = sp * sp;
+            if !sp2.is_finite() || sp2 <= 0.0 {
+                return f64::INFINITY;
+            }
+            let raw_rate = if zero_for_one { sp2 } else { 1.0 / sp2 };
+            let val = raw_rate * fee_mult * SPOT_UPPER_SAFETY_MULT;
+            if !val.is_finite() || val <= 0.0 {
+                f64::INFINITY
+            } else {
+                val
+            }
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 struct IndexedEdge {
     to_token: usize,
     pool_idx: usize,
     zero_for_one: bool,
+    max_rate_upper: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -418,11 +481,13 @@ impl<'a> IndexedGraph<'a> {
                 to_token: t1,
                 pool_idx,
                 zero_for_one: true,
+                max_rate_upper: edge_max_rate_upper(pool, true),
             });
             adj[t1].push(IndexedEdge {
                 to_token: t0,
                 pool_idx,
                 zero_for_one: false,
+                max_rate_upper: edge_max_rate_upper(pool, false),
             });
         }
 
@@ -729,6 +794,7 @@ fn scan_indexed_chain(
             max_hops,
             0,
             1,
+            1.0_f64,
             &mut visited_tokens,
             &mut used_pools,
             &mut current_steps,
@@ -753,6 +819,7 @@ fn enumerate_indexed_cycles(
     max_hops: usize,
     depth: usize,
     visited_len: usize,
+    running_upper_rate: f64,
     visited_tokens: &mut [usize; MAX_SUPPORTED_HOPS],
     used_pools: &mut [usize; MAX_SUPPORTED_HOPS],
     current_steps: &mut [IndexedStep; MAX_SUPPORTED_HOPS],
@@ -777,8 +844,12 @@ fn enumerate_indexed_cycles(
                     pool_idx: edge.pool_idx,
                     zero_for_one: edge.zero_for_one,
                 };
-                let cycle_steps = &current_steps[..next_depth];
                 *cycles_evaluated += 1;
+                let cycle_upper = running_upper_rate * edge.max_rate_upper;
+                if cycle_upper > 0.0 && cycle_upper.is_finite() && cycle_upper <= 1.0 {
+                    continue;
+                }
+                let cycle_steps = &current_steps[..next_depth];
                 if let Some(best) = ternary_search_indexed(
                     graph,
                     cycle_steps,
@@ -815,6 +886,7 @@ fn enumerate_indexed_cycles(
             max_hops,
             next_depth,
             visited_len + 1,
+            running_upper_rate * edge.max_rate_upper,
             visited_tokens,
             used_pools,
             current_steps,
@@ -1646,6 +1718,309 @@ mod tests {
         assert!(
             avg_us < budget_us,
             "indexed scan_cycles took {avg_us} us/scan (budget < {budget_us} us)"
+        );
+    }
+
+    #[test]
+    fn prefilter_matches_unpruned_reference_with_one_wei_truncation() {
+        assert_eq!(u256_to_f64_lossy(U256::ZERO), 0.0);
+        assert_eq!(u256_to_f64_lossy(U256::ONE), 1.0);
+        assert_eq!(u256_to_f64_lossy(U256::Q96), 2.0_f64.powi(96));
+        assert!(u256_to_f64_lossy(U256::MAX).is_finite());
+
+        let (mut graph, weth, usdt) = build_six_pool_multidex_graph();
+        let usdc = token("22");
+        let aero = token("44");
+        let cbbtc = token("55");
+
+        // Add a V2 WETH/USDC pool where 1 wei WETH truncates to 0 USDC,
+        // yet 1 WETH swaps to ~2991 USDC and completes profitable multi-hop cycles.
+        let trunc_pool_id = token("c1");
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: trunc_pool_id.clone(),
+                kind: PoolKind::V2,
+                token0: weth.clone(),
+                token1: usdc.clone(),
+                decimals0: 18,
+                decimals1: 6,
+                fee_pips: 3000,
+                reserve0: Some(U256::from_u128(100_000_000_000_000_000_000)),
+                reserve1: Some(U256::from_u128(300_000_000_000)),
+                sqrt_price_x96: None,
+                tick: None,
+                liquidity: None,
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Confirm hop 1 literally truncates to 0 at min_amount_in = 1 wei.
+        let one_wei_quote = graph
+            .quote_pool(8453, &trunc_pool_id, &weth, U256::ONE)
+            .unwrap();
+        assert_eq!(one_wei_quote.amount_out, U256::ZERO);
+
+        // Add aligned & slightly negative-spread cbBTC/WETH/USDC/AERO pools across
+        // Slipstream and V3 to exercise pruning without false negatives.
+        // 1 WETH = 0.05 cbBTC (8 dec vs 18 dec -> raw ratio 5e-12 -> tick ~ -260_234).
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("c2"),
+                kind: PoolKind::V3,
+                token0: weth.clone(),
+                token1: cbbtc.clone(),
+                decimals0: 18,
+                decimals1: 8,
+                fee_pips: 500,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(-260_234).unwrap()),
+                tick: Some(-260_234),
+                liquidity: Some(1_000_000_000_000_000_000),
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+        // 1 cbBTC = 60_000 USDC (8 dec vs 6 dec -> raw ratio 600 -> tick ~ 63_972).
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("c3"),
+                kind: PoolKind::Slipstream,
+                token0: cbbtc.clone(),
+                token1: usdc.clone(),
+                decimals0: 8,
+                decimals1: 6,
+                fee_pips: 500,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(63_972).unwrap()),
+                tick: Some(63_972),
+                liquidity: Some(1_000_000_000_000_000),
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+        // 0-fee exact break-even V2 pool pair to verify safety margin around rate=1.0.
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("c4"),
+                kind: PoolKind::V2,
+                token0: weth.clone(),
+                token1: aero.clone(),
+                decimals0: 18,
+                decimals1: 18,
+                fee_pips: 0,
+                reserve0: Some(U256::from_u128(50_000_000_000_000_000_000)),
+                reserve1: Some(U256::from_u128(300_000_000_000_000_000_000_000)),
+                sqrt_price_x96: None,
+                tick: None,
+                liquidity: None,
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        let min_in = U256::ONE;
+        let max_in = U256::from_u128(5_000_000_000_000_000_000);
+        let bases = [weth.clone(), usdt];
+
+        for max_hops in [2usize, 3, 4] {
+            for (gas_l2, gas_l1, min_profit) in [
+                (U256::ZERO, U256::ZERO, U256::ZERO),
+                (
+                    U256::from_u128(200_000_000_000_000),
+                    U256::from_u128(50_000_000_000_000),
+                    U256::from_u128(100_000_000_000_000),
+                ),
+            ] {
+                let actual = graph
+                    .scan_cycles(&bases, max_hops, min_in, max_in, gas_l2, gas_l1, min_profit)
+                    .unwrap();
+                let expected = reference_scan_cycles(
+                    &graph, &bases, max_hops, min_in, max_in, gas_l2, gas_l1, min_profit,
+                );
+                assert_eq!(actual.cycles_evaluated, expected.cycles_evaluated);
+                assert_eq!(actual.candidates, expected.candidates);
+                assert!(!actual.candidates.is_empty());
+            }
+        }
+
+        // Verify the 1-wei-truncating pool participates in a winning candidate.
+        let report_1wei = graph
+            .scan_cycles(
+                std::slice::from_ref(&weth),
+                3,
+                min_in,
+                max_in,
+                U256::ZERO,
+                U256::ZERO,
+                U256::ONE,
+            )
+            .unwrap();
+        assert!(
+            report_1wei
+                .candidates
+                .iter()
+                .any(|c| c.hops[0].pool_id == trunc_pool_id
+                    && c.optimal_amount_in > U256::from_u64(1_000_000_000_000))
+        );
+    }
+
+    #[test]
+    fn prefilter_30_plus_pool_multidex_benchmark() {
+        let mut graph = PoolGraph::new();
+        let tokens: Vec<String> = (1u8..=6).map(|i| token(&format!("{i:02x}"))).collect();
+
+        // Build 34 pools across all 15 pairs of 6 tokens (V2, V3, Slipstream, V4), aligned at
+        // 1:1 raw ratio with 30 bps V2 / 15 bps CL fees, plus one +25 bps dislocated Slipstream
+        // pool on (0, 1) and one tight 5 bps V3 pool on (0, 1) so 2-hop arb exists while
+        // multi-hop aligned cycles (>=1000) are pruned by the spot upper-bound prefilter.
+        let mut pool_counter = 1u16;
+        let mut next_pool_id = |is_v4: bool| -> String {
+            let id = pool_counter;
+            pool_counter += 1;
+            if is_v4 {
+                format!("0x{id:064x}")
+            } else {
+                format!("0x{id:040x}")
+            }
+        };
+
+        for i in 0..tokens.len() {
+            for j in (i + 1)..tokens.len() {
+                // Pool A: V2 aligned at 1:1 with 30 bps fee
+                graph
+                    .upsert_pool(PoolState {
+                        chain_id: 8453,
+                        pool_id: next_pool_id(false),
+                        kind: PoolKind::V2,
+                        token0: tokens[i].clone(),
+                        token1: tokens[j].clone(),
+                        decimals0: 18,
+                        decimals1: 18,
+                        fee_pips: 3000,
+                        reserve0: Some(U256::from_u128(1_000_000_000_000_000_000_000)),
+                        reserve1: Some(U256::from_u128(1_000_000_000_000_000_000_000)),
+                        sqrt_price_x96: None,
+                        tick: None,
+                        liquidity: None,
+                        ticks: vec![],
+                        block_number: 22_000_000,
+                        timestamp_ms: 1_794_000_000_000,
+                    })
+                    .unwrap();
+
+                // Pool B: alternate across V3, Slipstream, and V4 (aligned at tick=0, 15 bps fee)
+                let kind = match (i + j) % 3 {
+                    0 => PoolKind::V3,
+                    1 => PoolKind::Slipstream,
+                    _ => PoolKind::V4,
+                };
+                graph
+                    .upsert_pool(PoolState {
+                        chain_id: 8453,
+                        pool_id: next_pool_id(kind == PoolKind::V4),
+                        kind,
+                        token0: tokens[i].clone(),
+                        token1: tokens[j].clone(),
+                        decimals0: 18,
+                        decimals1: 18,
+                        fee_pips: 1500,
+                        reserve0: None,
+                        reserve1: None,
+                        sqrt_price_x96: Some(sqrt_price_at_tick(0).unwrap()),
+                        tick: Some(0),
+                        liquidity: Some(500_000_000_000_000_000_000),
+                        ticks: vec![],
+                        block_number: 22_000_000,
+                        timestamp_ms: 1_794_000_000_000,
+                    })
+                    .unwrap();
+            }
+        }
+
+        // Add 4 extra pools (total 34 pools): one dislocated Slipstream (0, 1) at +28 ticks
+        // (1 bps fee) paired with a 5 bps V3 (0, 1) at tick=0, plus two aligned Slipstream pools.
+        for &(a, b, tick, fee) in &[
+            (0usize, 1usize, 28i32, 100u32),
+            (0, 1, 0, 500),
+            (2, 3, 0, 500),
+            (3, 4, 0, 500),
+        ] {
+            graph
+                .upsert_pool(PoolState {
+                    chain_id: 8453,
+                    pool_id: next_pool_id(false),
+                    kind: PoolKind::Slipstream,
+                    token0: tokens[a].clone(),
+                    token1: tokens[b].clone(),
+                    decimals0: 18,
+                    decimals1: 18,
+                    fee_pips: fee,
+                    reserve0: None,
+                    reserve1: None,
+                    sqrt_price_x96: Some(sqrt_price_at_tick(tick).unwrap()),
+                    tick: Some(tick),
+                    liquidity: Some(5_000_000_000_000_000_000_000),
+                    ticks: vec![],
+                    block_number: 22_000_000,
+                    timestamp_ms: 1_794_000_000_000,
+                })
+                .unwrap();
+        }
+        assert!(graph.len() >= 30);
+
+        let min_in = U256::from_u128(10_000_000_000_000_000);
+        let max_in = U256::from_u128(10_000_000_000_000_000_000);
+        let gas_l2 = U256::from_u128(200_000_000_000_000);
+        let gas_l1 = U256::from_u128(50_000_000_000_000);
+        let min_profit = U256::from_u128(100_000_000_000_000);
+
+        let iterations = 5u32;
+        let t0 = Instant::now();
+        let mut last_cycles = 0usize;
+        let mut last_candidates = 0usize;
+        for _ in 0..iterations {
+            let report = graph
+                .scan_cycles(
+                    std::slice::from_ref(&tokens[0]),
+                    4,
+                    min_in,
+                    max_in,
+                    gas_l2,
+                    gas_l1,
+                    min_profit,
+                )
+                .unwrap();
+            last_cycles = report.cycles_evaluated;
+            last_candidates = report.candidates.len();
+        }
+        let avg_us = t0.elapsed().as_micros() / u128::from(iterations);
+        eprintln!(
+            "34-pool 6-token 4-hop ({last_cycles} cycles, {last_candidates} candidates): prefiltered={avg_us} us/scan"
+        );
+        assert!(
+            last_cycles >= 1000,
+            "expected >= 1000 cycles, got {last_cycles}"
+        );
+        assert!(last_candidates >= 1);
+        let budget_us: u128 = if cfg!(debug_assertions) {
+            250_000
+        } else {
+            50_000
+        };
+        assert!(
+            avg_us < budget_us,
+            "34-pool scan_cycles took {avg_us} us/scan (budget < {budget_us} us)"
         );
     }
 }
