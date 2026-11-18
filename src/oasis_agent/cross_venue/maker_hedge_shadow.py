@@ -9,10 +9,13 @@ All quotes, fills, and PnL summaries are strictly read-only shadow measurements
 (`execution_eligible = False`).
 """
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Final, Literal
 
+from .coinbase_trade_flow import CoinbaseTradePrint
 from .live_cex_dex_shadow import CoinbaseL2Book, resolve_coinbase_product
 
 _BPS_DIVISOR: Final[Decimal] = Decimal(10_000)
@@ -67,6 +70,13 @@ def _require_pos_int(value: object, name: str) -> int:
 
 def _decimal_round_float(value: Decimal, *, places: int = 6) -> float:
     return round(float(value), places)
+
+
+def _format_decimal_plain(value: Decimal) -> str:
+    normalized = value.normalize()
+    if normalized == 0:
+        return "0"
+    return f"{normalized:f}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +186,7 @@ class MakerFillEvent:
 
     product_id: str
     side: Literal["ask_maker", "bid_maker"]
-    fill_classification: Literal["strict_cross", "touch_lift"]
+    fill_classification: Literal["strict_cross", "touch_lift", "trade_flow_fifo"]
     quoted_price_usd: Decimal
     next_book_price_usd: Decimal
     hedge_dex_price_usd: Decimal
@@ -184,11 +194,14 @@ class MakerFillEvent:
     realized_net_profit_usd: Decimal
     latency_drift_bps: Decimal
     execution_eligible: Literal[False] = False
+    filled_qty_tokens: str | None = None
+    fill_ratio: float = 1.0
+    matched_trade_ids: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.side not in ("ask_maker", "bid_maker"):
             raise MakerHedgeError(f"invalid maker fill side: {self.side!r}")
-        if self.fill_classification not in ("strict_cross", "touch_lift"):
+        if self.fill_classification not in ("strict_cross", "touch_lift", "trade_flow_fifo"):
             raise MakerHedgeError(f"invalid fill_classification: {self.fill_classification!r}")
         if self.execution_eligible is not False:
             raise MakerHedgeError("MakerFillEvent cannot set execution_eligible=True")
@@ -202,6 +215,25 @@ class MakerFillEvent:
         _require_finite_decimal(self.realized_net_bps, "realized_net_bps")
         _require_finite_decimal(self.realized_net_profit_usd, "realized_net_profit_usd")
         _require_finite_decimal(self.latency_drift_bps, "latency_drift_bps")
+        if self.filled_qty_tokens is not None:
+            if not isinstance(self.filled_qty_tokens, str):
+                raise MakerHedgeError("filled_qty_tokens must be a decimal string or None")
+            _require_finite_decimal(
+                self.filled_qty_tokens, "filled_qty_tokens", require_positive=True
+            )
+        if (
+            isinstance(self.fill_ratio, bool)
+            or not isinstance(self.fill_ratio, (int, float))
+            or not math.isfinite(float(self.fill_ratio))
+            or not (0.0 < float(self.fill_ratio) <= 1.0)
+        ):
+            raise MakerHedgeError("fill_ratio must be a finite float in (0.0, 1.0]")
+        if type(self.fill_ratio) is int:
+            object.__setattr__(self, "fill_ratio", float(self.fill_ratio))
+        if not isinstance(self.matched_trade_ids, tuple) or any(
+            type(tid) is not int or tid <= 0 for tid in self.matched_trade_ids
+        ):
+            raise MakerHedgeError("matched_trade_ids must be a tuple of positive integers")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize fill event to a JSON-compatible dictionary."""
@@ -215,6 +247,9 @@ class MakerFillEvent:
             "realized_net_bps": _decimal_round_float(self.realized_net_bps),
             "realized_net_profit_usd": _decimal_round_float(self.realized_net_profit_usd),
             "latency_drift_bps": _decimal_round_float(self.latency_drift_bps),
+            "filled_qty_tokens": self.filled_qty_tokens,
+            "fill_ratio": round(float(self.fill_ratio), 6),
+            "matched_trade_ids": list(self.matched_trade_ids),
             "execution_eligible": self.execution_eligible,
         }
 
@@ -230,6 +265,7 @@ class MakerStepResult:
     quote: MakerQuoteCandidate
     unhedged_fill_reasons: tuple[str, ...] = ()
     execution_eligible: Literal[False] = False
+    fifo_fills: tuple[MakerFillEvent, ...] = ()
 
     def __post_init__(self) -> None:
         if self.execution_eligible is not False:
@@ -244,6 +280,19 @@ class _RestingQuoteState:
     ask_t_dex_unit_px: Decimal | None
     bid_price: Decimal | None
     bid_t_dex_unit_px: Decimal | None
+    ask_qty_tokens: Decimal | None = None
+    bid_qty_tokens: Decimal | None = None
+    queue_ahead_ask: Decimal = Decimal(0)
+    queue_ahead_bid: Decimal = Decimal(0)
+
+
+@dataclass(frozen=True, slots=True)
+class _QuoteComputation:
+    candidate: MakerQuoteCandidate
+    dex_buy_unit_px: Decimal | None
+    dex_sell_unit_px: Decimal | None
+    ask_qty_tokens: Decimal | None
+    bid_qty_tokens: Decimal | None
 
 
 def _compute_quote_and_unit_prices(
@@ -257,7 +306,7 @@ def _compute_quote_and_unit_prices(
     token_decimals: int,
     gas_cost_usd: Decimal,
     config: MakerHedgeConfig,
-) -> tuple[MakerQuoteCandidate, Decimal | None, Decimal | None]:
+) -> _QuoteComputation:
     spec = resolve_coinbase_product(product_or_symbol)
     if current_book.product_id != spec.product_id:
         raise MakerHedgeError(
@@ -364,7 +413,13 @@ def _compute_quote_and_unit_prices(
         spread_capture_bps=spread_capture_bps,
         gas_cost_usd=gas_usd,
     )
-    return candidate, dex_buy_unit_px, dex_sell_unit_px
+    return _QuoteComputation(
+        candidate=candidate,
+        dex_buy_unit_px=dex_buy_unit_px,
+        dex_sell_unit_px=dex_sell_unit_px,
+        ask_qty_tokens=ask_qty if candidate.ask_active else None,
+        bid_qty_tokens=sell_qty if candidate.bid_active else None,
+    )
 
 
 def build_maker_quote_candidate(
@@ -381,7 +436,7 @@ def build_maker_quote_candidate(
 ) -> MakerQuoteCandidate:
     """Compute competitive Post-Only Ask/Bid quotes and hedge breakevens for one tick."""
     eff_cfg = config if config is not None else MakerHedgeConfig()
-    candidate, _, _ = _compute_quote_and_unit_prices(
+    computed = _compute_quote_and_unit_prices(
         product_or_symbol=product_id,
         current_book=current_book,
         trade_notional_usdc=trade_notional_usdc,
@@ -392,7 +447,139 @@ def build_maker_quote_candidate(
         gas_cost_usd=gas_cost_usd,
         config=eff_cfg,
     )
-    return candidate
+    return computed.candidate
+
+
+def _build_ask_maker_fill(
+    *,
+    product_id: str,
+    classification: Literal["strict_cross", "touch_lift", "trade_flow_fifo"],
+    quoted_ask: Decimal,
+    next_book_px: Decimal,
+    t0_dex_unit_px: Decimal,
+    trade_notional_usdc: int,
+    dex_buy_token_out: int,
+    token_scale: Decimal,
+    gas_usd: Decimal,
+    config: MakerHedgeConfig,
+    filled_qty: Decimal | None = None,
+    fill_ratio: float = 1.0,
+    matched_trade_ids: tuple[int, ...] = (),
+) -> MakerFillEvent:
+    t1_dex_cost_full = Decimal(trade_notional_usdc) / _USDC_SCALE
+    t1_ask_qty_full = Decimal(dex_buy_token_out) / token_scale
+    hedge_dex_px = t1_dex_cost_full / t1_ask_qty_full
+    active_qty = t1_ask_qty_full if filled_qty is None else filled_qty
+    filled_dex_cost = (
+        t1_dex_cost_full if active_qty == t1_ask_qty_full else active_qty * hedge_dex_px
+    )
+    latency_drift_bps = ((hedge_dex_px - t0_dex_unit_px) / t0_dex_unit_px) * _BPS_DIVISOR
+    cex_proceeds = quoted_ask * active_qty
+    cex_fee = cex_proceeds * (config.cex_maker_fee_bps / _BPS_DIVISOR)
+    adv_cost = filled_dex_cost * (config.adverse_selection_bps / _BPS_DIVISOR)
+    realized_profit = cex_proceeds - cex_fee - filled_dex_cost - adv_cost - gas_usd
+    realized_bps = (realized_profit / filled_dex_cost) * _BPS_DIVISOR
+    return MakerFillEvent(
+        product_id=product_id,
+        side="ask_maker",
+        fill_classification=classification,
+        quoted_price_usd=quoted_ask,
+        next_book_price_usd=next_book_px,
+        hedge_dex_price_usd=hedge_dex_px,
+        realized_net_bps=realized_bps,
+        realized_net_profit_usd=realized_profit,
+        latency_drift_bps=latency_drift_bps,
+        filled_qty_tokens=_format_decimal_plain(active_qty) if filled_qty is not None else None,
+        fill_ratio=fill_ratio,
+        matched_trade_ids=matched_trade_ids,
+    )
+
+
+def _build_bid_maker_fill(
+    *,
+    product_id: str,
+    classification: Literal["strict_cross", "touch_lift", "trade_flow_fifo"],
+    quoted_bid: Decimal,
+    next_book_px: Decimal,
+    t0_dex_unit_px: Decimal,
+    trade_notional_token: int,
+    dex_sell_usdc_out: int,
+    token_scale: Decimal,
+    gas_usd: Decimal,
+    config: MakerHedgeConfig,
+    filled_qty: Decimal | None = None,
+    fill_ratio: float = 1.0,
+    matched_trade_ids: tuple[int, ...] = (),
+) -> MakerFillEvent:
+    t1_sell_qty_full = Decimal(trade_notional_token) / token_scale
+    t1_dex_proceeds_full = Decimal(dex_sell_usdc_out) / _USDC_SCALE
+    hedge_dex_px = t1_dex_proceeds_full / t1_sell_qty_full
+    active_qty = t1_sell_qty_full if filled_qty is None else filled_qty
+    filled_dex_proceeds = (
+        t1_dex_proceeds_full if active_qty == t1_sell_qty_full else active_qty * hedge_dex_px
+    )
+    latency_drift_bps = ((t0_dex_unit_px - hedge_dex_px) / t0_dex_unit_px) * _BPS_DIVISOR
+    cex_cost = quoted_bid * active_qty
+    cex_fee = cex_cost * (config.cex_maker_fee_bps / _BPS_DIVISOR)
+    adv_cost = cex_cost * (config.adverse_selection_bps / _BPS_DIVISOR)
+    realized_profit = filled_dex_proceeds - cex_cost - cex_fee - adv_cost - gas_usd
+    realized_bps = (realized_profit / cex_cost) * _BPS_DIVISOR
+    return MakerFillEvent(
+        product_id=product_id,
+        side="bid_maker",
+        fill_classification=classification,
+        quoted_price_usd=quoted_bid,
+        next_book_price_usd=next_book_px,
+        hedge_dex_price_usd=hedge_dex_px,
+        realized_net_bps=realized_bps,
+        realized_net_profit_usd=realized_profit,
+        latency_drift_bps=latency_drift_bps,
+        filled_qty_tokens=_format_decimal_plain(active_qty) if filled_qty is not None else None,
+        fill_ratio=fill_ratio,
+        matched_trade_ids=matched_trade_ids,
+    )
+
+
+def _consume_fifo_queue_prints(
+    *,
+    prints: tuple[CoinbaseTradePrint, ...],
+    quoted_price: Decimal,
+    quote_qty: Decimal,
+    initial_queue_ahead: Decimal,
+    is_ask: bool,
+) -> tuple[Decimal, Decimal, tuple[int, ...]]:
+    """Simulate FIFO queue depletion across chronological prints for one resting side."""
+    q_ahead = initial_queue_ahead
+    rem_qty = quote_qty
+    filled_qty = Decimal(0)
+    weighted_px_sum = Decimal(0)
+    matched_ids: list[int] = []
+    join_maker_side = "sell" if is_ask else "buy"
+
+    for tr in prints:
+        if rem_qty <= 0:
+            break
+        swept = tr.price > quoted_price if is_ask else tr.price < quoted_price
+        if swept:
+            q_ahead = Decimal(0)
+            take = min(rem_qty, tr.size)
+        elif tr.price == quoted_price and tr.maker_side == join_maker_side:
+            drained = min(q_ahead, tr.size)
+            q_ahead -= drained
+            rem_print = tr.size - drained
+            if rem_print <= 0:
+                continue
+            take = min(rem_qty, rem_print)
+        else:
+            continue
+        filled_qty += take
+        rem_qty -= take
+        weighted_px_sum += take * tr.price
+        matched_ids.append(tr.trade_id)
+
+    if filled_qty <= 0:
+        return Decimal(0), Decimal(0), ()
+    return filled_qty, weighted_px_sum / filled_qty, tuple(matched_ids)
 
 
 class MakerHedgeLifecycleTracker:
@@ -407,6 +594,8 @@ class MakerHedgeLifecycleTracker:
         self._quoted_edges_bps: list[Decimal] = []
         self._unhedged_warnings: list[str] = []
         self._products_seen: set[str] = set()
+        self._last_trade_id_by_product: dict[str, int] = {}
+        self._feed_gap_cancels: int = 0
 
     @property
     def config(self) -> MakerHedgeConfig:
@@ -423,12 +612,150 @@ class MakerHedgeLifecycleTracker:
         }
 
     def all_fills(self) -> tuple[MakerFillEvent, ...]:
-        """Return all observed fills (both `strict_cross` and diagnostic `touch_lift`)."""
+        """Return all observed fills across strict, touch-lift, and FIFO trade-flow legs."""
         return tuple(self._all_fills)
 
     def strict_fills(self) -> tuple[MakerFillEvent, ...]:
         """Return only strictly crossed (`strict_cross`) fills."""
         return tuple(f for f in self._all_fills if f.fill_classification == "strict_cross")
+
+    def fifo_fills(self) -> tuple[MakerFillEvent, ...]:
+        """Return only trade-flow FIFO (`trade_flow_fifo`) fills."""
+        return tuple(f for f in self._all_fills if f.fill_classification == "trade_flow_fifo")
+
+    def _extract_new_product_trades(
+        self,
+        product_id: str,
+        recent_trades: Sequence[CoinbaseTradePrint],
+    ) -> tuple[CoinbaseTradePrint, ...]:
+        if isinstance(recent_trades, (str, bytes)):
+            raise MakerHedgeError("recent_trades must be a sequence of CoinbaseTradePrint")
+        if not recent_trades:
+            return ()
+
+        watermark = self._last_trade_id_by_product.get(product_id, 0)
+        by_trade_id: dict[int, CoinbaseTradePrint] = {}
+        for idx, item in enumerate(recent_trades):
+            if not isinstance(item, CoinbaseTradePrint):
+                raise MakerHedgeError(
+                    f"recent_trades[{idx}] must be CoinbaseTradePrint, not {type(item).__name__}"
+                )
+            if item.product_id != product_id or item.trade_id <= watermark:
+                continue
+            existing = by_trade_id.get(item.trade_id)
+            if existing is not None:
+                if existing != item:
+                    raise MakerHedgeError(
+                        f"conflicting trade print for {product_id} trade_id {item.trade_id}"
+                    )
+                continue
+            by_trade_id[item.trade_id] = item
+
+        if not by_trade_id:
+            return ()
+        ordered = tuple(sorted(by_trade_id.values(), key=lambda item: item.trade_id))
+        self._last_trade_id_by_product[product_id] = ordered[-1].trade_id
+        return ordered
+
+    def _evaluate_fifo_fills(
+        self,
+        *,
+        product_id: str,
+        prev_state: _RestingQuoteState,
+        product_prints: tuple[CoinbaseTradePrint, ...],
+        trade_notional_usdc: int,
+        dex_buy_token_out: int | None,
+        trade_notional_token: int,
+        dex_sell_usdc_out: int | None,
+        token_decimals: int,
+        gas_usd: Decimal,
+    ) -> tuple[list[MakerFillEvent], list[str]]:
+        if not product_prints:
+            return [], []
+
+        fills: list[MakerFillEvent] = []
+        unhedged: list[str] = []
+        token_scale = Decimal(10**token_decimals)
+
+        if (
+            prev_state.ask_price is not None
+            and prev_state.ask_qty_tokens is not None
+            and prev_state.ask_t_dex_unit_px is not None
+        ):
+            filled_ask, ask_next_px, ask_matched_ids = _consume_fifo_queue_prints(
+                prints=product_prints,
+                quoted_price=prev_state.ask_price,
+                quote_qty=prev_state.ask_qty_tokens,
+                initial_queue_ahead=prev_state.queue_ahead_ask,
+                is_ask=True,
+            )
+            if filled_ask > 0:
+                if dex_buy_token_out is None or dex_buy_token_out <= 0:
+                    unhedged.append(
+                        f"{product_id}:ask_maker:trade_flow_fifo:"
+                        "fifo_ask_fill_missing_t1_dex_buy_hedge"
+                    )
+                else:
+                    ratio = min(1.0, float(filled_ask / prev_state.ask_qty_tokens))
+                    if ratio > 0.0:
+                        fills.append(
+                            _build_ask_maker_fill(
+                                product_id=product_id,
+                                classification="trade_flow_fifo",
+                                quoted_ask=prev_state.ask_price,
+                                next_book_px=ask_next_px,
+                                t0_dex_unit_px=prev_state.ask_t_dex_unit_px,
+                                trade_notional_usdc=trade_notional_usdc,
+                                dex_buy_token_out=dex_buy_token_out,
+                                token_scale=token_scale,
+                                gas_usd=gas_usd,
+                                config=self._config,
+                                filled_qty=filled_ask,
+                                fill_ratio=ratio,
+                                matched_trade_ids=ask_matched_ids,
+                            )
+                        )
+
+        if (
+            prev_state.bid_price is not None
+            and prev_state.bid_qty_tokens is not None
+            and prev_state.bid_t_dex_unit_px is not None
+        ):
+            filled_bid, bid_next_px, bid_matched_ids = _consume_fifo_queue_prints(
+                prints=product_prints,
+                quoted_price=prev_state.bid_price,
+                quote_qty=prev_state.bid_qty_tokens,
+                initial_queue_ahead=prev_state.queue_ahead_bid,
+                is_ask=False,
+            )
+            if filled_bid > 0:
+                if dex_sell_usdc_out is None or dex_sell_usdc_out <= 0:
+                    unhedged.append(
+                        f"{product_id}:bid_maker:trade_flow_fifo:"
+                        "fifo_bid_fill_missing_t1_dex_sell_hedge"
+                    )
+                else:
+                    ratio = min(1.0, float(filled_bid / prev_state.bid_qty_tokens))
+                    if ratio > 0.0:
+                        fills.append(
+                            _build_bid_maker_fill(
+                                product_id=product_id,
+                                classification="trade_flow_fifo",
+                                quoted_bid=prev_state.bid_price,
+                                next_book_px=bid_next_px,
+                                t0_dex_unit_px=prev_state.bid_t_dex_unit_px,
+                                trade_notional_token=trade_notional_token,
+                                dex_sell_usdc_out=dex_sell_usdc_out,
+                                token_scale=token_scale,
+                                gas_usd=gas_usd,
+                                config=self._config,
+                                filled_qty=filled_bid,
+                                fill_ratio=ratio,
+                                matched_trade_ids=bid_matched_ids,
+                            )
+                        )
+
+        return fills, unhedged
 
     def _evaluate_resting_fills(
         self,
@@ -464,28 +791,18 @@ class MakerHedgeLifecycleTracker:
                         f"{product_id}:ask_maker:{classification}:dex_buy_quote_unavailable"
                     )
                 else:
-                    t1_dex_cost_usd = Decimal(trade_notional_usdc) / _USDC_SCALE
-                    t1_ask_qty = Decimal(dex_buy_token_out) / token_scale
-                    hedge_dex_px = t1_dex_cost_usd / t1_ask_qty
-                    latency_drift_bps = (
-                        (hedge_dex_px - prev_state.ask_t_dex_unit_px) / prev_state.ask_t_dex_unit_px
-                    ) * _BPS_DIVISOR
-                    cex_proceeds = prev_state.ask_price * t1_ask_qty
-                    cex_fee = cex_proceeds * (self._config.cex_maker_fee_bps / _BPS_DIVISOR)
-                    adv_cost = t1_dex_cost_usd * (self._config.adverse_selection_bps / _BPS_DIVISOR)
-                    realized_profit = cex_proceeds - cex_fee - t1_dex_cost_usd - adv_cost - gas_usd
-                    realized_bps = (realized_profit / t1_dex_cost_usd) * _BPS_DIVISOR
                     fills.append(
-                        MakerFillEvent(
+                        _build_ask_maker_fill(
                             product_id=product_id,
-                            side="ask_maker",
-                            fill_classification=classification,
-                            quoted_price_usd=prev_state.ask_price,
-                            next_book_price_usd=next_book_px,
-                            hedge_dex_price_usd=hedge_dex_px,
-                            realized_net_bps=realized_bps,
-                            realized_net_profit_usd=realized_profit,
-                            latency_drift_bps=latency_drift_bps,
+                            classification=classification,
+                            quoted_ask=prev_state.ask_price,
+                            next_book_px=next_book_px,
+                            t0_dex_unit_px=prev_state.ask_t_dex_unit_px,
+                            trade_notional_usdc=trade_notional_usdc,
+                            dex_buy_token_out=dex_buy_token_out,
+                            token_scale=token_scale,
+                            gas_usd=gas_usd,
+                            config=self._config,
                         )
                     )
 
@@ -504,28 +821,18 @@ class MakerHedgeLifecycleTracker:
                         f"{product_id}:bid_maker:{classification}:dex_sell_quote_unavailable"
                     )
                 else:
-                    t1_sell_qty = Decimal(trade_notional_token) / token_scale
-                    t1_dex_proceeds = Decimal(dex_sell_usdc_out) / _USDC_SCALE
-                    hedge_dex_px = t1_dex_proceeds / t1_sell_qty
-                    latency_drift_bps = (
-                        (prev_state.bid_t_dex_unit_px - hedge_dex_px) / prev_state.bid_t_dex_unit_px
-                    ) * _BPS_DIVISOR
-                    cex_cost = prev_state.bid_price * t1_sell_qty
-                    cex_fee = cex_cost * (self._config.cex_maker_fee_bps / _BPS_DIVISOR)
-                    adv_cost = cex_cost * (self._config.adverse_selection_bps / _BPS_DIVISOR)
-                    realized_profit = t1_dex_proceeds - cex_cost - cex_fee - adv_cost - gas_usd
-                    realized_bps = (realized_profit / cex_cost) * _BPS_DIVISOR
                     fills.append(
-                        MakerFillEvent(
+                        _build_bid_maker_fill(
                             product_id=product_id,
-                            side="bid_maker",
-                            fill_classification=classification,
-                            quoted_price_usd=prev_state.bid_price,
-                            next_book_price_usd=next_book_px,
-                            hedge_dex_price_usd=hedge_dex_px,
-                            realized_net_bps=realized_bps,
-                            realized_net_profit_usd=realized_profit,
-                            latency_drift_bps=latency_drift_bps,
+                            classification=classification,
+                            quoted_bid=prev_state.bid_price,
+                            next_book_px=next_book_px,
+                            t0_dex_unit_px=prev_state.bid_t_dex_unit_px,
+                            trade_notional_token=trade_notional_token,
+                            dex_sell_usdc_out=dex_sell_usdc_out,
+                            token_scale=token_scale,
+                            gas_usd=gas_usd,
+                            config=self._config,
                         )
                     )
 
@@ -542,10 +849,14 @@ class MakerHedgeLifecycleTracker:
         dex_sell_usdc_out: int | None,
         token_decimals: int,
         gas_cost_usd: Decimal,
+        recent_trades: Sequence[CoinbaseTradePrint] = (),
+        feed_gap_detected: bool = False,
     ) -> MakerStepResult:
-        """Evaluate prior tick's resting quotes on `current_book`, then refresh quotes."""
+        """Evaluate prior tick's resting quotes on `current_book` & trades, then refresh quotes."""
+        if type(feed_gap_detected) is not bool:
+            raise MakerHedgeError("feed_gap_detected must be a boolean")
         spec = resolve_coinbase_product(product_id)
-        candidate, dex_buy_unit_px, dex_sell_unit_px = _compute_quote_and_unit_prices(
+        computed = _compute_quote_and_unit_prices(
             product_or_symbol=spec.product_id,
             current_book=current_book,
             trade_notional_usdc=trade_notional_usdc,
@@ -556,44 +867,94 @@ class MakerHedgeLifecycleTracker:
             gas_cost_usd=gas_cost_usd,
             config=self._config,
         )
+        candidate = computed.candidate
+        new_prints = self._extract_new_product_trades(spec.product_id, recent_trades)
 
         fills: list[MakerFillEvent] = []
         unhedged: list[str] = []
         prev_state = self._resting_by_product.get(spec.product_id)
-        if prev_state is not None:
-            fills, unhedged = self._evaluate_resting_fills(
-                product_id=spec.product_id,
-                prev_state=prev_state,
-                current_book=current_book,
-                trade_notional_usdc=trade_notional_usdc,
-                dex_buy_token_out=dex_buy_token_out,
-                trade_notional_token=trade_notional_token,
-                dex_sell_usdc_out=dex_sell_usdc_out,
-                token_decimals=token_decimals,
-                gas_usd=candidate.gas_cost_usd,
-            )
 
-        self._resting_by_product[spec.product_id] = _RestingQuoteState(
-            book_best_bid=current_book.best_bid,
-            book_best_ask=current_book.best_ask,
-            ask_price=candidate.quoted_ask_usd if candidate.ask_active else None,
-            ask_t_dex_unit_px=dex_buy_unit_px if candidate.ask_active else None,
-            bid_price=candidate.quoted_bid_usd if candidate.bid_active else None,
-            bid_t_dex_unit_px=dex_sell_unit_px if candidate.bid_active else None,
-        )
+        if feed_gap_detected:
+            self._resting_by_product.pop(spec.product_id, None)
+            if prev_state is not None and (
+                prev_state.ask_price is not None or prev_state.bid_price is not None
+            ):
+                self._feed_gap_cancels += 1
+                unhedged.append(f"{spec.product_id}:feed_gap_cancelled_prior_quote")
+        else:
+            if prev_state is not None:
+                if new_prints:
+                    fifo_evaluated, fifo_unhedged = self._evaluate_fifo_fills(
+                        product_id=spec.product_id,
+                        prev_state=prev_state,
+                        product_prints=new_prints,
+                        trade_notional_usdc=trade_notional_usdc,
+                        dex_buy_token_out=dex_buy_token_out,
+                        trade_notional_token=trade_notional_token,
+                        dex_sell_usdc_out=dex_sell_usdc_out,
+                        token_decimals=token_decimals,
+                        gas_usd=candidate.gas_cost_usd,
+                    )
+                    fills.extend(fifo_evaluated)
+                    unhedged.extend(fifo_unhedged)
+
+                book_fills, book_unhedged = self._evaluate_resting_fills(
+                    product_id=spec.product_id,
+                    prev_state=prev_state,
+                    current_book=current_book,
+                    trade_notional_usdc=trade_notional_usdc,
+                    dex_buy_token_out=dex_buy_token_out,
+                    trade_notional_token=trade_notional_token,
+                    dex_sell_usdc_out=dex_sell_usdc_out,
+                    token_decimals=token_decimals,
+                    gas_usd=candidate.gas_cost_usd,
+                )
+                fills.extend(book_fills)
+                unhedged.extend(book_unhedged)
+
+            queue_ahead_ask = Decimal(0)
+            if (
+                candidate.ask_active
+                and candidate.quoted_ask_usd is not None
+                and candidate.quoted_ask_usd >= current_book.best_ask
+            ):
+                queue_ahead_ask = current_book.asks[0].size
+
+            queue_ahead_bid = Decimal(0)
+            if (
+                candidate.bid_active
+                and candidate.quoted_bid_usd is not None
+                and candidate.quoted_bid_usd <= current_book.best_bid
+            ):
+                queue_ahead_bid = current_book.bids[0].size
+
+            self._resting_by_product[spec.product_id] = _RestingQuoteState(
+                book_best_bid=current_book.best_bid,
+                book_best_ask=current_book.best_ask,
+                ask_price=candidate.quoted_ask_usd if candidate.ask_active else None,
+                ask_t_dex_unit_px=computed.dex_buy_unit_px if candidate.ask_active else None,
+                bid_price=candidate.quoted_bid_usd if candidate.bid_active else None,
+                bid_t_dex_unit_px=computed.dex_sell_unit_px if candidate.bid_active else None,
+                ask_qty_tokens=computed.ask_qty_tokens,
+                bid_qty_tokens=computed.bid_qty_tokens,
+                queue_ahead_ask=queue_ahead_ask,
+                queue_ahead_bid=queue_ahead_bid,
+            )
 
         self._total_steps += 1
         self._products_seen.add(spec.product_id)
-        self._active_quote_legs += int(candidate.ask_active) + int(candidate.bid_active)
-        if candidate.ask_edge_bps is not None:
-            self._quoted_edges_bps.append(candidate.ask_edge_bps)
-        if candidate.bid_edge_bps is not None:
-            self._quoted_edges_bps.append(candidate.bid_edge_bps)
+        if not feed_gap_detected:
+            self._active_quote_legs += int(candidate.ask_active) + int(candidate.bid_active)
+            if candidate.ask_edge_bps is not None:
+                self._quoted_edges_bps.append(candidate.ask_edge_bps)
+            if candidate.bid_edge_bps is not None:
+                self._quoted_edges_bps.append(candidate.bid_edge_bps)
         self._all_fills.extend(fills)
         self._unhedged_warnings.extend(unhedged)
 
         strict_fills = tuple(f for f in fills if f.fill_classification == "strict_cross")
         touch_fills = tuple(f for f in fills if f.fill_classification == "touch_lift")
+        fifo_fills = tuple(f for f in fills if f.fill_classification == "trade_flow_fifo")
         return MakerStepResult(
             product_id=spec.product_id,
             fills=tuple(fills),
@@ -601,12 +962,15 @@ class MakerHedgeLifecycleTracker:
             touch_lift_fills=touch_fills,
             quote=candidate,
             unhedged_fill_reasons=tuple(unhedged),
+            fifo_fills=fifo_fills,
         )
 
     def summary(self) -> dict[str, Any]:
-        """Return conservative strict-cross and diagnostic shadow summary metrics."""
+        """Return conservative strict-cross, FIFO trade-flow, and diagnostic shadow metrics."""
         strict = [f for f in self._all_fills if f.fill_classification == "strict_cross"]
         touch = [f for f in self._all_fills if f.fill_classification == "touch_lift"]
+        fifo = [f for f in self._all_fills if f.fill_classification == "trade_flow_fifo"]
+
         strict_mean_bps = (
             _decimal_round_float(
                 sum((f.realized_net_bps for f in strict), Decimal(0)) / Decimal(len(strict))
@@ -618,6 +982,29 @@ class MakerHedgeLifecycleTracker:
             sum((f.realized_net_profit_usd for f in strict), Decimal(0))
         )
         strict_positive = sum(1 for f in strict if f.realized_net_profit_usd > 0)
+
+        fifo_mean_bps = (
+            _decimal_round_float(
+                sum((f.realized_net_bps for f in fifo), Decimal(0)) / Decimal(len(fifo))
+            )
+            if fifo
+            else None
+        )
+        fifo_total_profit = _decimal_round_float(
+            sum((f.realized_net_profit_usd for f in fifo), Decimal(0))
+        )
+        fifo_positive = sum(1 for f in fifo if f.realized_net_profit_usd > 0)
+        fifo_filled_notional = _decimal_round_float(
+            sum(
+                (
+                    f.quoted_price_usd * Decimal(f.filled_qty_tokens)
+                    for f in fifo
+                    if f.filled_qty_tokens is not None
+                ),
+                Decimal(0),
+            )
+        )
+
         best_quoted_edge = (
             _decimal_round_float(max(self._quoted_edges_bps)) if self._quoted_edges_bps else None
         )
@@ -629,6 +1016,12 @@ class MakerHedgeLifecycleTracker:
             "strict_mean_realized_net_bps": strict_mean_bps,
             "strict_total_net_profit_usd": strict_total_profit,
             "strict_positive_fills": strict_positive,
+            "trade_flow_fifo_fills": len(fifo),
+            "fifo_positive_fills": fifo_positive,
+            "fifo_mean_realized_net_bps": fifo_mean_bps,
+            "fifo_total_net_profit_usd": fifo_total_profit,
+            "fifo_total_filled_notional_usd": fifo_filled_notional,
+            "feed_gap_cancels": self._feed_gap_cancels,
             "best_quoted_edge_bps": best_quoted_edge,
             "unhedged_fill_warnings": len(self._unhedged_warnings),
             "products_tracked": sorted(self._products_seen),

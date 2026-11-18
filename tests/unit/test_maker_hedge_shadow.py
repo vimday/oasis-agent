@@ -454,7 +454,16 @@ def test_maker_hedge_lifecycle_wide_spread_non_cross_touch_lift_and_strict_cross
         float(fill.realized_net_profit_usd), abs=1e-4
     )
     assert summary["best_quoted_edge_bps"] is not None and summary["best_quoted_edge_bps"] > 25.0
+    assert summary["trade_flow_fifo_fills"] == 0
+    assert summary["fifo_positive_fills"] == 0
+    assert summary["fifo_mean_realized_net_bps"] is None
+    assert summary["fifo_total_net_profit_usd"] == 0.0
+    assert summary["fifo_total_filled_notional_usd"] == 0.0
+    assert summary["feed_gap_cancels"] == 0
     assert summary["execution_eligible"] is False
+    assert fill.to_dict()["matched_trade_ids"] == []
+    assert fill.to_dict()["fill_ratio"] == 1.0
+    assert fill.to_dict()["filled_qty_tokens"] is None
 
 
 def test_maker_hedge_adverse_drift_loss_bid_maker_and_fail_closed_guards() -> None:
