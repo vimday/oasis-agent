@@ -180,30 +180,18 @@ impl PoolState {
         Ok(self)
     }
 
-    pub fn quote_exact_in(
+    fn quote_exact_in_direction(
         &self,
-        token_in: &str,
+        zero_for_one: bool,
         amount_in: U256,
-    ) -> Result<PoolQuoteOutput, GraphArbError> {
-        let token_in_norm = normalize_id(token_in);
-        let (zero_for_one, token_out) = if token_in_norm == self.token0 {
-            (true, self.token1.clone())
-        } else if token_in_norm == self.token1 {
-            (false, self.token0.clone())
-        } else {
-            return Err(GraphArbError::TokenNotInPool {
-                pool_id: self.pool_id.clone(),
-                token: token_in.to_string(),
-            });
-        };
-
-        let (amount_out, fee_paid) = match self.kind {
+    ) -> Result<(U256, U256), GraphArbError> {
+        match self.kind {
             PoolKind::V2 => {
                 let r0 = self.reserve0.ok_or(PoolMathError::InsufficientLiquidity)?;
                 let r1 = self.reserve1.ok_or(PoolMathError::InsufficientLiquidity)?;
                 let (rin, rout) = if zero_for_one { (r0, r1) } else { (r1, r0) };
                 let res = v2_swap_exact_in(rin, rout, self.fee_pips, amount_in)?;
-                (res.amount_out, res.fee_paid)
+                Ok((res.amount_out, res.fee_paid))
             }
             PoolKind::AerodromeStable => {
                 let r0 = self.reserve0.ok_or(PoolMathError::InsufficientLiquidity)?;
@@ -221,7 +209,7 @@ impl PoolState {
                     self.fee_pips,
                     amount_in,
                 )?;
-                (res.amount_out, res.fee_paid)
+                Ok((res.amount_out, res.fee_paid))
             }
             PoolKind::V3 | PoolKind::Slipstream | PoolKind::V4 => {
                 let sqrt_p = self
@@ -238,9 +226,29 @@ impl PoolState {
                     zero_for_one,
                     amount_in,
                 )?;
-                (res.amount_out, res.fee_paid)
+                Ok((res.amount_out, res.fee_paid))
             }
+        }
+    }
+
+    pub fn quote_exact_in(
+        &self,
+        token_in: &str,
+        amount_in: U256,
+    ) -> Result<PoolQuoteOutput, GraphArbError> {
+        let token_in_norm = normalize_id(token_in);
+        let (zero_for_one, token_out) = if token_in_norm == self.token0 {
+            (true, self.token1.clone())
+        } else if token_in_norm == self.token1 {
+            (false, self.token0.clone())
+        } else {
+            return Err(GraphArbError::TokenNotInPool {
+                pool_id: self.pool_id.clone(),
+                token: token_in.to_string(),
+            });
         };
+
+        let (amount_out, fee_paid) = self.quote_exact_in_direction(zero_for_one, amount_in)?;
 
         Ok(PoolQuoteOutput {
             pool_id: self.pool_id.clone(),
@@ -367,10 +375,130 @@ impl PartialOrd for SignedU512 {
     }
 }
 
-#[derive(Clone, Debug)]
-struct EvaluatedPoint {
-    quote: RouteQuote,
+const MAX_SUPPORTED_HOPS: usize = 4;
+
+#[derive(Clone, Copy, Debug)]
+struct IndexedEdge {
+    to_token: usize,
+    pool_idx: usize,
+    zero_for_one: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct IndexedStep {
+    pool_idx: usize,
+    zero_for_one: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct EvaluatedIndexedPoint {
+    amount_in: U256,
+    amount_out: U256,
     net_profit: SignedU512,
+}
+
+struct IndexedGraph<'a> {
+    chain_id: u64,
+    pools: Vec<&'a PoolState>,
+    tokens: Vec<&'a str>,
+    token_ids: HashMap<&'a str, usize>,
+    adj: Vec<Vec<IndexedEdge>>,
+}
+
+impl<'a> IndexedGraph<'a> {
+    fn from_chain_pools(chain_id: u64, chain_pools: Vec<&'a PoolState>) -> Self {
+        let mut tokens = Vec::with_capacity(chain_pools.len() * 2);
+        let mut token_ids = HashMap::with_capacity(chain_pools.len() * 2);
+        let mut adj = Vec::with_capacity(chain_pools.len() * 2);
+
+        for (pool_idx, pool) in chain_pools.iter().enumerate() {
+            let t0 = intern_token(&pool.token0, &mut tokens, &mut token_ids, &mut adj);
+            let t1 = intern_token(&pool.token1, &mut tokens, &mut token_ids, &mut adj);
+            adj[t0].push(IndexedEdge {
+                to_token: t1,
+                pool_idx,
+                zero_for_one: true,
+            });
+            adj[t1].push(IndexedEdge {
+                to_token: t0,
+                pool_idx,
+                zero_for_one: false,
+            });
+        }
+
+        Self {
+            chain_id,
+            pools: chain_pools,
+            tokens,
+            token_ids,
+            adj,
+        }
+    }
+
+    fn token_id(&self, normalized_token: &str) -> Option<usize> {
+        self.token_ids.get(normalized_token).copied()
+    }
+
+    fn materialize_candidate(
+        &self,
+        base_id: usize,
+        steps: &[IndexedStep],
+        best: EvaluatedIndexedPoint,
+        gas_cost_in_base: U256,
+        l1_fee_in_base: U256,
+    ) -> Result<CycleCandidate, GraphArbError> {
+        let mut hops = Vec::with_capacity(steps.len());
+        let mut cur_amount = best.amount_in;
+        for step in steps {
+            let pool = self.pools[step.pool_idx];
+            let (amount_out, _) = pool.quote_exact_in_direction(step.zero_for_one, cur_amount)?;
+            let (token_in, token_out) = if step.zero_for_one {
+                (pool.token0.clone(), pool.token1.clone())
+            } else {
+                (pool.token1.clone(), pool.token0.clone())
+            };
+            hops.push(CycleHop {
+                pool_id: pool.pool_id.clone(),
+                kind: pool.kind,
+                token_in,
+                token_out,
+                amount_in: cur_amount,
+                amount_out,
+            });
+            cur_amount = amount_out;
+        }
+        let net_profit = best
+            .net_profit
+            .mag
+            .to_u256()
+            .expect("positive net_profit <= amount_out fits U256");
+        Ok(CycleCandidate {
+            chain_id: self.chain_id,
+            base_token: self.tokens[base_id].to_string(),
+            hops,
+            optimal_amount_in: best.amount_in,
+            amount_out: best.amount_out,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            net_profit,
+        })
+    }
+}
+
+fn intern_token<'a>(
+    token: &'a str,
+    tokens: &mut Vec<&'a str>,
+    token_ids: &mut HashMap<&'a str, usize>,
+    adj: &mut Vec<Vec<IndexedEdge>>,
+) -> usize {
+    if let Some(&id) = token_ids.get(token) {
+        return id;
+    }
+    let id = tokens.len();
+    tokens.push(token);
+    token_ids.insert(token, id);
+    adj.push(Vec::new());
+    id
 }
 
 #[derive(Default, Debug)]
@@ -465,8 +593,9 @@ impl PoolGraph {
         })
     }
 
-    /// Enumerates simple 2-hop and 3-hop cycles starting & ending at each `base_token`,
-    /// optimizing `amount_in` with 48-iteration exact integer ternary search.
+    /// Enumerates simple 2-hop to 4-hop cycles starting & ending at each `base_token`,
+    /// optimizing `amount_in` with 48-iteration exact integer ternary search over an
+    /// indexed zero-allocation graph representation.
     #[allow(clippy::too_many_arguments)]
     pub fn scan_cycles(
         &self,
@@ -482,7 +611,7 @@ impl PoolGraph {
         if base_tokens.is_empty() {
             return Err(GraphArbError::EmptyBaseTokens);
         }
-        if !(2..=4).contains(&max_hops) {
+        if !(2..=MAX_SUPPORTED_HOPS).contains(&max_hops) {
             return Err(GraphArbError::InvalidMaxHops(max_hops));
         }
         if min_amount_in.is_zero() || min_amount_in > max_amount_in {
@@ -495,18 +624,6 @@ impl PoolGraph {
             return Err(GraphArbError::EmptyBaseTokens);
         }
 
-        // Build per-chain directed adjacency lists: token -> Vec<(pool_id, next_token)>
-        let mut by_chain: BTreeMap<u64, HashMap<String, Vec<(String, String)>>> = BTreeMap::new();
-        for ((chain_id, _), pool) in &self.pools {
-            let adj = by_chain.entry(*chain_id).or_default();
-            adj.entry(pool.token0.clone())
-                .or_default()
-                .push((pool.pool_id.clone(), pool.token1.clone()));
-            adj.entry(pool.token1.clone())
-                .or_default()
-                .push((pool.pool_id.clone(), pool.token0.clone()));
-        }
-
         let total_gas = gas_cost_in_base
             .to_u512()
             .checked_add(l1_fee_in_base.to_u512())
@@ -516,55 +633,53 @@ impl PoolGraph {
         let mut cycles_evaluated = 0usize;
         let mut candidates = Vec::new();
 
-        for (chain_id, adj) in &by_chain {
-            for base in &normalized_bases {
-                if !adj.contains_key(base) {
-                    continue;
-                }
-                let mut routes: Vec<Vec<RouteStep>> = Vec::new();
-                let mut current_route: Vec<RouteStep> = Vec::new();
-                let mut visited_tokens: Vec<String> = vec![base.clone()];
-                let mut used_pools: Vec<String> = Vec::new();
+        // `self.pools` is a `BTreeMap<(chain_id, pool_id), PoolState>`, so chains appear in
+        // contiguous ascending `(chain_id, pool_id)` order.
+        let mut cur_chain: Option<u64> = None;
+        let mut chain_pools: Vec<&PoolState> = Vec::new();
 
-                enumerate_simple_cycles(
-                    *chain_id,
-                    base,
-                    base,
-                    max_hops,
-                    adj,
-                    &mut visited_tokens,
-                    &mut used_pools,
-                    &mut current_route,
-                    &mut routes,
-                );
-
-                for route in routes {
-                    cycles_evaluated += 1;
-                    if let Some(best) = self.optimize_route(
-                        &route,
+        for ((chain_id, _), pool) in &self.pools {
+            match cur_chain {
+                Some(active_chain) if active_chain != *chain_id => {
+                    let indexed = IndexedGraph::from_chain_pools(
+                        active_chain,
+                        std::mem::take(&mut chain_pools),
+                    );
+                    scan_indexed_chain(
+                        &indexed,
+                        &normalized_bases,
+                        max_hops,
                         min_amount_in,
                         max_amount_in,
+                        gas_cost_in_base,
+                        l1_fee_in_base,
                         total_gas,
                         min_profit_u512,
-                    ) {
-                        let net_profit = best
-                            .net_profit
-                            .mag
-                            .to_u256()
-                            .expect("positive net_profit <= amount_out fits U256");
-                        candidates.push(CycleCandidate {
-                            chain_id: *chain_id,
-                            base_token: base.clone(),
-                            hops: best.quote.hops,
-                            optimal_amount_in: best.quote.amount_in,
-                            amount_out: best.quote.amount_out,
-                            gas_cost_in_base,
-                            l1_fee_in_base,
-                            net_profit,
-                        });
-                    }
+                        &mut cycles_evaluated,
+                        &mut candidates,
+                    )?;
+                    cur_chain = Some(*chain_id);
                 }
+                None => cur_chain = Some(*chain_id),
+                Some(_) => {}
             }
+            chain_pools.push(pool);
+        }
+        if let Some(active_chain) = cur_chain {
+            let indexed = IndexedGraph::from_chain_pools(active_chain, chain_pools);
+            scan_indexed_chain(
+                &indexed,
+                &normalized_bases,
+                max_hops,
+                min_amount_in,
+                max_amount_in,
+                gas_cost_in_base,
+                l1_fee_in_base,
+                total_gas,
+                min_profit_u512,
+                &mut cycles_evaluated,
+                &mut candidates,
+            )?;
         }
 
         candidates.sort_by(|a, b| {
@@ -582,186 +697,267 @@ impl PoolGraph {
             elapsed_ns,
         })
     }
-
-    fn eval_route_point(
-        &self,
-        route: &[RouteStep],
-        amount_in: U256,
-        total_gas: U512,
-    ) -> Result<EvaluatedPoint, GraphArbError> {
-        let quote = self.quote_route(route, amount_in)?;
-        let total_cost = amount_in
-            .to_u512()
-            .checked_add(total_gas)
-            .expect("amount_in + two U256 fees fits U512");
-        let net_profit = SignedU512::diff(quote.amount_out.to_u512(), total_cost);
-        Ok(EvaluatedPoint { quote, net_profit })
-    }
-
-    fn optimize_route(
-        &self,
-        route: &[RouteStep],
-        min_amount_in: U256,
-        max_amount_in: U256,
-        total_gas: U512,
-        min_profit_u512: U512,
-    ) -> Option<EvaluatedPoint> {
-        let mut lo = min_amount_in;
-        let mut hi = max_amount_in;
-        let mut best: Option<EvaluatedPoint> = None;
-
-        let update_best = |best_slot: &mut Option<EvaluatedPoint>, cand: EvaluatedPoint| {
-            let replace = match best_slot {
-                None => true,
-                Some(prev) => cand.net_profit > prev.net_profit,
-            };
-            if replace {
-                *best_slot = Some(cand);
-            }
-        };
-
-        if let Ok(lo_pt) = self.eval_route_point(route, lo, total_gas) {
-            update_best(&mut best, lo_pt);
-        }
-
-        let three = U256::from_u64(3);
-        let two = U256::from_u64(2);
-
-        for _ in 0..48 {
-            let Some(span) = hi.checked_sub(lo) else {
-                break;
-            };
-            if span <= two {
-                break;
-            }
-            let (third, _) = div_rem_u256(span, three).expect("divisor 3 is non-zero");
-            let m1 = lo.checked_add(third)?;
-            let m2 = hi.checked_sub(third)?;
-
-            match (
-                self.eval_route_point(route, m1, total_gas),
-                self.eval_route_point(route, m2, total_gas),
-            ) {
-                (Ok(p1), Ok(p2)) => {
-                    let cmp = p1.net_profit.cmp(&p2.net_profit);
-                    update_best(&mut best, p1);
-                    update_best(&mut best, p2);
-                    match cmp {
-                        Ordering::Less => lo = m1,
-                        Ordering::Greater => hi = m2,
-                        Ordering::Equal => {
-                            lo = m1;
-                            hi = m2;
-                        }
-                    }
-                }
-                (Ok(p1), Err(_)) => {
-                    update_best(&mut best, p1);
-                    hi = m2.checked_sub(U256::ONE).unwrap_or(m1);
-                }
-                (Err(_), Ok(p2)) => {
-                    update_best(&mut best, p2);
-                    lo = m1.checked_add(U256::ONE).unwrap_or(m2);
-                }
-                (Err(_), Err(_)) => {
-                    if m1 <= lo {
-                        break;
-                    }
-                    hi = m1.checked_sub(U256::ONE).unwrap_or(lo);
-                }
-            }
-        }
-
-        if let Some(span) = hi.checked_sub(lo) {
-            if span <= U256::from_u64(4) {
-                let mut cur = lo;
-                while cur <= hi {
-                    if let Ok(pt) = self.eval_route_point(route, cur, total_gas) {
-                        update_best(&mut best, pt);
-                    }
-                    let Some(next) = cur.checked_add(U256::ONE) else {
-                        break;
-                    };
-                    cur = next;
-                }
-            } else {
-                let (half, _) = div_rem_u256(span, two).expect("divisor 2 is non-zero");
-                let mid = lo.checked_add(half).unwrap_or(lo);
-                for probe in [lo, mid, hi] {
-                    if let Ok(pt) = self.eval_route_point(route, probe, total_gas) {
-                        update_best(&mut best, pt);
-                    }
-                }
-            }
-        }
-
-        let candidate = best?;
-        if candidate.net_profit.negative || candidate.net_profit.mag < min_profit_u512 {
-            return None;
-        }
-        Some(candidate)
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn enumerate_simple_cycles(
-    chain_id: u64,
-    base: &str,
-    current_token: &str,
+fn scan_indexed_chain(
+    graph: &IndexedGraph<'_>,
+    normalized_bases: &BTreeSet<String>,
     max_hops: usize,
-    adj: &HashMap<String, Vec<(String, String)>>,
-    visited_tokens: &mut Vec<String>,
-    used_pools: &mut Vec<String>,
-    current_route: &mut Vec<RouteStep>,
-    out_routes: &mut Vec<Vec<RouteStep>>,
-) {
-    let Some(edges) = adj.get(current_token) else {
-        return;
-    };
-    let depth = current_route.len() + 1;
-    for (pool_id, next_token) in edges {
-        if used_pools.contains(pool_id) {
+    min_amount_in: U256,
+    max_amount_in: U256,
+    gas_cost_in_base: U256,
+    l1_fee_in_base: U256,
+    total_gas: U512,
+    min_profit_u512: U512,
+    cycles_evaluated: &mut usize,
+    candidates: &mut Vec<CycleCandidate>,
+) -> Result<(), GraphArbError> {
+    for base in normalized_bases {
+        let Some(base_id) = graph.token_id(base) else {
+            continue;
+        };
+        let mut visited_tokens = [0usize; MAX_SUPPORTED_HOPS];
+        visited_tokens[0] = base_id;
+        let mut used_pools = [0usize; MAX_SUPPORTED_HOPS];
+        let mut current_steps = [IndexedStep::default(); MAX_SUPPORTED_HOPS];
+
+        enumerate_indexed_cycles(
+            graph,
+            base_id,
+            base_id,
+            max_hops,
+            0,
+            1,
+            &mut visited_tokens,
+            &mut used_pools,
+            &mut current_steps,
+            min_amount_in,
+            max_amount_in,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            total_gas,
+            min_profit_u512,
+            cycles_evaluated,
+            candidates,
+        )?;
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn enumerate_indexed_cycles(
+    graph: &IndexedGraph<'_>,
+    base_id: usize,
+    current_token: usize,
+    max_hops: usize,
+    depth: usize,
+    visited_len: usize,
+    visited_tokens: &mut [usize; MAX_SUPPORTED_HOPS],
+    used_pools: &mut [usize; MAX_SUPPORTED_HOPS],
+    current_steps: &mut [IndexedStep; MAX_SUPPORTED_HOPS],
+    min_amount_in: U256,
+    max_amount_in: U256,
+    gas_cost_in_base: U256,
+    l1_fee_in_base: U256,
+    total_gas: U512,
+    min_profit_u512: U512,
+    cycles_evaluated: &mut usize,
+    candidates: &mut Vec<CycleCandidate>,
+) -> Result<(), GraphArbError> {
+    let edges = &graph.adj[current_token];
+    let next_depth = depth + 1;
+    for &edge in edges {
+        if used_pools[..depth].contains(&edge.pool_idx) {
             continue;
         }
-        if next_token == base {
-            if depth >= 2 {
-                let mut completed = current_route.clone();
-                completed.push(RouteStep {
-                    chain_id,
-                    pool_id: pool_id.clone(),
-                    token_in: current_token.to_string(),
-                });
-                out_routes.push(completed);
+        if edge.to_token == base_id {
+            if next_depth >= 2 {
+                current_steps[depth] = IndexedStep {
+                    pool_idx: edge.pool_idx,
+                    zero_for_one: edge.zero_for_one,
+                };
+                let cycle_steps = &current_steps[..next_depth];
+                *cycles_evaluated += 1;
+                if let Some(best) = ternary_search_indexed(
+                    graph,
+                    cycle_steps,
+                    min_amount_in,
+                    max_amount_in,
+                    total_gas,
+                    min_profit_u512,
+                ) {
+                    candidates.push(graph.materialize_candidate(
+                        base_id,
+                        cycle_steps,
+                        best,
+                        gas_cost_in_base,
+                        l1_fee_in_base,
+                    )?);
+                }
             }
             continue;
         }
-        if depth >= max_hops || visited_tokens.contains(next_token) {
+        if next_depth >= max_hops || visited_tokens[..visited_len].contains(&edge.to_token) {
             continue;
         }
-        visited_tokens.push(next_token.clone());
-        used_pools.push(pool_id.clone());
-        current_route.push(RouteStep {
-            chain_id,
-            pool_id: pool_id.clone(),
-            token_in: current_token.to_string(),
-        });
+        visited_tokens[visited_len] = edge.to_token;
+        used_pools[depth] = edge.pool_idx;
+        current_steps[depth] = IndexedStep {
+            pool_idx: edge.pool_idx,
+            zero_for_one: edge.zero_for_one,
+        };
 
-        enumerate_simple_cycles(
-            chain_id,
-            base,
-            next_token,
+        enumerate_indexed_cycles(
+            graph,
+            base_id,
+            edge.to_token,
             max_hops,
-            adj,
+            next_depth,
+            visited_len + 1,
             visited_tokens,
             used_pools,
-            current_route,
-            out_routes,
-        );
-
-        current_route.pop();
-        used_pools.pop();
-        visited_tokens.pop();
+            current_steps,
+            min_amount_in,
+            max_amount_in,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            total_gas,
+            min_profit_u512,
+            cycles_evaluated,
+            candidates,
+        )?;
     }
+    Ok(())
+}
+
+fn evaluate_indexed_cycle_in(
+    graph: &IndexedGraph<'_>,
+    steps: &[IndexedStep],
+    amount_in: U256,
+    total_gas: U512,
+) -> Result<EvaluatedIndexedPoint, GraphArbError> {
+    let mut cur_amount = amount_in;
+    for step in steps {
+        let pool = graph.pools[step.pool_idx];
+        let (amount_out, _) = pool.quote_exact_in_direction(step.zero_for_one, cur_amount)?;
+        cur_amount = amount_out;
+    }
+    let total_cost = amount_in
+        .to_u512()
+        .checked_add(total_gas)
+        .expect("amount_in + two U256 fees fits U512");
+    let net_profit = SignedU512::diff(cur_amount.to_u512(), total_cost);
+    Ok(EvaluatedIndexedPoint {
+        amount_in,
+        amount_out: cur_amount,
+        net_profit,
+    })
+}
+
+fn ternary_search_indexed(
+    graph: &IndexedGraph<'_>,
+    steps: &[IndexedStep],
+    min_amount_in: U256,
+    max_amount_in: U256,
+    total_gas: U512,
+    min_profit_u512: U512,
+) -> Option<EvaluatedIndexedPoint> {
+    let mut lo = min_amount_in;
+    let mut hi = max_amount_in;
+    let mut best: Option<EvaluatedIndexedPoint> = None;
+
+    let update_best = |best_slot: &mut Option<EvaluatedIndexedPoint>,
+                       cand: EvaluatedIndexedPoint| {
+        let replace = match best_slot {
+            None => true,
+            Some(prev) => cand.net_profit > prev.net_profit,
+        };
+        if replace {
+            *best_slot = Some(cand);
+        }
+    };
+
+    if let Ok(lo_pt) = evaluate_indexed_cycle_in(graph, steps, lo, total_gas) {
+        update_best(&mut best, lo_pt);
+    }
+
+    let three = U256::from_u64(3);
+    let two = U256::from_u64(2);
+
+    for _ in 0..48 {
+        let Some(span) = hi.checked_sub(lo) else {
+            break;
+        };
+        if span <= two {
+            break;
+        }
+        let (third, _) = div_rem_u256(span, three).expect("divisor 3 is non-zero");
+        let m1 = lo.checked_add(third)?;
+        let m2 = hi.checked_sub(third)?;
+
+        match (
+            evaluate_indexed_cycle_in(graph, steps, m1, total_gas),
+            evaluate_indexed_cycle_in(graph, steps, m2, total_gas),
+        ) {
+            (Ok(p1), Ok(p2)) => {
+                let cmp = p1.net_profit.cmp(&p2.net_profit);
+                update_best(&mut best, p1);
+                update_best(&mut best, p2);
+                match cmp {
+                    Ordering::Less => lo = m1,
+                    Ordering::Greater => hi = m2,
+                    Ordering::Equal => {
+                        lo = m1;
+                        hi = m2;
+                    }
+                }
+            }
+            (Ok(p1), Err(_)) => {
+                update_best(&mut best, p1);
+                hi = m2.checked_sub(U256::ONE).unwrap_or(m1);
+            }
+            (Err(_), Ok(p2)) => {
+                update_best(&mut best, p2);
+                lo = m1.checked_add(U256::ONE).unwrap_or(m2);
+            }
+            (Err(_), Err(_)) => {
+                if m1 <= lo {
+                    break;
+                }
+                hi = m1.checked_sub(U256::ONE).unwrap_or(lo);
+            }
+        }
+    }
+
+    if let Some(span) = hi.checked_sub(lo) {
+        if span <= U256::from_u64(4) {
+            let mut cur = lo;
+            while cur <= hi {
+                if let Ok(pt) = evaluate_indexed_cycle_in(graph, steps, cur, total_gas) {
+                    update_best(&mut best, pt);
+                }
+                let Some(next) = cur.checked_add(U256::ONE) else {
+                    break;
+                };
+                cur = next;
+            }
+        } else {
+            let (half, _) = div_rem_u256(span, two).expect("divisor 2 is non-zero");
+            let mid = lo.checked_add(half).unwrap_or(lo);
+            for probe in [lo, mid, hi] {
+                if let Ok(pt) = evaluate_indexed_cycle_in(graph, steps, probe, total_gas) {
+                    update_best(&mut best, pt);
+                }
+            }
+        }
+    }
+
+    let candidate = best?;
+    if candidate.net_profit.negative || candidate.net_profit.mag < min_profit_u512 {
+        return None;
+    }
+    Some(candidate)
 }
 
 #[must_use]
@@ -886,5 +1082,570 @@ mod tests {
             )
             .unwrap();
         assert!(blocked.candidates.is_empty());
+    }
+
+    #[derive(Clone, Debug)]
+    struct ReferenceEvaluatedPoint {
+        quote: RouteQuote,
+        net_profit: SignedU512,
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn reference_enumerate_cycles(
+        chain_id: u64,
+        base: &str,
+        current_token: &str,
+        max_hops: usize,
+        adj: &HashMap<String, Vec<(String, String)>>,
+        visited_tokens: &mut Vec<String>,
+        used_pools: &mut Vec<String>,
+        current_route: &mut Vec<RouteStep>,
+        out_routes: &mut Vec<Vec<RouteStep>>,
+    ) {
+        let Some(edges) = adj.get(current_token) else {
+            return;
+        };
+        let depth = current_route.len() + 1;
+        for (pool_id, next_token) in edges {
+            if used_pools.contains(pool_id) {
+                continue;
+            }
+            if next_token == base {
+                if depth >= 2 {
+                    let mut completed = current_route.clone();
+                    completed.push(RouteStep {
+                        chain_id,
+                        pool_id: pool_id.clone(),
+                        token_in: current_token.to_string(),
+                    });
+                    out_routes.push(completed);
+                }
+                continue;
+            }
+            if depth >= max_hops || visited_tokens.contains(next_token) {
+                continue;
+            }
+            visited_tokens.push(next_token.clone());
+            used_pools.push(pool_id.clone());
+            current_route.push(RouteStep {
+                chain_id,
+                pool_id: pool_id.clone(),
+                token_in: current_token.to_string(),
+            });
+
+            reference_enumerate_cycles(
+                chain_id,
+                base,
+                next_token,
+                max_hops,
+                adj,
+                visited_tokens,
+                used_pools,
+                current_route,
+                out_routes,
+            );
+
+            current_route.pop();
+            used_pools.pop();
+            visited_tokens.pop();
+        }
+    }
+
+    fn reference_eval_point(
+        graph: &PoolGraph,
+        route: &[RouteStep],
+        amount_in: U256,
+        total_gas: U512,
+    ) -> Result<ReferenceEvaluatedPoint, GraphArbError> {
+        let quote = graph.quote_route(route, amount_in)?;
+        let total_cost = amount_in
+            .to_u512()
+            .checked_add(total_gas)
+            .expect("amount_in + two U256 fees fits U512");
+        let net_profit = SignedU512::diff(quote.amount_out.to_u512(), total_cost);
+        Ok(ReferenceEvaluatedPoint { quote, net_profit })
+    }
+
+    fn reference_optimize_route(
+        graph: &PoolGraph,
+        route: &[RouteStep],
+        min_amount_in: U256,
+        max_amount_in: U256,
+        total_gas: U512,
+        min_profit_u512: U512,
+    ) -> Option<ReferenceEvaluatedPoint> {
+        let mut lo = min_amount_in;
+        let mut hi = max_amount_in;
+        let mut best: Option<ReferenceEvaluatedPoint> = None;
+
+        let update_best = |best_slot: &mut Option<ReferenceEvaluatedPoint>,
+                           cand: ReferenceEvaluatedPoint| {
+            let replace = match best_slot {
+                None => true,
+                Some(prev) => cand.net_profit > prev.net_profit,
+            };
+            if replace {
+                *best_slot = Some(cand);
+            }
+        };
+
+        if let Ok(lo_pt) = reference_eval_point(graph, route, lo, total_gas) {
+            update_best(&mut best, lo_pt);
+        }
+
+        let three = U256::from_u64(3);
+        let two = U256::from_u64(2);
+
+        for _ in 0..48 {
+            let Some(span) = hi.checked_sub(lo) else {
+                break;
+            };
+            if span <= two {
+                break;
+            }
+            let (third, _) = div_rem_u256(span, three).expect("divisor 3 is non-zero");
+            let m1 = lo.checked_add(third)?;
+            let m2 = hi.checked_sub(third)?;
+
+            match (
+                reference_eval_point(graph, route, m1, total_gas),
+                reference_eval_point(graph, route, m2, total_gas),
+            ) {
+                (Ok(p1), Ok(p2)) => {
+                    let cmp = p1.net_profit.cmp(&p2.net_profit);
+                    update_best(&mut best, p1);
+                    update_best(&mut best, p2);
+                    match cmp {
+                        Ordering::Less => lo = m1,
+                        Ordering::Greater => hi = m2,
+                        Ordering::Equal => {
+                            lo = m1;
+                            hi = m2;
+                        }
+                    }
+                }
+                (Ok(p1), Err(_)) => {
+                    update_best(&mut best, p1);
+                    hi = m2.checked_sub(U256::ONE).unwrap_or(m1);
+                }
+                (Err(_), Ok(p2)) => {
+                    update_best(&mut best, p2);
+                    lo = m1.checked_add(U256::ONE).unwrap_or(m2);
+                }
+                (Err(_), Err(_)) => {
+                    if m1 <= lo {
+                        break;
+                    }
+                    hi = m1.checked_sub(U256::ONE).unwrap_or(lo);
+                }
+            }
+        }
+
+        if let Some(span) = hi.checked_sub(lo) {
+            if span <= U256::from_u64(4) {
+                let mut cur = lo;
+                while cur <= hi {
+                    if let Ok(pt) = reference_eval_point(graph, route, cur, total_gas) {
+                        update_best(&mut best, pt);
+                    }
+                    let Some(next) = cur.checked_add(U256::ONE) else {
+                        break;
+                    };
+                    cur = next;
+                }
+            } else {
+                let (half, _) = div_rem_u256(span, two).expect("divisor 2 is non-zero");
+                let mid = lo.checked_add(half).unwrap_or(lo);
+                for probe in [lo, mid, hi] {
+                    if let Ok(pt) = reference_eval_point(graph, route, probe, total_gas) {
+                        update_best(&mut best, pt);
+                    }
+                }
+            }
+        }
+
+        let candidate = best?;
+        if candidate.net_profit.negative || candidate.net_profit.mag < min_profit_u512 {
+            return None;
+        }
+        Some(candidate)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn reference_scan_cycles(
+        graph: &PoolGraph,
+        base_tokens: &[String],
+        max_hops: usize,
+        min_amount_in: U256,
+        max_amount_in: U256,
+        gas_cost_in_base: U256,
+        l1_fee_in_base: U256,
+        min_net_profit: U256,
+    ) -> CycleScanReport {
+        let normalized_bases: BTreeSet<String> =
+            base_tokens.iter().map(|t| normalize_id(t)).collect();
+        let mut by_chain: BTreeMap<u64, HashMap<String, Vec<(String, String)>>> = BTreeMap::new();
+        for ((chain_id, _), pool) in &graph.pools {
+            let adj = by_chain.entry(*chain_id).or_default();
+            adj.entry(pool.token0.clone())
+                .or_default()
+                .push((pool.pool_id.clone(), pool.token1.clone()));
+            adj.entry(pool.token1.clone())
+                .or_default()
+                .push((pool.pool_id.clone(), pool.token0.clone()));
+        }
+
+        let total_gas = gas_cost_in_base
+            .to_u512()
+            .checked_add(l1_fee_in_base.to_u512())
+            .expect("sum fits U512");
+        let min_profit_u512 = min_net_profit.to_u512();
+        let mut cycles_evaluated = 0usize;
+        let mut candidates = Vec::new();
+
+        for (chain_id, adj) in &by_chain {
+            for base in &normalized_bases {
+                if !adj.contains_key(base) {
+                    continue;
+                }
+                let mut routes = Vec::new();
+                let mut current_route = Vec::new();
+                let mut visited_tokens = vec![base.clone()];
+                let mut used_pools = Vec::new();
+                reference_enumerate_cycles(
+                    *chain_id,
+                    base,
+                    base,
+                    max_hops,
+                    adj,
+                    &mut visited_tokens,
+                    &mut used_pools,
+                    &mut current_route,
+                    &mut routes,
+                );
+                for route in routes {
+                    cycles_evaluated += 1;
+                    if let Some(best) = reference_optimize_route(
+                        graph,
+                        &route,
+                        min_amount_in,
+                        max_amount_in,
+                        total_gas,
+                        min_profit_u512,
+                    ) {
+                        candidates.push(CycleCandidate {
+                            chain_id: *chain_id,
+                            base_token: base.clone(),
+                            hops: best.quote.hops,
+                            optimal_amount_in: best.quote.amount_in,
+                            amount_out: best.quote.amount_out,
+                            gas_cost_in_base,
+                            l1_fee_in_base,
+                            net_profit: best.net_profit.mag.to_u256().unwrap(),
+                        });
+                    }
+                }
+            }
+        }
+        candidates.sort_by(|a, b| {
+            b.net_profit
+                .cmp(&a.net_profit)
+                .then_with(|| a.chain_id.cmp(&b.chain_id))
+                .then_with(|| a.base_token.cmp(&b.base_token))
+                .then_with(|| a.hops.len().cmp(&b.hops.len()))
+        });
+        CycleScanReport {
+            candidates,
+            cycles_evaluated,
+            elapsed_ns: 0,
+        }
+    }
+
+    fn build_six_pool_multidex_graph() -> (PoolGraph, String, String) {
+        let mut graph = PoolGraph::new();
+        let weth = token("11");
+        let usdc = token("22");
+        let usdt = token("33");
+        let aero = token("44");
+
+        // Pool 1: V3 WETH/USDC (~3000 USDC/WETH)
+        let tick_v3 = -196_258;
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("a1"),
+                kind: PoolKind::V3,
+                token0: weth.clone(),
+                token1: usdc.clone(),
+                decimals0: 18,
+                decimals1: 6,
+                fee_pips: 500,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(tick_v3).unwrap()),
+                tick: Some(tick_v3),
+                liquidity: Some(20_000_000_000_000_000),
+                ticks: vec![
+                    TickLiquidity {
+                        tick: -196_800,
+                        liquidity_net: 10_000_000_000_000_000,
+                    },
+                    TickLiquidity {
+                        tick: -195_800,
+                        liquidity_net: -10_000_000_000_000_000,
+                    },
+                ],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Pool 2: AerodromeStable USDC/USDT (slightly imbalanced)
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("a2"),
+                kind: PoolKind::AerodromeStable,
+                token0: usdc.clone(),
+                token1: usdt.clone(),
+                decimals0: 6,
+                decimals1: 6,
+                fee_pips: 100,
+                reserve0: Some(U256::from_u64(5_000_000_000_000)),
+                reserve1: Some(U256::from_u64(5_050_000_000_000)),
+                sqrt_price_x96: None,
+                tick: None,
+                liquidity: None,
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Pool 3: Slipstream WETH/USDC (~3150 USDC/WETH)
+        let tick_ss = -195_770;
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("a3"),
+                kind: PoolKind::Slipstream,
+                token0: weth.clone(),
+                token1: usdc.clone(),
+                decimals0: 18,
+                decimals1: 6,
+                fee_pips: 500,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(tick_ss).unwrap()),
+                tick: Some(tick_ss),
+                liquidity: Some(20_000_000_000_000_000),
+                ticks: vec![
+                    TickLiquidity {
+                        tick: -196_500,
+                        liquidity_net: 5_000_000_000_000_000,
+                    },
+                    TickLiquidity {
+                        tick: -195_200,
+                        liquidity_net: -5_000_000_000_000_000,
+                    },
+                ],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Pool 4: V2 WETH/USDT (3250 USDT/WETH)
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("a4"),
+                kind: PoolKind::V2,
+                token0: weth.clone(),
+                token1: usdt.clone(),
+                decimals0: 18,
+                decimals1: 6,
+                fee_pips: 3000,
+                reserve0: Some(U256::from_u128(100_000_000_000_000_000_000)),
+                reserve1: Some(U256::from_u128(325_000_000_000)),
+                sqrt_price_x96: None,
+                tick: None,
+                liquidity: None,
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Pool 5: V4 USDC/AERO (~2 AERO per USDC)
+        let tick_v4 = 283_255;
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: format!("0x{}", "a5".repeat(32)),
+                kind: PoolKind::V4,
+                token0: usdc.clone(),
+                token1: aero.clone(),
+                decimals0: 6,
+                decimals1: 18,
+                fee_pips: 500,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(tick_v4).unwrap()),
+                tick: Some(tick_v4),
+                liquidity: Some(1_000_000_000_000_000_000_000),
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        // Pool 6: V2 WETH/AERO (1 WETH = 5800 AERO)
+        graph
+            .upsert_pool(PoolState {
+                chain_id: 8453,
+                pool_id: token("a6"),
+                kind: PoolKind::V2,
+                token0: weth.clone(),
+                token1: aero,
+                decimals0: 18,
+                decimals1: 18,
+                fee_pips: 3000,
+                reserve0: Some(U256::from_u128(50_000_000_000_000_000_000)),
+                reserve1: Some(U256::from_u128(290_000_000_000_000_000_000_000)),
+                sqrt_price_x96: None,
+                tick: None,
+                liquidity: None,
+                ticks: vec![],
+                block_number: 21_000_000,
+                timestamp_ms: 1_760_000_000_000,
+            })
+            .unwrap();
+
+        (graph, weth, usdt)
+    }
+
+    #[test]
+    fn indexed_hot_loop_matches_reference_bit_for_bit_and_meets_latency_budget() {
+        let (graph, weth, usdt) = build_six_pool_multidex_graph();
+        let min_in = U256::from_u128(10_000_000_000_000_000);
+        let max_in = U256::from_u128(5_000_000_000_000_000_000);
+        let gas_l2 = U256::from_u128(200_000_000_000_000);
+        let gas_l1 = U256::from_u128(50_000_000_000_000);
+        let min_profit = U256::from_u128(100_000_000_000_000);
+
+        for max_hops in [2usize, 3, 4] {
+            let bases = [weth.to_ascii_uppercase(), usdt.clone()];
+            let actual = graph
+                .scan_cycles(&bases, max_hops, min_in, max_in, gas_l2, gas_l1, min_profit)
+                .unwrap();
+            let expected = reference_scan_cycles(
+                &graph, &bases, max_hops, min_in, max_in, gas_l2, gas_l1, min_profit,
+            );
+
+            assert_eq!(actual.cycles_evaluated, expected.cycles_evaluated);
+            assert_eq!(actual.candidates, expected.candidates);
+            assert!(!actual.candidates.is_empty());
+            for (act, exp) in actual.candidates.iter().zip(expected.candidates.iter()) {
+                assert_eq!(act.route_hash(), exp.route_hash());
+            }
+        }
+
+        // Measure scan latency across a 6-pool multi-DEX graph (V2, V3, Slipstream, V4)
+        let mut perf_graph = PoolGraph::new();
+        let p_weth = token("11");
+        let p_usdc = token("22");
+        let p_usdt = token("33");
+        for (idx, r1, fee) in [
+            ("b1", 295_000u128, 3000u32),
+            ("b2", 315_000u128, 500u32),
+            ("b6", 320_000u128, 3000u32),
+        ] {
+            perf_graph
+                .upsert_pool(PoolState {
+                    chain_id: 8453,
+                    pool_id: token(idx),
+                    kind: PoolKind::V2,
+                    token0: p_weth.clone(),
+                    token1: p_usdc.clone(),
+                    decimals0: 18,
+                    decimals1: 6,
+                    fee_pips: fee,
+                    reserve0: Some(U256::from_u128(100_000_000_000_000_000_000)),
+                    reserve1: Some(U256::from_u128(r1 * 1_000_000)),
+                    sqrt_price_x96: None,
+                    tick: None,
+                    liquidity: None,
+                    ticks: vec![],
+                    block_number: 21_000_000,
+                    timestamp_ms: 1_760_000_000_000,
+                })
+                .unwrap();
+        }
+        for (idx, kind, tok0, tok1) in [
+            ("b3", PoolKind::V3, p_usdc.clone(), p_usdt.clone()),
+            ("b4", PoolKind::Slipstream, p_usdc.clone(), p_usdt.clone()),
+            ("b5", PoolKind::V4, p_usdc.clone(), p_usdt.clone()),
+        ] {
+            let pid = if kind == PoolKind::V4 {
+                format!("0x{}", idx.repeat(32))
+            } else {
+                token(idx)
+            };
+            perf_graph
+                .upsert_pool(PoolState {
+                    chain_id: 8453,
+                    pool_id: pid,
+                    kind,
+                    token0: tok0,
+                    token1: tok1,
+                    decimals0: 6,
+                    decimals1: 6,
+                    fee_pips: 500,
+                    reserve0: None,
+                    reserve1: None,
+                    sqrt_price_x96: Some(sqrt_price_at_tick(0).unwrap()),
+                    tick: Some(0),
+                    liquidity: Some(20_000_000_000_000_000),
+                    ticks: vec![],
+                    block_number: 21_000_000,
+                    timestamp_ms: 1_760_000_000_000,
+                })
+                .unwrap();
+        }
+
+        let iterations = 20u32;
+        let t0 = Instant::now();
+        let mut last_cycles = 0usize;
+        let mut last_candidates = 0usize;
+        for _ in 0..iterations {
+            let report = perf_graph
+                .scan_cycles(
+                    std::slice::from_ref(&p_weth),
+                    2,
+                    min_in,
+                    max_in,
+                    gas_l2,
+                    gas_l1,
+                    min_profit,
+                )
+                .unwrap();
+            last_cycles = report.cycles_evaluated;
+            last_candidates = report.candidates.len();
+        }
+        let avg_us = t0.elapsed().as_micros() / u128::from(iterations);
+        eprintln!(
+            "6-pool multi-DEX 2-hop ({last_cycles} cycles, {last_candidates} candidates): indexed={avg_us} us/scan"
+        );
+        assert_eq!(last_cycles, 6);
+        assert!(last_candidates >= 1);
+        let budget_us: u128 = if cfg!(debug_assertions) {
+            10_000
+        } else {
+            2_000
+        };
+        assert!(
+            avg_us < budget_us,
+            "indexed scan_cycles took {avg_us} us/scan (budget < {budget_us} us)"
+        );
     }
 }

@@ -12,6 +12,13 @@ from typing import Any, Literal
 from ..models.common import canonical_json, sha256_hex
 from .discovery_slot import DiscoveryProvider, nominated_markets
 from .gmgn_source import GmgnSource, cross_check, parse_token_info
+from .launchpad_safety import (
+    DecisionStatus,
+    LaunchpadSafetyDecision,
+    LaunchpadSafetyEvidence,
+    LaunchpadSafetyPolicy,
+    evaluate_launchpad_safety,
+)
 from .onchainos_source import Capture, OnchainosSource, SourceFailure
 from .opportunity import (
     Assessment,
@@ -125,6 +132,64 @@ def _first(capture: Capture) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def make_launchpad_safety_evaluator(
+    policy: LaunchpadSafetyPolicy | None,
+    evidence_lookup: Callable[[Market, int], LaunchpadSafetyEvidence | None],
+    *,
+    fail_closed_on_missing: bool = False,
+) -> Callable[[Market, int], LaunchpadSafetyDecision | None]:
+    """Build a SpotAgent launchpad safety callback around `evaluate_launchpad_safety`."""
+    if policy is not None and not isinstance(policy, LaunchpadSafetyPolicy):
+        raise TypeError("policy must be LaunchpadSafetyPolicy or None")
+    if not callable(evidence_lookup):
+        raise TypeError("evidence_lookup must be callable")
+    if type(fail_closed_on_missing) is not bool:
+        raise TypeError("fail_closed_on_missing must be a bool")
+
+    active_policy = policy if policy is not None else LaunchpadSafetyPolicy()
+
+    def _evaluate(market: Market, now: int) -> LaunchpadSafetyDecision | None:
+        try:
+            evidence = evidence_lookup(market, now)
+        except SourceFailure:
+            return LaunchpadSafetyDecision(
+                status=DecisionStatus.REJECTED,
+                earliest_safe_entry_ms=None,
+                effective_buy_tax_bps=None,
+                schedule_fee_bps=None,
+                round_trip_loss_bps=None,
+                reasons=("launchpad_evidence_unavailable",),
+                raw_sha256=sha256_hex(b"launchpad_evidence_unavailable"),
+            )
+        if evidence is None:
+            if not fail_closed_on_missing:
+                return None
+            return LaunchpadSafetyDecision(
+                status=DecisionStatus.REJECTED,
+                earliest_safe_entry_ms=None,
+                effective_buy_tax_bps=None,
+                schedule_fee_bps=None,
+                round_trip_loss_bps=None,
+                reasons=("missing_launchpad_evidence",),
+                raw_sha256=sha256_hex(b"missing_launchpad_evidence"),
+            )
+        if not isinstance(evidence, LaunchpadSafetyEvidence):
+            raise TypeError("evidence_lookup must return LaunchpadSafetyEvidence or None")
+        if evidence.token != market.token.lower():
+            return LaunchpadSafetyDecision(
+                status=DecisionStatus.REJECTED,
+                earliest_safe_entry_ms=None,
+                effective_buy_tax_bps=None,
+                schedule_fee_bps=None,
+                round_trip_loss_bps=None,
+                reasons=("launchpad_evidence_token_mismatch",),
+                raw_sha256=evidence.raw_sha256,
+            )
+        return evaluate_launchpad_safety(evidence, active_policy)
+
+    return _evaluate
+
+
 class SpotAgent:
     def __init__(
         self,
@@ -135,11 +200,17 @@ class SpotAgent:
         gmgn: GmgnSource | None = None,
         executor: SpotExecutor | None = None,
         nominators: Sequence[DiscoveryProvider] = (),
+        launchpad_safety_evaluator: (
+            Callable[[Market, int], LaunchpadSafetyDecision | None] | None
+        ) = None,
     ):
         self.source = source
         self.gmgn = gmgn
         self.executor = executor
         self.nominators = tuple(nominators)
+        if launchpad_safety_evaluator is not None and not callable(launchpad_safety_evaluator):
+            raise TypeError("launchpad_safety_evaluator must be callable or None")
+        self.launchpad_safety_evaluator = launchpad_safety_evaluator
         self.mode = "shadow" if executor is None else "live"
         self.config = config
         # The decision policy `assess` uses: the DecisionPolicy fields of the config.
@@ -388,6 +459,35 @@ class SpotAgent:
             size = min(size, self.executor.gate.max_trade_usd_micros)
         if size < 1_000_000:
             return self._record(now, "skip_entry", token=market.token, reason="size_below_1_usd")
+        if self.launchpad_safety_evaluator is not None:
+            try:
+                lp_decision = self.launchpad_safety_evaluator(market, now)
+            except SourceFailure:
+                return self._record(
+                    now,
+                    "skip_entry",
+                    token=market.token,
+                    reason="launchpad_safety_rejected",
+                    launchpad_reasons=["launchpad_evidence_unavailable"],
+                )
+            if lp_decision is not None:
+                if lp_decision.status == DecisionStatus.DEFER_UNTIL_DECAY:
+                    return self._record(
+                        now,
+                        "skip_entry",
+                        token=market.token,
+                        reason="launchpad_defer_until_decay",
+                        earliest_safe_entry_ms=lp_decision.earliest_safe_entry_ms,
+                        launchpad_reasons=list(lp_decision.reasons),
+                    )
+                if lp_decision.status != DecisionStatus.APPROVED:
+                    return self._record(
+                        now,
+                        "skip_entry",
+                        token=market.token,
+                        reason="launchpad_safety_rejected",
+                        launchpad_reasons=list(lp_decision.reasons),
+                    )
         chain = self.config.chain_id
         buy_capture = self.source.quote(chain, SETTLEMENT, market.token, size)
         buy = parse_quote(

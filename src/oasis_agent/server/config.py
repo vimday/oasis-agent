@@ -33,6 +33,7 @@ class ServerDatabaseConfig:
     # One `capture_spot_cost` bundle (binding.json, evidence.db, optional
     # settlement.json) checked against `spot_run`'s journal; read-only.
     spot_proof: Path | None = None
+    radar_run: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +160,7 @@ _DATABASE_KEYS = frozenset(
         "live_bounded_run",
         "spot_run",
         "spot_proof",
+        "radar_run",
     }
 )
 _RUNNER_KEYS = frozenset({"command", "timeout_seconds", "max_concurrent"})
@@ -228,6 +230,7 @@ def load_server_config(path: Path | None, environ: Mapping[str, str] | None = No
         ),
         spot_run=_strict_path(databases_raw.get("spot_run"), "databases.spot_run"),
         spot_proof=_strict_path(databases_raw.get("spot_proof"), "databases.spot_proof"),
+        radar_run=_strict_path(databases_raw.get("radar_run"), "databases.radar_run"),
     )
     if databases.spot_proof is not None and databases.spot_run is None:
         # A proof bundle is checked against one journal; without it there is nothing to bind.
