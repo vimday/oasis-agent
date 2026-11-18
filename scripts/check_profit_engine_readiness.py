@@ -36,7 +36,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--infra-proof",
         type=Path,
         default=None,
-        help="Optional dual-provider RPC & isolated signer proof JSON",
+        help="Optional dual-provider RPC quorum or combined authority proof JSON",
+    )
+    parser.add_argument(
+        "--signer-proof",
+        type=Path,
+        default=None,
+        help="Optional isolated profit-authority signer proof JSON",
     )
     parser.add_argument(
         "--contracts-out-dir",
@@ -105,6 +111,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         shadow_summary_path=args.shadow_summary,
         operator_signoff_path=args.operator_signoff,
         infra_proof_path=args.infra_proof,
+        signer_proof_path=args.signer_proof,
         min_shadow_ticks=args.min_shadow_ticks,
         min_lcb_net_edge_bps=args.min_lcb_bps,
         min_oos_trades=args.min_oos_trades,

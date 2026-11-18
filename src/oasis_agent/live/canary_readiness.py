@@ -18,7 +18,13 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final, Literal
 
-from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
+from ..models.common import (
+    ZERO_ADDRESS,
+    canonical_json,
+    normalize_address,
+    normalize_hash32,
+    sha256_hex,
+)
 from ..risk.capital_policy import (
     USD_MICROS_SCALE,
     CapitalRiskConfig,
@@ -28,6 +34,11 @@ from ..risk.capital_policy import (
 READINESS_SCHEMA_VERSION: Final[str] = "oasis.profit-engine-readiness.v1"
 DUAL_RPC_QUORUM_SCHEMA_VERSION: Final[str] = "oasis.dual-rpc-quorum.v1"
 ANVIL_E2E_SCHEMA_VERSION: Final[str] = "oasis-anvil-profit-e2e-v1"
+PROFIT_AUTHORITY_INFRA_SCHEMAS: Final[tuple[str, ...]] = (
+    "oasis-profit-authority-infra.v1",
+    "oasis.profit-authority-infra-proof.v1",
+)
+SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION: Final[str] = "oasis.software-scope-signoff.v1"
 BASE_CHAIN_ID: Final[int] = 8453
 BASE_TIME_PREDEPLOY: Final[str] = "0x4200000000000000000000000000000000000030"
 MAX_EARLY_ABORT_GAS: Final[int] = 65_000
@@ -1327,6 +1338,90 @@ def _eval_legacy_dual_rpc_section(
     )
 
 
+def _validate_authority_proof_integrity(
+    payload: dict[str, Any],
+    *,
+    gate_name: str,
+    threshold: str,
+) -> GateCheckResult | None:
+    schema = payload.get("schema")
+    if "schema" in payload and schema not in PROFIT_AUTHORITY_INFRA_SCHEMAS:
+        return GateCheckResult(
+            name=gate_name,
+            passed=False,
+            detail=f"Unsupported authority proof schema: {schema!r}.",
+            required_threshold=threshold,
+            observed_value=f"schema={schema!r}",
+        )
+    if "execution_eligible" in payload and payload.get("execution_eligible") is not False:
+        return GateCheckResult(
+            name=gate_name,
+            passed=False,
+            detail="Authority proof must retain execution_eligible=False.",
+            required_threshold=threshold,
+            observed_value=f"execution_eligible={payload.get('execution_eligible')!r}",
+        )
+    if "account" in payload:
+        raw_account = payload.get("account")
+        if not isinstance(raw_account, str):
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority proof account must be an EVM address string.",
+                required_threshold=threshold,
+                observed_value=f"account={raw_account!r}",
+            )
+        try:
+            norm_account = normalize_address(raw_account)
+        except ValueError:
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority proof account is not a valid EVM address.",
+                required_threshold=threshold,
+                observed_value="invalid_account",
+            )
+        if norm_account == ZERO_ADDRESS:
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority proof account cannot be the zero address.",
+                required_threshold=threshold,
+                observed_value="zero_account",
+            )
+    if "authority_status" in payload:
+        status = payload.get("authority_status")
+        if not isinstance(status, dict):
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority proof authority_status must be an object.",
+                required_threshold=threshold,
+                observed_value="malformed_authority_status",
+            )
+        if status.get("halted") is True or status.get("stop_present") is True:
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority status reports halted=True or stop_present=True.",
+                required_threshold=threshold,
+                observed_value="authority_halted_or_stopped",
+            )
+    if "proof_sha256" in payload or schema in PROFIT_AUTHORITY_INFRA_SCHEMAS:
+        declared_sha = payload.get("proof_sha256")
+        body = {k: v for k, v in payload.items() if k != "proof_sha256"}
+        expected_sha = sha256_hex(canonical_json(body))
+        if not isinstance(declared_sha, str) or declared_sha != expected_sha:
+            return GateCheckResult(
+                name=gate_name,
+                passed=False,
+                detail="Authority proof proof_sha256 integrity check failed.",
+                required_threshold=threshold,
+                observed_value="checksum_mismatch",
+            )
+    return None
+
+
 def _eval_dual_rpc_quorum_verified(
     signoff_data: dict[str, Any] | None,
     signoff_err: str | None,
@@ -1337,7 +1432,7 @@ def _eval_dual_rpc_quorum_verified(
     action = (
         "Provision an independent secondary Base archive/simulation RPC, verify dual-RPC "
         "quorum against a pinned Base block, and pass DualRpcQuorumReport via --infra-proof "
-        "or legacy metadata via --operator-signoff."
+        "(or combined authority proof / legacy metadata via --operator-signoff)."
     )
 
     if infra_err is not None and "not supplied" not in infra_err:
@@ -1369,6 +1464,13 @@ def _eval_dual_rpc_quorum_verified(
                 ),
                 action,
             )
+        integrity_err = _validate_authority_proof_integrity(
+            infra_data,
+            gate_name="dual_rpc_quorum_verified",
+            threshold=threshold,
+        )
+        if integrity_err is not None:
+            return integrity_err, action
         if "dual_rpc_quorum" in infra_data:
             nested = infra_data.get("dual_rpc_quorum")
             if not isinstance(nested, dict):
@@ -1414,16 +1516,70 @@ def _eval_isolated_signer_authority_ready(
     signoff_err: str | None,
     infra_data: dict[str, Any] | None,
     infra_err: str | None,
+    signer_data: dict[str, Any] | None = None,
+    signer_err: str | None = None,
 ) -> tuple[GateCheckResult, str | None]:
     threshold = (
         "isolated_signer_verified=True with non-empty isolated_key_volume and authority_socket_path"
     )
     action = (
-        "Provision the Docker isolated signer key volume and Unix authority socket, and supply "
-        "isolated signer verification in --infra-proof or --operator-signoff."
+        "Provision the Docker isolated signer key volume (Foundry encrypted keystore / "
+        "software EOA) and Unix authority socket via run_profit_authority --status-only "
+        "--out-proof, and supply --signer-proof (or --infra-proof / --operator-signoff)."
     )
 
-    if infra_err is not None and "not supplied" not in infra_err:
+    if signer_err is not None and "not supplied" not in signer_err:
+        return (
+            GateCheckResult(
+                name="isolated_signer_authority_ready",
+                passed=False,
+                detail=signer_err,
+                required_threshold=threshold,
+                observed_value="invalid_signer_proof",
+            ),
+            action,
+        )
+
+    isolated_signer_section: dict[str, Any] | None = None
+    if signer_data is not None:
+        if "schema_version" in signer_data:
+            return (
+                GateCheckResult(
+                    name="isolated_signer_authority_ready",
+                    passed=False,
+                    detail=(
+                        f"Unsupported signer_proof schema_version: "
+                        f"{signer_data.get('schema_version')!r}"
+                    ),
+                    required_threshold=threshold,
+                    observed_value=f"schema={signer_data.get('schema_version')!r}",
+                ),
+                action,
+            )
+        integrity_err = _validate_authority_proof_integrity(
+            signer_data,
+            gate_name="isolated_signer_authority_ready",
+            threshold=threshold,
+        )
+        if integrity_err is not None:
+            return integrity_err, action
+        if "isolated_signer" in signer_data:
+            raw_sec = signer_data.get("isolated_signer")
+            if not isinstance(raw_sec, dict):
+                return (
+                    GateCheckResult(
+                        name="isolated_signer_authority_ready",
+                        passed=False,
+                        detail="signer_proof.isolated_signer must be an object.",
+                        required_threshold=threshold,
+                        observed_value="malformed_isolated_signer",
+                    ),
+                    action,
+                )
+            isolated_signer_section = raw_sec
+        else:
+            isolated_signer_section = signer_data
+    elif infra_err is not None and "not supplied" not in infra_err:
         return (
             GateCheckResult(
                 name="isolated_signer_authority_ready",
@@ -1434,9 +1590,31 @@ def _eval_isolated_signer_authority_ready(
             ),
             action,
         )
-
-    isolated_signer_section: dict[str, Any] | None = None
-    if infra_data is not None:
+    elif (
+        infra_data is not None
+        and infra_data.get("schema_version") != DUAL_RPC_QUORUM_SCHEMA_VERSION
+    ):
+        if "schema_version" in infra_data:
+            return (
+                GateCheckResult(
+                    name="isolated_signer_authority_ready",
+                    passed=False,
+                    detail=(
+                        f"Unsupported infra_proof schema_version: "
+                        f"{infra_data.get('schema_version')!r}"
+                    ),
+                    required_threshold=threshold,
+                    observed_value=f"schema={infra_data.get('schema_version')!r}",
+                ),
+                action,
+            )
+        integrity_err = _validate_authority_proof_integrity(
+            infra_data,
+            gate_name="isolated_signer_authority_ready",
+            threshold=threshold,
+        )
+        if integrity_err is not None:
+            return integrity_err, action
         if "isolated_signer" in infra_data:
             raw_sec = infra_data.get("isolated_signer")
             if not isinstance(raw_sec, dict):
@@ -1451,21 +1629,7 @@ def _eval_isolated_signer_authority_ready(
                     action,
                 )
             isolated_signer_section = raw_sec
-        elif infra_data.get("schema_version") != DUAL_RPC_QUORUM_SCHEMA_VERSION:
-            if "schema_version" in infra_data:
-                return (
-                    GateCheckResult(
-                        name="isolated_signer_authority_ready",
-                        passed=False,
-                        detail=(
-                            f"Unsupported infra_proof schema_version: "
-                            f"{infra_data.get('schema_version')!r}"
-                        ),
-                        required_threshold=threshold,
-                        observed_value=f"schema={infra_data.get('schema_version')!r}",
-                    ),
-                    action,
-                )
+        else:
             isolated_signer_section = infra_data
 
     if isolated_signer_section is None and signoff_data is not None:
@@ -1620,8 +1784,9 @@ def _eval_owner_scope_release_manifest_present(
         f"cumulative_loss_usd_micros<={max_cum_micros}"
     )
     action = (
-        "Obtain an explicit owner-signed scope approval manifest (--operator-signoff) for "
-        f"this run within policy limits (capital_usd_micros<={max_cap_micros}, "
+        "Generate an explicit owner-attested two-zone software scope manifest via "
+        "scripts/create_software_scope_signoff.py --approve-software-scope and pass it via "
+        f"--operator-signoff within policy limits (capital_usd_micros<={max_cap_micros}, "
         f"daily_loss_usd_micros<={max_daily_micros}, "
         f"cumulative_loss_usd_micros<={max_cum_micros})."
     )
@@ -1633,6 +1798,80 @@ def _eval_owner_scope_release_manifest_present(
                 detail=signoff_err or "Owner scope release approval manifest not supplied.",
                 required_threshold=threshold,
                 observed_value=f"absent,risk_config_sha256={config_sha}",
+            ),
+            action,
+        )
+
+    schema_version = signoff_data.get("schema_version")
+    if "schema_version" in signoff_data and schema_version != SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail=f"Unsupported owner signoff schema_version: {schema_version!r}.",
+                required_threshold=threshold,
+                observed_value=f"schema={schema_version!r},risk_config_sha256={config_sha}",
+            ),
+            action,
+        )
+    if "execution_eligible" in signoff_data and signoff_data.get("execution_eligible") is not False:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail="Owner signoff manifest must retain execution_eligible=False.",
+                required_threshold=threshold,
+                observed_value=(
+                    f"execution_eligible={signoff_data.get('execution_eligible')!r},"
+                    f"risk_config_sha256={config_sha}"
+                ),
+            ),
+            action,
+        )
+    if "manifest_sha256" in signoff_data or schema_version == SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION:
+        declared_manifest_sha = signoff_data.get("manifest_sha256")
+        manifest_body = {k: v for k, v in signoff_data.items() if k != "manifest_sha256"}
+        expected_manifest_sha = sha256_hex(canonical_json(manifest_body))
+        if (
+            not isinstance(declared_manifest_sha, str)
+            or declared_manifest_sha != expected_manifest_sha
+        ):
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail="Owner signoff manifest_sha256 integrity check failed.",
+                    required_threshold=threshold,
+                    observed_value=f"checksum_mismatch,risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+
+    if "rehearsal_only" in signoff_data and type(signoff_data.get("rehearsal_only")) is not bool:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail="Owner signoff rehearsal_only must be a boolean if supplied.",
+                required_threshold=threshold,
+                observed_value=(
+                    f"rehearsal_only={signoff_data.get('rehearsal_only')!r},"
+                    f"risk_config_sha256={config_sha}"
+                ),
+            ),
+            action,
+        )
+    if signoff_data.get("rehearsal_only") is True:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail=(
+                    "Manifest is marked rehearsal_only=True; rehearsal artifacts never authorize "
+                    "live release."
+                ),
+                required_threshold=threshold,
+                observed_value=f"rehearsal_only=True,risk_config_sha256={config_sha}",
             ),
             action,
         )
@@ -1667,6 +1906,109 @@ def _eval_owner_scope_release_manifest_present(
                     detail=f"Owner signoff manifest missing non-empty {field_name}.",
                     required_threshold=threshold,
                     observed_value=f"missing_{field_name},risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+        if _RAW_HEX_KEY_RE.search(field_val) is not None:
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail=f"Owner signoff {field_name} cannot contain 64-hex key material.",
+                    required_threshold=threshold,
+                    observed_value=f"unsafe_{field_name},risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+
+    if str(attestation).strip().lower() == "rehearsal-non-authorizing":
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail="Rehearsal attestation marker never authorizes live release.",
+                required_threshold=threshold,
+                observed_value=f"rehearsal_attestation,risk_config_sha256={config_sha}",
+            ),
+            action,
+        )
+
+    if "risk_config_sha256" in signoff_data:
+        declared_risk_sha = signoff_data.get("risk_config_sha256")
+        if not isinstance(declared_risk_sha, str) or declared_risk_sha != config_sha:
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail=(
+                        "Owner signoff risk_config_sha256 does not match active CapitalRiskConfig."
+                    ),
+                    required_threshold=threshold,
+                    observed_value=(
+                        f"declared_risk_config_sha256={declared_risk_sha!r},"
+                        f"risk_config_sha256={config_sha}"
+                    ),
+                ),
+                action,
+            )
+
+    if "admin_eoa" in signoff_data or "operator_eoa" in signoff_data:
+        raw_admin = signoff_data.get("admin_eoa")
+        raw_operator = signoff_data.get("operator_eoa")
+        if (
+            not isinstance(raw_admin, str)
+            or not raw_admin.strip()
+            or not isinstance(raw_operator, str)
+            or not raw_operator.strip()
+        ):
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail=(
+                        "Owner signoff admin_eoa and operator_eoa must both be non-empty addresses."
+                    ),
+                    required_threshold=threshold,
+                    observed_value=f"invalid_eoa_pair,risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+        try:
+            norm_admin = normalize_address(raw_admin.strip())
+            norm_operator = normalize_address(raw_operator.strip())
+        except ValueError as exc:
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail=f"Owner signoff contains invalid EOA address: {exc}",
+                    required_threshold=threshold,
+                    observed_value=f"invalid_eoa_syntax,risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+        if norm_admin == ZERO_ADDRESS or norm_operator == ZERO_ADDRESS:
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail="Owner signoff admin_eoa and operator_eoa cannot be zero address.",
+                    required_threshold=threshold,
+                    observed_value=f"zero_eoa,risk_config_sha256={config_sha}",
+                ),
+                action,
+            )
+        if norm_admin == norm_operator:
+            return (
+                GateCheckResult(
+                    name="owner_scope_release_manifest_present",
+                    passed=False,
+                    detail=(
+                        "Two-zone custody violation: admin_eoa (Cold) must differ from "
+                        "operator_eoa (Hot)."
+                    ),
+                    required_threshold=threshold,
+                    observed_value=f"cold_hot_eoa_collision,risk_config_sha256={config_sha}",
                 ),
                 action,
             )
@@ -1777,6 +2119,7 @@ def evaluate_profit_engine_readiness(
     shadow_summary_path: Path | None = None,
     operator_signoff_path: Path | None = None,
     infra_proof_path: Path | None = None,
+    signer_proof_path: Path | None = None,
     min_shadow_ticks: int = DEFAULT_MIN_SHADOW_TICKS,
     min_lcb_net_edge_bps: int = DEFAULT_MIN_LCB_NET_EDGE_BPS,
     min_oos_trades: int = DEFAULT_MIN_OOS_TRADES,
@@ -1821,6 +2164,7 @@ def evaluate_profit_engine_readiness(
     shadow_data, shadow_err = _load_json_object(shadow_summary_path, "shadow_summary")
     signoff_data, signoff_err = _load_json_object(operator_signoff_path, "operator_signoff")
     infra_data, infra_err = _load_json_object(infra_proof_path, "infra_proof")
+    signer_data, signer_err = _load_json_object(signer_proof_path, "signer_proof")
 
     gate5_result, gate5_action, oos_evidence = _eval_positive_cost_adjusted_lcb_edge(
         shadow_data,
@@ -1843,7 +2187,14 @@ def evaluate_profit_engine_readiness(
         (gate5_result, gate5_action),
         _eval_revert_budget_healthy(anvil_data, radar_data, shadow_data),
         _eval_dual_rpc_quorum_verified(signoff_data, signoff_err, infra_data, infra_err),
-        _eval_isolated_signer_authority_ready(signoff_data, signoff_err, infra_data, infra_err),
+        _eval_isolated_signer_authority_ready(
+            signoff_data,
+            signoff_err,
+            infra_data,
+            infra_err,
+            signer_data,
+            signer_err,
+        ),
         _eval_owner_scope_release_manifest_present(
             signoff_data,
             signoff_err,
@@ -1899,8 +2250,10 @@ __all__ = [
     "MAX_APPROVED_CUMULATIVE_LOSS_USD",
     "MAX_APPROVED_DAILY_LOSS_USD",
     "MAX_EARLY_ABORT_GAS",
+    "PROFIT_AUTHORITY_INFRA_SCHEMAS",
     "READINESS_SCHEMA_VERSION",
     "REQUIRED_ANVIL_DRILLS",
+    "SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION",
     "GateCheckResult",
     "ProfitEngineReadinessReport",
     "evaluate_profit_engine_readiness",

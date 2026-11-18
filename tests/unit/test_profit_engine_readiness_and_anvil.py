@@ -3,18 +3,26 @@
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
+import tempfile
 from dataclasses import FrozenInstanceError
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
+from eth_utils import to_checksum_address  # type: ignore[attr-defined]
 
 from oasis_agent.cross_venue.oos_execution_tracker import (
     OosStrategyExecutionTracker,
     OosTrackerConfig,
+)
+from oasis_agent.live.atomic_authority_socket import (
+    PROFIT_AUTHORITY_INFRA_SCHEMA,
+    PROFIT_AUTHORITY_SCHEMA,
+    build_authority_infra_proof,
 )
 from oasis_agent.live.canary_readiness import (
     ANVIL_E2E_SCHEMA_VERSION,
@@ -25,6 +33,7 @@ from oasis_agent.live.canary_readiness import (
     DUAL_RPC_QUORUM_SCHEMA_VERSION,
     GATE_NAMES,
     READINESS_SCHEMA_VERSION,
+    SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION,
     GateCheckResult,
     ProfitEngineReadinessReport,
     evaluate_profit_engine_readiness,
@@ -32,6 +41,7 @@ from oasis_agent.live.canary_readiness import (
 from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.risk.capital_policy import CapitalRiskConfig
 from scripts.check_profit_engine_readiness import main as readiness_cli_main
+from scripts.create_software_scope_signoff import main as create_signoff_cli_main
 from scripts.verify_atomic_vault_anvil import main as anvil_cli_main
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1359,3 +1369,482 @@ def test_readiness_cli_min_oos_trades_and_tracker_integration(
     written = json.loads(out_3.read_text(encoding="utf-8"))
     assert written["evidence"]["oos_execution"]["oos_trades_count"] == 3
     assert written["evidence"]["oos_execution"]["execution_eligible"] is False
+
+
+def _short_socket_dir() -> tempfile.TemporaryDirectory[str]:
+    base = Path(tempfile.gettempdir()).resolve()
+    return tempfile.TemporaryDirectory(prefix="oa-r-", dir=base)
+
+
+def _make_real_signer_proof_file(path: Path, *, operator_eoa: str) -> Path:
+    with _short_socket_dir() as td:
+        sock_dir = Path(td)
+        os.chmod(sock_dir, 0o700)
+        sock_path = sock_dir / "a.sock"
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.bind(str(sock_path))
+            sock_path.chmod(0o600)
+            proof = build_authority_infra_proof(
+                socket_path=sock_path,
+                account=operator_eoa,
+                isolated_key_volume="oasis-canary-keys",
+                primary_rpc_provider="base-publicnode-archive",
+                secondary_rpc_provider="alchemy-base-archive",
+                secondary_rpc_verified=True,
+                authority_status={
+                    "schema": PROFIT_AUTHORITY_SCHEMA,
+                    "account": operator_eoa.lower(),
+                    "signatures_used": 0,
+                    "max_signatures": 12,
+                    "last_nonce": None,
+                    "halted": False,
+                    "stop_present": False,
+                },
+            )
+    assert proof["schema"] == PROFIT_AUTHORITY_INFRA_SCHEMA
+    return _write_json(path, proof)
+
+
+def test_readiness_dual_rpc_quorum_and_real_signer_proof_gates_7_and_8(tmp_path: Path) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    quorum_path = _make_synthetic_dual_rpc_quorum_report(tmp_path / "dual_rpc_quorum.json")
+
+    admin_eoa = to_checksum_address(f"0x{0x2001:040x}")
+    operator_eoa = to_checksum_address(f"0x{0x2002:040x}")
+    signer_proof_path = _make_real_signer_proof_file(
+        tmp_path / "signer_proof.json",
+        operator_eoa=operator_eoa,
+    )
+
+    signoff_path = tmp_path / "software_signoff.json"
+    rc_sign = create_signoff_cli_main(
+        [
+            "--approve-software-scope",
+            "--attestation",
+            "solo-operator-human-attestation-01",
+            "--owner-identity",
+            "solo-operator",
+            "--scope-id",
+            "base-canary-two-zone-01",
+            "--admin-eoa",
+            admin_eoa,
+            "--operator-eoa",
+            operator_eoa,
+            "--infra-proof",
+            str(quorum_path),
+            "--signer-proof",
+            str(signer_proof_path),
+            "--out",
+            str(signoff_path),
+        ]
+    )
+    assert rc_sign == 0
+
+    cli_out = tmp_path / "readiness_split_proofs.json"
+    rc_ready = readiness_cli_main(
+        [
+            "--contracts-out-dir",
+            str(contracts_dir),
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_path),
+            "--infra-proof",
+            str(quorum_path),
+            "--signer-proof",
+            str(signer_proof_path),
+            "--operator-signoff",
+            str(signoff_path),
+            "--out",
+            str(cli_out),
+            "--require-ready",
+        ]
+    )
+    assert rc_ready == 0
+    doc = json.loads(cli_out.read_text(encoding="utf-8"))
+    assert doc["release_permitted"] is True
+    assert doc["execution_eligible"] is False
+    assert doc["passed_count"] == 9
+    assert doc["blocked_gates"] == []
+    by_name = {g["name"]: g for g in doc["gates"]}
+    assert by_name["dual_rpc_quorum_verified"]["passed"] is True
+    assert by_name["isolated_signer_authority_ready"]["passed"] is True
+    assert (
+        "key_volume=oasis-canary-keys"
+        in (by_name["isolated_signer_authority_ready"]["observed_value"])
+    )
+
+    # Tampering proof_sha256 on --signer-proof must fail Gate 8 while leaving Gate 7 green.
+    raw_signer = json.loads(signer_proof_path.read_text(encoding="utf-8"))
+    orig_sha = str(raw_signer["proof_sha256"])
+    tampered_sha = ("0" if orig_sha[0] != "0" else "1") + orig_sha[1:]
+    tampered_signer_path = _write_json(
+        tmp_path / "tampered_signer_proof.json",
+        {**raw_signer, "proof_sha256": tampered_sha},
+    )
+    r_tampered = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=tampered_signer_path,
+        operator_signoff_path=signoff_path,
+    )
+    assert r_tampered.release_permitted is False
+    assert r_tampered.blocked_gates == ("isolated_signer_authority_ready",)
+    gate8 = {g.name: g for g in r_tampered.gates}["isolated_signer_authority_ready"]
+    assert gate8.observed_value == "checksum_mismatch"
+
+    # Symlink --signer-proof fails closed at Gate 8.
+    sym_signer = tmp_path / "sym_signer.json"
+    os.symlink(signer_proof_path, sym_signer)
+    r_sym = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=sym_signer,
+        operator_signoff_path=signoff_path,
+    )
+    assert r_sym.blocked_gates == ("isolated_signer_authority_ready",)
+
+    # Passing DualRpcQuorumReport as --signer-proof fails closed on unsupported schema_version.
+    r_wrong_schema = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=quorum_path,
+        operator_signoff_path=signoff_path,
+    )
+    assert r_wrong_schema.blocked_gates == ("isolated_signer_authority_ready",)
+
+
+def test_create_software_scope_signoff_rehearsal_approval_and_rejections(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    quorum_path = _make_synthetic_dual_rpc_quorum_report(tmp_path / "dual_rpc_quorum.json")
+
+    admin_eoa = to_checksum_address(f"0x{0x3001:040x}")
+    operator_eoa = to_checksum_address(f"0x{0x3002:040x}")
+    signer_proof_path = _make_real_signer_proof_file(
+        tmp_path / "signer_proof.json",
+        operator_eoa=operator_eoa,
+    )
+
+    cfg = CapitalRiskConfig(
+        total_capital_usd_micros=2_000_000_000,
+        max_daily_loss_usd_micros=400_000_000,
+        max_cumulative_loss_usd_micros=1_000_000_000,
+    )
+    risk_cfg_path = _write_json(tmp_path / "risk_cfg.json", cfg.to_dict())
+
+    # 1. --rehearsal emits rehearsal_only=True and stays blocked at Gate 9.
+    rehearsal_path = tmp_path / "rehearsal_signoff.json"
+    rc_reh = create_signoff_cli_main(
+        [
+            "--rehearsal",
+            "--risk-config",
+            str(risk_cfg_path),
+            "--owner-identity",
+            "solo-owner",
+            "--scope-id",
+            "base-canary-rehearsal",
+            "--admin-eoa",
+            admin_eoa,
+            "--operator-eoa",
+            operator_eoa,
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_path),
+            "--infra-proof",
+            str(quorum_path),
+            "--signer-proof",
+            str(signer_proof_path),
+            "--out",
+            str(rehearsal_path),
+        ]
+    )
+    assert rc_reh == 0
+    capsys.readouterr()
+
+    reh_doc = json.loads(rehearsal_path.read_text(encoding="utf-8"))
+    assert reh_doc["schema_version"] == SOFTWARE_SCOPE_SIGNOFF_SCHEMA_VERSION
+    assert reh_doc["rehearsal_only"] is True
+    assert reh_doc["owner_scope_approved"] is False
+    assert reh_doc["execution_eligible"] is False
+    assert reh_doc["signature_or_attestation"] == "rehearsal-non-authorizing"
+    assert reh_doc["risk_config_sha256"] == cfg.config_sha256
+    assert "anvil_report" in reh_doc["evidence_digests"]
+    assert "signer_proof" in reh_doc["evidence_digests"]
+
+    # --verify refuses rehearsal manifests with exit code 2.
+    assert (
+        create_signoff_cli_main(
+            ["--verify", str(rehearsal_path), "--risk-config", str(risk_cfg_path)]
+        )
+        == 2
+    )
+    capsys.readouterr()
+
+    r_reh = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=rehearsal_path,
+        risk_config_path=risk_cfg_path,
+    )
+    assert r_reh.release_permitted is False
+    assert r_reh.blocked_gates == ("owner_scope_release_manifest_present",)
+    assert "rehearsal_only=True" in (
+        {g.name: g for g in r_reh.gates}["owner_scope_release_manifest_present"].detail
+    )
+
+    # Even if owner_scope_approved=True is tampered while rehearsal_only=True, Gate 9 refuses it.
+    tampered_reh_body = {k: v for k, v in reh_doc.items() if k != "manifest_sha256"}
+    tampered_reh_body["owner_scope_approved"] = True
+    tampered_reh_body["signature_or_attestation"] = "forged-attestation"
+    tampered_reh_body["manifest_sha256"] = sha256_hex(canonical_json(tampered_reh_body))
+    tampered_reh_path = _write_json(tmp_path / "tampered_rehearsal.json", tampered_reh_body)
+    r_tampered_reh = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=tampered_reh_path,
+        risk_config_path=risk_cfg_path,
+    )
+    assert r_tampered_reh.blocked_gates == ("owner_scope_release_manifest_present",)
+    assert "rehearsal_only=True" in (
+        {g.name: g for g in r_tampered_reh.gates}["owner_scope_release_manifest_present"].detail
+    )
+
+    # 2. --approve-software-scope passes --verify and achieves 9/9 with execution_eligible=False.
+    approved_path = tmp_path / "approved_signoff.json"
+    rc_app = create_signoff_cli_main(
+        [
+            "--approve-software-scope",
+            "--attestation",
+            "owner-solo-software-eoa-attestation-20261118",
+            "--risk-config",
+            str(risk_cfg_path),
+            "--owner-identity",
+            "solo-owner",
+            "--scope-id",
+            "base-canary-live-scope",
+            "--admin-eoa",
+            admin_eoa,
+            "--operator-eoa",
+            operator_eoa,
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_path),
+            "--infra-proof",
+            str(quorum_path),
+            "--signer-proof",
+            str(signer_proof_path),
+            "--out",
+            str(approved_path),
+        ]
+    )
+    assert rc_app == 0
+    capsys.readouterr()
+    assert (
+        create_signoff_cli_main(
+            ["--verify", str(approved_path), "--risk-config", str(risk_cfg_path)]
+        )
+        == 0
+    )
+    verify_out = json.loads(capsys.readouterr().out)
+    assert verify_out["verified"] is True
+    assert verify_out["execution_eligible"] is False
+
+    r_ready = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=approved_path,
+        risk_config_path=risk_cfg_path,
+    )
+    assert r_ready.release_permitted is True
+    assert r_ready.execution_eligible is False
+    assert r_ready.passed_count == 9
+    assert r_ready.blocked_gates == ()
+
+    # 3. Mismatched risk_config_sha256 is rejected at Gate 9 even if limits are within default $500.
+    other_cfg = CapitalRiskConfig(
+        total_capital_usd_micros=400_000_000,
+        max_daily_loss_usd_micros=100_000_000,
+        max_cumulative_loss_usd_micros=200_000_000,
+    )
+    r_mismatch_cfg = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=approved_path,
+        risk_config=other_cfg,
+    )
+    assert r_mismatch_cfg.release_permitted is False
+    assert r_mismatch_cfg.blocked_gates == ("owner_scope_release_manifest_present",)
+
+    # Also test same-limit but different reserve_buffer_bps => different risk_config_sha256!
+    tweaked_cfg = CapitalRiskConfig(
+        total_capital_usd_micros=2_000_000_000,
+        max_daily_loss_usd_micros=400_000_000,
+        max_cumulative_loss_usd_micros=1_000_000_000,
+        reserve_buffer_bps=1_500,
+    )
+    r_tweaked_cfg = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=approved_path,
+        risk_config=tweaked_cfg,
+    )
+    assert r_tweaked_cfg.blocked_gates == ("owner_scope_release_manifest_present",)
+
+    # 4. CLI rejections: Cold == Hot collision (even mixed vs lowercase), missing attestation,
+    #    bad EIP-55 checksum, and refusing to overwrite existing or symlink --out.
+    collision_out = tmp_path / "collision.json"
+    assert (
+        create_signoff_cli_main(
+            [
+                "--approve-software-scope",
+                "--attestation",
+                "human-ok",
+                "--owner-identity",
+                "solo-owner",
+                "--scope-id",
+                "bad-collision",
+                "--admin-eoa",
+                to_checksum_address(f"0x{0xABCD:040x}"),
+                "--operator-eoa",
+                f"0x{0xABCD:040x}",
+                "--out",
+                str(collision_out),
+            ]
+        )
+        == 2
+    )
+    assert not collision_out.exists()
+
+    no_attest_out = tmp_path / "no_attest.json"
+    assert (
+        create_signoff_cli_main(
+            [
+                "--approve-software-scope",
+                "--owner-identity",
+                "solo-owner",
+                "--scope-id",
+                "missing-attestation",
+                "--admin-eoa",
+                admin_eoa,
+                "--operator-eoa",
+                operator_eoa,
+                "--out",
+                str(no_attest_out),
+            ]
+        )
+        == 2
+    )
+    assert not no_attest_out.exists()
+
+    bad_checksum = "0xAbCd" + "11" * 18
+    assert (
+        create_signoff_cli_main(
+            [
+                "--rehearsal",
+                "--owner-identity",
+                "solo-owner",
+                "--scope-id",
+                "bad-checksum",
+                "--admin-eoa",
+                bad_checksum,
+                "--operator-eoa",
+                operator_eoa,
+                "--out",
+                str(tmp_path / "bad_cs.json"),
+            ]
+        )
+        == 2
+    )
+
+    # Refuse overwriting existing --out
+    assert (
+        create_signoff_cli_main(
+            [
+                "--rehearsal",
+                "--owner-identity",
+                "solo-owner",
+                "--scope-id",
+                "overwrite-refused",
+                "--admin-eoa",
+                admin_eoa,
+                "--operator-eoa",
+                operator_eoa,
+                "--out",
+                str(approved_path),
+            ]
+        )
+        == 2
+    )
+
+    # Gate 9 directly refuses hand-crafted signoff where admin_eoa == operator_eoa.
+    colliding_manifest = _write_json(
+        tmp_path / "hand_colliding.json",
+        {
+            "owner_scope_approved": True,
+            "owner_identity": "solo-owner",
+            "scope_id": "hand-collision",
+            "approved_at_utc": "2026-11-18T08:00:00+00:00",
+            "admin_eoa": admin_eoa,
+            "operator_eoa": admin_eoa.lower(),
+            "capital_limit_usd_micros": 500_000_000,
+            "daily_loss_limit_usd_micros": 200_000_000,
+            "cumulative_loss_limit_usd_micros": 500_000_000,
+            "signature_or_attestation": "human-signoff-01",
+        },
+    )
+    r_hand_col = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        infra_proof_path=quorum_path,
+        signer_proof_path=signer_proof_path,
+        operator_signoff_path=colliding_manifest,
+    )
+    assert r_hand_col.blocked_gates == ("owner_scope_release_manifest_present",)

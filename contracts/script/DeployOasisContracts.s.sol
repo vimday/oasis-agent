@@ -11,9 +11,12 @@ import { OasisHookFactory } from "../src/OasisHookFactory.sol";
 import { OasisPositionExecutor } from "../src/OasisPositionExecutor.sol";
 import { IOasisPositionManager } from "../src/interfaces/IOasisPositionManager.sol";
 
-/// @notice Hardware/external-signer compatible deployment for the immutable Phase-1 contracts.
-/// @dev This script deliberately does not read a private key. Use Foundry's hardware-wallet,
-///      remote signer, or an unlocked deployment account. Governance config and pool
+/// @notice Software-EOA, encrypted keystore (`--account`), and external-signer compatible
+///         deployment for the immutable Phase-1 contracts.
+/// @dev This script deliberately does not read a private key. Use Foundry encrypted software
+///      keystores (`cast wallet new` / `--account`), external wallets, or optional multisigs with
+///      Two-Zone Cold-vs-Hot separation (`deployer`, `governor`, and `guardian` in the Cold Admin
+///      zone, distinct from `lpOwner` in the Hot Canary zone). Governance config and pool
 ///      initialization are separate transactions owned by the configured governor.
 contract DeployOasisContracts is Script {
     error WrongChain(uint256 actual, uint256 expected);
@@ -31,12 +34,12 @@ contract DeployOasisContracts is Script {
         returns (OasisHookFactory factory, OasisDynamicFeeHook hook, OasisPositionExecutor executor)
     {
         uint256 expectedChainId = vm.envUint("OASIS_CHAIN_ID");
-        address deployer = vm.envAddress("OASIS_DEPLOYER");
         IPoolManager poolManager = IPoolManager(vm.envAddress("OASIS_POOL_MANAGER"));
         PositionManager positionManager =
             PositionManager(payable(vm.envAddress("OASIS_POSITION_MANAGER")));
         address governor = vm.envAddress("OASIS_GOVERNOR");
-        address guardian = vm.envAddress("OASIS_GUARDIAN");
+        address deployer = _envAddressOr("OASIS_DEPLOYER", governor);
+        address guardian = _envAddressOr("OASIS_GUARDIAN", governor);
         address lpOwner = vm.envAddress("OASIS_LP_OWNER");
         uint256 maxLiquidity = vm.envUint("OASIS_MAX_LIQUIDITY");
         bytes32 expectedPoolManagerHash = vm.envBytes32("OASIS_POOL_MANAGER_HASH");
@@ -48,10 +51,9 @@ contract DeployOasisContracts is Script {
                 || address(positionManager) == address(0) || governor == address(0)
                 || guardian == address(0) || lpOwner == address(0) || maxLiquidity == 0
         ) revert ZeroAddress();
-        if (
-            governor == guardian || governor == lpOwner || guardian == lpOwner
-                || deployer == governor || deployer == guardian || deployer == lpOwner
-        ) revert RolesNotSeparated();
+        if (lpOwner == governor || lpOwner == guardian || lpOwner == deployer) {
+            revert RolesNotSeparated();
+        }
         if (address(positionManager.poolManager()) != address(poolManager)) {
             revert PositionManagerMismatch();
         }
@@ -119,5 +121,17 @@ contract DeployOasisContracts is Script {
             }
         }
         revert SaltNotFound();
+    }
+
+    function _envAddressOr(string memory name, address fallbackAddress)
+        private
+        view
+        returns (address)
+    {
+        string memory raw = vm.envOr(name, string(""));
+        if (bytes(raw).length == 0) {
+            return fallbackAddress;
+        }
+        return vm.parseAddress(raw);
     }
 }
