@@ -73,9 +73,11 @@ verify-run: check run
 
 # Base canary: live is release-gated; recovery never constructs a signer.
 SIGNER_SOCKET ?= $(HOME)/.oasis/signer.sock
-.PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile live-deployment-check
+.PHONY: shadow live live-report live-stop live-check live-readiness live-reconcile live-deployment-check profit-deployment-check
 live-deployment-check:
 	$(PYTHON) -m scripts.verify_live_compose
+profit-deployment-check:
+	$(PYTHON) -m scripts.verify_profit_compose
 LIVE_IMAGE ?= oasis-live:local
 LIVE_START_OUTPUT ?= reports/runs/base-bounded
 LIVE_TICKS ?= 1

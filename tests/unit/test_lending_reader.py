@@ -5,6 +5,7 @@ import os
 import socket
 import ssl
 import subprocess
+import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Sequence
@@ -1015,3 +1016,14 @@ def test_cli_out_file_overwrite_and_symlink_refusal(
         )
         == 2
     )
+
+    proc = subprocess.run(
+        [sys.executable, "-m", "oasis_agent.fastpath.lending_reader", "--help"],
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[2] / "src")},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
+    )
+    assert proc.returncode == 0
+    assert "--lookback-blocks" in proc.stdout

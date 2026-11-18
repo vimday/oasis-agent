@@ -51,6 +51,7 @@ from oasis_agent.fastpath.live_shadow_runner import (
 )
 from oasis_agent.fastpath.multicall_universe import (
     UNIV3_FACTORY,
+    VIRTUAL_TOKEN,
     DiscoveredPool,
     PinnedUniverseSnapshot,
     QuoterVerificationResult,
@@ -1344,3 +1345,262 @@ def test_campaign_replica_lag_recovery_and_true_reorg_rejection(
             rpc_transport=lambda _u, _p, _t: b"{}",
             sleeper=_noop_sleep,
         )
+
+
+def test_campaign_ecosystem_2hop_coinbase_fallback_and_maker_hedge(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    cbbtc_addr = normalize_address(CBBTC)
+    virt_addr = normalize_address(VIRTUAL_TOKEN)
+
+    def _ordered_pair(a: str, dec_a: int, res_a: int, b: str, dec_b: int, res_b: int):
+        if a < b:
+            return a, b, dec_a, dec_b, res_a, res_b
+        return b, a, dec_b, dec_a, res_b, res_a
+
+    # WETH/USDC V3 pool (~3000 USDC/WETH), VIRTUAL/WETH V2 pool (~2000 VIRTUAL/WETH -> ~$1.50),
+    # and cbBTC/USDC V2 pool (~90,000 USDC/cbBTC); intentionally omit direct VIRTUAL/USDC pool.
+    vw_t0, vw_t1, vw_d0, vw_d1, vw_r0, vw_r1 = _ordered_pair(
+        virt_addr, 18, 2_000_000 * 10**18, weth_addr, 18, 1_000 * 10**18
+    )
+    bc_t0, bc_t1, bc_d0, bc_d1, bc_r0, bc_r1 = _ordered_pair(
+        cbbtc_addr, 8, 100 * 10**8, usdc_addr, 6, 9_000_000 * 10**6
+    )
+
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(911),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=50 * 10**18,
+            reserve1=150_000 * 10**6,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(912),
+            label="v2_virtual_weth",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            token0=vw_t0,
+            token1=vw_t1,
+            decimals0=vw_d0,
+            decimals1=vw_d1,
+            fixed_fee_pips=3000,
+            tick_spacing=None,
+            factory=_synth_addr(9912),
+            reserve0=vw_r0,
+            reserve1=vw_r1,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(913),
+            label="v2_cbbtc_usdc",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            token0=bc_t0,
+            token1=bc_t1,
+            decimals0=bc_d0,
+            decimals1=bc_d1,
+            fixed_fee_pips=3000,
+            tick_spacing=None,
+            factory=_synth_addr(9913),
+            reserve0=bc_r0,
+            reserve1=bc_r1,
+        ),
+    )
+
+    include_flags_seen: list[bool] = []
+
+    def _mock_discover(*_args: Any, **kwargs: Any) -> tuple[DiscoveredPool, ...]:
+        include_flags_seen.append(bool(kwargs.get("include_ecosystem_tokens", False)))
+        return disc_pools
+
+    snap_idx = {"n": 0}
+
+    def _mock_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        snap_idx["n"] += 1
+        bnum = 59_100_000 + snap_idx["n"]
+        ts_ms = 1_795_400_000_000 + snap_idx["n"] * 1000
+        liq = 200_000_000_000_000_000
+        t = -196_258
+        nodes = (
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[0].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_price_at_tick(t),
+                tick=t,
+                liquidity=liq,
+                ticks=(TickLiquidity(t - 200, liq), TickLiquidity(t + 200, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[1].pool_id,
+                kind=PoolKind.V2,
+                token0=vw_t0,
+                token1=vw_t1,
+                decimals0=vw_d0,
+                decimals1=vw_d1,
+                fee_pips=3000,
+                reserve0=vw_r0,
+                reserve1=vw_r1,
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[2].pool_id,
+                kind=PoolKind.V2,
+                token0=bc_t0,
+                token1=bc_t1,
+                decimals0=bc_d0,
+                decimals1=bc_d1,
+                fee_pips=3000,
+                reserve0=bc_r0,
+                reserve1=bc_r1,
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+        )
+        bhash = _synth_hash(f"eco-blk-{bnum}")
+        phash = _synth_hash(f"eco-blk-{bnum - 1}")
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=bhash,
+            parent_hash=phash,
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=nodes,
+            balances_by_pool={
+                disc_pools[0].pool_id: (50 * 10**18, 150_000 * 10**6),
+                disc_pools[1].pool_id: (vw_r0, vw_r1),
+                disc_pools[2].pool_id: (bc_r0, bc_r1),
+            },
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools",
+        _mock_discover,
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _mock_snap,
+    )
+
+    cb_urls_seen: list[str] = []
+    virt_calls = {"n": 0}
+
+    def _mock_cb_transport(url: str, _timeout: float) -> bytes:
+        cb_urls_seen.append(url)
+        if "BTC-USD" in url:
+            if "level=2" in url:
+                raise LiveCexDexError("Coinbase response exceeded MAX_RESPONSE_BYTES limit")
+            btc_book = build_synthetic_coinbase_l2_book(
+                "BTC-USD", mid_price=Decimal("90000.00"), level_size=Decimal("1.0"), levels=1
+            )
+            return serialize_coinbase_book_payload(btc_book)
+        if "VIRTUAL-USD" in url:
+            virt_calls["n"] += 1
+            # Tick 1 mid=1.5600: DEX buys VIRTUAL ~$1.540 so Maker Ask ~$1.5597 has >100 bps edge;
+            # Tick 2 jumps best_bid above $1.59 so Tick 1 resting Ask hits a strict_cross fill.
+            mid = Decimal("1.5600") if virt_calls["n"] == 1 else Decimal("1.6000")
+            virt_book = build_synthetic_coinbase_l2_book(
+                "VIRTUAL-USD", mid_price=mid, level_size=Decimal("5000.0")
+            )
+            return serialize_coinbase_book_payload(virt_book)
+        eth_book = build_synthetic_coinbase_l2_book("ETH-USD", mid_price=Decimal("3000.00"))
+        return serialize_coinbase_book_payload(eth_book)
+
+    out_dir = tmp_path / "eco-2hop"
+    res = run_multicall_campaign(
+        out_dir=out_dir,
+        mode="public-shadow",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://eco-test.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_mock_cb_transport,
+        sleeper=_noop_sleep,
+        include_ecosystem_tokens=True,
+    )
+    assert include_flags_seen == [True]
+    assert res.summary["include_ecosystem_tokens"] is True
+    assert set(res.summary["cex_dex_lead_lag_summary"]["products_evaluated"]) == {
+        "BTC-USD",
+        "ETH-USD",
+        "VIRTUAL-USD",
+    }
+    assert res.records[0]["cex_dex_evaluations"]["BTC-USD"]["book_level"] == 1
+    assert res.records[0]["cex_dex_evaluations"]["VIRTUAL-USD"]["status"] == "ok"
+    assert res.summary["maker_hedge_summary"]["strict_cross_fills"] >= 1
+    assert len(res.records[1]["maker_hedge"]["VIRTUAL-USD"]["strict_fills"]) >= 1
+    assert (
+        cb_urls_seen.count("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2") == 2
+    )
+    assert any("BTC-USD/book?level=1" in u for u in cb_urls_seen)
+
+    # Verify CLI --include-ecosystem-tokens flag forwards properly
+    cli_out = tmp_path / "cli-eco"
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow._default_https_get",
+        _mock_cb_transport,
+    )
+    # Force coinbase_transport in CLI test by hooking run_multicall_campaign via monkeypatch
+    captured_cli_kw: dict[str, Any] = {}
+    orig_run = campaign_cli.run_multicall_campaign
+
+    def _spy_run(**kwargs: Any) -> Any:
+        captured_cli_kw.update(kwargs)
+        return orig_run(
+            **{
+                **kwargs,
+                "bridge": bridge,
+                "rpc_transport": lambda _u, _p, _t: b"{}",
+                "coinbase_transport": _mock_cb_transport,
+                "sleeper": _noop_sleep,
+            }
+        )
+
+    monkeypatch.setattr(campaign_cli, "run_multicall_campaign", _spy_run)
+    rc = campaign_cli.main(
+        [
+            "--mode",
+            "public-shadow",
+            "--ticks",
+            "2",
+            "--interval-ms",
+            "0",
+            "--max-rpc-calls",
+            "30",
+            "--rpc-url",
+            "https://eco-cli.example.com",
+            "--include-ecosystem-tokens",
+            "--out",
+            str(cli_out),
+        ]
+    )
+    assert rc == 0
+    assert captured_cli_kw["include_ecosystem_tokens"] is True

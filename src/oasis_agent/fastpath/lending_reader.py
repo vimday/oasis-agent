@@ -1631,3 +1631,7 @@ __all__ = [
     "read_morpho_blue_positions",
     "scan_aave_v3_base_health",
 ]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

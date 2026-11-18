@@ -21,6 +21,7 @@ import re
 import ssl
 import sys
 import time
+import urllib.error
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
@@ -39,17 +40,24 @@ from oasis_agent.cross_venue.live_cex_dex_shadow import (
     DEFAULT_LATENCY_HAIRCUT_BPS,
     DEFAULT_TRADE_NOTIONAL_USDC,
     CexDexTickEvaluation,
+    CoinbaseL2Book,
     LiveCexDexError,
     _validate_coinbase_url,
     build_synthetic_coinbase_transport,
     evaluate_live_cex_dex_shadow,
+    fetch_coinbase_l2_book,
     gas_wei_to_usd,
+    resolve_coinbase_product,
 )
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     MAX_RESPONSE_BYTES as CB_MAX_RESPONSE_BYTES,
 )
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     _validate_resolved_dns as _validate_cb_dns,
+)
+from oasis_agent.cross_venue.maker_hedge_shadow import (
+    MakerHedgeConfig,
+    MakerHedgeLifecycleTracker,
 )
 from oasis_agent.errors import RpcError
 from oasis_agent.evidence.base_denim import (
@@ -97,6 +105,15 @@ from oasis_agent.fastpath.live_shadow_runner import (
 from oasis_agent.fastpath.live_shadow_runner import (
     _validate_resolved_dns as _validate_rpc_dns,
 )
+from oasis_agent.fastpath.multicall_universe import (
+    CBETH_TOKEN,
+    DEGEN_TOKEN,
+    MORPHO_TOKEN,
+    VIRTUAL_TOKEN,
+    VVV_TOKEN,
+    WELL_TOKEN,
+    _IPv4PreferredHTTPSConnection,
+)
 from oasis_agent.fastpath.pool_graph import (
     CycleCandidate,
     FastpathPoolGraph,
@@ -133,6 +150,12 @@ USDC_ADDR: Final[str] = normalize_address(USDC)
 CBBTC_ADDR: Final[str] = normalize_address(CBBTC)
 AERO_TOKEN_ADDR: Final[str] = normalize_address(AERO_TOKEN)
 WSTETH_ADDR: Final[str] = normalize_address(WSTETH)
+VIRTUAL_ADDR: Final[str] = normalize_address(VIRTUAL_TOKEN)
+VVV_ADDR: Final[str] = normalize_address(VVV_TOKEN)
+MORPHO_ADDR: Final[str] = normalize_address(MORPHO_TOKEN)
+DEGEN_ADDR: Final[str] = normalize_address(DEGEN_TOKEN)
+WELL_ADDR: Final[str] = normalize_address(WELL_TOKEN)
+CBETH_ADDR: Final[str] = normalize_address(CBETH_TOKEN)
 
 SUMMARY_SCHEMA_VERSION: Final[str] = "oasis.base-multicall-shadow-summary.v1"
 RECORD_SCHEMA_VERSION: Final[str] = "oasis.base-multicall-shadow-record.v1"
@@ -182,12 +205,24 @@ TOKEN_META_BY_ADDR: Final[dict[str, TokenMeta]] = {
     CBBTC_ADDR: TokenMeta(CBBTC_ADDR, "cbBTC", 8, "BTC-USD"),
     AERO_TOKEN_ADDR: TokenMeta(AERO_TOKEN_ADDR, "AERO", 18, "AERO-USD"),
     WSTETH_ADDR: TokenMeta(WSTETH_ADDR, "wstETH", 18, None),
+    VIRTUAL_ADDR: TokenMeta(VIRTUAL_ADDR, "VIRTUAL", 18, "VIRTUAL-USD"),
+    VVV_ADDR: TokenMeta(VVV_ADDR, "VVV", 18, "VVV-USD"),
+    MORPHO_ADDR: TokenMeta(MORPHO_ADDR, "MORPHO", 18, "MORPHO-USD"),
+    DEGEN_ADDR: TokenMeta(DEGEN_ADDR, "DEGEN", 18, "DEGEN-USD"),
+    WELL_ADDR: TokenMeta(WELL_ADDR, "WELL", 18, "WELL-USD"),
+    CBETH_ADDR: TokenMeta(CBETH_ADDR, "cbETH", 18, "CBETH-USD"),
 }
 
 CEX_DEX_TOKEN_ORDER: Final[tuple[str, ...]] = (
     WETH_ADDR,
     CBBTC_ADDR,
     AERO_TOKEN_ADDR,
+    VIRTUAL_ADDR,
+    VVV_ADDR,
+    MORPHO_ADDR,
+    DEGEN_ADDR,
+    WELL_ADDR,
+    CBETH_ADDR,
 )
 
 
@@ -710,6 +745,41 @@ def _compute_eth_price_micro_usdc(nodes: Sequence[PoolNode]) -> int:
     return prices[len(prices) // 2]
 
 
+def _median_spot_scaled(
+    nodes: Sequence[PoolNode],
+    *,
+    token_a: str,
+    token_b: str,
+    decimals_a: int,
+) -> int | None:
+    """Return median amount of `token_b` raw per 1 unit (`10**decimals_a`) of `token_a`."""
+    scale_a = 10**decimals_a
+    ratios: list[int] = []
+    for node in nodes:
+        t0 = node.token0.lower()
+        t1 = node.token1.lower()
+        if {t0, t1} != {token_a, token_b}:
+            continue
+        if node.kind in (PoolKind.V3, PoolKind.SLIPSTREAM, PoolKind.V4) and node.sqrt_price_x96:
+            q192 = 1 << 192
+            sq = node.sqrt_price_x96 * node.sqrt_price_x96
+            val = (sq * scale_a) // q192 if t0 == token_a else (scale_a * q192) // sq
+            if val > 0:
+                ratios.append(val)
+        elif node.reserve0 and node.reserve1:
+            val = (
+                (node.reserve1 * scale_a) // node.reserve0
+                if t0 == token_a
+                else (node.reserve0 * scale_a) // node.reserve1
+            )
+            if val > 0:
+                ratios.append(val)
+    if not ratios:
+        return None
+    ratios.sort()
+    return ratios[len(ratios) // 2]
+
+
 def _estimate_token_amount_for_usdc(
     nodes: Sequence[PoolNode],
     *,
@@ -717,34 +787,27 @@ def _estimate_token_amount_for_usdc(
     token_decimals: int,
     usdc_amount_raw: int,
 ) -> int | None:
-    """Estimate raw token amount corresponding to `usdc_amount_raw` from pinned pool mid-price."""
+    """Estimate raw token amount corresponding to `usdc_amount_raw` via direct or 2-hop WETH."""
     scale_token = 10**token_decimals
-    prices_micro_per_token: list[int] = []
-    for node in nodes:
-        t0 = node.token0.lower()
-        t1 = node.token1.lower()
-        if {t0, t1} != {token_addr, USDC_ADDR}:
-            continue
-        if node.kind in (PoolKind.V3, PoolKind.SLIPSTREAM, PoolKind.V4) and node.sqrt_price_x96:
-            q192 = 1 << 192
-            sq = node.sqrt_price_x96 * node.sqrt_price_x96
-            price = (sq * scale_token) // q192 if t0 == token_addr else (scale_token * q192) // sq
-            if price > 0:
-                prices_micro_per_token.append(price)
-        elif node.reserve0 and node.reserve1:
-            price = (
-                (node.reserve1 * scale_token) // node.reserve0
-                if t0 == token_addr
-                else (node.reserve0 * scale_token) // node.reserve1
-            )
-            if price > 0:
-                prices_micro_per_token.append(price)
-    if not prices_micro_per_token:
-        return None
-    prices_micro_per_token.sort()
-    mid_micro = prices_micro_per_token[len(prices_micro_per_token) // 2]
-    est = (usdc_amount_raw * scale_token) // mid_micro
-    return est if est > 0 else None
+    mid_micro = _median_spot_scaled(
+        nodes, token_a=token_addr, token_b=USDC_ADDR, decimals_a=token_decimals
+    )
+    if mid_micro is not None and mid_micro > 0:
+        est = (usdc_amount_raw * scale_token) // mid_micro
+        return est if est > 0 else None
+    if token_addr != WETH_ADDR:
+        wei_per_tok = _median_spot_scaled(
+            nodes, token_a=token_addr, token_b=WETH_ADDR, decimals_a=token_decimals
+        )
+        micro_per_weth = _median_spot_scaled(
+            nodes, token_a=WETH_ADDR, token_b=USDC_ADDR, decimals_a=18
+        )
+        if wei_per_tok and micro_per_weth:
+            mid_2hop = (wei_per_tok * micro_per_weth) // 10**18
+            if mid_2hop > 0:
+                est_2hop = (usdc_amount_raw * scale_token) // mid_2hop
+                return est_2hop if est_2hop > 0 else None
+    return None
 
 
 def _measure_weth_usdc_pairwise_spread(
@@ -794,30 +857,65 @@ def _measure_weth_usdc_pairwise_spread(
     return gross_bps, net_bps
 
 
-def _best_direct_pair_quotes(
+def _best_pair_or_2hop_quotes(
     graph: FastpathPoolGraph,
-    pair_nodes: Sequence[PoolNode],
+    all_nodes: Sequence[PoolNode],
     *,
     token_addr: str,
     token_decimals: int,
     trade_notional_usdc: int,
 ) -> tuple[int | None, int, int | None]:
-    """Return `(dex_buy_token_out, trade_notional_token, dex_sell_usdc_out)` for one pair."""
+    """Return `(dex_buy_token_out, trade_notional_token, dex_sell_usdc_out)` via 1- or 2-hop."""
+    direct_nodes = [
+        n for n in all_nodes if {n.token0.lower(), n.token1.lower()} == {token_addr, USDC_ADDR}
+    ]
+    weth_usdc_nodes = (
+        [n for n in all_nodes if {n.token0.lower(), n.token1.lower()} == {WETH_ADDR, USDC_ADDR}]
+        if token_addr != WETH_ADDR
+        else []
+    )
+    tok_weth_nodes = (
+        [n for n in all_nodes if {n.token0.lower(), n.token1.lower()} == {token_addr, WETH_ADDR}]
+        if token_addr != WETH_ADDR
+        else []
+    )
+    if not direct_nodes and not (weth_usdc_nodes and tok_weth_nodes):
+        return None, 0, None
+
     buy_outs: list[int] = []
-    for node in pair_nodes:
+    for node in direct_nodes:
         try:
             q = graph.quote_pool(BASE_CHAIN_ID, node.pool_id, USDC_ADDR, trade_notional_usdc)
         except FastpathCallError:
             continue
         if q.amount_out > 0:
             buy_outs.append(q.amount_out)
-    dex_buy_out = max(buy_outs) if buy_outs else None
 
+    if weth_usdc_nodes and tok_weth_nodes:
+        weth_leg_outs: list[int] = []
+        for w_node in weth_usdc_nodes:
+            try:
+                q1 = graph.quote_pool(BASE_CHAIN_ID, w_node.pool_id, USDC_ADDR, trade_notional_usdc)
+            except FastpathCallError:
+                continue
+            if q1.amount_out > 0:
+                weth_leg_outs.append(q1.amount_out)
+        if weth_leg_outs:
+            best_weth_mid = max(weth_leg_outs)
+            for t_node in tok_weth_nodes:
+                try:
+                    q2 = graph.quote_pool(BASE_CHAIN_ID, t_node.pool_id, WETH_ADDR, best_weth_mid)
+                except FastpathCallError:
+                    continue
+                if q2.amount_out > 0:
+                    buy_outs.append(q2.amount_out)
+
+    dex_buy_out = max(buy_outs) if buy_outs else None
     if dex_buy_out is not None:
         trade_notional_token = dex_buy_out
     else:
         est = _estimate_token_amount_for_usdc(
-            pair_nodes,
+            all_nodes,
             token_addr=token_addr,
             token_decimals=token_decimals,
             usdc_amount_raw=trade_notional_usdc,
@@ -827,15 +925,66 @@ def _best_direct_pair_quotes(
         trade_notional_token = est
 
     sell_outs: list[int] = []
-    for node in pair_nodes:
+    for node in direct_nodes:
         try:
             q = graph.quote_pool(BASE_CHAIN_ID, node.pool_id, token_addr, trade_notional_token)
         except FastpathCallError:
             continue
         if q.amount_out > 0:
             sell_outs.append(q.amount_out)
+
+    if weth_usdc_nodes and tok_weth_nodes:
+        weth_back_outs: list[int] = []
+        for t_node in tok_weth_nodes:
+            try:
+                q1 = graph.quote_pool(
+                    BASE_CHAIN_ID, t_node.pool_id, token_addr, trade_notional_token
+                )
+            except FastpathCallError:
+                continue
+            if q1.amount_out > 0:
+                weth_back_outs.append(q1.amount_out)
+        if weth_back_outs:
+            best_weth_back = max(weth_back_outs)
+            for w_node in weth_usdc_nodes:
+                try:
+                    q2 = graph.quote_pool(BASE_CHAIN_ID, w_node.pool_id, WETH_ADDR, best_weth_back)
+                except FastpathCallError:
+                    continue
+                if q2.amount_out > 0:
+                    sell_outs.append(q2.amount_out)
+
     dex_sell_out = max(sell_outs) if sell_outs else None
     return dex_buy_out, trade_notional_token, dex_sell_out
+
+
+def _fetch_coinbase_book_for_tick(
+    product_id: str,
+    *,
+    timeout_s: float,
+    transport: Callable[[str, float], bytes] | None,
+) -> tuple[CoinbaseL2Book | None, str | None]:
+    """Fetch Coinbase L2 book once per product, falling back cleanly to level=1 on byte limit."""
+    try:
+        return (
+            fetch_coinbase_l2_book(product_id, level=2, timeout_s=timeout_s, transport=transport),
+            None,
+        )
+    except LiveCexDexError as exc:
+        msg = str(exc)
+        if "byte limit" in msg or "MAX_RESPONSE_BYTES" in msg:
+            try:
+                return (
+                    fetch_coinbase_l2_book(
+                        product_id, level=1, timeout_s=timeout_s, transport=transport
+                    ),
+                    None,
+                )
+            except (LiveCexDexError, OSError, TimeoutError, urllib.error.URLError, ValueError) as e:
+                return None, str(e) or e.__class__.__name__
+        return None, msg or exc.__class__.__name__
+    except (OSError, TimeoutError, urllib.error.URLError, ValueError) as exc:
+        return None, str(exc) or exc.__class__.__name__
 
 
 def verify_campaign_attribution_chain(records: Sequence[Mapping[str, object]]) -> str:
@@ -1185,7 +1334,9 @@ class _KeepAliveHttpsPool:
     def _new_conn(self, hostname: str, port: int, timeout_s: float) -> http.client.HTTPSConnection:
         if self._connection_factory is not None:
             return self._connection_factory(hostname, port, timeout_s, self._ssl_ctx)
-        return http.client.HTTPSConnection(hostname, port, timeout=timeout_s, context=self._ssl_ctx)
+        return _IPv4PreferredHTTPSConnection(
+            hostname, port, timeout=timeout_s, context=self._ssl_ctx
+        )
 
     def _drop_conn(self, key: tuple[str, int]) -> None:
         conn = self._conns.pop(key, None)
@@ -1395,10 +1546,13 @@ def run_multicall_campaign(
     clock: Callable[[], float] | None = None,
     fixture_scenario: str = "aligned",
     extra_fixture_pools: Sequence[BasePoolSpec] = (),
+    include_ecosystem_tokens: bool = False,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
         raise ShadowRunnerError(f"unsupported campaign mode: {mode!r}")
+    if type(include_ecosystem_tokens) is not bool:
+        raise ShadowRunnerError("include_ecosystem_tokens must be a boolean")
     if type(ticks) is not int or ticks <= 0:
         raise ShadowRunnerError("ticks must be a positive integer")
     if type(interval_ms) is not int or interval_ms < 0:
@@ -1447,7 +1601,7 @@ def run_multicall_campaign(
         )
         multicall_mod: MulticallUniverseProtocol | None = None
     else:
-        if rpc_transport is None or coinbase_transport is None:
+        if rpc_transport is None:
             http_pool = _KeepAliveHttpsPool()
         active_rpc_transport = (
             http_pool.post
@@ -1456,7 +1610,7 @@ def run_multicall_campaign(
         )
         active_cb_transport = (
             http_pool.get
-            if coinbase_transport is None and http_pool is not None
+            if coinbase_transport is None and rpc_transport is None and http_pool is not None
             else coinbase_transport
         )
         multicall_mod = _load_multicall_universe_module()
@@ -1491,6 +1645,9 @@ def run_multicall_campaign(
     cex_best_net_values: list[float] = []
     cex_best_raw_values: list[float] = []
     cex_best_maker_values: list[float] = []
+    maker_tracker = MakerHedgeLifecycleTracker(
+        MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
+    )
 
     try:
         pool_specs_raw: Sequence[Any]
@@ -1509,6 +1666,7 @@ def run_multicall_campaign(
                     "transport": active_rpc_transport,
                     "timeout_s": float(timeout_s),
                     "max_rpc_calls": max_rpc_calls - rpc_calls_used,
+                    "include_ecosystem_tokens": include_ecosystem_tokens,
                 },
             )
             extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
@@ -1753,31 +1911,57 @@ def run_multicall_campaign(
                 atomic_positive = False
             atomic_net_bps_series.append(atomic_best_net_bps)
 
-            # Evaluate Coinbase <-> Base CEX-DEX lead-lag across available /USDC pairs
+            # Evaluate Coinbase <-> Base CEX-DEX & Maker-Hedge lifecycle across 1/2-hop pairs
             gas_cost_usd = gas_wei_to_usd(total_gas_cost_wei, eth_price_usd)
             cex_evals_dict: dict[str, dict[str, Any]] = {}
+            maker_tick_dict: dict[str, dict[str, Any]] = {}
             tick_cex_ok: list[CexDexTickEvaluation] = []
             for tok_addr in CEX_DEX_TOKEN_ORDER:
                 meta = TOKEN_META_BY_ADDR[tok_addr]
                 if meta.coinbase_product is None:
                     continue
-                pair_nodes = [
-                    n
-                    for n in snapshot.nodes
-                    if {n.token0.lower(), n.token1.lower()} == {tok_addr, USDC_ADDR}
-                ]
-                if not pair_nodes:
-                    continue
-                products_evaluated.add(meta.coinbase_product)
-                dex_buy_out, notional_tok, dex_sell_out = _best_direct_pair_quotes(
+                dex_buy_out, notional_tok, dex_sell_out = _best_pair_or_2hop_quotes(
                     graph,
-                    pair_nodes,
+                    snapshot.nodes,
                     token_addr=tok_addr,
                     token_decimals=meta.decimals,
                     trade_notional_usdc=trade_notional_usdc,
                 )
                 if notional_tok <= 0:
                     continue
+                products_evaluated.add(meta.coinbase_product)
+                fetched_book, cb_err = _fetch_coinbase_book_for_tick(
+                    meta.coinbase_product,
+                    timeout_s=float(timeout_s),
+                    transport=active_cb_transport,
+                )
+                if fetched_book is None:
+                    cb_spec = resolve_coinbase_product(meta.coinbase_product)
+                    ev = CexDexTickEvaluation(
+                        product_id=cb_spec.product_id,
+                        token_symbol=cb_spec.token_symbol,
+                        status="degraded",
+                        error_reason=cb_err or "coinbase_book_unavailable",
+                        cex_taker_fee_bps=float(cex_taker_fee_bps),
+                        latency_haircut_bps=float(latency_haircut_bps),
+                        gas_cost_usd=round(float(gas_cost_usd), 6),
+                        best_bid_usd=None,
+                        best_ask_usd=None,
+                        cex_mid_usd=None,
+                        book_sequence=None,
+                        book_sha256=None,
+                        buy_dex_sell_cex=None,
+                        buy_cex_sell_dex=None,
+                        best_direction=None,
+                        best_net_bps=None,
+                        best_raw_spread_bps=None,
+                        maker_zero_fee_net_bps=None,
+                        book_level=2,
+                    )
+                    cex_evals_dict[meta.coinbase_product] = ev.to_dict()
+                    cex_degraded_evals += 1
+                    continue
+
                 ev = evaluate_live_cex_dex_shadow(
                     product_or_symbol=meta.coinbase_product,
                     trade_notional_usdc=trade_notional_usdc,
@@ -1788,6 +1972,7 @@ def run_multicall_campaign(
                     cex_taker_fee_bps=cex_taker_fee_bps,
                     latency_haircut_bps=latency_haircut_bps,
                     timeout_s=float(timeout_s),
+                    book=fetched_book,
                     transport=active_cb_transport,
                 )
                 cex_evals_dict[meta.coinbase_product] = ev.to_dict()
@@ -1796,6 +1981,24 @@ def run_multicall_campaign(
                     tick_cex_ok.append(ev)
                 else:
                     cex_degraded_evals += 1
+
+                maker_step = maker_tracker.step(
+                    meta.coinbase_product,
+                    current_book=fetched_book,
+                    trade_notional_usdc=trade_notional_usdc,
+                    dex_buy_token_out=dex_buy_out,
+                    trade_notional_token=notional_tok,
+                    dex_sell_usdc_out=dex_sell_out,
+                    token_decimals=meta.decimals,
+                    gas_cost_usd=gas_cost_usd,
+                )
+                maker_tick_dict[meta.coinbase_product] = {
+                    "quote": maker_step.quote.to_dict(),
+                    "strict_fills": [f.to_dict() for f in maker_step.strict_fills],
+                    "touch_lift_fills": [f.to_dict() for f in maker_step.touch_lift_fills],
+                    "unhedged_fill_reasons": list(maker_step.unhedged_fill_reasons),
+                    "execution_eligible": False,
+                }
 
             cex_dex_best_net_bps: float | None = None
             cex_dex_best_raw_bps: float | None = None
@@ -1860,6 +2063,7 @@ def run_multicall_campaign(
                 "atomic_best_net_bps": atomic_best_net_bps,
                 "atomic_positive": atomic_positive,
                 "cex_dex_evaluations": cex_evals_dict,
+                "maker_hedge": maker_tick_dict,
                 "cex_dex_best_net_bps": cex_dex_best_net_bps,
                 "cex_dex_best_raw_spread_bps": cex_dex_best_raw_bps,
                 "cex_dex_best_maker_diagnostic_bps": cex_dex_best_maker_bps,
@@ -1944,6 +2148,8 @@ def run_multicall_campaign(
         "mode": mode,
         "chain_id": BASE_CHAIN_ID,
         "execution_eligible": False,
+        "include_ecosystem_tokens": include_ecosystem_tokens,
+        "trade_notional_usdc": trade_notional_usdc,
         "rpc_origin": origin,
         "ticks_completed": ticks_completed,
         "positive_net_ticks": positive_net_ticks,
@@ -1965,6 +2171,7 @@ def run_multicall_campaign(
         "chain_head_sha256": chain_head_sha256,
         "atomic_dex_summary": atomic_dex_summary,
         "cex_dex_lead_lag_summary": cex_dex_lead_lag_summary,
+        "maker_hedge_summary": maker_tracker.summary(),
     }
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
@@ -2028,6 +2235,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--trade-notional-usdc",
+        type=int,
+        default=DEFAULT_TRADE_NOTIONAL_USDC,
+        help=(
+            "Trade clip notional in raw 6-decimal USDC base units "
+            f"(default: {DEFAULT_TRADE_NOTIONAL_USDC})."
+        ),
+    )
+    parser.add_argument(
+        "--include-ecosystem-tokens",
+        action="store_true",
+        default=False,
+        help=(
+            "Include expanded Base ecosystem tokens (VIRTUAL, MORPHO, WELL, DEGEN, VVV, cbETH) "
+            "and WETH 2-hop CEX-DEX/Maker-Hedge evaluation."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -2051,6 +2276,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             rpc_url=args.rpc_url,
             cex_taker_fee_bps=args.cex_taker_fee_bps,
             latency_haircut_bps=args.latency_haircut_bps,
+            trade_notional_usdc=args.trade_notional_usdc,
+            include_ecosystem_tokens=args.include_ecosystem_tokens,
         )
     except (
         OSError,
@@ -2069,6 +2296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "mode": result.summary["mode"],
                 "chain_id": result.summary["chain_id"],
                 "execution_eligible": result.summary["execution_eligible"],
+                "include_ecosystem_tokens": result.summary["include_ecosystem_tokens"],
                 "ticks_completed": result.summary["ticks_completed"],
                 "positive_net_ticks": result.summary["positive_net_ticks"],
                 "atomic_positive_net_ticks": result.summary["atomic_positive_net_ticks"],
@@ -2079,6 +2307,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "rpc_calls_used": result.summary["rpc_calls_used"],
                 "universe_pool_count": result.summary["universe_pool_count"],
                 "unique_blocks_observed": result.summary["unique_blocks_observed"],
+                "maker_hedge_summary": result.summary["maker_hedge_summary"],
                 "summary_sha256": result.summary["summary_sha256"],
             },
             sort_keys=True,
