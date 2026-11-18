@@ -2,7 +2,10 @@
 
 import json
 import math
+import os
+import shutil
 import socket
+import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Any
@@ -509,8 +512,20 @@ def test_uniswapx_orderbook_client_ssrf_rate_limit_and_budget() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _load_compiled_abi_or_build(artifact_path: Path) -> dict[str, Any]:
+    if not artifact_path.is_file():
+        if os.environ.get("OASIS_REQUIRE_FOUNDRY_ARTIFACTS") == "1":
+            raise FileNotFoundError(artifact_path)
+        forge_bin = shutil.which("forge")
+        if forge_bin is None:
+            pytest.skip("Foundry absent in Python-only container; verified in contracts job")
+        subprocess.run([forge_bin, "build", "--root", str(REPO_ROOT / "contracts")], check=True)
+    loaded: dict[str, Any] = json.loads(artifact_path.read_text())
+    return loaded
+
+
 def test_compiled_oasis_intent_vault_abi_exposes_required_surface() -> None:
-    artifact = json.loads(COMPILED_VAULT_ABI.read_text())
+    artifact = _load_compiled_abi_or_build(COMPILED_VAULT_ABI)
     abi = artifact["abi"]
     method_ids: dict[str, str] = artifact["methodIdentifiers"]
 

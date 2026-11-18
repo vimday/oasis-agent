@@ -1,6 +1,9 @@
 """Unit tests for atomic bundle ABI encoding and rolling revert-budget risk controls."""
 
 import json
+import os
+import shutil
+import subprocess
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Any
@@ -123,8 +126,20 @@ def _sample_intent(*, three_hop: bool = False) -> AtomicCycleIntent:
     )
 
 
+def _load_compiled_abi_or_build(artifact_path: Path) -> dict[str, Any]:
+    if not artifact_path.is_file():
+        if os.environ.get("OASIS_REQUIRE_FOUNDRY_ARTIFACTS") == "1":
+            raise FileNotFoundError(artifact_path)
+        forge_bin = shutil.which("forge")
+        if forge_bin is None:
+            pytest.skip("Foundry absent in Python-only container; verified in contracts job")
+        subprocess.run([forge_bin, "build", "--root", str(REPO_ROOT / "contracts")], check=True)
+    loaded: dict[str, Any] = json.loads(artifact_path.read_text())
+    return loaded
+
+
 def test_compiled_abi_matches_selector_and_event_topics() -> None:
-    artifact = json.loads(COMPILED_EXECUTOR_ABI.read_text())
+    artifact = _load_compiled_abi_or_build(COMPILED_EXECUTOR_ABI)
     abi = artifact["abi"]
 
     fn_entry = next(

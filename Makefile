@@ -18,8 +18,8 @@ contract-install:
 
 rust-check:
 	$(CARGO) fmt --manifest-path crates/Cargo.toml --all -- --check
-	$(CARGO) clippy --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
-	$(CARGO) test --manifest-path crates/Cargo.toml --workspace --offline
+	$(CARGO) clippy --manifest-path crates/Cargo.toml --workspace --all-targets --locked -- -D warnings
+	$(CARGO) test --manifest-path crates/Cargo.toml --workspace --locked
 
 test:
 	$(RUNNER) -m pytest

@@ -42,7 +42,7 @@ def _ensure_release_cdylib() -> Path:
             [
                 "cargo",
                 "build",
-                "--offline",
+                "--locked",
                 "--manifest-path",
                 str(crates_dir / "Cargo.toml"),
                 "--release",

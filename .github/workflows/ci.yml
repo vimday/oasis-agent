@@ -34,8 +34,29 @@ jobs:
         uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.2.0
         with:
           node-version: "22.14.0"
+      - name: Build Rust fastpath shared library
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          cargo build --locked --manifest-path crates/Cargo.toml --release
       - name: Run Python gate
         run: make python-check frontend-check security-check
+
+  rust:
+    name: Rust fastpath kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt clippy
+          rustup default stable
+      - name: Run Rust gate
+        run: make rust-check
 
   contracts:
     name: Solidity hook
@@ -68,3 +89,5 @@ jobs:
         run: make install
       - name: Run contract security gate
         run: make contract-security-check
+      - name: Verify Python-Solidity ABI parity
+        run: OASIS_REQUIRE_FOUNDRY_ARTIFACTS=1 .venv/bin/python -m pytest tests/unit/test_atomic_bundle_and_revert_budget.py tests/unit/test_intent_vault_and_uniswapx_client.py -q
