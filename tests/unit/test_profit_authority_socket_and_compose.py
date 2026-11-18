@@ -65,6 +65,7 @@ from oasis_agent.risk.revert_budget import (
 from scripts import run_profit_authority as authority_cli
 from scripts import run_profit_strategy as strategy_cli
 from scripts import verify_profit_compose as compose_cli
+from scripts import verify_profit_docker_confinement as docker_confinement_cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXECUTOR = f"0x{0x11:040x}"
@@ -1062,10 +1063,46 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
             )
 
     dockerfile = (REPO_ROOT / "deploy/profit-engine/Dockerfile").read_text(encoding="utf-8")
-    assert "rust:1.85-slim-bookworm" in dockerfile
+    assert "rust:1-slim-bookworm" in dockerfile
+    assert "rust:1.85-slim-bookworm" not in dockerfile
     assert "cargo build --locked --manifest-path crates/Cargo.toml --release" in dockerfile
     assert "OASIS_FASTPATH_LIB=/app/crates/target/release/liboasis_core.so" in dockerfile
-    assert "USER 10001:10001" in dockerfile
+    risk_copy = (
+        "COPY configs/profit-engine-risk.example.json /app/configs/profit-engine-risk.example.json"
+    )
+    assert risk_copy in dockerfile
+    assert dockerfile.index(risk_copy) < dockerfile.index("USER 10001:10001")
+
+    dockerignore = (REPO_ROOT / "deploy/profit-engine/Dockerfile.dockerignore").read_text(
+        encoding="utf-8"
+    )
+    dockerignore_lines = dockerignore.splitlines()
+    for expected_entry in (
+        "**",
+        "!crates/",
+        "!crates/**",
+        "crates/target/",
+        "crates/**/target/",
+        "!src/",
+        "!src/**",
+        "!scripts/",
+        "!scripts/**",
+        "!configs/",
+        "!configs/live.rpc.canary.json",
+        "!configs/profit-engine-risk.example.json",
+        "!requirements.lock",
+        "!pyproject.toml",
+        ".git",
+        ".venv",
+        "contracts",
+        "reports",
+        ".env*",
+        "**/keys*",
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/.DS_Store",
+    ):
+        assert expected_entry in dockerignore_lines
 
 
 def test_profit_strategy_modules_never_import_private_keys_or_eth_account() -> None:
@@ -1574,3 +1611,311 @@ def test_run_profit_strategy_cli_once_and_reconcile_only() -> None:
             finally:
                 worker.join(timeout=6.0)
             assert not worker.is_alive()
+
+
+def _extract_flag_pair(args: list[str], flag: str, value: str) -> bool:
+    return any(
+        args[idx] == flag and idx + 1 < len(args) and args[idx + 1] == value
+        for idx in range(len(args))
+    )
+
+
+def _extract_mounts(args: list[str]) -> list[str]:
+    return [args[idx + 1] for idx in range(len(args) - 1) if args[idx] == "-v"]
+
+
+class _MockDockerHarness:
+    def __init__(self, *, fail_strategy: bool = False) -> None:
+        self.fail_strategy = fail_strategy
+        self.account = Account.create().address.lower()
+        self.calls: list[list[str]] = []
+        self.created_volumes: list[str] = []
+        self.removed_containers: list[str] = []
+        self.removed_volumes: list[str] = []
+        self.authority_container: str | None = None
+        self.key_volume: str | None = None
+        self.run_records: dict[str, list[str]] = {}
+        self.authority_proof: dict[str, Any] = {}
+
+    def __call__(
+        self,
+        cmd: list[str],
+        **_kwargs: Any,
+    ) -> subprocess.CompletedProcess[str]:
+        args = list(cmd[1:])
+        self.calls.append(args)
+        verb = args[0]
+
+        if verb == "build":
+            self.run_records["build"] = args
+            return subprocess.CompletedProcess(cmd, 0, stdout="built\n", stderr="")
+
+        if verb == "volume" and len(args) >= 3 and args[1] == "create":
+            self.created_volumes.append(args[2])
+            return subprocess.CompletedProcess(cmd, 0, stdout=args[2] + "\n", stderr="")
+
+        if verb == "volume" and len(args) >= 4 and args[1] == "rm" and args[2] == "-f":
+            self.removed_volumes.extend(args[3:])
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        if verb == "rm" and len(args) >= 3 and args[1] == "-f":
+            self.removed_containers.extend(args[2:])
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        if verb == "inspect":
+            inspect_payload = [
+                {
+                    "State": {"Running": True, "Status": "running"},
+                    "Config": {"User": "10001:10001"},
+                    "HostConfig": {
+                        "ReadonlyRootfs": True,
+                        "CapDrop": ["ALL"],
+                        "SecurityOpt": ["no-new-privileges:true"],
+                        "NetworkMode": "none",
+                        "PidsLimit": 128,
+                    },
+                    "Mounts": [
+                        {
+                            "Type": "volume",
+                            "Name": self.key_volume,
+                            "Destination": "/secrets",
+                            "RW": False,
+                        }
+                    ],
+                }
+            ]
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=json.dumps(inspect_payload), stderr=""
+            )
+
+        if verb != "run":
+            raise AssertionError(f"unexpected docker command: {cmd}")
+
+        mounts = _extract_mounts(args)
+        if any(m.endswith(":/authority-state") for m in mounts):
+            self.run_records["initialize"] = args
+            for mount in mounts:
+                if mount.endswith(":/secrets"):
+                    self.key_volume = mount.split(":", 1)[0]
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=json.dumps({"account": self.account}) + "\n", stderr=""
+            )
+
+        if "--status-only" in args:
+            self.run_records["profit-authority-status"] = args
+            kv_idx = args.index("--key-volume")
+            key_vol = args[kv_idx + 1]
+            proof: dict[str, Any] = {
+                "schema": PROFIT_AUTHORITY_INFRA_SCHEMA,
+                "execution_eligible": False,
+                "account": self.account,
+                "isolated_signer_verified": True,
+                "isolated_key_volume": key_vol,
+                "authority_socket_path": "/run/oasis/profit_authority.sock",
+                "primary_rpc_provider": "publicnode_base",
+                "secondary_rpc_provider": "base_official_mainnet",
+                "secondary_rpc_verified": True,
+                "isolated_signer": {
+                    "isolated_signer_verified": True,
+                    "isolated_key_volume": key_vol,
+                    "authority_socket_path": "/run/oasis/profit_authority.sock",
+                },
+                "dual_rpc_quorum": {
+                    "primary_rpc_provider": "publicnode_base",
+                    "secondary_rpc_provider": "base_official_mainnet",
+                    "secondary_rpc_verified": True,
+                },
+                "authority_status": {
+                    "schema": PROFIT_AUTHORITY_SCHEMA,
+                    "account": self.account,
+                    "signatures_used": 0,
+                    "max_signatures": 12,
+                    "last_nonce": None,
+                    "halted": False,
+                    "stop_present": False,
+                },
+            }
+            proof["proof_sha256"] = sha256_hex(canonical_json(proof))
+            self.authority_proof = proof
+            return subprocess.CompletedProcess(cmd, 0, stdout="ready\n", stderr="")
+
+        if args[-2:] == ["cat", "/state/authority_status_proof.json"]:
+            self.run_records["proof_reader"] = args
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=json.dumps(self.authority_proof), stderr=""
+            )
+
+        if "-d" in args and "--key-file" in args:
+            self.run_records["profit-authority"] = args
+            self.authority_container = args[args.index("--name") + 1]
+            return subprocess.CompletedProcess(cmd, 0, stdout="ctr-id\n", stderr="")
+
+        if "validate_socket_endpoint" in args[-1]:
+            self.run_records["socket_probe"] = args
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        if "scripts.run_profit_strategy" in args:
+            self.run_records["profit-strategy"] = args
+            if self.fail_strategy:
+                return subprocess.CompletedProcess(
+                    cmd, 3, stdout="", stderr="simulated strategy failure"
+                )
+            return subprocess.CompletedProcess(cmd, 0, stdout="{}\n", stderr="")
+
+        if args[-2:] == ["cat", "/state/strategy_status.json"]:
+            self.run_records["strategy_reader"] = args
+            strategy_payload = {
+                "schema": STRATEGY_DAEMON_SCHEMA,
+                "mode": "shadow",
+                "authority_reachable": True,
+                "can_deploy": True,
+                "deployable_notional_usd_micros": 225_000_000,
+                "execution_eligible": False,
+                "release_permitted": False,
+                "authority_status": {
+                    "schema": PROFIT_AUTHORITY_SCHEMA,
+                    "account": self.account,
+                    "signing_enabled": True,
+                    "signatures_used": 0,
+                },
+            }
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout=json.dumps(strategy_payload), stderr=""
+            )
+
+        if "cap_eff_zero" in args[-1]:
+            self.run_records["negative_probe"] = args
+            neg_payload = {
+                "uid": 10001,
+                "gid": 10001,
+                "cap_eff_zero": True,
+                "no_new_privs": True,
+                "secrets_absent": True,
+                "authority_state_absent": True,
+                "image_risk_config_present": True,
+                "rootfs_readonly": True,
+                "risk_config_bind_readonly": True,
+            }
+            return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(neg_payload), stderr="")
+
+        raise AssertionError(f"unhandled docker run command: {args}")
+
+
+def test_verify_profit_docker_confinement_happy_path_and_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harness = _MockDockerHarness()
+    monkeypatch.setattr(docker_confinement_cli.subprocess, "run", harness)
+
+    source = (REPO_ROOT / "scripts/verify_profit_docker_confinement.py").read_text(encoding="utf-8")
+    tmp_marker = "/" + "tmp"
+    assert tmp_marker not in source
+    for node in ast.walk(ast.parse(source)):
+        assert not isinstance(node, ast.Assert)
+
+    out_report = tmp_path / "confinement_report.json"
+    out_proof = tmp_path / "signer_proof.json"
+    rc = docker_confinement_cli.main(
+        [
+            "--out",
+            str(out_report),
+            "--out-signer-proof",
+            str(out_proof),
+            "--build-network",
+            "host",
+        ]
+    )
+    assert rc == 0
+
+    report = json.loads(out_report.read_text(encoding="utf-8"))
+    assert report["schema"] == "oasis.profit-docker-confinement.v1"
+    assert report["passed"] is True
+    assert report["execution_eligible"] is False
+    assert report["rehearsal_cleaned"] is True
+    assert report["authority_account"] == harness.account
+    assert report["strategy_status_summary"]["can_deploy"] is True
+    assert report["strategy_status_summary"]["execution_eligible"] is False
+    expected_sha = sha256_hex(
+        canonical_json({k: v for k, v in report.items() if k != "report_sha256"})
+    )
+    assert report["report_sha256"] == expected_sha
+
+    # Extracted Gate 8 proof passes canary_readiness Gates 7 & 8.
+    proof = json.loads(out_proof.read_text(encoding="utf-8"))
+    assert proof["schema"] == PROFIT_AUTHORITY_INFRA_SCHEMA
+    assert proof["execution_eligible"] is False
+    readiness = evaluate_profit_engine_readiness(
+        contracts_out_dir=tmp_path / "absent-contracts",
+        infra_proof_path=out_proof,
+    )
+    gate_map = {g.name: g for g in readiness.gates}
+    assert gate_map["dual_rpc_quorum_verified"].passed is True
+    assert gate_map["isolated_signer_authority_ready"].passed is True
+
+    # Build network passed cleanly.
+    assert "--network" in harness.run_records["build"]
+    assert "host" in harness.run_records["build"]
+
+    # Hardening flags & key/authority-state isolation across runtime containers.
+    for role in (
+        "profit-authority",
+        "profit-authority-status",
+        "profit-strategy",
+        "negative_probe",
+    ):
+        args = harness.run_records[role]
+        assert "--read-only" in args
+        assert _extract_flag_pair(args, "--cap-drop", "ALL")
+        assert _extract_flag_pair(args, "--security-opt", "no-new-privileges:true")
+        assert _extract_flag_pair(args, "--user", "10001:10001")
+        assert _extract_flag_pair(args, "--network", "none")
+        assert _extract_flag_pair(args, "--pids-limit", "128")
+        assert _extract_flag_pair(args, "--memory", "512m")
+
+    auth_mounts = _extract_mounts(harness.run_records["profit-authority"])
+    assert f"{harness.key_volume}:/secrets:ro" in auth_mounts
+
+    for keyless_role in ("profit-authority-status", "profit-strategy", "negative_probe"):
+        mounts = _extract_mounts(harness.run_records[keyless_role])
+        assert not any(str(harness.key_volume) in m or ":/secrets" in m for m in mounts)
+
+    for strat_role in ("profit-strategy", "negative_probe"):
+        mounts = _extract_mounts(harness.run_records[strat_role])
+        assert not any("authority-state" in m for m in mounts)
+
+    # Complete cleanup of authority container and all 4 temporary volumes.
+    assert len(harness.created_volumes) == 4
+    assert harness.authority_container in harness.removed_containers
+    assert set(harness.removed_volumes) == set(harness.created_volumes)
+
+    # Refuse overwriting existing files or writing through symlinks.
+    assert docker_confinement_cli.main(["--skip-build", "--out", str(out_report)]) == 3
+    sym_out = tmp_path / "sym.json"
+    sym_out.symlink_to(tmp_path / "target.json")
+    assert docker_confinement_cli.main(["--skip-build", "--out", str(sym_out)]) == 3
+
+
+def test_verify_profit_docker_confinement_cleanup_on_strategy_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harness = _MockDockerHarness(fail_strategy=True)
+    monkeypatch.setattr(docker_confinement_cli.subprocess, "run", harness)
+
+    out_report = tmp_path / "failed_report.json"
+    out_proof = tmp_path / "failed_proof.json"
+    rc = docker_confinement_cli.main(
+        [
+            "--skip-build",
+            "--out",
+            str(out_report),
+            "--out-signer-proof",
+            str(out_proof),
+        ]
+    )
+    assert rc == 3
+    assert "build" not in harness.run_records
+    assert not out_report.exists()
+    assert not out_proof.exists()
+    assert len(harness.created_volumes) == 4
+    assert harness.authority_container in harness.removed_containers
+    assert set(harness.removed_volumes) == set(harness.created_volumes)

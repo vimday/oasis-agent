@@ -16,6 +16,8 @@ contract DeployOasisProfitEngineTest is Test {
     address private constant QUOTE_SIGNER = address(0x1005);
     address private constant TREASURY = address(0x1006);
     address private constant REVENUE_SINK = address(0x1007);
+    address private constant SOLO_ADMIN_EOA = address(0x2001);
+    address private constant SOLO_HOT_EOA = address(0x2002);
 
     bytes32 private constant EXECUTOR_SALT = keccak256("oasis.profit.executor.salt.v1");
     bytes32 private constant VAULT_SALT = keccak256("oasis.profit.vault.salt.v1");
@@ -66,7 +68,7 @@ contract DeployOasisProfitEngineTest is Test {
         assertEq(deployed.vault.quoteSigner(), address(0));
         assertEq(deployed.vault.pendingOwner(), address(0));
 
-        // Deployer has zero post-deploy governance power; only owner multisig may wire operators.
+        // Deployer has zero post-deploy governance power; only owner may wire operators.
         vm.prank(DEPLOYER);
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, DEPLOYER)
@@ -111,7 +113,38 @@ contract DeployOasisProfitEngineTest is Test {
     }
 
     function test_runReadsEnvVarsAndDeploysDeterministically() public {
+        // Run all env-var scenarios sequentially in one test so Foundry's parallel test threads
+        // never race on shared process environment variables.
+        // 1. Minimal 5 required env vars + OASIS_WIRE_OPERATORS_ON_DEPLOY=true (optional vars unset).
         vm.setEnv("OASIS_CHAIN_ID", vm.toString(block.chainid));
+        vm.setEnv("OASIS_PROFIT_OWNER", vm.toString(SOLO_ADMIN_EOA));
+        vm.setEnv("OASIS_PROFIT_OPERATOR", vm.toString(SOLO_HOT_EOA));
+        vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(303))));
+        vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(404))));
+        vm.setEnv("OASIS_WIRE_OPERATORS_ON_DEPLOY", "true");
+
+        DeployOasisProfitEngine.DeployParams memory soloParams = _soloParams();
+        soloParams.executorSalt = bytes32(uint256(303));
+        soloParams.vaultSalt = bytes32(uint256(404));
+
+        DeployOasisProfitEngine.DeployedProfitEngine memory soloDeployed = script.run();
+
+        assertEq(address(soloDeployed.executor), _expectedExecutorAddress(soloParams));
+        assertEq(address(soloDeployed.vault), _expectedVaultAddress(soloParams));
+        assertEq(soloDeployed.executor.owner(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.executor.guardian(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.executor.TREASURY(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.executor.REVENUE_SINK(), SOLO_ADMIN_EOA);
+        assertTrue(soloDeployed.executor.isOperator(SOLO_HOT_EOA));
+        assertEq(soloDeployed.vault.owner(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.vault.guardian(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.vault.TREASURY(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.vault.REVENUE_SINK(), SOLO_ADMIN_EOA);
+        assertEq(soloDeployed.vault.fillerOperator(), SOLO_HOT_EOA);
+        assertEq(soloDeployed.vault.quoteSigner(), SOLO_HOT_EOA);
+        assertEq(soloDeployed.vault.signerEpoch(), 1);
+
+        // 2. Full 10 env vars override + OASIS_WIRE_OPERATORS_ON_DEPLOY=false leaves unwired.
         vm.setEnv("OASIS_DEPLOYER", vm.toString(DEPLOYER));
         vm.setEnv("OASIS_PROFIT_OWNER", vm.toString(OWNER));
         vm.setEnv("OASIS_PROFIT_GUARDIAN", vm.toString(GUARDIAN));
@@ -121,6 +154,7 @@ contract DeployOasisProfitEngineTest is Test {
         vm.setEnv("OASIS_REVENUE_SINK", vm.toString(REVENUE_SINK));
         vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(101))));
         vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(202))));
+        vm.setEnv("OASIS_WIRE_OPERATORS_ON_DEPLOY", "false");
 
         DeployOasisProfitEngine.DeployParams memory expectedParams = _defaultParams();
         expectedParams.executorSalt = bytes32(uint256(101));
@@ -136,6 +170,73 @@ contract DeployOasisProfitEngineTest is Test {
         assertEq(deployed.vault.owner(), OWNER);
         assertEq(deployed.executor.TREASURY(), TREASURY);
         assertEq(deployed.vault.REVENUE_SINK(), REVENUE_SINK);
+        assertFalse(deployed.executor.isOperator(OPERATOR));
+        assertEq(deployed.vault.signerEpoch(), 0);
+
+        // 3. Empty optional env vars fall back to owner/operator and respect wire=false.
+        vm.setEnv("OASIS_DEPLOYER", "");
+        vm.setEnv("OASIS_PROFIT_OWNER", vm.toString(SOLO_ADMIN_EOA));
+        vm.setEnv("OASIS_PROFIT_GUARDIAN", "");
+        vm.setEnv("OASIS_PROFIT_OPERATOR", vm.toString(SOLO_HOT_EOA));
+        vm.setEnv("OASIS_QUOTE_SIGNER", "");
+        vm.setEnv("OASIS_TREASURY", "");
+        vm.setEnv("OASIS_REVENUE_SINK", "");
+        vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(505))));
+        vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(606))));
+
+        DeployOasisProfitEngine.DeployParams memory fallbackParams = _soloParams();
+        fallbackParams.executorSalt = bytes32(uint256(505));
+        fallbackParams.vaultSalt = bytes32(uint256(606));
+
+        DeployOasisProfitEngine.DeployedProfitEngine memory unwiredSolo = script.run();
+        assertEq(address(unwiredSolo.executor), _expectedExecutorAddress(fallbackParams));
+        assertEq(address(unwiredSolo.vault), _expectedVaultAddress(fallbackParams));
+        assertFalse(unwiredSolo.executor.isOperator(SOLO_HOT_EOA));
+        assertEq(unwiredSolo.vault.signerEpoch(), 0);
+    }
+
+    function test_allowsTwoZoneSoloOperatorColdAndHotRoleSharing() public {
+        DeployOasisProfitEngine.DeployParams memory params = _soloParams();
+
+        DeployOasisProfitEngine.DeployedProfitEngine memory deployed =
+            script.deployProfitEngine(params);
+
+        assertEq(address(deployed.executor), _expectedExecutorAddress(params));
+        assertEq(address(deployed.vault), _expectedVaultAddress(params));
+        assertEq(deployed.executor.owner(), SOLO_ADMIN_EOA);
+        assertEq(deployed.executor.guardian(), SOLO_ADMIN_EOA);
+        assertEq(deployed.executor.TREASURY(), SOLO_ADMIN_EOA);
+        assertEq(deployed.executor.REVENUE_SINK(), SOLO_ADMIN_EOA);
+        assertFalse(deployed.executor.isOperator(SOLO_HOT_EOA));
+        assertEq(deployed.vault.fillerOperator(), address(0));
+        assertEq(deployed.vault.quoteSigner(), address(0));
+        assertEq(deployed.vault.signerEpoch(), 0);
+    }
+
+    function test_deployAndWireSoloOperatorDeploysAndWiresAtomically() public {
+        DeployOasisProfitEngine.DeployParams memory params = _soloParams();
+
+        DeployOasisProfitEngine.DeployedProfitEngine memory deployed =
+            script.deployAndWireSoloOperator(params);
+
+        assertEq(address(deployed.executor), _expectedExecutorAddress(params));
+        assertEq(address(deployed.vault), _expectedVaultAddress(params));
+        assertTrue(deployed.executor.isOperator(SOLO_HOT_EOA));
+        assertEq(deployed.vault.fillerOperator(), SOLO_HOT_EOA);
+        assertEq(deployed.vault.quoteSigner(), SOLO_HOT_EOA);
+        assertEq(deployed.vault.signerEpoch(), 1);
+    }
+
+    function test_deployAndWireSoloOperatorRevertsWhenDeployerIsNotOwner() public {
+        DeployOasisProfitEngine.DeployParams memory params = _defaultParams();
+        address expectedExecutor = _expectedExecutorAddress(params);
+        address expectedVault = _expectedVaultAddress(params);
+
+        vm.expectRevert(DeployOasisProfitEngine.DeployerMustBeOwnerToWire.selector);
+        script.deployAndWireSoloOperator(params);
+
+        assertEq(expectedExecutor.code.length, 0);
+        assertEq(expectedVault.code.length, 0);
     }
 
     function test_revertsOnWrongChain() public {
@@ -172,19 +273,22 @@ contract DeployOasisProfitEngineTest is Test {
 
     function test_zeroAddressTakesPrecedenceOverRolesNotSeparated() public {
         DeployOasisProfitEngine.DeployParams memory params = _defaultParams();
-        params.deployer = OWNER;
+        params.operator = OWNER;
         params.revenueSink = address(0);
 
         vm.expectRevert(DeployOasisProfitEngine.ZeroAddress.selector);
         script.deployProfitEngine(params);
     }
 
-    function test_revertsOnEveryPairwiseRolesNotSeparatedCollision() public {
-        for (uint256 i = 0; i < 7; ++i) {
-            for (uint256 j = i + 1; j < 7; ++j) {
+    function test_revertsOnEveryColdHotRolesNotSeparatedCollision() public {
+        uint256[5] memory coldIndices = [uint256(0), uint256(1), uint256(2), uint256(5), uint256(6)];
+        uint256[2] memory hotIndices = [uint256(3), uint256(4)];
+
+        for (uint256 h = 0; h < 2; ++h) {
+            for (uint256 c = 0; c < 5; ++c) {
                 DeployOasisProfitEngine.DeployParams memory params = _defaultParams();
                 address[7] memory roles = _rolesArray(params);
-                roles[j] = roles[i];
+                roles[hotIndices[h]] = roles[coldIndices[c]];
                 params = _applyRoles(params, roles);
 
                 vm.expectRevert(DeployOasisProfitEngine.RolesNotSeparated.selector);
@@ -218,6 +322,25 @@ contract DeployOasisProfitEngineTest is Test {
             executorSalt: EXECUTOR_SALT,
             vaultSalt: VAULT_SALT
         });
+    }
+
+    function _soloParams()
+        private
+        view
+        returns (DeployOasisProfitEngine.DeployParams memory params)
+    {
+        params = DeployOasisProfitEngine.DeployParams({
+                expectedChainId: block.chainid,
+                deployer: SOLO_ADMIN_EOA,
+                owner: SOLO_ADMIN_EOA,
+                guardian: SOLO_ADMIN_EOA,
+                operator: SOLO_HOT_EOA,
+                quoteSigner: SOLO_HOT_EOA,
+                treasury: SOLO_ADMIN_EOA,
+                revenueSink: SOLO_ADMIN_EOA,
+                executorSalt: EXECUTOR_SALT,
+                vaultSalt: VAULT_SALT
+            });
     }
 
     function _rolesArray(DeployOasisProfitEngine.DeployParams memory params)

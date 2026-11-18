@@ -6,12 +6,16 @@ import { Script } from "forge-std/Script.sol";
 import { OasisAtomicExecutor } from "../src/OasisAtomicExecutor.sol";
 import { OasisIntentVault } from "../src/OasisIntentVault.sol";
 
-/// @notice Hardware/external-signer compatible deterministic CREATE2 deployment for the
-///         Oasis profit-engine contracts (`OasisAtomicExecutor` and `OasisIntentVault`).
-/// @dev This script intentionally never reads a private key. Use Foundry's hardware-wallet,
-///      remote signer, or an unlocked external deployment account. Governance wiring such as
-///      `setOperator`, `setFillerOperator`, and `rotateQuoteSigner` is intentionally executed
-///      by the configured `owner` multisig after deployment verification.
+/// @notice Two-Zone Software EOA compatible deterministic CREATE2 deployment for the Oasis
+///         profit-engine contracts (`OasisAtomicExecutor` and `OasisIntentVault`).
+/// @dev This script intentionally never reads a private key. Use Foundry encrypted software
+///      keystores (`cast wallet new` / `--account`), external wallets, remote signers, or optional
+///      multisigs. Enforces Two-Zone Cold-vs-Hot Plane Separation between the Cold Admin Plane
+///      (`deployer`, `owner`, `guardian`, `treasury`, `revenueSink`) and the Hot Canary Plane
+///      (`operator`, `quoteSigner`). A solo operator may share one Cold Admin EOA across all Cold
+///      roles and one Hot Canary EOA across Hot roles; when `deployer == owner` and
+///      `OASIS_WIRE_OPERATORS_ON_DEPLOY=true`, `deployAndWireSoloOperator` also executes post-deploy
+///      operator and quote-signer wiring atomically.
 contract DeployOasisProfitEngine is Script {
     struct DeployParams {
         uint256 expectedChainId;
@@ -36,17 +40,23 @@ contract DeployOasisProfitEngine is Script {
     error WrongChain(uint256 actual, uint256 expected);
     error ZeroAddress();
     error RolesNotSeparated();
+    error DeployerMustBeOwnerToWire();
     error DeploymentVerificationFailed();
 
-    uint256 private constant _ROLE_COUNT = 7;
+    uint256 private constant _COLD_ROLE_COUNT = 5;
+    uint256 private constant _HOT_ROLE_COUNT = 2;
 
     /// @notice Read deployment parameters from environment variables and deploy deterministically.
     function run() external returns (DeployedProfitEngine memory deployed) {
         DeployParams memory params = _loadEnvParams();
+        bool wireSolo = vm.envOr("OASIS_WIRE_OPERATORS_ON_DEPLOY", false);
+        if (wireSolo) {
+            return deployAndWireSoloOperator(params);
+        }
         return deployProfitEngine(params);
     }
 
-    /// @notice Validate custody separation, deploy executor and vault via CREATE2, and verify.
+    /// @notice Validate Two-Zone custody separation, deploy executor and vault via CREATE2, and verify.
     function deployProfitEngine(DeployParams memory params)
         public
         returns (DeployedProfitEngine memory deployed)
@@ -73,19 +83,51 @@ contract DeployOasisProfitEngine is Script {
         });
     }
 
+    /// @notice Deploy via CREATE2 and atomically wire Hot operators when `deployer == owner`.
+    function deployAndWireSoloOperator(DeployParams memory params)
+        public
+        returns (DeployedProfitEngine memory deployed)
+    {
+        deployed = deployProfitEngine(params);
+        if (params.deployer != params.owner) revert DeployerMustBeOwnerToWire();
+
+        vm.startBroadcast(params.owner);
+        deployed.executor.setOperator(params.operator, true);
+        deployed.vault.setFillerOperator(params.operator);
+        deployed.vault.rotateQuoteSigner(params.quoteSigner);
+        vm.stopBroadcast();
+
+        _verifyWiredState(params, deployed.executor, deployed.vault);
+    }
+
     function _loadEnvParams() private view returns (DeployParams memory params) {
+        uint256 expectedChainId = vm.envUint("OASIS_CHAIN_ID");
+        address owner = vm.envAddress("OASIS_PROFIT_OWNER");
+        address operator = vm.envAddress("OASIS_PROFIT_OPERATOR");
         params = DeployParams({
-            expectedChainId: vm.envUint("OASIS_CHAIN_ID"),
-            deployer: vm.envAddress("OASIS_DEPLOYER"),
-            owner: vm.envAddress("OASIS_PROFIT_OWNER"),
-            guardian: vm.envAddress("OASIS_PROFIT_GUARDIAN"),
-            operator: vm.envAddress("OASIS_PROFIT_OPERATOR"),
-            quoteSigner: vm.envAddress("OASIS_QUOTE_SIGNER"),
-            treasury: vm.envAddress("OASIS_TREASURY"),
-            revenueSink: vm.envAddress("OASIS_REVENUE_SINK"),
+            expectedChainId: expectedChainId,
+            deployer: _envAddressOr("OASIS_DEPLOYER", owner),
+            owner: owner,
+            guardian: _envAddressOr("OASIS_PROFIT_GUARDIAN", owner),
+            operator: operator,
+            quoteSigner: _envAddressOr("OASIS_QUOTE_SIGNER", operator),
+            treasury: _envAddressOr("OASIS_TREASURY", owner),
+            revenueSink: _envAddressOr("OASIS_REVENUE_SINK", owner),
             executorSalt: vm.envBytes32("OASIS_EXECUTOR_SALT"),
             vaultSalt: vm.envBytes32("OASIS_VAULT_SALT")
         });
+    }
+
+    function _envAddressOr(string memory name, address fallbackAddress)
+        private
+        view
+        returns (address)
+    {
+        string memory raw = vm.envOr(name, string(""));
+        if (bytes(raw).length == 0) {
+            return fallbackAddress;
+        }
+        return vm.parseAddress(raw);
     }
 
     function _validateParams(DeployParams memory params) private view {
@@ -93,22 +135,19 @@ contract DeployOasisProfitEngine is Script {
             revert WrongChain(block.chainid, params.expectedChainId);
         }
 
-        address[_ROLE_COUNT] memory roles = [
-            params.deployer,
-            params.owner,
-            params.guardian,
-            params.operator,
-            params.quoteSigner,
-            params.treasury,
-            params.revenueSink
-        ];
+        address[_COLD_ROLE_COUNT] memory cold =
+            [params.deployer, params.owner, params.guardian, params.treasury, params.revenueSink];
+        address[_HOT_ROLE_COUNT] memory hot = [params.operator, params.quoteSigner];
 
-        for (uint256 i = 0; i < _ROLE_COUNT; ++i) {
-            if (roles[i] == address(0)) revert ZeroAddress();
+        for (uint256 i = 0; i < _COLD_ROLE_COUNT; ++i) {
+            if (cold[i] == address(0)) revert ZeroAddress();
         }
-        for (uint256 i = 0; i < _ROLE_COUNT; ++i) {
-            for (uint256 j = i + 1; j < _ROLE_COUNT; ++j) {
-                if (roles[i] == roles[j]) revert RolesNotSeparated();
+        for (uint256 i = 0; i < _HOT_ROLE_COUNT; ++i) {
+            if (hot[i] == address(0)) revert ZeroAddress();
+        }
+        for (uint256 h = 0; h < _HOT_ROLE_COUNT; ++h) {
+            for (uint256 c = 0; c < _COLD_ROLE_COUNT; ++c) {
+                if (hot[h] == cold[c]) revert RolesNotSeparated();
             }
         }
     }
@@ -160,6 +199,20 @@ contract DeployOasisProfitEngine is Script {
                 || vault.paused() || vault.signerEpoch() != 0
                 || vault.fillerOperator() != address(0) || vault.quoteSigner() != address(0)
                 || vault.pendingOwner() != address(0)
+        ) {
+            revert DeploymentVerificationFailed();
+        }
+    }
+
+    function _verifyWiredState(
+        DeployParams memory params,
+        OasisAtomicExecutor executor,
+        OasisIntentVault vault
+    ) private view {
+        if (
+            !executor.isOperator(params.operator) || executor.owner() != params.owner
+                || vault.fillerOperator() != params.operator
+                || vault.quoteSigner() != params.quoteSigner || vault.signerEpoch() != 1
         ) {
             revert DeploymentVerificationFailed();
         }

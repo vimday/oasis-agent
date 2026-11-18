@@ -1,4 +1,4 @@
-FROM rust:1.85-slim-bookworm AS rust-builder
+FROM rust:1-slim-bookworm AS rust-builder
 WORKDIR /build
 COPY crates /build/crates
 RUN cargo build --locked --manifest-path crates/Cargo.toml --release
@@ -15,5 +15,6 @@ COPY --from=rust-builder /build/crates/target/release/liboasis_core.so /app/crat
 COPY src /app/src
 COPY scripts /app/scripts
 COPY configs/live.rpc.canary.json /app/configs/live.rpc.canary.json
+COPY configs/profit-engine-risk.example.json /app/configs/profit-engine-risk.example.json
 USER 10001:10001
 CMD ["python", "-m", "scripts.run_base_arb_shadow", "--mode", "synthetic", "--ticks", "1", "--out", "/tmp/profit-shadow-readiness"]
