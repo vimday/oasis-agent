@@ -11,6 +11,7 @@ hash-chained `shadow_attribution.jsonl` plus `canary_readiness`-compatible
 """
 
 import argparse
+import concurrent.futures
 import http.client
 import importlib
 import inspect
@@ -20,6 +21,7 @@ import os
 import re
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -1072,6 +1074,92 @@ def _discover_eligible_coinbase_products(pool_specs: Sequence[Any]) -> tuple[str
     return tuple(eligible)
 
 
+def _normalize_allowed_products(
+    allowed_products: Sequence[str] | None,
+) -> tuple[str, ...] | None:
+    if allowed_products is None:
+        return None
+    if isinstance(allowed_products, (str, bytes)) or not isinstance(allowed_products, Sequence):
+        raise ShadowRunnerError(
+            "allowed_products must be a non-empty sequence of product IDs or token symbols"
+        )
+    if not allowed_products:
+        raise ShadowRunnerError("allowed_products must not be empty when specified")
+    deduped: dict[str, None] = {}
+    for raw in allowed_products:
+        if not isinstance(raw, str) or not raw.strip():
+            raise ShadowRunnerError("allowed_products entries must be non-empty strings")
+        try:
+            spec = resolve_coinbase_product(raw)
+        except ValueError as exc:
+            raise ShadowRunnerError(str(exc)) from exc
+        deduped.setdefault(spec.product_id, None)
+    return tuple(deduped)
+
+
+def _parse_allowed_products_cli(raw: str | None) -> tuple[str, ...] | None:
+    if raw is None:
+        return None
+    if not raw.strip():
+        raise ShadowRunnerError(
+            "allowed-products must be a comma-separated list of non-empty product IDs or symbols"
+        )
+    parts = [part.strip() for part in raw.split(",")]
+    if any(not part for part in parts):
+        raise ShadowRunnerError("allowed-products must not contain empty entries")
+    return _normalize_allowed_products(parts)
+
+
+def _resolve_maker_min_edge_bps(
+    maker_min_edge_bps: Decimal | float | None,
+    *,
+    dynamic_sizing: bool,
+) -> Decimal:
+    if maker_min_edge_bps is None:
+        return Decimal("10.0") if dynamic_sizing else Decimal("3.0")
+    if isinstance(maker_min_edge_bps, bool) or not isinstance(
+        maker_min_edge_bps, (Decimal, int, float)
+    ):
+        raise ShadowRunnerError("maker_min_edge_bps must be a positive finite number")
+    if isinstance(maker_min_edge_bps, Decimal):
+        dec = maker_min_edge_bps
+    elif isinstance(maker_min_edge_bps, float):
+        if not math.isfinite(maker_min_edge_bps):
+            raise ShadowRunnerError("maker_min_edge_bps must be finite")
+        dec = Decimal(str(maker_min_edge_bps))
+    else:
+        dec = Decimal(maker_min_edge_bps)
+    if not dec.is_finite() or dec <= 0:
+        raise ShadowRunnerError("maker_min_edge_bps must be finite and positive")
+    return dec
+
+
+def _make_dex_quote_cache_fn(
+    graph: FastpathPoolGraph,
+    nodes: tuple[PoolNode, ...],
+    *,
+    tok_addr: str,
+    token_decimals: int,
+) -> Callable[[int], tuple[int | None, int, int | None]]:
+    cache: dict[int, tuple[int | None, int, int | None]] = {}
+
+    def _quote_dex_cached(notional_usdc: int) -> tuple[int | None, int, int | None]:
+        cached = cache.get(notional_usdc)
+        if cached is not None:
+            return cached
+        quoted = _best_pair_or_2hop_quotes(
+            graph,
+            nodes,
+            token_addr=tok_addr,
+            token_decimals=token_decimals,
+            trade_notional_usdc=notional_usdc,
+        )
+        cache[notional_usdc] = quoted
+        return quoted
+
+    return _quote_dex_cached
+
+
 def _select_dynamic_maker_quotes(
     *,
     product_id: str,
@@ -1500,8 +1588,21 @@ class _KeepAliveHttpsPool:
         ) = None,
     ) -> None:
         self._ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-        self._conns: dict[tuple[str, int], http.client.HTTPSConnection] = {}
+        self._local = threading.local()
+        self._conn_lock = threading.Lock()
+        self._all_conns: list[http.client.HTTPSConnection] = []
         self._connection_factory = connection_factory
+
+    def _thread_conns(self) -> dict[tuple[str, int], http.client.HTTPSConnection]:
+        conns = getattr(self._local, "conns", None)
+        if conns is None:
+            conns = {}
+            self._local.conns = conns
+        return cast(dict[tuple[str, int], http.client.HTTPSConnection], conns)
+
+    @property
+    def _conns(self) -> dict[tuple[str, int], http.client.HTTPSConnection]:
+        return self._thread_conns()
 
     def _new_conn(self, hostname: str, port: int, timeout_s: float) -> http.client.HTTPSConnection:
         if self._connection_factory is not None:
@@ -1511,8 +1612,13 @@ class _KeepAliveHttpsPool:
         )
 
     def _drop_conn(self, key: tuple[str, int]) -> None:
-        conn = self._conns.pop(key, None)
+        conn = self._thread_conns().pop(key, None)
         if conn is not None:
+            with self._conn_lock:
+                for idx, tracked in enumerate(self._all_conns):
+                    if tracked is conn:
+                        del self._all_conns[idx]
+                        break
             with suppress(Exception):
                 conn.close()
 
@@ -1558,12 +1664,15 @@ class _KeepAliveHttpsPool:
             target_path = f"{target_path}?{parsed.query}"
 
         key = (hostname, port)
+        thread_conns = self._thread_conns()
         for attempt in range(2):
-            conn = self._conns.get(key)
+            conn = thread_conns.get(key)
             reused = conn is not None
             if conn is None:
                 conn = self._new_conn(hostname, port, timeout_s)
-                self._conns[key] = conn
+                thread_conns[key] = conn
+                with self._conn_lock:
+                    self._all_conns.append(conn)
             else:
                 if conn.sock is not None:
                     with suppress(OSError):
@@ -1646,10 +1755,13 @@ class _KeepAliveHttpsPool:
 
     def close(self) -> None:
         """Close all persistent HTTPS sockets."""
-        for conn in list(self._conns.values()):
+        with self._conn_lock:
+            conns = list(self._all_conns)
+            self._all_conns.clear()
+            self._local = threading.local()
+        for conn in conns:
             with suppress(Exception):
                 conn.close()
-        self._conns.clear()
 
 
 def _interpret_quoter_verification_result(
@@ -1730,6 +1842,10 @@ def run_multicall_campaign(
     enable_coinbase_ws: bool = False,
     ws_feed_factory: Callable[[Sequence[str]], CoinbaseWebSocketFeed] | None = None,
     trades_transport: Callable[[str, float], bytes] | None = None,
+    allowed_products: Sequence[str] | None = None,
+    min_taker_edge_bps: int | None = None,
+    maker_min_edge_bps: Decimal | float | None = None,
+    max_book_workers: int = 9,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -1740,6 +1856,22 @@ def run_multicall_campaign(
         raise ShadowRunnerError("dynamic_sizing must be a boolean")
     if type(enable_coinbase_ws) is not bool:
         raise ShadowRunnerError("enable_coinbase_ws must be a boolean")
+    if type(max_book_workers) is not int or max_book_workers <= 0:
+        raise ShadowRunnerError("max_book_workers must be a positive integer")
+    normalized_allowed_products = _normalize_allowed_products(allowed_products)
+    allowed_products_set = (
+        frozenset(normalized_allowed_products) if normalized_allowed_products is not None else None
+    )
+    if min_taker_edge_bps is not None and (
+        type(min_taker_edge_bps) is not int or min_taker_edge_bps <= 0
+    ):
+        raise ShadowRunnerError("min_taker_edge_bps must be a positive integer")
+    effective_min_taker_edge_bps = (
+        min_taker_edge_bps if min_taker_edge_bps is not None else (3 if dynamic_sizing else 1)
+    )
+    effective_maker_min_edge = _resolve_maker_min_edge_bps(
+        maker_min_edge_bps, dynamic_sizing=dynamic_sizing
+    )
     active_risk_cfg = _resolve_campaign_risk_config(
         risk_config=risk_config,
         risk_config_path=risk_config_path,
@@ -1841,11 +1973,16 @@ def run_multicall_campaign(
     if dynamic_sizing:
         maker_config = MakerHedgeConfig(
             trade_notional_usdc=trade_notional_usdc,
+            min_quote_edge_bps=effective_maker_min_edge,
             adaptive_volatility_enabled=True,
+            volatility_multiplier=Decimal("2.0"),
             min_hedge_notional_usdc=max(10_000_000, active_risk_cfg.min_clip_usd_micros),
         )
     else:
-        maker_config = MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
+        maker_config = MakerHedgeConfig(
+            trade_notional_usdc=trade_notional_usdc,
+            min_quote_edge_bps=effective_maker_min_edge,
+        )
     maker_tracker = MakerHedgeLifecycleTracker(maker_config)
     cex_taker_fee_dec = (
         cex_taker_fee_bps
@@ -1856,9 +1993,11 @@ def run_multicall_campaign(
         OosTrackerConfig(
             max_signal_age_ms=max(30_000, interval_ms * 4),
             coinbase_taker_fee_bps=cex_taker_fee_dec,
+            min_signal_edge_bps=effective_min_taker_edge_bps,
         )
     )
     ws_feed: CoinbaseWebSocketFeed | None = None
+    book_executor: concurrent.futures.ThreadPoolExecutor | None = None
     ws_candidate_products: tuple[str, ...] = ()
     ws_watermarks: dict[str, int] = {}
     ws_total_prints = 0
@@ -1919,7 +2058,12 @@ def run_multicall_campaign(
         if universe_pool_count == 0:
             raise ShadowRunnerError("discovered Base universe contains zero pools")
 
-        ws_candidate_products = _discover_eligible_coinbase_products(pool_specs_raw)
+        discovered_cb_products = _discover_eligible_coinbase_products(pool_specs_raw)
+        ws_candidate_products = (
+            tuple(p for p in discovered_cb_products if p in allowed_products_set)
+            if allowed_products_set is not None
+            else discovered_cb_products
+        )
         if (
             enable_coinbase_ws
             and ws_candidate_products
@@ -1930,6 +2074,13 @@ def run_multicall_campaign(
             except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
                 ws_feed = None
                 ws_gap_events += 1
+
+        if coinbase_transport is None and mode == "public-shadow" and max_book_workers > 1:
+            worker_count = min(max_book_workers, max(1, len(ws_candidate_products)))
+            book_executor = concurrent.futures.ThreadPoolExecutor(
+                max_workers=worker_count,
+                thread_name_prefix="cb-book",
+            )
 
         def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
             _reserve_rpc(2)
@@ -2316,45 +2467,71 @@ def run_multicall_campaign(
             tick_bbo_by_product: dict[str, tuple[Decimal, Decimal]] = {}
             tick_gas_by_product: dict[str, Decimal] = {}
             tick_maker_realized_fills: list[MakerFillEvent] = []
+            probe_notional = (
+                min_clip_usdc if dynamic_sizing and min_clip_usdc > 0 else trade_notional_usdc
+            )
+            active_token_quotes: list[
+                tuple[
+                    TokenMeta,
+                    Callable[[int], tuple[int | None, int, int | None]],
+                    int | None,
+                    int,
+                    int | None,
+                ]
+            ] = []
             for tok_addr in CEX_DEX_TOKEN_ORDER:
                 meta = TOKEN_META_BY_ADDR[tok_addr]
                 if meta.coinbase_product is None:
                     continue
-                dex_quote_cache: dict[int, tuple[int | None, int, int | None]] = {}
-
-                def _quote_dex_cached(
-                    notional_usdc: int,
-                    _graph: FastpathPoolGraph = graph,
-                    _nodes: tuple[PoolNode, ...] = snapshot.nodes,
-                    _tok: str = tok_addr,
-                    _dec: int = meta.decimals,
-                    _cache: dict[int, tuple[int | None, int, int | None]] = dex_quote_cache,
-                ) -> tuple[int | None, int, int | None]:
-                    cached = _cache.get(notional_usdc)
-                    if cached is not None:
-                        return cached
-                    quoted = _best_pair_or_2hop_quotes(
-                        _graph,
-                        _nodes,
-                        token_addr=_tok,
-                        token_decimals=_dec,
-                        trade_notional_usdc=notional_usdc,
-                    )
-                    _cache[notional_usdc] = quoted
-                    return quoted
-
-                probe_notional = (
-                    min_clip_usdc if dynamic_sizing and min_clip_usdc > 0 else trade_notional_usdc
+                if (
+                    allowed_products_set is not None
+                    and meta.coinbase_product not in allowed_products_set
+                ):
+                    continue
+                quote_dex_cached = _make_dex_quote_cache_fn(
+                    graph,
+                    snapshot.nodes,
+                    tok_addr=tok_addr,
+                    token_decimals=meta.decimals,
                 )
-                dex_buy_out, notional_tok, dex_sell_out = _quote_dex_cached(probe_notional)
+                dex_buy_out, notional_tok, dex_sell_out = quote_dex_cached(probe_notional)
                 if notional_tok <= 0:
                     continue
-                products_evaluated.add(meta.coinbase_product)
-                fetched_book, cb_err = _fetch_coinbase_book_for_tick(
-                    meta.coinbase_product,
-                    timeout_s=float(timeout_s),
-                    transport=active_cb_transport,
+                active_token_quotes.append(
+                    (meta, quote_dex_cached, dex_buy_out, notional_tok, dex_sell_out)
                 )
+
+            prefetched_books: dict[str, tuple[CoinbaseL2Book | None, str | None]] = {}
+            if book_executor is not None and active_token_quotes:
+                future_by_product = {
+                    cast(str, meta.coinbase_product): book_executor.submit(
+                        _fetch_coinbase_book_for_tick,
+                        cast(str, meta.coinbase_product),
+                        timeout_s=float(timeout_s),
+                        transport=active_cb_transport,
+                    )
+                    for meta, _quote_fn, _buy_out, _tok_amt, _sell_out in active_token_quotes
+                }
+                for product_id, fut in future_by_product.items():
+                    prefetched_books[product_id] = fut.result()
+
+            for (
+                meta,
+                quote_dex_cached,
+                dex_buy_out,
+                notional_tok,
+                dex_sell_out,
+            ) in active_token_quotes:
+                product_id = cast(str, meta.coinbase_product)
+                products_evaluated.add(product_id)
+                if product_id in prefetched_books:
+                    fetched_book, cb_err = prefetched_books[product_id]
+                else:
+                    fetched_book, cb_err = _fetch_coinbase_book_for_tick(
+                        product_id,
+                        timeout_s=float(timeout_s),
+                        transport=active_cb_transport,
+                    )
                 if fetched_book is None:
                     cb_spec = resolve_coinbase_product(meta.coinbase_product)
                     ev = CexDexTickEvaluation(
@@ -2414,7 +2591,7 @@ def run_multicall_campaign(
                             book=fetched_book,
                             min_notional_usdc=min_clip_usdc,
                             max_notional_usdc=max_clip_usdc,
-                            quote_dex_for_usdc_fn=_quote_dex_cached,
+                            quote_dex_for_usdc_fn=quote_dex_cached,
                             gas_cost_usd=gas_cost_usd,
                             cex_taker_fee_bps=cex_taker_fee_bps,
                             latency_haircut_bps=latency_haircut_bps,
@@ -2449,7 +2626,7 @@ def run_multicall_campaign(
                             product_id=meta.coinbase_product,
                             token_decimals=meta.decimals,
                             fetched_book=fetched_book,
-                            quote_fn=_quote_dex_cached,
+                            quote_fn=quote_dex_cached,
                             gas_cost_usd=gas_cost_usd,
                             maker_config=maker_config,
                             min_clip_usdc=min_clip_usdc,
@@ -2527,7 +2704,7 @@ def run_multicall_campaign(
                 if ref_usdc == probe_notional:
                     ref_buy_out, ref_tok, ref_sell_out = dex_buy_out, notional_tok, dex_sell_out
                 else:
-                    ref_buy_out, ref_tok, ref_sell_out = _quote_dex_cached(ref_usdc)
+                    ref_buy_out, ref_tok, ref_sell_out = quote_dex_cached(ref_usdc)
                 if ref_tok > 0:
                     tick_dex_quotes_by_product[meta.coinbase_product] = (
                         ref_usdc,
@@ -2669,6 +2846,8 @@ def run_multicall_campaign(
     finally:
         if jsonl_handle is not None:
             jsonl_handle.close()
+        if book_executor is not None:
+            book_executor.shutdown(wait=True)
         if ws_feed is not None:
             with suppress(Exception):
                 ws_feed.close()
@@ -2783,6 +2962,11 @@ def run_multicall_campaign(
         "chain_id": BASE_CHAIN_ID,
         "execution_eligible": False,
         "include_ecosystem_tokens": include_ecosystem_tokens,
+        "allowed_products": (
+            sorted(allowed_products_set) if allowed_products_set is not None else None
+        ),
+        "min_taker_edge_bps": effective_min_taker_edge_bps,
+        "maker_min_edge_bps": round(float(effective_maker_min_edge), 6),
         "dynamic_sizing_enabled": dynamic_sizing,
         "coinbase_ws_enabled": enable_coinbase_ws,
         "trade_notional_usdc": trade_notional_usdc,
@@ -2923,6 +3107,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="Stream live Coinbase Exchange `matches` prints for FIFO Maker-Hedge simulation.",
     )
     parser.add_argument(
+        "--allowed-products",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated Coinbase products or token symbols to evaluate "
+            "(e.g., ETH-USD,AERO-USD)."
+        ),
+    )
+    parser.add_argument(
+        "--min-taker-edge-bps",
+        type=int,
+        default=None,
+        help=(
+            "Minimum CEX-DEX taker edge in integer bps required to queue an OOS intent "
+            "(default: 3 with --dynamic-sizing, else 1)."
+        ),
+    )
+    parser.add_argument(
+        "--maker-min-edge-bps",
+        type=float,
+        default=None,
+        help=(
+            "Minimum maker quote edge floor in bps (default: 10.0 with --dynamic-sizing, else 3.0)."
+        ),
+    )
+    parser.add_argument(
+        "--max-book-workers",
+        type=int,
+        default=9,
+        help=(
+            "Maximum concurrent threads for Coinbase L2 book prefetching in live "
+            "public-shadow mode (default: 9)."
+        ),
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -2936,6 +3155,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     try:
+        parsed_allowed_products = _parse_allowed_products_cli(args.allowed_products)
         _ensure_clean_output_dir(args.out)
         result = run_multicall_campaign(
             out_dir=args.out,
@@ -2953,6 +3173,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_daily_loss_usd=args.max_daily_loss_usd,
             dynamic_sizing=args.dynamic_sizing,
             enable_coinbase_ws=args.enable_coinbase_ws,
+            allowed_products=parsed_allowed_products,
+            min_taker_edge_bps=args.min_taker_edge_bps,
+            maker_min_edge_bps=args.maker_min_edge_bps,
+            max_book_workers=args.max_book_workers,
         )
     except (
         OSError,
@@ -2972,6 +3196,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "chain_id": result.summary["chain_id"],
                 "execution_eligible": result.summary["execution_eligible"],
                 "include_ecosystem_tokens": result.summary["include_ecosystem_tokens"],
+                "allowed_products": result.summary["allowed_products"],
+                "min_taker_edge_bps": result.summary["min_taker_edge_bps"],
+                "maker_min_edge_bps": result.summary["maker_min_edge_bps"],
                 "dynamic_sizing_enabled": result.summary["dynamic_sizing_enabled"],
                 "coinbase_ws_enabled": result.summary["coinbase_ws_enabled"],
                 "ticks_completed": result.summary["ticks_completed"],
