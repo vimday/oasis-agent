@@ -17,6 +17,11 @@ from pathlib import Path
 from typing import Any, Final, Literal
 
 from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
+from ..risk.capital_policy import (
+    USD_MICROS_SCALE,
+    CapitalRiskConfig,
+    load_capital_risk_config,
+)
 
 READINESS_SCHEMA_VERSION: Final[str] = "oasis.profit-engine-readiness.v1"
 DUAL_RPC_QUORUM_SCHEMA_VERSION: Final[str] = "oasis.dual-rpc-quorum.v1"
@@ -1345,18 +1350,74 @@ def _eval_isolated_signer_authority_ready(
     )
 
 
+def _extract_signoff_limit_micros(
+    signoff_data: dict[str, Any],
+    *,
+    micros_key: str,
+    usd_key: str,
+) -> tuple[int | None, str | None]:
+    has_micros = micros_key in signoff_data
+    has_usd = usd_key in signoff_data
+    if not has_micros and not has_usd:
+        return None, f"Owner signoff manifest missing {micros_key} or {usd_key}."
+
+    micros_val: int | None = None
+    if has_micros:
+        raw_micros = signoff_data[micros_key]
+        if type(raw_micros) is not int or raw_micros <= 0:
+            return None, f"{micros_key} must be a positive integer."
+        micros_val = raw_micros
+
+    usd_as_micros: int | None = None
+    raw_usd: object = None
+    if has_usd:
+        raw_usd = signoff_data[usd_key]
+        if type(raw_usd) is not int or raw_usd <= 0:
+            return None, f"{usd_key} must be a positive integer."
+        usd_as_micros = raw_usd * USD_MICROS_SCALE
+
+    if micros_val is not None and usd_as_micros is not None and micros_val != usd_as_micros:
+        return None, f"Conflicting {micros_key} ({micros_val}) and {usd_key} ({raw_usd})."
+
+    return (micros_val if micros_val is not None else usd_as_micros), None
+
+
 def _eval_owner_scope_release_manifest_present(
     signoff_data: dict[str, Any] | None,
     signoff_err: str | None,
+    *,
+    active_risk_config: CapitalRiskConfig | None,
+    risk_config_err: str | None,
 ) -> tuple[GateCheckResult, str | None]:
+    if active_risk_config is None:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail=risk_config_err or "Invalid capital risk configuration.",
+                required_threshold="valid oasis.capital-risk-policy.v1 config",
+                observed_value="invalid_risk_config",
+            ),
+            (
+                "Supply a valid capital risk policy JSON (--risk-config) matching "
+                "oasis.capital-risk-policy.v1."
+            ),
+        )
+
+    config_sha = active_risk_config.config_sha256
+    max_cap_micros = active_risk_config.total_capital_usd_micros
+    max_daily_micros = active_risk_config.max_daily_loss_usd_micros
+    max_cum_micros = active_risk_config.max_cumulative_loss_usd_micros
     threshold = (
-        f"owner_scope_approved=True, capital<={MAX_APPROVED_CAPITAL_USD}, "
-        f"daily_loss<={MAX_APPROVED_DAILY_LOSS_USD}, "
-        f"cumulative_loss<={MAX_APPROVED_CUMULATIVE_LOSS_USD}"
+        f"owner_scope_approved=True, capital_usd_micros<={max_cap_micros}, "
+        f"daily_loss_usd_micros<={max_daily_micros}, "
+        f"cumulative_loss_usd_micros<={max_cum_micros}"
     )
     action = (
         "Obtain an explicit owner-signed scope approval manifest (--operator-signoff) for "
-        "this run within USD 500 capital / USD 200 daily loss limits."
+        f"this run within policy limits (capital_usd_micros<={max_cap_micros}, "
+        f"daily_loss_usd_micros<={max_daily_micros}, "
+        f"cumulative_loss_usd_micros<={max_cum_micros})."
     )
     if signoff_data is None:
         return (
@@ -1365,7 +1426,7 @@ def _eval_owner_scope_release_manifest_present(
                 passed=False,
                 detail=signoff_err or "Owner scope release approval manifest not supplied.",
                 required_threshold=threshold,
-                observed_value="absent",
+                observed_value=f"absent,risk_config_sha256={config_sha}",
             ),
             action,
         )
@@ -1374,9 +1435,6 @@ def _eval_owner_scope_release_manifest_present(
     owner_id = signoff_data.get("owner_identity")
     scope_id = signoff_data.get("scope_id")
     approved_at = signoff_data.get("approved_at_utc")
-    cap_usd = signoff_data.get("capital_limit_usd")
-    daily_usd = signoff_data.get("daily_loss_limit_usd")
-    cum_usd = signoff_data.get("cumulative_loss_limit_usd")
     attestation = signoff_data.get("signature_or_attestation")
 
     if approved is not True:
@@ -1386,7 +1444,7 @@ def _eval_owner_scope_release_manifest_present(
                 passed=False,
                 detail="Owner signoff manifest does not set owner_scope_approved=True.",
                 required_threshold=threshold,
-                observed_value=f"owner_scope_approved={approved!r}",
+                observed_value=f"owner_scope_approved={approved!r},risk_config_sha256={config_sha}",
             ),
             action,
         )
@@ -1402,7 +1460,7 @@ def _eval_owner_scope_release_manifest_present(
                     passed=False,
                     detail=f"Owner signoff manifest missing non-empty {field_name}.",
                     required_threshold=threshold,
-                    observed_value=f"missing_{field_name}",
+                    observed_value=f"missing_{field_name},risk_config_sha256={config_sha}",
                 ),
                 action,
             )
@@ -1414,7 +1472,7 @@ def _eval_owner_scope_release_manifest_present(
                 passed=False,
                 detail="Owner signoff manifest missing approved_at_utc ISO-8601 timestamp.",
                 required_threshold=threshold,
-                observed_value="missing_approved_at_utc",
+                observed_value=f"missing_approved_at_utc,risk_config_sha256={config_sha}",
             ),
             action,
         )
@@ -1429,29 +1487,59 @@ def _eval_owner_scope_release_manifest_present(
                 passed=False,
                 detail="approved_at_utc must be timezone-aware ISO-8601.",
                 required_threshold=threshold,
-                observed_value=f"approved_at_utc={approved_at!r}",
+                observed_value=f"approved_at_utc={approved_at!r},risk_config_sha256={config_sha}",
+            ),
+            action,
+        )
+
+    cap_micros, cap_err = _extract_signoff_limit_micros(
+        signoff_data,
+        micros_key="capital_limit_usd_micros",
+        usd_key="capital_limit_usd",
+    )
+    daily_micros, daily_err = _extract_signoff_limit_micros(
+        signoff_data,
+        micros_key="daily_loss_limit_usd_micros",
+        usd_key="daily_loss_limit_usd",
+    )
+    cum_micros, cum_err = _extract_signoff_limit_micros(
+        signoff_data,
+        micros_key="cumulative_loss_limit_usd_micros",
+        usd_key="cumulative_loss_limit_usd",
+    )
+    limit_err = cap_err or daily_err or cum_err
+    if limit_err is not None or cap_micros is None or daily_micros is None or cum_micros is None:
+        return (
+            GateCheckResult(
+                name="owner_scope_release_manifest_present",
+                passed=False,
+                detail=limit_err or "Owner signoff manifest contains invalid capital/loss limits.",
+                required_threshold=threshold,
+                observed_value=f"invalid_limits,risk_config_sha256={config_sha}",
             ),
             action,
         )
 
     if (
-        type(cap_usd) is not int
-        or not 0 < cap_usd <= MAX_APPROVED_CAPITAL_USD
-        or type(daily_usd) is not int
-        or not 0 < daily_usd <= MAX_APPROVED_DAILY_LOSS_USD
-        or type(cum_usd) is not int
-        or not 0 < cum_usd <= MAX_APPROVED_CUMULATIVE_LOSS_USD
+        cap_micros > max_cap_micros
+        or daily_micros > max_daily_micros
+        or cum_micros > max_cum_micros
     ):
         return (
             GateCheckResult(
                 name="owner_scope_release_manifest_present",
                 passed=False,
                 detail=(
-                    "Approved capital/loss limits must stay within bounded canary limits "
-                    "(USD 500 capital, USD 200 daily loss, USD 500 cumulative loss)."
+                    "Approved capital/loss limits exceed active CapitalRiskConfig policy "
+                    f"(cap_usd_micros={cap_micros}<={max_cap_micros}, "
+                    f"daily_usd_micros={daily_micros}<={max_daily_micros}, "
+                    f"cum_usd_micros={cum_micros}<={max_cum_micros})."
                 ),
                 required_threshold=threshold,
-                observed_value=f"cap={cap_usd!r},daily={daily_usd!r},cum={cum_usd!r}",
+                observed_value=(
+                    f"cap_usd_micros={cap_micros},daily_usd_micros={daily_micros},"
+                    f"cum_usd_micros={cum_micros},risk_config_sha256={config_sha}"
+                ),
             ),
             action,
         )
@@ -1462,10 +1550,14 @@ def _eval_owner_scope_release_manifest_present(
             passed=True,
             detail=(
                 f"Owner scope '{scope_id}' approved by '{owner_id}' "
-                f"(cap=${cap_usd}, daily=${daily_usd}, cum=${cum_usd})."
+                f"(cap_usd_micros={cap_micros}, daily_usd_micros={daily_micros}, "
+                f"cum_usd_micros={cum_micros}, risk_config_sha256={config_sha[:12]})."
             ),
             required_threshold=threshold,
-            observed_value=f"scope={scope_id},owner={owner_id},cap_usd={cap_usd}",
+            observed_value=(
+                f"scope={scope_id},owner={owner_id},cap_usd_micros={cap_micros},"
+                f"risk_config_sha256={config_sha}"
+            ),
         ),
         None,
     )
@@ -1481,12 +1573,35 @@ def evaluate_profit_engine_readiness(
     infra_proof_path: Path | None = None,
     min_shadow_ticks: int = DEFAULT_MIN_SHADOW_TICKS,
     min_lcb_net_edge_bps: int = DEFAULT_MIN_LCB_NET_EDGE_BPS,
+    risk_config: CapitalRiskConfig | None = None,
+    risk_config_path: Path | None = None,
 ) -> ProfitEngineReadinessReport:
     """Evaluate all 9 fail-closed release readiness gates from retained evidence files."""
     if type(min_shadow_ticks) is not int or min_shadow_ticks <= 0:
         raise ValueError("min_shadow_ticks must be a positive integer")
     if type(min_lcb_net_edge_bps) is not int or min_lcb_net_edge_bps < 0:
         raise ValueError("min_lcb_net_edge_bps must be a non-negative integer")
+    if risk_config is not None and not isinstance(risk_config, CapitalRiskConfig):
+        raise TypeError("risk_config must be a CapitalRiskConfig")
+    if risk_config is not None and risk_config_path is not None:
+        raise ValueError("specify either risk_config or risk_config_path, not both")
+
+    active_risk_config: CapitalRiskConfig | None
+    risk_config_err: str | None = None
+    if risk_config is not None:
+        active_risk_config = risk_config
+    elif risk_config_path is not None:
+        try:
+            active_risk_config = load_capital_risk_config(risk_config_path)
+        except (OSError, ValueError, TypeError) as exc:
+            active_risk_config = None
+            risk_config_err = f"risk_config invalid: {exc}"
+    else:
+        active_risk_config = CapitalRiskConfig(
+            total_capital_usd_micros=MAX_APPROVED_CAPITAL_USD * USD_MICROS_SCALE,
+            max_daily_loss_usd_micros=MAX_APPROVED_DAILY_LOSS_USD * USD_MICROS_SCALE,
+            max_cumulative_loss_usd_micros=MAX_APPROVED_CUMULATIVE_LOSS_USD * USD_MICROS_SCALE,
+        )
 
     out_dir = contracts_out_dir if contracts_out_dir is not None else DEFAULT_CONTRACTS_OUT_DIR
     anvil_data, anvil_err = _load_json_object(anvil_report_path, "anvil_report")
@@ -1508,7 +1623,12 @@ def evaluate_profit_engine_readiness(
         _eval_revert_budget_healthy(anvil_data, radar_data, shadow_data),
         _eval_dual_rpc_quorum_verified(signoff_data, signoff_err, infra_data, infra_err),
         _eval_isolated_signer_authority_ready(signoff_data, signoff_err, infra_data, infra_err),
-        _eval_owner_scope_release_manifest_present(signoff_data, signoff_err),
+        _eval_owner_scope_release_manifest_present(
+            signoff_data,
+            signoff_err,
+            active_risk_config=active_risk_config,
+            risk_config_err=risk_config_err,
+        ),
     )
 
     gates = tuple(result for result, _ in evaluations)
