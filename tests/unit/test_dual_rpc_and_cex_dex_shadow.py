@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from oasis_agent.arbitrage.event_quote import V3
-from oasis_agent.cross_venue.coinbase_trade_flow import CoinbaseTradePrint
+from oasis_agent.cross_venue.coinbase_trade_flow import CoinbaseTradeFlowError, CoinbaseTradePrint
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     CoinbaseL2Book,
     CoinbaseL2Level,
@@ -2120,3 +2120,41 @@ def test_campaign_wave14_adaptive_maker_batch_oos_persistence_and_gate5(
     assert (
         readiness.evidence["oos_execution"]["oos_trades_count"] == oos_summary["oos_trades_count"]
     )
+
+
+def test_keepalive_pool_validates_coinbase_trades_fallback_and_rejects_bad_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify `_KeepAliveHttpsPool.get` allows `/trades` fallback while blocking other paths."""
+    monkeypatch.setattr(campaign_cli, "_validate_cb_dns", lambda _host: None)
+    requested_paths: list[str] = []
+
+    class _FakeResp:
+        status = 200
+
+        def read(self, _limit: int) -> bytes:
+            return b"[]"
+
+    class _FakeConn:
+        def __init__(self, *_a: Any, **_k: Any) -> None:
+            self.sock = None
+            self.timeout = 5.0
+
+        def request(self, _method: str, path: str, **_k: Any) -> None:
+            requested_paths.append(path)
+
+        def getresponse(self) -> _FakeResp:
+            return _FakeResp()
+
+        def close(self) -> None:
+            pass
+
+    pool = _KeepAliveHttpsPool(connection_factory=_FakeConn)  # type: ignore[arg-type]
+    raw = pool.get("https://api.exchange.coinbase.com/products/ETH-USD/trades?limit=25", 5.0)
+    assert raw == b"[]"
+    assert requested_paths == ["/products/ETH-USD/trades?limit=25"]
+
+    with pytest.raises(LiveCexDexError):
+        pool.get("https://api.exchange.coinbase.com/products/ETH-USD/candles", 5.0)
+    with pytest.raises(CoinbaseTradeFlowError):
+        pool.get("https://api.exchange.coinbase.com/products/INVALID-USD/trades?limit=25", 5.0)

@@ -45,13 +45,15 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
 
 （若仅需固定 4 池 WETH/USDC 基准，亦可运行 `scripts.run_base_arb_shadow --mode public-shadow --ticks 100 --interval-ms 1200 --max-requests 1550`。）
 
-说明：2026-11-18 Wave 14 实测（11 资产 44 池 + 9 对实时 WebSocket `18,283` 笔成交、`--dynamic-sizing` 开启波动率自适应 `effective_adverse_bps` + `$10` 批量对冲 + `t -> t+1` 2-tick 样本外执行追踪，`configs/profit-engine-risk.example.json`）在 `100` 个唯一 Base 区块（`59099892..59104859`）实现 **`12` 笔真实样本外成交、`10/12` 正（胜率 `83.33%`）、总净赚 `+$0.232804`、均值 `+9.541982 bps`、最大回撤 `$0.027576`、零残差**（自适应 FIFO `2/2` 全正 `+$0.145091`）；但单笔 `+80.84 bps` 正尾离群拉高样本 `std=22.94 bps` 使高斯 95% LCB 为 `-4 bps`（低于预注册 `+5` 门槛），故**系统仍严格锁定 `release_permitted = false` 拒绝发布**。
+说明：2026-11-18 Wave 14–16 实测证明（`--dynamic-sizing` 开启波动率自适应 `effective_adverse_bps` + `$10` 批量对冲 + `t -> t+1` 2-tick 样本外执行追踪，`configs/profit-engine-risk.example.json`）：
+- Wave 14（`100` 唯一区块 `59099892..59104859`、`18,283` WS 成交）：`12` 笔真实 OOS 成交 **`10/12` 正（83.33%）**、净赚 **`+$0.232804`**、均值 **`+9.541982 bps`**，但正尾离群拉高方差致高斯 95% LCB 为 `-4 bps`；
+- Wave 16（`300` 唯一区块 `59133003..59145017`、`59,811` WS 成交 0 断流）：全 9 对混合 OOS 合计 `33` 笔（`13/33` 正、`-$0.761626`、`oos_lcb_net_edge_bps = -4`），其中核心深对 **`AERO-USD` 在 40 分钟长窗内 Taker（`+$0.057705` / `+1.36 bps`）与 Maker（`+$0.153090` / `+1.14 bps`）双腿均稳定正盈利（合计 `21` 笔净赚 `+$0.210795`）**，而高波尾币因跨 tick 均值回归回撤拖累总体未过 `+5` 门禁，**系统继续严格锁定 `release_permitted = false` 拒绝发布**。
 
-## 阶段 3：双源 RPC 仲裁、确定性部署与隔离签名就绪
+## 阶段 3：双源 RPC 仲裁、双平面软件 EOA 部署与隔离签名就绪
 
-参照 [custody 模型](../security/CUSTODY_AND_AGENT_KEY_MODEL.md) 与 [Base 有界运行手册](BASE_BOUNDED_RUN.md) 完成：
+参照 [custody 模型](../security/CUSTODY_AND_AGENT_KEY_MODEL.md)（支持极简 **2 个标准软件 EOA**，无需硬件钱包或多签）与 [Base 有界运行手册](BASE_BOUNDED_RUN.md) 完成：
 
-1. 首先通过无密钥双源仲裁脚本实证主/副 Base RPC 对同一区块 `block_hash`、`stateRoot`、`BaseTime` 与核心代码哈希一致，并运行离线 6 服务 Compose 检查（含 `profit-strategy` 与 `profit_authority.sock` 只读风险配置隔离检查）及双配置（`$500/$200` 与 `$5,000/$750`）无密钥隔离签名演练：
+1. 首先通过无密钥双源仲裁脚本实证主/副 Base RPC 对同一区块 `block_hash`、`stateRoot`、`BaseTime` 与核心代码哈希一致，并运行离线 6 服务 Compose 策略校验、双配置无密钥签名演练及真实 Docker 硬化隔离演练（已在 `aleph` WSL Linux Docker 实测产出真实 Gate 8 证明 `passed=true`）：
 
 ```bash
 .venv/bin/python -m oasis_agent.live.dual_rpc_probe \
@@ -60,17 +62,20 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
   --compose-file deploy/profit-engine/compose.yaml \
   --out reports/research/<run-id>/profit_compose_verification.json && \
 .venv/bin/python -m scripts.verify_profit_authority_rehearsal \
-  --out reports/research/<run-id>/authority_rehearsal.json
+  --out reports/research/<run-id>/authority_rehearsal.json && \
+.venv/bin/python -m scripts.verify_profit_docker_confinement \
+  --out reports/research/<run-id>/docker_confinement_report.json \
+  --out-signer-proof reports/research/<run-id>/authority_status_proof.json
 ```
 
-2. 在获得实盘发布许可后，由多签/外部硬件签名器使用 [DeployOasisProfitEngine.s.sol](../../contracts/script/DeployOasisProfitEngine.s.sol) 通过 `CREATE2` 部署并校验 `OasisAtomicExecutor` 与 `OasisIntentVault` 运行时代码哈希（强制 `deployer` / `owner` / `guardian` / `operator` / `quoteSigner` / `treasury` / `revenueSink` 七角色两两严格分离，脚本绝不读取私钥）。
+2. 在获得实盘发布许可后，个人运营者仅需准备 **2 个加密软件钱包**：**Cold Admin EOA**（通过 `cast wallet import --interactive` 存放于本地加密 keystore，兼任 `deployer`/`owner`/`guardian`/`treasury`/`revenueSink`）与 **Hot Canary EOA**（私钥仅隔离存放在独立 Docker `oasis-canary-keys` 卷中，兼任 `operator`/`quoteSigner`），使用 [DeployOasisProfitEngine.s.sol](../../contracts/script/DeployOasisProfitEngine.s.sol) 通过仅 5 个核心环境变量及 `OASIS_WIRE_OPERATORS_ON_DEPLOY=true`（`forge script ... --account <admin-keystore> --broadcast`）原子完成 `OasisAtomicExecutor` 与 `OasisIntentVault` 的 `CREATE2` 部署与操作员授权接线（脚本强制校验冷/热双平面隔离，且绝不读取裸私钥）。
 3. 配置两条物理/运营独立的 Base RPC（主读源 + 独立归档/状态模拟与收据对账副源），各自保留独立持久化请求预算账本（失败/429 立即停机不换账本重试）。
-4. 使用 [compose.yaml](../../deploy/profit-engine/compose.yaml) 与独立 Unix socket 签名权威（[atomic_authority_socket.py](../../src/oasis_agent/live/atomic_authority_socket.py)、[run_profit_authority.py](../../scripts/run_profit_authority.py)）以及无密钥策略桥接守护进程（[profit_strategy_daemon.py](../../src/oasis_agent/live/profit_strategy_daemon.py)、[run_profit_strategy.py](../../scripts/run_profit_strategy.py)）彻底分离策略进程与 `/run/oasis-keys:ro` 只读密钥卷（`profit-strategy` 预设 `--mode shadow`，支持通过只读控制台 `GET /api/v1/radar/capacity` 观测风控额度与样本外容量，并在只读状态模式下生成第 8 门禁证明 `scripts.run_profit_authority --status-only --out-proof ...`），`REVENUE_SINK` 利润自动隔离。
-5. 通过 [profit-engine-risk.example.json](../../configs/profit-engine-risk.example.json)（经 owner 当次授权范围一致签署的配置文件）显式设定本金总额、单日亏损上限、累积亏损上限、最小手数与尾部压力系数（默认基线仍为 USD 500 / 200 / 500），并保留 STOP 急停文件。
+4. 使用 [compose.yaml](../../deploy/profit-engine/compose.yaml) 与独立 Unix socket 签名权威（[atomic_authority_socket.py](../../src/oasis_agent/live/atomic_authority_socket.py)、[run_profit_authority.py](../../scripts/run_profit_authority.py)）以及无密钥策略桥接守护进程（[profit_strategy_daemon.py](../../src/oasis_agent/live/profit_strategy_daemon.py)、[run_profit_strategy.py](../../scripts/run_profit_strategy.py)）彻底分离策略进程与 `/secrets:ro` 只读密钥卷（`profit-strategy` 预设 `--mode shadow`，支持通过只读控制台 `GET /api/v1/radar/capacity` 观测风控额度与样本外容量，并在只读状态模式下生成第 8 门禁证明 `scripts.run_profit_authority --status-only --out-proof ...`），`REVENUE_SINK` 利润自动隔离。
+5. 通过 [profit-engine-risk.example.json](../../configs/profit-engine-risk.example.json)（经 owner 当次授权范围一致签署的配置文件）显式设定本金总额、单日亏损上限、累积亏损上限、最小手数与尾部压力系数（默认基线仍为 USD 500 / 200 / 500），并保留 STOP 急停文件；最后由无密钥 [create_software_scope_signoff.py](../../scripts/create_software_scope_signoff.py) 生成并校验范围声明清单（演练使用 `--rehearsal`；实盘使用 `--approve-software-scope --attestation ...` 并严格绑定 `admin_eoa != operator_eoa`）。
 
 ## 阶段 4：9 项硬门禁总验与有界发布准入
 
-汇总合约产物、Anvil 报告、`BaseTime` 核验、>= 100 tick 公开影子摘要（含 `--min-oos-trades 5` 样本外双模验收）、双源仲裁证明、隔离签名器证明、风险策略配置与 owner 本次书面范围授权：
+汇总合约产物、Anvil 报告、`BaseTime` 核验、>= 100 tick 公开影子摘要（含 `--min-oos-trades 5` 样本外双模验收）、双源仲裁证明（`--infra-proof`）、Docker 隔离签名权威证明（`--signer-proof`）、风险策略配置与无密钥范围授权清单（`--operator-signoff`）：
 
 ```bash
 .venv/bin/python -m scripts.check_profit_engine_readiness \
@@ -78,9 +83,10 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
   --min-oos-trades 5 \
   --anvil-report reports/research/<run-id>/anvil_e2e_report.json \
   --radar-report reports/research/<radar-id>/radar_report.json \
-  --shadow-summary reports/research/<run-id>/shadow-100-adaptive-oos/shadow_summary.json \
+  --shadow-summary reports/research/<run-id>/shadow-300-adaptive-oos-v2/shadow_summary.json \
   --infra-proof reports/research/<run-id>/dual_rpc_quorum.json \
-  --operator-signoff <private-owner-signoff.json> \
+  --signer-proof reports/research/<run-id>/authority_status_proof.json \
+  --operator-signoff <software-scope-signoff.json> \
   --require-ready \
   --out reports/research/<run-id>/readiness_report.json
 ```

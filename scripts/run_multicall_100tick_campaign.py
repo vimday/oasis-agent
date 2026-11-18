@@ -40,6 +40,7 @@ from oasis_agent.cross_venue.coinbase_trade_flow import (
     CoinbaseTradeFlowError,
     CoinbaseTradePrint,
     CoinbaseWebSocketFeed,
+    _validate_coinbase_trades_url,
     fetch_coinbase_recent_trades,
 )
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
@@ -1544,7 +1545,10 @@ class _KeepAliveHttpsPool:
             raise ShadowRunnerError("Base shadow RPC URL contains an invalid port") from exc
 
         if is_coinbase:
-            _validate_coinbase_url(url)
+            if parsed.path.endswith("/trades"):
+                _validate_coinbase_trades_url(url)
+            else:
+                _validate_coinbase_url(url)
             _validate_cb_dns(hostname)
         else:
             _validate_rpc_dns(hostname, port)
@@ -2280,7 +2284,12 @@ def run_multicall_campaign(
                                 timeout_s=float(timeout_s),
                                 transport=active_trades_tr,
                             )
-                        except (CoinbaseTradeFlowError, OSError, urllib.error.URLError):
+                        except (
+                            CoinbaseTradeFlowError,
+                            LiveCexDexError,
+                            OSError,
+                            urllib.error.URLError,
+                        ):
                             continue
                         for tp in rest_prints:
                             prev_tid = ws_watermarks.get(tp.product_id, 0)
