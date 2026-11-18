@@ -14,6 +14,7 @@ from pathlib import Path
 
 from oasis_agent.live.canary_readiness import (
     DEFAULT_MIN_LCB_NET_EDGE_BPS,
+    DEFAULT_MIN_OOS_TRADES,
     DEFAULT_MIN_SHADOW_TICKS,
     evaluate_profit_engine_readiness,
 )
@@ -58,6 +59,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Minimum cost-adjusted LCB net edge in bps (default: {DEFAULT_MIN_LCB_NET_EDGE_BPS})",
     )
     parser.add_argument(
+        "--min-oos-trades",
+        type=int,
+        default=DEFAULT_MIN_OOS_TRADES,
+        help=(
+            "Minimum settled out-of-sample trades required when OOS summary is supplied "
+            f"(default: {DEFAULT_MIN_OOS_TRADES})"
+        ),
+    )
+    parser.add_argument(
         "--risk-config",
         type=Path,
         default=None,
@@ -77,9 +87,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    if args.min_shadow_ticks <= 0 or args.min_lcb_bps < 0:
+    if args.min_shadow_ticks <= 0 or args.min_lcb_bps < 0 or args.min_oos_trades <= 0:
         print(
-            "invalid thresholds: --min-shadow-ticks must be > 0 and --min-lcb-bps must be >= 0",
+            "invalid thresholds: --min-shadow-ticks must be > 0, "
+            "--min-oos-trades must be > 0, and --min-lcb-bps must be >= 0",
             file=sys.stderr,
         )
         return 2
@@ -96,6 +107,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         infra_proof_path=args.infra_proof,
         min_shadow_ticks=args.min_shadow_ticks,
         min_lcb_net_edge_bps=args.min_lcb_bps,
+        min_oos_trades=args.min_oos_trades,
         risk_config_path=args.risk_config,
     )
 
@@ -113,7 +125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 risk_config_sha256 = part.split("=", 1)[1]
                 break
 
-    summary = {
+    summary: dict[str, object] = {
         "schema_version": report.schema_version,
         "release_permitted": report.release_permitted,
         "execution_eligible": report.execution_eligible,
@@ -123,6 +135,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "risk_config_sha256": risk_config_sha256,
         "report_sha256": report.report_sha256,
     }
+    if "oos_execution" in report.evidence:
+        summary["oos_execution"] = report.evidence["oos_execution"]
     print(json.dumps(summary, indent=2))
 
     if args.require_ready and not report.release_permitted:

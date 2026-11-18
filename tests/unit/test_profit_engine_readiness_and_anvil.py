@@ -6,15 +6,22 @@ import shutil
 import subprocess
 import sys
 from dataclasses import FrozenInstanceError
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from oasis_agent.cross_venue.oos_execution_tracker import (
+    OosStrategyExecutionTracker,
+    OosTrackerConfig,
+)
 from oasis_agent.live.canary_readiness import (
     ANVIL_E2E_SCHEMA_VERSION,
     BASE_CHAIN_ID,
     BASE_TIME_PREDEPLOY,
+    DEFAULT_MIN_LCB_NET_EDGE_BPS,
+    DEFAULT_MIN_OOS_TRADES,
     DUAL_RPC_QUORUM_SCHEMA_VERSION,
     GATE_NAMES,
     READINESS_SCHEMA_VERSION,
@@ -1052,3 +1059,305 @@ def test_readiness_custom_risk_config_and_cli_flag(
     )
     assert sym_report.release_permitted is False
     assert sym_report.blocked_gates == ("owner_scope_release_manifest_present",)
+
+
+def _make_valid_oos_summary(
+    *,
+    oos_trades_count: object = 6,
+    oos_positive_trades: object = 5,
+    oos_total_net_profit_usd: object = "14.250000",
+    oos_lcb_net_edge_bps: object = 9,
+    execution_eligible: object = False,
+) -> dict[str, Any]:
+    return {
+        "oos_trades_count": oos_trades_count,
+        "oos_taker_trades_count": 4,
+        "oos_maker_trades_count": 2,
+        "oos_positive_trades": oos_positive_trades,
+        "oos_win_rate": "0.8333",
+        "oos_total_net_profit_usd": oos_total_net_profit_usd,
+        "oos_mean_net_edge_bps": "12.500000",
+        "oos_std_net_edge_bps": "4.000000",
+        "oos_lcb_net_edge_bps_exact": "9.299340",
+        "oos_lcb_net_edge_bps": oos_lcb_net_edge_bps,
+        "oos_max_drawdown_usd": "0.250000",
+        "oos_tail_loss_p5_bps": "-1.500000",
+        "pending_unsettled_intents": 0,
+        "expired_pending_intents": 0,
+        "rejected_one_tick_flickers": 3,
+        "execution_eligible": execution_eligible,
+    }
+
+
+def test_readiness_gate5_oos_validation_and_evidence_surfacing(tmp_path: Path) -> None:
+    assert DEFAULT_MIN_OOS_TRADES == 5
+    assert DEFAULT_MIN_LCB_NET_EDGE_BPS == 5
+
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    signoff_path = _make_synthetic_operator_signoff(tmp_path / "operator_signoff.json")
+
+    # Shadow summary where legacy attribution fails Gate 5 (0 positive ticks, -3 bps LCB)
+    # while Gate 4 passes (120 >= 100 public-shadow ticks).
+    failing_legacy_shadow = _make_synthetic_shadow_summary(
+        tmp_path / "legacy_fail_shadow.json",
+        mode="public-shadow",
+        ticks_completed=120,
+        positive_net_ticks=0,
+        lcb_net_edge_bps=-3,
+    )
+
+    # 1. Legacy caller without OOS summary leaves evidence empty and Gate 5 blocked.
+    legacy_only = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=failing_legacy_shadow,
+        operator_signoff_path=signoff_path,
+    )
+    assert legacy_only.blocked_gates == ("positive_cost_adjusted_lcb_edge",)
+    assert legacy_only.evidence == {}
+
+    # 2. Explicit passing OOS summary unblocks Gate 5 and surfaces evidence["oos_execution"].
+    valid_oos = _make_valid_oos_summary()
+    oos_passed = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=failing_legacy_shadow,
+        operator_signoff_path=signoff_path,
+        oos_execution_summary=valid_oos,
+    )
+    assert oos_passed.release_permitted is True
+    assert oos_passed.execution_eligible is False
+    assert oos_passed.passed_count == 9
+    ev_oos = oos_passed.evidence["oos_execution"]
+    assert ev_oos["validated"] is True
+    assert ev_oos["source"] == "explicit_arg"
+    assert ev_oos["oos_trades_count"] == 6
+    assert ev_oos["oos_lcb_net_edge_bps"] == 9
+    serialized = json.loads(oos_passed.to_json())
+    assert serialized["evidence"]["oos_execution"]["oos_total_net_profit_usd"] == "14.250000"
+    assert serialized["report_sha256"] == oos_passed.report_sha256
+
+    # 3. Embedded shadow_summary["oos_execution_summary"] is extracted automatically.
+    embedded_shadow = _write_json(
+        tmp_path / "embedded_oos_shadow.json",
+        {
+            "schema_version": "oasis.base-shadow-summary.v1",
+            "mode": "public-shadow",
+            "ticks_completed": 120,
+            "positive_net_ticks": 0,
+            "lcb_net_edge_bps": -4,
+            "revert_budget_status": "active",
+            "unresolved_residuals": 0,
+            "execution_eligible": False,
+            "oos_execution_summary": valid_oos,
+        },
+    )
+    embedded_report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=embedded_shadow,
+        operator_signoff_path=signoff_path,
+    )
+    assert embedded_report.release_permitted is True
+    assert embedded_report.evidence["oos_execution"]["source"] == "shadow_summary"
+    assert embedded_report.evidence["oos_execution"]["validated"] is True
+
+    # 4. Strict OOS rejections (while STILL surfacing evidence["oos_execution"]!).
+    bad_oos_cases: tuple[dict[str, Any], ...] = (
+        {"oos_trades_count": 4},
+        {"oos_trades_count": True},
+        {"oos_positive_trades": 0},
+        {"oos_positive_trades": True},
+        {"oos_total_net_profit_usd": "0"},
+        {"oos_total_net_profit_usd": "-1.50"},
+        {"oos_total_net_profit_usd": "NaN"},
+        {"oos_lcb_net_edge_bps": 4},
+        {"oos_lcb_net_edge_bps": 8.5},
+        {"oos_lcb_net_edge_bps": True},
+        {"execution_eligible": True},
+    )
+    for overrides in bad_oos_cases:
+        bad_oos = _make_valid_oos_summary(**overrides)
+        r_bad = evaluate_profit_engine_readiness(
+            contracts_out_dir=contracts_dir,
+            anvil_report_path=anvil_path,
+            radar_report_path=radar_path,
+            shadow_summary_path=failing_legacy_shadow,
+            operator_signoff_path=signoff_path,
+            oos_execution_summary=bad_oos,
+        )
+        assert r_bad.release_permitted is False
+        assert r_bad.blocked_gates == ("positive_cost_adjusted_lcb_edge",)
+        assert r_bad.evidence["oos_execution"]["validated"] is False
+        assert r_bad.evidence["oos_execution"]["validation_error"] is not None
+
+    # 5. Legacy passes OR OOS passes: if legacy passes and OOS fails, Gate 5 still passes
+    # while surfacing validated=False in evidence["oos_execution"].
+    passing_legacy_shadow = _make_synthetic_shadow_summary(tmp_path / "legacy_pass_shadow.json")
+    mixed_report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=passing_legacy_shadow,
+        operator_signoff_path=signoff_path,
+        oos_execution_summary=_make_valid_oos_summary(oos_trades_count=2),
+    )
+    assert mixed_report.release_permitted is True
+    assert mixed_report.evidence["oos_execution"]["validated"] is False
+    assert mixed_report.evidence["oos_execution"]["oos_trades_count"] == 2
+
+    # 6. Malformed non-mapping oos_execution_summary in shadow_summary fails cleanly.
+    malformed_shadow = _write_json(
+        tmp_path / "malformed_oos_shadow.json",
+        {
+            "schema_version": "oasis.base-shadow-summary.v1",
+            "mode": "public-shadow",
+            "ticks_completed": 120,
+            "positive_net_ticks": 0,
+            "lcb_net_edge_bps": -1,
+            "revert_budget_status": "active",
+            "unresolved_residuals": 0,
+            "execution_eligible": False,
+            "oos_execution_summary": ["not-a-mapping"],
+        },
+    )
+    malformed_report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=malformed_shadow,
+        operator_signoff_path=signoff_path,
+    )
+    assert malformed_report.blocked_gates == ("positive_cost_adjusted_lcb_edge",)
+    assert malformed_report.evidence["oos_execution"]["validated"] is False
+
+
+def test_readiness_cli_min_oos_trades_and_tracker_integration(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    signoff_path = _make_synthetic_operator_signoff(tmp_path / "operator_signoff.json")
+
+    # End-to-end: generate a real 3-trade OOS summary via OosStrategyExecutionTracker.
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            default_gas_cost_usd=Decimal("0.01"),
+            coinbase_taker_fee_bps=Decimal(0),
+        )
+    )
+    for step in range(1, 5):
+        tracker.step_tick(
+            step_seq=step,
+            observed_at_utc=f"2026-11-18T12:00:0{step}+00:00",
+            cex_dex_opportunities=[
+                {
+                    "product_id": "ETH-USD",
+                    "direction": "BUY_DEX_SELL_CEX",
+                    "net_edge_bps": 15,
+                    "notional_usdc": 500_000_000,
+                    "token_amount": 168_000_000_000_000_000,
+                    "token_decimals": 18,
+                }
+            ],
+            latest_dex_quotes_by_product={
+                "ETH-USD": (
+                    500_000_000,
+                    168_000_000_000_000_000,
+                    10**17,
+                    300_000_000,
+                    18,
+                    Decimal("0.01"),
+                )
+            },
+            latest_bbo_by_product={
+                "ETH-USD": (Decimal("3000.00") + Decimal(step), Decimal("3005.00"))
+            },
+        )
+    oos_summary = tracker.summary()
+    assert oos_summary["oos_trades_count"] == 3
+    assert oos_summary["oos_lcb_net_edge_bps"] >= 5
+
+    shadow_with_3_oos = _write_json(
+        tmp_path / "shadow_3_oos.json",
+        {
+            "schema_version": "oasis.base-shadow-summary.v1",
+            "mode": "public-shadow",
+            "ticks_completed": 120,
+            "positive_net_ticks": 0,
+            "lcb_net_edge_bps": -2,
+            "revert_budget_status": "active",
+            "unresolved_residuals": 0,
+            "execution_eligible": False,
+            "oos_execution_summary": oos_summary,
+        },
+    )
+
+    # Invalid --min-oos-trades <= 0 returns exit code 2.
+    bad_out = tmp_path / "bad_cli.json"
+    assert (
+        readiness_cli_main(["--min-oos-trades", "0", "--out", str(bad_out)]) == 2
+    )
+    capsys.readouterr()
+
+    # With default --min-oos-trades 5, 3 trades is blocked (--require-ready returns 2).
+    out_5 = tmp_path / "out_min5.json"
+    rc_5 = readiness_cli_main(
+        [
+            "--contracts-out-dir",
+            str(contracts_dir),
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_with_3_oos),
+            "--operator-signoff",
+            str(signoff_path),
+            "--out",
+            str(out_5),
+            "--require-ready",
+        ]
+    )
+    assert rc_5 == 2
+    capsys.readouterr()
+
+    # With --min-oos-trades 3, all 9 gates pass and stdout/JSON surface oos_execution!
+    out_3 = tmp_path / "out_min3.json"
+    rc_3 = readiness_cli_main(
+        [
+            "--contracts-out-dir",
+            str(contracts_dir),
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_with_3_oos),
+            "--operator-signoff",
+            str(signoff_path),
+            "--min-oos-trades",
+            "3",
+            "--out",
+            str(out_3),
+            "--require-ready",
+        ]
+    )
+    assert rc_3 == 0
+    cli_stdout = json.loads(capsys.readouterr().out)
+    assert cli_stdout["release_permitted"] is True
+    assert cli_stdout["execution_eligible"] is False
+    assert cli_stdout["oos_execution"]["oos_trades_count"] == 3
+    assert cli_stdout["oos_execution"]["validated"] is True
+    written = json.loads(out_3.read_text(encoding="utf-8"))
+    assert written["evidence"]["oos_execution"]["oos_trades_count"] == 3
+    assert written["evidence"]["oos_execution"]["execution_eligible"] is False
