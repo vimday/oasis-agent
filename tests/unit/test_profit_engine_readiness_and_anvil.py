@@ -23,6 +23,7 @@ from oasis_agent.live.canary_readiness import (
     evaluate_profit_engine_readiness,
 )
 from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.risk.capital_policy import CapitalRiskConfig
 from scripts.check_profit_engine_readiness import main as readiness_cli_main
 from scripts.verify_atomic_vault_anvil import main as anvil_cli_main
 
@@ -881,3 +882,173 @@ def test_run_anvil_profit_e2e_against_real_anvil(tmp_path: Path) -> None:
 
     # Immutable --out guard refuses to overwrite existing Anvil report
     assert anvil_cli_main(["--out", str(report_path)]) == 2
+
+
+def test_readiness_custom_risk_config_and_cli_flag(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+
+    # Signoff scaled to $5,000 capital / $750 daily loss / $1,500 cumulative loss
+    scaled_signoff = _write_json(
+        tmp_path / "scaled_signoff.json",
+        {
+            "owner_scope_approved": True,
+            "owner_identity": "oasis-owner",
+            "scope_id": "base-scaled-scope-20261118",
+            "approved_at_utc": "2026-11-18T08:00:00+00:00",
+            "capital_limit_usd": 5_000,
+            "daily_loss_limit_usd": 750,
+            "cumulative_loss_limit_usd": 1_500,
+            "signature_or_attestation": "owner-ed25519-scope-attestation-ref-02",
+            "dual_provider_and_isolated_signer": {
+                "primary_rpc_provider": "base-publicnode-archive",
+                "secondary_rpc_provider": "alchemy-base-archive",
+                "secondary_rpc_verified": True,
+                "isolated_key_volume": "oasis-canary-keys",
+                "authority_socket_path": "/run/oasis/authority.sock",
+                "isolated_signer_verified": True,
+            },
+        },
+    )
+
+    # 1. Against default $500 / $200 config, $5,000 / $750 signoff is REJECTED at Gate 9
+    rejected = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=scaled_signoff,
+    )
+    assert rejected.release_permitted is False
+    assert rejected.blocked_gates == ("owner_scope_release_manifest_present",)
+
+    # 2. Paired with matching $5,000 / $750 CapitalRiskConfig, all 9 gates pass
+    scaled_cfg = CapitalRiskConfig(
+        total_capital_usd_micros=5_000_000_000,
+        max_daily_loss_usd_micros=750_000_000,
+        max_cumulative_loss_usd_micros=1_500_000_000,
+    )
+    passed = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=scaled_signoff,
+        risk_config=scaled_cfg,
+    )
+    assert passed.release_permitted is True
+    assert passed.execution_eligible is False
+    assert passed.passed_count == 9
+    gate9 = {g.name: g for g in passed.gates}["owner_scope_release_manifest_present"]
+    assert f"risk_config_sha256={scaled_cfg.config_sha256}" in gate9.observed_value
+
+    # 3. Also accepts *_usd_micros signoff fields when matching risk_config_path
+    micros_signoff = _write_json(
+        tmp_path / "micros_signoff.json",
+        {
+            "owner_scope_approved": True,
+            "owner_identity": "oasis-owner",
+            "scope_id": "base-scaled-micros-20261118",
+            "approved_at_utc": "2026-11-18T08:00:00+00:00",
+            "capital_limit_usd_micros": 5_000_000_000,
+            "daily_loss_limit_usd_micros": 750_000_000,
+            "cumulative_loss_limit_usd_micros": 1_500_000_000,
+            "signature_or_attestation": "owner-ed25519-scope-attestation-ref-03",
+            "dual_provider_and_isolated_signer": {
+                "primary_rpc_provider": "base-publicnode-archive",
+                "secondary_rpc_provider": "alchemy-base-archive",
+                "secondary_rpc_verified": True,
+                "isolated_key_volume": "oasis-canary-keys",
+                "authority_socket_path": "/run/oasis/authority.sock",
+                "isolated_signer_verified": True,
+            },
+        },
+    )
+    risk_cfg_path = _write_json(tmp_path / "scaled_risk.json", scaled_cfg.to_dict())
+
+    cli_out = tmp_path / "cli_scaled_ready.json"
+    rc = readiness_cli_main(
+        [
+            "--contracts-out-dir",
+            str(contracts_dir),
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_path),
+            "--operator-signoff",
+            str(micros_signoff),
+            "--risk-config",
+            str(risk_cfg_path),
+            "--out",
+            str(cli_out),
+            "--require-ready",
+        ]
+    )
+    assert rc == 0
+    stdout_summary = json.loads(capsys.readouterr().out)
+    assert stdout_summary["release_permitted"] is True
+    assert stdout_summary["execution_eligible"] is False
+    assert stdout_summary["risk_config_sha256"] == scaled_cfg.config_sha256
+
+    # 4. Conflicting usd vs usd_micros signoff fails Gate 9
+    conflict_signoff = _write_json(
+        tmp_path / "conflict_signoff.json",
+        {
+            "owner_scope_approved": True,
+            "owner_identity": "oasis-owner",
+            "scope_id": "conflict-scope",
+            "approved_at_utc": "2026-11-18T08:00:00+00:00",
+            "capital_limit_usd": 500,
+            "capital_limit_usd_micros": 5_000_000_000,
+            "daily_loss_limit_usd_micros": 750_000_000,
+            "cumulative_loss_limit_usd_micros": 1_500_000_000,
+            "signature_or_attestation": "owner-ed25519-scope-attestation-ref-04",
+            "dual_provider_and_isolated_signer": {
+                "primary_rpc_provider": "base-publicnode-archive",
+                "secondary_rpc_provider": "alchemy-base-archive",
+                "secondary_rpc_verified": True,
+                "isolated_key_volume": "oasis-canary-keys",
+                "authority_socket_path": "/run/oasis/authority.sock",
+                "isolated_signer_verified": True,
+            },
+        },
+    )
+    conflict_report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=conflict_signoff,
+        risk_config_path=risk_cfg_path,
+    )
+    assert conflict_report.release_permitted is False
+    assert conflict_report.blocked_gates == ("owner_scope_release_manifest_present",)
+
+    # 5. Passing both risk_config and risk_config_path raises ValueError
+    with pytest.raises(ValueError, match="not both"):
+        evaluate_profit_engine_readiness(
+            contracts_out_dir=contracts_dir,
+            risk_config=scaled_cfg,
+            risk_config_path=risk_cfg_path,
+        )
+
+    # 6. Symlink risk_config_path fails closed at Gate 9
+    symlink_cfg = tmp_path / "risk_symlink.json"
+    os.symlink(risk_cfg_path, symlink_cfg)
+    sym_report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=micros_signoff,
+        risk_config_path=symlink_cfg,
+    )
+    assert sym_report.release_permitted is False
+    assert sym_report.blocked_gates == ("owner_scope_release_manifest_present",)

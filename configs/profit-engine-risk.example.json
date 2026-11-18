@@ -1,0 +1,12 @@
+{
+  "schema_version": "oasis.capital-risk-policy.v1",
+  "total_capital_usd_micros": 500000000,
+  "max_daily_loss_usd_micros": 200000000,
+  "max_cumulative_loss_usd_micros": 500000000,
+  "reserve_buffer_bps": 1000,
+  "max_single_clip_share_bps": 5000,
+  "min_clip_usd_micros": 10000000,
+  "assumed_tail_stress_bps": 250,
+  "max_feed_age_seconds": 1800,
+  "usdc_price_usd_micros": 1000000
+}

@@ -420,6 +420,7 @@ def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> 
     _validate_resolved_dns(hostname, port)
 
     opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
         _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )

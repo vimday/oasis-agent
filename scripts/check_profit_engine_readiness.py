@@ -57,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MIN_LCB_NET_EDGE_BPS,
         help=f"Minimum cost-adjusted LCB net edge in bps (default: {DEFAULT_MIN_LCB_NET_EDGE_BPS})",
     )
+    parser.add_argument(
+        "--risk-config",
+        type=Path,
+        default=None,
+        help="Optional CapitalRiskConfig JSON path (default: bounded USD 500 canary policy)",
+    )
     parser.add_argument("--out", type=Path, required=True, help="Output JSON readiness report path")
     parser.add_argument(
         "--require-ready",
@@ -90,10 +96,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         infra_proof_path=args.infra_proof,
         min_shadow_ticks=args.min_shadow_ticks,
         min_lcb_net_edge_bps=args.min_lcb_bps,
+        risk_config_path=args.risk_config,
     )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(report.to_json(indent=2), encoding="utf-8")
+
+    risk_config_sha256: str | None = None
+    owner_gate = next(
+        (g for g in report.gates if g.name == "owner_scope_release_manifest_present"),
+        None,
+    )
+    if owner_gate is not None:
+        for part in owner_gate.observed_value.split(","):
+            if part.startswith("risk_config_sha256="):
+                risk_config_sha256 = part.split("=", 1)[1]
+                break
 
     summary = {
         "schema_version": report.schema_version,
@@ -102,6 +120,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "passed_count": report.passed_count,
         "total_gates": report.total_gates,
         "blocked_gates": list(report.blocked_gates),
+        "risk_config_sha256": risk_config_sha256,
         "report_sha256": report.report_sha256,
     }
     print(json.dumps(summary, indent=2))
