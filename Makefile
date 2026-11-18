@@ -1,6 +1,7 @@
-.PHONY: install lock contract-install test lint format typecheck python-check frontend-check contract-check check report run-server
+.PHONY: install lock contract-install rust-check test lint format typecheck python-check frontend-check contract-check check report run-server
 PYTHON ?= .venv/bin/python
 RUNNER ?= $(PYTHON)
+CARGO ?= cargo
 
 # uv owns the environment: uv.lock is the source of truth; requirements*.lock
 # are hashed exports kept for pip-audit and must never be edited by hand.
@@ -14,6 +15,11 @@ lock:
 
 contract-install:
 	cd contracts && npm ci --ignore-scripts --no-audit --no-fund
+
+rust-check:
+	$(CARGO) fmt --manifest-path crates/Cargo.toml --all -- --check
+	$(CARGO) clippy --manifest-path crates/Cargo.toml --workspace --all-targets -- -D warnings
+	$(CARGO) test --manifest-path crates/Cargo.toml --workspace --offline
 
 test:
 	$(RUNNER) -m pytest

@@ -1,6 +1,6 @@
 # 当前实现与验证边界
 
-更新：2026-11-14。这里记录已实现能力、已验证结果和待解决问题。发布资格以具体代码、
+更新：2026-11-18。这里记录已实现能力、已验证结果和待解决问题。发布资格以具体代码、
 配置、当前证据和授权为准。历史验收记录适用于其原始范围。
 
 ## 当前工作
@@ -33,6 +33,9 @@
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；按所报高度及固定偏移选择未来块 | [Base 12 块](verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)三个过滤器观察到 1 Swap、0 Mint、0 Burn；Elysium 8 块六个过滤器为空，原 Base 14/32 停止记录保留。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。实时唤醒另见下一行。 |
 | 实时 Swap 定向报价 | 冻结触发、费用模型、等预算轮询、原始证据与独立收据复核 | [双链实测](verification/EVENT_QUOTE_RESULTS_20261114.md)。Base 事件组 2/4 两腿在 750 ms 内，轮询 0/4，八条毛差全负，按门槛关闭固定路线。Elysium 改用匹配池的 Aero MetaQuoter，三腿报价两组各 4/4，均超时限且毛差全负，重复收尾块读取超时。 |
+| Rust 快路径内核与有界原子执行器 | `crates/oasis-core` 多 DEX 状态图（V2/V3/Slipstream/V4/AerodromeStable）与 48 步整数闭环求解、`OASIS_AUDIT_V01` 原子熔断环；[OasisAtomicExecutor.sol](../contracts/src/OasisAtomicExecutor.sol) 双平面托管与 `EarlyAborted` 预检、1h 净燃气/分级回滚风控与 ABI 编码器 | 离线差分 0 误差、Foundry 早期中止 62.4k–64.6k gas、Slither 92 合约 0 告警、Rust 15 测全过。尚未接入 Base 实盘日志增量同步与分叉部署；无执行授权。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
+| `eqn.news` 情报与发射台安全门 | 14 频道 REST/WS/MCP 只读客户端、无浮点小数解析、事件冻结优先分类及 `VerifiedSymbolRegistry` 安全发现桥；Base Denim 毫秒级 `LaunchpadSafetyGate`（Clanker/Doppler/Zora/Flaunch/Virtuals 衰减税与防软跑路门禁） | 公开只读捕获 20 条快讯（自动冻结 APT/INJ/SPOT 风险异动，未映射 ticker 不猜合约）；门禁覆盖 `DEFER_UNTIL_DECAY` / `APPROVED` / `REJECTED`。仅影子情报输入，`execution_eligible=false`。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
+| 跨市场 `HedgeGroup`、`AlephTX` 桥与意图填充器 | `ALEPHTX_SHM_V12` 64B Seqlock 跨语言读取器、只读 `ssh aleph` 湖仓探针、幂等防幻影 delta `HedgeGroup` Saga、CEX-DEX 领航/RWA 会话门控基差引擎、`UniswapX V3DutchOrderReactor` 影子填充与统一机会雷达 CLI | Python/Rust 共享内存镜像逐字段对齐；`ssh aleph` 湖仓只读可达；`PriorityOrderReactor` 显式拒绝。尚未接通实盘 CEX 对冲下单或 Base 主网链上填充。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
 | 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
 
 ## Base LP 验收记录
@@ -75,6 +78,7 @@
 
 ## 证据导航
 
+- [自主机会引擎与四路并行升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)
 - [外部审计报告原文](../references/EXTERNAL_OASIS_AUDIT_20261115.md)与[逐项复核](verification/EXTERNAL_OASIS_AUDIT_REVIEW_20261115.md)
 - [Base Denim 头部时间戳观察](verification/BASE_DENIM_HEADER_20261115.md)
 - [Wintermute 对手方观察：归档读取被拒绝](verification/WINTERMUTE_COUNTERPARTY_20261115.md)

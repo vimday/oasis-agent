@@ -38,6 +38,9 @@ contracts/out/
 contracts/broadcast/
 contracts/node_modules/
 
+# Rust build artifacts
+crates/target/
+
 # Local agent / editor tooling
 .claude/settings.local.json
 .claude/worktrees/
