@@ -35,6 +35,12 @@ from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
 
 from oasis_agent.arbitrage.event_quote import GAS_LIMIT_MODEL, ORACLE, V3
+from oasis_agent.cross_venue.coinbase_trade_flow import (
+    CoinbaseTradeFlowError,
+    CoinbaseTradePrint,
+    CoinbaseWebSocketFeed,
+    fetch_coinbase_recent_trades,
+)
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     DEFAULT_CEX_TAKER_FEE_BPS,
     DEFAULT_LATENCY_HAIRCUT_BPS,
@@ -44,6 +50,8 @@ from oasis_agent.cross_venue.live_cex_dex_shadow import (
     LiveCexDexError,
     _validate_coinbase_url,
     build_synthetic_coinbase_transport,
+    compute_coinbase_book_capacity_usdc,
+    evaluate_dynamic_cex_dex_opportunity,
     evaluate_live_cex_dex_shadow,
     fetch_coinbase_l2_book,
     gas_wei_to_usd,
@@ -58,6 +66,7 @@ from oasis_agent.cross_venue.live_cex_dex_shadow import (
 from oasis_agent.cross_venue.maker_hedge_shadow import (
     MakerHedgeConfig,
     MakerHedgeLifecycleTracker,
+    build_maker_quote_candidate,
 )
 from oasis_agent.errors import RpcError
 from oasis_agent.evidence.base_denim import (
@@ -126,6 +135,14 @@ from oasis_agent.models.common import (
     normalize_address,
     normalize_hash32,
     sha256_hex,
+)
+from oasis_agent.risk.capital_policy import (
+    AccountCapitalSnapshot,
+    CapitalRiskConfig,
+    HeadroomAllocation,
+    compute_deployable_headroom,
+    load_capital_risk_config,
+    solve_optimal_notional,
 )
 from oasis_agent.sniping.venues import (
     SLIPSTREAM,
@@ -958,6 +975,154 @@ def _best_pair_or_2hop_quotes(
     return dex_buy_out, trade_notional_token, dex_sell_out
 
 
+def _resolve_campaign_risk_config(
+    *,
+    risk_config: CapitalRiskConfig | None,
+    risk_config_path: Path | None,
+    total_capital_usd: int | None,
+    max_daily_loss_usd: int | None,
+) -> CapitalRiskConfig:
+    if risk_config is not None and risk_config_path is not None:
+        raise ShadowRunnerError("cannot supply both risk_config and risk_config_path")
+    if risk_config_path is not None:
+        base_cfg = load_capital_risk_config(risk_config_path)
+    elif risk_config is not None:
+        if not isinstance(risk_config, CapitalRiskConfig):
+            raise ShadowRunnerError("risk_config must be a CapitalRiskConfig")
+        base_cfg = risk_config
+    else:
+        base_cfg = CapitalRiskConfig()
+
+    if total_capital_usd is not None and (
+        type(total_capital_usd) is not int or total_capital_usd <= 0
+    ):
+        raise ShadowRunnerError("total_capital_usd must be a positive integer")
+    if max_daily_loss_usd is not None and (
+        type(max_daily_loss_usd) is not int or max_daily_loss_usd <= 0
+    ):
+        raise ShadowRunnerError("max_daily_loss_usd must be a positive integer")
+
+    if total_capital_usd is None and max_daily_loss_usd is None:
+        return base_cfg
+
+    new_total = (
+        total_capital_usd * 1_000_000
+        if total_capital_usd is not None
+        else base_cfg.total_capital_usd_micros
+    )
+    new_daily = (
+        max_daily_loss_usd * 1_000_000
+        if max_daily_loss_usd is not None
+        else min(base_cfg.max_daily_loss_usd_micros, new_total)
+    )
+    new_cum = min(
+        new_total,
+        max(
+            new_daily,
+            new_total if total_capital_usd is not None else base_cfg.max_cumulative_loss_usd_micros,
+        ),
+    )
+    new_min_clip = min(base_cfg.min_clip_usd_micros, new_total)
+    return CapitalRiskConfig(
+        total_capital_usd_micros=new_total,
+        max_daily_loss_usd_micros=new_daily,
+        max_cumulative_loss_usd_micros=new_cum,
+        reserve_buffer_bps=base_cfg.reserve_buffer_bps,
+        max_single_clip_share_bps=base_cfg.max_single_clip_share_bps,
+        min_clip_usd_micros=new_min_clip,
+        assumed_tail_stress_bps=base_cfg.assumed_tail_stress_bps,
+        max_feed_age_seconds=base_cfg.max_feed_age_seconds,
+        usdc_price_usd_micros=base_cfg.usdc_price_usd_micros,
+    )
+
+
+def _pool_pair_endpoints(pool_item: Any) -> tuple[str, str] | None:
+    t0 = _attr_or_key(pool_item, "token0", default=None)
+    t1 = _attr_or_key(pool_item, "token1", default=None)
+    if isinstance(t0, str) and isinstance(t1, str) and t0 and t1:
+        return normalize_address(t0), normalize_address(t1)
+    return None
+
+
+def _discover_eligible_coinbase_products(pool_specs: Sequence[Any]) -> tuple[str, ...]:
+    pairs: set[frozenset[str]] = set()
+    for item in pool_specs:
+        endpoints = _pool_pair_endpoints(item)
+        if endpoints is not None:
+            pairs.add(frozenset(endpoints))
+    eligible: list[str] = []
+    has_weth_usdc = frozenset((WETH_ADDR, USDC_ADDR)) in pairs
+    for tok_addr in CEX_DEX_TOKEN_ORDER:
+        meta = TOKEN_META_BY_ADDR[tok_addr]
+        if meta.coinbase_product is None:
+            continue
+        has_direct = frozenset((tok_addr, USDC_ADDR)) in pairs
+        has_2hop = (
+            tok_addr != WETH_ADDR and has_weth_usdc and frozenset((tok_addr, WETH_ADDR)) in pairs
+        )
+        if has_direct or has_2hop:
+            eligible.append(meta.coinbase_product)
+    return tuple(eligible)
+
+
+def _select_dynamic_maker_quotes(
+    *,
+    product_id: str,
+    token_decimals: int,
+    fetched_book: CoinbaseL2Book,
+    quote_fn: Callable[[int], tuple[int | None, int, int | None]],
+    gas_cost_usd: Decimal,
+    maker_config: MakerHedgeConfig,
+    min_clip_usdc: int,
+    max_clip_usdc: int,
+    fallback_notional_usdc: int,
+) -> tuple[int, tuple[int | None, int, int | None]]:
+    book_cap = compute_coinbase_book_capacity_usdc(fetched_book).max_directional_capacity_usdc
+    effective_max = min(max_clip_usdc, book_cap)
+    if effective_max < min_clip_usdc:
+        return fallback_notional_usdc, quote_fn(fallback_notional_usdc)
+
+    def _eval_maker(notional_usdc: int) -> tuple[int, float] | None:
+        dex_buy_out, notional_tok, dex_sell_out = quote_fn(notional_usdc)
+        if notional_tok <= 0 or (dex_buy_out is None and dex_sell_out is None):
+            return None
+        cand = build_maker_quote_candidate(
+            product_id,
+            current_book=fetched_book,
+            trade_notional_usdc=notional_usdc,
+            dex_buy_token_out=dex_buy_out,
+            trade_notional_token=notional_tok,
+            dex_sell_usdc_out=dex_sell_out,
+            token_decimals=token_decimals,
+            gas_cost_usd=gas_cost_usd,
+            config=maker_config,
+        )
+        active_edges: list[float] = []
+        if cand.ask_active and cand.ask_edge_bps is not None:
+            active_edges.append(float(cand.ask_edge_bps))
+        if cand.bid_active and cand.bid_edge_bps is not None:
+            active_edges.append(float(cand.bid_edge_bps))
+        if active_edges:
+            best_edge = max(active_edges)
+        else:
+            all_edges = [
+                float(edge) for edge in (cand.ask_edge_bps, cand.bid_edge_bps) if edge is not None
+            ]
+            if not all_edges:
+                return None
+            best_edge = max(all_edges)
+        profit_micros = round((notional_usdc * best_edge) / 10_000.0)
+        return profit_micros, best_edge
+
+    opt = solve_optimal_notional(
+        min_notional_raw=min_clip_usdc,
+        max_notional_raw=effective_max,
+        evaluate_fn=_eval_maker,
+    )
+    chosen = min_clip_usdc if opt.optimal_notional_raw is None else opt.optimal_notional_raw
+    return chosen, quote_fn(chosen)
+
+
 def _fetch_coinbase_book_for_tick(
     product_id: str,
     *,
@@ -1547,12 +1712,30 @@ def run_multicall_campaign(
     fixture_scenario: str = "aligned",
     extra_fixture_pools: Sequence[BasePoolSpec] = (),
     include_ecosystem_tokens: bool = False,
+    risk_config: CapitalRiskConfig | None = None,
+    risk_config_path: Path | None = None,
+    total_capital_usd: int | None = None,
+    max_daily_loss_usd: int | None = None,
+    dynamic_sizing: bool = False,
+    enable_coinbase_ws: bool = False,
+    ws_feed_factory: Callable[[Sequence[str]], CoinbaseWebSocketFeed] | None = None,
+    trades_transport: Callable[[str, float], bytes] | None = None,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
         raise ShadowRunnerError(f"unsupported campaign mode: {mode!r}")
     if type(include_ecosystem_tokens) is not bool:
         raise ShadowRunnerError("include_ecosystem_tokens must be a boolean")
+    if type(dynamic_sizing) is not bool:
+        raise ShadowRunnerError("dynamic_sizing must be a boolean")
+    if type(enable_coinbase_ws) is not bool:
+        raise ShadowRunnerError("enable_coinbase_ws must be a boolean")
+    active_risk_cfg = _resolve_campaign_risk_config(
+        risk_config=risk_config,
+        risk_config_path=risk_config_path,
+        total_capital_usd=total_capital_usd,
+        max_daily_loss_usd=max_daily_loss_usd,
+    )
     if type(ticks) is not int or ticks <= 0:
         raise ShadowRunnerError("ticks must be a positive integer")
     if type(interval_ms) is not int or interval_ms < 0:
@@ -1645,9 +1828,31 @@ def run_multicall_campaign(
     cex_best_net_values: list[float] = []
     cex_best_raw_values: list[float] = []
     cex_best_maker_values: list[float] = []
-    maker_tracker = MakerHedgeLifecycleTracker(
-        MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
-    )
+    maker_config = MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
+    maker_tracker = MakerHedgeLifecycleTracker(maker_config)
+    ws_feed: CoinbaseWebSocketFeed | None = None
+    ws_candidate_products: tuple[str, ...] = ()
+    ws_watermarks: dict[str, int] = {}
+    ws_total_prints = 0
+    ws_prints_by_product_counts: dict[str, int] = {}
+    ws_gap_events = 0
+    ws_reconnects = 0
+    ws_rest_fallback_calls = 0
+    ws_connected_ticks = 0
+    shadow_daily_loss_usd_micros = 0
+    shadow_cumulative_loss_usd_micros = 0
+    headroom_max_clips_micros: list[int] = []
+    headroom_blocked_ticks = 0
+    selected_taker_notionals: list[int] = []
+    selected_maker_notionals: list[int] = []
+    final_headroom: HeadroomAllocation | None = None
+
+    def _open_ws(products: Sequence[str]) -> CoinbaseWebSocketFeed | None:
+        if not products:
+            return None
+        if ws_feed_factory is not None:
+            return ws_feed_factory(products)
+        return CoinbaseWebSocketFeed(products, timeout_s=float(timeout_s))
 
     try:
         pool_specs_raw: Sequence[Any]
@@ -1685,6 +1890,18 @@ def run_multicall_campaign(
         universe_pool_count = len(pool_specs_raw)
         if universe_pool_count == 0:
             raise ShadowRunnerError("discovered Base universe contains zero pools")
+
+        ws_candidate_products = _discover_eligible_coinbase_products(pool_specs_raw)
+        if (
+            enable_coinbase_ws
+            and ws_candidate_products
+            and (mode == "public-shadow" or ws_feed_factory is not None)
+        ):
+            try:
+                ws_feed = _open_ws(ws_candidate_products)
+            except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+                ws_feed = None
+                ws_gap_events += 1
 
         def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
             _reserve_rpc(2)
@@ -1770,32 +1987,95 @@ def run_multicall_campaign(
             l2_gas_usdc = (l2_gas_cost_wei * eth_price_micro_usdc + 10**18 - 1) // 10**18
             l1_fee_usdc = (snapshot.l1_data_fee_wei * eth_price_micro_usdc + 10**18 - 1) // 10**18
 
-            weth_scan = graph.scan_cycles(
-                [WETH_ADDR],
-                max_hops=3,
-                min_amount_in=WETH_SCAN_MIN_WEI,
-                max_amount_in=WETH_SCAN_MAX_WEI,
-                gas_cost_in_base=l2_gas_cost_wei,
-                l1_fee_in_base=snapshot.l1_data_fee_wei,
-                min_net_profit=1,
-                block_number=snapshot.block_number,
-                timestamp_ns=snapshot.base_time_ms * 1_000_000,
+            acct_snap = AccountCapitalSnapshot(
+                cash_available_usd_micros=active_risk_cfg.total_capital_usd_micros,
+                locked_inventory_usd_micros=0,
+                pending_commitments_usd_micros=0,
+                realized_daily_loss_usd_micros=shadow_daily_loss_usd_micros,
+                unrealized_drawdown_usd_micros=0,
+                cumulative_loss_usd_micros=shadow_cumulative_loss_usd_micros,
+                unresolved_residuals=0,
+                halted=False,
             )
-            usdc_scan = graph.scan_cycles(
-                [USDC_ADDR],
-                max_hops=3,
-                min_amount_in=USDC_SCAN_MIN_RAW,
-                max_amount_in=USDC_SCAN_MAX_RAW,
-                gas_cost_in_base=l2_gas_usdc,
-                l1_fee_in_base=l1_fee_usdc,
-                min_net_profit=1,
-                block_number=snapshot.block_number,
-                timestamp_ns=snapshot.base_time_ms * 1_000_000,
-            )
+            headroom = compute_deployable_headroom(active_risk_cfg, acct_snap)
+            final_headroom = headroom
+            headroom_max_clips_micros.append(headroom.max_clip_usd_micros)
+            if not headroom.can_deploy:
+                headroom_blocked_ticks += 1
 
-            rust_raw_candidates = [
-                c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0
-            ]
+            min_clip_usdc = active_risk_cfg.usd_micros_to_usdc_raw(headroom.min_clip_usd_micros)
+            max_clip_usdc = active_risk_cfg.usd_micros_to_usdc_raw(headroom.max_clip_usd_micros)
+
+            if dynamic_sizing and headroom.can_deploy and max_clip_usdc > 0:
+                scan_weth_max = max(
+                    WETH_SCAN_MIN_WEI,
+                    (headroom.max_clip_usd_micros * 10**18) // max(1, eth_price_micro_usdc),
+                )
+                scan_weth_min = min(
+                    scan_weth_max,
+                    max(
+                        WETH_SCAN_MIN_WEI,
+                        (headroom.min_clip_usd_micros * 10**18) // max(1, eth_price_micro_usdc),
+                    ),
+                )
+                scan_usdc_max = max(USDC_SCAN_MIN_RAW, max_clip_usdc)
+                scan_usdc_min = min(scan_usdc_max, max(USDC_SCAN_MIN_RAW, min_clip_usdc))
+            else:
+                scan_weth_min = WETH_SCAN_MIN_WEI
+                scan_weth_max = WETH_SCAN_MAX_WEI
+                scan_usdc_min = USDC_SCAN_MIN_RAW
+                scan_usdc_max = USDC_SCAN_MAX_RAW
+
+            if dynamic_sizing and not headroom.can_deploy:
+                weth_scan = graph.scan_cycles(
+                    [WETH_ADDR],
+                    max_hops=3,
+                    min_amount_in=WETH_SCAN_MIN_WEI,
+                    max_amount_in=WETH_SCAN_MIN_WEI,
+                    gas_cost_in_base=l2_gas_cost_wei,
+                    l1_fee_in_base=snapshot.l1_data_fee_wei,
+                    min_net_profit=1,
+                    block_number=snapshot.block_number,
+                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+                )
+                usdc_scan = graph.scan_cycles(
+                    [USDC_ADDR],
+                    max_hops=3,
+                    min_amount_in=USDC_SCAN_MIN_RAW,
+                    max_amount_in=USDC_SCAN_MIN_RAW,
+                    gas_cost_in_base=l2_gas_usdc,
+                    l1_fee_in_base=l1_fee_usdc,
+                    min_net_profit=1,
+                    block_number=snapshot.block_number,
+                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+                )
+                rust_raw_candidates = []
+            else:
+                weth_scan = graph.scan_cycles(
+                    [WETH_ADDR],
+                    max_hops=3,
+                    min_amount_in=scan_weth_min,
+                    max_amount_in=scan_weth_max,
+                    gas_cost_in_base=l2_gas_cost_wei,
+                    l1_fee_in_base=snapshot.l1_data_fee_wei,
+                    min_net_profit=1,
+                    block_number=snapshot.block_number,
+                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+                )
+                usdc_scan = graph.scan_cycles(
+                    [USDC_ADDR],
+                    max_hops=3,
+                    min_amount_in=scan_usdc_min,
+                    max_amount_in=scan_usdc_max,
+                    gas_cost_in_base=l2_gas_usdc,
+                    l1_fee_in_base=l1_fee_usdc,
+                    min_net_profit=1,
+                    block_number=snapshot.block_number,
+                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+                )
+                rust_raw_candidates = [
+                    c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0
+                ]
             rust_raw_candidates.sort(
                 key=lambda c: (c.net_profit * 10_000) / max(1, c.optimal_amount_in),
                 reverse=True,
@@ -1911,6 +2191,79 @@ def run_multicall_campaign(
                 atomic_positive = False
             atomic_net_bps_series.append(atomic_best_net_bps)
 
+            # Drain Coinbase WebSocket trade prints once per tick (REST /trades fallback on gap)
+            ws_gap_tick = False
+            tick_prints_by_product: dict[str, list[CoinbaseTradePrint]] = {}
+            if enable_coinbase_ws:
+                if (
+                    ws_feed is None
+                    and ws_candidate_products
+                    and (mode == "public-shadow" or ws_feed_factory is not None)
+                ):
+                    ws_gap_tick = True
+                    try:
+                        ws_feed = _open_ws(ws_candidate_products)
+                        ws_reconnects += 1
+                    except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+                        ws_feed = None
+                if ws_feed is not None:
+                    try:
+                        drained_prints, ws_gap = ws_feed.drain_events()
+                        ws_connected_ticks += 1
+                        if ws_gap:
+                            ws_gap_tick = True
+                            ws_gap_events += 1
+                            with suppress(Exception):
+                                ws_feed.close()
+                            ws_feed = None
+                        for tp in drained_prints:
+                            prev_tid = ws_watermarks.get(tp.product_id, 0)
+                            if tp.trade_id > prev_tid:
+                                ws_watermarks[tp.product_id] = tp.trade_id
+                                tick_prints_by_product.setdefault(tp.product_id, []).append(tp)
+                                ws_total_prints += 1
+                                ws_prints_by_product_counts[tp.product_id] = (
+                                    ws_prints_by_product_counts.get(tp.product_id, 0) + 1
+                                )
+                    except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+                        ws_gap_tick = True
+                        ws_gap_events += 1
+                        with suppress(Exception):
+                            ws_feed.close()
+                        ws_feed = None
+                is_live_net = (
+                    mode == "public-shadow" and rpc_transport is None and coinbase_transport is None
+                )
+                if (
+                    (ws_gap_tick or ws_feed is None)
+                    and ws_candidate_products
+                    and (trades_transport is not None or is_live_net)
+                ):
+                    active_trades_tr = (
+                        trades_transport if trades_transport is not None else active_cb_transport
+                    )
+                    for fb_prod in ws_candidate_products:
+                        ws_rest_fallback_calls += 1
+                        try:
+                            rest_prints = fetch_coinbase_recent_trades(
+                                fb_prod,
+                                limit=25,
+                                since_trade_id=ws_watermarks.get(fb_prod),
+                                timeout_s=float(timeout_s),
+                                transport=active_trades_tr,
+                            )
+                        except (CoinbaseTradeFlowError, OSError, urllib.error.URLError):
+                            continue
+                        for tp in rest_prints:
+                            prev_tid = ws_watermarks.get(tp.product_id, 0)
+                            if tp.trade_id > prev_tid:
+                                ws_watermarks[tp.product_id] = tp.trade_id
+                                tick_prints_by_product.setdefault(tp.product_id, []).append(tp)
+                                ws_total_prints += 1
+                                ws_prints_by_product_counts[tp.product_id] = (
+                                    ws_prints_by_product_counts.get(tp.product_id, 0) + 1
+                                )
+
             # Evaluate Coinbase <-> Base CEX-DEX & Maker-Hedge lifecycle across 1/2-hop pairs
             gas_cost_usd = gas_wei_to_usd(total_gas_cost_wei, eth_price_usd)
             cex_evals_dict: dict[str, dict[str, Any]] = {}
@@ -1920,13 +2273,33 @@ def run_multicall_campaign(
                 meta = TOKEN_META_BY_ADDR[tok_addr]
                 if meta.coinbase_product is None:
                     continue
-                dex_buy_out, notional_tok, dex_sell_out = _best_pair_or_2hop_quotes(
-                    graph,
-                    snapshot.nodes,
-                    token_addr=tok_addr,
-                    token_decimals=meta.decimals,
-                    trade_notional_usdc=trade_notional_usdc,
+                dex_quote_cache: dict[int, tuple[int | None, int, int | None]] = {}
+
+                def _quote_dex_cached(
+                    notional_usdc: int,
+                    _graph: FastpathPoolGraph = graph,
+                    _nodes: tuple[PoolNode, ...] = snapshot.nodes,
+                    _tok: str = tok_addr,
+                    _dec: int = meta.decimals,
+                    _cache: dict[int, tuple[int | None, int, int | None]] = dex_quote_cache,
+                ) -> tuple[int | None, int, int | None]:
+                    cached = _cache.get(notional_usdc)
+                    if cached is not None:
+                        return cached
+                    quoted = _best_pair_or_2hop_quotes(
+                        _graph,
+                        _nodes,
+                        token_addr=_tok,
+                        token_decimals=_dec,
+                        trade_notional_usdc=notional_usdc,
+                    )
+                    _cache[notional_usdc] = quoted
+                    return quoted
+
+                probe_notional = (
+                    min_clip_usdc if dynamic_sizing and min_clip_usdc > 0 else trade_notional_usdc
                 )
+                dex_buy_out, notional_tok, dex_sell_out = _quote_dex_cached(probe_notional)
                 if notional_tok <= 0:
                     continue
                 products_evaluated.add(meta.coinbase_product)
@@ -1962,19 +2335,60 @@ def run_multicall_campaign(
                     cex_degraded_evals += 1
                     continue
 
-                ev = evaluate_live_cex_dex_shadow(
-                    product_or_symbol=meta.coinbase_product,
-                    trade_notional_usdc=trade_notional_usdc,
-                    dex_buy_token_for_usdc_out=dex_buy_out,
-                    trade_notional_token=notional_tok,
-                    dex_sell_token_for_usdc_out=dex_sell_out,
-                    gas_cost_usd=gas_cost_usd,
-                    cex_taker_fee_bps=cex_taker_fee_bps,
-                    latency_haircut_bps=latency_haircut_bps,
-                    timeout_s=float(timeout_s),
-                    book=fetched_book,
-                    transport=active_cb_transport,
-                )
+                if dynamic_sizing:
+                    if not headroom.can_deploy or max_clip_usdc < min_clip_usdc:
+                        cb_spec = resolve_coinbase_product(meta.coinbase_product)
+                        ev = CexDexTickEvaluation(
+                            product_id=cb_spec.product_id,
+                            token_symbol=cb_spec.token_symbol,
+                            status="degraded",
+                            error_reason=f"risk_headroom_blocked:{headroom.block_reason}",
+                            cex_taker_fee_bps=float(cex_taker_fee_bps),
+                            latency_haircut_bps=float(latency_haircut_bps),
+                            gas_cost_usd=round(float(gas_cost_usd), 6),
+                            best_bid_usd=round(float(fetched_book.best_bid), 6),
+                            best_ask_usd=round(float(fetched_book.best_ask), 6),
+                            cex_mid_usd=round(float(fetched_book.mid_price), 6),
+                            book_sequence=fetched_book.sequence,
+                            book_sha256=fetched_book.raw_sha256,
+                            buy_dex_sell_cex=None,
+                            buy_cex_sell_dex=None,
+                            best_direction=None,
+                            best_net_bps=None,
+                            best_raw_spread_bps=None,
+                            maker_zero_fee_net_bps=None,
+                            book_level=fetched_book.book_level,
+                            selected_notional_usdc=None,
+                            book_capacity_usdc=None,
+                        )
+                    else:
+                        ev = evaluate_dynamic_cex_dex_opportunity(
+                            product_or_symbol=meta.coinbase_product,
+                            book=fetched_book,
+                            min_notional_usdc=min_clip_usdc,
+                            max_notional_usdc=max_clip_usdc,
+                            quote_dex_for_usdc_fn=_quote_dex_cached,
+                            gas_cost_usd=gas_cost_usd,
+                            cex_taker_fee_bps=cex_taker_fee_bps,
+                            latency_haircut_bps=latency_haircut_bps,
+                        )
+                        if ev.selected_notional_usdc is not None:
+                            selected_taker_notionals.append(ev.selected_notional_usdc)
+                else:
+                    ev = evaluate_live_cex_dex_shadow(
+                        product_or_symbol=meta.coinbase_product,
+                        trade_notional_usdc=trade_notional_usdc,
+                        dex_buy_token_for_usdc_out=dex_buy_out,
+                        trade_notional_token=notional_tok,
+                        dex_sell_token_for_usdc_out=dex_sell_out,
+                        gas_cost_usd=gas_cost_usd,
+                        cex_taker_fee_bps=cex_taker_fee_bps,
+                        latency_haircut_bps=latency_haircut_bps,
+                        timeout_s=float(timeout_s),
+                        book=fetched_book,
+                        transport=active_cb_transport,
+                    )
+
                 cex_evals_dict[meta.coinbase_product] = ev.to_dict()
                 if ev.status == "ok" and ev.best_net_bps is not None:
                     cex_ok_evals += 1
@@ -1982,23 +2396,71 @@ def run_multicall_campaign(
                 else:
                     cex_degraded_evals += 1
 
-                maker_step = maker_tracker.step(
-                    meta.coinbase_product,
-                    current_book=fetched_book,
-                    trade_notional_usdc=trade_notional_usdc,
-                    dex_buy_token_out=dex_buy_out,
-                    trade_notional_token=notional_tok,
-                    dex_sell_usdc_out=dex_sell_out,
-                    token_decimals=meta.decimals,
-                    gas_cost_usd=gas_cost_usd,
-                )
-                maker_tick_dict[meta.coinbase_product] = {
-                    "quote": maker_step.quote.to_dict(),
-                    "strict_fills": [f.to_dict() for f in maker_step.strict_fills],
-                    "touch_lift_fills": [f.to_dict() for f in maker_step.touch_lift_fills],
-                    "unhedged_fill_reasons": list(maker_step.unhedged_fill_reasons),
-                    "execution_eligible": False,
-                }
+                if dynamic_sizing and headroom.can_deploy and max_clip_usdc >= min_clip_usdc:
+                    maker_notional_usdc, (m_buy_out, m_tok, m_sell_out) = (
+                        _select_dynamic_maker_quotes(
+                            product_id=meta.coinbase_product,
+                            token_decimals=meta.decimals,
+                            fetched_book=fetched_book,
+                            quote_fn=_quote_dex_cached,
+                            gas_cost_usd=gas_cost_usd,
+                            maker_config=maker_config,
+                            min_clip_usdc=min_clip_usdc,
+                            max_clip_usdc=max_clip_usdc,
+                            fallback_notional_usdc=min_clip_usdc,
+                        )
+                    )
+                    selected_maker_notionals.append(maker_notional_usdc)
+                elif dynamic_sizing:
+                    maker_notional_usdc = probe_notional
+                    m_buy_out, m_tok, m_sell_out = dex_buy_out, notional_tok, dex_sell_out
+                else:
+                    maker_notional_usdc = trade_notional_usdc
+                    m_buy_out, m_tok, m_sell_out = dex_buy_out, notional_tok, dex_sell_out
+
+                prod_prints = tuple(tick_prints_by_product.get(meta.coinbase_product, ()))
+                if not dynamic_sizing or (headroom.can_deploy and max_clip_usdc >= min_clip_usdc):
+                    maker_step = maker_tracker.step(
+                        meta.coinbase_product,
+                        current_book=fetched_book,
+                        trade_notional_usdc=maker_notional_usdc,
+                        dex_buy_token_out=m_buy_out,
+                        trade_notional_token=m_tok,
+                        dex_sell_usdc_out=m_sell_out,
+                        token_decimals=meta.decimals,
+                        gas_cost_usd=gas_cost_usd,
+                        recent_trades=prod_prints,
+                        feed_gap_detected=ws_gap_tick,
+                    )
+                    for realized_fill in (*maker_step.fifo_fills, *maker_step.strict_fills):
+                        if realized_fill.realized_net_profit_usd < 0:
+                            loss_micros = round(
+                                float(-realized_fill.realized_net_profit_usd) * 1_000_000
+                            )
+                            shadow_daily_loss_usd_micros += loss_micros
+                            shadow_cumulative_loss_usd_micros += loss_micros
+                    maker_tick_dict[meta.coinbase_product] = {
+                        "selected_notional_usdc": maker_notional_usdc,
+                        "prints_observed": len(prod_prints),
+                        "quote": maker_step.quote.to_dict(),
+                        "strict_fills": [f.to_dict() for f in maker_step.strict_fills],
+                        "fifo_fills": [f.to_dict() for f in maker_step.fifo_fills],
+                        "touch_lift_fills": [f.to_dict() for f in maker_step.touch_lift_fills],
+                        "unhedged_fill_reasons": list(maker_step.unhedged_fill_reasons),
+                        "execution_eligible": False,
+                    }
+                else:
+                    maker_tick_dict[meta.coinbase_product] = {
+                        "selected_notional_usdc": 0,
+                        "prints_observed": len(prod_prints),
+                        "blocked_reason": headroom.block_reason,
+                        "quote": None,
+                        "strict_fills": [],
+                        "fifo_fills": [],
+                        "touch_lift_fills": [],
+                        "unhedged_fill_reasons": [],
+                        "execution_eligible": False,
+                    }
 
             cex_dex_best_net_bps: float | None = None
             cex_dex_best_raw_bps: float | None = None
@@ -2062,6 +2524,7 @@ def run_multicall_campaign(
                 "atomic_best_gross_bps": atomic_best_gross_bps,
                 "atomic_best_net_bps": atomic_best_net_bps,
                 "atomic_positive": atomic_positive,
+                "headroom": headroom.to_dict(),
                 "cex_dex_evaluations": cex_evals_dict,
                 "maker_hedge": maker_tick_dict,
                 "cex_dex_best_net_bps": cex_dex_best_net_bps,
@@ -2090,6 +2553,9 @@ def run_multicall_campaign(
     finally:
         if jsonl_handle is not None:
             jsonl_handle.close()
+        if ws_feed is not None:
+            with suppress(Exception):
+                ws_feed.close()
         if http_pool is not None:
             http_pool.close()
 
@@ -2143,13 +2609,68 @@ def run_multicall_campaign(
         "latency_haircut_bps": float(latency_haircut_bps),
     }
 
+    headroom_summary: dict[str, Any] = {
+        "risk_config_sha256": active_risk_cfg.config_sha256,
+        "total_capital_usd_micros": active_risk_cfg.total_capital_usd_micros,
+        "max_daily_loss_usd_micros": active_risk_cfg.max_daily_loss_usd_micros,
+        "max_cumulative_loss_usd_micros": active_risk_cfg.max_cumulative_loss_usd_micros,
+        "min_clip_usd_micros": active_risk_cfg.min_clip_usd_micros,
+        "min_max_clip_usd_micros": (
+            min(headroom_max_clips_micros) if headroom_max_clips_micros else 0
+        ),
+        "max_max_clip_usd_micros": (
+            max(headroom_max_clips_micros) if headroom_max_clips_micros else 0
+        ),
+        "blocked_ticks": headroom_blocked_ticks,
+        "final_remaining_daily_loss_usd_micros": (
+            final_headroom.remaining_daily_loss_usd_micros
+            if final_headroom is not None
+            else active_risk_cfg.max_daily_loss_usd_micros
+        ),
+        "final_remaining_cumulative_loss_usd_micros": (
+            final_headroom.remaining_cumulative_loss_usd_micros
+            if final_headroom is not None
+            else active_risk_cfg.max_cumulative_loss_usd_micros
+        ),
+        "dynamic_taker_clip_count": len(selected_taker_notionals),
+        "dynamic_taker_min_usdc": (
+            min(selected_taker_notionals) if selected_taker_notionals else None
+        ),
+        "dynamic_taker_max_usdc": (
+            max(selected_taker_notionals) if selected_taker_notionals else None
+        ),
+        "dynamic_maker_clip_count": len(selected_maker_notionals),
+        "dynamic_maker_min_usdc": (
+            min(selected_maker_notionals) if selected_maker_notionals else None
+        ),
+        "dynamic_maker_max_usdc": (
+            max(selected_maker_notionals) if selected_maker_notionals else None
+        ),
+    }
+
+    coinbase_trade_flow_summary: dict[str, Any] = {
+        "ws_enabled": enable_coinbase_ws,
+        "ws_products_subscribed": list(ws_candidate_products) if enable_coinbase_ws else [],
+        "ws_connected_ticks": ws_connected_ticks,
+        "ws_total_prints_received": ws_total_prints,
+        "ws_prints_by_product": dict(sorted(ws_prints_by_product_counts.items())),
+        "ws_gap_events": ws_gap_events,
+        "ws_reconnects": ws_reconnects,
+        "ws_rest_fallback_calls": ws_rest_fallback_calls,
+    }
+
     summary_body: dict[str, Any] = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "mode": mode,
         "chain_id": BASE_CHAIN_ID,
         "execution_eligible": False,
         "include_ecosystem_tokens": include_ecosystem_tokens,
+        "dynamic_sizing_enabled": dynamic_sizing,
+        "coinbase_ws_enabled": enable_coinbase_ws,
         "trade_notional_usdc": trade_notional_usdc,
+        "risk_policy": active_risk_cfg.to_dict(),
+        "headroom_summary": headroom_summary,
+        "coinbase_trade_flow_summary": coinbase_trade_flow_summary,
         "rpc_origin": origin,
         "ticks_completed": ticks_completed,
         "positive_net_ticks": positive_net_ticks,
@@ -2253,6 +2774,36 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--risk-config",
+        type=Path,
+        default=None,
+        help="Optional CapitalRiskConfig JSON path overriding default capital/loss bounds.",
+    )
+    parser.add_argument(
+        "--total-capital-usd",
+        type=int,
+        default=None,
+        help="Optional total capital ceiling override in integer USD.",
+    )
+    parser.add_argument(
+        "--max-daily-loss-usd",
+        type=int,
+        default=None,
+        help="Optional daily loss limit override in integer USD.",
+    )
+    parser.add_argument(
+        "--dynamic-sizing",
+        action="store_true",
+        default=False,
+        help="Dynamically size clips from book/DEX capacity and remaining risk headroom.",
+    )
+    parser.add_argument(
+        "--enable-coinbase-ws",
+        action="store_true",
+        default=False,
+        help="Stream live Coinbase Exchange `matches` prints for FIFO Maker-Hedge simulation.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -2278,6 +2829,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             latency_haircut_bps=args.latency_haircut_bps,
             trade_notional_usdc=args.trade_notional_usdc,
             include_ecosystem_tokens=args.include_ecosystem_tokens,
+            risk_config_path=args.risk_config,
+            total_capital_usd=args.total_capital_usd,
+            max_daily_loss_usd=args.max_daily_loss_usd,
+            dynamic_sizing=args.dynamic_sizing,
+            enable_coinbase_ws=args.enable_coinbase_ws,
         )
     except (
         OSError,
@@ -2297,6 +2853,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "chain_id": result.summary["chain_id"],
                 "execution_eligible": result.summary["execution_eligible"],
                 "include_ecosystem_tokens": result.summary["include_ecosystem_tokens"],
+                "dynamic_sizing_enabled": result.summary["dynamic_sizing_enabled"],
+                "coinbase_ws_enabled": result.summary["coinbase_ws_enabled"],
                 "ticks_completed": result.summary["ticks_completed"],
                 "positive_net_ticks": result.summary["positive_net_ticks"],
                 "atomic_positive_net_ticks": result.summary["atomic_positive_net_ticks"],
@@ -2307,6 +2865,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "rpc_calls_used": result.summary["rpc_calls_used"],
                 "universe_pool_count": result.summary["universe_pool_count"],
                 "unique_blocks_observed": result.summary["unique_blocks_observed"],
+                "headroom_summary": result.summary["headroom_summary"],
+                "coinbase_trade_flow_summary": result.summary["coinbase_trade_flow_summary"],
                 "maker_hedge_summary": result.summary["maker_hedge_summary"],
                 "summary_sha256": result.summary["summary_sha256"],
             },

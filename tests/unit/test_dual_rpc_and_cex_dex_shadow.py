@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from oasis_agent.arbitrage.event_quote import V3
+from oasis_agent.cross_venue.coinbase_trade_flow import CoinbaseTradePrint
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     CoinbaseL2Book,
     CoinbaseL2Level,
@@ -1604,3 +1605,284 @@ def test_campaign_ecosystem_2hop_coinbase_fallback_and_maker_hedge(
     )
     assert rc == 0
     assert captured_cli_kw["include_ecosystem_tokens"] is True
+
+
+def test_campaign_dynamic_sizing_risk_headroom_and_ws_fifo_fills(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    cbbtc_addr = normalize_address(CBBTC)
+    bc_t0, bc_t1, bc_d0, bc_d1, bc_r0, bc_r1 = (
+        (cbbtc_addr, usdc_addr, 8, 6, 100 * 10**8, 9_000_000 * 10**6)
+        if cbbtc_addr < usdc_addr
+        else (usdc_addr, cbbtc_addr, 6, 8, 9_000_000 * 10**6, 100 * 10**8)
+    )
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(941),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=500 * 10**18,
+            reserve1=1_500_000 * 10**6,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(942),
+            label="v2_cbbtc_usdc",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            token0=bc_t0,
+            token1=bc_t1,
+            decimals0=bc_d0,
+            decimals1=bc_d1,
+            fixed_fee_pips=3000,
+            tick_spacing=None,
+            factory=_synth_addr(9942),
+            reserve0=bc_r0,
+            reserve1=bc_r1,
+        ),
+    )
+
+    snap_idx = {"n": 0}
+
+    def _mock_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        snap_idx["n"] += 1
+        bnum = 59_200_000 + snap_idx["n"]
+        ts_ms = 1_795_500_000_000 + snap_idx["n"] * 1000
+        liq = 2_000_000_000_000_000_000
+        t = -196_258  # ~3068 USDC/WETH in V3
+        nodes = (
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[0].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_price_at_tick(t),
+                tick=t,
+                liquidity=liq,
+                ticks=(TickLiquidity(t - 500, liq), TickLiquidity(t + 500, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[1].pool_id,
+                kind=PoolKind.V2,
+                token0=bc_t0,
+                token1=bc_t1,
+                decimals0=bc_d0,
+                decimals1=bc_d1,
+                fee_pips=3000,
+                reserve0=bc_r0,
+                reserve1=bc_r1,
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+        )
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=_synth_hash(f"dyn-blk-{bnum}"),
+            parent_hash=_synth_hash(f"dyn-blk-{bnum - 1}"),
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=nodes,
+            balances_by_pool={
+                disc_pools[0].pool_id: (500 * 10**18, 1_500_000 * 10**6),
+                disc_pools[1].pool_id: (bc_r0, bc_r1),
+            },
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools",
+        lambda *_a, **_k: disc_pools,
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _mock_snap,
+    )
+
+    def _mock_cb_transport(url: str, _timeout: float) -> bytes:
+        if "BTC-USD" in url:
+            if "level=2" in url:
+                raise LiveCexDexError("Coinbase response exceeded MAX_RESPONSE_BYTES limit")
+            # L1 top-of-book depth is ONLY 0.002 BTC * 90000 = $180 (< old hardcoded $1000!)
+            btc_book = build_synthetic_coinbase_l2_book(
+                "BTC-USD", mid_price=Decimal("90000.00"), level_size=Decimal("0.002"), levels=1
+            )
+            return serialize_coinbase_book_payload(btc_book)
+        # ETH-USD quotes mid $3088 (~+60 bps above DEX ~$3070), deep $30k/lvl -> Maker Ask active!
+        eth_book = build_synthetic_coinbase_l2_book(
+            "ETH-USD", mid_price=Decimal("3088.00"), level_size=Decimal("10.0"), levels=5
+        )
+        return serialize_coinbase_book_payload(eth_book)
+
+    class _FakeWsFeed:
+        def __init__(self, product_ids: Any) -> None:
+            self.product_ids = tuple(product_ids)
+            self._tick = 0
+            self.closed = False
+
+        def drain_events(self) -> tuple[tuple[CoinbaseTradePrint, ...], bool]:
+            self._tick += 1
+            if self._tick == 1:
+                # Seed print on tick 0 before tick 0 quote rests
+                return (
+                    (
+                        CoinbaseTradePrint(
+                            product_id="ETH-USD",
+                            trade_id=100,
+                            price=Decimal("3088.00"),
+                            size=Decimal("0.1"),
+                            maker_side="sell",
+                            traded_at_utc="2026-11-18T11:30:00Z",
+                        ),
+                    ),
+                    False,
+                )
+            # Tick 2 print clears the resting queue and fills our active ETH-USD Ask!
+            return (
+                (
+                    CoinbaseTradePrint(
+                        product_id="ETH-USD",
+                        trade_id=101,
+                        price=Decimal("3092.00"),
+                        size=Decimal("2.0"),
+                        maker_side="sell",
+                        traded_at_utc="2026-11-18T11:30:01Z",
+                    ),
+                ),
+                False,
+            )
+
+        def close(self) -> None:
+            self.closed = True
+
+    ws_created: list[_FakeWsFeed] = []
+
+    def _ws_factory(products: Any) -> Any:
+        feed = _FakeWsFeed(products)
+        ws_created.append(feed)
+        return feed
+
+    # 1. Default $500/$200 config -> headroom max_clip = $225 (`225_000_000`)
+    out_500 = tmp_path / "dyn-500"
+    res_500 = run_multicall_campaign(
+        out_dir=out_500,
+        mode="public-shadow",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://dyn-test.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_mock_cb_transport,
+        sleeper=_noop_sleep,
+        risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
+        dynamic_sizing=True,
+        enable_coinbase_ws=True,
+        ws_feed_factory=_ws_factory,
+    )
+    assert res_500.summary["execution_eligible"] is False
+    assert res_500.summary["dynamic_sizing_enabled"] is True
+    assert res_500.summary["coinbase_ws_enabled"] is True
+    assert res_500.summary["headroom_summary"]["max_max_clip_usd_micros"] == 225_000_000
+    # BTC-USD L1 has only $180 capacity -> dynamic sizer auto-scales down to <= $180 and succeeds!
+    btc_eval = res_500.records[0]["cex_dex_evaluations"]["BTC-USD"]
+    assert btc_eval["status"] == "ok"
+    assert btc_eval["book_level"] == 1
+    assert btc_eval["selected_notional_usdc"] <= 180_000_000
+    # ETH-USD WS FIFO print triggers trade_flow_fifo fill on Tick 2!
+    assert res_500.summary["coinbase_trade_flow_summary"]["ws_total_prints_received"] == 2
+    assert res_500.summary["maker_hedge_summary"]["trade_flow_fifo_fills"] >= 1
+    assert ws_created[0].closed is True
+
+    # 2. Scaled $5,000/$750 override -> Maker expands above $500 on deep ETH while BTC <= $180
+    out_5000 = tmp_path / "dyn-5000"
+    res_5000 = run_multicall_campaign(
+        out_dir=out_5000,
+        mode="public-shadow",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://dyn-test-5000.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_mock_cb_transport,
+        sleeper=_noop_sleep,
+        total_capital_usd=5000,
+        max_daily_loss_usd=750,
+        dynamic_sizing=True,
+    )
+    assert res_5000.summary["headroom_summary"]["total_capital_usd_micros"] == 5_000_000_000
+    assert res_5000.summary["headroom_summary"]["max_max_clip_usd_micros"] == 2_250_000_000
+    assert (
+        res_5000.records[0]["cex_dex_evaluations"]["BTC-USD"]["selected_notional_usdc"]
+        <= 180_000_000
+    )
+    assert res_5000.records[0]["maker_hedge"]["ETH-USD"]["selected_notional_usdc"] > 500_000_000
+
+    # 3. Verify new CLI flags forward cleanly
+    captured_cli_kw: dict[str, Any] = {}
+    orig_run = campaign_cli.run_multicall_campaign
+
+    def _spy_run(**kwargs: Any) -> Any:
+        captured_cli_kw.update(kwargs)
+        return orig_run(
+            **{
+                **kwargs,
+                "bridge": bridge,
+                "rpc_transport": lambda _u, _p, _t: b"{}",
+                "coinbase_transport": _mock_cb_transport,
+                "ws_feed_factory": _ws_factory,
+                "sleeper": _noop_sleep,
+            }
+        )
+
+    monkeypatch.setattr(campaign_cli, "run_multicall_campaign", _spy_run)
+    rc = campaign_cli.main(
+        [
+            "--mode",
+            "public-shadow",
+            "--ticks",
+            "2",
+            "--interval-ms",
+            "0",
+            "--max-rpc-calls",
+            "30",
+            "--rpc-url",
+            "https://dyn-cli.example.com",
+            "--risk-config",
+            str(REPO_ROOT / "configs" / "profit-engine-risk.example.json"),
+            "--total-capital-usd",
+            "5000",
+            "--max-daily-loss-usd",
+            "750",
+            "--dynamic-sizing",
+            "--enable-coinbase-ws",
+            "--out",
+            str(tmp_path / "cli-dyn"),
+        ]
+    )
+    assert rc == 0
+    assert captured_cli_kw["total_capital_usd"] == 5000
+    assert captured_cli_kw["max_daily_loss_usd"] == 750
+    assert captured_cli_kw["dynamic_sizing"] is True
+    assert captured_cli_kw["enable_coinbase_ws"] is True
