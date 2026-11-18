@@ -15,6 +15,7 @@ from oasis_agent.live.canary_readiness import (
     ANVIL_E2E_SCHEMA_VERSION,
     BASE_CHAIN_ID,
     BASE_TIME_PREDEPLOY,
+    DUAL_RPC_QUORUM_SCHEMA_VERSION,
     GATE_NAMES,
     READINESS_SCHEMA_VERSION,
     GateCheckResult,
@@ -27,6 +28,7 @@ from scripts.verify_atomic_vault_anvil import main as anvil_cli_main
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SYNTH_BLOCK_HASH = "0x" + "ab" * 32
+SYNTH_STATE_ROOT = "0x" + "cd" * 32
 SYNTH_TOKEN_ADDR = "0x" + "11" * 20
 SYNTH_TX_HASH = "0x" + "22" * 32
 SYNTH_BYTECODE_HEX = "0x" + "60806040" * 8
@@ -194,6 +196,8 @@ def _make_synthetic_operator_signoff(
     secondary_rpc: str = "alchemy-base-archive",
     secondary_verified: bool = True,
     signer_verified: bool = True,
+    isolated_key_volume: str = "oasis-canary-keys",
+    authority_socket_path: str = "/run/oasis/authority.sock",
 ) -> Path:
     return _write_json(
         path,
@@ -210,12 +214,47 @@ def _make_synthetic_operator_signoff(
                 "primary_rpc_provider": primary_rpc,
                 "secondary_rpc_provider": secondary_rpc,
                 "secondary_rpc_verified": secondary_verified,
-                "isolated_key_volume": "oasis-canary-keys",
-                "authority_socket_path": "/run/oasis/authority.sock",
+                "isolated_key_volume": isolated_key_volume,
+                "authority_socket_path": authority_socket_path,
                 "isolated_signer_verified": signer_verified,
             },
         },
     )
+
+
+def _make_synthetic_dual_rpc_quorum_report(
+    path: Path,
+    *,
+    chain_id: object = BASE_CHAIN_ID,
+    execution_eligible: object = False,
+    primary_rpc: str = "base-publicnode-archive",
+    secondary_rpc: str = "alchemy-base-archive",
+    secondary_verified: object = True,
+    pinned_block_number: object = 58_990_500,
+    pinned_block_hash: object = SYNTH_BLOCK_HASH,
+    state_root: object = SYNTH_STATE_ROOT,
+    base_time_ms: object = 1_794_988_500_000,
+    tamper_sha: bool = False,
+) -> Path:
+    payload: dict[str, Any] = {
+        "schema_version": DUAL_RPC_QUORUM_SCHEMA_VERSION,
+        "chain_id": chain_id,
+        "execution_eligible": execution_eligible,
+        "primary_rpc_provider": primary_rpc,
+        "secondary_rpc_provider": secondary_rpc,
+        "secondary_rpc_verified": secondary_verified,
+        "pinned_block_number": pinned_block_number,
+        "pinned_block_hash": pinned_block_hash,
+    }
+    if state_root is not None:
+        payload["state_root"] = state_root
+    if base_time_ms is not None:
+        payload["base_time_ms"] = base_time_ms
+    digest = sha256_hex(canonical_json(payload))
+    if tamper_sha:
+        digest = ("0" if digest[0] != "0" else "1") + digest[1:]
+    payload["report_sha256"] = digest
+    return _write_json(path, payload)
 
 
 def test_readiness_all_failing_default_and_immutability(tmp_path: Path) -> None:
@@ -226,11 +265,11 @@ def test_readiness_all_failing_default_and_immutability(tmp_path: Path) -> None:
     assert report.release_permitted is False
     assert report.execution_eligible is False
     assert report.passed_count == 0
-    assert report.total_gates == 8
-    assert len(report.gates) == 8
+    assert report.total_gates == 9
+    assert len(report.gates) == 9
     assert tuple(g.name for g in report.gates) == GATE_NAMES
     assert report.blocked_gates == GATE_NAMES
-    assert len(report.next_operator_actions) == 8
+    assert len(report.next_operator_actions) == 9
     assert len(report.report_sha256) == 64
 
     with pytest.raises(FrozenInstanceError):
@@ -241,7 +280,7 @@ def test_readiness_all_failing_default_and_immutability(tmp_path: Path) -> None:
         ProfitEngineReadinessReport(
             release_permitted=False,
             passed_count=0,
-            total_gates=8,
+            total_gates=9,
             gates=report.gates,
             blocked_gates=report.blocked_gates,
             next_operator_actions=report.next_operator_actions,
@@ -279,8 +318,8 @@ def test_readiness_synthetic_all_passing_still_keeps_execution_eligible_false(
 
     assert report.release_permitted is True
     assert report.execution_eligible is False
-    assert report.passed_count == 8
-    assert report.total_gates == 8
+    assert report.passed_count == 9
+    assert report.total_gates == 9
     assert report.blocked_gates == ()
     assert report.next_operator_actions == ()
     assert all(gate.passed is True for gate in report.gates)
@@ -288,7 +327,8 @@ def test_readiness_synthetic_all_passing_still_keeps_execution_eligible_false(
     parsed = json.loads(report.to_json())
     assert parsed["release_permitted"] is True
     assert parsed["execution_eligible"] is False
-    assert parsed["passed_count"] == 8
+    assert parsed["passed_count"] == 9
+    assert parsed["total_gates"] == 9
 
 
 def test_readiness_partial_smoke_sample_blocks_sample_size_and_lcb_edge(tmp_path: Path) -> None:
@@ -314,7 +354,8 @@ def test_readiness_partial_smoke_sample_blocks_sample_size_and_lcb_edge(tmp_path
 
     assert report.release_permitted is False
     assert report.execution_eligible is False
-    assert report.passed_count == 6
+    assert report.passed_count == 7
+    assert report.total_gates == 9
     assert report.blocked_gates == (
         "untouched_shadow_sample_size",
         "positive_cost_adjusted_lcb_edge",
@@ -420,7 +461,7 @@ def test_readiness_individual_fail_closed_gate_rejections(tmp_path: Path) -> Non
     )
     assert r_halted.blocked_gates == ("revert_budget_healthy",)
 
-    # 6. Duplicate RPC providers and excessive capital limit (> $500) fail Gates 7 & 8
+    # 6. Duplicate RPC providers & excessive capital limit fail Gates 7 & 9 independently of Gate 8
     bad_signoff = _make_synthetic_operator_signoff(
         tmp_path / "bad_signoff.json",
         primary_rpc="base-rpc",
@@ -435,9 +476,36 @@ def test_readiness_individual_fail_closed_gate_rejections(tmp_path: Path) -> Non
         operator_signoff_path=bad_signoff,
     )
     assert r_bad_signoff.blocked_gates == (
-        "dual_provider_and_isolated_signer_ready",
+        "dual_rpc_quorum_verified",
         "owner_scope_release_manifest_present",
     )
+
+    # 6b. Unverified isolated signer or raw hex key in key volume fails Gate 8 independently
+    unverified_signer_signoff = _make_synthetic_operator_signoff(
+        tmp_path / "unverified_signer.json",
+        signer_verified=False,
+    )
+    r_bad_signer = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=unverified_signer_signoff,
+    )
+    assert r_bad_signer.blocked_gates == ("isolated_signer_authority_ready",)
+
+    raw_hex_volume_signoff = _make_synthetic_operator_signoff(
+        tmp_path / "raw_hex_volume.json",
+        isolated_key_volume=f"0x{1:064x}",
+    )
+    r_raw_hex_volume = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=raw_hex_volume_signoff,
+    )
+    assert r_raw_hex_volume.blocked_gates == ("isolated_signer_authority_ready",)
 
     # 7. Boolean smuggling (ticks_completed=True) and symlink input path fail closed
     bool_shadow = _make_synthetic_shadow_summary(
@@ -509,7 +577,7 @@ def test_readiness_cli_exit_codes_and_require_ready(tmp_path: Path) -> None:
     )
     assert rc_req_blocked == 2
 
-    # With --require-ready when all 8 gates pass: returns 0 (subprocess module check)
+    # With --require-ready when all 9 gates pass: returns 0 (subprocess module check)
     ready_out = tmp_path / "out_ready.json"
     sub_env = dict(os.environ)
     sub_env["PYTHONPATH"] = str(REPO_ROOT / "src")
@@ -542,7 +610,210 @@ def test_readiness_cli_exit_codes_and_require_ready(tmp_path: Path) -> None:
     ready_doc = json.loads(ready_out.read_text(encoding="utf-8"))
     assert ready_doc["release_permitted"] is True
     assert ready_doc["execution_eligible"] is False
-    assert ready_doc["passed_count"] == 8
+    assert ready_doc["passed_count"] == 9
+    assert ready_doc["total_gates"] == 9
+
+
+def test_readiness_dual_rpc_quorum_report_passes_gate7_while_leaving_gates_8_9_blocked(
+    tmp_path: Path,
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    quorum_path = _make_synthetic_dual_rpc_quorum_report(tmp_path / "dual_rpc_quorum.json")
+
+    out_path = tmp_path / "cli_quorum_only.json"
+    rc = readiness_cli_main(
+        [
+            "--contracts-out-dir",
+            str(contracts_dir),
+            "--anvil-report",
+            str(anvil_path),
+            "--radar-report",
+            str(radar_path),
+            "--shadow-summary",
+            str(shadow_path),
+            "--infra-proof",
+            str(quorum_path),
+            "--out",
+            str(out_path),
+            "--require-ready",
+        ]
+    )
+    assert rc == 2
+    doc = json.loads(out_path.read_text(encoding="utf-8"))
+    assert doc["release_permitted"] is False
+    assert doc["execution_eligible"] is False
+    assert doc["passed_count"] == 7
+    assert doc["total_gates"] == 9
+    assert doc["blocked_gates"] == [
+        "isolated_signer_authority_ready",
+        "owner_scope_release_manifest_present",
+    ]
+    by_name = {g["name"]: g for g in doc["gates"]}
+    assert by_name["dual_rpc_quorum_verified"]["passed"] is True
+    obs = by_name["dual_rpc_quorum_verified"]["observed_value"]
+    assert "block=58990500" in obs
+    assert f"block_hash={SYNTH_BLOCK_HASH[:14]}" in obs
+    assert f"state_root={SYNTH_STATE_ROOT[:14]}" in obs
+    assert "base_time_ms=1794988500000" in obs
+    assert by_name["isolated_signer_authority_ready"]["passed"] is False
+    assert "Docker isolated signer" in " ".join(doc["next_operator_actions"])
+
+
+def test_readiness_dual_rpc_quorum_report_tampered_sha_and_bad_fields_fail_closed(
+    tmp_path: Path,
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    signoff_path = _make_synthetic_operator_signoff(tmp_path / "operator_signoff.json")
+
+    tampered_quorum = _make_synthetic_dual_rpc_quorum_report(
+        tmp_path / "tampered_quorum.json", tamper_sha=True
+    )
+    r_tampered = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=signoff_path,
+        infra_proof_path=tampered_quorum,
+    )
+    assert r_tampered.release_permitted is False
+    assert r_tampered.blocked_gates == ("dual_rpc_quorum_verified",)
+    gate7 = {g.name: g for g in r_tampered.gates}["dual_rpc_quorum_verified"]
+    assert gate7.observed_value == "checksum_mismatch"
+
+    bad_cases: tuple[tuple[str, dict[str, Any]], ...] = (
+        ("wrong_chain.json", {"chain_id": 1}),
+        ("exec_eligible.json", {"execution_eligible": True}),
+        ("unverified_secondary.json", {"secondary_verified": False}),
+        ("duplicate_rpc.json", {"secondary_rpc": "base-publicnode-archive"}),
+        ("bad_block_hash.json", {"pinned_block_hash": "0x1234"}),
+        ("bool_block_num.json", {"pinned_block_number": True}),
+        ("bad_state_root.json", {"state_root": "not-hex"}),
+        ("bool_base_time.json", {"base_time_ms": True}),
+        ("negative_base_time.json", {"base_time_ms": -1}),
+    )
+    for filename, overrides in bad_cases:
+        bad_path = _make_synthetic_dual_rpc_quorum_report(tmp_path / filename, **overrides)
+        r_bad = evaluate_profit_engine_readiness(
+            contracts_out_dir=contracts_dir,
+            anvil_report_path=anvil_path,
+            radar_report_path=radar_path,
+            shadow_summary_path=shadow_path,
+            operator_signoff_path=signoff_path,
+            infra_proof_path=bad_path,
+        )
+        assert r_bad.release_permitted is False
+        assert r_bad.blocked_gates == ("dual_rpc_quorum_verified",)
+
+
+def test_readiness_legacy_infra_proof_and_isolated_signer_failures(tmp_path: Path) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    signoff_without_infra = _write_json(
+        tmp_path / "signoff_minimal.json",
+        {
+            "owner_scope_approved": True,
+            "owner_identity": "oasis-owner",
+            "scope_id": "base-canary-scope-20261118",
+            "approved_at_utc": "2026-11-18T08:00:00+00:00",
+            "capital_limit_usd": 500,
+            "daily_loss_limit_usd": 200,
+            "cumulative_loss_limit_usd": 500,
+            "signature_or_attestation": "owner-ed25519-scope-attestation-ref-01",
+        },
+    )
+
+    legacy_infra = _write_json(
+        tmp_path / "legacy_infra.json",
+        {
+            "primary_rpc_provider": "base-publicnode-archive",
+            "secondary_rpc_provider": "alchemy-base-archive",
+            "secondary_rpc_verified": True,
+            "isolated_key_volume": "oasis-canary-keys",
+            "authority_socket_path": "/run/oasis/authority.sock",
+            "isolated_signer_verified": True,
+        },
+    )
+    r_legacy_ok = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=signoff_without_infra,
+        infra_proof_path=legacy_infra,
+    )
+    assert r_legacy_ok.release_permitted is True
+    assert r_legacy_ok.execution_eligible is False
+    assert r_legacy_ok.passed_count == 9
+
+    bad_socket_infra = _write_json(
+        tmp_path / "bad_socket_infra.json",
+        {
+            "primary_rpc_provider": "base-publicnode-archive",
+            "secondary_rpc_provider": "alchemy-base-archive",
+            "secondary_rpc_verified": True,
+            "isolated_key_volume": "oasis-canary-keys",
+            "authority_socket_path": "   ",
+            "isolated_signer_verified": True,
+        },
+    )
+    r_bad_socket = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=signoff_without_infra,
+        infra_proof_path=bad_socket_infra,
+    )
+    assert r_bad_socket.release_permitted is False
+    assert r_bad_socket.blocked_gates == ("isolated_signer_authority_ready",)
+
+
+def test_readiness_combined_signoff_and_dual_rpc_quorum_achieves_9_of_9(
+    tmp_path: Path,
+) -> None:
+    contracts_dir = _make_synthetic_contracts_out(tmp_path / "contracts_out")
+    anvil_path = _make_synthetic_anvil_report(tmp_path / "anvil_e2e_report.json")
+    radar_path = _make_synthetic_radar_report(tmp_path / "radar_report.json")
+    shadow_path = _make_synthetic_shadow_summary(tmp_path / "shadow_summary.json")
+    signoff_path = _make_synthetic_operator_signoff(tmp_path / "operator_signoff.json")
+    quorum_path = _make_synthetic_dual_rpc_quorum_report(
+        tmp_path / "dual_rpc_quorum.json",
+        state_root=None,
+        base_time_ms=None,
+    )
+
+    report = evaluate_profit_engine_readiness(
+        contracts_out_dir=contracts_dir,
+        anvil_report_path=anvil_path,
+        radar_report_path=radar_path,
+        shadow_summary_path=shadow_path,
+        operator_signoff_path=signoff_path,
+        infra_proof_path=quorum_path,
+    )
+    assert report.release_permitted is True
+    assert report.execution_eligible is False
+    assert report.passed_count == 9
+    assert report.total_gates == 9
+    assert report.blocked_gates == ()
+    assert report.next_operator_actions == ()
+
+    by_name = {gate.name: gate for gate in report.gates}
+    assert by_name["dual_rpc_quorum_verified"].passed is True
+    assert "block=58990500" in by_name["dual_rpc_quorum_verified"].observed_value
+    assert by_name["isolated_signer_authority_ready"].passed is True
+    assert "key_volume=oasis-canary-keys" in (
+        by_name["isolated_signer_authority_ready"].observed_value
+    )
+    assert by_name["owner_scope_release_manifest_present"].passed is True
 
 
 def test_run_anvil_profit_e2e_against_real_anvil(tmp_path: Path) -> None:

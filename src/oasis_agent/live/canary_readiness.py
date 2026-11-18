@@ -1,10 +1,11 @@
-"""Fail-closed 8-gate canary readiness evaluator for the Oasis profit engine.
+"""Fail-closed 9-gate canary readiness evaluator for the Oasis profit engine.
 
 Evaluates compiled Solidity artifacts, loopback Anvil E2E settlement results,
 BaseTime predeploy verification, public-shadow sample size and cost-adjusted
-LCB edge, rolling revert-budget health, dual-provider + isolated-signer proof,
-and owner-signed scope approval. No input or passing verdict grants signing or
-broadcast authority (`execution_eligible` is permanently `False`).
+LCB edge, rolling revert-budget health, dual-RPC quorum proof, isolated signer
+authority readiness, and owner-signed scope approval. No input or passing
+verdict grants signing or broadcast authority (`execution_eligible` is
+permanently `False`).
 """
 
 import json
@@ -18,6 +19,7 @@ from typing import Any, Final, Literal
 from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
 
 READINESS_SCHEMA_VERSION: Final[str] = "oasis.profit-engine-readiness.v1"
+DUAL_RPC_QUORUM_SCHEMA_VERSION: Final[str] = "oasis.dual-rpc-quorum.v1"
 ANVIL_E2E_SCHEMA_VERSION: Final[str] = "oasis-anvil-profit-e2e-v1"
 BASE_CHAIN_ID: Final[int] = 8453
 BASE_TIME_PREDEPLOY: Final[str] = "0x4200000000000000000000000000000000000030"
@@ -45,7 +47,8 @@ GATE_NAMES: Final[tuple[str, ...]] = (
     "untouched_shadow_sample_size",
     "positive_cost_adjusted_lcb_edge",
     "revert_budget_healthy",
-    "dual_provider_and_isolated_signer_ready",
+    "dual_rpc_quorum_verified",
+    "isolated_signer_authority_ready",
     "owner_scope_release_manifest_present",
 )
 
@@ -87,7 +90,7 @@ class GateCheckResult:
 
 @dataclass(frozen=True, slots=True)
 class ProfitEngineReadinessReport:
-    """Immutable 8-gate profit-engine readiness verdict."""
+    """Immutable 9-gate profit-engine readiness verdict."""
 
     release_permitted: bool
     passed_count: int
@@ -882,22 +885,254 @@ def _is_clean_provider_label(value: object) -> bool:
     return _RAW_HEX_KEY_RE.search(value) is None
 
 
-def _eval_dual_provider_and_isolated_signer_ready(
+def _validate_distinct_rpc_providers(
+    primary: object,
+    secondary: object,
+    *,
+    threshold: str,
+) -> tuple[str, str] | GateCheckResult:
+    if not _is_clean_provider_label(primary) or not _is_clean_provider_label(secondary):
+        return GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=False,
+            detail="Primary and secondary RPC provider identifiers must be non-placeholder.",
+            required_threshold=threshold,
+            observed_value="invalid_provider_labels",
+        )
+    primary_clean = str(primary).strip()
+    secondary_clean = str(secondary).strip()
+    if primary_clean.lower() == secondary_clean.lower():
+        return GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=False,
+            detail="Secondary RPC provider must be independent and distinct from primary.",
+            required_threshold=threshold,
+            observed_value="duplicate_provider",
+        )
+    return (primary_clean, secondary_clean)
+
+
+def _validate_quorum_hash32(
+    raw_value: object,
+    *,
+    field_name: str,
+    threshold: str,
+) -> str | GateCheckResult:
+    if not isinstance(raw_value, str):
+        return GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=False,
+            detail=f"DualRpcQuorumReport {field_name} must be a 32-byte hex string.",
+            required_threshold=threshold,
+            observed_value=f"invalid_{field_name}",
+        )
+    try:
+        return normalize_hash32(raw_value, field_name)
+    except ValueError:
+        return GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=False,
+            detail=f"DualRpcQuorumReport {field_name} must be a valid 32-byte hex hash.",
+            required_threshold=threshold,
+            observed_value=f"invalid_{field_name}",
+        )
+
+
+def _eval_dual_rpc_quorum_report(
+    report: dict[str, Any],
+    *,
+    threshold: str,
+    action: str,
+) -> tuple[GateCheckResult, str | None]:
+    chain_id = report.get("chain_id")
+    if type(chain_id) is not int or chain_id != BASE_CHAIN_ID:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="DualRpcQuorumReport chain_id must equal Base (8453).",
+                required_threshold=threshold,
+                observed_value=f"chain_id={chain_id!r}",
+            ),
+            action,
+        )
+
+    exec_eligible = report.get("execution_eligible")
+    if exec_eligible is not False:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="DualRpcQuorumReport must retain execution_eligible=False.",
+                required_threshold=threshold,
+                observed_value=f"execution_eligible={exec_eligible!r}",
+            ),
+            action,
+        )
+
+    declared_sha = report.get("report_sha256")
+    body = {k: v for k, v in report.items() if k != "report_sha256"}
+    expected_sha = sha256_hex(canonical_json(body))
+    if not isinstance(declared_sha, str) or declared_sha != expected_sha:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="DualRpcQuorumReport report_sha256 integrity check failed.",
+                required_threshold=threshold,
+                observed_value="checksum_mismatch",
+            ),
+            action,
+        )
+
+    provider_check = _validate_distinct_rpc_providers(
+        report.get("primary_rpc_provider"),
+        report.get("secondary_rpc_provider"),
+        threshold=threshold,
+    )
+    if isinstance(provider_check, GateCheckResult):
+        return provider_check, action
+    primary_clean, secondary_clean = provider_check
+
+    secondary_ok = report.get("secondary_rpc_verified")
+    if secondary_ok is not True:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="DualRpcQuorumReport requires secondary_rpc_verified=True.",
+                required_threshold=threshold,
+                observed_value=f"secondary_rpc_verified={secondary_ok!r}",
+            ),
+            action,
+        )
+
+    block_number = report.get("pinned_block_number")
+    if type(block_number) is not int or block_number < 0:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="DualRpcQuorumReport pinned_block_number must be a non-negative integer.",
+                required_threshold=threshold,
+                observed_value=f"pinned_block_number={block_number!r}",
+            ),
+            action,
+        )
+
+    block_hash_check = _validate_quorum_hash32(
+        report.get("pinned_block_hash"),
+        field_name="pinned_block_hash",
+        threshold=threshold,
+    )
+    if isinstance(block_hash_check, GateCheckResult):
+        return block_hash_check, action
+
+    obs_parts = [
+        f"providers={primary_clean}+{secondary_clean}",
+        f"block={block_number}",
+        f"block_hash={block_hash_check[:14]}",
+    ]
+    if "state_root" in report and report["state_root"] is not None:
+        state_root_check = _validate_quorum_hash32(
+            report["state_root"],
+            field_name="state_root",
+            threshold=threshold,
+        )
+        if isinstance(state_root_check, GateCheckResult):
+            return state_root_check, action
+        obs_parts.append(f"state_root={state_root_check[:14]}")
+
+    if "base_time_ms" in report and report["base_time_ms"] is not None:
+        base_time_ms = report["base_time_ms"]
+        if type(base_time_ms) is not int or base_time_ms < 0:
+            return (
+                GateCheckResult(
+                    name="dual_rpc_quorum_verified",
+                    passed=False,
+                    detail="DualRpcQuorumReport base_time_ms must be a non-negative integer.",
+                    required_threshold=threshold,
+                    observed_value=f"base_time_ms={base_time_ms!r}",
+                ),
+                action,
+            )
+        obs_parts.append(f"base_time_ms={base_time_ms}")
+
+    return (
+        GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=True,
+            detail=(
+                f"Dual RPC quorum verified on Base ({primary_clean} / {secondary_clean}) "
+                f"at pinned block {block_number}."
+            ),
+            required_threshold=threshold,
+            observed_value=",".join(obs_parts),
+        ),
+        None,
+    )
+
+
+def _eval_legacy_dual_rpc_section(
+    proof: dict[str, Any],
+    *,
+    threshold: str,
+    action: str,
+) -> tuple[GateCheckResult, str | None]:
+    provider_check = _validate_distinct_rpc_providers(
+        proof.get("primary_rpc_provider"),
+        proof.get("secondary_rpc_provider"),
+        threshold=threshold,
+    )
+    if isinstance(provider_check, GateCheckResult):
+        return provider_check, action
+    primary_clean, secondary_clean = provider_check
+
+    secondary_ok = proof.get("secondary_rpc_verified")
+    if secondary_ok is not True:
+        return (
+            GateCheckResult(
+                name="dual_rpc_quorum_verified",
+                passed=False,
+                detail="secondary_rpc_verified must be True.",
+                required_threshold=threshold,
+                observed_value=f"secondary_rpc_verified={secondary_ok!r}",
+            ),
+            action,
+        )
+
+    return (
+        GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=True,
+            detail=(
+                f"Distinct primary/secondary RPC providers "
+                f"({primary_clean} / {secondary_clean}) verified."
+            ),
+            required_threshold=threshold,
+            observed_value=f"providers={primary_clean}+{secondary_clean}",
+        ),
+        None,
+    )
+
+
+def _eval_dual_rpc_quorum_verified(
     signoff_data: dict[str, Any] | None,
     signoff_err: str | None,
     infra_data: dict[str, Any] | None,
     infra_err: str | None,
 ) -> tuple[GateCheckResult, str | None]:
-    threshold = "distinct primary & secondary RPC verified and isolated key/socket verified"
+    threshold = "distinct primary & secondary RPC verified with secondary_rpc_verified=True"
     action = (
-        "Provision an independent secondary archive/simulation RPC and isolated signer key "
-        "volume/authority socket, and supply proof in --operator-signoff or --infra-proof."
+        "Provision an independent secondary Base archive/simulation RPC, verify dual-RPC "
+        "quorum against a pinned Base block, and pass DualRpcQuorumReport via --infra-proof "
+        "or legacy metadata via --operator-signoff."
     )
 
     if infra_err is not None and "not supplied" not in infra_err:
         return (
             GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
+                name="dual_rpc_quorum_verified",
                 passed=False,
                 detail=infra_err,
                 required_threshold=threshold,
@@ -906,21 +1141,151 @@ def _eval_dual_provider_and_isolated_signer_ready(
             action,
         )
 
-    proof: dict[str, Any] | None = infra_data
-    if proof is None and signoff_data is not None:
+    if infra_data is not None:
+        if infra_data.get("schema_version") == DUAL_RPC_QUORUM_SCHEMA_VERSION:
+            return _eval_dual_rpc_quorum_report(infra_data, threshold=threshold, action=action)
+        if "schema_version" in infra_data:
+            return (
+                GateCheckResult(
+                    name="dual_rpc_quorum_verified",
+                    passed=False,
+                    detail=(
+                        f"Unsupported infra_proof schema_version: "
+                        f"{infra_data.get('schema_version')!r}"
+                    ),
+                    required_threshold=threshold,
+                    observed_value=f"schema={infra_data.get('schema_version')!r}",
+                ),
+                action,
+            )
+        if "dual_rpc_quorum" in infra_data:
+            nested = infra_data.get("dual_rpc_quorum")
+            if not isinstance(nested, dict):
+                return (
+                    GateCheckResult(
+                        name="dual_rpc_quorum_verified",
+                        passed=False,
+                        detail="infra_proof.dual_rpc_quorum must be an object.",
+                        required_threshold=threshold,
+                        observed_value="malformed_dual_rpc_quorum",
+                    ),
+                    action,
+                )
+            if nested.get("schema_version") == DUAL_RPC_QUORUM_SCHEMA_VERSION:
+                return _eval_dual_rpc_quorum_report(nested, threshold=threshold, action=action)
+            return _eval_legacy_dual_rpc_section(nested, threshold=threshold, action=action)
+        return _eval_legacy_dual_rpc_section(infra_data, threshold=threshold, action=action)
+
+    if signoff_data is not None:
         embedded = signoff_data.get("dual_provider_and_isolated_signer")
         if isinstance(embedded, dict):
-            proof = embedded
+            return _eval_legacy_dual_rpc_section(embedded, threshold=threshold, action=action)
 
-    if proof is None:
+    detail = (
+        signoff_err
+        if (signoff_err is not None and "not supplied" not in signoff_err)
+        else "Dual-RPC quorum proof not supplied."
+    )
+    return (
+        GateCheckResult(
+            name="dual_rpc_quorum_verified",
+            passed=False,
+            detail=detail,
+            required_threshold=threshold,
+            observed_value="unprovisioned",
+        ),
+        action,
+    )
+
+
+def _eval_isolated_signer_authority_ready(
+    signoff_data: dict[str, Any] | None,
+    signoff_err: str | None,
+    infra_data: dict[str, Any] | None,
+    infra_err: str | None,
+) -> tuple[GateCheckResult, str | None]:
+    threshold = (
+        "isolated_signer_verified=True with non-empty isolated_key_volume and authority_socket_path"
+    )
+    action = (
+        "Provision the Docker isolated signer key volume and Unix authority socket, and supply "
+        "isolated signer verification in --infra-proof or --operator-signoff."
+    )
+
+    if infra_err is not None and "not supplied" not in infra_err:
+        return (
+            GateCheckResult(
+                name="isolated_signer_authority_ready",
+                passed=False,
+                detail=infra_err,
+                required_threshold=threshold,
+                observed_value="invalid_infra_proof",
+            ),
+            action,
+        )
+
+    isolated_signer_section: dict[str, Any] | None = None
+    if infra_data is not None:
+        if "isolated_signer" in infra_data:
+            raw_sec = infra_data.get("isolated_signer")
+            if not isinstance(raw_sec, dict):
+                return (
+                    GateCheckResult(
+                        name="isolated_signer_authority_ready",
+                        passed=False,
+                        detail="infra_proof.isolated_signer must be an object.",
+                        required_threshold=threshold,
+                        observed_value="malformed_isolated_signer",
+                    ),
+                    action,
+                )
+            isolated_signer_section = raw_sec
+        elif infra_data.get("schema_version") != DUAL_RPC_QUORUM_SCHEMA_VERSION:
+            if "schema_version" in infra_data:
+                return (
+                    GateCheckResult(
+                        name="isolated_signer_authority_ready",
+                        passed=False,
+                        detail=(
+                            f"Unsupported infra_proof schema_version: "
+                            f"{infra_data.get('schema_version')!r}"
+                        ),
+                        required_threshold=threshold,
+                        observed_value=f"schema={infra_data.get('schema_version')!r}",
+                    ),
+                    action,
+                )
+            isolated_signer_section = infra_data
+
+    if isolated_signer_section is None and signoff_data is not None:
+        if "isolated_signer" in signoff_data:
+            raw_signoff_sec = signoff_data.get("isolated_signer")
+            if not isinstance(raw_signoff_sec, dict):
+                return (
+                    GateCheckResult(
+                        name="isolated_signer_authority_ready",
+                        passed=False,
+                        detail="operator_signoff.isolated_signer must be an object.",
+                        required_threshold=threshold,
+                        observed_value="malformed_isolated_signer",
+                    ),
+                    action,
+                )
+            isolated_signer_section = raw_signoff_sec
+        else:
+            embedded = signoff_data.get("dual_provider_and_isolated_signer")
+            if isinstance(embedded, dict):
+                isolated_signer_section = embedded
+
+    if isolated_signer_section is None:
         detail = (
             signoff_err
             if (signoff_err is not None and "not supplied" not in signoff_err)
-            else "Dual-provider RPC and isolated signer provisioning proof not supplied."
+            else "Isolated Docker signer authority socket and key-volume proof not supplied."
         )
         return (
             GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
+                name="isolated_signer_authority_ready",
                 passed=False,
                 detail=detail,
                 required_threshold=threshold,
@@ -929,46 +1294,18 @@ def _eval_dual_provider_and_isolated_signer_ready(
             action,
         )
 
-    primary = proof.get("primary_rpc_provider")
-    secondary = proof.get("secondary_rpc_provider")
-    secondary_ok = proof.get("secondary_rpc_verified")
-    key_volume = proof.get("isolated_key_volume")
-    socket_path = proof.get("authority_socket_path")
-    signer_ok = proof.get("isolated_signer_verified")
+    signer_ok = isolated_signer_section.get("isolated_signer_verified")
+    key_volume = isolated_signer_section.get("isolated_key_volume")
+    socket_path = isolated_signer_section.get("authority_socket_path")
 
-    if not _is_clean_provider_label(primary) or not _is_clean_provider_label(secondary):
+    if signer_ok is not True:
         return (
             GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
+                name="isolated_signer_authority_ready",
                 passed=False,
-                detail="Primary and secondary RPC provider identifiers must be non-placeholder.",
+                detail="isolated_signer_verified must be True.",
                 required_threshold=threshold,
-                observed_value="invalid_provider_labels",
-            ),
-            action,
-        )
-    if str(primary).strip().lower() == str(secondary).strip().lower():
-        return (
-            GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
-                passed=False,
-                detail="Secondary RPC provider must be independent and distinct from primary.",
-                required_threshold=threshold,
-                observed_value="duplicate_provider",
-            ),
-            action,
-        )
-    if secondary_ok is not True or signer_ok is not True:
-        return (
-            GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
-                passed=False,
-                detail="Both secondary_rpc_verified and isolated_signer_verified must be True.",
-                required_threshold=threshold,
-                observed_value=(
-                    f"secondary_rpc_verified={secondary_ok!r},"
-                    f"isolated_signer_verified={signer_ok!r}"
-                ),
+                observed_value=f"isolated_signer_verified={signer_ok!r}",
             ),
             action,
         )
@@ -978,10 +1315,11 @@ def _eval_dual_provider_and_isolated_signer_ready(
         or not isinstance(socket_path, str)
         or not socket_path.strip()
         or _RAW_HEX_KEY_RE.search(key_volume) is not None
+        or _RAW_HEX_KEY_RE.search(socket_path) is not None
     ):
         return (
             GateCheckResult(
-                name="dual_provider_and_isolated_signer_ready",
+                name="isolated_signer_authority_ready",
                 passed=False,
                 detail="Isolated key volume name and authority socket path must be non-empty.",
                 required_threshold=threshold,
@@ -990,16 +1328,18 @@ def _eval_dual_provider_and_isolated_signer_ready(
             action,
         )
 
+    clean_volume = key_volume.strip()
+    clean_socket = socket_path.strip()
     return (
         GateCheckResult(
-            name="dual_provider_and_isolated_signer_ready",
+            name="isolated_signer_authority_ready",
             passed=True,
             detail=(
-                f"Distinct RPC providers ({primary} / {secondary}) and isolated signer "
-                f"volume/socket verified."
+                f"Isolated signer authority socket ({clean_socket}) and key volume "
+                f"({clean_volume}) verified."
             ),
             required_threshold=threshold,
-            observed_value=f"providers={primary}+{secondary},key_volume={key_volume}",
+            observed_value=f"key_volume={clean_volume},socket={clean_socket}",
         ),
         None,
     )
@@ -1142,7 +1482,7 @@ def evaluate_profit_engine_readiness(
     min_shadow_ticks: int = DEFAULT_MIN_SHADOW_TICKS,
     min_lcb_net_edge_bps: int = DEFAULT_MIN_LCB_NET_EDGE_BPS,
 ) -> ProfitEngineReadinessReport:
-    """Evaluate all 8 fail-closed release readiness gates from retained evidence files."""
+    """Evaluate all 9 fail-closed release readiness gates from retained evidence files."""
     if type(min_shadow_ticks) is not int or min_shadow_ticks <= 0:
         raise ValueError("min_shadow_ticks must be a positive integer")
     if type(min_lcb_net_edge_bps) is not int or min_lcb_net_edge_bps < 0:
@@ -1166,9 +1506,8 @@ def evaluate_profit_engine_readiness(
             shadow_data, shadow_err, min_lcb_net_edge_bps=min_lcb_net_edge_bps
         ),
         _eval_revert_budget_healthy(anvil_data, radar_data, shadow_data),
-        _eval_dual_provider_and_isolated_signer_ready(
-            signoff_data, signoff_err, infra_data, infra_err
-        ),
+        _eval_dual_rpc_quorum_verified(signoff_data, signoff_err, infra_data, infra_err),
+        _eval_isolated_signer_authority_ready(signoff_data, signoff_err, infra_data, infra_err),
         _eval_owner_scope_release_manifest_present(signoff_data, signoff_err),
     )
 
@@ -1210,6 +1549,7 @@ __all__ = [
     "DEFAULT_CONTRACTS_OUT_DIR",
     "DEFAULT_MIN_LCB_NET_EDGE_BPS",
     "DEFAULT_MIN_SHADOW_TICKS",
+    "DUAL_RPC_QUORUM_SCHEMA_VERSION",
     "GATE_NAMES",
     "MAX_APPROVED_CAPITAL_USD",
     "MAX_APPROVED_CUMULATIVE_LOSS_USD",
