@@ -197,6 +197,7 @@ class OosTrackerConfig:
     require_same_direction: bool = True
     default_gas_cost_usd: Decimal = Decimal("0.0040")
     coinbase_taker_fee_bps: Decimal = Decimal(15)
+    cex_ioc_limit_enabled: bool = False
     execution_eligible: Literal[False] = False
 
     def __post_init__(self) -> None:
@@ -208,6 +209,8 @@ class OosTrackerConfig:
             raise ValueError("max_signal_age_ms must be a positive integer")
         if type(self.require_same_direction) is not bool:
             raise TypeError("require_same_direction must be a boolean")
+        if type(self.cex_ioc_limit_enabled) is not bool:
+            raise TypeError("cex_ioc_limit_enabled must be a boolean")
         gas = _to_finite_decimal(
             self.default_gas_cost_usd,
             "default_gas_cost_usd",
@@ -239,6 +242,7 @@ class PendingTakerIntent:
     quoted_net_edge_bps: Decimal
     quoted_net_profit_usd: Decimal
     execution_eligible: Literal[False] = False
+    limit_cex_price_usd: Decimal | None = None
 
     def __post_init__(self) -> None:
         if type(self.step_seq) is not int or self.step_seq < 0:
@@ -263,6 +267,15 @@ class PendingTakerIntent:
         object.__setattr__(self, "quoted_net_profit_usd", profit)
         if self.execution_eligible is not False:
             raise ValueError("PendingTakerIntent cannot set execution_eligible=True")
+        limit_price: Decimal | None = None
+        if self.limit_cex_price_usd is not None:
+            limit_price = _to_finite_decimal(
+                self.limit_cex_price_usd,
+                "limit_cex_price_usd",
+                require_positive=True,
+                allow_float=True,
+            )
+        object.__setattr__(self, "limit_cex_price_usd", limit_price)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize pending taker intent to a JSON-compatible dictionary."""
@@ -277,6 +290,11 @@ class PendingTakerIntent:
             "token_decimals": self.token_decimals,
             "quoted_net_edge_bps": _format_decimal_plain(self.quoted_net_edge_bps),
             "quoted_net_profit_usd": _format_decimal_plain(self.quoted_net_profit_usd),
+            "limit_cex_price_usd": (
+                _format_decimal_plain(self.limit_cex_price_usd)
+                if self.limit_cex_price_usd is not None
+                else None
+            ),
             "execution_eligible": self.execution_eligible,
         }
 
@@ -365,6 +383,7 @@ class OosStepResult:
     expired_pending_intents: int
     rejected_flickers: int
     execution_eligible: Literal[False] = False
+    cancelled_ioc_intents: int = 0
 
     def __post_init__(self) -> None:
         if type(self.step_seq) is not int or self.step_seq < 0:
@@ -373,6 +392,8 @@ class OosStepResult:
             raise ValueError("expired_pending_intents must be a non-negative integer")
         if type(self.rejected_flickers) is not int or self.rejected_flickers < 0:
             raise ValueError("rejected_flickers must be a non-negative integer")
+        if type(self.cancelled_ioc_intents) is not int or self.cancelled_ioc_intents < 0:
+            raise ValueError("cancelled_ioc_intents must be a non-negative integer")
         if self.execution_eligible is not False:
             raise ValueError("OosStepResult cannot set execution_eligible=True")
 
@@ -384,6 +405,7 @@ class OosStepResult:
             "settled_maker_trades": [t.to_dict() for t in self.settled_maker_trades],
             "new_pending_intents": [i.to_dict() for i in self.new_pending_intents],
             "expired_pending_intents": self.expired_pending_intents,
+            "cancelled_ioc_intents": self.cancelled_ioc_intents,
             "rejected_flickers": self.rejected_flickers,
             "execution_eligible": self.execution_eligible,
         }
@@ -408,6 +430,7 @@ class _ParsedTakerOpportunity:
     token_decimals: int
     quoted_net_edge_bps: Decimal
     quoted_net_profit_usd: Decimal
+    fallback_limit_cex_price_usd: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -659,6 +682,14 @@ def _extract_taker_opportunity(
         else:
             quoted_profit = (Decimal(usdc_micros) / _USDC_SCALE) * edge_bps / _BPS_DIVISOR
 
+    raw_fallback_cex = _get_field(
+        item,
+        "best_bid_usd" if direction == _DIRECTION_BUY_DEX else "best_ask_usd",
+    )
+    fallback_cex_price = _maybe_finite_decimal(raw_fallback_cex, allow_float=True)
+    if fallback_cex_price is not None and fallback_cex_price <= 0:
+        fallback_cex_price = None
+
     return product_id, _ParsedTakerOpportunity(
         product_id=product_id,
         direction=direction,
@@ -667,6 +698,7 @@ def _extract_taker_opportunity(
         token_decimals=decimals,
         quoted_net_edge_bps=edge_bps,
         quoted_net_profit_usd=quoted_profit,
+        fallback_limit_cex_price_usd=fallback_cex_price,
     )
 
 
@@ -847,6 +879,7 @@ class OosStrategyExecutionTracker:
         self._streak_by_product: dict[str, tuple[int, str]] = {}
         self._seen_maker_key_counts: Counter[tuple[Any, ...]] = Counter()
         self._expired_pending_intents: int = 0
+        self._cancelled_ioc_intents: int = 0
         self._rejected_one_tick_flickers: int = 0
         self._trade_counter: int = 0
         self._last_step_seq: int | None = None
@@ -962,6 +995,46 @@ class OosStrategyExecutionTracker:
             fee_usd=fee_usd,
         )
 
+    def _unwind_filled_cex_leg(
+        self,
+        intent: PendingTakerIntent,
+        *,
+        step_seq: int,
+        observed_at_utc: str,
+        bbo: tuple[Decimal, Decimal],
+        fee_bps: Decimal,
+    ) -> RealizedOosTrade:
+        """Record conservative CEX round-trip unwind loss when Leg 2 DEX quote is missing."""
+        best_bid, best_ask = bbo
+        notional_usd = Decimal(intent.notional_usdc_micros) / _USDC_SCALE
+        notional_tok = Decimal(intent.notional_token_base) / Decimal(10**intent.token_decimals)
+        fee_rate = fee_bps / _BPS_DIVISOR
+
+        # Leg 1 filled on CEX (sold at best_bid or bought at best_ask); without a valid
+        # Leg 2 DEX quote, unwind across the CEX spread paying both entry and exit fees.
+        gross_usd = notional_tok * (best_bid - best_ask)
+        fee_usd = notional_tok * (best_bid + best_ask) * fee_rate
+        net_profit = gross_usd - fee_usd
+        realized_edge_bps = (
+            (net_profit / notional_usd) * _BPS_DIVISOR if notional_usd > 0 else Decimal(0)
+        )
+
+        return RealizedOosTrade(
+            trade_id=self._next_trade_id("taker", step_seq, intent.product_id),
+            strategy="taker",
+            product_id=intent.product_id,
+            direction=intent.direction,
+            decision_step_seq=intent.step_seq,
+            settlement_step_seq=step_seq,
+            observed_at_utc=observed_at_utc,
+            notional_usd=notional_usd,
+            quoted_net_edge_bps=intent.quoted_net_edge_bps,
+            realized_net_edge_bps=realized_edge_bps,
+            realized_net_profit_usd=net_profit,
+            gas_cost_usd=Decimal(0),
+            fee_usd=fee_usd,
+        )
+
     def step_tick(
         self,
         *,
@@ -1026,11 +1099,31 @@ class OosStrategyExecutionTracker:
         settled_taker: list[RealizedOosTrade] = []
         remaining_pending: list[PendingTakerIntent] = []
         expired_this_step = 0
+        cancelled_ioc_this_step = 0
         for intent in self._pending_intents:
             if obs_ms - intent.observed_at_ms > self._config.max_signal_age_ms:
                 expired_this_step += 1
                 self._expired_pending_intents += 1
                 continue
+
+            limit_px = intent.limit_cex_price_usd
+            ioc_bbo: tuple[Decimal, Decimal] | None = None
+            if self._config.cex_ioc_limit_enabled and limit_px is not None:
+                ioc_bbo = bbos.get(intent.product_id)
+                if ioc_bbo is None:
+                    remaining_pending.append(intent)
+                    continue
+                best_bid, best_ask = ioc_bbo
+                ioc_filled = (
+                    best_bid >= limit_px
+                    if intent.direction == _DIRECTION_BUY_DEX
+                    else best_ask <= limit_px
+                )
+                if not ioc_filled:
+                    cancelled_ioc_this_step += 1
+                    self._cancelled_ioc_intents += 1
+                    continue
+
             trade = self._settle_pending_intent(
                 intent,
                 step_seq=step_seq,
@@ -1041,7 +1134,18 @@ class OosStrategyExecutionTracker:
                 fee_bps=eff_fee_bps,
             )
             if trade is None:
-                remaining_pending.append(intent)
+                if ioc_bbo is not None:
+                    trade = self._unwind_filled_cex_leg(
+                        intent,
+                        step_seq=step_seq,
+                        observed_at_utc=observed_at_utc,
+                        bbo=ioc_bbo,
+                        fee_bps=eff_fee_bps,
+                    )
+                    settled_taker.append(trade)
+                    self._realized_trades.append(trade)
+                else:
+                    remaining_pending.append(intent)
             else:
                 settled_taker.append(trade)
                 self._realized_trades.append(trade)
@@ -1136,6 +1240,13 @@ class OosStrategyExecutionTracker:
 
             self._streak_by_product[pid] = (new_streak, opp.direction)
             if new_streak >= self._config.taker_persistence_ticks:
+                bbo = bbos.get(pid)
+                if bbo is not None:
+                    limit_cex_price_usd: Decimal | None = (
+                        bbo[0] if opp.direction == _DIRECTION_BUY_DEX else bbo[1]
+                    )
+                else:
+                    limit_cex_price_usd = opp.fallback_limit_cex_price_usd
                 intent = PendingTakerIntent(
                     step_seq=step_seq,
                     observed_at_utc=observed_at_utc,
@@ -1147,6 +1258,7 @@ class OosStrategyExecutionTracker:
                     token_decimals=opp.token_decimals,
                     quoted_net_edge_bps=opp.quoted_net_edge_bps,
                     quoted_net_profit_usd=opp.quoted_net_profit_usd,
+                    limit_cex_price_usd=limit_cex_price_usd,
                 )
                 self._pending_intents.append(intent)
                 new_intents.append(intent)
@@ -1161,6 +1273,7 @@ class OosStrategyExecutionTracker:
             new_pending_intents=tuple(new_intents),
             expired_pending_intents=expired_this_step,
             rejected_flickers=rejected_flickers_this_step,
+            cancelled_ioc_intents=cancelled_ioc_this_step,
         )
 
     def summary(self) -> dict[str, Any]:
@@ -1186,6 +1299,8 @@ class OosStrategyExecutionTracker:
                 "oos_tail_loss_p5_bps": "0.000000",
                 "pending_unsettled_intents": len(self._pending_intents),
                 "expired_pending_intents": self._expired_pending_intents,
+                "cancelled_ioc_intents": self._cancelled_ioc_intents,
+                "cex_ioc_limit_enabled": self._config.cex_ioc_limit_enabled,
                 "rejected_one_tick_flickers": self._rejected_one_tick_flickers,
                 "execution_eligible": False,
             }
@@ -1239,6 +1354,8 @@ class OosStrategyExecutionTracker:
             "oos_tail_loss_p5_bps": str(tail_p5_bps.quantize(_BPS_QUANT)),
             "pending_unsettled_intents": len(self._pending_intents),
             "expired_pending_intents": self._expired_pending_intents,
+            "cancelled_ioc_intents": self._cancelled_ioc_intents,
+            "cex_ioc_limit_enabled": self._config.cex_ioc_limit_enabled,
             "rejected_one_tick_flickers": self._rejected_one_tick_flickers,
             "execution_eligible": False,
         }
