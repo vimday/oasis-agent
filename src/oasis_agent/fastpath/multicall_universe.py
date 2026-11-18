@@ -1,7 +1,8 @@
 """Keyless, block-pinned Base multi-asset Multicall3 universe discovery & QuoterV2 verifier.
 
 Discovers active pools across Uniswap V3, Aerodrome Slipstream, and Aerodrome Volatile V2
-over the five canonical Base assets (WETH, USDC, cbBTC, AERO, wstETH), filters out dust/dead
+over the five canonical Base assets (WETH, USDC, cbBTC, AERO, wstETH) and optional ecosystem
+assets (VIRTUAL, VVV, MORPHO, cbETH, DEGEN, WELL) paired against WETH/USDC, filters out dust/dead
 pools, fetches coherent 2-RPC-call snapshots with BaseTime validation and an anti-hallucination
 concentrated-liquidity bracket cap, and verifies candidate routes against on-chain QuoterV2.
 
@@ -9,6 +10,7 @@ All network reads are strictly keyless, read-only, bounded in response size, and
 `execution_eligible = False`.
 """
 
+import http.client
 import ipaddress
 import json
 import math
@@ -20,7 +22,7 @@ import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Final, cast
+from typing import Any, Final, cast
 
 import certifi
 from eth_abi.abi import decode, encode
@@ -100,6 +102,12 @@ SLIPSTREAM_FACTORY: Final[str] = _addr20(446184154468680566683266, 8063985403986
 CBBTC: Final[str] = _addr20(962029985257869835451167, 429691464623657203872703)
 AERO_TOKEN: Final[str] = _addr20(698938029289277408845381, 196638687667187760072241)
 WSTETH: Final[str] = _addr20(915173236817837272783139, 736850604702865302676562)
+VIRTUAL_TOKEN: Final[str] = _addr20(53093369572835308006302, 299957124776707463478811)
+MORPHO_TOKEN: Final[str] = _addr20(881418587902261807008815, 468385840514299800979522)
+WELL_TOKEN: Final[str] = _addr20(795821710285406097221955, 586745419114598753277614)
+DEGEN_TOKEN: Final[str] = _addr20(372272040501209052850519, 54728650980430820929517)
+VVV_TOKEN: Final[str] = _addr20(816939432874901296838581, 41323956922079427436991)
+CBETH_TOKEN: Final[str] = _addr20(202544235633287275663338, 831585851150422141430818)
 
 UNIV3_FEE_TIERS: Final[tuple[int, ...]] = (100, 500, 3000, 10000)
 SLIPSTREAM_TICK_SPACINGS: Final[tuple[int, ...]] = (1, 50, 100, 200)
@@ -125,10 +133,19 @@ _LOCALHOST_NAMES: Final[frozenset[str]] = frozenset({"localhost", "localhost.loc
 _NAMED_BLOCK_TAGS: Final[frozenset[str]] = frozenset({"latest", "safe", "finalized"})
 _TUN_FAKE_IPV4_NET: Final[ipaddress.IPv4Network] = ipaddress.IPv4Network("198.18.0.0/15")
 _TUN_FAKE_IPV6_NET: Final[ipaddress.IPv6Network] = ipaddress.IPv6Network("2001:2::/48")
+_GLOBAL_DEFAULT_TIMEOUT: Final[object] = getattr(socket, "_GLOBAL_DEFAULT_TIMEOUT", object())
 _USER_AGENT: Final[str] = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
 )
+
+_AddrInfoEntry = tuple[
+    socket.AddressFamily,
+    socket.SocketKind,
+    int,
+    str,
+    tuple[Any, ...],
+]
 
 
 class MulticallUniverseError(ValueError):
@@ -169,6 +186,19 @@ CANONICAL_BASE_TOKENS: Final[tuple[BaseTokenMeta, ...]] = (
     BaseTokenMeta("cbBTC", CBBTC, 8, 10_000_000),
     BaseTokenMeta("AERO", AERO_TOKEN, 18, 10_000 * 10**18),
     BaseTokenMeta("wstETH", WSTETH, 18, 2 * 10**18),
+)
+
+ECOSYSTEM_BASE_TOKENS: Final[tuple[BaseTokenMeta, ...]] = (
+    BaseTokenMeta("VIRTUAL", VIRTUAL_TOKEN, 18, 25_000 * 10**18),
+    BaseTokenMeta("VVV", VVV_TOKEN, 18, 700 * 10**18),
+    BaseTokenMeta("MORPHO", MORPHO_TOKEN, 18, 8_000 * 10**18),
+    BaseTokenMeta("cbETH", CBETH_TOKEN, 18, 5 * 10**18),
+    BaseTokenMeta("DEGEN", DEGEN_TOKEN, 18, 15_000_000 * 10**18),
+    BaseTokenMeta("WELL", WELL_TOKEN, 18, 8_000_000 * 10**18),
+)
+
+EXTENDED_BASE_TOKENS: Final[tuple[BaseTokenMeta, ...]] = (
+    CANONICAL_BASE_TOKENS + ECOSYSTEM_BASE_TOKENS
 )
 
 
@@ -353,7 +383,7 @@ def _validate_rpc_url(rpc_url: str, *, enforce_public_host: bool) -> tuple[str, 
     return origin, hostname, port
 
 
-def _validate_resolved_dns(hostname: str, port: int) -> None:
+def _resolve_and_validate_dns(hostname: str, port: int) -> list[_AddrInfoEntry]:
     _validate_public_ip_literal(hostname)
     try:
         addr_infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
@@ -361,7 +391,8 @@ def _validate_resolved_dns(hostname: str, port: int) -> None:
         raise RpcError("Base multicall RPC DNS resolution failed") from exc
     if not addr_infos:
         raise RpcError("Base multicall RPC DNS returned no addresses")
-    for _, _, _, _, sockaddr in addr_infos:
+    validated: list[_AddrInfoEntry] = []
+    for family, socktype, proto, canonname, sockaddr in addr_infos:
         raw_ip = str(sockaddr[0]).split("%", 1)[0]
         ip_obj = ipaddress.ip_address(raw_ip)
         is_mapped_tun = (
@@ -371,6 +402,105 @@ def _validate_resolved_dns(hostname: str, port: int) -> None:
         )
         if _is_forbidden_ip(ip_obj) and not _is_tun_fake_ip(ip_obj) and not is_mapped_tun:
             raise MulticallUniverseError("Base multicall RPC DNS resolved to a private/loopback IP")
+        validated.append((family, socktype, proto, canonname, sockaddr))
+    return validated
+
+
+def _validate_resolved_dns(hostname: str, port: int) -> None:
+    _resolve_and_validate_dns(hostname, port)
+
+
+class _IPv4PreferredHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection that validates DNS IPs and prefers AF_INET before AF_INET6."""
+
+    _context: ssl.SSLContext
+    source_address: tuple[str, int] | None
+
+    def __init__(
+        self,
+        host: str,
+        port: int | None = None,
+        *,
+        timeout: float | None = cast(float | None, _GLOBAL_DEFAULT_TIMEOUT),
+        source_address: tuple[str, int] | None = None,
+        context: ssl.SSLContext | None = None,
+        blocksize: int = 8192,
+    ) -> None:
+        resolved_context = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(
+            host,
+            port=port,
+            timeout=timeout,
+            source_address=source_address,
+            context=resolved_context,
+            blocksize=blocksize,
+        )
+        self._context = resolved_context
+
+    def connect(self) -> None:
+        addr_infos = _resolve_and_validate_dns(self.host, self.port)
+        ordered = sorted(
+            addr_infos,
+            key=lambda entry: 0 if entry[0] == socket.AF_INET else 1,
+        )
+        last_err: OSError | None = None
+        for family, socktype, proto, _canonname, sockaddr in ordered:
+            raw_sock: socket.socket | None = None
+            connected = False
+            try:
+                raw_sock = socket.socket(family, socktype, proto)
+                if self.timeout is not _GLOBAL_DEFAULT_TIMEOUT:
+                    raw_sock.settimeout(self.timeout)
+                if self.source_address is not None:
+                    raw_sock.bind(self.source_address)
+                raw_sock.connect(sockaddr)
+                if hasattr(raw_sock, "setsockopt"):
+                    with suppress(OSError):
+                        raw_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self.sock = self._context.wrap_socket(raw_sock, server_hostname=self.host)
+                connected = True
+                return
+            except OSError as exc:
+                last_err = exc
+                self.sock = None
+            finally:
+                if not connected and raw_sock is not None:
+                    with suppress(OSError):
+                        raw_sock.close()
+        if last_err is not None:
+            raise last_err
+        raise OSError("no validated addresses available")
+
+
+class _IPv4PreferredHTTPSHandler(urllib.request.HTTPSHandler):
+    """urllib HTTPSHandler using _IPv4PreferredHTTPSConnection."""
+
+    _context: ssl.SSLContext
+
+    def __init__(
+        self,
+        debuglevel: int | None = None,
+        context: ssl.SSLContext | None = None,
+        check_hostname: bool | None = None,
+    ) -> None:
+        resolved_context = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(
+            debuglevel=debuglevel,
+            context=resolved_context,
+            check_hostname=check_hostname,
+        )
+        self._context = resolved_context
+
+    def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        return self.do_open(
+            _IPv4PreferredHTTPSConnection,
+            req,
+            context=self._context,
+        )
 
 
 def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> bytes:
@@ -381,7 +511,7 @@ def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> 
     _validate_resolved_dns(parsed.hostname, port)
 
     opener = urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
+        _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )
     request = urllib.request.Request(
@@ -559,112 +689,155 @@ class _FactoryQuerySpec:
     calldata: bytes
 
 
-def _build_factory_queries(tokens: tuple[BaseTokenMeta, ...]) -> tuple[_FactoryQuerySpec, ...]:
+def _append_pair_venue_queries(
+    queries: list[_FactoryQuerySpec],
+    seen_query_keys: set[tuple[str, bytes]],
+    seen_slipstream_keys: set[tuple[str, str, str, int]],
+    token_a: BaseTokenMeta,
+    token_b: BaseTokenMeta,
+) -> None:
+    if token_a.address == token_b.address:
+        return
+    meta0, meta1 = (token_a, token_b) if token_a.address < token_b.address else (token_b, token_a)
+    s0 = meta0.symbol.lower()
+    s1 = meta1.symbol.lower()
+
+    def _add(spec: _FactoryQuerySpec) -> None:
+        key = (spec.factory, spec.calldata)
+        if key not in seen_query_keys:
+            seen_query_keys.add(key)
+            queries.append(spec)
+
+    for fee in UNIV3_FEE_TIERS:
+        _add(
+            _FactoryQuerySpec(
+                label=f"uniswap_v3_{s0}_{s1}_{fee}",
+                venue="uniswap_v3",
+                kind=PoolKind.V3,
+                meta0=meta0,
+                meta1=meta1,
+                fixed_fee_pips=fee,
+                tick_spacing=None,
+                factory=UNIV3_FACTORY,
+                calldata=bytes.fromhex(
+                    UNIV3_GET_POOL_SELECTOR[2:]
+                    + encode(
+                        ["address", "address", "uint24"],
+                        [meta0.address, meta1.address, fee],
+                    ).hex()
+                ),
+            )
+        )
+
+    for ts in SLIPSTREAM_TICK_SPACINGS:
+        seen_slipstream_keys.add((SLIPSTREAM_FACTORY, meta0.address, meta1.address, ts))
+        _add(
+            _FactoryQuerySpec(
+                label=f"slipstream_{s0}_{s1}_ts{ts}",
+                venue="aerodrome_slipstream",
+                kind=PoolKind.SLIPSTREAM,
+                meta0=meta0,
+                meta1=meta1,
+                fixed_fee_pips=None,
+                tick_spacing=ts,
+                factory=SLIPSTREAM_FACTORY,
+                calldata=bytes.fromhex(
+                    SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                    + encode(
+                        ["address", "address", "int24"],
+                        [meta0.address, meta1.address, ts],
+                    ).hex()
+                ),
+            )
+        )
+
+    _add(
+        _FactoryQuerySpec(
+            label=f"aerodrome_v2_{s0}_{s1}",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            meta0=meta0,
+            meta1=meta1,
+            fixed_fee_pips=None,
+            tick_spacing=None,
+            factory=AERO_FACTORY,
+            calldata=bytes.fromhex(
+                AERO_GET_POOL_SELECTOR[2:]
+                + encode(
+                    ["address", "address", "bool"],
+                    [meta0.address, meta1.address, False],
+                ).hex()
+            ),
+        )
+    )
+
+
+def _build_factory_queries(
+    tokens: Sequence[BaseTokenMeta],
+    *,
+    ecosystem_tokens: Sequence[BaseTokenMeta] = (),
+) -> tuple[_FactoryQuerySpec, ...]:
     queries: list[_FactoryQuerySpec] = []
+    seen_query_keys: set[tuple[str, bytes]] = set()
     seen_slipstream_keys: set[tuple[str, str, str, int]] = set()
     by_symbol = {meta.symbol: meta for meta in tokens}
 
     for i in range(len(tokens)):
         for j in range(i + 1, len(tokens)):
-            a, b = tokens[i], tokens[j]
-            meta0, meta1 = (a, b) if a.address < b.address else (b, a)
-            s0 = meta0.symbol.lower()
-            s1 = meta1.symbol.lower()
-
-            queries.extend(
-                _FactoryQuerySpec(
-                    label=f"uniswap_v3_{s0}_{s1}_{fee}",
-                    venue="uniswap_v3",
-                    kind=PoolKind.V3,
-                    meta0=meta0,
-                    meta1=meta1,
-                    fixed_fee_pips=fee,
-                    tick_spacing=None,
-                    factory=UNIV3_FACTORY,
-                    calldata=bytes.fromhex(
-                        UNIV3_GET_POOL_SELECTOR[2:]
-                        + encode(
-                            ["address", "address", "uint24"],
-                            [meta0.address, meta1.address, fee],
-                        ).hex()
-                    ),
-                )
-                for fee in UNIV3_FEE_TIERS
+            _append_pair_venue_queries(
+                queries, seen_query_keys, seen_slipstream_keys, tokens[i], tokens[j]
             )
 
-            for ts in SLIPSTREAM_TICK_SPACINGS:
-                seen_slipstream_keys.add((SLIPSTREAM_FACTORY, meta0.address, meta1.address, ts))
-                queries.append(
-                    _FactoryQuerySpec(
-                        label=f"slipstream_{s0}_{s1}_ts{ts}",
-                        venue="aerodrome_slipstream",
-                        kind=PoolKind.SLIPSTREAM,
-                        meta0=meta0,
-                        meta1=meta1,
-                        fixed_fee_pips=None,
-                        tick_spacing=ts,
-                        factory=SLIPSTREAM_FACTORY,
-                        calldata=bytes.fromhex(
-                            SLIPSTREAM_GET_POOL_SELECTOR[2:]
-                            + encode(
-                                ["address", "address", "int24"],
-                                [meta0.address, meta1.address, ts],
-                            ).hex()
-                        ),
-                    )
+    if ecosystem_tokens:
+        quote_tokens = tuple(by_symbol[sym] for sym in ("WETH", "USDC") if sym in by_symbol)
+        for eco_tok in ecosystem_tokens:
+            for quote_tok in quote_tokens:
+                _append_pair_venue_queries(
+                    queries, seen_query_keys, seen_slipstream_keys, eco_tok, quote_tok
                 )
-
-            queries.append(
-                _FactoryQuerySpec(
-                    label=f"aerodrome_v2_{s0}_{s1}",
-                    venue="aerodrome_v2",
-                    kind=PoolKind.V2,
-                    meta0=meta0,
-                    meta1=meta1,
-                    fixed_fee_pips=None,
-                    tick_spacing=None,
-                    factory=AERO_FACTORY,
-                    calldata=bytes.fromhex(
-                        AERO_GET_POOL_SELECTOR[2:]
-                        + encode(
-                            ["address", "address", "bool"],
-                            [meta0.address, meta1.address, False],
-                        ).hex()
-                    ),
-                )
-            )
 
     # Include every SLIPSTREAM_USDC_WETH factory entry (e.g. second Slipstream v2 factory).
-    weth_meta = by_symbol["WETH"]
-    usdc_meta = by_symbol["USDC"]
-    uw0, uw1 = (
-        (weth_meta, usdc_meta) if weth_meta.address < usdc_meta.address else (usdc_meta, weth_meta)
-    )
-    for raw_factory, (_pool_addr, spacing) in SLIPSTREAM_USDC_WETH.items():
-        factory = normalize_address(raw_factory)
-        key = (factory, uw0.address, uw1.address, spacing)
-        if key in seen_slipstream_keys:
-            continue
-        seen_slipstream_keys.add(key)
-        queries.append(
-            _FactoryQuerySpec(
-                label=f"slipstream_{uw0.symbol.lower()}_{uw1.symbol.lower()}_ts{spacing}_{factory[2:8]}",
-                venue="aerodrome_slipstream",
-                kind=PoolKind.SLIPSTREAM,
-                meta0=uw0,
-                meta1=uw1,
-                fixed_fee_pips=None,
-                tick_spacing=spacing,
-                factory=factory,
-                calldata=bytes.fromhex(
-                    SLIPSTREAM_GET_POOL_SELECTOR[2:]
-                    + encode(
-                        ["address", "address", "int24"],
-                        [uw0.address, uw1.address, spacing],
-                    ).hex()
-                ),
-            )
+    if "WETH" in by_symbol and "USDC" in by_symbol:
+        weth_meta = by_symbol["WETH"]
+        usdc_meta = by_symbol["USDC"]
+        uw0, uw1 = (
+            (weth_meta, usdc_meta)
+            if weth_meta.address < usdc_meta.address
+            else (usdc_meta, weth_meta)
         )
+        for raw_factory, (_pool_addr, spacing) in SLIPSTREAM_USDC_WETH.items():
+            factory = normalize_address(raw_factory)
+            key = (factory, uw0.address, uw1.address, spacing)
+            if key in seen_slipstream_keys:
+                continue
+            seen_slipstream_keys.add(key)
+            calldata = bytes.fromhex(
+                SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                + encode(
+                    ["address", "address", "int24"],
+                    [uw0.address, uw1.address, spacing],
+                ).hex()
+            )
+            query_key = (factory, calldata)
+            if query_key in seen_query_keys:
+                continue
+            seen_query_keys.add(query_key)
+            queries.append(
+                _FactoryQuerySpec(
+                    label=(
+                        f"slipstream_{uw0.symbol.lower()}_{uw1.symbol.lower()}"
+                        f"_ts{spacing}_{factory[2:8]}"
+                    ),
+                    venue="aerodrome_slipstream",
+                    kind=PoolKind.SLIPSTREAM,
+                    meta0=uw0,
+                    meta1=uw1,
+                    fixed_fee_pips=None,
+                    tick_spacing=spacing,
+                    factory=factory,
+                    calldata=calldata,
+                )
+            )
 
     return tuple(queries)
 
@@ -675,8 +848,11 @@ def discover_base_universe_pools(
     transport: RpcTransport | None = None,
     timeout_s: float = 10.0,
     block_tag: str = "latest",
+    include_ecosystem_tokens: bool = False,
 ) -> tuple[DiscoveredPool, ...]:
     """Discover and reserve-filter Base multi-asset pools in 3 pinned JSON-RPC calls."""
+    if type(include_ecosystem_tokens) is not bool:
+        raise MulticallUniverseError("include_ecosystem_tokens must be a boolean")
     checked_timeout = _validate_timeout(timeout_s)
     normalized_tag = _validate_block_tag(block_tag)
     _validate_rpc_url(rpc_url, enforce_public_host=transport is None)
@@ -687,7 +863,10 @@ def discover_base_universe_pools(
     )
     pinned_block = hex(block_number)
 
-    factory_specs = _build_factory_queries(CANONICAL_BASE_TOKENS)
+    factory_specs = _build_factory_queries(
+        CANONICAL_BASE_TOKENS,
+        ecosystem_tokens=ECOSYSTEM_BASE_TOKENS if include_ecosystem_tokens else (),
+    )
     factory_calldata = _encode_aggregate3_calldata(
         [(spec.factory, True, spec.calldata) for spec in factory_specs]
     )
@@ -1427,6 +1606,11 @@ __all__ = [
     "BALANCE_OF_SELECTOR",
     "CANONICAL_BASE_TOKENS",
     "CBBTC",
+    "CBETH_TOKEN",
+    "DEGEN_TOKEN",
+    "ECOSYSTEM_BASE_TOKENS",
+    "EXTENDED_BASE_TOKENS",
+    "MORPHO_TOKEN",
     "MULTICALL3",
     "SLIPSTREAM_FACTORY",
     "SLIPSTREAM_GET_POOL_SELECTOR",
@@ -1437,6 +1621,9 @@ __all__ = [
     "UNIV3_GET_POOL_SELECTOR",
     "UNIV3_QUOTER_V2",
     "UNIV3_QUOTE_SINGLE_SELECTOR",
+    "VIRTUAL_TOKEN",
+    "VVV_TOKEN",
+    "WELL_TOKEN",
     "WSTETH",
     "BaseTokenMeta",
     "DiscoveredPool",

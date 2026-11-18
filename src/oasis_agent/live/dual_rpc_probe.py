@@ -8,6 +8,7 @@ Read-only diagnostic only (`execution_eligible` is permanently `False`).
 """
 
 import argparse
+import http.client
 import ipaddress
 import json
 import math
@@ -79,6 +80,7 @@ _FORBIDDEN_LABEL_MARKERS: Final[tuple[str, ...]] = (
 )
 _TUN_FAKE_IPV4_NET: Final[ipaddress.IPv4Network] = ipaddress.IPv4Network("198.18.0.0/15")
 _TUN_FAKE_IPV6_NET: Final[ipaddress.IPv6Network] = ipaddress.IPv6Network("2001:2::/48")
+_GLOBAL_DEFAULT_TIMEOUT: Final[object] = getattr(socket, "_GLOBAL_DEFAULT_TIMEOUT", object())
 _SHA256_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
 _RAW_HEX_KEY_RE: Final[re.Pattern[str]] = re.compile(r"0x[0-9a-fA-F]{64}")
 _HEX_BYTES_RE: Final[re.Pattern[str]] = re.compile(r"^0x(?:[0-9a-fA-F]{2})+$")
@@ -86,6 +88,14 @@ _USER_AGENT: Final[str] = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
 )
+
+_AddrInfoEntry = tuple[
+    socket.AddressFamily,
+    socket.SocketKind,
+    int,
+    str,
+    tuple[Any, ...],
+]
 
 
 class DualRpcQuorumError(ValueError):
@@ -285,7 +295,7 @@ def _validate_rpc_endpoint(url: str, *, role: str) -> tuple[str, str, int]:
     return parsed.netloc.lower(), hostname.lower(), port
 
 
-def _validate_resolved_dns(hostname: str, port: int) -> None:
+def _resolve_and_validate_dns(hostname: str, port: int) -> list[_AddrInfoEntry]:
     _validate_public_ip_literal(hostname)
     try:
         addr_infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
@@ -293,7 +303,8 @@ def _validate_resolved_dns(hostname: str, port: int) -> None:
         raise RpcError("Dual RPC probe DNS resolution failed") from exc
     if not addr_infos:
         raise RpcError("Dual RPC probe DNS returned no addresses")
-    for _, _, _, _, sockaddr in addr_infos:
+    validated: list[_AddrInfoEntry] = []
+    for family, socktype, proto, canonname, sockaddr in addr_infos:
         raw_ip = str(sockaddr[0]).split("%", 1)[0]
         ip_obj = ipaddress.ip_address(raw_ip)
         is_mapped_tun = (
@@ -303,6 +314,105 @@ def _validate_resolved_dns(hostname: str, port: int) -> None:
         )
         if _is_forbidden_ip(ip_obj) and not _is_tun_fake_ip(ip_obj) and not is_mapped_tun:
             raise DualRpcQuorumError("Dual RPC probe DNS resolved to a private or loopback IP")
+        validated.append((family, socktype, proto, canonname, sockaddr))
+    return validated
+
+
+def _validate_resolved_dns(hostname: str, port: int) -> None:
+    _resolve_and_validate_dns(hostname, port)
+
+
+class _IPv4PreferredHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection that validates DNS IPs and prefers AF_INET before AF_INET6."""
+
+    _context: ssl.SSLContext
+    source_address: tuple[str, int] | None
+
+    def __init__(
+        self,
+        host: str,
+        port: int | None = None,
+        *,
+        timeout: float | None = cast(float | None, _GLOBAL_DEFAULT_TIMEOUT),
+        source_address: tuple[str, int] | None = None,
+        context: ssl.SSLContext | None = None,
+        blocksize: int = 8192,
+    ) -> None:
+        resolved_context = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(
+            host,
+            port=port,
+            timeout=timeout,
+            source_address=source_address,
+            context=resolved_context,
+            blocksize=blocksize,
+        )
+        self._context = resolved_context
+
+    def connect(self) -> None:
+        addr_infos = _resolve_and_validate_dns(self.host, self.port)
+        ordered = sorted(
+            addr_infos,
+            key=lambda entry: 0 if entry[0] == socket.AF_INET else 1,
+        )
+        last_err: OSError | None = None
+        for family, socktype, proto, _canonname, sockaddr in ordered:
+            raw_sock: socket.socket | None = None
+            connected = False
+            try:
+                raw_sock = socket.socket(family, socktype, proto)
+                if self.timeout is not _GLOBAL_DEFAULT_TIMEOUT:
+                    raw_sock.settimeout(self.timeout)
+                if self.source_address is not None:
+                    raw_sock.bind(self.source_address)
+                raw_sock.connect(sockaddr)
+                if hasattr(raw_sock, "setsockopt"):
+                    with suppress(OSError):
+                        raw_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                self.sock = self._context.wrap_socket(raw_sock, server_hostname=self.host)
+                connected = True
+                return
+            except OSError as exc:
+                last_err = exc
+                self.sock = None
+            finally:
+                if not connected and raw_sock is not None:
+                    with suppress(OSError):
+                        raw_sock.close()
+        if last_err is not None:
+            raise last_err
+        raise OSError("no validated addresses available")
+
+
+class _IPv4PreferredHTTPSHandler(urllib.request.HTTPSHandler):
+    """urllib HTTPSHandler using _IPv4PreferredHTTPSConnection."""
+
+    _context: ssl.SSLContext
+
+    def __init__(
+        self,
+        debuglevel: int | None = None,
+        context: ssl.SSLContext | None = None,
+        check_hostname: bool | None = None,
+    ) -> None:
+        resolved_context = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(
+            debuglevel=debuglevel,
+            context=resolved_context,
+            check_hostname=check_hostname,
+        )
+        self._context = resolved_context
+
+    def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        return self.do_open(
+            _IPv4PreferredHTTPSConnection,
+            req,
+            context=self._context,
+        )
 
 
 def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> bytes:
@@ -310,7 +420,7 @@ def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> 
     _validate_resolved_dns(hostname, port)
 
     opener = urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
+        _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )
     request = urllib.request.Request(

@@ -3,8 +3,10 @@
 import json
 import os
 import socket
+import ssl
 import subprocess
 import urllib.error
+import urllib.request
 from collections.abc import Callable
 from email.message import Message
 from io import BytesIO
@@ -45,6 +47,11 @@ from oasis_agent.fastpath.multicall_universe import (
     BALANCE_OF_SELECTOR,
     CANONICAL_BASE_TOKENS,
     CBBTC,
+    CBETH_TOKEN,
+    DEGEN_TOKEN,
+    ECOSYSTEM_BASE_TOKENS,
+    EXTENDED_BASE_TOKENS,
+    MORPHO_TOKEN,
     MULTICALL3,
     SLIPSTREAM_FACTORY,
     SLIPSTREAM_GET_POOL_SELECTOR,
@@ -52,15 +59,31 @@ from oasis_agent.fastpath.multicall_universe import (
     UNIV3_GET_POOL_SELECTOR,
     UNIV3_QUOTE_SINGLE_SELECTOR,
     UNIV3_QUOTER_V2,
+    VIRTUAL_TOKEN,
+    VVV_TOKEN,
+    WELL_TOKEN,
     WSTETH,
+    BaseTokenMeta,
     DiscoveredPool,
     MulticallUniverseError,
+    _build_factory_queries,
+    _IPv4PreferredHTTPSConnection,
+    _IPv4PreferredHTTPSHandler,
     _validate_resolved_dns,
     _validate_rpc_url,
     compute_anti_hallucination_cl_bracket,
     discover_base_universe_pools,
     fetch_pinned_universe_snapshot,
     verify_candidate_with_onchain_quoter,
+)
+from oasis_agent.live.dual_rpc_probe import (
+    DualRpcQuorumError,
+)
+from oasis_agent.live.dual_rpc_probe import (
+    _IPv4PreferredHTTPSConnection as _DualIPv4PreferredHTTPSConnection,
+)
+from oasis_agent.live.dual_rpc_probe import (
+    _IPv4PreferredHTTPSHandler as _DualIPv4PreferredHTTPSHandler,
 )
 from oasis_agent.models.common import ZERO_ADDRESS, normalize_address, sha256_hex
 from oasis_agent.sniping.venues import (
@@ -1029,3 +1052,504 @@ def test_verify_candidate_with_onchain_quoter_and_revert_fail_closed(
     )
     assert zero_in.verified is False
     assert zero_in.reason == "amount_in_must_be_positive"
+
+
+def test_ecosystem_tokens_query_dedup_and_discovery() -> None:
+    assert len(CANONICAL_BASE_TOKENS) == 5
+    assert len(ECOSYSTEM_BASE_TOKENS) == 6
+    assert EXTENDED_BASE_TOKENS == CANONICAL_BASE_TOKENS + ECOSYSTEM_BASE_TOKENS
+    assert len({m.address for m in EXTENDED_BASE_TOKENS}) == 11
+
+    eco_by_sym = {meta.symbol: meta for meta in ECOSYSTEM_BASE_TOKENS}
+    assert eco_by_sym["VIRTUAL"] == BaseTokenMeta("VIRTUAL", VIRTUAL_TOKEN, 18, 25_000 * 10**18)
+    assert eco_by_sym["VVV"] == BaseTokenMeta("VVV", VVV_TOKEN, 18, 700 * 10**18)
+    assert eco_by_sym["MORPHO"] == BaseTokenMeta("MORPHO", MORPHO_TOKEN, 18, 8_000 * 10**18)
+    assert eco_by_sym["cbETH"] == BaseTokenMeta("cbETH", CBETH_TOKEN, 18, 5 * 10**18)
+    assert eco_by_sym["DEGEN"] == BaseTokenMeta("DEGEN", DEGEN_TOKEN, 18, 15_000_000 * 10**18)
+    assert eco_by_sym["WELL"] == BaseTokenMeta("WELL", WELL_TOKEN, 18, 8_000_000 * 10**18)
+
+    canonical_queries = _build_factory_queries(CANONICAL_BASE_TOKENS)
+    assert len(canonical_queries) == 10 * 9 + 1
+
+    extended_queries = _build_factory_queries(
+        CANONICAL_BASE_TOKENS, ecosystem_tokens=ECOSYSTEM_BASE_TOKENS
+    )
+    # 6 ecosystem tokens * 2 quote tokens (WETH, USDC) * 9 venue tiers = 108 extra queries.
+    assert len(extended_queries) == len(canonical_queries) + 6 * 2 * 9
+    assert all(q.meta0.address < q.meta1.address for q in extended_queries)
+    assert len({(q.factory, q.calldata) for q in extended_queries}) == len(extended_queries)
+
+    # Overlapping or duplicate ecosystem entries must be deduplicated cleanly.
+    dup_queries = _build_factory_queries(
+        CANONICAL_BASE_TOKENS,
+        ecosystem_tokens=(
+            CANONICAL_BASE_TOKENS[0],
+            CANONICAL_BASE_TOKENS[3],
+            ECOSYSTEM_BASE_TOKENS[0],
+            ECOSYSTEM_BASE_TOKENS[0],
+        ),
+    )
+    expected_with_one_eco = len(canonical_queries) + 2 * 9
+    assert len(dup_queries) == expected_with_one_eco
+
+    weth = normalize_address(WETH)
+    usdc = normalize_address(USDC)
+    cbbtc = normalize_address(CBBTC)
+    aero = normalize_address(AERO_TOKEN)
+    wsteth = normalize_address(WSTETH)
+    virtual = normalize_address(VIRTUAL_TOKEN)
+    vvv = normalize_address(VVV_TOKEN)
+    morpho = normalize_address(MORPHO_TOKEN)
+    cbeth = normalize_address(CBETH_TOKEN)
+    degen = normalize_address(DEGEN_TOKEN)
+    well = normalize_address(WELL_TOKEN)
+
+    def _pair(a: str, b: str) -> tuple[str, str]:
+        return (a, b) if a < b else (b, a)
+
+    v3_weth_usdc = _synth_addr(0x301)
+    ss_weth_usdc = normalize_address(SLIPSTREAM_USDC_WETH[SLIPSTREAM_FACTORY][0])
+    v3_virtual_weth = _synth_addr(0x302)
+    ss_vvv_weth = _synth_addr(0x303)
+    v3_morpho_weth = _synth_addr(0x304)
+    v3_cbeth_weth = _synth_addr(0x305)
+    ss_degen_usdc = _synth_addr(0x306)
+    aero_well_weth = _synth_addr(0x307)
+    v3_dust_virtual_usdc = _synth_addr(0x308)
+    v3_dead_morpho_usdc = _synth_addr(0x309)
+
+    factory_map: dict[tuple[str, bytes], str] = {}
+    t0, t1 = _pair(weth, usdc)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 500]).hex()
+            ),
+        )
+    ] = v3_weth_usdc
+    factory_map[
+        (
+            SLIPSTREAM_FACTORY,
+            bytes.fromhex(
+                SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "int24"], [t0, t1, 1]).hex()
+            ),
+        )
+    ] = ss_weth_usdc
+
+    t0, t1 = _pair(virtual, weth)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 3000]).hex()
+            ),
+        )
+    ] = v3_virtual_weth
+
+    t0, t1 = _pair(vvv, weth)
+    factory_map[
+        (
+            SLIPSTREAM_FACTORY,
+            bytes.fromhex(
+                SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "int24"], [t0, t1, 100]).hex()
+            ),
+        )
+    ] = ss_vvv_weth
+
+    t0, t1 = _pair(morpho, weth)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 500]).hex()
+            ),
+        )
+    ] = v3_morpho_weth
+
+    t0, t1 = _pair(cbeth, weth)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 100]).hex()
+            ),
+        )
+    ] = v3_cbeth_weth
+
+    t0, t1 = _pair(degen, usdc)
+    factory_map[
+        (
+            SLIPSTREAM_FACTORY,
+            bytes.fromhex(
+                SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "int24"], [t0, t1, 200]).hex()
+            ),
+        )
+    ] = ss_degen_usdc
+
+    t0, t1 = _pair(well, weth)
+    factory_map[
+        (
+            normalize_address(AERO_FACTORY),
+            bytes.fromhex(
+                AERO_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "bool"], [t0, t1, False]).hex()
+            ),
+        )
+    ] = aero_well_weth
+
+    t0, t1 = _pair(virtual, usdc)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 10000]).hex()
+            ),
+        )
+    ] = v3_dust_virtual_usdc
+
+    t0, t1 = _pair(morpho, usdc)
+    factory_map[
+        (
+            UNIV3_FACTORY,
+            bytes.fromhex(
+                UNIV3_GET_POOL_SELECTOR[2:]
+                + encode(["address", "address", "uint24"], [t0, t1, 3000]).hex()
+            ),
+        )
+    ] = v3_dead_morpho_usdc
+
+    # Silence unused canonical local bindings while preserving full token clarity.
+    assert cbbtc and aero and wsteth
+
+    balances: dict[tuple[str, str], int] = {
+        (weth, v3_weth_usdc): 50 * 10**18,
+        (usdc, v3_weth_usdc): 150_000 * 10**6,
+        (weth, ss_weth_usdc): 30 * 10**18,
+        (usdc, ss_weth_usdc): 90_000 * 10**6,
+        (virtual, v3_virtual_weth): 50_000 * 10**18,
+        (weth, v3_virtual_weth): 10 * 10**18,
+        (vvv, ss_vvv_weth): 2_000 * 10**18,
+        (weth, ss_vvv_weth): 6 * 10**18,
+        (morpho, v3_morpho_weth): 12_000 * 10**18,
+        (weth, v3_morpho_weth): 8 * 10**18,
+        (cbeth, v3_cbeth_weth): 10 * 10**18,
+        (weth, v3_cbeth_weth): 11 * 10**18,
+        (degen, ss_degen_usdc): 20_000_000 * 10**18,
+        (usdc, ss_degen_usdc): 20_000 * 10**6,
+        (well, aero_well_weth): 10_000_000 * 10**18,
+        (weth, aero_well_weth): 5 * 10**18,
+        # Dust VIRTUAL/USDC (VIRTUAL reserve 1_000 < 25_000 min_pool_reserve)
+        (virtual, v3_dust_virtual_usdc): 1_000 * 10**18,
+        (usdc, v3_dust_virtual_usdc): 10_000 * 10**6,
+        # Dead MORPHO/USDC (liquidity=0)
+        (morpho, v3_dead_morpho_usdc): 20_000 * 10**18,
+        (usdc, v3_dead_morpho_usdc): 20_000 * 10**6,
+    }
+    liquidities: dict[str, int] = {
+        v3_weth_usdc: 200_000_000_000_000_000,
+        ss_weth_usdc: 150_000_000_000_000_000,
+        v3_virtual_weth: 90_000_000_000_000_000,
+        ss_vvv_weth: 40_000_000_000_000_000,
+        v3_morpho_weth: 70_000_000_000_000_000,
+        v3_cbeth_weth: 120_000_000_000_000_000,
+        ss_degen_usdc: 50_000_000_000_000_000,
+        v3_dust_virtual_usdc: 10_000_000_000_000,
+        v3_dead_morpho_usdc: 0,
+    }
+    reserves_v2: dict[str, tuple[int, int]] = {
+        aero_well_weth: (
+            (5 * 10**18, 10_000_000 * 10**18) if weth < well else (10_000_000 * 10**18, 5 * 10**18)
+        ),
+    }
+
+    calls_seen: list[dict[str, Any]] = []
+    block_number = 58_300_000
+    ts_ms = 1_794_300_000_200
+
+    def _transport(_url: str, payload: bytes, _timeout_s: float) -> bytes:
+        req = json.loads(payload.decode("utf-8"))
+        calls_seen.append(req)
+        req_id = req["id"]
+        if req["method"] == "eth_getBlockByNumber":
+            return json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "number": hex(block_number),
+                        "hash": _synth_hash(b"eco-block"),
+                        "parentHash": _synth_hash(b"eco-parent"),
+                        "timestamp": hex(ts_ms // 1000),
+                        "timestampMs": hex(ts_ms),
+                        "baseFeePerGas": hex(50_000_000),
+                    },
+                }
+            ).encode("utf-8")
+
+        call_obj, _ = req["params"]
+        cd = bytes.fromhex(call_obj["data"][2:])
+        (subcalls,) = decode(["(address,bool,bytes)[]"], cd[4:], strict=True)
+        mc_results: list[tuple[bool, bytes]] = []
+        for target_raw, _allow_fail, data in subcalls:
+            target = normalize_address(target_raw)
+            sel = "0x" + data[:4].hex()
+            if sel in (
+                UNIV3_GET_POOL_SELECTOR,
+                SLIPSTREAM_GET_POOL_SELECTOR,
+                AERO_GET_POOL_SELECTOR,
+            ):
+                mc_results.append(
+                    (True, encode(["address"], [factory_map.get((target, data), ZERO_ADDRESS)]))
+                )
+            elif sel == BALANCE_OF_SELECTOR:
+                (holder,) = decode(["address"], data[4:], strict=True)
+                mc_results.append(
+                    (True, _u256_bytes(balances[(target, normalize_address(holder))]))
+                )
+            elif sel == LIQUIDITY_SELECTOR:
+                mc_results.append((True, _u256_bytes(liquidities[target])))
+            elif sel == GET_RESERVES_SELECTOR:
+                r0, r1 = reserves_v2[target]
+                mc_results.append((True, encode(["uint256", "uint256", "uint256"], [r0, r1, 1])))
+            else:
+                raise AssertionError(f"unexpected selector {sel}")
+
+        encoded_res = "0x" + encode(["(bool,bytes)[]"], [mc_results]).hex()
+        return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": encoded_res}).encode("utf-8")
+
+    # Backward compatibility: default include_ecosystem_tokens=False only returns canonical pools.
+    default_pools = discover_base_universe_pools(MOCK_RPC_URL, transport=_transport)
+    assert {p.pool_id for p in default_pools} == {v3_weth_usdc, ss_weth_usdc}
+    assert len(calls_seen) == 3
+
+    calls_seen.clear()
+    explicit_false = discover_base_universe_pools(
+        MOCK_RPC_URL, transport=_transport, include_ecosystem_tokens=False
+    )
+    assert explicit_false == default_pools
+
+    # Expanded ecosystem discovery finds active ecosystem pools and filters dust/dead ones.
+    calls_seen.clear()
+    expanded_pools = discover_base_universe_pools(
+        MOCK_RPC_URL, transport=_transport, include_ecosystem_tokens=True
+    )
+    assert len(calls_seen) == 3
+    expanded_ids = {p.pool_id for p in expanded_pools}
+    assert expanded_ids == {
+        v3_weth_usdc,
+        ss_weth_usdc,
+        v3_virtual_weth,
+        ss_vvv_weth,
+        v3_morpho_weth,
+        v3_cbeth_weth,
+        ss_degen_usdc,
+        aero_well_weth,
+    }
+    assert v3_dust_virtual_usdc not in expanded_ids
+    assert v3_dead_morpho_usdc not in expanded_ids
+    for pool in expanded_pools:
+        assert pool.token0 < pool.token1
+        assert pool.reserve0 > 0 and pool.reserve1 > 0
+
+    with pytest.raises(MulticallUniverseError, match="boolean"):
+        discover_base_universe_pools(
+            MOCK_RPC_URL,
+            transport=_transport,
+            include_ecosystem_tokens="yes",  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize(
+    ("conn_cls", "handler_cls", "err_cls", "module_path"),
+    [
+        (
+            _IPv4PreferredHTTPSConnection,
+            _IPv4PreferredHTTPSHandler,
+            MulticallUniverseError,
+            "oasis_agent.fastpath.multicall_universe",
+        ),
+        (
+            _DualIPv4PreferredHTTPSConnection,
+            _DualIPv4PreferredHTTPSHandler,
+            DualRpcQuorumError,
+            "oasis_agent.live.dual_rpc_probe",
+        ),
+    ],
+)
+def test_ipv4_preferred_https_connection_ordering_fallback_and_ssrf(
+    monkeypatch: pytest.MonkeyPatch,
+    conn_cls: type[Any],
+    handler_cls: type[Any],
+    err_cls: type[Exception],
+    module_path: str,
+) -> None:
+    class _FakeSocket:
+        def __init__(self, family: int, socktype: int, proto: int) -> None:
+            self.family = family
+            self.socktype = socktype
+            self.proto = proto
+            self.timeout: float | None = None
+            self.closed = False
+            self.bound: tuple[str, int] | None = None
+            self.sockopts: list[tuple[int, int, int]] = []
+            self.connected_addr: Any = None
+
+        def settimeout(self, value: float | None) -> None:
+            self.timeout = value
+
+        def bind(self, addr: tuple[str, int]) -> None:
+            self.bound = addr
+
+        def connect(self, sockaddr: Any) -> None:
+            connect_attempts.append((self.family, sockaddr))
+            self.connected_addr = sockaddr
+
+        def setsockopt(self, level: int, optname: int, value: int) -> None:
+            self.sockopts.append((level, optname, value))
+
+        def close(self) -> None:
+            self.closed = True
+
+    created_sockets: list[_FakeSocket] = []
+    connect_attempts: list[tuple[int, Any]] = []
+    wrap_attempts: list[tuple[Any, str]] = []
+    wrap_behaviors: dict[Any, Exception | None] = {}
+
+    def _fake_socket(family: int, socktype: int, proto: int) -> _FakeSocket:
+        sock = _FakeSocket(family, socktype, proto)
+        created_sockets.append(sock)
+        return sock
+
+    class _FakeWrappedSocket:
+        def __init__(self, raw_sock: _FakeSocket) -> None:
+            self.raw_sock = raw_sock
+
+    class _FakeSSLContext:
+        def wrap_socket(self, sock: _FakeSocket, *, server_hostname: str) -> _FakeWrappedSocket:
+            wrap_attempts.append((sock.connected_addr, server_hostname))
+            err = wrap_behaviors.get(sock.connected_addr)
+            if err is not None:
+                raise err
+            return _FakeWrappedSocket(sock)
+
+    monkeypatch.setattr(f"{module_path}.socket.socket", _fake_socket)
+
+    # 1. Prefers AF_INET before AF_INET6 while preserving DNS order within each family.
+    dns_entries = [
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:4860:4860::8888", 443, 0, 0)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443)),
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:4860:4860::8844", 443, 0, 0)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.35", 443)),
+    ]
+    monkeypatch.setattr(f"{module_path}.socket.getaddrinfo", lambda *_a, **_k: dns_entries)
+    conn = conn_cls("rpc.publicnode.test", 443, timeout=5.0, context=_FakeSSLContext())
+    conn.connect()
+    assert connect_attempts == [(socket.AF_INET, ("93.184.216.34", 443))]
+    assert wrap_attempts == [(("93.184.216.34", 443), "rpc.publicnode.test")]
+    assert len(created_sockets) == 1
+    assert created_sockets[0].timeout == 5.0
+    assert created_sockets[0].closed is False
+
+    # 2. First IPv4 endpoint fails with ssl.SSLEOFError -> closes socket, falls back to 2nd IPv4.
+    created_sockets.clear()
+    connect_attempts.clear()
+    wrap_attempts.clear()
+    wrap_behaviors.clear()
+    wrap_behaviors[("93.184.216.34", 443)] = ssl.SSLEOFError(
+        "EOF occurred in violation of protocol"
+    )
+    conn2 = conn_cls("rpc.publicnode.test", 443, timeout=3.0, context=_FakeSSLContext())
+    conn2.connect()
+    assert connect_attempts == [
+        (socket.AF_INET, ("93.184.216.34", 443)),
+        (socket.AF_INET, ("93.184.216.35", 443)),
+    ]
+    assert created_sockets[0].closed is True
+    assert created_sockets[1].closed is False
+
+    # 3. Both IPv4 endpoints drop TLS with SSLEOFError -> closes sockets and falls back to AF_INET6.
+    created_sockets.clear()
+    connect_attempts.clear()
+    wrap_attempts.clear()
+    wrap_behaviors[("93.184.216.35", 443)] = ssl.SSLEOFError(
+        "EOF occurred in violation of protocol"
+    )
+    conn3 = conn_cls("rpc.publicnode.test", 443, timeout=3.0, context=_FakeSSLContext())
+    conn3.connect()
+    assert connect_attempts == [
+        (socket.AF_INET, ("93.184.216.34", 443)),
+        (socket.AF_INET, ("93.184.216.35", 443)),
+        (socket.AF_INET6, ("2001:4860:4860::8888", 443, 0, 0)),
+    ]
+    assert created_sockets[0].closed is True
+    assert created_sockets[1].closed is True
+    assert created_sockets[2].closed is False
+
+    # 4. All endpoints fail -> closes all sockets cleanly and raises the last OSError.
+    created_sockets.clear()
+    connect_attempts.clear()
+    wrap_attempts.clear()
+    wrap_behaviors[("2001:4860:4860::8888", 443, 0, 0)] = ssl.SSLEOFError("v6-1 eof")
+    wrap_behaviors[("2001:4860:4860::8844", 443, 0, 0)] = OSError("v6-2 reset")
+    conn4 = conn_cls("rpc.publicnode.test", 443, timeout=3.0, context=_FakeSSLContext())
+    with pytest.raises(OSError, match="v6-2 reset"):
+        conn4.connect()
+    assert all(sock.closed for sock in created_sockets)
+    assert len(created_sockets) == 4
+
+    # 5. Rejects private/loopback DNS results immediately even when paired with a public IP.
+    created_sockets.clear()
+    for bad_ip_entry in (
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.10", 443)),
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", 443, 0, 0)),
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:127.0.0.1", 443, 0, 0)),
+    ):
+        monkeypatch.setattr(
+            f"{module_path}.socket.getaddrinfo",
+            lambda *_a, entry=bad_ip_entry, **_k: [
+                (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443)),
+                entry,
+            ],
+        )
+        bad_conn = conn_cls("rpc.publicnode.test", 443, context=_FakeSSLContext())
+        with pytest.raises(err_cls):
+            bad_conn.connect()
+        assert created_sockets == []
+
+    # 6. Allows TUN Fake-IPs from DNS and prefers IPv4 198.18.x.y before IPv6 2001:2::x.
+    connect_attempts.clear()
+    wrap_behaviors.clear()
+    monkeypatch.setattr(
+        f"{module_path}.socket.getaddrinfo",
+        lambda *_a, **_k: [
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:2::15", 443, 0, 0)),
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.0.15", 443)),
+        ],
+    )
+    tun_conn = conn_cls("rpc.publicnode.test", 443, context=_FakeSSLContext())
+    tun_conn.connect()
+    assert connect_attempts == [(socket.AF_INET, ("198.18.0.15", 443))]
+
+    # 7. _IPv4PreferredHTTPSHandler passes _IPv4PreferredHTTPSConnection and context to do_open.
+    ctx = ssl.create_default_context()
+    handler = handler_cls(context=ctx)
+    assert handler._context is ctx
+    seen_do_open: list[tuple[Any, urllib.request.Request, dict[str, Any]]] = []
+
+    def _fake_do_open(http_class: Any, req_obj: urllib.request.Request, **kwargs: Any) -> str:
+        seen_do_open.append((http_class, req_obj, kwargs))
+        return "ok"
+
+    monkeypatch.setattr(handler, "do_open", _fake_do_open)
+    req = urllib.request.Request("https://rpc.publicnode.test", method="POST")
+    assert handler.https_open(req) == "ok"
+    assert seen_do_open == [(conn_cls, req, {"context": ctx})]
