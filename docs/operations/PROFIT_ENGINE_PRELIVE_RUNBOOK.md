@@ -26,13 +26,15 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
   --risk-config configs/profit-engine-risk.example.json \
   --dynamic-sizing \
   --enable-coinbase-ws \
-  --ticks 300 \
+  --timeout-s 25.0 \
+  --stop-gracefully-on-rpc-error \
+  --ticks 500 \
   --interval-ms 1500 \
-  --max-rpc-calls 900 \
-  --out reports/research/<run-id>/shadow-300-ioc-fast
+  --max-rpc-calls 1500 \
+  --out reports/research/<run-id>/shadow-500-final
 ```
 
-可选精细过滤参数：`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `3` 且开启 Coinbase Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `10.0`）与 `--max-book-workers`（默认 `9` 并发 L2 预拉取）。
+可选精细过滤与韧性参数：`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `6` 且开启 Coinbase Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `6.5` 配合 `1.5x` 波动倍增、按产品 lot 计时、队列顺位保留及 `$25` / `60`-step 批量对冲）、`--max-book-workers`（默认 `9` 并发 L2 预拉取）、`--timeout-s`（单请求 HTTPS/WS 超时，默认 `15.0s`）与 `--stop-gracefully-on-rpc-error`（首 tick 后遇公共 RPC 错误不重试、即停机并落盘已完成区块哈希链与汇总）。
 
 同步运行无密钥 Base Aave V3 健康度与按剩余额度截断清算扫描时（底层直连传输已显式注入 `ProxyHandler({})` 绕过本地系统代理误路由）：
 
@@ -47,10 +49,11 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
 
 （若仅需固定 4 池 WETH/USDC 基准，亦可运行 `scripts.run_base_arb_shadow --mode public-shadow --ticks 100 --interval-ms 1200 --max-requests 1550`。）
 
-说明：2026-11-18/19 Wave 14–18 实测证明（`--dynamic-sizing`、`configs/profit-engine-risk.example.json`）：
+说明：2026-11-18/19 Wave 14–20 实测证明（`--dynamic-sizing`、`configs/profit-engine-risk.example.json`）：
 - Wave 14（`100` 唯一区块 `59099892..59104859`、`18,283` WS 成交）：`12` 笔真实 OOS 成交 **`10/12` 正（83.33%）**、净赚 **`+$0.232804`**、均值 **`+9.541982 bps`**，因正尾方差致高斯 95% LCB 为 `-4 bps`；
 - Wave 16（`300` 唯一区块 `59133003..59145017`、`59,811` WS 成交）：核心深对 **`AERO-USD` 双腿稳定正盈利（`21` 笔净赚 `+$0.210795`）**，尾币拉低全局 `oos_lcb = -4 bps`；
-- Wave 18（`300` 唯一区块 `59157950..59160987`、`21,358` WS 成交、`9` 并发 L2 预拉取 0 限流）：单 tick 速度提升至 **`2.040 秒/tick`（`612.08s` 跑完 `300` 块）**，`10 bps` 做市过滤 + Limit IOC 优先模式在 10 分钟平静窗口内实现 **`0` 亏损 / `0` 毒穿价（`strict_cross=0`、`drawdown=$0`）**，唯一 FIFO 成交 `DEGEN-USD` 净赚 **`+$0.023090`（`+11.586679 bps`、`100%` 胜率）**；因 `oos_trades_count = 1 < 5`，**系统仍严格锁定 `release_permitted = false` 拒绝发布**。
+- Wave 18（`300` 唯一区块 `59157950..59160987`、`21,358` WS 成交、`9` 并发 L2 预拉取 0 限流）：单 tick 速度提升至 **`2.040 秒/tick`（`612.08s` 跑完 `300` 块）**，`10 bps` 做市过滤 + Limit IOC 优先模式实现 **`0` 亏损 / `0` 毒穿价（`strict_cross=0`、`drawdown=$0`）**，唯一成交 `DEGEN-USD` 净赚 **`+$0.023090`（`+11.586679 bps`、`100%` 胜率）**；
+- Wave 20（四轮合计 **`2,942` 唯一区块**，定位并修复 Rust/Python `TickMath` `slot0` 闭上界及 HTTP/1.1 Keep-Alive 200 请求轮换）：前三轮达 **`9/10` 正盈利（`+$0.2471`、`max_drawdown <= $0.0022`）**，其中第三轮连续无断流跑至 **`1,045` tick（`56,090` WS 成交 0 断流）**；终验收口 `shadow-500-final`（`500 / 500` 块 `59213388..59217254`、`1,003` RPC、`25,184` WS 成交 `0` 断流）因低波凌晨窗口仅 1 笔 `$0.99` 超时批冲平单（`-$0.003682`），预注册 Gate 5 如实阻断（`oos_trades_count = 1 < 5`），**系统严格锁定 `release_permitted = false` 拒绝发布**。
 
 ## 阶段 3：双源 RPC 仲裁、双平面软件 EOA 部署与隔离签名就绪
 

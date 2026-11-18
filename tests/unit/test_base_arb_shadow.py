@@ -165,6 +165,21 @@ def test_abi_decoders_strict_bounds_and_6_vs_7_word_slot0() -> None:
     with pytest.raises(ShadowRunnerError, match="sqrt_price_at_tick"):
         decode_slot0_words(mismatched_tick_6)
 
+    # Canonical zeroForOne resting boundary: tick paired with exact sqrt_price_at_tick(tick + 1)
+    upper_boundary_sqrt = sqrt_price_at_tick(tick + 1)
+    boundary_tick_6 = encode(
+        ["uint160", "int24", "uint16", "uint16", "uint16", "bool"],
+        [upper_boundary_sqrt, tick, 1, 2, 2, True],
+    )
+    assert decode_slot0_words(boundary_tick_6) == (upper_boundary_sqrt, tick)
+
+    above_boundary_6 = encode(
+        ["uint160", "int24", "uint16", "uint16", "uint16", "bool"],
+        [upper_boundary_sqrt + 1, tick, 1, 2, 2, True],
+    )
+    with pytest.raises(ShadowRunnerError, match="sqrt_price_at_tick"):
+        decode_slot0_words(above_boundary_6)
+
     with pytest.raises(ShadowRunnerError, match="192 or 224"):
         decode_slot0_words(b"\x00" * 160)
 

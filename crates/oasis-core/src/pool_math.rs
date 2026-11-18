@@ -546,7 +546,7 @@ pub fn cl_swap_exact_in(
     if sqrt_price_x96 < lower_tick_price {
         return Err(PoolMathError::TickPriceMismatch);
     }
-    if tick < MAX_TICK && sqrt_price_x96 >= sqrt_price_at_tick(tick + 1)? {
+    if tick < MAX_TICK && sqrt_price_x96 > sqrt_price_at_tick(tick + 1)? {
         return Err(PoolMathError::TickPriceMismatch);
     }
     validate_sorted_ticks(ticks)?;
@@ -1008,5 +1008,20 @@ mod tests {
         let up = cl_swap_exact_in(U256::Q96, 0, liq, &ticks, 500, false, small).unwrap();
         assert_eq!(up.liquidity_after, 1_000_000_000_000_000_000);
         assert!(up.tick_after >= 0);
+
+        // Zero-for-one canonical resting boundary: slot0 stores tick = -1 with sqrtPriceX96 = Q96.
+        let down_boundary = cl_swap_exact_in(U256::Q96, -1, liq, &ticks, 500, true, small).unwrap();
+        assert_eq!(down_boundary.liquidity_after, liq);
+        assert!(down_boundary.tick_after < 0);
+
+        let up_boundary = cl_swap_exact_in(U256::Q96, -1, liq, &ticks, 500, false, small).unwrap();
+        assert_eq!(up_boundary.liquidity_after, 1_300_000_000_000_000_000);
+        assert!(up_boundary.tick_after >= 0);
+
+        let above_upper = U256::Q96.checked_add(U256::ONE).unwrap();
+        assert_eq!(
+            cl_swap_exact_in(above_upper, -1, liq, &ticks, 500, true, small),
+            Err(PoolMathError::TickPriceMismatch)
+        );
     }
 }

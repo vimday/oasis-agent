@@ -470,8 +470,8 @@ def decode_slot0_words(raw: bytes) -> tuple[int, int]:
         raise ShadowRunnerError("slot0 tick outside canonical TickMath bounds")
     if sqrt_price_x96 < sqrt_price_at_tick(tick):
         raise ShadowRunnerError("slot0 sqrtPriceX96 below sqrt_price_at_tick(tick)")
-    if tick < MAX_TICK and sqrt_price_x96 >= sqrt_price_at_tick(tick + 1):
-        raise ShadowRunnerError("slot0 sqrtPriceX96 >= sqrt_price_at_tick(tick + 1)")
+    if tick < MAX_TICK and sqrt_price_x96 > sqrt_price_at_tick(tick + 1):
+        raise ShadowRunnerError("slot0 sqrtPriceX96 > sqrt_price_at_tick(tick + 1)")
     return sqrt_price_x96, tick
 
 

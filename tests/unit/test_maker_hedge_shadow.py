@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from oasis_agent.cross_venue.coinbase_trade_flow import CoinbaseTradePrint
 from oasis_agent.cross_venue.live_cex_dex_shadow import (
     COINBASE_BOOK_LEVEL1_URL_TEMPLATE,
     MAX_RESPONSE_BYTES,
@@ -892,3 +893,272 @@ def test_batch_hedge_resting_strict_cross_drawdown_and_config_validation() -> No
     actual_total_profit = sum((f.realized_net_profit_usd for f in s3.strict_fills), Decimal(0))
     assert actual_total_profit == pytest.approx(expected_total_profit, abs=Decimal("1e-10"))
     assert json.dumps(tracker.summary())
+
+
+def test_multi_product_lot_aging_preserve_queue_and_fifo_dedup() -> None:
+    # 1. Invalid booleans for preserve_queue_priority / deduplicate_fifo_and_strict fail closed
+    for bad_kw in (
+        {"preserve_queue_priority": 1},
+        {"deduplicate_fifo_and_strict": "yes"},
+    ):
+        with pytest.raises(MakerHedgeError):
+            MakerHedgeConfig(**bad_kw)  # type: ignore[arg-type]
+
+    # 2. Multi-product interleaving must NOT prematurely trigger batch_age_flush on ETH-USD
+    age_cfg = MakerHedgeConfig(
+        trade_notional_usdc=50_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal(0),
+        min_hedge_notional_usdc=100_000_000,
+        max_unhedged_steps=4,
+        max_unhedged_drift_bps=Decimal("100.0"),
+    )
+    age_tracker = MakerHedgeLifecycleTracker(age_cfg)
+    qty_eth = 2 * 10**16  # 0.02 ETH ($50 @ 2500)
+    gas_usd = Decimal("0.04")
+    qty_aero = 100 * 10**18  # 100 AERO ($50 @ 0.50)
+
+    # ETH step 0: place resting ask at 2510
+    age_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2500.00", ask="2510.00", sequence=1),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_eth,
+        trade_notional_token=qty_eth,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    # ETH step 1: strict cross opens $50.20 lot (< $100 floor) at ETH step_idx=1
+    age_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2510.00", ask="2511.00", sequence=2),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_eth,
+        trade_notional_token=qty_eth,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert age_tracker.summary()["open_unhedged_lots"] == 1
+
+    # Interleave 8 unrelated product steps: ETH lot age must remain 0 -> must NOT flush
+    for idx in range(8):
+        age_tracker.step(
+            "AERO-USD",
+            current_book=_make_book(
+                "AERO-USD", bid="0.50", ask="0.501", size="1000.0", sequence=10 + idx
+            ),
+            trade_notional_usdc=50_000_000,
+            dex_buy_token_out=qty_aero,
+            trade_notional_token=qty_aero,
+            dex_sell_usdc_out=49_900_000,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+    assert age_tracker.summary()["open_unhedged_lots"] == 1
+    assert age_tracker.summary()["batched_fifo_hedges"] == 0
+
+    # Advance ETH-USD steps 2, 3, 4 (same 2511 ask, non-crossing): age 3 < 4 stays open,
+    # then ETH-USD step 5 has current_step_idx=5 -> age = 5 - 1 = 4 >= 4 -> flushes!
+    for seq in (3, 4, 5):
+        s_wait = age_tracker.step(
+            "ETH-USD",
+            current_book=_make_book("ETH-USD", bid="2508.00", ask="2511.00", sequence=seq),
+            trade_notional_usdc=50_000_000,
+            dex_buy_token_out=qty_eth,
+            trade_notional_token=qty_eth,
+            dex_sell_usdc_out=49_900_000,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+        assert s_wait.fills == ()
+    assert age_tracker.summary()["open_unhedged_lots"] == 1
+
+    s_flush = age_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2508.00", ask="2511.00", sequence=6),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_eth,
+        trade_notional_token=qty_eth,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s_flush.strict_fills) == 1
+    assert "batch_age_flush" in s_flush.strict_fills[0].hedge_note
+    assert age_tracker.summary()["open_unhedged_lots"] == 0
+    assert age_tracker.summary()["batched_fifo_hedges"] == 1
+
+    # 3. preserve_queue_priority=True carries forward partially drained queue across unchanged price
+    # and resets when quoted price changes
+    q_cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal(0),
+        preserve_queue_priority=True,
+        deduplicate_fifo_and_strict=True,
+    )
+    q_tracker = MakerHedgeLifecycleTracker(q_cfg)
+    qty_0_08 = 8 * 10**16
+    book_2512 = _make_book("ETH-USD", bid="2505.00", ask="2512.00", size="2.0", sequence=20)
+    q_tracker.step(
+        "ETH-USD",
+        current_book=book_2512,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    # Print of 1.50 drains queue ahead from 2.0 -> 0.50 even as new book size grows to 5.0!
+    book_2512_deep = _make_book("ETH-USD", bid="2505.00", ask="2512.00", size="5.0", sequence=21)
+    q_s2 = q_tracker.step(
+        "ETH-USD",
+        current_book=book_2512_deep,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=5001,
+                price=Decimal("2512.00"),
+                size=Decimal("1.50"),
+                maker_side="sell",
+                traded_at_utc="2026-11-19T00:00:01Z",
+            ),
+        ),
+    )
+    assert q_s2.fifo_fills == ()
+    # Next tick: only 0.55 prints at 2512.00 -> drains remaining 0.50 and fills 0.05 of our 0.08!
+    q_s3 = q_tracker.step(
+        "ETH-USD",
+        current_book=book_2512_deep,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=5002,
+                price=Decimal("2512.00"),
+                size=Decimal("0.55"),
+                maker_side="sell",
+                traded_at_utc="2026-11-19T00:00:02Z",
+            ),
+        ),
+    )
+    assert len(q_s3.fifo_fills) == 1
+    assert q_s3.fifo_fills[0].filled_qty_tokens == "0.05"
+    assert q_s3.strict_fills == ()
+
+    # When quoted price changes (2512.00 -> 2513.00), queue resets to new BBO size (5.0)
+    book_2513 = _make_book("ETH-USD", bid="2505.00", ask="2513.00", size="5.0", sequence=22)
+    q_s4 = q_tracker.step(
+        "ETH-USD",
+        current_book=book_2513,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert q_s4.quote.quoted_ask_usd == Decimal("2513.00")
+    q_s5 = q_tracker.step(
+        "ETH-USD",
+        current_book=book_2513,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=5003,
+                price=Decimal("2513.00"),
+                size=Decimal("1.00"),
+                maker_side="sell",
+                traded_at_utc="2026-11-19T00:00:03Z",
+            ),
+        ),
+    )
+    assert q_s5.fifo_fills == ()
+
+    # 4. deduplicate_fifo_and_strict=True suppresses double-count strict_cross on ask side
+    # when FIFO already filled on the same step, while still allowing unfilled bid_maker
+    # strict_cross without a print
+    dex_tracker = MakerHedgeLifecycleTracker(q_cfg)
+    dex_s1 = dex_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="1.0", sequence=30),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,  # $2500 DEX buy -> ask active @ 2515
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=201_200_000,  # $2515 DEX sell -> bid active @ 2505
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert dex_s1.quote.ask_active is True
+    assert dex_s1.quote.bid_active is True
+    # Ask swept via FIFO print + BBO cross on same step -> 1 FIFO fill, 0 strict duplicate
+    dex_s2 = dex_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2516.00", ask="2518.00", size="1.0", sequence=31),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=6001,
+                price=Decimal("2516.00"),
+                size=Decimal("0.08"),
+                maker_side="sell",
+                traded_at_utc="2026-11-19T00:01:00Z",
+            ),
+        ),
+    )
+    assert len(dex_s2.fifo_fills) == 1
+    assert dex_s2.fifo_fills[0].side == "ask_maker"
+    assert dex_s2.strict_fills == ()
+    assert len(dex_s2.fills) == 1
+
+    # Second tick: bid-only cross without a WS print still emits strict_cross on bid_maker
+    dex_s3 = dex_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="1.0", sequence=32),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=201_200_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert dex_s3.quote.bid_active is True
+    dex_s4 = dex_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2500.00", ask="2504.00", size="1.0", sequence=33),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=201_200_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert dex_s4.fifo_fills == ()
+    assert len(dex_s4.strict_fills) == 1
+    assert dex_s4.strict_fills[0].side == "bid_maker"

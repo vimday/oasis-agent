@@ -105,6 +105,8 @@ class MakerHedgeConfig:
     max_acceptable_gas_drag_bps: Decimal = Decimal("5.0")
     max_unhedged_steps: int = 8
     max_unhedged_drift_bps: Decimal = Decimal("15.0")
+    preserve_queue_priority: bool = False
+    deduplicate_fifo_and_strict: bool = False
 
     def __post_init__(self) -> None:
         _require_pos_int(self.trade_notional_usdc, "trade_notional_usdc")
@@ -149,6 +151,10 @@ class MakerHedgeConfig:
         max_drift = _require_finite_decimal(
             self.max_unhedged_drift_bps, "max_unhedged_drift_bps", require_nonneg=True
         )
+        if type(self.preserve_queue_priority) is not bool:
+            raise MakerHedgeError("preserve_queue_priority must be a boolean")
+        if type(self.deduplicate_fifo_and_strict) is not bool:
+            raise MakerHedgeError("deduplicate_fifo_and_strict must be a boolean")
         object.__setattr__(self, "cex_maker_fee_bps", fee)
         object.__setattr__(self, "adverse_selection_bps", adv)
         object.__setattr__(self, "min_quote_edge_bps", min_edge)
@@ -756,6 +762,29 @@ def _consume_fifo_queue_prints(
     return filled_qty, weighted_px_sum / filled_qty, tuple(matched_ids)
 
 
+def _drain_fifo_queue_ahead(
+    *,
+    prints: tuple[CoinbaseTradePrint, ...],
+    quoted_price: Decimal,
+    initial_queue_ahead: Decimal,
+    is_ask: bool,
+) -> Decimal:
+    """Drain FIFO queue ahead at ``quoted_price`` across ``prints`` without resetting."""
+    q_ahead = initial_queue_ahead
+    if q_ahead <= 0 or not prints:
+        return Decimal(0)
+    join_maker_side = "sell" if is_ask else "buy"
+    for tr in prints:
+        swept = tr.price > quoted_price if is_ask else tr.price < quoted_price
+        if swept:
+            return Decimal(0)
+        if tr.price == quoted_price and tr.maker_side == join_maker_side:
+            q_ahead -= min(q_ahead, tr.size)
+            if q_ahead <= 0:
+                return Decimal(0)
+    return q_ahead
+
+
 @dataclass(frozen=True, slots=True)
 class _DetectedFill:
     side: Literal["ask_maker", "bid_maker"]
@@ -791,7 +820,7 @@ class MakerHedgeLifecycleTracker:
         self._config: MakerHedgeConfig = config if config is not None else MakerHedgeConfig()
         self._resting_by_product: dict[str, _RestingQuoteState] = {}
         self._total_steps: int = 0
-        self._step_index: int = 0
+        self._step_index_by_product: dict[str, int] = {}
         self._active_quote_legs: int = 0
         self._all_fills: list[MakerFillEvent] = []
         self._quoted_edges_bps: list[Decimal] = []
@@ -1574,7 +1603,7 @@ class MakerHedgeLifecycleTracker:
                 f"book product_id {current_book.product_id} does not match {spec.product_id}"
             )
 
-        current_step_idx = self._step_index
+        current_step_idx = self._step_index_by_product.get(spec.product_id, 0)
         eff_adv_bps = self._update_volatility_and_get_effective_adverse(
             spec.product_id,
             current_book.mid_price,
@@ -1608,15 +1637,23 @@ class MakerHedgeLifecycleTracker:
                 self._feed_gap_cancels += 1
                 unhedged.append(f"{spec.product_id}:feed_gap_cancelled_prior_quote")
         else:
+            detected_fills: list[_DetectedFill] = []
             if prev_state is not None:
-                detected_fills: list[_DetectedFill] = []
-                if new_prints:
-                    detected_fills.extend(
-                        self._detect_fifo_fills(prev_state=prev_state, product_prints=new_prints)
-                    )
-                detected_fills.extend(
-                    self._detect_resting_fills(prev_state=prev_state, current_book=current_book)
+                fifo_detected = (
+                    self._detect_fifo_fills(prev_state=prev_state, product_prints=new_prints)
+                    if new_prints
+                    else []
                 )
+                resting_detected = self._detect_resting_fills(
+                    prev_state=prev_state, current_book=current_book
+                )
+                if self._config.deduplicate_fifo_and_strict and fifo_detected:
+                    fifo_sides = {fill.side for fill in fifo_detected}
+                    resting_detected = [
+                        fill for fill in resting_detected if fill.side not in fifo_sides
+                    ]
+                detected_fills.extend(fifo_detected)
+                detected_fills.extend(resting_detected)
 
                 for detected in detected_fills:
                     if (
@@ -1649,13 +1686,28 @@ class MakerHedgeLifecycleTracker:
                             )
                         )
 
+            filled_sides = {detected.side for detected in detected_fills}
             queue_ahead_ask = Decimal(0)
             if (
                 candidate.ask_active
                 and candidate.quoted_ask_usd is not None
                 and candidate.quoted_ask_usd >= current_book.best_ask
             ):
-                queue_ahead_ask = current_book.asks[0].size
+                if (
+                    self._config.preserve_queue_priority
+                    and prev_state is not None
+                    and prev_state.ask_price == candidate.quoted_ask_usd
+                    and "ask_maker" not in filled_sides
+                ):
+                    drained_ask = _drain_fifo_queue_ahead(
+                        prints=new_prints,
+                        quoted_price=prev_state.ask_price,
+                        initial_queue_ahead=prev_state.queue_ahead_ask,
+                        is_ask=True,
+                    )
+                    queue_ahead_ask = min(drained_ask, current_book.asks[0].size)
+                else:
+                    queue_ahead_ask = current_book.asks[0].size
 
             queue_ahead_bid = Decimal(0)
             if (
@@ -1663,7 +1715,21 @@ class MakerHedgeLifecycleTracker:
                 and candidate.quoted_bid_usd is not None
                 and candidate.quoted_bid_usd <= current_book.best_bid
             ):
-                queue_ahead_bid = current_book.bids[0].size
+                if (
+                    self._config.preserve_queue_priority
+                    and prev_state is not None
+                    and prev_state.bid_price == candidate.quoted_bid_usd
+                    and "bid_maker" not in filled_sides
+                ):
+                    drained_bid = _drain_fifo_queue_ahead(
+                        prints=new_prints,
+                        quoted_price=prev_state.bid_price,
+                        initial_queue_ahead=prev_state.queue_ahead_bid,
+                        is_ask=False,
+                    )
+                    queue_ahead_bid = min(drained_bid, current_book.bids[0].size)
+                else:
+                    queue_ahead_bid = current_book.bids[0].size
 
             self._resting_by_product[spec.product_id] = _RestingQuoteState(
                 book_best_bid=current_book.best_bid,
@@ -1693,7 +1759,7 @@ class MakerHedgeLifecycleTracker:
             fills.extend(batch_fills)
             unhedged.extend(batch_warnings)
 
-        self._step_index += 1
+        self._step_index_by_product[spec.product_id] = current_step_idx + 1
         self._total_steps += 1
         self._products_seen.add(spec.product_id)
         if not feed_gap_detected:

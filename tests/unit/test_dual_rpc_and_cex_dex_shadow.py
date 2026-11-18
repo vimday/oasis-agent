@@ -6,6 +6,7 @@ import json
 import math
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -1119,12 +1120,13 @@ def test_keep_alive_https_pool_guards(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     events: list[str] = []
-    outcomes: list[tuple[int, bytes] | Exception] = []
+    outcomes: list[tuple[int, bytes] | tuple[int, bytes, bool] | Exception] = []
 
     class _FakeResp:
-        def __init__(self, status: int, body: bytes) -> None:
+        def __init__(self, status: int, body: bytes, *, will_close: bool = False) -> None:
             self.status = status
             self._body = body
+            self.will_close = will_close
 
         def read(self, _limit: int) -> bytes:
             return self._body
@@ -1142,7 +1144,8 @@ def test_keep_alive_https_pool_guards(monkeypatch: pytest.MonkeyPatch) -> None:
             nxt = outcomes.pop(0)
             if isinstance(nxt, Exception):
                 raise nxt
-            self._next_resp = _FakeResp(nxt[0], nxt[1])
+            will_close = nxt[2] if len(nxt) == 3 else False
+            self._next_resp = _FakeResp(nxt[0], nxt[1], will_close=bool(will_close))
 
         def getresponse(self) -> _FakeResp:
             return self._next_resp
@@ -1184,7 +1187,57 @@ def test_keep_alive_https_pool_guards(monkeypatch: pytest.MonkeyPatch) -> None:
         pool.post("https://rpc.example.com", b"{}", 5.0)
     assert events.count("new_conn") == 1
 
-    # 5. Coinbase healthy GET then clean close()
+    # 5. Reused-socket ssl.SSLEOFError and BadStatusLine reconnect once; fresh-socket fails closed
+    events.clear()
+    outcomes.extend(
+        [
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0xa"}'),
+            ssl.SSLEOFError("tls idle eof"),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0xb"}'),
+            http.client.BadStatusLine(""),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0xc"}'),
+        ]
+    )
+    assert pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0xa"}')
+    assert pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0xb"}')
+    assert pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0xc"}')
+    assert events.count("new_conn") == 3
+    pool.close()
+
+    events.clear()
+    outcomes.append(ssl.SSLEOFError("fresh tls failure"))
+    with pytest.raises(RpcError, match="transport failure"):
+        pool.post("https://rpc.example.com", b"{}", 5.0)
+    assert events.count("new_conn") == 1
+
+    # 6. Proactive socket rotation after max_requests_per_conn=2 and on response will_close=True
+    rot_pool = _KeepAliveHttpsPool(
+        connection_factory=_FakeConn,  # type: ignore[arg-type]
+        max_requests_per_conn=2,
+    )
+    with pytest.raises(ValueError, match="max_requests_per_conn"):
+        _KeepAliveHttpsPool(max_requests_per_conn=0)
+    events.clear()
+    outcomes.extend(
+        [
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x1"}'),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x2"}'),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x3"}', True),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x4"}'),
+        ]
+    )
+    assert rot_pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0x1"}')
+    assert rot_pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0x2"}')
+    assert events.count("new_conn") == 1
+    assert events[-1] == "close"  # dropped cleanly after 2nd request
+    assert rot_pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0x3"}')
+    assert events.count("new_conn") == 2
+    assert events[-1] == "close"  # dropped immediately due to will_close=True
+    assert rot_pool.post("https://rpc.example.com", b"{}", 5.0).endswith(b'"0x4"}')
+    assert events.count("new_conn") == 3
+    rot_pool.close()
+
+    # 7. Coinbase healthy GET then clean close()
     outcomes.append((200, b'{"bids":[["3000","1"]],"asks":[["3001","1"]]}'))
     cb_raw = pool.get("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2", 5.0)
     assert b"3000" in cb_raw
@@ -2531,7 +2584,7 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
             )
         return serialize_coinbase_book_payload(book)
 
-    # 1. Dynamic defaults: min_taker_edge_bps=3, maker_min_edge_bps=10.0
+    # 1. Dynamic defaults: min_taker_edge_bps=6, maker_min_edge_bps=6.5
     res_dyn_default = run_multicall_campaign(
         out_dir=tmp_path / "dyn-default-floors",
         mode="public-shadow",
@@ -2546,8 +2599,8 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
         risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
         dynamic_sizing=True,
     )
-    assert res_dyn_default.summary["min_taker_edge_bps"] == 3
-    assert res_dyn_default.summary["maker_min_edge_bps"] == 10.0
+    assert res_dyn_default.summary["min_taker_edge_bps"] == 6
+    assert res_dyn_default.summary["maker_min_edge_bps"] == 6.5
     assert res_dyn_default.summary["oos_execution_summary"]["oos_taker_trades_count"] >= 1
     assert res_dyn_default.records[0]["maker_hedge"]["ETH-USD"]["quote"]["ask_active"] is True
 
@@ -2589,7 +2642,7 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
     assert res_static.summary["min_taker_edge_bps"] == 1
     assert res_static.summary["maker_min_edge_bps"] == 3.0
 
-    # 4. Invalid selectivity and worker parameters fail closed
+    # 4. Invalid selectivity, timeout, and worker parameters fail closed
     for bad_kw in (
         {"min_taker_edge_bps": 0},
         {"min_taker_edge_bps": True},
@@ -2598,6 +2651,10 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
         {"maker_min_edge_bps": True},
         {"max_book_workers": 0},
         {"max_book_workers": True},
+        {"timeout_s": 0.0},
+        {"timeout_s": float("nan")},
+        {"timeout_s": True},
+        {"stop_gracefully_on_rpc_error": 1},
     ):
         with pytest.raises(ShadowRunnerError):
             run_multicall_campaign(
@@ -2703,6 +2760,8 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
             "20",
             "--rpc-url",
             "https://sel-cli.example.com",
+            "--timeout-s",
+            "22.5",
             "--dynamic-sizing",
             "--allowed-products",
             "ETH-USD,BTC-USD",
@@ -2712,16 +2771,86 @@ def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
             "12.5",
             "--max-book-workers",
             "4",
+            "--stop-gracefully-on-rpc-error",
             "--out",
             str(tmp_path / "cli-selectivity"),
         ]
     )
     assert rc == 0
+    assert captured_cli_kw["timeout_s"] == 22.5
     assert captured_cli_kw["allowed_products"] == ("ETH-USD", "BTC-USD")
     assert captured_cli_kw["min_taker_edge_bps"] == 5
     assert captured_cli_kw["maker_min_edge_bps"] == 12.5
     assert captured_cli_kw["max_book_workers"] == 4
+    assert captured_cli_kw["stop_gracefully_on_rpc_error"] is True
     cli_json = json.loads(capsys.readouterr().out.strip())
     assert cli_json["allowed_products"] == ["BTC-USD", "ETH-USD"]
     assert cli_json["min_taker_edge_bps"] == 5
     assert cli_json["maker_min_edge_bps"] == 12.5
+    assert cli_json["ticks_requested"] == 2
+    assert cli_json["stopped_early"] is False
+    assert cli_json["stop_reason"] is None
+
+    # 7. stop_gracefully_on_rpc_error finalizes completed chain on tick >= 2 without retry
+    snap_calls = {"n": 0}
+
+    def _fail_tick2_snap(*args: Any, **kwargs: Any) -> PinnedUniverseSnapshot:
+        snap_calls["n"] += 1
+        if snap_calls["n"] >= 2:
+            raise RpcError("Base shadow RPC HTTP failure: status 429")
+        return _mock_snap(*args, **kwargs)
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _fail_tick2_snap,
+    )
+    res_graceful = orig_run(
+        out_dir=tmp_path / "graceful-rpc-stop",
+        mode="public-shadow",
+        ticks=4,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://graceful-stop.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_cb_selectivity_transport,
+        sleeper=_noop_sleep,
+        stop_gracefully_on_rpc_error=True,
+    )
+    assert snap_calls["n"] == 2  # single failure stops immediately with 0 retries
+    assert res_graceful.summary["ticks_requested"] == 4
+    assert res_graceful.summary["ticks_completed"] == 1
+    assert res_graceful.summary["stopped_early"] is True
+    assert "429" in str(res_graceful.summary["stop_reason"])
+    assert len(res_graceful.records) == 1
+    disk_graceful = json.loads(res_graceful.summary_path.read_text(encoding="utf-8"))
+    assert disk_graceful["ticks_completed"] == 1
+    disk_records = [
+        json.loads(line)
+        for line in res_graceful.attribution_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert verify_campaign_attribution_chain(disk_records) == disk_graceful["chain_head_sha256"]
+
+    # Tick-1 RPC failure still fails closed even when stop_gracefully_on_rpc_error=True
+    def _fail_tick1_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        raise RpcError("Base shadow RPC transport failure")
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _fail_tick1_snap,
+    )
+    with pytest.raises(RpcError, match="transport failure"):
+        orig_run(
+            out_dir=tmp_path / "graceful-tick1-fail",
+            mode="public-shadow",
+            ticks=4,
+            interval_ms=0,
+            max_rpc_calls=30,
+            rpc_url="https://graceful-tick1.example.com",
+            bridge=bridge,
+            rpc_transport=lambda _u, _p, _t: b"{}",
+            coinbase_transport=_cb_selectivity_transport,
+            sleeper=_noop_sleep,
+            stop_gracefully_on_rpc_error=True,
+        )

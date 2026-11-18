@@ -1116,7 +1116,7 @@ def _resolve_maker_min_edge_bps(
     dynamic_sizing: bool,
 ) -> Decimal:
     if maker_min_edge_bps is None:
-        return Decimal("10.0") if dynamic_sizing else Decimal("3.0")
+        return Decimal("6.5") if dynamic_sizing else Decimal("3.0")
     if isinstance(maker_min_edge_bps, bool) or not isinstance(
         maker_min_edge_bps, (Decimal, int, float)
     ):
@@ -1586,12 +1586,16 @@ class _KeepAliveHttpsPool:
         connection_factory: (
             Callable[[str, int, float, ssl.SSLContext], http.client.HTTPSConnection] | None
         ) = None,
+        max_requests_per_conn: int = 200,
     ) -> None:
+        if type(max_requests_per_conn) is not int or max_requests_per_conn <= 0:
+            raise ValueError("max_requests_per_conn must be a positive integer")
         self._ssl_ctx = ssl.create_default_context(cafile=certifi.where())
         self._local = threading.local()
         self._conn_lock = threading.Lock()
         self._all_conns: list[http.client.HTTPSConnection] = []
         self._connection_factory = connection_factory
+        self._max_requests_per_conn = max_requests_per_conn
 
     def _thread_conns(self) -> dict[tuple[str, int], http.client.HTTPSConnection]:
         conns = getattr(self._local, "conns", None)
@@ -1599,6 +1603,13 @@ class _KeepAliveHttpsPool:
             conns = {}
             self._local.conns = conns
         return cast(dict[tuple[str, int], http.client.HTTPSConnection], conns)
+
+    def _thread_uses(self) -> dict[tuple[str, int], int]:
+        uses = getattr(self._local, "uses", None)
+        if uses is None:
+            uses = {}
+            self._local.uses = uses
+        return cast(dict[tuple[str, int], int], uses)
 
     @property
     def _conns(self) -> dict[tuple[str, int], http.client.HTTPSConnection]:
@@ -1612,6 +1623,7 @@ class _KeepAliveHttpsPool:
         )
 
     def _drop_conn(self, key: tuple[str, int]) -> None:
+        self._thread_uses().pop(key, None)
         conn = self._thread_conns().pop(key, None)
         if conn is not None:
             with self._conn_lock:
@@ -1665,12 +1677,14 @@ class _KeepAliveHttpsPool:
 
         key = (hostname, port)
         thread_conns = self._thread_conns()
+        thread_uses = self._thread_uses()
         for attempt in range(2):
             conn = thread_conns.get(key)
             reused = conn is not None
             if conn is None:
                 conn = self._new_conn(hostname, port, timeout_s)
                 thread_conns[key] = conn
+                thread_uses[key] = 0
                 with self._conn_lock:
                     self._all_conns.append(conn)
             else:
@@ -1685,8 +1699,12 @@ class _KeepAliveHttpsPool:
                 raw = resp.read(max_bytes + 1)
             except (
                 http.client.RemoteDisconnected,
+                http.client.BadStatusLine,
+                http.client.IncompleteRead,
                 BrokenPipeError,
                 ConnectionResetError,
+                ssl.SSLError,
+                EOFError,
             ):
                 self._drop_conn(key)
                 if reused and attempt == 0:
@@ -1715,6 +1733,11 @@ class _KeepAliveHttpsPool:
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book response exceeds byte limit")
                 raise RpcError("Base shadow RPC response exceeds byte limit")
+            uses = thread_uses.get(key, 0) + 1
+            if getattr(resp, "will_close", False) or uses >= self._max_requests_per_conn:
+                self._drop_conn(key)
+            else:
+                thread_uses[key] = uses
             return raw
 
         if is_coinbase:
@@ -1846,6 +1869,7 @@ def run_multicall_campaign(
     min_taker_edge_bps: int | None = None,
     maker_min_edge_bps: Decimal | float | None = None,
     max_book_workers: int = 9,
+    stop_gracefully_on_rpc_error: bool = False,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -1858,6 +1882,8 @@ def run_multicall_campaign(
         raise ShadowRunnerError("enable_coinbase_ws must be a boolean")
     if type(max_book_workers) is not int or max_book_workers <= 0:
         raise ShadowRunnerError("max_book_workers must be a positive integer")
+    if type(stop_gracefully_on_rpc_error) is not bool:
+        raise ShadowRunnerError("stop_gracefully_on_rpc_error must be a boolean")
     normalized_allowed_products = _normalize_allowed_products(allowed_products)
     allowed_products_set = (
         frozenset(normalized_allowed_products) if normalized_allowed_products is not None else None
@@ -1867,7 +1893,7 @@ def run_multicall_campaign(
     ):
         raise ShadowRunnerError("min_taker_edge_bps must be a positive integer")
     effective_min_taker_edge_bps = (
-        min_taker_edge_bps if min_taker_edge_bps is not None else (3 if dynamic_sizing else 1)
+        min_taker_edge_bps if min_taker_edge_bps is not None else (6 if dynamic_sizing else 1)
     )
     effective_maker_min_edge = _resolve_maker_min_edge_bps(
         maker_min_edge_bps, dynamic_sizing=dynamic_sizing
@@ -1975,8 +2001,11 @@ def run_multicall_campaign(
             trade_notional_usdc=trade_notional_usdc,
             min_quote_edge_bps=effective_maker_min_edge,
             adaptive_volatility_enabled=True,
-            volatility_multiplier=Decimal("2.0"),
-            min_hedge_notional_usdc=max(10_000_000, active_risk_cfg.min_clip_usd_micros),
+            volatility_multiplier=Decimal("1.5"),
+            min_hedge_notional_usdc=max(25_000_000, active_risk_cfg.min_clip_usd_micros),
+            max_unhedged_steps=60,
+            preserve_queue_priority=True,
+            deduplicate_fifo_and_strict=enable_coinbase_ws,
         )
     else:
         maker_config = MakerHedgeConfig(
@@ -2113,6 +2142,8 @@ def run_multicall_campaign(
                 block_tag=tag,
             )
 
+        stopped_early = False
+        stop_reason: str | None = None
         last_tick_started: float | None = None
         for tick_idx in range(ticks):
             if tick_idx > 0 and interval_ms > 0 and last_tick_started is not None:
@@ -2123,34 +2154,41 @@ def run_multicall_campaign(
             last_tick_started = clock_fn()
 
             calls_before_tick = rpc_calls_used
-            snapshot = _read_snapshot_at_tag("latest")
+            try:
+                snapshot = _read_snapshot_at_tag("latest")
 
-            seen_hash = seen_hashes_by_block.get(snapshot.block_number)
-            if seen_hash is not None and seen_hash != snapshot.block_hash:
-                raise ShadowRunnerError(
-                    f"reorg detected at block {snapshot.block_number}: block hash changed"
-                )
-            if (
-                prev_block_number is not None
-                and snapshot.block_number == prev_block_number + 1
-                and snapshot.parent_hash is not None
-                and snapshot.parent_hash != prev_block_hash
-            ):
-                raise ShadowRunnerError(
-                    f"reorg detected at block {snapshot.block_number}: parent_hash mismatch"
-                )
-            if prev_block_number is not None and snapshot.block_number < prev_block_number:
-                seen_hashes_by_block.setdefault(snapshot.block_number, snapshot.block_hash)
-                refetched = _read_snapshot_at_tag(hex(prev_block_number))
+                seen_hash = seen_hashes_by_block.get(snapshot.block_number)
+                if seen_hash is not None and seen_hash != snapshot.block_hash:
+                    raise ShadowRunnerError(
+                        f"reorg detected at block {snapshot.block_number}: block hash changed"
+                    )
                 if (
-                    refetched.block_number != prev_block_number
-                    or refetched.block_hash != prev_block_hash
+                    prev_block_number is not None
+                    and snapshot.block_number == prev_block_number + 1
+                    and snapshot.parent_hash is not None
+                    and snapshot.parent_hash != prev_block_hash
                 ):
                     raise ShadowRunnerError(
-                        f"stale/regressed block number {snapshot.block_number} < "
-                        f"{prev_block_number}"
+                        f"reorg detected at block {snapshot.block_number}: parent_hash mismatch"
                     )
-                snapshot = refetched
+                if prev_block_number is not None and snapshot.block_number < prev_block_number:
+                    seen_hashes_by_block.setdefault(snapshot.block_number, snapshot.block_hash)
+                    refetched = _read_snapshot_at_tag(hex(prev_block_number))
+                    if (
+                        refetched.block_number != prev_block_number
+                        or refetched.block_hash != prev_block_hash
+                    ):
+                        raise ShadowRunnerError(
+                            f"stale/regressed block number {snapshot.block_number} < "
+                            f"{prev_block_number}"
+                        )
+                    snapshot = refetched
+            except RpcError as exc:
+                if stop_gracefully_on_rpc_error and records:
+                    stopped_early = True
+                    stop_reason = str(exc)
+                    break
+                raise
             seen_hashes_by_block[snapshot.block_number] = snapshot.block_hash
 
             graph = FastpathPoolGraph(bridge=active_bridge)
@@ -2975,7 +3013,10 @@ def run_multicall_campaign(
         "headroom_summary": headroom_summary,
         "coinbase_trade_flow_summary": coinbase_trade_flow_summary,
         "rpc_origin": origin,
+        "ticks_requested": ticks,
         "ticks_completed": ticks_completed,
+        "stopped_early": stopped_early,
+        "stop_reason": stop_reason,
         "positive_net_ticks": positive_net_ticks,
         "atomic_positive_net_ticks": atomic_positive_ticks,
         "cex_dex_positive_net_ticks": cex_dex_positive_ticks,
@@ -3043,6 +3084,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--rpc-url",
         default=DEFAULT_BASE_RPC_URL,
         help=f"Base HTTPS JSON-RPC URL (default: {DEFAULT_BASE_RPC_URL}).",
+    )
+    parser.add_argument(
+        "--timeout-s",
+        type=float,
+        default=DEFAULT_TIMEOUT_S,
+        help=(
+            "Per-request timeout in seconds for Base JSON-RPC and Coinbase HTTPS/WS I/O "
+            f"(default: {DEFAULT_TIMEOUT_S})."
+        ),
     )
     parser.add_argument(
         "--cex-taker-fee-bps",
@@ -3122,7 +3172,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=(
             "Minimum CEX-DEX taker edge in integer bps required to queue an OOS intent "
-            "(default: 3 with --dynamic-sizing, else 1)."
+            "(default: 6 with --dynamic-sizing, else 1)."
         ),
     )
     parser.add_argument(
@@ -3130,7 +3180,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help=(
-            "Minimum maker quote edge floor in bps (default: 10.0 with --dynamic-sizing, else 3.0)."
+            "Minimum maker quote edge floor in bps (default: 6.5 with --dynamic-sizing, else 3.0)."
         ),
     )
     parser.add_argument(
@@ -3140,6 +3190,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Maximum concurrent threads for Coinbase L2 book prefetching in live "
             "public-shadow mode (default: 9)."
+        ),
+    )
+    parser.add_argument(
+        "--stop-gracefully-on-rpc-error",
+        action="store_true",
+        default=False,
+        help=(
+            "On a post-tick-1 RpcError, stop immediately without retrying and finalize "
+            "the completed SHA-256 chain and shadow_summary.json."
         ),
     )
     parser.add_argument(
@@ -3165,6 +3224,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             interval_ms=args.interval_ms,
             max_rpc_calls=args.max_rpc_calls,
             rpc_url=args.rpc_url,
+            timeout_s=args.timeout_s,
             cex_taker_fee_bps=args.cex_taker_fee_bps,
             latency_haircut_bps=args.latency_haircut_bps,
             trade_notional_usdc=args.trade_notional_usdc,
@@ -3178,6 +3238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             min_taker_edge_bps=args.min_taker_edge_bps,
             maker_min_edge_bps=args.maker_min_edge_bps,
             max_book_workers=args.max_book_workers,
+            stop_gracefully_on_rpc_error=args.stop_gracefully_on_rpc_error,
         )
     except (
         OSError,
@@ -3202,7 +3263,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "maker_min_edge_bps": result.summary["maker_min_edge_bps"],
                 "dynamic_sizing_enabled": result.summary["dynamic_sizing_enabled"],
                 "coinbase_ws_enabled": result.summary["coinbase_ws_enabled"],
+                "ticks_requested": result.summary["ticks_requested"],
                 "ticks_completed": result.summary["ticks_completed"],
+                "stopped_early": result.summary["stopped_early"],
+                "stop_reason": result.summary["stop_reason"],
                 "positive_net_ticks": result.summary["positive_net_ticks"],
                 "atomic_positive_net_ticks": result.summary["atomic_positive_net_ticks"],
                 "cex_dex_positive_net_ticks": result.summary["cex_dex_positive_net_ticks"],

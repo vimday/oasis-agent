@@ -170,7 +170,7 @@ impl PoolState {
                 if sqrt_p < sqrt_price_at_tick(tick)? {
                     return Err(GraphArbError::Math(PoolMathError::TickPriceMismatch));
                 }
-                if tick < MAX_TICK && sqrt_p >= sqrt_price_at_tick(tick + 1)? {
+                if tick < MAX_TICK && sqrt_p > sqrt_price_at_tick(tick + 1)? {
                     return Err(GraphArbError::Math(PoolMathError::TickPriceMismatch));
                 }
                 self.ticks.sort_by_key(|t| t.tick);

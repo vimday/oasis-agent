@@ -165,8 +165,8 @@ def _validate_cl_invariants(sqrt_price_x96: int, tick: int, liquidity: int) -> N
         raise StateSyncError("liquidity exceeds uint128")
     if sqrt_price_x96 < sqrt_price_at_tick(tick):
         raise StateSyncError("sqrtPriceX96 below sqrt_price_at_tick(tick)")
-    if tick < MAX_TICK and sqrt_price_x96 >= sqrt_price_at_tick(tick + 1):
-        raise StateSyncError("sqrtPriceX96 >= sqrt_price_at_tick(tick + 1)")
+    if tick < MAX_TICK and sqrt_price_x96 > sqrt_price_at_tick(tick + 1):
+        raise StateSyncError("sqrtPriceX96 > sqrt_price_at_tick(tick + 1)")
 
 
 def _apply_liquidity_delta(
