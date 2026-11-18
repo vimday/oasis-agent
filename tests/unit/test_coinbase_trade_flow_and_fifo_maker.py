@@ -1192,3 +1192,584 @@ def test_end_to_end_ws_drain_to_fifo_maker_and_oversized_fragment_rejection() ->
             feed_frag.drain_events()
     finally:
         s_frag.close()
+
+
+def test_fifo_batch_accumulation_dynamic_gas_threshold_and_single_gas_charge() -> None:
+    # gas_cost_usd = $0.20, max_acceptable_gas_drag_bps = 5.0 => dynamic threshold = $400!
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=500_000_000,
+        cex_maker_fee_bps=Decimal(0),
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal("5.0"),
+        min_hedge_notional_usdc=100_000_000,
+        max_acceptable_gas_drag_bps=Decimal("5.0"),
+        max_unhedged_steps=16,
+        max_unhedged_drift_bps=Decimal("50.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.20")
+    dex_buy_0_2 = 2 * 10**17  # 0.2 ETH for $500 = $2500/ETH
+    book = _make_book("ETH-USD", bid="2505.00", ask="2515.00", bid_size="4.0", ask_size="4.0")
+
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=500_000_000,
+        dex_buy_token_out=dex_buy_0_2,
+        trade_notional_token=dex_buy_0_2,
+        dex_sell_usdc_out=499_500_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    quoted_ask = s0.quote.quoted_ask_usd
+    assert quoted_ask is not None
+
+    # Three partial FIFO fills of 0.04 ETH (~$100.55 each = ~$301.65 total < $400 dynamic threshold)
+    for idx in range(1, 4):
+        step_i = tracker.step(
+            "ETH-USD",
+            current_book=book,
+            trade_notional_usdc=500_000_000,
+            dex_buy_token_out=dex_buy_0_2,
+            trade_notional_token=dex_buy_0_2,
+            dex_sell_usdc_out=499_500_000,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+            recent_trades=(
+                CoinbaseTradePrint(
+                    product_id="ETH-USD",
+                    trade_id=5000 + idx,
+                    price=quoted_ask,
+                    size=Decimal("0.04"),
+                    maker_side="sell",
+                    traded_at_utc=f"2026-11-18T12:00:0{idx}Z",
+                ),
+            ),
+        )
+        assert step_i.fifo_fills == ()
+        assert tracker.summary()["open_unhedged_lots"] == idx
+        assert tracker.summary()["batched_fifo_hedges"] == 0
+
+    # Fourth 0.04 ETH FIFO fill pushes total >= $400 -> flushes ALL 4 lots in ONE DEX batch!
+    step4 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=500_000_000,
+        dex_buy_token_out=dex_buy_0_2,
+        trade_notional_token=dex_buy_0_2,
+        dex_sell_usdc_out=499_500_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=5004,
+                price=quoted_ask,
+                size=Decimal("0.04"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:00:04Z",
+            ),
+        ),
+    )
+    assert len(step4.fifo_fills) == 4
+    assert all(f.hedge_mode == "batched_dex" for f in step4.fifo_fills)
+    assert tracker.summary()["batched_fifo_hedges"] == 1
+    assert tracker.summary()["trade_flow_fifo_fills"] == 4
+    assert tracker.summary()["open_unhedged_lots"] == 0
+    assert tracker.unhedged_exposure_usd_micros() == 0
+
+    # Total profit across all 4 fills deducts $0.20 gas ONCE (not 4 * $0.20 = $0.80)
+    total_qty = Decimal("0.16")
+    cex_proceeds = quoted_ask * total_qty
+    dex_cost = total_qty * Decimal(2500)
+    adv_cost = cex_proceeds * (Decimal("1.5") / Decimal(10_000))
+    expected_net = cex_proceeds - dex_cost - adv_cost - gas_usd
+    actual_net = sum((f.realized_net_profit_usd for f in step4.fifo_fills), Decimal(0))
+    assert actual_net == pytest.approx(expected_net, abs=Decimal("1e-9"))
+
+    # Tiny/zero gas falls back to min_hedge_notional_usdc floor ($100)
+    tiny_gas_step = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=500_000_000,
+        dex_buy_token_out=dex_buy_0_2,
+        trade_notional_token=dex_buy_0_2,
+        dex_sell_usdc_out=499_500_000,
+        token_decimals=18,
+        gas_cost_usd=Decimal("0.005"),  # 0.005 * 10000 / 5 = $10 < $100 floor
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=5005,
+                price=quoted_ask,
+                size=Decimal("0.04"),  # ~$100.55 >= $100 floor -> immediate batch flush!
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:00:05Z",
+            ),
+        ),
+    )
+    assert len(tiny_gas_step.fifo_fills) == 1
+    assert tracker.summary()["batched_fifo_hedges"] == 2
+    assert tracker.summary()["open_unhedged_lots"] == 0
+
+
+def test_fifo_natural_opposite_side_netting_partial_and_full_with_fees() -> None:
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        cex_maker_fee_bps=Decimal("1.0"),
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal("5.0"),
+        min_hedge_notional_usdc=200_000_000,
+        max_acceptable_gas_drag_bps=Decimal("5.0"),
+        max_unhedged_steps=16,
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    dex_qty = 8 * 10**16  # 0.08 ETH ($200 at $2500)
+    gas_usd = Decimal("0.50")  # High DEX gas would hurt small fills, avoided by natural netting!
+
+    # Wide book around DEX buy=$2500 / DEX sell=$2520 so BOTH ask and bid are active
+    book = _make_book("ETH-USD", bid="2504.00", ask="2516.00", bid_size="4.0", ask_size="4.0")
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,  # $2500
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_600_000,  # $2520
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    bid_px_1 = s0.quote.quoted_bid_usd
+    ask_px_1 = s0.quote.quoted_ask_usd
+    assert bid_px_1 is not None and ask_px_1 is not None
+
+    # Step 1: FIFO bid fill 0.02 ETH @ bid_px_1
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_600_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=6001,
+                price=bid_px_1,
+                size=Decimal("0.02"),
+                maker_side="buy",
+                traded_at_utc="2026-11-18T12:10:01Z",
+            ),
+        ),
+    )
+    assert s1.fifo_fills == ()
+    assert tracker.summary()["open_unhedged_lots"] == 1
+
+    # Step 2: Second FIFO bid fill 0.02 ETH @ bid_px_1 (total 0.04 ETH open)
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_600_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=6002,
+                price=bid_px_1,
+                size=Decimal("0.02"),
+                maker_side="buy",
+                traded_at_utc="2026-11-18T12:10:02Z",
+            ),
+        ),
+    )
+    assert s2.fifo_fills == ()
+    assert tracker.summary()["open_unhedged_lots"] == 2
+
+    # Step 3: Opposite-side FIFO ask fill 0.03 ETH @ ask_px_1!
+    # Consumes lot 1 (0.02 ETH full) + 50% of lot 2 (0.01 ETH) with ZERO DEX gas!
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_600_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=6003,
+                price=ask_px_1,
+                size=Decimal("0.03"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:10:03Z",
+            ),
+        ),
+    )
+    assert len(s3.fifo_fills) == 1
+    net1 = s3.fifo_fills[0]
+    assert net1.hedge_mode == "natural_netted"
+    assert net1.side == "ask_maker"
+    assert net1.filled_qty_tokens == "0.03"
+    assert net1.quoted_price_usd == ask_px_1
+    assert net1.hedge_dex_price_usd == bid_px_1
+    assert net1.latency_drift_bps == Decimal(0)
+
+    # Net profit = 0.03 * (ask_px_1 - bid_px_1) - 1 bps maker fee on ask & bid, ZERO DEX gas!
+    sell_usd = Decimal("0.03") * ask_px_1
+    buy_usd = Decimal("0.03") * bid_px_1
+    expected_fees = (sell_usd + buy_usd) * (Decimal("1.0") / Decimal(10_000))
+    expected_profit = sell_usd - buy_usd - expected_fees
+    assert net1.realized_net_profit_usd == pytest.approx(expected_profit, abs=Decimal("1e-10"))
+    assert tracker.summary()["natural_netted_fills"] == 1
+    assert tracker.summary()["batched_fifo_hedges"] == 0
+    assert tracker.summary()["open_unhedged_lots"] == 1
+    assert tracker.open_lots()["ETH-USD"][0].notional_token == 10**16  # 0.01 ETH remaining
+
+    # Step 4: Final 0.01 ETH ask fill nets remaining 0.01 ETH bid lot cleanly to zero exposure
+    s4 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_600_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=6004,
+                price=ask_px_1,
+                size=Decimal("0.01"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:10:04Z",
+            ),
+        ),
+    )
+    assert len(s4.fifo_fills) == 1
+    assert s4.fifo_fills[0].hedge_mode == "natural_netted"
+    assert s4.fifo_fills[0].filled_qty_tokens == "0.01"
+    assert tracker.summary()["natural_netted_fills"] == 2
+    assert tracker.summary()["batched_fifo_hedges"] == 0
+    assert tracker.summary()["open_unhedged_lots"] == 0
+    assert tracker.unhedged_exposure_usd_micros() == 0
+
+
+def test_batch_age_flush_adverse_drift_stoploss_and_flush_all_unhedged() -> None:
+    dex_qty = 8 * 10**16  # 0.08 ETH ($200 at $2500)
+    gas_usd = Decimal("0.04")
+    book = _make_book("ETH-USD", bid="2505.00", ask="2515.00", bid_size="4.0", ask_size="4.0")
+
+    # Part A: Max unhedged steps age trigger (max_unhedged_steps=3)
+    age_tracker = MakerHedgeLifecycleTracker(
+        MakerHedgeConfig(
+            trade_notional_usdc=200_000_000,
+            min_quote_edge_bps=Decimal("3.0"),
+            tick_improvement_bps=Decimal("5.0"),
+            min_hedge_notional_usdc=500_000_000,
+            max_unhedged_steps=3,
+            max_unhedged_drift_bps=Decimal("50.0"),
+        )
+    )
+    s0 = age_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    ask_px = s0.quote.quoted_ask_usd
+    assert ask_px is not None
+
+    # Fill 0.02 ETH at step_idx=1
+    s1 = age_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=7001,
+                price=ask_px,
+                size=Decimal("0.02"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:20:01Z",
+            ),
+        ),
+    )
+    assert s1.fifo_fills == ()
+    assert age_tracker.summary()["open_unhedged_lots"] == 1
+
+    # Step idx 2 and 3 (ages 1 and 2 < 3): still open!
+    for _seq_i in (2, 3):
+        idle_s = age_tracker.step(
+            "ETH-USD",
+            current_book=book,
+            trade_notional_usdc=200_000_000,
+            dex_buy_token_out=dex_qty,
+            trade_notional_token=dex_qty,
+            dex_sell_usdc_out=199_800_000,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+        assert idle_s.fifo_fills == ()
+        assert age_tracker.summary()["open_unhedged_lots"] == 1
+
+    # Step idx 4 (age = 4 - 1 = 3 >= 3): flushes automatically!
+    s4_age = age_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s4_age.fifo_fills) == 1
+    assert s4_age.fifo_fills[0].hedge_mode == "batched_dex"
+    assert "batch_age_flush" in s4_age.fifo_fills[0].hedge_note
+    assert age_tracker.summary()["batched_fifo_hedges"] == 1
+    assert age_tracker.summary()["open_unhedged_lots"] == 0
+
+    # Part B: Adverse drift stop-loss trigger (bid_maker filled @ 2506, mid drops 20 bps >= 15 bps)
+    drift_tracker = MakerHedgeLifecycleTracker(
+        MakerHedgeConfig(
+            trade_notional_usdc=200_000_000,
+            min_quote_edge_bps=Decimal("3.0"),
+            tick_improvement_bps=Decimal("5.0"),
+            min_hedge_notional_usdc=500_000_000,
+            max_unhedged_steps=20,
+            max_unhedged_drift_bps=Decimal("15.0"),
+        )
+    )
+    d0 = drift_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_200_000,  # DEX sell $2515 -> bid active
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    bid_px = d0.quote.quoted_bid_usd
+    assert bid_px is not None
+
+    d1 = drift_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=201_200_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=7101,
+                price=bid_px,
+                size=Decimal("0.02"),
+                maker_side="buy",
+                traded_at_utc="2026-11-18T12:25:01Z",
+            ),
+        ),
+    )
+    assert d1.fifo_fills == ()
+    assert drift_tracker.summary()["open_unhedged_lots"] == 1
+
+    # Drop mid to $2500.00 -> (2506.25 - 2500.00)/2506.25 * 10000 ~= 24.9 bps >= 15.0 bps!
+    dropped_book = _make_book("ETH-USD", bid="2499.00", ask="2501.00")
+    d2 = drift_tracker.step(
+        "ETH-USD",
+        current_book=dropped_book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(d2.fifo_fills) == 1
+    assert d2.fifo_fills[0].hedge_mode == "batched_dex"
+    assert "batch_drift_stoploss_flush" in d2.fifo_fills[0].hedge_note
+    assert drift_tracker.summary()["batched_fifo_hedges"] == 1
+    assert drift_tracker.summary()["open_unhedged_lots"] == 0
+    assert drift_tracker.unrealized_drawdown_usd_micros() == 0
+
+    # Also verify ask_maker upward drift stop-loss trigger (ask filled @ 2513.7425, mid >= +15 bps)
+    ask_drift_start = drift_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert ask_drift_start.quote.quoted_ask_usd is not None
+    drift_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=7102,
+                price=ask_drift_start.quote.quoted_ask_usd,
+                size=Decimal("0.02"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:26:01Z",
+            ),
+        ),
+    )
+    assert drift_tracker.summary()["open_unhedged_lots"] == 1
+    spiked_book = _make_book("ETH-USD", bid="2518.00", ask="2522.00")  # mid 2520 (+24.9 bps)
+    ask_drift_flush = drift_tracker.step(
+        "ETH-USD",
+        current_book=spiked_book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(ask_drift_flush.fifo_fills) == 1
+    assert "batch_drift_stoploss_flush" in ask_drift_flush.fifo_fills[0].hedge_note
+    assert drift_tracker.summary()["batched_fifo_hedges"] == 2
+    assert drift_tracker.summary()["open_unhedged_lots"] == 0
+
+    # Part C: flush_all_unhedged settles multi-product open lots and handles missing quote cleanly
+    end_tracker = MakerHedgeLifecycleTracker(
+        MakerHedgeConfig(
+            trade_notional_usdc=200_000_000,
+            min_quote_edge_bps=Decimal("3.0"),
+            tick_improvement_bps=Decimal("5.0"),
+            min_hedge_notional_usdc=500_000_000,
+            max_unhedged_steps=20,
+            max_unhedged_drift_bps=Decimal("50.0"),
+        )
+    )
+    e0 = end_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    btc_book = _make_book("BTC-USD", bid="89900.00", ask="90100.00")
+    btc_qty = 222_222
+    b0 = end_tracker.step(
+        "BTC-USD",
+        current_book=btc_book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=btc_qty,
+        trade_notional_token=btc_qty,
+        dex_sell_usdc_out=200_500_000,
+        token_decimals=8,
+        gas_cost_usd=gas_usd,
+    )
+    assert e0.quote.quoted_ask_usd is not None
+    assert b0.quote.quoted_bid_usd is not None
+
+    end_tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=dex_qty,
+        trade_notional_token=dex_qty,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=8001,
+                price=e0.quote.quoted_ask_usd,
+                size=Decimal("0.02"),
+                maker_side="sell",
+                traded_at_utc="2026-11-18T12:30:01Z",
+            ),
+        ),
+    )
+    end_tracker.step(
+        "BTC-USD",
+        current_book=btc_book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=btc_qty,
+        trade_notional_token=btc_qty,
+        dex_sell_usdc_out=200_500_000,
+        token_decimals=8,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="BTC-USD",
+                trade_id=8002,
+                price=b0.quote.quoted_bid_usd,
+                size=Decimal("0.0005"),
+                maker_side="buy",
+                traded_at_utc="2026-11-18T12:30:02Z",
+            ),
+        ),
+    )
+    assert end_tracker.summary()["open_unhedged_lots"] == 2
+    assert end_tracker.unhedged_exposure_usd_micros() > 0
+
+    # First forced flush lacks BTC sell quote -> settles ETH-USD cleanly, retains BTC-USD residual
+    partial_flush = end_tracker.flush_all_unhedged(
+        {
+            "ETH-USD": (200_000_000, dex_qty, dex_qty, 199_800_000, 18, gas_usd),
+            "BTC-USD": (200_000_000, btc_qty, btc_qty, None, 8, gas_usd),
+        },
+        recorded_at_utc="2026-11-18T12:31:00Z",
+    )
+    assert len(partial_flush) == 1
+    assert partial_flush[0].product_id == "ETH-USD"
+    assert partial_flush[0].hedge_mode == "batched_dex"
+    assert end_tracker.summary()["open_unhedged_lots"] == 1
+    assert end_tracker.summary()["unhedged_fill_warnings"] == 1
+    assert end_tracker.summary()["batched_fifo_hedges"] == 1
+
+    # Final flush with valid BTC quote clears remaining lot to 0 exposure
+    final_flush = end_tracker.flush_all_unhedged(
+        {
+            "BTC-USD": (200_000_000, btc_qty, btc_qty, 200_500_000, 8, gas_usd),
+        },
+        recorded_at_utc="2026-11-18T12:31:05Z",
+    )
+    assert len(final_flush) == 1
+    assert final_flush[0].product_id == "BTC-USD"
+    assert end_tracker.summary()["open_unhedged_lots"] == 0
+    assert end_tracker.unhedged_exposure_usd_micros() == 0
+    assert end_tracker.unrealized_drawdown_usd_micros() == 0
+    assert end_tracker.summary()["batched_fifo_hedges"] == 2
+    assert json.dumps(end_tracker.summary())

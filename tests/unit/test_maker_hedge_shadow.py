@@ -33,6 +33,7 @@ from oasis_agent.cross_venue.maker_hedge_shadow import (
     MakerHedgeLifecycleTracker,
     MakerQuoteCandidate,
     MakerStepResult,
+    UnhedgedMakerLot,
     build_maker_quote_candidate,
 )
 
@@ -460,10 +461,18 @@ def test_maker_hedge_lifecycle_wide_spread_non_cross_touch_lift_and_strict_cross
     assert summary["fifo_total_net_profit_usd"] == 0.0
     assert summary["fifo_total_filled_notional_usd"] == 0.0
     assert summary["feed_gap_cancels"] == 0
+    assert summary["batched_fifo_hedges"] == 0
+    assert summary["natural_netted_fills"] == 0
+    assert summary["open_unhedged_lots"] == 0
+    assert summary["unhedged_exposure_usd_micros"] == 0
+    assert summary["adaptive_volatility_enabled"] is False
     assert summary["execution_eligible"] is False
+    assert step1.quote.effective_adverse_bps == Decimal("1.5")
+    assert step1.quote.to_dict()["effective_adverse_bps"] == "1.5"
     assert fill.to_dict()["matched_trade_ids"] == []
     assert fill.to_dict()["fill_ratio"] == 1.0
     assert fill.to_dict()["filled_qty_tokens"] is None
+    assert fill.to_dict()["hedge_mode"] == "immediate_dex"
 
 
 def test_maker_hedge_adverse_drift_loss_bid_maker_and_fail_closed_guards() -> None:
@@ -594,4 +603,292 @@ def test_maker_hedge_adverse_drift_loss_bid_maker_and_fail_closed_guards() -> No
             token_decimals=18,
             gas_cost_usd=Decimal("0.04"),
         )
+    assert json.dumps(tracker.summary())
+
+
+def test_adaptive_volatility_effective_adverse_bps_and_quote_gating() -> None:
+    qty_token = 10**17  # 0.1 ETH -> $300 at $3000/ETH
+    notional_usdc = 300_000_000
+    gas_usd = Decimal(0)
+
+    # Legacy mode keeps effective_adverse_bps fixed even on noisy +/-10 bps moves
+    legacy_cfg = MakerHedgeConfig(
+        trade_notional_usdc=notional_usdc,
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("5.0"),
+        tick_improvement_bps=Decimal(0),
+        adaptive_volatility_enabled=False,
+    )
+    legacy_tracker = MakerHedgeLifecycleTracker(legacy_cfg)
+
+    # Adaptive mode widens effective_adverse_bps on noisy books and gates thin margins
+    adapt_cfg = MakerHedgeConfig(
+        trade_notional_usdc=notional_usdc,
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("5.0"),
+        tick_improvement_bps=Decimal(0),
+        adaptive_volatility_enabled=True,
+        volatility_multiplier=Decimal("1.5"),
+        volatility_window_steps=4,
+        max_adaptive_adverse_bps=Decimal("30.0"),
+    )
+    adapt_tracker = MakerHedgeLifecycleTracker(adapt_cfg)
+
+    # Tick 1 (single observation): both default to adverse_selection_bps=1.5
+    # CEX 2997 / 3003 vs DEX buy $3000 (ask gross +10 bps, net +8.5 bps >= 5 -> active)
+    b1 = _make_book("ETH-USD", bid="2997.00", ask="3003.00", sequence=1)
+    s1_leg = legacy_tracker.step(
+        "ETH-USD",
+        current_book=b1,
+        trade_notional_usdc=notional_usdc,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=notional_usdc,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    s1_adp = adapt_tracker.step(
+        "ETH-USD",
+        current_book=b1,
+        trade_notional_usdc=notional_usdc,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=notional_usdc,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1_leg.quote.effective_adverse_bps == Decimal("1.5")
+    assert s1_adp.quote.effective_adverse_bps == Decimal("1.5")
+    assert s1_adp.quote.ask_active is True
+    assert s1_adp.quote.to_dict()["effective_adverse_bps"] == "1.5"
+
+    # Tick 2 (flat book, same mid=3000.00): rolling vol == 0 -> stays at 1.5
+    b2_flat = _make_book("ETH-USD", bid="2997.00", ask="3003.00", sequence=2)
+    s2_adp = adapt_tracker.step(
+        "ETH-USD",
+        current_book=b2_flat,
+        trade_notional_usdc=notional_usdc,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=notional_usdc,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2_adp.quote.effective_adverse_bps == Decimal("1.5")
+    assert s2_adp.quote.ask_active is True
+
+    # Ticks 3-6: +/- 20 bps oscillations around $3000 while spread stays ~10 bps each side
+    # Window of 4 fills with [0, ~20, ~40, ~40] -> rolling mean > 20 -> capped at 30.0 bps!
+    osc_books = (
+        ("3003.00", "3009.00", 3_006_000_000),  # mid 3006 (+20 bps)
+        ("2991.00", "2997.00", 2_994_000_000),  # mid 2994 (-40 bps)
+        ("3003.00", "3009.00", 3_006_000_000),  # mid 3006 (+40 bps)
+        ("2991.00", "2997.00", 2_994_000_000),  # mid 2994 (-40 bps)
+    )
+    last_leg: MakerStepResult | None = None
+    last_adp: MakerStepResult | None = None
+    for seq_idx, (bid_px, ask_px, dex_ref_micros) in enumerate(osc_books, start=3):
+        bk = _make_book("ETH-USD", bid=bid_px, ask=ask_px, sequence=seq_idx)
+        # DEX unit price sits at mid (10 bps edge to best_ask/best_bid)
+        qty_at_mid = (notional_usdc * 10**18) // dex_ref_micros
+        last_leg = legacy_tracker.step(
+            "ETH-USD",
+            current_book=bk,
+            trade_notional_usdc=notional_usdc,
+            dex_buy_token_out=qty_at_mid,
+            trade_notional_token=qty_at_mid,
+            dex_sell_usdc_out=notional_usdc,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+        last_adp = adapt_tracker.step(
+            "ETH-USD",
+            current_book=bk,
+            trade_notional_usdc=notional_usdc,
+            dex_buy_token_out=qty_at_mid,
+            trade_notional_token=qty_at_mid,
+            dex_sell_usdc_out=notional_usdc,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+
+    assert last_leg is not None and last_adp is not None
+    assert last_leg.quote.effective_adverse_bps == Decimal("1.5")
+    assert last_leg.quote.ask_active is True
+    # Adaptive cap reached: 30.0 bps > 10 bps gross spread => thin quote gated OFF!
+    assert last_adp.quote.effective_adverse_bps == Decimal("30.0")
+    assert last_adp.quote.to_dict()["effective_adverse_bps"] == "30.0"
+    assert last_adp.quote.ask_active is False
+    assert last_adp.quote.bid_active is False
+    assert last_adp.quote.ask_edge_bps is not None and last_adp.quote.ask_edge_bps < Decimal(0)
+    assert last_adp.quote.ask_dex_breakeven_usd is not None
+    assert last_leg.quote.ask_dex_breakeven_usd is not None
+    assert last_adp.quote.ask_dex_breakeven_usd > last_leg.quote.ask_dex_breakeven_usd
+
+    # Verify fill adverse cost also reflects effective_adverse_bps on a volatile fill
+    vol_fill_tracker = MakerHedgeLifecycleTracker(
+        MakerHedgeConfig(
+            trade_notional_usdc=notional_usdc,
+            adverse_selection_bps=Decimal("1.5"),
+            min_quote_edge_bps=Decimal("1.0"),
+            tick_improvement_bps=Decimal(0),
+            adaptive_volatility_enabled=True,
+            volatility_multiplier=Decimal("1.5"),
+            volatility_window_steps=2,
+            max_adaptive_adverse_bps=Decimal("30.0"),
+        )
+    )
+    vol_fill_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2990.00", ask="3010.00", sequence=10),
+        trade_notional_usdc=notional_usdc,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=notional_usdc,
+        token_decimals=18,
+        gas_cost_usd=Decimal(0),
+    )
+    # Next tick jumps +20 bps (3000 -> 3006) AND crosses ask at 3010
+    crossed_vol = vol_fill_tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="3010.00", ask="3012.00", sequence=11),
+        trade_notional_usdc=notional_usdc,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=notional_usdc,
+        token_decimals=18,
+        gas_cost_usd=Decimal(0),
+    )
+    assert len(crossed_vol.strict_fills) == 1
+    # Mid moved from 3000 -> 3011 (~36.67 bps) -> capped at 30.0 bps adverse cost!
+    # Proceeds 301.00 - DEX 300.00 - 30bps adv (0.90) = $0.10 net profit!
+    assert crossed_vol.quote.effective_adverse_bps == Decimal("30.0")
+    assert crossed_vol.strict_fills[0].realized_net_profit_usd == pytest.approx(
+        Decimal("0.10"), abs=Decimal("1e-9")
+    )
+
+    # Subsequent flat window decays effective_adverse_bps back to adverse_selection_bps=1.5
+    for seq_idx in range(7, 12):
+        decay_step = adapt_tracker.step(
+            "ETH-USD",
+            current_book=_make_book("ETH-USD", bid="2997.00", ask="3003.00", sequence=seq_idx),
+            trade_notional_usdc=notional_usdc,
+            dex_buy_token_out=qty_token,
+            trade_notional_token=qty_token,
+            dex_sell_usdc_out=notional_usdc,
+            token_decimals=18,
+            gas_cost_usd=gas_usd,
+        )
+    assert decay_step.quote.effective_adverse_bps == Decimal("1.5")
+    assert decay_step.quote.ask_active is True
+    assert adapt_tracker.summary()["adaptive_volatility_enabled"] is True
+    assert legacy_tracker.summary()["adaptive_volatility_enabled"] is False
+
+
+def test_batch_hedge_resting_strict_cross_drawdown_and_config_validation() -> None:
+    # Config and UnhedgedMakerLot fail-closed validation
+    with pytest.raises(MakerHedgeError, match="adaptive_volatility_enabled"):
+        MakerHedgeConfig(adaptive_volatility_enabled=1)  # type: ignore[arg-type]
+    with pytest.raises(MakerHedgeError, match="max_acceptable_gas_drag_bps"):
+        MakerHedgeConfig(max_acceptable_gas_drag_bps=Decimal(0))
+    with pytest.raises(MakerHedgeError, match="min_hedge_notional_usdc"):
+        MakerHedgeConfig(min_hedge_notional_usdc=-1)
+    with pytest.raises(MakerHedgeError, match="max_unhedged_steps"):
+        MakerHedgeConfig(max_unhedged_steps=0)
+    with pytest.raises(MakerHedgeError, match="volatility_window_steps"):
+        MakerHedgeConfig(volatility_window_steps=0)
+    with pytest.raises(MakerHedgeError, match="max_adaptive_adverse_bps"):
+        MakerHedgeConfig(
+            adaptive_volatility_enabled=True,
+            adverse_selection_bps=Decimal("10.0"),
+            max_adaptive_adverse_bps=Decimal("5.0"),
+        )
+    with pytest.raises(MakerHedgeError, match="execution_eligible"):
+        UnhedgedMakerLot(
+            product_id="ETH-USD",
+            side="ask_maker",
+            notional_usdc=50_000_000,
+            notional_token=20_000_000_000_000_000,
+            fill_price_usdc=Decimal(2500),
+            maker_fee_usd=Decimal(0),
+            adverse_cost_usd=Decimal(0),
+            fill_step_idx=0,
+            fill_mode="strict_cross",
+            adverse_bps=Decimal("1.5"),
+            execution_eligible=True,  # type: ignore[arg-type]
+        )
+
+    # Batching two $50 strict_cross fills with min_hedge_notional_usdc=$100 charges gas ONCE
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=50_000_000,
+        cex_maker_fee_bps=Decimal(0),
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal(0),
+        min_hedge_notional_usdc=100_000_000,
+        max_acceptable_gas_drag_bps=Decimal("5.0"),
+        max_unhedged_steps=8,
+        max_unhedged_drift_bps=Decimal("100.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    qty_0_02 = 2 * 10**16  # 0.02 ETH ($50 at $2500 DEX buy)
+    gas_usd = Decimal("0.04")
+
+    # Step 1: place resting Ask at $2510 (DEX buy = $2500)
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2500.00", ask="2510.00", sequence=1),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_0_02,
+        trade_notional_token=qty_0_02,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1.quote.quoted_ask_usd == Decimal("2510.00")
+
+    # Step 2: strict cross fills $50.20 ask (0.02 ETH @ 2510); mid=2515 (+5/token adverse!)
+    # Open lot ($50.20 < $100 floor) stays unhedged; unrealized loss = 0.02 * (2515 - 2510) = $0.10
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2510.00", ask="2520.00", sequence=2),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_0_02,
+        trade_notional_token=qty_0_02,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2.strict_fills == ()
+    assert tracker.summary()["open_unhedged_lots"] == 1
+    assert tracker.unhedged_exposure_usd_micros() == 50_200_000
+    assert tracker.unrealized_drawdown_usd_micros() == 100_000
+    assert tracker.summary()["batched_fifo_hedges"] == 0
+
+    # Step 3: second strict cross fills $50.40 ask (0.02 ETH @ 2520) -> total $100.60 >= $100
+    # Triggers ONE batched DEX hedge charging gas_usd ONCE ($0.04) across both lots!
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2520.00", ask="2524.00", sequence=3),
+        trade_notional_usdc=50_000_000,
+        dex_buy_token_out=qty_0_02,
+        trade_notional_token=qty_0_02,
+        dex_sell_usdc_out=49_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s3.strict_fills) == 2
+    assert all(f.hedge_mode == "batched_dex" for f in s3.strict_fills)
+    assert tracker.summary()["batched_fifo_hedges"] == 1
+    assert tracker.summary()["open_unhedged_lots"] == 0
+    assert tracker.unhedged_exposure_usd_micros() == 0
+    assert tracker.unrealized_drawdown_usd_micros() == 0
+
+    # Total realized profit: CEX (50.20 + 50.40) - DEX (50 + 50) - 2*adv - 1*gas ($0.04)
+    adv_per_lot = Decimal("50.20") * (Decimal("1.5") / Decimal(10_000)) + Decimal("50.40") * (
+        Decimal("1.5") / Decimal(10_000)
+    )
+    expected_total_profit = Decimal("100.60") - Decimal("100.00") - adv_per_lot - gas_usd
+    actual_total_profit = sum((f.realized_net_profit_usd for f in s3.strict_fills), Decimal(0))
+    assert actual_total_profit == pytest.approx(expected_total_profit, abs=Decimal("1e-10"))
     assert json.dumps(tracker.summary())
