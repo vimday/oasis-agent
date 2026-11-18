@@ -1,5 +1,6 @@
 """Unit tests for dual-provider RPC quorum, CEX-DEX shadow, and 100-tick campaign."""
 
+import http.client
 import json
 import math
 import os
@@ -48,6 +49,12 @@ from oasis_agent.fastpath.live_shadow_runner import (
     ShadowRunnerError,
     resolve_fastpath_bridge,
 )
+from oasis_agent.fastpath.multicall_universe import (
+    UNIV3_FACTORY,
+    DiscoveredPool,
+    PinnedUniverseSnapshot,
+    QuoterVerificationResult,
+)
 from oasis_agent.fastpath.pool_graph import PoolNode, TickLiquidity
 from oasis_agent.live.canary_readiness import evaluate_profit_engine_readiness
 from oasis_agent.live.dual_rpc_probe import (
@@ -78,6 +85,7 @@ from scripts.run_multicall_100tick_campaign import (  # noqa: E402
     AERO_TOKEN,
     CBBTC,
     SUMMARY_SCHEMA_VERSION,
+    _KeepAliveHttpsPool,
     run_multicall_campaign,
     verify_campaign_attribution_chain,
 )
@@ -926,3 +934,413 @@ def test_http_429_single_shot_no_retry_guards(monkeypatch: pytest.MonkeyPatch) -
     assert deg.status == "degraded"
     assert deg.error_reason is not None and "429" in deg.error_reason
     assert cb_calls == 1
+
+
+def test_campaign_real_multicall_universe_dataclass_interoperability(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise native PinnedUniverseSnapshot, DiscoveredPool, and QuoterVerificationResult."""
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    seen: dict[str, int] = {"disc": 0, "snap": 0, "quoter": 0}
+    tick_no = {"n": 0}
+
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(801),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=50 * 10**18,
+            reserve1=150_000 * 10**6,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(802),
+            label="v3_weth_usdc_100",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=100,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=50 * 10**18,
+            reserve1=150_000 * 10**6,
+        ),
+    )
+
+    def _mock_disc(*_args: Any, **_kwargs: Any) -> tuple[DiscoveredPool, ...]:
+        seen["disc"] += 1
+        return disc_pools
+
+    def _mock_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        seen["snap"] += 1
+        tick_no["n"] += 1
+        bnum = 59_100_000 + tick_no["n"]
+        ts_ms = 1_795_200_000_000 + tick_no["n"] * 1000
+        liq = 200_000_000_000_000_000
+        t_a = -196_258
+        t_b = -196_120
+        nodes = (
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[0].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_price_at_tick(t_a),
+                tick=t_a,
+                liquidity=liq,
+                ticks=(TickLiquidity(t_a - 200, liq), TickLiquidity(t_a + 200, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[1].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=100,
+                sqrt_price_x96=sqrt_price_at_tick(t_b),
+                tick=t_b,
+                liquidity=liq,
+                ticks=(TickLiquidity(t_b - 200, liq), TickLiquidity(t_b + 200, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+        )
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=_synth_hash(f"real-snap-{bnum}"),
+            parent_hash=_synth_hash(f"real-snap-{bnum - 1}"),
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=nodes,
+            balances_by_pool={
+                disc_pools[0].pool_id: (50 * 10**18, 150_000 * 10**6),
+                disc_pools[1].pool_id: (50 * 10**18, 150_000 * 10**6),
+            },
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    def _mock_quoter(
+        rpc_url: str,
+        hops: Any,
+        amount_in: int,
+        gas_cost_in_base: int,
+        l1_fee_in_base: int,
+        pools_by_id: Any,
+        block_number_hex: str,
+        **_kwargs: Any,
+    ) -> QuoterVerificationResult:
+        del rpc_url, hops, pools_by_id, block_number_hex
+        seen["quoter"] += 1
+        sim_out = amount_in + gas_cost_in_base + l1_fee_in_base + (amount_in // 500)
+        return QuoterVerificationResult(
+            verified=True,
+            simulated_amount_out=sim_out,
+            simulated_net_profit=sim_out - amount_in - gas_cost_in_base - l1_fee_in_base,
+            hop_outputs=(amount_in, sim_out),
+            reason="ok",
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools", _mock_disc
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot", _mock_snap
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.verify_candidate_with_onchain_quoter", _mock_quoter
+    )
+
+    eth_book = build_synthetic_coinbase_l2_book("ETH-USD", mid_price=Decimal("3000.00"))
+    cb_bytes = serialize_coinbase_book_payload(eth_book)
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow._default_https_get",
+        lambda _url, _timeout: cb_bytes,
+    )
+
+    out_dir = tmp_path / "native-bridge"
+    res = run_multicall_campaign(
+        out_dir=out_dir,
+        mode="public-shadow",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://native-bridge.test",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        sleeper=_noop_sleep,
+    )
+    assert seen["disc"] == 1
+    assert seen["snap"] == 2
+    assert seen["quoter"] == 4
+    assert res.summary["atomic_positive_net_ticks"] == 2
+    assert res.summary["rpc_calls_used"] == 12  # 2 * (2 snapshot + 2 * 2 quoter calls)
+    assert res.records[0]["quoter_verified_candidates"][0]["net_bps"] > 0
+
+
+def test_keep_alive_https_pool_guards(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.live_shadow_runner.socket.getaddrinfo",
+        lambda *_a, **_k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow.socket.getaddrinfo",
+        lambda *_a, **_k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))],
+    )
+
+    events: list[str] = []
+    outcomes: list[tuple[int, bytes] | Exception] = []
+
+    class _FakeResp:
+        def __init__(self, status: int, body: bytes) -> None:
+            self.status = status
+            self._body = body
+
+        def read(self, _limit: int) -> bytes:
+            return self._body
+
+    class _FakeConn:
+        def __init__(self, host: str, port: int, timeout: float, context: object) -> None:
+            del host, port, context
+            self.timeout = timeout
+            self.sock = None
+            events.append("new_conn")
+
+        def request(self, method: str, path: str, body: Any = None, headers: Any = None) -> None:
+            del body, headers
+            events.append(f"req:{method}:{path}")
+            nxt = outcomes.pop(0)
+            if isinstance(nxt, Exception):
+                raise nxt
+            self._next_resp = _FakeResp(nxt[0], nxt[1])
+
+        def getresponse(self) -> _FakeResp:
+            return self._next_resp
+
+        def close(self) -> None:
+            events.append("close")
+
+    pool = _KeepAliveHttpsPool(connection_factory=_FakeConn)  # type: ignore[arg-type]
+
+    # 1. Persistent reuse + single reconnect ONLY on idle RemoteDisconnected
+    outcomes.extend(
+        [
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x1"}'),
+            http.client.RemoteDisconnected("idle close"),
+            (200, b'{"jsonrpc":"2.0","id":1,"result":"0x2"}'),
+        ]
+    )
+    r1 = pool.post("https://rpc.example.com", b"{}", 5.0)
+    r2 = pool.post("https://rpc.example.com", b"{}", 5.0)
+    assert r1.endswith(b'"0x1"}')
+    assert r2.endswith(b'"0x2"}')
+    assert events.count("new_conn") == 2
+
+    # 2. HTTP 429 stops cleanly after ONE call (no retry) and drops socket
+    outcomes.append((429, b"rate limit"))
+    with pytest.raises(RpcError, match="status 429"):
+        pool.post("https://rpc.example.com", b"{}", 5.0)
+    assert events[-1] == "close"
+
+    # 3. Redirect 302 forbidden for Coinbase GET
+    outcomes.append((302, b"redirect"))
+    with pytest.raises(LiveCexDexError, match="redirects"):
+        pool.get("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2", 5.0)
+
+    # 4. Fresh-socket transport failure must NOT retry
+    events.clear()
+    outcomes.append(TimeoutError("connect stall"))
+    with pytest.raises(RpcError, match="transport failure"):
+        pool.post("https://rpc.example.com", b"{}", 5.0)
+    assert events.count("new_conn") == 1
+
+    # 5. Coinbase healthy GET then clean close()
+    outcomes.append((200, b'{"bids":[["3000","1"]],"asks":[["3001","1"]]}'))
+    cb_raw = pool.get("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2", 5.0)
+    assert b"3000" in cb_raw
+    pool.close()
+    assert events[-1] == "close"
+
+
+def test_campaign_replica_lag_recovery_and_true_reorg_rejection(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(901),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=50 * 10**18,
+            reserve1=150_000 * 10**6,
+        ),
+    )
+
+    def _make_snap(bnum: int, bhash: str, phash: str) -> PinnedUniverseSnapshot:
+        ts_ms = 1_795_300_000_000 + bnum * 1000
+        liq = 200_000_000_000_000_000
+        t = -196_258
+        node = PoolNode(
+            chain_id=BASE_CHAIN_ID,
+            pool_id=disc_pools[0].pool_id,
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fee_pips=500,
+            sqrt_price_x96=sqrt_price_at_tick(t),
+            tick=t,
+            liquidity=liq,
+            ticks=(TickLiquidity(t - 200, liq), TickLiquidity(t + 200, -liq)),
+            block_number=bnum,
+            timestamp_ms=ts_ms,
+        )
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=bhash,
+            parent_hash=phash,
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=(node,),
+            balances_by_pool={disc_pools[0].pool_id: (50 * 10**18, 150_000 * 10**6)},
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    h99 = _synth_hash("blk-99")
+    h100 = _synth_hash("blk-100")
+    h100_fork = _synth_hash("blk-100-reorg")
+    h101_bad_parent = _synth_hash("blk-101-bad-parent")
+
+    eth_book = build_synthetic_coinbase_l2_book("ETH-USD", mid_price=Decimal("3000.00"))
+    cb_bytes = serialize_coinbase_book_payload(eth_book)
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow._default_https_get",
+        lambda _url, _timeout: cb_bytes,
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools",
+        lambda *_a, **_k: disc_pools,
+    )
+
+    # Scenario A: 1-block replica lag recovers via hex(prev_block_number) re-fetch
+    tags_seen: list[str] = []
+
+    def _lag_snap(*_args: Any, **kwargs: Any) -> PinnedUniverseSnapshot:
+        tag = str(kwargs.get("block_tag", "latest"))
+        tags_seen.append(tag)
+        if len(tags_seen) == 1:
+            return _make_snap(59_000_100, h100, h99)
+        if len(tags_seen) == 2:
+            return _make_snap(59_000_099, h99, _synth_hash("blk-98"))
+        return _make_snap(59_000_100, h100, h99)
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _lag_snap,
+    )
+    res_lag = run_multicall_campaign(
+        out_dir=tmp_path / "replica-lag-ok",
+        mode="public-shadow",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://lag-test.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        sleeper=_noop_sleep,
+    )
+    assert res_lag.summary["ticks_completed"] == 2
+    assert tags_seen == ["latest", "latest", hex(59_000_100)]
+    assert res_lag.summary["rpc_calls_used"] == 6  # tick1=2, tick2=2(latest)+2(refetch)
+
+    # Scenario B: True reorg (parent_hash mismatch at block+1) fails closed
+    call_idx_b = {"n": 0}
+
+    def _reorg_parent_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        call_idx_b["n"] += 1
+        if call_idx_b["n"] == 1:
+            return _make_snap(59_000_100, h100, h99)
+        return _make_snap(59_000_101, h101_bad_parent, h100_fork)
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _reorg_parent_snap,
+    )
+    with pytest.raises(ShadowRunnerError, match="parent_hash mismatch"):
+        run_multicall_campaign(
+            out_dir=tmp_path / "reorg-parent-fail",
+            mode="public-shadow",
+            ticks=2,
+            interval_ms=0,
+            max_rpc_calls=30,
+            rpc_url="https://reorg-test.example.com",
+            bridge=bridge,
+            rpc_transport=lambda _u, _p, _t: b"{}",
+            sleeper=_noop_sleep,
+        )
+
+    # Scenario C: Conflicting block hash at same height fails closed
+    call_idx_c = {"n": 0}
+
+    def _reorg_same_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        call_idx_c["n"] += 1
+        if call_idx_c["n"] == 1:
+            return _make_snap(59_000_100, h100, h99)
+        return _make_snap(59_000_100, h100_fork, h99)
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _reorg_same_snap,
+    )
+    with pytest.raises(ShadowRunnerError, match="block hash changed"):
+        run_multicall_campaign(
+            out_dir=tmp_path / "reorg-hash-fail",
+            mode="public-shadow",
+            ticks=2,
+            interval_ms=0,
+            max_rpc_calls=30,
+            rpc_url="https://reorg-hash-test.example.com",
+            bridge=bridge,
+            rpc_transport=lambda _u, _p, _t: b"{}",
+            sleeper=_noop_sleep,
+        )

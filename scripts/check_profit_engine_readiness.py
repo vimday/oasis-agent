@@ -1,4 +1,4 @@
-"""CLI evaluator for the 8-gate profit-engine canary readiness report.
+"""CLI evaluator for the 9-gate profit-engine canary readiness report.
 
 Reads local build artifacts, Anvil E2E settlement results, BaseTime/radar output,
 public-shadow summary, and optional operator signoff/infra proof, writes an

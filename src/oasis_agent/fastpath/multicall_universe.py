@@ -907,6 +907,7 @@ def fetch_pinned_universe_snapshot(
     *,
     transport: RpcTransport | None = None,
     timeout_s: float = 10.0,
+    block_tag: str = "latest",
     previous_snapshot: PinnedUniverseSnapshot | None = None,
 ) -> PinnedUniverseSnapshot:
     """Fetch a coherent block-pinned snapshot across all pools in exactly 2 RPC calls."""
@@ -917,6 +918,7 @@ def fetch_pinned_universe_snapshot(
         raise MulticallUniverseError("duplicate pool_id in pools")
 
     checked_timeout = _validate_timeout(timeout_s)
+    normalized_tag = _validate_block_tag(block_tag)
     _validate_rpc_url(rpc_url, enforce_public_host=transport is None)
     send = _default_https_transport if transport is None else transport
 
@@ -927,7 +929,7 @@ def fetch_pinned_universe_snapshot(
         header_timestamp,
         header_timestamp_ms,
         base_fee_per_gas_wei,
-    ) = _pin_block_header(rpc_url, send, checked_timeout, "latest", req_id=1)
+    ) = _pin_block_header(rpc_url, send, checked_timeout, normalized_tag, req_id=1)
 
     if previous_snapshot is not None:
         if block_number < previous_snapshot.block_number:

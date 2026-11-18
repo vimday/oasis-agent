@@ -16,39 +16,48 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
 
 ## 阶段 2：Base 主网无密钥长期实时影子归因（>= 100 样本 & 正样本外净收益）
 
-在投入任何资金前，必须在真实 Base 区块、真实 `BaseTime`（`0x4200...0030`）、真实 OP L1 数据费（`GasPriceOracle` `0x4200...000f`）与真实池深下跑出持续为正、扣除全部成本后的样本外下界收益（默认要求 `ticks_completed >= 100` 且 `lcb_net_edge_bps >= 5`）：
+在投入任何资金前，必须在真实 Base 区块、真实 `BaseTime`（`0x4200...0030`）、真实 OP L1 数据费（`GasPriceOracle` `0x4200...000f`）与真实池深下跑出持续为正、扣除全部成本后的样本外下界收益（默认要求 `ticks_completed >= 100` 且 `lcb_net_edge_bps >= 5`）。推荐使用带防幻觉余额上限、chain-on `QuoterV2` 复验及 Coinbase 跨所对比的 100-tick `Multicall3` 战役入口（仅约 203 次 RPC 请求）：
 
 ```bash
 OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
-  .venv/bin/python -m scripts.run_base_arb_shadow \
+  .venv/bin/python -m scripts.run_multicall_100tick_campaign \
   --mode public-shadow \
   --ticks 100 \
-  --interval-ms 1200 \
-  --max-requests 1550 \
-  --out reports/research/<run-id>/base-shadow
+  --interval-ms 800 \
+  --max-rpc-calls 350 \
+  --out reports/research/<run-id>/shadow-100
 ```
 
-说明：若静态 WETH/USDC 2-hop 公开轮询的 `lcb_net_edge_bps < 0`（如 2026-11-18 首次 3-tick 实测测得 `-14.431741 bps`），**说明该路线当前无净套利空间，系统必须拒绝发布**，应转向事件驱动日志同步（`state_sync.py`）、长尾池、闪电贷清算（`liquidation.py`）或 `UniswapX Dutch_V3` 零池费意图流，直到在 untouched 窗口上证明正样本外净期望。
+（若仅单独测算 4 池 WETH/USDC 基准，亦可运行 `scripts.run_base_arb_shadow --mode public-shadow --ticks 100 --interval-ms 1200 --max-requests 1550`。）
 
-## 阶段 3：基础设施隔离与双源独立准备
+说明：2026-11-18 的 100-tick Base 主网 `Multicall3`（25 座深池 + Coinbase）实测测得原子最佳毛差 `-1.40 bps`、Coinbase `ETH-USD` ↔ Base 跨所峰值毛差 `+2.78 bps`（0 bps Maker 诊断下 `14/96` 次为正 `+1.15 bps`，但按 `3.5 bps` Taker 计算 `lcb_net_edge_bps = -3`）。当 `lcb_net_edge_bps < 5` 时**系统必须拒绝发布**，应转向极低费率 CEX Maker 对冲、增量日志同步（`state_sync.py`）、闪电贷清算（`liquidation.py`）或 `UniswapX Dutch_V3` 零池费意图流，直到在 untouched 窗口上证明正样本外净期望。
+
+## 阶段 3：双源 RPC 仲裁、确定性部署与隔离签名就绪
 
 参照 [custody 模型](../security/CUSTODY_AND_AGENT_KEY_MODEL.md) 与 [Base 有界运行手册](BASE_BOUNDED_RUN.md) 完成：
 
-1. 由多签/owner 在 Base 部署并校验 [OasisAtomicExecutor.sol](../../contracts/src/OasisAtomicExecutor.sol) 与 [OasisIntentVault.sol](../../contracts/src/OasisIntentVault.sol) 运行时代码哈希（固定 `TREASURY`、`REVENUE_SINK`、`guardian` 与最小白名单）。
-2. 配置两条物理/运营独立的 Base RPC（主读源 + 独立归档/状态模拟与收据对账副源），各自保留独立持久化请求预算账本（失败/429 立即停机不换账本重试）。
-3. 配置隔离策略进程与独立 Unix socket 签名权威（[atomic_authority.py](../../src/oasis_agent/live/atomic_authority.py)），策略进程零私钥接触，`REVENUE_SINK` 利润自动隔离。
-4. 明确设置本次有界资本授权：默认不超出 USD 500 总资本、USD 200 单日止损、USD 500 累计止损及 STOP 急停文件。
+1. 首先通过无密钥双源仲裁脚本实证主/副 Base RPC 对同一区块 `block_hash`、`stateRoot`、`BaseTime` 与核心代码哈希一致：
 
-## 阶段 4：8 项硬门禁总验与有界发布准入
+```bash
+.venv/bin/python -m oasis_agent.live.dual_rpc_probe \
+  --out reports/research/<run-id>/dual_rpc_quorum.json
+```
 
-汇总合约产物、Anvil 报告、`BaseTime` 核验、>= 100 tick 公开影子摘要、双源/独立签名证明及 owner 本次书面范围授权：
+2. 在获得实盘发布许可后，由多签/外部硬件签名器使用 [DeployOasisProfitEngine.s.sol](../../contracts/script/DeployOasisProfitEngine.s.sol) 通过 `CREATE2` 部署并校验 `OasisAtomicExecutor` 与 `OasisIntentVault` 运行时代码哈希（强制 `deployer` / `owner` / `guardian` / `operator` / `quoteSigner` / `treasury` / `revenueSink` 七角色两两严格分离，脚本绝不读取私钥）。
+3. 配置两条物理/运营独立的 Base RPC（主读源 + 独立归档/状态模拟与收据对账副源），各自保留独立持久化请求预算账本（失败/429 立即停机不换账本重试）。
+4. 配置隔离策略进程与独立 Unix socket 签名权威（[atomic_authority.py](../../src/oasis_agent/live/atomic_authority.py)），策略进程零私钥接触，`REVENUE_SINK` 利润自动隔离。
+5. 明确设置本次有界资本授权：默认不超出 USD 500 总资本、USD 200 单日止损、USD 500 累计止损及 STOP 急停文件。
+
+## 阶段 4：9 项硬门禁总验与有界发布准入
+
+汇总合约产物、Anvil 报告、`BaseTime` 核验、>= 100 tick 公开影子摘要、双源仲裁证明、隔离签名器证明及 owner 本次书面范围授权：
 
 ```bash
 .venv/bin/python -m scripts.check_profit_engine_readiness \
   --anvil-report reports/research/<run-id>/anvil_e2e_report.json \
   --radar-report reports/research/<radar-id>/radar_report.json \
-  --shadow-summary reports/research/<run-id>/base-shadow/shadow_summary.json \
-  --infra-proof <private-infra-proof.json> \
+  --shadow-summary reports/research/<run-id>/shadow-100/shadow_summary.json \
+  --infra-proof reports/research/<run-id>/dual_rpc_quorum.json \
   --operator-signoff <private-owner-signoff.json> \
   --require-ready \
   --out reports/research/<run-id>/readiness_report.json

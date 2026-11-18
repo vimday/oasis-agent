@@ -11,20 +11,25 @@ hash-chained `shadow_attribution.jsonl` plus `canary_readiness`-compatible
 """
 
 import argparse
+import http.client
 import importlib
 import inspect
 import json
 import math
 import os
 import re
+import ssl
 import sys
 import time
+import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final, Protocol, cast, runtime_checkable
 
+import certifi
 from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
 
@@ -34,9 +39,17 @@ from oasis_agent.cross_venue.live_cex_dex_shadow import (
     DEFAULT_LATENCY_HAIRCUT_BPS,
     DEFAULT_TRADE_NOTIONAL_USDC,
     CexDexTickEvaluation,
+    LiveCexDexError,
+    _validate_coinbase_url,
     build_synthetic_coinbase_transport,
     evaluate_live_cex_dex_shadow,
     gas_wei_to_usd,
+)
+from oasis_agent.cross_venue.live_cex_dex_shadow import (
+    MAX_RESPONSE_BYTES as CB_MAX_RESPONSE_BYTES,
+)
+from oasis_agent.cross_venue.live_cex_dex_shadow import (
+    _validate_resolved_dns as _validate_cb_dns,
 )
 from oasis_agent.errors import RpcError
 from oasis_agent.evidence.base_denim import (
@@ -55,6 +68,7 @@ from oasis_agent.evidence.rpc_validation import (
 )
 from oasis_agent.fastpath.bridge import FastpathBridge, FastpathCallError, FastpathUnavailableError
 from oasis_agent.fastpath.live_shadow_runner import (
+    _USER_AGENT,
     ACTIVE_TICK_HALF_WIDTH,
     DEFAULT_BASE_RPC_URL,
     DEFAULT_PRIORITY_FEE_WEI,
@@ -69,7 +83,7 @@ from oasis_agent.fastpath.live_shadow_runner import (
     BasePoolSpec,
     ShadowBudgetError,
     ShadowRunnerError,
-    _default_https_transport,
+    _validate_block_tag,
     _validate_rpc_url,
     canonical_base_weth_usdc_pools,
     decode_aero_factory_fee_pips,
@@ -79,6 +93,9 @@ from oasis_agent.fastpath.live_shadow_runner import (
     decode_slipstream_fee_pips,
     decode_slot0_words,
     resolve_fastpath_bridge,
+)
+from oasis_agent.fastpath.live_shadow_runner import (
+    _validate_resolved_dns as _validate_rpc_dns,
 )
 from oasis_agent.fastpath.pool_graph import (
     CycleCandidate,
@@ -122,7 +139,7 @@ RECORD_SCHEMA_VERSION: Final[str] = "oasis.base-multicall-shadow-record.v1"
 DEFAULT_TICKS: Final[int] = 100
 DEFAULT_INTERVAL_MS: Final[int] = 800
 DEFAULT_MAX_RPC_CALLS: Final[int] = 350
-DEFAULT_TIMEOUT_S: Final[float] = 10.0
+DEFAULT_TIMEOUT_S: Final[float] = 15.0
 WETH_SCAN_MIN_WEI: Final[int] = 10**15
 WETH_SCAN_MAX_WEI: Final[int] = 10**18
 USDC_SCAN_MIN_RAW: Final[int] = 5_000_000
@@ -195,6 +212,8 @@ class PinnedTickSnapshot:
     l1_data_fee_wei: int
     nodes: tuple[PoolNode, ...]
     rpc_calls_used: int
+    balances_by_pool: Mapping[str, tuple[int, int]] | None = None
+    parent_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -389,17 +408,25 @@ def _fetch_pinned_multicall3_fallback(
     pool_specs: Sequence[BasePoolSpec],
     *,
     timeout_s: float,
+    block_tag: str = "latest",
 ) -> PinnedTickSnapshot:
+    normalized_tag = _validate_block_tag(block_tag)
     header_raw = _single_rpc_call(
         send,
         rpc_url,
         method="eth_getBlockByNumber",
-        params=["latest", False],
+        params=[normalized_tag, False],
         timeout_s=timeout_s,
     )
     header = strict_object(header_raw, "block header")
     block_number = rpc_quantity(header.get("number"))
     block_hash = normalize_hash32(strict_string(header.get("hash"), "block hash"), "block hash")
+    raw_parent = header.get("parentHash")
+    parent_hash = (
+        normalize_hash32(strict_string(raw_parent, "parentHash"), "parentHash")
+        if raw_parent is not None
+        else None
+    )
     header_timestamp = rpc_quantity(header.get("timestamp"))
     header_ts_ms = validate_header_timestamp_ms(header, chain_id=BASE_CHAIN_ID)
     base_fee_per_gas = rpc_quantity(header.get("baseFeePerGas"))
@@ -503,6 +530,7 @@ def _fetch_pinned_multicall3_fallback(
         l1_data_fee_wei=l1_data_fee_wei,
         nodes=tuple(nodes),
         rpc_calls_used=2,
+        parent_hash=parent_hash,
     )
 
 
@@ -1101,7 +1129,18 @@ def _extract_snapshot_from_multicall_universe(raw_snap: Any) -> PinnedTickSnapsh
     block_hash = normalize_hash32(
         str(_attr_or_key(raw_snap, "block_hash", "blockHash")), "block_hash"
     )
-    header_ts = int(_attr_or_key(raw_snap, "header_timestamp", "timestamp_s", "timestamp"))
+    raw_parent = _attr_or_key(raw_snap, "parent_hash", "parentHash", default=None)
+    parent_hash = (
+        normalize_hash32(str(raw_parent), "parent_hash") if isinstance(raw_parent, str) else None
+    )
+    raw_header_ts = _attr_or_key(raw_snap, "header_timestamp", "timestamp_s", "timestamp")
+    if raw_header_ts is None:
+        raw_header_ts_ms = _attr_or_key(raw_snap, "header_timestamp_ms", "base_time_ms")
+        if raw_header_ts_ms is None:
+            raise ShadowRunnerError("multicall_universe snapshot missing header timestamp")
+        header_ts = int(raw_header_ts_ms) // 1000
+    else:
+        header_ts = int(raw_header_ts)
     base_time_ms = int(_attr_or_key(raw_snap, "base_time_ms", "timestamp_ms", "checked_ms"))
     base_fee_wei = int(
         _attr_or_key(raw_snap, "base_fee_per_gas_wei", "base_fee_per_gas", "baseFeePerGas")
@@ -1111,6 +1150,8 @@ def _extract_snapshot_from_multicall_universe(raw_snap: Any) -> PinnedTickSnapsh
     if not isinstance(raw_nodes, Sequence) or not raw_nodes:
         raise ShadowRunnerError("multicall_universe snapshot returned empty nodes")
     nodes = tuple(raw_nodes)
+    raw_balances = _attr_or_key(raw_snap, "balances_by_pool", default=None)
+    balances_by_pool = dict(raw_balances) if isinstance(raw_balances, Mapping) else None
     rpc_used = _attr_or_key(raw_snap, "rpc_calls_used", default=2)
     calls_used = int(rpc_used) if type(rpc_used) is int and rpc_used > 0 else 2
     return PinnedTickSnapshot(
@@ -1122,7 +1163,167 @@ def _extract_snapshot_from_multicall_universe(raw_snap: Any) -> PinnedTickSnapsh
         l1_data_fee_wei=l1_fee_wei,
         nodes=nodes,
         rpc_calls_used=calls_used,
+        balances_by_pool=balances_by_pool,
+        parent_hash=parent_hash,
     )
+
+
+class _KeepAliveHttpsPool:
+    """Persistent HTTP/1.1 Keep-Alive HTTPS pool for keyless RPC POST and Coinbase GET."""
+
+    def __init__(
+        self,
+        *,
+        connection_factory: (
+            Callable[[str, int, float, ssl.SSLContext], http.client.HTTPSConnection] | None
+        ) = None,
+    ) -> None:
+        self._ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+        self._conns: dict[tuple[str, int], http.client.HTTPSConnection] = {}
+        self._connection_factory = connection_factory
+
+    def _new_conn(self, hostname: str, port: int, timeout_s: float) -> http.client.HTTPSConnection:
+        if self._connection_factory is not None:
+            return self._connection_factory(hostname, port, timeout_s, self._ssl_ctx)
+        return http.client.HTTPSConnection(hostname, port, timeout=timeout_s, context=self._ssl_ctx)
+
+    def _drop_conn(self, key: tuple[str, int]) -> None:
+        conn = self._conns.pop(key, None)
+        if conn is not None:
+            with suppress(Exception):
+                conn.close()
+
+    def _request(
+        self,
+        *,
+        method: str,
+        url: str,
+        body: bytes | None,
+        headers: dict[str, str],
+        timeout_s: float,
+        max_bytes: int,
+        is_coinbase: bool,
+    ) -> bytes:
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme != "https" or not parsed.netloc or not parsed.hostname:
+            if is_coinbase:
+                raise LiveCexDexError("Coinbase URL must be https://")
+            raise ShadowRunnerError("Base shadow RPC requires an https:// endpoint")
+        if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
+            if is_coinbase:
+                raise LiveCexDexError("Coinbase URL forbids userinfo credentials")
+            raise ShadowRunnerError("Base shadow RPC forbids URL userinfo credentials")
+        hostname = parsed.hostname
+        try:
+            port = parsed.port if parsed.port is not None else 443
+        except ValueError as exc:
+            if is_coinbase:
+                raise LiveCexDexError("Coinbase URL contains invalid port") from exc
+            raise ShadowRunnerError("Base shadow RPC URL contains an invalid port") from exc
+
+        if is_coinbase:
+            _validate_coinbase_url(url)
+            _validate_cb_dns(hostname)
+        else:
+            _validate_rpc_dns(hostname, port)
+
+        target_path = parsed.path or "/"
+        if parsed.query:
+            target_path = f"{target_path}?{parsed.query}"
+
+        key = (hostname, port)
+        for attempt in range(2):
+            conn = self._conns.get(key)
+            reused = conn is not None
+            if conn is None:
+                conn = self._new_conn(hostname, port, timeout_s)
+                self._conns[key] = conn
+            else:
+                if conn.sock is not None:
+                    with suppress(OSError):
+                        conn.sock.settimeout(timeout_s)
+                conn.timeout = timeout_s
+
+            try:
+                conn.request(method, target_path, body=body, headers=headers)
+                resp = conn.getresponse()
+                raw = resp.read(max_bytes + 1)
+            except (
+                http.client.RemoteDisconnected,
+                BrokenPipeError,
+                ConnectionResetError,
+            ):
+                self._drop_conn(key)
+                if reused and attempt == 0:
+                    continue
+                if is_coinbase:
+                    raise LiveCexDexError("Coinbase book transport failure") from None
+                raise RpcError("Base shadow RPC transport failure") from None
+            except (http.client.HTTPException, OSError, TimeoutError):
+                self._drop_conn(key)
+                if is_coinbase:
+                    raise LiveCexDexError("Coinbase book transport failure") from None
+                raise RpcError("Base shadow RPC transport failure") from None
+
+            if 300 <= resp.status < 400:
+                self._drop_conn(key)
+                if is_coinbase:
+                    raise LiveCexDexError("Coinbase book redirects are forbidden")
+                raise RpcError("Base shadow RPC redirects are forbidden")
+            if resp.status != 200:
+                self._drop_conn(key)
+                if is_coinbase:
+                    raise LiveCexDexError(f"Coinbase book HTTP failure: status {resp.status}")
+                raise RpcError(f"Base shadow RPC HTTP failure: status {resp.status}")
+            if len(raw) > max_bytes:
+                self._drop_conn(key)
+                if is_coinbase:
+                    raise LiveCexDexError("Coinbase book response exceeds byte limit")
+                raise RpcError("Base shadow RPC response exceeds byte limit")
+            return raw
+
+        if is_coinbase:
+            raise LiveCexDexError("Coinbase book transport failure")
+        raise RpcError("Base shadow RPC transport failure")
+
+    def post(self, rpc_url: str, payload: bytes, timeout_s: float) -> bytes:
+        """Execute a keep-alive HTTPS JSON-RPC POST."""
+        return self._request(
+            method="POST",
+            url=rpc_url,
+            body=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": _USER_AGENT,
+            },
+            timeout_s=timeout_s,
+            max_bytes=MAX_RESPONSE_BYTES,
+            is_coinbase=False,
+        )
+
+    def get(self, url: str, timeout_s: float) -> bytes:
+        """Execute a keep-alive HTTPS GET for allowlisted Coinbase exchange L2 books."""
+        return self._request(
+            method="GET",
+            url=url,
+            body=None,
+            headers={
+                "Accept": "application/json",
+                "Connection": "keep-alive",
+                "User-Agent": _USER_AGENT,
+            },
+            timeout_s=timeout_s,
+            max_bytes=CB_MAX_RESPONSE_BYTES,
+            is_coinbase=True,
+        )
+
+    def close(self) -> None:
+        """Close all persistent HTTPS sockets."""
+        for conn in list(self._conns.values()):
+            with suppress(Exception):
+                conn.close()
+        self._conns.clear()
 
 
 def _interpret_quoter_verification_result(
@@ -1142,10 +1343,22 @@ def _interpret_quoter_verification_result(
         )
     verified = bool(_attr_or_key(raw_res, "verified", "passed", "ok", default=False))
     amount_out = int(
-        _attr_or_key(raw_res, "quoter_amount_out", "amount_out", default=candidate.amount_out)
+        _attr_or_key(
+            raw_res,
+            "quoter_amount_out",
+            "simulated_amount_out",
+            "amount_out",
+            default=candidate.amount_out,
+        )
     )
     net_profit = int(
-        _attr_or_key(raw_res, "quoter_net_profit", "net_profit", default=candidate.net_profit)
+        _attr_or_key(
+            raw_res,
+            "quoter_net_profit",
+            "simulated_net_profit",
+            "net_profit",
+            default=candidate.net_profit,
+        )
     )
     calls_used = int(_attr_or_key(raw_res, "rpc_calls_used", default=len(candidate.hops)))
     reason = str(
@@ -1217,6 +1430,7 @@ def run_multicall_campaign(
         rpc_url, enforce_public_host=rpc_transport is None and mode != "fixture"
     )
 
+    http_pool: _KeepAliveHttpsPool | None = None
     if mode == "fixture":
         active_rpc_transport = (
             build_synthetic_multicall_rpc_transport(
@@ -1233,8 +1447,18 @@ def run_multicall_campaign(
         )
         multicall_mod: MulticallUniverseProtocol | None = None
     else:
-        active_rpc_transport = _default_https_transport if rpc_transport is None else rpc_transport
-        active_cb_transport = coinbase_transport
+        if rpc_transport is None or coinbase_transport is None:
+            http_pool = _KeepAliveHttpsPool()
+        active_rpc_transport = (
+            http_pool.post
+            if rpc_transport is None and http_pool is not None
+            else cast(Callable[[str, bytes, float], bytes], rpc_transport)
+        )
+        active_cb_transport = (
+            http_pool.get
+            if coinbase_transport is None and http_pool is not None
+            else coinbase_transport
+        )
         multicall_mod = _load_multicall_universe_module()
 
     sleep_fn = time.sleep if sleeper is None else sleeper
@@ -1251,34 +1475,12 @@ def run_multicall_campaign(
             )
         rpc_calls_used += cost
 
-    pool_specs_raw: Sequence[Any]
-    if multicall_mod is not None:
-        discovered = _call_with_supported_kwargs(
-            multicall_mod.discover_base_universe_pools,
-            {
-                "rpc_url": rpc_url,
-                "transport": active_rpc_transport,
-                "timeout_s": float(timeout_s),
-                "max_rpc_calls": max_rpc_calls - rpc_calls_used,
-            },
-        )
-        extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
-        if type(extra_disc_calls) is int and extra_disc_calls > 0:
-            _reserve_rpc(extra_disc_calls)
-        extracted_pools = _attr_or_key(discovered, "pools", "pool_specs", default=discovered)
-        pool_specs_raw = tuple(extracted_pools)
-    else:
-        pool_specs_raw = tuple(canonical_base_weth_usdc_pools()) + tuple(extra_fixture_pools)
-
-    _fixed_fees, tick_spacings, factories = _pool_metadata_lookup(pool_specs_raw)
-    universe_pool_count = len(pool_specs_raw)
-    if universe_pool_count == 0:
-        raise ShadowRunnerError("discovered Base universe contains zero pools")
-
+    jsonl_handle = None
     records: list[dict[str, Any]] = []
     prev_record_sha256 = _GENESIS_PREV_SHA256
     prev_block_number: int | None = None
     prev_block_hash: str | None = None
+    seen_hashes_by_block: dict[int, str] = {}
     total_rust_raw_candidates = 0
     total_quoter_verified_candidates = 0
     total_quoter_rejected_candidates = 0
@@ -1290,10 +1492,73 @@ def run_multicall_campaign(
     cex_best_raw_values: list[float] = []
     cex_best_maker_values: list[float] = []
 
-    jsonl_handle = None
-    last_tick_started: float | None = None
-
     try:
+        pool_specs_raw: Sequence[Any]
+        discovered_pools_by_id: dict[str, Any] = {}
+        if multicall_mod is not None:
+            is_native_universe = (
+                getattr(multicall_mod.discover_base_universe_pools, "__module__", "")
+                == "oasis_agent.fastpath.multicall_universe"
+            )
+            if is_native_universe:
+                _reserve_rpc(3)
+            discovered = _call_with_supported_kwargs(
+                multicall_mod.discover_base_universe_pools,
+                {
+                    "rpc_url": rpc_url,
+                    "transport": active_rpc_transport,
+                    "timeout_s": float(timeout_s),
+                    "max_rpc_calls": max_rpc_calls - rpc_calls_used,
+                },
+            )
+            extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
+            if not is_native_universe and type(extra_disc_calls) is int and extra_disc_calls > 0:
+                _reserve_rpc(extra_disc_calls)
+            extracted_pools = _attr_or_key(discovered, "pools", "pool_specs", default=discovered)
+            pool_specs_raw = tuple(extracted_pools)
+            for item in pool_specs_raw:
+                pid = _attr_or_key(item, "pool_id", "address", default=None)
+                if isinstance(pid, str) and pid:
+                    discovered_pools_by_id[normalize_address(pid)] = item
+        else:
+            pool_specs_raw = tuple(canonical_base_weth_usdc_pools()) + tuple(extra_fixture_pools)
+
+        _fixed_fees, tick_spacings, factories = _pool_metadata_lookup(pool_specs_raw)
+        universe_pool_count = len(pool_specs_raw)
+        if universe_pool_count == 0:
+            raise ShadowRunnerError("discovered Base universe contains zero pools")
+
+        def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
+            _reserve_rpc(2)
+            if multicall_mod is not None:
+                snap_kwargs: dict[str, Any] = {
+                    "pools": pool_specs_raw,
+                    "pool_specs": pool_specs_raw,
+                    "specs": pool_specs_raw,
+                    "universe": pool_specs_raw,
+                    "rpc_url": rpc_url,
+                    "transport": active_rpc_transport,
+                    "timeout_s": float(timeout_s),
+                    "block_tag": tag,
+                }
+                raw_snap = _call_with_supported_kwargs(
+                    multicall_mod.fetch_pinned_universe_snapshot,
+                    snap_kwargs,
+                    first_positional_fallback=pool_specs_raw,
+                )
+                snap = _extract_snapshot_from_multicall_universe(raw_snap)
+                if snap.rpc_calls_used > 2:
+                    _reserve_rpc(snap.rpc_calls_used - 2)
+                return snap
+            return _fetch_pinned_multicall3_fallback(
+                active_rpc_transport,
+                rpc_url,
+                cast(Sequence[BasePoolSpec], pool_specs_raw),
+                timeout_s=float(timeout_s),
+                block_tag=tag,
+            )
+
+        last_tick_started: float | None = None
         for tick_idx in range(ticks):
             if tick_idx > 0 and interval_ms > 0 and last_tick_started is not None:
                 elapsed = max(0.0, clock_fn() - last_tick_started)
@@ -1303,46 +1568,35 @@ def run_multicall_campaign(
             last_tick_started = clock_fn()
 
             calls_before_tick = rpc_calls_used
-            _reserve_rpc(2)
-            if multicall_mod is not None:
-                raw_snap = _call_with_supported_kwargs(
-                    multicall_mod.fetch_pinned_universe_snapshot,
-                    {
-                        "pools": pool_specs_raw,
-                        "pool_specs": pool_specs_raw,
-                        "specs": pool_specs_raw,
-                        "universe": pool_specs_raw,
-                        "rpc_url": rpc_url,
-                        "transport": active_rpc_transport,
-                        "timeout_s": float(timeout_s),
-                        "block_tag": "latest",
-                    },
-                    first_positional_fallback=pool_specs_raw,
-                )
-                snapshot = _extract_snapshot_from_multicall_universe(raw_snap)
-                if snapshot.rpc_calls_used > 2:
-                    _reserve_rpc(snapshot.rpc_calls_used - 2)
-            else:
-                snapshot = _fetch_pinned_multicall3_fallback(
-                    active_rpc_transport,
-                    rpc_url,
-                    cast(Sequence[BasePoolSpec], pool_specs_raw),
-                    timeout_s=float(timeout_s),
-                )
+            snapshot = _read_snapshot_at_tag("latest")
 
-            if prev_block_number is not None:
-                if snapshot.block_number < prev_block_number:
+            seen_hash = seen_hashes_by_block.get(snapshot.block_number)
+            if seen_hash is not None and seen_hash != snapshot.block_hash:
+                raise ShadowRunnerError(
+                    f"reorg detected at block {snapshot.block_number}: block hash changed"
+                )
+            if (
+                prev_block_number is not None
+                and snapshot.block_number == prev_block_number + 1
+                and snapshot.parent_hash is not None
+                and snapshot.parent_hash != prev_block_hash
+            ):
+                raise ShadowRunnerError(
+                    f"reorg detected at block {snapshot.block_number}: parent_hash mismatch"
+                )
+            if prev_block_number is not None and snapshot.block_number < prev_block_number:
+                seen_hashes_by_block.setdefault(snapshot.block_number, snapshot.block_hash)
+                refetched = _read_snapshot_at_tag(hex(prev_block_number))
+                if (
+                    refetched.block_number != prev_block_number
+                    or refetched.block_hash != prev_block_hash
+                ):
                     raise ShadowRunnerError(
                         f"stale/regressed block number {snapshot.block_number} < "
                         f"{prev_block_number}"
                     )
-                if (
-                    snapshot.block_number == prev_block_number
-                    and snapshot.block_hash != prev_block_hash
-                ):
-                    raise ShadowRunnerError(
-                        f"reorg detected at block {snapshot.block_number}: block hash changed"
-                    )
+                snapshot = refetched
+            seen_hashes_by_block[snapshot.block_number] = snapshot.block_hash
 
             graph = FastpathPoolGraph(bridge=active_bridge)
             nodes_by_id: dict[str, PoolNode] = {}
@@ -1404,15 +1658,24 @@ def run_multicall_campaign(
                             multicall_mod.verify_candidate_with_onchain_quoter,
                             {
                                 "candidate": cand,
+                                "hops": cand.hops,
+                                "amount_in": cand.optimal_amount_in,
+                                "gas_cost_in_base": cand.gas_cost_in_base,
+                                "l1_fee_in_base": cand.l1_fee_in_base,
                                 "pools": pool_specs_raw,
                                 "pool_specs": pool_specs_raw,
                                 "specs": pool_specs_raw,
                                 "nodes": snapshot.nodes,
                                 "nodes_by_id": nodes_by_id,
+                                "pools_by_id": nodes_by_id,
                                 "rpc_url": rpc_url,
                                 "block_number": snapshot.block_number,
                                 "pinned_block": snapshot.block_number,
                                 "block_tag": hex(snapshot.block_number),
+                                "block_number_hex": hex(snapshot.block_number),
+                                "balances_by_pool": snapshot.balances_by_pool,
+                                "discovered_pools_by_id": discovered_pools_by_id or None,
+                                "bridge": active_bridge,
                                 "transport": active_rpc_transport,
                                 "timeout_s": float(timeout_s),
                             },
@@ -1623,6 +1886,8 @@ def run_multicall_campaign(
     finally:
         if jsonl_handle is not None:
             jsonl_handle.close()
+        if http_pool is not None:
+            http_pool.close()
 
     chain_head_sha256 = verify_campaign_attribution_chain(records)
     ticks_completed = len(records)
