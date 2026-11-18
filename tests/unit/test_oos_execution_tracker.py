@@ -631,3 +631,424 @@ def test_oos_step_monotonicity_and_negative_single_trade_lcb() -> None:
             latest_dex_quotes_by_product={},
             latest_bbo_by_product={},
         )
+
+
+def test_oos_ioc_config_and_dataclass_validation_and_backward_compat() -> None:
+    cfg = OosTrackerConfig()
+    assert cfg.cex_ioc_limit_enabled is False
+    for bad_flag in (1, 0, "true", None):
+        with pytest.raises(TypeError, match="cex_ioc_limit_enabled"):
+            OosTrackerConfig(cex_ioc_limit_enabled=bad_flag)  # type: ignore[arg-type]
+
+    # PendingTakerIntent limit_cex_price_usd defaults to None and validates positive finite numbers.
+    default_intent = PendingTakerIntent(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        observed_at_ms=1_795_003_200_000,
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        notional_usdc_micros=500_000_000,
+        notional_token_base=10**17,
+        token_decimals=18,
+        quoted_net_edge_bps=Decimal(10),
+        quoted_net_profit_usd=Decimal("0.5"),
+    )
+    assert default_intent.limit_cex_price_usd is None
+    assert default_intent.to_dict()["limit_cex_price_usd"] is None
+
+    priced_intent = PendingTakerIntent(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        observed_at_ms=1_795_003_200_000,
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        notional_usdc_micros=500_000_000,
+        notional_token_base=10**17,
+        token_decimals=18,
+        quoted_net_edge_bps=Decimal(10),
+        quoted_net_profit_usd=Decimal("0.5"),
+        limit_cex_price_usd=Decimal("3010.50"),
+    )
+    assert priced_intent.limit_cex_price_usd == Decimal("3010.50")
+    assert priced_intent.to_dict()["limit_cex_price_usd"] == "3010.5"
+
+    for bad_limit in (0, Decimal(-1), True, float("nan"), float("inf"), "not-a-number"):
+        with pytest.raises(ValueError, match="limit_cex_price_usd"):
+            PendingTakerIntent(
+                step_seq=1,
+                observed_at_utc="2026-11-18T12:00:00+00:00",
+                observed_at_ms=1_795_003_200_000,
+                product_id="ETH-USD",
+                direction="BUY_DEX_SELL_CEX",
+                notional_usdc_micros=500_000_000,
+                notional_token_base=10**17,
+                token_decimals=18,
+                quoted_net_edge_bps=Decimal(10),
+                quoted_net_profit_usd=Decimal("0.5"),
+                limit_cex_price_usd=bad_limit,  # type: ignore[arg-type]
+            )
+
+    with pytest.raises(ValueError, match="cancelled_ioc_intents"):
+        OosStepResult(
+            step_seq=1,
+            settled_taker_trades=(),
+            settled_maker_trades=(),
+            new_pending_intents=(),
+            expired_pending_intents=0,
+            rejected_flickers=0,
+            cancelled_ioc_intents=-1,
+        )
+
+    # Backward compatibility: with cex_ioc_limit_enabled=False, degraded t+1 BBO still settles
+    # instead of being cancelled by IOC.
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            default_gas_cost_usd=Decimal("0.05"),
+            coinbase_taker_fee_bps=Decimal(10),
+            cex_ioc_limit_enabled=False,
+        )
+    )
+    opp = _SampleOpp(
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        net_edge_bps=Decimal(25),
+        recommended_notional_usdc=500_000_000,
+        token_amount=168_000_000_000_000_000,
+        token_decimals=18,
+    )
+    r1 = tracker.step_tick(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        cex_dex_opportunities=[opp],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={"ETH-USD": (Decimal("3010.00"), Decimal("3011.00"))},
+    )
+    assert r1.new_pending_intents[0].limit_cex_price_usd == Decimal("3010.00")
+
+    r2 = tracker.step_tick(
+        step_seq=2,
+        observed_at_utc="2026-11-18T12:00:02+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={
+            "ETH-USD": (
+                500_000_000,
+                168_000_000_000_000_000,
+                10**17,
+                300_000_000,
+                18,
+                Decimal("0.05"),
+            )
+        },
+        latest_bbo_by_product={"ETH-USD": (Decimal("3000.00"), Decimal("3001.00"))},
+    )
+    assert r2.cancelled_ioc_intents == 0
+    assert len(r2.settled_taker_trades) == 1
+    assert r2.to_dict()["cancelled_ioc_intents"] == 0
+    summary = tracker.summary()
+    assert summary["cex_ioc_limit_enabled"] is False
+    assert summary["cancelled_ioc_intents"] == 0
+
+
+def test_oos_cex_limit_ioc_cancels_both_directions_at_zero_cost() -> None:
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            default_gas_cost_usd=Decimal("0.05"),
+            coinbase_taker_fee_bps=Decimal(15),
+            cex_ioc_limit_enabled=True,
+        )
+    )
+
+    buy_opp = _SampleOpp(
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        net_edge_bps=Decimal(25),
+        recommended_notional_usdc=500_000_000,
+        token_amount=168_000_000_000_000_000,
+        token_decimals=18,
+    )
+    sell_opp = {
+        "product_id": "BTC-USD",
+        "direction": "SELL_DEX_BUY_CEX",
+        "net_edge_bps": 20,
+        "notional_usdc": 900_000_000,
+        "token_amount": 1_000_000,
+        "token_decimals": 8,
+        "best_bid_usd": 89950.0,
+        "best_ask_usd": 90000.0,
+    }
+
+    # Tick 1: ETH-USD gets limit from latest_bbo_by_product (best_bid=3010.00);
+    # BTC-USD omits latest_bbo_by_product and falls back to opportunity best_ask_usd=90000.0.
+    r1 = tracker.step_tick(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        cex_dex_opportunities=[buy_opp, sell_opp],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={"ETH-USD": (Decimal("3010.00"), Decimal("3011.00"))},
+    )
+    assert len(r1.new_pending_intents) == 2
+    by_pid = {intent.product_id: intent for intent in r1.new_pending_intents}
+    assert by_pid["ETH-USD"].limit_cex_price_usd == Decimal("3010.00")
+    assert by_pid["BTC-USD"].limit_cex_price_usd == Decimal("90000.0")
+
+    # Tick 2: Both CEX BBOs degrade beyond limit (ETH best_bid 3009.99 < 3010.00,
+    # BTC best_ask 90000.01 > 90000.0) -> both IOC-cancelled harmlessly at $0 fee / $0 gas!
+    r2 = tracker.step_tick(
+        step_seq=2,
+        observed_at_utc="2026-11-18T12:00:02+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={
+            "ETH-USD": (500_000_000, 168_000_000_000_000_000, 10**17, 300_000_000, 18),
+            "BTC-USD": (900_000_000, 990_000, 1_000_000, 905_000_000, 8),
+        },
+        latest_bbo_by_product={
+            "ETH-USD": (Decimal("3009.99"), Decimal("3011.00")),
+            "BTC-USD": (Decimal("89950.00"), Decimal("90000.01")),
+        },
+    )
+    assert r2.cancelled_ioc_intents == 2
+    assert r2.settled_taker_trades == ()
+    assert r2.expired_pending_intents == 0
+    assert tracker.pending_intents == ()
+    assert tracker.realized_trades == ()
+
+    summary = tracker.summary()
+    assert summary["oos_trades_count"] == 0
+    assert summary["cancelled_ioc_intents"] == 2
+    assert summary["cex_ioc_limit_enabled"] is True
+    assert summary["oos_total_net_profit_usd"] == "0.000000"
+    assert summary["execution_eligible"] is False
+
+
+def test_oos_cex_limit_ioc_fill_retains_negative_dex_slippage_without_cherry_picking() -> None:
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            default_gas_cost_usd=Decimal("0.05"),
+            coinbase_taker_fee_bps=Decimal(10),
+            cex_ioc_limit_enabled=True,
+        )
+    )
+
+    opp = _SampleOpp(
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        net_edge_bps=Decimal(25),
+        recommended_notional_usdc=500_000_000,
+        token_amount=168_000_000_000_000_000,
+        token_decimals=18,
+    )
+    tracker.step_tick(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        cex_dex_opportunities=[opp],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={"ETH-USD": (Decimal("3010.00"), Decimal("3011.00"))},
+    )
+
+    # Tick 2: CEX best_bid holds at exact limit (3010.00 >= 3010.00), so Leg 1 FILLS on Coinbase!
+    # However, DEX output degrades from 0.168 ETH to 0.160 ETH for $500 -> gross CEX proceeds =
+    # 0.160 * 3010 = 481.60, fee = 0.4816, gas = 0.05 -> net = -18.9316 USD!
+    # Also queue a SELL_DEX_BUY_CEX intent via CexDexTickEvaluation without BBO (testing fallback)
+    # and settle it on Tick 3 when best_ask improves (<= limit) while DEX sell quote degrades!
+    book_btc = build_synthetic_coinbase_l2_book("BTC-USD", mid_price=Decimal("90000.00"))
+    btc_eval = evaluate_cex_dex_opportunity(
+        product_or_symbol="BTC-USD",
+        book=book_btc,
+        trade_notional_usdc=900_000_000,
+        dex_buy_token_for_usdc_out=900_000,
+        trade_notional_token=1_000_000,
+        dex_sell_token_for_usdc_out=905_000_000,
+        gas_cost_usd=Decimal("0.04"),
+        cex_taker_fee_bps=Decimal(10),
+        latency_haircut_bps=Decimal(1),
+    )
+    assert btc_eval.status == "ok"
+    assert btc_eval.best_direction == "buy_cex_sell_dex"
+    assert btc_eval.best_ask_usd is not None
+
+    r2 = tracker.step_tick(
+        step_seq=2,
+        observed_at_utc="2026-11-18T12:00:02+00:00",
+        cex_dex_opportunities=[btc_eval],
+        latest_dex_quotes_by_product={
+            "ETH-USD": (
+                500_000_000,
+                160_000_000_000_000_000,
+                10**17,
+                300_000_000,
+                18,
+                Decimal("0.05"),
+            )
+        },
+        latest_bbo_by_product={"ETH-USD": (Decimal("3010.00"), Decimal("3011.00"))},
+    )
+    assert r2.cancelled_ioc_intents == 0
+    assert len(r2.settled_taker_trades) == 1
+    trade = r2.settled_taker_trades[0]
+    assert trade.realized_net_profit_usd == Decimal("-18.9316")
+    assert trade.realized_net_edge_bps == (Decimal("-18.9316") / Decimal(500)) * Decimal(10_000)
+    assert len(r2.new_pending_intents) == 1
+    assert r2.new_pending_intents[0].direction == "SELL_DEX_BUY_CEX"
+    assert r2.new_pending_intents[0].limit_cex_price_usd == Decimal(str(btc_eval.best_ask_usd))
+
+    # Tick 3: CEX ask improves (89980.00 <= limit), so Leg 1 fills, while DEX sell drops to $880.
+    r3 = tracker.step_tick(
+        step_seq=3,
+        observed_at_utc="2026-11-18T12:00:04+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={
+            "BTC-USD": (900_000_000, 900_000, 1_000_000, 880_000_000, 8, Decimal("0.04"))
+        },
+        latest_bbo_by_product={"BTC-USD": (Decimal("89970.00"), Decimal("89980.00"))},
+    )
+    assert r3.cancelled_ioc_intents == 0
+    assert len(r3.settled_taker_trades) == 1
+    assert r3.settled_taker_trades[0].realized_net_profit_usd < Decimal(-20)
+    assert tracker.summary()["oos_trades_count"] == 2
+    assert tracker.summary()["cancelled_ioc_intents"] == 0
+
+
+def test_oos_cex_limit_ioc_missing_dex_quote_triggers_conservative_cex_unwind() -> None:
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            default_gas_cost_usd=Decimal("0.05"),
+            coinbase_taker_fee_bps=Decimal(10),  # 10 bps per leg -> 20 bps round-trip
+            cex_ioc_limit_enabled=True,
+        )
+    )
+
+    buy_opp = _SampleOpp(
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        net_edge_bps=Decimal(25),
+        recommended_notional_usdc=500_000_000,  # $500
+        token_amount=168_000_000_000_000_000,  # 0.168 ETH
+        token_decimals=18,
+    )
+    sell_opp = {
+        "product_id": "BTC-USD",
+        "direction": "SELL_DEX_BUY_CEX",
+        "net_edge_bps": 20,
+        "notional_usdc": 900_000_000,  # $900
+        "token_amount": 1_000_000,  # 0.01 BTC
+        "token_decimals": 8,
+    }
+    tracker.step_tick(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        cex_dex_opportunities=[buy_opp, sell_opp],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={
+            "ETH-USD": (Decimal("3010.00"), Decimal("3011.00")),
+            "BTC-USD": (Decimal("89950.00"), Decimal("90000.00")),
+        },
+    )
+
+    # Tick 2: Both BBOs pass IOC fill condition (ETH bid 3012 >= 3010, BTC ask 89990 <= 90000),
+    # while ETH has NO dex_quote and BTC has an invalid/zero sell dex_quote -> both MUST unwind!
+    r2 = tracker.step_tick(
+        step_seq=2,
+        observed_at_utc="2026-11-18T12:00:02+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={
+            "BTC-USD": (900_000_000, 990_000, 1_000_000, 0, 8, Decimal("0.04")),
+        },
+        latest_bbo_by_product={
+            "ETH-USD": (Decimal("3012.00"), Decimal("3014.00")),
+            "BTC-USD": (Decimal("89940.00"), Decimal("89990.00")),
+        },
+        gas_cost_usd_by_product={"ETH-USD": Decimal("0.50"), "BTC-USD": Decimal("0.50")},
+    )
+    assert r2.cancelled_ioc_intents == 0
+    assert tracker.pending_intents == ()
+    assert len(r2.settled_taker_trades) == 2
+
+    trades_by_pid = {t.product_id: t for t in r2.settled_taker_trades}
+
+    # ETH unwind: 0.168 * (3012 - 3014) = -0.336; fee = 0.168 * (3012 + 3014) * 0.001 = 1.012368
+    eth_unwind = trades_by_pid["ETH-USD"]
+    expected_eth_fee = Decimal("0.168") * Decimal(6026) * Decimal("0.001")
+    expected_eth_profit = Decimal("0.168") * Decimal(-2) - expected_eth_fee
+    assert eth_unwind.notional_usd == Decimal(500)
+    assert eth_unwind.gas_cost_usd == Decimal(0)
+    assert eth_unwind.fee_usd == expected_eth_fee
+    assert eth_unwind.realized_net_profit_usd == expected_eth_profit
+    assert eth_unwind.realized_net_edge_bps == (expected_eth_profit / Decimal(500)) * Decimal(
+        10_000
+    )
+
+    # BTC unwind: 0.01 * (89940 - 89990) = -0.50; fee = 0.01 * (89940 + 89990) * 0.001 = 1.7993
+    btc_unwind = trades_by_pid["BTC-USD"]
+    expected_btc_fee = Decimal("0.01") * Decimal(179930) * Decimal("0.001")
+    expected_btc_profit = Decimal("0.01") * Decimal(-50) - expected_btc_fee
+    assert btc_unwind.notional_usd == Decimal(900)
+    assert btc_unwind.gas_cost_usd == Decimal(0)
+    assert btc_unwind.fee_usd == expected_btc_fee
+    assert btc_unwind.realized_net_profit_usd == expected_btc_profit
+    assert btc_unwind.realized_net_edge_bps == (expected_btc_profit / Decimal(900)) * Decimal(
+        10_000
+    )
+
+    summary = tracker.summary()
+    assert summary["oos_trades_count"] == 2
+    assert summary["oos_positive_trades"] == 0
+    assert summary["cancelled_ioc_intents"] == 0
+    assert summary["cex_ioc_limit_enabled"] is True
+
+
+def test_oos_cex_limit_ioc_waits_when_bbo_missing_then_evaluates_or_expires() -> None:
+    tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            taker_persistence_ticks=1,
+            min_signal_edge_bps=5,
+            max_signal_age_ms=5_000,
+            cex_ioc_limit_enabled=True,
+        )
+    )
+    opp = _SampleOpp(
+        product_id="ETH-USD",
+        direction="BUY_DEX_SELL_CEX",
+        net_edge_bps=Decimal(25),
+        recommended_notional_usdc=500_000_000,
+        token_amount=168_000_000_000_000_000,
+        token_decimals=18,
+    )
+    tracker.step_tick(
+        step_seq=1,
+        observed_at_utc="2026-11-18T12:00:00+00:00",
+        cex_dex_opportunities=[opp],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={"ETH-USD": (Decimal("3010.00"), Decimal("3011.00"))},
+    )
+
+    # Tick 2 (+3s <= 5s): missing BBO -> remains pending without cancelling or settling.
+    r2 = tracker.step_tick(
+        step_seq=2,
+        observed_at_utc="2026-11-18T12:00:03+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={},
+    )
+    assert r2.cancelled_ioc_intents == 0
+    assert r2.expired_pending_intents == 0
+    assert len(tracker.pending_intents) == 1
+
+    # Tick 3 (+6s > 5s): expired before IOC check!
+    r3 = tracker.step_tick(
+        step_seq=3,
+        observed_at_utc="2026-11-18T12:00:06+00:00",
+        cex_dex_opportunities=[],
+        latest_dex_quotes_by_product={},
+        latest_bbo_by_product={"ETH-USD": (Decimal("3000.00"), Decimal("3001.00"))},
+    )
+    assert r3.expired_pending_intents == 1
+    assert r3.cancelled_ioc_intents == 0
+    assert tracker.pending_intents == ()

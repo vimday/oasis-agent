@@ -1,5 +1,6 @@
 """Unit tests for dual-provider RPC quorum, CEX-DEX shadow, and 100-tick campaign."""
 
+import concurrent.futures
 import http.client
 import json
 import math
@@ -7,6 +8,8 @@ import os
 import socket
 import subprocess
 import sys
+import threading
+import time
 import types
 import urllib.error
 from decimal import Decimal
@@ -2158,3 +2161,566 @@ def test_keepalive_pool_validates_coinbase_trades_fallback_and_rejects_bad_path(
         pool.get("https://api.exchange.coinbase.com/products/ETH-USD/candles", 5.0)
     with pytest.raises(CoinbaseTradeFlowError):
         pool.get("https://api.exchange.coinbase.com/products/INVALID-USD/trades?limit=25", 5.0)
+
+
+def test_keep_alive_https_pool_concurrent_thread_isolation_and_close(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify `_KeepAliveHttpsPool` isolates sockets per thread and closes all on `close()`."""
+    monkeypatch.setattr(campaign_cli, "_validate_cb_dns", lambda _host: None)
+    conn_list_lock = threading.Lock()
+    created_conns: list[Any] = []
+
+    class _FakeResp:
+        def __init__(self, status: int, body: bytes) -> None:
+            self.status = status
+            self._body = body
+
+        def read(self, _limit: int) -> bytes:
+            return self._body
+
+    class _ThreadTrackingConn:
+        def __init__(self, host: str, port: int, timeout: float, context: object) -> None:
+            del host, port, context
+            self.timeout = timeout
+            self.sock = None
+            self.creator_tid = threading.get_ident()
+            self.used_tids: set[int] = {self.creator_tid}
+            self.in_flight = 0
+            self.max_in_flight = 0
+            self.req_count = 0
+            self.close_calls = 0
+            self._next_body = b"{}"
+            with conn_list_lock:
+                created_conns.append(self)
+
+        def request(self, _method: str, _path: str, **_k: Any) -> None:
+            tid = threading.get_ident()
+            self.used_tids.add(tid)
+            self.in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self.in_flight)
+            self.req_count += 1
+            time.sleep(0.01)
+            self._next_body = json.dumps({"tid": tid, "req": self.req_count}).encode("utf-8")
+
+        def getresponse(self) -> _FakeResp:
+            self.in_flight -= 1
+            return _FakeResp(200, self._next_body)
+
+        def close(self) -> None:
+            self.close_calls += 1
+
+    pool = _KeepAliveHttpsPool(connection_factory=_ThreadTrackingConn)  # type: ignore[arg-type]
+    barrier = threading.Barrier(6, timeout=3.0)
+
+    def _worker(idx: int) -> tuple[int, dict[str, Any]]:
+        if idx < 6:
+            barrier.wait()
+        tid = threading.get_ident()
+        raw = pool.get("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2", 5.0)
+        return tid, json.loads(raw.decode("utf-8"))
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        results = list(executor.map(_worker, range(24)))
+
+    assert len(results) == 24
+    for worker_tid, payload in results:
+        assert payload["tid"] == worker_tid
+
+    assert len(created_conns) == 6
+    assert len({c.creator_tid for c in created_conns}) == 6
+    assert all(c.used_tids == {c.creator_tid} for c in created_conns)
+    assert all(c.max_in_flight == 1 for c in created_conns)
+    assert sum(c.req_count for c in created_conns) == 24
+
+    pool.close()
+    assert all(c.close_calls == 1 for c in created_conns)
+    assert pool._all_conns == []
+    assert pool._conns == {}
+
+    # Idempotent second close() does not re-close already closed sockets
+    pool.close()
+    assert all(c.close_calls == 1 for c in created_conns)
+
+    # Single-thread _drop_conn removes stale connection from both _conns and _all_conns
+    pool.get("https://api.exchange.coinbase.com/products/BTC-USD/book?level=2", 5.0)
+    assert len(pool._all_conns) == 1
+    assert ("api.exchange.coinbase.com", 443) in pool._conns
+    pool._drop_conn(("api.exchange.coinbase.com", 443))
+    assert pool._all_conns == []
+    assert pool._conns == {}
+
+
+def test_campaign_allowed_products_filtering_and_validation(
+    tmp_path: Path, bridge: FastpathBridge, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify `--allowed-products` filtering, alias normalization, WS scoping, and validation."""
+    cbbtc_addr = normalize_address(CBBTC)
+    aero_addr = normalize_address(AERO_TOKEN)
+    usdc_addr = normalize_address(USDC)
+    extra_pools = (
+        BasePoolSpec(
+            name="v3_cbbtc_usdc_500",
+            address=_synth_addr(961),
+            kind=PoolKind.V3,
+            token0=min(cbbtc_addr, usdc_addr),
+            token1=max(cbbtc_addr, usdc_addr),
+            decimals0=6 if usdc_addr < cbbtc_addr else 8,
+            decimals1=8 if usdc_addr < cbbtc_addr else 6,
+            fixed_fee_pips=500,
+        ),
+        BasePoolSpec(
+            name="v3_aero_usdc_3000",
+            address=_synth_addr(962),
+            kind=PoolKind.V3,
+            token0=min(aero_addr, usdc_addr),
+            token1=max(aero_addr, usdc_addr),
+            decimals0=6 if usdc_addr < aero_addr else 18,
+            decimals1=18 if usdc_addr < aero_addr else 6,
+            fixed_fee_pips=3000,
+        ),
+    )
+    seen_urls: list[str] = []
+
+    def _cb_transport(url: str, _timeout: float) -> bytes:
+        seen_urls.append(url)
+        if "BTC-USD" in url:
+            book = build_synthetic_coinbase_l2_book("BTC-USD", mid_price=Decimal("90000.00"))
+        elif "AERO-USD" in url:
+            book = build_synthetic_coinbase_l2_book("AERO-USD", mid_price=Decimal("1.20"))
+        else:
+            book = build_synthetic_coinbase_l2_book("ETH-USD", mid_price=Decimal("3000.00"))
+        return serialize_coinbase_book_payload(book)
+
+    res_all = run_multicall_campaign(
+        out_dir=tmp_path / "unfiltered",
+        mode="fixture",
+        ticks=1,
+        interval_ms=0,
+        max_rpc_calls=20,
+        extra_fixture_pools=extra_pools,
+        coinbase_transport=_cb_transport,
+        bridge=bridge,
+        sleeper=_noop_sleep,
+    )
+    assert res_all.summary["allowed_products"] is None
+    assert res_all.summary["cex_dex_lead_lag_summary"]["products_evaluated"] == [
+        "AERO-USD",
+        "BTC-USD",
+        "ETH-USD",
+    ]
+
+    ws_products_seen: list[tuple[str, ...]] = []
+
+    class _RecordingWsFeed:
+        def __init__(self, products: Any) -> None:
+            ws_products_seen.append(tuple(products))
+
+        def drain_events(self) -> tuple[tuple[CoinbaseTradePrint, ...], bool]:
+            return ((), False)
+
+        def close(self) -> None:
+            return None
+
+    seen_urls.clear()
+    res_filtered = run_multicall_campaign(
+        out_dir=tmp_path / "filtered",
+        mode="fixture",
+        ticks=1,
+        interval_ms=0,
+        max_rpc_calls=20,
+        extra_fixture_pools=extra_pools,
+        coinbase_transport=_cb_transport,
+        bridge=bridge,
+        sleeper=_noop_sleep,
+        enable_coinbase_ws=True,
+        ws_feed_factory=_RecordingWsFeed,  # type: ignore[arg-type]
+        allowed_products=("WETH", "aero-usd", "ETH-USD"),
+    )
+    assert res_filtered.summary["allowed_products"] == ["AERO-USD", "ETH-USD"]
+    assert res_filtered.summary["cex_dex_lead_lag_summary"]["products_evaluated"] == [
+        "AERO-USD",
+        "ETH-USD",
+    ]
+    assert set(res_filtered.records[0]["cex_dex_evaluations"]) == {"ETH-USD", "AERO-USD"}
+    assert not any("BTC-USD" in url for url in seen_urls)
+    assert ws_products_seen == [("ETH-USD", "AERO-USD")]
+    assert res_filtered.summary["coinbase_trade_flow_summary"]["ws_products_subscribed"] == [
+        "ETH-USD",
+        "AERO-USD",
+    ]
+
+    for bad_allowed in ((), "ETH-USD", ["ETH-USD", " "], ["UNKNOWN-USD"]):
+        with pytest.raises(ShadowRunnerError):
+            run_multicall_campaign(
+                out_dir=tmp_path / f"bad-{abs(hash(str(bad_allowed)))}",
+                mode="fixture",
+                ticks=1,
+                interval_ms=0,
+                max_rpc_calls=10,
+                bridge=bridge,
+                sleeper=_noop_sleep,
+                allowed_products=bad_allowed,  # type: ignore[arg-type]
+            )
+
+    cli_out = tmp_path / "cli-allowed"
+    rc = campaign_cli.main(
+        [
+            "--mode",
+            "fixture",
+            "--ticks",
+            "1",
+            "--interval-ms",
+            "0",
+            "--max-rpc-calls",
+            "20",
+            "--allowed-products",
+            "WETH,ETH-USD",
+            "--out",
+            str(cli_out),
+        ]
+    )
+    assert rc == 0
+    cli_stdout = json.loads(capsys.readouterr().out.strip())
+    assert cli_stdout["allowed_products"] == ["ETH-USD"]
+
+    for bad_cli in ("", "ETH-USD,", "ETH-USD,NOPE-USD"):
+        rc_bad = campaign_cli.main(
+            [
+                "--mode",
+                "fixture",
+                "--ticks",
+                "1",
+                "--interval-ms",
+                "0",
+                "--allowed-products",
+                bad_cli,
+                "--out",
+                str(tmp_path / f"cli-bad-{abs(hash(bad_cli))}"),
+            ]
+        )
+        assert rc_bad == 2
+        capsys.readouterr()
+
+
+def test_campaign_selectivity_thresholds_and_concurrent_book_prefetch(
+    tmp_path: Path,
+    bridge: FastpathBridge,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Verify taker/maker edge floors, concurrent L2 book prefetching, and CLI forwarding."""
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    cbbtc_addr = normalize_address(CBBTC)
+    bc_t0, bc_t1, bc_d0, bc_d1, bc_r0, bc_r1 = (
+        (cbbtc_addr, usdc_addr, 8, 6, 100 * 10**8, 9_000_000 * 10**6)
+        if cbbtc_addr < usdc_addr
+        else (usdc_addr, cbbtc_addr, 6, 8, 9_000_000 * 10**6, 100 * 10**8)
+    )
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(971),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=500 * 10**18,
+            reserve1=1_500_000 * 10**6,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(972),
+            label="v2_cbbtc_usdc",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            token0=bc_t0,
+            token1=bc_t1,
+            decimals0=bc_d0,
+            decimals1=bc_d1,
+            fixed_fee_pips=3000,
+            tick_spacing=None,
+            factory=_synth_addr(9972),
+            reserve0=bc_r0,
+            reserve1=bc_r1,
+        ),
+    )
+    snap_idx = {"n": 0}
+
+    def _mock_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        snap_idx["n"] += 1
+        bnum = 59_400_000 + snap_idx["n"]
+        ts_ms = 1_795_700_000_000 + snap_idx["n"] * 1000
+        liq = 2_000_000_000_000_000_000
+        t = -196_258
+        nodes = (
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[0].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_price_at_tick(t),
+                tick=t,
+                liquidity=liq,
+                ticks=(TickLiquidity(t - 500, liq), TickLiquidity(t + 500, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[1].pool_id,
+                kind=PoolKind.V2,
+                token0=bc_t0,
+                token1=bc_t1,
+                decimals0=bc_d0,
+                decimals1=bc_d1,
+                fee_pips=3000,
+                reserve0=bc_r0,
+                reserve1=bc_r1,
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+        )
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=_synth_hash(f"sel-blk-{bnum}"),
+            parent_hash=_synth_hash(f"sel-blk-{bnum - 1}"),
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=nodes,
+            balances_by_pool={
+                disc_pools[0].pool_id: (500 * 10**18, 1_500_000 * 10**6),
+                disc_pools[1].pool_id: (bc_r0, bc_r1),
+            },
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools",
+        lambda *_a, **_k: disc_pools,
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _mock_snap,
+    )
+
+    # ETH-USD mid=$3006 (~+11 bps taker net, ~+14 bps maker edge above DEX ~$3001)
+    def _cb_selectivity_transport(url: str, _timeout: float) -> bytes:
+        if "BTC-USD" in url:
+            book = build_synthetic_coinbase_l2_book(
+                "BTC-USD", mid_price=Decimal("90000.00"), level_size=Decimal("0.1"), levels=3
+            )
+        else:
+            book = build_synthetic_coinbase_l2_book(
+                "ETH-USD", mid_price=Decimal("3006.00"), level_size=Decimal("5.0"), levels=5
+            )
+        return serialize_coinbase_book_payload(book)
+
+    # 1. Dynamic defaults: min_taker_edge_bps=3, maker_min_edge_bps=10.0
+    res_dyn_default = run_multicall_campaign(
+        out_dir=tmp_path / "dyn-default-floors",
+        mode="public-shadow",
+        ticks=3,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://sel-dyn.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_cb_selectivity_transport,
+        sleeper=_noop_sleep,
+        risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
+        dynamic_sizing=True,
+    )
+    assert res_dyn_default.summary["min_taker_edge_bps"] == 3
+    assert res_dyn_default.summary["maker_min_edge_bps"] == 10.0
+    assert res_dyn_default.summary["oos_execution_summary"]["oos_taker_trades_count"] >= 1
+    assert res_dyn_default.records[0]["maker_hedge"]["ETH-USD"]["quote"]["ask_active"] is True
+
+    # 2. Tightened floors (30 bps) suppress both ~15 bps taker OOS and ~18 bps maker quotes
+    res_tight = run_multicall_campaign(
+        out_dir=tmp_path / "dyn-tight-floors",
+        mode="public-shadow",
+        ticks=3,
+        interval_ms=0,
+        max_rpc_calls=30,
+        rpc_url="https://sel-tight.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_cb_selectivity_transport,
+        sleeper=_noop_sleep,
+        risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
+        dynamic_sizing=True,
+        min_taker_edge_bps=30,
+        maker_min_edge_bps=Decimal("30.0"),
+    )
+    assert res_tight.summary["min_taker_edge_bps"] == 30
+    assert res_tight.summary["maker_min_edge_bps"] == 30.0
+    assert res_tight.summary["oos_execution_summary"]["oos_taker_trades_count"] == 0
+    eth_maker_quote = res_tight.records[0]["maker_hedge"]["ETH-USD"]["quote"]
+    assert eth_maker_quote["ask_active"] is False
+    assert eth_maker_quote["bid_active"] is False
+
+    # 3. Non-dynamic defaults: min_taker_edge_bps=1, maker_min_edge_bps=3.0
+    res_static = run_multicall_campaign(
+        out_dir=tmp_path / "static-floors",
+        mode="fixture",
+        ticks=1,
+        interval_ms=0,
+        max_rpc_calls=10,
+        bridge=bridge,
+        sleeper=_noop_sleep,
+        dynamic_sizing=False,
+    )
+    assert res_static.summary["min_taker_edge_bps"] == 1
+    assert res_static.summary["maker_min_edge_bps"] == 3.0
+
+    # 4. Invalid selectivity and worker parameters fail closed
+    for bad_kw in (
+        {"min_taker_edge_bps": 0},
+        {"min_taker_edge_bps": True},
+        {"maker_min_edge_bps": 0},
+        {"maker_min_edge_bps": float("nan")},
+        {"maker_min_edge_bps": True},
+        {"max_book_workers": 0},
+        {"max_book_workers": True},
+    ):
+        with pytest.raises(ShadowRunnerError):
+            run_multicall_campaign(
+                out_dir=tmp_path / f"bad-kw-{abs(hash(str(bad_kw)))}",
+                mode="fixture",
+                ticks=1,
+                interval_ms=0,
+                max_rpc_calls=10,
+                bridge=bridge,
+                sleeper=_noop_sleep,
+                **bad_kw,  # type: ignore[arg-type]
+            )
+
+    # 5. Concurrent book prefetching in public-shadow when coinbase_transport is None
+    par_tids: list[int] = []
+    par_tid_lock = threading.Lock()
+    par_barrier = threading.Barrier(2, timeout=2.0)
+
+    def _parallel_https_get(url: str, _timeout: float) -> bytes:
+        with par_tid_lock:
+            par_tids.append(threading.get_ident())
+        par_barrier.wait()
+        return _cb_selectivity_transport(url, _timeout)
+
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow._default_https_get",
+        _parallel_https_get,
+    )
+    res_par = run_multicall_campaign(
+        out_dir=tmp_path / "parallel-books",
+        mode="public-shadow",
+        ticks=1,
+        interval_ms=0,
+        max_rpc_calls=20,
+        rpc_url="https://sel-par.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        sleeper=_noop_sleep,
+        max_book_workers=4,
+    )
+    assert len(par_tids) == 2
+    assert len(set(par_tids)) == 2
+    assert res_par.summary["cex_dex_lead_lag_summary"]["products_evaluated"] == [
+        "BTC-USD",
+        "ETH-USD",
+    ]
+    assert res_par.summary["cex_dex_lead_lag_summary"]["ok_evaluations"] == 2
+
+    # max_book_workers=1 disables executor and fetches sequentially on main thread
+    seq_tids: list[int] = []
+    main_tid = threading.get_ident()
+
+    def _seq_https_get(url: str, _timeout: float) -> bytes:
+        seq_tids.append(threading.get_ident())
+        return _cb_selectivity_transport(url, _timeout)
+
+    monkeypatch.setattr(
+        "oasis_agent.cross_venue.live_cex_dex_shadow._default_https_get",
+        _seq_https_get,
+    )
+    run_multicall_campaign(
+        out_dir=tmp_path / "sequential-books",
+        mode="public-shadow",
+        ticks=1,
+        interval_ms=0,
+        max_rpc_calls=20,
+        rpc_url="https://sel-seq.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        sleeper=_noop_sleep,
+        max_book_workers=1,
+    )
+    assert seq_tids == [main_tid, main_tid]
+
+    # 6. CLI forwarding of --allowed-products, --min-taker-edge-bps, --maker-min-edge-bps,
+    # and --max-book-workers
+    captured_cli_kw: dict[str, Any] = {}
+    orig_run = campaign_cli.run_multicall_campaign
+
+    def _spy_run(**kwargs: Any) -> Any:
+        captured_cli_kw.update(kwargs)
+        return orig_run(
+            **{
+                **kwargs,
+                "bridge": bridge,
+                "rpc_transport": lambda _u, _p, _t: b"{}",
+                "coinbase_transport": _cb_selectivity_transport,
+                "sleeper": _noop_sleep,
+            }
+        )
+
+    monkeypatch.setattr(campaign_cli, "run_multicall_campaign", _spy_run)
+    capsys.readouterr()
+    rc = campaign_cli.main(
+        [
+            "--mode",
+            "public-shadow",
+            "--ticks",
+            "2",
+            "--interval-ms",
+            "0",
+            "--max-rpc-calls",
+            "20",
+            "--rpc-url",
+            "https://sel-cli.example.com",
+            "--dynamic-sizing",
+            "--allowed-products",
+            "ETH-USD,BTC-USD",
+            "--min-taker-edge-bps",
+            "5",
+            "--maker-min-edge-bps",
+            "12.5",
+            "--max-book-workers",
+            "4",
+            "--out",
+            str(tmp_path / "cli-selectivity"),
+        ]
+    )
+    assert rc == 0
+    assert captured_cli_kw["allowed_products"] == ("ETH-USD", "BTC-USD")
+    assert captured_cli_kw["min_taker_edge_bps"] == 5
+    assert captured_cli_kw["maker_min_edge_bps"] == 12.5
+    assert captured_cli_kw["max_book_workers"] == 4
+    cli_json = json.loads(capsys.readouterr().out.strip())
+    assert cli_json["allowed_products"] == ["BTC-USD", "ETH-USD"]
+    assert cli_json["min_taker_edge_bps"] == 5
+    assert cli_json["maker_min_edge_bps"] == 12.5
