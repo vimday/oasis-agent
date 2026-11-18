@@ -67,6 +67,7 @@ from .liquidation import (
     LiquidationCandidate,
 )
 from .live_shadow_runner import DEFAULT_BASE_RPC_URL, MAX_RESPONSE_BYTES
+from .multicall_universe import EXTENDED_BASE_TOKENS
 from .pool_graph import FastpathPoolGraph, PoolKind, PoolNode
 
 RpcTransport = Callable[[str, bytes, float], bytes]
@@ -595,6 +596,7 @@ def _default_https_transport(rpc_url: str, payload: bytes, timeout_s: float) -> 
     _validate_resolved_dns(parsed.hostname, port)
 
     opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
         _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )
@@ -1347,6 +1349,121 @@ def scan_aave_v3_base_health(
     )
 
 
+_KNOWN_TOKEN_DECIMALS: Final[dict[str, int]] = {
+    normalize_address(meta.address): meta.decimals for meta in EXTENDED_BASE_TOKENS
+}
+_DEFAULT_DEBT_TOKEN_PRICES_USD_MICROS: Final[dict[str, int]] = {
+    normalize_address(USDC): 1_000_000,
+}
+
+
+def filter_and_cap_liquidation_candidates(
+    candidates: Sequence[LiquidationCandidate],
+    *,
+    max_repay_usd_micros: int,
+    min_repay_usd_micros: int = 10_000_000,
+    debt_token_prices_usd_micros: Mapping[str, int] | None = None,
+    debt_token_decimals: Mapping[str, int] | None = None,
+) -> tuple[LiquidationCandidate, ...]:
+    """Filter and proportionally cap liquidation candidates to remaining USD headroom."""
+    checked_max_repay = require_int(max_repay_usd_micros, "max_repay_usd_micros", non_negative=True)
+    checked_min_repay = require_int(min_repay_usd_micros, "min_repay_usd_micros", non_negative=True)
+    if checked_max_repay == 0 or checked_max_repay < checked_min_repay:
+        return ()
+
+    prices: dict[str, int] = dict(_DEFAULT_DEBT_TOKEN_PRICES_USD_MICROS)
+    if debt_token_prices_usd_micros is not None:
+        if not isinstance(debt_token_prices_usd_micros, Mapping):
+            raise TypeError("debt_token_prices_usd_micros must be a Mapping or None")
+        for raw_token, raw_price in debt_token_prices_usd_micros.items():
+            token_addr = normalize_address(raw_token)
+            price = require_int(raw_price, "debt_token_price_usd_micros", non_negative=True)
+            if price <= 0:
+                raise LendingReaderError("debt_token_price_usd_micros must be positive")
+            prices[token_addr] = price
+
+    decimals_map: dict[str, int] = dict(_KNOWN_TOKEN_DECIMALS)
+    if debt_token_decimals is not None:
+        if not isinstance(debt_token_decimals, Mapping):
+            raise TypeError("debt_token_decimals must be a Mapping or None")
+        for raw_token, raw_dec in debt_token_decimals.items():
+            token_addr = normalize_address(raw_token)
+            dec = require_int(raw_dec, "debt_token_decimals", non_negative=True)
+            if dec > 36:
+                raise LendingReaderError("debt_token_decimals must be <= 36")
+            decimals_map[token_addr] = dec
+
+    remaining_headroom = checked_max_repay
+    selected: list[LiquidationCandidate] = []
+    for cand in candidates:
+        if not isinstance(cand, LiquidationCandidate):
+            raise TypeError("candidates must contain LiquidationCandidate instances")
+        if cand.execution_eligible is not False:
+            raise LendingReaderError("liquidation candidate must have execution_eligible=False")
+        if remaining_headroom == 0 or remaining_headroom < checked_min_repay:
+            break
+        if cand.repay_debt_raw <= 0 or cand.net_profit_debt_raw <= 0:
+            continue
+
+        debt_tok = normalize_address(cand.debt_token)
+        price_usd_micros = prices.get(debt_tok)
+        if price_usd_micros is None:
+            continue
+        decimals = decimals_map.get(debt_tok, 18)
+        unit_scale = 10**decimals
+        repay_usd_micros = (cand.repay_debt_raw * price_usd_micros) // unit_scale
+        if repay_usd_micros < checked_min_repay:
+            continue
+
+        if repay_usd_micros <= remaining_headroom:
+            selected.append(cand)
+            remaining_headroom -= repay_usd_micros
+            continue
+
+        capped_repay_raw = (remaining_headroom * unit_scale) // price_usd_micros
+        if capped_repay_raw <= 0:
+            continue
+        capped_repay_usd_micros = (capped_repay_raw * price_usd_micros) // unit_scale
+        if capped_repay_usd_micros < checked_min_repay:
+            continue
+
+        orig_repay = cand.repay_debt_raw
+        scaled_seized = (cand.seized_collateral_raw * capped_repay_raw) // orig_repay
+        scaled_swap_out = (cand.swap_out_debt_raw * capped_repay_raw) // orig_repay
+        scaled_flash_fee = (
+            cand.flash_fee_debt_raw * capped_repay_raw + orig_repay - 1
+        ) // orig_repay
+        scaled_net_profit = (
+            scaled_swap_out - capped_repay_raw - scaled_flash_fee - cand.gas_cost_in_debt_raw
+        )
+        if scaled_seized <= 0 or scaled_swap_out <= 0 or scaled_net_profit <= 0:
+            continue
+
+        selected.append(
+            LiquidationCandidate(
+                protocol=cand.protocol,
+                market_id=cand.market_id,
+                borrower=cand.borrower,
+                debt_token=cand.debt_token,
+                collateral_token=cand.collateral_token,
+                repay_debt_raw=capped_repay_raw,
+                seized_collateral_raw=scaled_seized,
+                swap_pool_id=cand.swap_pool_id,
+                swap_out_debt_raw=scaled_swap_out,
+                flash_fee_debt_raw=scaled_flash_fee,
+                gas_cost_in_debt_raw=cand.gas_cost_in_debt_raw,
+                net_profit_debt_raw=scaled_net_profit,
+                health_factor_wad=cand.health_factor_wad,
+                block_number=cand.block_number,
+                block_hash=cand.block_hash,
+                execution_eligible=False,
+            )
+        )
+        remaining_headroom -= capped_repay_usd_micros
+
+    return tuple(selected)
+
+
 def read_morpho_blue_positions(
     rpc_url: str = DEFAULT_BASE_RPC_URL,
     *,
@@ -1627,6 +1744,7 @@ __all__ = [
     "MorphoBorrowerPosition",
     "MorphoMarketState",
     "build_parser",
+    "filter_and_cap_liquidation_candidates",
     "main",
     "read_morpho_blue_positions",
     "scan_aave_v3_base_health",

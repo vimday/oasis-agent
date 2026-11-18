@@ -25,9 +25,9 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from typing import Any, Final, Literal, cast
 
 import certifi
@@ -362,12 +362,22 @@ class CexDexTickEvaluation:
     maker_zero_fee_diagnostic_only: bool = True
     execution_eligible: Literal[False] = False
     book_level: Literal[1, 2] = 2
+    selected_notional_usdc: int | None = None
+    book_capacity_usdc: int | None = None
 
     def __post_init__(self) -> None:
         if self.execution_eligible is not False:
             raise LiveCexDexError("CEX-DEX shadow evaluation cannot set execution_eligible=True")
         if type(self.book_level) is not int or self.book_level not in (1, 2):
             raise LiveCexDexError("book_level must be 1 or 2")
+        if self.selected_notional_usdc is not None and (
+            type(self.selected_notional_usdc) is not int or self.selected_notional_usdc <= 0
+        ):
+            raise LiveCexDexError("selected_notional_usdc must be a positive integer or None")
+        if self.book_capacity_usdc is not None and (
+            type(self.book_capacity_usdc) is not int or self.book_capacity_usdc < 0
+        ):
+            raise LiveCexDexError("book_capacity_usdc must be a non-negative integer or None")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize tick evaluation to a JSON-compatible dictionary."""
@@ -385,6 +395,8 @@ class CexDexTickEvaluation:
             "book_sequence": self.book_sequence,
             "book_sha256": self.book_sha256,
             "book_level": self.book_level,
+            "selected_notional_usdc": self.selected_notional_usdc,
+            "book_capacity_usdc": self.book_capacity_usdc,
             "buy_dex_sell_cex": (
                 self.buy_dex_sell_cex.to_dict() if self.buy_dex_sell_cex is not None else None
             ),
@@ -617,6 +629,7 @@ def _default_https_get(url: str, timeout_s: float) -> bytes:
     _validate_resolved_dns(parsed.hostname)
 
     opener = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
         _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )
@@ -1102,6 +1115,245 @@ def evaluate_live_cex_dex_shadow(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class CoinbaseBookCapacity:
+    """Bounded-slippage Coinbase L2 depth capacity in 6-decimal USDC raw integers."""
+
+    bid_capacity_usdc: int
+    ask_capacity_usdc: int
+    balanced_capacity_usdc: int
+    max_directional_capacity_usdc: int
+
+    def __post_init__(self) -> None:
+        for name in (
+            "bid_capacity_usdc",
+            "ask_capacity_usdc",
+            "balanced_capacity_usdc",
+            "max_directional_capacity_usdc",
+        ):
+            val = getattr(self, name)
+            if type(val) is not int or val < 0:
+                raise LiveCexDexError(f"{name} must be a non-negative integer")
+
+
+def compute_coinbase_book_capacity_usdc(
+    book: CoinbaseL2Book,
+    *,
+    max_slippage_bps: Decimal = Decimal(50),
+) -> CoinbaseBookCapacity:
+    """Sum bid/ask book notional within `max_slippage_bps` of BBO in raw 6-decimal USDC."""
+    if not isinstance(book, CoinbaseL2Book):
+        raise TypeError("book must be a CoinbaseL2Book")
+    slippage_bps = _to_finite_decimal(max_slippage_bps, "max_slippage_bps", require_nonneg=True)
+    if slippage_bps >= _BPS_DIVISOR:
+        raise ValueError("max_slippage_bps must be < 10_000")
+    slippage_fraction = slippage_bps / _BPS_DIVISOR
+    bid_floor = book.best_bid * (Decimal(1) - slippage_fraction)
+    ask_ceiling = book.best_ask * (Decimal(1) + slippage_fraction)
+    bid_usd = sum(
+        (lvl.price * lvl.size for lvl in book.bids if lvl.price >= bid_floor),
+        Decimal(0),
+    )
+    ask_usd = sum(
+        (lvl.price * lvl.size for lvl in book.asks if lvl.price <= ask_ceiling),
+        Decimal(0),
+    )
+    bid_capacity_usdc = int((bid_usd * _USDC_SCALE).to_integral_value(rounding=ROUND_FLOOR))
+    ask_capacity_usdc = int((ask_usd * _USDC_SCALE).to_integral_value(rounding=ROUND_FLOOR))
+    return CoinbaseBookCapacity(
+        bid_capacity_usdc=bid_capacity_usdc,
+        ask_capacity_usdc=ask_capacity_usdc,
+        balanced_capacity_usdc=min(bid_capacity_usdc, ask_capacity_usdc),
+        max_directional_capacity_usdc=max(bid_capacity_usdc, ask_capacity_usdc),
+    )
+
+
+def _dynamic_eval_rank(
+    notional_usdc: int, ev: CexDexTickEvaluation
+) -> tuple[int, float, float, int]:
+    feasible = [
+        d
+        for d in (ev.buy_dex_sell_cex, ev.buy_cex_sell_dex)
+        if d is not None and d.feasible and d.net_profit_usd is not None and d.net_bps is not None
+    ]
+    if not feasible:
+        return (0, float("-inf"), float("-inf"), -notional_usdc)
+    best_profit = max(cast(float, d.net_profit_usd) for d in feasible)
+    best_bps = max(cast(float, d.net_bps) for d in feasible)
+    return (1, best_profit, best_bps, -notional_usdc)
+
+
+def evaluate_dynamic_cex_dex_opportunity(
+    *,
+    product_or_symbol: str,
+    book: CoinbaseL2Book,
+    min_notional_usdc: int,
+    max_notional_usdc: int,
+    quote_dex_for_usdc_fn: Callable[[int], tuple[int | None, int, int | None]],
+    gas_cost_usd: Decimal | int | float | str,
+    cex_taker_fee_bps: Decimal | int | float | str = DEFAULT_CEX_TAKER_FEE_BPS,
+    latency_haircut_bps: Decimal | int | float | str = DEFAULT_LATENCY_HAIRCUT_BPS,
+    max_book_slippage_bps: Decimal = Decimal(50),
+) -> CexDexTickEvaluation:
+    """Capacity-aware dynamic CEX-DEX sizing maximizing net USD profit across DEX quotes."""
+    spec = resolve_coinbase_product(product_or_symbol)
+    if not isinstance(book, CoinbaseL2Book):
+        raise TypeError("book must be a CoinbaseL2Book")
+    if book.product_id != spec.product_id:
+        raise ValueError(
+            f"book product_id {book.product_id} does not match requested {spec.product_id}"
+        )
+    if type(min_notional_usdc) is not int or min_notional_usdc <= 0:
+        raise ValueError("min_notional_usdc must be a positive integer")
+    if type(max_notional_usdc) is not int or max_notional_usdc <= 0:
+        raise ValueError("max_notional_usdc must be a positive integer")
+    if min_notional_usdc > max_notional_usdc:
+        raise ValueError("min_notional_usdc must be <= max_notional_usdc")
+    if not callable(quote_dex_for_usdc_fn):
+        raise TypeError("quote_dex_for_usdc_fn must be callable")
+
+    gas_usd = _to_finite_decimal(gas_cost_usd, "gas_cost_usd", require_nonneg=True)
+    taker_bps = _to_finite_decimal(cex_taker_fee_bps, "cex_taker_fee_bps", require_nonneg=True)
+    haircut_bps = _to_finite_decimal(
+        latency_haircut_bps, "latency_haircut_bps", require_nonneg=True
+    )
+
+    cap = compute_coinbase_book_capacity_usdc(book, max_slippage_bps=max_book_slippage_bps)
+    effective_max = min(max_notional_usdc, cap.max_directional_capacity_usdc)
+    if effective_max < min_notional_usdc:
+        return CexDexTickEvaluation(
+            product_id=spec.product_id,
+            token_symbol=spec.token_symbol,
+            status="degraded",
+            error_reason=f"insufficient_capacity_usdc:{effective_max}<{min_notional_usdc}",
+            cex_taker_fee_bps=_decimal_to_float(taker_bps),
+            latency_haircut_bps=_decimal_to_float(haircut_bps),
+            gas_cost_usd=_decimal_to_float(gas_usd),
+            best_bid_usd=_decimal_to_float(book.best_bid),
+            best_ask_usd=_decimal_to_float(book.best_ask),
+            cex_mid_usd=_decimal_to_float(book.mid_price),
+            book_sequence=book.sequence,
+            book_sha256=book.raw_sha256,
+            buy_dex_sell_cex=None,
+            buy_cex_sell_dex=None,
+            best_direction=None,
+            best_net_bps=None,
+            best_raw_spread_bps=None,
+            maker_zero_fee_net_bps=None,
+            book_level=book.book_level,
+            selected_notional_usdc=None,
+            book_capacity_usdc=cap.max_directional_capacity_usdc,
+        )
+
+    evaluated: dict[int, CexDexTickEvaluation] = {}
+
+    def _eval_one(notional_usdc: int) -> CexDexTickEvaluation:
+        cached = evaluated.get(notional_usdc)
+        if cached is not None:
+            return cached
+        dex_buy_out, trade_notional_token, dex_sell_out = quote_dex_for_usdc_fn(notional_usdc)
+        if type(trade_notional_token) is not int:
+            raise TypeError("trade_notional_token must be an int")
+        if trade_notional_token <= 0:
+            ev = CexDexTickEvaluation(
+                product_id=spec.product_id,
+                token_symbol=spec.token_symbol,
+                status="degraded",
+                error_reason="dex_quote_unavailable",
+                cex_taker_fee_bps=_decimal_to_float(taker_bps),
+                latency_haircut_bps=_decimal_to_float(haircut_bps),
+                gas_cost_usd=_decimal_to_float(gas_usd),
+                best_bid_usd=_decimal_to_float(book.best_bid),
+                best_ask_usd=_decimal_to_float(book.best_ask),
+                cex_mid_usd=_decimal_to_float(book.mid_price),
+                book_sequence=book.sequence,
+                book_sha256=book.raw_sha256,
+                buy_dex_sell_cex=None,
+                buy_cex_sell_dex=None,
+                best_direction=None,
+                best_net_bps=None,
+                best_raw_spread_bps=None,
+                maker_zero_fee_net_bps=None,
+                book_level=book.book_level,
+            )
+        else:
+            ev = evaluate_cex_dex_opportunity(
+                product_or_symbol=spec.product_id,
+                book=book,
+                trade_notional_usdc=notional_usdc,
+                dex_buy_token_for_usdc_out=dex_buy_out,
+                trade_notional_token=trade_notional_token,
+                dex_sell_token_for_usdc_out=dex_sell_out,
+                gas_cost_usd=gas_usd,
+                cex_taker_fee_bps=taker_bps,
+                latency_haircut_bps=haircut_bps,
+            )
+        evaluated[notional_usdc] = ev
+        return ev
+
+    knot_set: set[int] = {min_notional_usdc, effective_max}
+    for pct in (5, 10, 20, 35, 50, 75, 100):
+        cand_notional = (effective_max * pct) // 100
+        if min_notional_usdc <= cand_notional <= effective_max:
+            knot_set.add(cand_notional)
+    if min_notional_usdc <= cap.balanced_capacity_usdc <= effective_max:
+        knot_set.add(cap.balanced_capacity_usdc)
+    knots = sorted(knot_set)
+
+    for knot in knots:
+        _eval_one(knot)
+
+    best_idx = max(
+        range(len(knots)), key=lambda idx: _dynamic_eval_rank(knots[idx], evaluated[knots[idx]])
+    )
+    best_x = knots[best_idx]
+    if _dynamic_eval_rank(best_x, evaluated[best_x])[0] == 1 and len(knots) > 1:
+        lo = knots[best_idx - 1] if best_idx > 0 else knots[0]
+        hi = knots[best_idx + 1] if best_idx + 1 < len(knots) else knots[-1]
+        tolerance = max(1, (effective_max - min_notional_usdc) // 200)
+        for _ in range(8):
+            if hi - lo <= tolerance:
+                break
+            left_mid = (lo + best_x) // 2
+            right_mid = (best_x + hi) // 2
+            if left_mid == best_x and right_mid == best_x:
+                break
+            best_rank = _dynamic_eval_rank(best_x, _eval_one(best_x))
+            left_rank = (
+                _dynamic_eval_rank(left_mid, _eval_one(left_mid))
+                if left_mid != best_x
+                else best_rank
+            )
+            right_rank = (
+                _dynamic_eval_rank(right_mid, _eval_one(right_mid))
+                if right_mid != best_x
+                else best_rank
+            )
+            if left_rank > best_rank and left_rank >= right_rank:
+                hi = best_x
+                best_x = left_mid
+            elif right_rank > best_rank:
+                lo = best_x
+                best_x = right_mid
+            else:
+                lo = left_mid
+                hi = right_mid
+
+    best_notional, best_eval = max(
+        evaluated.items(),
+        key=lambda item: _dynamic_eval_rank(item[0], item[1]),
+    )
+    if _dynamic_eval_rank(best_notional, best_eval)[0] == 0:
+        best_notional = min_notional_usdc
+        best_eval = evaluated[min_notional_usdc]
+
+    return replace(
+        best_eval,
+        selected_notional_usdc=best_notional,
+        book_capacity_usdc=cap.max_directional_capacity_usdc,
+    )
+
+
 def _price_quant_for_mid(mid: Decimal) -> Decimal:
     if mid >= Decimal(100):
         return Decimal("0.01")
@@ -1246,6 +1498,7 @@ __all__ = [
     "SUPPORTED_PRODUCTS",
     "CexDexDirectionResult",
     "CexDexTickEvaluation",
+    "CoinbaseBookCapacity",
     "CoinbaseL2Book",
     "CoinbaseL2Level",
     "CoinbaseProductSpec",
@@ -1253,7 +1506,9 @@ __all__ = [
     "VwapFillResult",
     "build_synthetic_coinbase_l2_book",
     "build_synthetic_coinbase_transport",
+    "compute_coinbase_book_capacity_usdc",
     "evaluate_cex_dex_opportunity",
+    "evaluate_dynamic_cex_dex_opportunity",
     "evaluate_live_cex_dex_shadow",
     "fetch_coinbase_l2_book",
     "gas_wei_to_usd",
