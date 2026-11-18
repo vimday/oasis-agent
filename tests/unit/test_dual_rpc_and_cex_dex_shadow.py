@@ -2105,6 +2105,7 @@ def test_campaign_wave14_adaptive_maker_batch_oos_persistence_and_gate5(
     assert res.summary["unresolved_residuals"] == 0
 
     assert oos_summary["execution_eligible"] is False
+    assert oos_summary["cex_ioc_limit_enabled"] is True
     assert oos_summary["rejected_one_tick_flickers"] >= 1
     assert oos_summary["oos_taker_trades_count"] >= 5
     assert oos_summary["oos_trades_count"] >= 5

@@ -1994,6 +1994,7 @@ def run_multicall_campaign(
             max_signal_age_ms=max(30_000, interval_ms * 4),
             coinbase_taker_fee_bps=cex_taker_fee_dec,
             min_signal_edge_bps=effective_min_taker_edge_bps,
+            cex_ioc_limit_enabled=dynamic_sizing,
         )
     )
     ws_feed: CoinbaseWebSocketFeed | None = None
