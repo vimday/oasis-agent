@@ -21,6 +21,7 @@ RADAR_ROUTES = (
     "/api/v1/radar/catalysts",
     "/api/v1/radar/engines",
     "/api/v1/radar/portfolio",
+    "/api/v1/radar/capacity",
 )
 NOW_MS = 1_795_000_000_000
 
@@ -252,6 +253,37 @@ def test_v1_bundle_serves_all_radar_endpoints_and_etag_304(tmp_path: Path) -> No
             "portfolio": None,
         }
 
+        capacity_resp = client.get("/api/v1/radar/capacity")
+        assert capacity_resp.status_code == 200
+        capacity_body = capacity_resp.json()
+        assert capacity_body["radar_report_sha256"] == digest
+        assert capacity_body["execution_eligible"] is False
+        assert capacity_body["release_permitted"] is False
+        assert capacity_body["integrity"] == {
+            "status": "verified",
+            "manifest_verified": True,
+            "radar_report_sha256": digest,
+        }
+        assert capacity_body["freshness"]["status"] == "verified_snapshot"
+        assert capacity_body["freshness"]["observed_at_ms"] == NOW_MS
+        assert capacity_body["capital_policy"]["available"] is False
+        assert capacity_body["capital_policy"]["total_capital_usd_micros"] is None
+        assert capacity_body["headroom"]["available"] is False
+        assert capacity_body["headroom"]["can_deploy"] is False
+        assert capacity_body["headroom"]["blocked_reason"] == "headroom_unavailable"
+        assert capacity_body["oos_telemetry"]["available"] is False
+        assert capacity_body["oos_telemetry"]["oos_trades_count"] is None
+        assert capacity_body["pair_capacities"] == {
+            "available": False,
+            "pair_count": 0,
+            "items": [],
+        }
+        cap_etag = capacity_resp.headers["etag"]
+        assert (
+            client.get("/api/v1/radar/capacity", headers={"If-None-Match": cap_etag}).status_code
+            == 304
+        )
+
 
 def test_v2_bundle_filters_catalysts_and_serves_stage7_portfolio(tmp_path: Path) -> None:
     run_dir, digest = _write_radar_bundle(tmp_path / "radar-v2", _v2_report())
@@ -434,3 +466,126 @@ def test_openapi_routes_match_console_views_and_meta_for_radar(tmp_path: Path) -
         for route in RADAR_ROUTES:
             assert meta_endpoints[route]["methods"] == ["GET"]
             assert meta_endpoints[route]["console_view"] == "research"
+
+
+def test_capacity_endpoint_serves_policy_headroom_oos_and_pair_capacities(
+    tmp_path: Path,
+) -> None:
+    report = _v2_report()
+    report["capacity_and_readiness"] = {
+        "execution_eligible": False,
+        "release_permitted": False,
+        "capital_policy": {
+            "schema_version": "oasis.capital-risk-policy.v1",
+            "total_capital_usd_micros": 500_000_000,
+            "max_daily_loss_usd_micros": 200_000_000,
+            "max_cumulative_loss_usd_micros": 500_000_000,
+            "reserve_buffer_bps": 1000,
+            "max_single_clip_share_bps": 5000,
+            "min_clip_usd_micros": 10_000_000,
+            "assumed_tail_stress_bps": 250,
+            "max_feed_age_seconds": 1800,
+            "config_sha256": sha256_hex(b"risk-policy"),
+        },
+        "headroom": {
+            "deployable_capital_usd_micros": 450_000_000,
+            "deployable_notional_usd_micros": 225_000_000,
+            "max_clip_usd_micros": 225_000_000,
+            "min_clip_usd_micros": 10_000_000,
+            "reserve_floor_usd_micros": 50_000_000,
+            "remaining_daily_loss_usd_micros": 199_689_941,
+            "remaining_cumulative_loss_usd_micros": 499_689_941,
+            "locked_inventory_usd_micros": 0,
+            "pending_commitments_usd_micros": 0,
+            "can_deploy": True,
+            "block_reason": None,
+        },
+        "oos_telemetry": {
+            "oos_trades_count": 42,
+            "oos_positive_trades_count": 14,
+            "oos_lcb_net_edge_bps": -3,
+            "oos_mean_net_edge_bps": -1.81,
+            "oos_total_net_profit_usd": -0.177,
+            "oos_total_net_profit_usd_micros": -177_000,
+            "oos_max_drawdown_usd": 0.45,
+            "ticks_completed": 100,
+            "window_label": "wave12_100tick",
+        },
+        "pair_capacities": {
+            "ETH-USD": {
+                "coinbase_book_capacity_usdc": 225_000_000,
+                "optimal_notional_usdc": 120_000_000,
+            },
+            "WELL-USD": {
+                "coinbase_book_capacity_usdc": 19_000_000,
+                "optimal_notional_usdc": 15_000_000,
+            },
+        },
+        "freshness": {
+            "status": "fresh",
+            "max_age_seconds": 1800,
+            "stale": False,
+        },
+    }
+    run_dir, digest = _write_radar_bundle(tmp_path / "radar-cap", report)
+    with _radar_client(tmp_path, run_dir) as client:
+        resp = client.get("/api/v1/radar/capacity")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["radar_report_sha256"] == digest
+        assert body["execution_eligible"] is False
+        assert body["release_permitted"] is False
+        assert body["integrity"]["status"] == "verified"
+        assert body["integrity"]["manifest_verified"] is True
+        assert body["freshness"]["status"] == "fresh"
+        assert body["freshness"]["stale"] is False
+        assert body["freshness"]["max_age_seconds"] == 1800
+        assert body["capital_policy"]["available"] is True
+        assert body["capital_policy"]["total_capital_usd_micros"] == 500_000_000
+        assert body["capital_policy"]["max_daily_loss_usd_micros"] == 200_000_000
+        assert body["headroom"]["available"] is True
+        assert body["headroom"]["deployable_notional_usd_micros"] == 225_000_000
+        assert body["headroom"]["remaining_daily_loss_usd_micros"] == 199_689_941
+        assert body["headroom"]["can_deploy"] is True
+        assert body["headroom"]["blocked_reason"] is None
+        assert body["oos_telemetry"]["available"] is True
+        assert body["oos_telemetry"]["oos_trades_count"] == 42
+        assert body["oos_telemetry"]["oos_lcb_net_edge_bps"] == -3
+        assert body["oos_telemetry"]["oos_total_net_profit_usd"] == -0.177
+        assert body["pair_capacities"]["available"] is True
+        assert body["pair_capacities"]["pair_count"] == 2
+        assert [item["pair"] for item in body["pair_capacities"]["items"]] == [
+            "ETH-USD",
+            "WELL-USD",
+        ]
+
+        etag = resp.headers["etag"]
+        assert (
+            client.get("/api/v1/radar/capacity", headers={"If-None-Match": etag}).status_code == 304
+        )
+
+
+@pytest.mark.parametrize(
+    "bad_section",
+    [
+        {"capital_policy": ["not-an-object"]},
+        {"headroom": {"execution_eligible": True}},
+        {"headroom": {"release_permitted": True}},
+        {"oos_telemetry": {"oos_trades_count": True}},
+        {"oos_telemetry": {"oos_trades_count": -1}},
+        {"pair_capacities": "invalid"},
+        {"pair_capacities": ["not-an-object"]},
+        {"freshness": {"stale": "yes"}},
+    ],
+)
+def test_capacity_endpoint_fails_closed_on_malformed_or_authorizing_sections(
+    tmp_path: Path,
+    bad_section: dict[str, Any],
+) -> None:
+    report = _v2_report()
+    report["capacity_and_readiness"] = bad_section
+    run_dir, _ = _write_radar_bundle(tmp_path / "radar-bad-cap", report)
+    with _radar_client(tmp_path, run_dir) as client:
+        resp = client.get("/api/v1/radar/capacity")
+        assert resp.status_code == 503
+        assert resp.json() == {"detail": "opportunity radar bundle unavailable or corrupt"}

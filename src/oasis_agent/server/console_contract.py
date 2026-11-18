@@ -53,6 +53,6 @@ CONSOLE_VIEWS: dict[str, str] = {
     },
     **{
         f"/api/v1/radar/{part}": "research"
-        for part in ("summary", "catalysts", "engines", "portfolio")
+        for part in ("summary", "catalysts", "engines", "portfolio", "capacity")
     },
 }

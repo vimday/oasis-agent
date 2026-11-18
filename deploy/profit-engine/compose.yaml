@@ -58,18 +58,23 @@ services:
     volumes:
       - profit-strategy-state:/state
       - profit-authority-socket:/run/oasis
+      - ../../configs/profit-engine-risk.example.json:/etc/oasis/profit-engine-risk.json:ro
     command:
       - python
       - -m
-      - scripts.run_multicall_100tick_campaign
+      - scripts.run_profit_strategy
       - --mode
-      - public-shadow
-      - --ticks
-      - "100"
-      - --max-rpc-calls
-      - "3000"
-      - --out
-      - /state/shadow-run
+      - shadow
+      - --authority-socket
+      - /run/oasis/profit_authority.sock
+      - --risk-config
+      - /etc/oasis/profit-engine-risk.json
+      - --state-dir
+      - /state
+      - --out-json
+      - /state/strategy_status.json
+      - --poll-interval-ms
+      - "1000"
   profit-authority-status:
     <<: *common
     profiles: [recovery]
@@ -112,14 +117,23 @@ services:
     profiles: [recovery]
     volumes:
       - profit-strategy-state:/state
+      - profit-authority-socket:/run/oasis
+      - ../../configs/profit-engine-risk.example.json:/etc/oasis/profit-engine-risk.json:ro
     command:
       - python
       - -m
-      - scripts.check_profit_engine_readiness
-      - --shadow-summary
-      - /state/shadow-run/shadow_summary.json
-      - --out
-      - /state/readiness-report.json
+      - scripts.run_profit_strategy
+      - --mode
+      - shadow
+      - --reconcile-only
+      - --authority-socket
+      - /run/oasis/profit_authority.sock
+      - --risk-config
+      - /etc/oasis/profit-engine-risk.json
+      - --state-dir
+      - /state
+      - --out-json
+      - /state/strategy_recovery.json
 volumes:
   profit-authority-state: {}
   profit-strategy-state: {}

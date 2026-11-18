@@ -1,5 +1,6 @@
 """Integration and security tests for profit-engine Unix socket authority & Compose."""
 
+import ast
 import copy
 import json
 import os
@@ -50,12 +51,19 @@ from oasis_agent.live.atomic_authority_socket import (
 from oasis_agent.live.authority_socket import fields_json
 from oasis_agent.live.canary_readiness import evaluate_profit_engine_readiness
 from oasis_agent.live.intent import SubmittedTransaction
-from oasis_agent.models.common import canonical_json
+from oasis_agent.live.profit_strategy_daemon import (
+    STRATEGY_DAEMON_SCHEMA,
+    ProfitStrategyBridge,
+    ProfitStrategyDaemonConfig,
+)
+from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.risk.capital_policy import CapitalRiskConfig, load_capital_risk_config
 from oasis_agent.risk.revert_budget import (
     RollingRevertBudgetPolicy,
     RollingRevertBudgetTracker,
 )
 from scripts import run_profit_authority as authority_cli
+from scripts import run_profit_strategy as strategy_cli
 from scripts import verify_profit_compose as compose_cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -927,7 +935,7 @@ def test_cli_reconcile_only_without_key_latches_halt_on_residual() -> None:
 
 
 def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
-    report = compose_cli.inspect()
+    report = compose_cli.inspect(compose_file=REPO_ROOT / "deploy/profit-engine/compose.yaml")
     assert report["schema"] == "oasis.profit-compose-policy-verification.v1"
     assert report["passed"] is True
     assert report["execution_eligible"] is False
@@ -941,11 +949,32 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
         "profit-strategy-recovery",
     }
 
+    risk_src = str((REPO_ROOT / compose_cli.RISK_CONFIG_SOURCE_REL).resolve())
     # Build a synthetic expanded document and ensure every confinement regression fails closed.
     services: dict[str, Any] = {}
     for name, mounts in compose_cli.MOUNTS.items():
         setup = name == "initialize"
         offline = setup or name == "profit-authority-status"
+        vol_entries: list[dict[str, Any]] = []
+        for target, source in mounts.items():
+            if target == compose_cli.RISK_CONFIG_TARGET:
+                vol_entries.append(
+                    {
+                        "type": "bind",
+                        "source": risk_src,
+                        "target": target,
+                        "read_only": True,
+                    }
+                )
+            else:
+                vol_entries.append(
+                    {
+                        "type": "volume",
+                        "source": source,
+                        "target": target,
+                        "read_only": target == compose_cli.READONLY_KEYS_TARGET,
+                    }
+                )
         service: dict[str, Any] = {
             "user": "0:0" if setup else "10001:10001",
             "read_only": True,
@@ -957,15 +986,7 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
             "mem_limit": "536870912",
             "tmpfs": [f"/{'tmp'}{compose_cli.TMPFS_OPT_SUFFIX}"],
             "environment": {} if offline else dict.fromkeys(compose_cli.RPC_NAMES),
-            "volumes": [
-                {
-                    "type": "volume",
-                    "source": source,
-                    "target": target,
-                    "read_only": target == compose_cli.READONLY_KEYS_TARGET,
-                }
-                for target, source in mounts.items()
-            ],
+            "volumes": vol_entries,
             "command": list(compose_cli.COMMANDS[name]),
         }
         if setup:
@@ -980,12 +1001,20 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
         "services": services,
         "volumes": {"canary-keys": {"external": True, "name": "oasis-canary-keys"}},
     }
-    compose_cli.verify_services(doc, dict.fromkeys(compose_cli.RPC_NAMES))
+    compose_cli.verify_services(
+        doc,
+        dict.fromkeys(compose_cli.RPC_NAMES),
+        expected_risk_config=REPO_ROOT / compose_cli.RISK_CONFIG_SOURCE_REL,
+    )
 
     for fault in (
         "strategy_key_mount",
         "strategy_authority_state",
+        "recovery_authority_state",
         "writable_secrets",
+        "writable_risk_config",
+        "rogue_bind_source",
+        "strategy_live_mode",
         "root_strategy",
         "networked_status",
         "secret_env",
@@ -999,8 +1028,21 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
             )
         elif fault == "strategy_authority_state":
             broken["services"]["profit-strategy"]["volumes"][0]["source"] = "profit-authority-state"
+        elif fault == "recovery_authority_state":
+            broken["services"]["profit-strategy-recovery"]["volumes"][0]["source"] = (
+                "profit-authority-state"
+            )
         elif fault == "writable_secrets":
             broken["services"]["profit-authority"]["volumes"][-1]["read_only"] = False
+        elif fault == "writable_risk_config":
+            broken["services"]["profit-strategy"]["volumes"][-1]["read_only"] = False
+        elif fault == "rogue_bind_source":
+            broken["services"]["profit-strategy"]["volumes"][-1]["source"] = str(
+                REPO_ROOT / ".env.example"
+            )
+        elif fault == "strategy_live_mode":
+            cmd = broken["services"]["profit-strategy"]["command"]
+            cmd[cmd.index("shadow")] = "live"
         elif fault == "root_strategy":
             broken["services"]["profit-strategy"]["user"] = "0:0"
         elif fault == "networked_status":
@@ -1013,10 +1055,522 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
         else:
             broken["volumes"]["canary-keys"]["external"] = False
         with pytest.raises(ValueError):
-            compose_cli.verify_services(broken, dict.fromkeys(compose_cli.RPC_NAMES))
+            compose_cli.verify_services(
+                broken,
+                dict.fromkeys(compose_cli.RPC_NAMES),
+                expected_risk_config=REPO_ROOT / compose_cli.RISK_CONFIG_SOURCE_REL,
+            )
 
     dockerfile = (REPO_ROOT / "deploy/profit-engine/Dockerfile").read_text(encoding="utf-8")
     assert "rust:1.85-slim-bookworm" in dockerfile
     assert "cargo build --locked --manifest-path crates/Cargo.toml --release" in dockerfile
     assert "OASIS_FASTPATH_LIB=/app/crates/target/release/liboasis_core.so" in dockerfile
     assert "USER 10001:10001" in dockerfile
+
+
+def test_profit_strategy_modules_never_import_private_keys_or_eth_account() -> None:
+    forbidden_tokens = {
+        "eth_account",
+        "load_private_key",
+        "make_local_key_signer",
+        "sign_digest",
+        "sign_transaction",
+        "dotenv",
+    }
+    tmp_marker = "/" + "tmp"
+    for rel_path in (
+        "src/oasis_agent/live/profit_strategy_daemon.py",
+        "scripts/run_profit_strategy.py",
+    ):
+        source = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
+        assert tmp_marker not in source
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            assert not isinstance(node, ast.Assert)
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not any(tok in alias.name for tok in forbidden_tokens)
+            elif isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                assert not any(tok in mod for tok in forbidden_tokens)
+                for alias in node.names:
+                    assert alias.name not in forbidden_tokens
+
+
+class _SyntheticAuthorityDouble:
+    def __init__(self, status_payload: dict[str, Any] | Exception) -> None:
+        self._payload = status_payload
+        self.sign_calls = 0
+        self.settle_calls = 0
+
+    def status(self) -> dict[str, Any]:
+        if isinstance(self._payload, Exception):
+            raise self._payload
+        return dict(self._payload)
+
+    def sign_admitted_proposal(
+        self,
+        proposal: AtomicOrIntentProposal,
+        envelope_fields: list[object],
+    ) -> bytes:
+        del proposal, envelope_fields
+        self.sign_calls += 1
+        raise AssertionError("sign_admitted_proposal must not be called")
+
+    def record_settlement(self, reconciliation_input: dict[str, Any]) -> dict[str, Any]:
+        del reconciliation_input
+        self.settle_calls += 1
+        raise AssertionError("record_settlement must not be called")
+
+
+def test_profit_strategy_bridge_shadow_status_headroom_and_fail_closed_gates() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    risk_path = REPO_ROOT / "configs/profit-engine-risk.example.json"
+    risk_cfg = load_capital_risk_config(risk_path)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        auth_state_dir = root / "auth"
+        strat_state_dir = root / "strat"
+        auth_state_dir.mkdir(mode=0o700)
+        strat_state_dir.mkdir(mode=0o700)
+        endpoint = root / "p.sock"
+
+        # Missing socket fails closed immediately.
+        cfg_missing = ProfitStrategyDaemonConfig(
+            authority_socket=endpoint,
+            mode="shadow",
+            risk_config_path=risk_path,
+            policy=policy,
+            state_dir=strat_state_dir,
+        )
+        bridge_missing = ProfitStrategyBridge(cfg_missing)
+        missing_snap = bridge_missing.sync_status()
+        assert missing_snap.authority_reachable is False
+        assert missing_snap.can_deploy is False
+        assert missing_snap.deployable_notional_usd_micros == 0
+        assert missing_snap.blocked_reason == "authority_status_unavailable"
+        assert missing_snap.execution_eligible is False
+        assert missing_snap.release_permitted is False
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=auth_state_dir,
+            endpoint=endpoint,
+            key_signer=make_local_key_signer(bytes(acct.key), acct.address),
+            max_signatures=5,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=4))
+            worker.start()
+            try:
+                snap_ok = bridge_missing.sync_status(tick=1)
+                assert snap_ok.schema == STRATEGY_DAEMON_SCHEMA
+                assert snap_ok.authority_reachable is True
+                assert snap_ok.can_deploy is True
+                assert snap_ok.blocked_reason is None
+                assert snap_ok.deployable_notional_usd_micros == 225_000_000
+                assert snap_ok.headroom.remaining_daily_loss_usd_micros == (
+                    risk_cfg.max_daily_loss_usd_micros
+                )
+                assert snap_ok.execution_eligible is False
+                assert snap_ok.release_permitted is False
+
+                # Shadow mode NEVER calls sign_admitted_proposal or broadcast.
+                prop = _sample_executor_proposal(account=acct.address, nonce=1)
+                broadcast_called = False
+
+                def _never_broadcast(_raw: bytes, _sub: SubmittedTransaction) -> str:
+                    nonlocal broadcast_called
+                    broadcast_called = True
+                    return f"0x{0x11:064x}"
+
+                shadow_res = bridge_missing.submit_dual_simulated_intent(
+                    proposal=prop,
+                    broadcast_fn=_never_broadcast,
+                )
+                assert shadow_res.status == "shadow_blocked"
+                assert shadow_res.signed is False
+                assert shadow_res.broadcast is False
+                assert shadow_res.execution_eligible is False
+                assert shadow_res.release_permitted is False
+                assert broadcast_called is False
+
+                # STOP file active blocks new exposure fail-closed.
+                stop_file = auth_state_dir / "STOP"
+                stop_file.touch()
+                snap_stop = bridge_missing.sync_status(tick=2)
+                assert snap_stop.authority_reachable is True
+                assert snap_stop.stop_active is True
+                assert snap_stop.halted is True
+                assert snap_stop.can_deploy is False
+                assert snap_stop.deployable_notional_usd_micros == 0
+                assert snap_stop.blocked_reason == "stop_active"
+                assert snap_stop.execution_eligible is False
+                stop_file.unlink()
+
+                # Authority still has 0 signatures used after shadow probes.
+                snap_after = bridge_missing.sync_status(tick=3)
+                assert snap_after.authority_status.signatures_used == 0
+                assert snap_after.can_deploy is True
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+    # Check ledger translation & fail-closed gates with injected doubles.
+    base_cfg = ProfitStrategyDaemonConfig(
+        authority_socket=Path("/nonexistent/authority.sock"),
+        mode="shadow",
+        risk_config=CapitalRiskConfig(),
+        policy=policy,
+    )
+    partial_loss_bridge = ProfitStrategyBridge(
+        base_cfg,
+        client=_SyntheticAuthorityDouble(
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "daily_loss_usd": 195,
+                "cumulative_loss_usd": 195,
+                "stop_active": False,
+                "pending_count": 0,
+                "halted": False,
+            }
+        ),
+    )
+    partial_snap = partial_loss_bridge.sync_status()
+    assert partial_snap.can_deploy is True
+    # Remaining daily loss = $5M micros -> 5M * 10000 / 250 = 200M (< 225M single-clip cap)
+    assert partial_snap.deployable_notional_usd_micros == 200_000_000
+
+    for bad_payload, expected_reason in (
+        (
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "stop_active": True,
+                "pending_count": 0,
+                "halted": False,
+            },
+            "stop_active",
+        ),
+        (
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "stop_active": False,
+                "pending_count": 2,
+                "halted": False,
+            },
+            "unresolved_residuals",
+        ),
+        (
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "daily_loss_usd_micros": 200_000_000,
+                "stop_active": False,
+                "pending_count": 0,
+                "halted": False,
+            },
+            "daily_loss_exhausted",
+        ),
+        (
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "policy_digest": sha256_hex(b"wrong-policy"),
+                "halted": False,
+            },
+            "authority_status_unavailable",
+        ),
+        (
+            TimeoutError("socket timed out"),
+            "authority_status_timeout",
+        ),
+    ):
+        dbl = _SyntheticAuthorityDouble(bad_payload)
+        br = ProfitStrategyBridge(base_cfg, client=dbl)
+        snap = br.sync_status()
+        assert snap.can_deploy is False
+        assert snap.deployable_notional_usd_micros == 0
+        assert snap.blocked_reason == expected_reason
+        assert snap.execution_eligible is False
+        assert snap.release_permitted is False
+
+    zero_cash_bridge = ProfitStrategyBridge(
+        ProfitStrategyDaemonConfig(
+            authority_socket=Path("/nonexistent/authority.sock"),
+            mode="shadow",
+            risk_config=CapitalRiskConfig(),
+            policy=policy,
+            cash_available_usd_micros=0,
+        ),
+        client=_SyntheticAuthorityDouble(
+            {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "halted": False,
+                "stop_present": False,
+            }
+        ),
+    )
+    zero_snap = zero_cash_bridge.sync_status()
+    assert zero_snap.can_deploy is False
+    assert zero_snap.deployable_notional_usd_micros == 0
+    assert zero_snap.blocked_reason == "insufficient_deployable_headroom"
+
+
+def test_profit_strategy_bridge_dry_run_live_ambiguous_stop_and_reconcile() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address, release_gate_open=False)
+    risk_path = REPO_ROOT / "configs/profit-engine-risk.example.json"
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        auth_state_dir = root / "auth"
+        strat_state_dir = root / "strat"
+        auth_state_dir.mkdir(mode=0o700)
+        strat_state_dir.mkdir(mode=0o700)
+        endpoint = root / "l.sock"
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=auth_state_dir,
+            endpoint=endpoint,
+            key_signer=make_local_key_signer(bytes(acct.key), acct.address),
+            max_signatures=6,
+            ttl_seconds=30,
+            allow_rehearsal_loopback_anvil=True,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=10))
+            worker.start()
+            try:
+                # 1. dry_run simulates + admits without consuming nonce or broadcasting.
+                dry_cfg = ProfitStrategyDaemonConfig(
+                    authority_socket=endpoint,
+                    mode="dry_run",
+                    risk_config_path=risk_path,
+                    policy=policy,
+                    state_dir=strat_state_dir,
+                    rehearsal_loopback_anvil=True,
+                )
+                dry_bridge = ProfitStrategyBridge(dry_cfg, now_fn=lambda: NOW_S)
+                base_prop = _sample_executor_proposal(account=acct.address, nonce=1)
+                rehearsal_prop_1 = AtomicOrIntentProposal(
+                    envelope=base_prop.envelope,
+                    simulation=base_prop.simulation,
+                    now_s=base_prop.now_s,
+                    rehearsal_loopback_anvil=True,
+                )
+                dry_res = dry_bridge.submit_dual_simulated_intent(
+                    proposal=rehearsal_prop_1,
+                    notional_usd_micros=50_000_000,
+                )
+                assert dry_res.status == "dry_run_admitted"
+                assert dry_res.admitted is True
+                assert dry_res.signed is False
+                assert dry_res.broadcast is False
+                assert dry_res.execution_eligible is False
+                assert dry_res.release_permitted is False
+
+                # 2. live rehearsal signs, broadcasts, and dual-reconciles cleanly.
+                live_cfg = ProfitStrategyDaemonConfig(
+                    authority_socket=endpoint,
+                    mode="live",
+                    risk_config_path=risk_path,
+                    policy=policy,
+                    state_dir=strat_state_dir,
+                    rehearsal_loopback_anvil=True,
+                )
+                live_bridge = ProfitStrategyBridge(live_cfg, now_fn=lambda: NOW_S)
+                settled_res = live_bridge.submit_dual_simulated_intent(
+                    envelope=base_prop.envelope,
+                    simulate_fn=lambda _env: _sample_simulation(),
+                    notional_usd_micros=50_000_000,
+                    broadcast_fn=lambda _raw, sub: sub.transaction_hash,
+                    receipt_fn=lambda tx_h: _reconciliation_payload(
+                        tx_hash=tx_h, status=1, native_residual_wei=0
+                    ),
+                )
+                assert settled_res.status == "settled"
+                assert settled_res.admitted is True
+                assert settled_res.signed is True
+                assert settled_res.broadcast is True
+                assert settled_res.reconciled is True
+                assert settled_res.halted is False
+                assert settled_res.tx_hash is not None
+
+                # 3. Ambiguous broadcast failure latches HALT and requires explicit recovery.
+                prop2 = _sample_executor_proposal(account=acct.address, nonce=2)
+                rehearsal_prop_2 = AtomicOrIntentProposal(
+                    envelope=prop2.envelope,
+                    simulation=prop2.simulation,
+                    now_s=prop2.now_s,
+                    rehearsal_loopback_anvil=True,
+                )
+
+                def _ambiguous_broadcast(_raw: bytes, _sub: SubmittedTransaction) -> str:
+                    raise TimeoutError("upstream rpc broadcast timeout")
+
+                ambig_res = live_bridge.submit_dual_simulated_intent(
+                    proposal=rehearsal_prop_2,
+                    notional_usd_micros=50_000_000,
+                    broadcast_fn=_ambiguous_broadcast,
+                )
+                assert ambig_res.status == "ambiguous_halted"
+                assert ambig_res.signed is True
+                assert ambig_res.broadcast is False
+                assert ambig_res.halted is True
+                assert ambig_res.blocked_reason == "ambiguous_broadcast_stop"
+                assert ambig_res.tx_hash is not None
+
+                # Restarting bridge from state_dir preserves halted + pending across restarts.
+                restarted_bridge = ProfitStrategyBridge(live_cfg, now_fn=lambda: NOW_S)
+                assert restarted_bridge.halted is True
+                blocked_snap = restarted_bridge.sync_status()
+                assert blocked_snap.can_deploy is False
+                assert blocked_snap.halted is True
+                assert blocked_snap.pending_count >= 1
+
+                # Recovery without receipts stays unresolved and halted.
+                unresolved_rec = restarted_bridge.reconcile_pending()
+                assert unresolved_rec.status == "unresolved_or_halted"
+                assert unresolved_rec.halted is True
+                assert ambig_res.tx_hash in unresolved_rec.unresolved_hashes
+
+                # Recovery with dual receipts settles pending tx on authority.
+                resolved_rec = restarted_bridge.reconcile_pending(
+                    receipt_fn=lambda tx_h: _reconciliation_payload(
+                        tx_hash=tx_h, status=1, native_residual_wei=0
+                    )
+                )
+                assert resolved_rec.settled_hashes == (ambig_res.tx_hash,)
+                assert resolved_rec.unresolved_hashes == ()
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+
+def test_run_profit_strategy_cli_once_and_reconcile_only() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    risk_path = REPO_ROOT / "configs/profit-engine-risk.example.json"
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        auth_state_dir = root / "auth"
+        strat_state_dir = root / "strat"
+        auth_state_dir.mkdir(mode=0o700)
+        strat_state_dir.mkdir(mode=0o700)
+        policy_path = root / "policy.json"
+        policy_path.write_text(json.dumps(_policy_json_dict(policy)), encoding="utf-8")
+        endpoint = root / "cli.sock"
+        out_status = root / "status.json"
+        out_recovery = root / "recovery.json"
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=auth_state_dir,
+            endpoint=endpoint,
+            key_signer=make_local_key_signer(bytes(acct.key), acct.address),
+            max_signatures=3,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=3))
+            worker.start()
+            try:
+                env = dict(os.environ)
+                env["PYTHONPATH"] = str(REPO_ROOT / "src")
+                proc = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "scripts.run_profit_strategy",
+                        "--mode",
+                        "shadow",
+                        "--authority-socket",
+                        str(endpoint),
+                        "--risk-config",
+                        str(risk_path),
+                        "--policy-config",
+                        str(policy_path),
+                        "--state-dir",
+                        str(strat_state_dir),
+                        "--out-json",
+                        str(out_status),
+                        "--once",
+                    ],
+                    cwd=REPO_ROOT,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    check=False,
+                )
+                assert proc.returncode == 0, proc.stderr
+                payload = json.loads(out_status.read_text(encoding="utf-8"))
+                assert payload["schema"] == STRATEGY_DAEMON_SCHEMA
+                assert payload["mode"] == "shadow"
+                assert payload["authority_reachable"] is True
+                assert payload["can_deploy"] is True
+                assert payload["deployable_notional_usd_micros"] == 225_000_000
+                assert payload["execution_eligible"] is False
+                assert payload["release_permitted"] is False
+
+                # Reconcile-only exits 0 when clean, and exits 3 when STOP is present.
+                rc_clean = strategy_cli.main(
+                    [
+                        "--mode",
+                        "shadow",
+                        "--reconcile-only",
+                        "--authority-socket",
+                        str(endpoint),
+                        "--risk-config",
+                        str(risk_path),
+                        "--policy-config",
+                        str(policy_path),
+                        "--state-dir",
+                        str(strat_state_dir),
+                        "--out-json",
+                        str(out_recovery),
+                    ]
+                )
+                assert rc_clean == 0
+                clean_json = json.loads(out_recovery.read_text(encoding="utf-8"))
+                assert clean_json["status"] == "clean"
+                assert clean_json["execution_eligible"] is False
+
+                (auth_state_dir / "STOP").touch()
+                rc_stop = strategy_cli.main(
+                    [
+                        "--mode",
+                        "shadow",
+                        "--reconcile-only",
+                        "--authority-socket",
+                        str(endpoint),
+                        "--risk-config",
+                        str(risk_path),
+                        "--policy-config",
+                        str(policy_path),
+                        "--state-dir",
+                        str(strat_state_dir),
+                        "--out-json",
+                        str(out_recovery),
+                    ]
+                )
+                assert rc_stop == 3
+                stop_json = json.loads(out_recovery.read_text(encoding="utf-8"))
+                assert stop_json["stop_active"] is True
+                assert stop_json["halted"] is True
+                assert stop_json["blocked_reason"] == "stop_active"
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
