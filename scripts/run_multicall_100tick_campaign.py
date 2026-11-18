@@ -1,0 +1,1847 @@
+"""100-tick unified Base Multicall3 atomic DEX + Coinbase CEX-DEX shadow campaign CLI.
+
+Runs bounded, read-only, keyless shadow attribution across Base mainnet DEX pools
+(via `oasis_agent.fastpath.multicall_universe` when available, or canonical
+`Multicall3` WETH/USDC fallback), scans WETH-anchored and USDC-anchored up-to-3-hop
+cycles in the Rust `FastpathPoolGraph`, verifies positive Rust candidates against
+on-chain Quoters to eliminate phantom profits, evaluates Coinbase <-> Base L2 VWAP
+lead-lag on WETH/USDC (and cbBTC/USDC, AERO/USDC when present), and emits a
+hash-chained `shadow_attribution.jsonl` plus `canary_readiness`-compatible
+`shadow_summary.json` (`execution_eligible = False`).
+"""
+
+import argparse
+import importlib
+import inspect
+import json
+import math
+import os
+import re
+import sys
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Final, Protocol, cast, runtime_checkable
+
+from eth_abi.abi import decode, encode
+from eth_hash.auto import keccak
+
+from oasis_agent.arbitrage.event_quote import GAS_LIMIT_MODEL, ORACLE, V3
+from oasis_agent.cross_venue.live_cex_dex_shadow import (
+    DEFAULT_CEX_TAKER_FEE_BPS,
+    DEFAULT_LATENCY_HAIRCUT_BPS,
+    DEFAULT_TRADE_NOTIONAL_USDC,
+    CexDexTickEvaluation,
+    build_synthetic_coinbase_transport,
+    evaluate_live_cex_dex_shadow,
+    gas_wei_to_usd,
+)
+from oasis_agent.errors import RpcError
+from oasis_agent.evidence.base_denim import (
+    BASE_CHAIN_ID,
+    BASE_TIME,
+    TIMESTAMP_MILLIS_PART_SELECTOR,
+    TIMESTAMP_MS_SELECTOR,
+    parse_base_time,
+    validate_header_timestamp_ms,
+)
+from oasis_agent.evidence.rpc_validation import (
+    rpc_quantity,
+    strict_json_object,
+    strict_object,
+    strict_string,
+)
+from oasis_agent.fastpath.bridge import FastpathBridge, FastpathCallError, FastpathUnavailableError
+from oasis_agent.fastpath.live_shadow_runner import (
+    ACTIVE_TICK_HALF_WIDTH,
+    DEFAULT_BASE_RPC_URL,
+    DEFAULT_PRIORITY_FEE_WEI,
+    FEE_SELECTOR,
+    GET_FEE_SELECTOR,
+    GET_L1_FEE_CALLDATA,
+    GET_RESERVES_SELECTOR,
+    LIQUIDITY_SELECTOR,
+    MAX_RESPONSE_BYTES,
+    PROBE_AMOUNT_IN_WEI,
+    SLOT0_SELECTOR,
+    BasePoolSpec,
+    ShadowBudgetError,
+    ShadowRunnerError,
+    _default_https_transport,
+    _validate_rpc_url,
+    canonical_base_weth_usdc_pools,
+    decode_aero_factory_fee_pips,
+    decode_aero_get_reserves,
+    decode_l1_fee_wei,
+    decode_liquidity_word,
+    decode_slipstream_fee_pips,
+    decode_slot0_words,
+    resolve_fastpath_bridge,
+)
+from oasis_agent.fastpath.pool_graph import (
+    CycleCandidate,
+    FastpathPoolGraph,
+    PoolKind,
+    PoolNode,
+    TickLiquidity,
+)
+from oasis_agent.models.common import (
+    canonical_json,
+    normalize_address,
+    normalize_hash32,
+    sha256_hex,
+)
+from oasis_agent.sniping.venues import (
+    SLIPSTREAM,
+    SLIPSTREAM_USDC_WETH,
+    USDC,
+    WETH,
+)
+from oasis_agent.uniswap_v4.liquidity_math import MAX_TICK, MIN_TICK, sqrt_price_at_tick
+
+
+def _addr20(hi80: int, lo80: int) -> str:
+    return f"0x{hi80:020x}{lo80:020x}"
+
+
+MULTICALL3: Final[str] = _addr20(954245306222959992705383, 11960605330504318110225)
+CBBTC: Final[str] = _addr20(962029985257869835451167, 429691464623657203872703)
+AERO_TOKEN: Final[str] = _addr20(698938029289277408845381, 196638687667187760072241)
+WSTETH: Final[str] = _addr20(915173236817837272783139, 736850604702865302676562)
+
+WETH_ADDR: Final[str] = normalize_address(WETH)
+USDC_ADDR: Final[str] = normalize_address(USDC)
+CBBTC_ADDR: Final[str] = normalize_address(CBBTC)
+AERO_TOKEN_ADDR: Final[str] = normalize_address(AERO_TOKEN)
+WSTETH_ADDR: Final[str] = normalize_address(WSTETH)
+
+SUMMARY_SCHEMA_VERSION: Final[str] = "oasis.base-multicall-shadow-summary.v1"
+RECORD_SCHEMA_VERSION: Final[str] = "oasis.base-multicall-shadow-record.v1"
+DEFAULT_TICKS: Final[int] = 100
+DEFAULT_INTERVAL_MS: Final[int] = 800
+DEFAULT_MAX_RPC_CALLS: Final[int] = 350
+DEFAULT_TIMEOUT_S: Final[float] = 10.0
+WETH_SCAN_MIN_WEI: Final[int] = 10**15
+WETH_SCAN_MAX_WEI: Final[int] = 10**18
+USDC_SCAN_MIN_RAW: Final[int] = 5_000_000
+USDC_SCAN_MAX_RAW: Final[int] = 2_000_000_000
+MAX_CANDIDATES_TO_QUOTE_PER_TICK: Final[int] = 3
+_LCB_Z_SCORE: Final[float] = 1.96
+_GENESIS_PREV_SHA256: Final[str] = "0" * 64
+_SHA256_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
+_HEX_BYTES_RE: Final[re.Pattern[str]] = re.compile(r"^0x(?:[0-9a-fA-F]{2})*$")
+
+
+def _selector(signature: str) -> str:
+    return "0x" + keccak(signature.encode("ascii"))[:4].hex()
+
+
+AGGREGATE3_SELECTOR: Final[str] = _selector("aggregate3((address,bool,bytes)[])")
+MULTICALL3_GET_CHAIN_ID_SELECTOR: Final[str] = _selector("getChainId()")
+AERO_POOL_GET_AMOUNT_OUT_SELECTOR: Final[str] = _selector("getAmountOut(uint256,address)")
+V3_QUOTER_SINGLE_SELECTOR: Final[str] = _selector(
+    "quoteExactInputSingle((address,address,uint256,uint24,uint160))"
+)
+SLIPSTREAM_QUOTER_SINGLE_SELECTOR: Final[str] = _selector(
+    "quoteExactInputSingle((address,address,uint256,int24,uint160))"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class TokenMeta:
+    """Base token metadata and optional Coinbase Exchange product mapping."""
+
+    address: str
+    symbol: str
+    decimals: int
+    coinbase_product: str | None
+
+
+TOKEN_META_BY_ADDR: Final[dict[str, TokenMeta]] = {
+    WETH_ADDR: TokenMeta(WETH_ADDR, "WETH", 18, "ETH-USD"),
+    USDC_ADDR: TokenMeta(USDC_ADDR, "USDC", 6, None),
+    CBBTC_ADDR: TokenMeta(CBBTC_ADDR, "cbBTC", 8, "BTC-USD"),
+    AERO_TOKEN_ADDR: TokenMeta(AERO_TOKEN_ADDR, "AERO", 18, "AERO-USD"),
+    WSTETH_ADDR: TokenMeta(WSTETH_ADDR, "wstETH", 18, None),
+}
+
+CEX_DEX_TOKEN_ORDER: Final[tuple[str, ...]] = (
+    WETH_ADDR,
+    CBBTC_ADDR,
+    AERO_TOKEN_ADDR,
+)
+
+
+@runtime_checkable
+class MulticallUniverseProtocol(Protocol):
+    """Typed dynamic interface for optional `oasis_agent.fastpath.multicall_universe`."""
+
+    discover_base_universe_pools: Callable[..., Any]
+    fetch_pinned_universe_snapshot: Callable[..., Any]
+    verify_candidate_with_onchain_quoter: Callable[..., Any]
+
+
+@dataclass(frozen=True, slots=True)
+class PinnedTickSnapshot:
+    """Normalized pinned-block snapshot produced by either Multicall3 path."""
+
+    block_number: int
+    block_hash: str
+    header_timestamp: int
+    base_time_ms: int
+    base_fee_per_gas_wei: int
+    l1_data_fee_wei: int
+    nodes: tuple[PoolNode, ...]
+    rpc_calls_used: int
+
+
+@dataclass(frozen=True, slots=True)
+class QuoterCheckResult:
+    """On-chain Quoter verification verdict for one Rust CycleCandidate."""
+
+    verified: bool
+    quoter_amount_out: int
+    quoter_net_profit: int
+    rpc_calls_used: int
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class CampaignRunResult:
+    """Completed shadow campaign summary, records, and output artifact paths."""
+
+    summary: dict[str, Any]
+    records: tuple[dict[str, Any], ...]
+    summary_path: Path
+    attribution_path: Path
+
+
+def _load_multicall_universe_module() -> MulticallUniverseProtocol | None:
+    """Dynamically load `oasis_agent.fastpath.multicall_universe` when merged."""
+    try:
+        mod = importlib.import_module("oasis_agent.fastpath.multicall_universe")
+    except ModuleNotFoundError as exc:
+        if exc.name in {
+            "oasis_agent.fastpath.multicall_universe",
+            "multicall_universe",
+        }:
+            return None
+        raise
+    if not isinstance(mod, MulticallUniverseProtocol):
+        return None
+    return mod
+
+
+def _call_with_supported_kwargs(
+    fn: Callable[..., Any],
+    candidate_kwargs: Mapping[str, Any],
+    *,
+    first_positional_fallback: Any = None,
+) -> Any:
+    sig = inspect.signature(fn)
+    params = sig.parameters
+    accepts_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
+    if accepts_var_kw:
+        return fn(**candidate_kwargs)
+    filtered = {k: v for k, v in candidate_kwargs.items() if k in params}
+    positional: list[Any] = []
+    if first_positional_fallback is not None:
+        param_list = list(params.values())
+        if param_list:
+            first = param_list[0]
+            if (
+                first.kind
+                in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                and first.name not in filtered
+                and first.default is inspect.Parameter.empty
+            ):
+                positional.append(first_positional_fallback)
+    return fn(*positional, **filtered)
+
+
+def _attr_or_key(obj: Any, *names: str, default: Any = None) -> Any:
+    if isinstance(obj, Mapping):
+        for name in names:
+            if name in obj:
+                return obj[name]
+        return default
+    for name in names:
+        if hasattr(obj, name):
+            return getattr(obj, name)
+    return default
+
+
+def _single_rpc_call(
+    send: Callable[[str, bytes, float], bytes],
+    rpc_url: str,
+    *,
+    method: str,
+    params: list[object],
+    timeout_s: float,
+) -> object:
+    req_bytes = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    resp_bytes = send(rpc_url, req_bytes, timeout_s)
+    if not isinstance(resp_bytes, bytes) or len(resp_bytes) > MAX_RESPONSE_BYTES:
+        raise RpcError(f"{method} response must be bounded bytes")
+    envelope = strict_json_object(resp_bytes)
+    if (
+        envelope.get("jsonrpc") != "2.0"
+        or type(envelope.get("id")) is not int
+        or envelope["id"] != 1
+    ):
+        raise ShadowRunnerError(f"{method} JSON-RPC version or ID mismatch")
+    if ("result" in envelope) == ("error" in envelope):
+        raise ShadowRunnerError(f"{method} response must contain exactly one result or error")
+    if "error" in envelope:
+        raise RpcError(f"{method} returned JSON-RPC error")
+    return envelope["result"]
+
+
+def _decode_hex_bytes(value: object, name: str) -> bytes:
+    raw_hex = strict_string(value, name)
+    if _HEX_BYTES_RE.fullmatch(raw_hex) is None:
+        raise ShadowRunnerError(f"{name} must be 0x-prefixed hex bytes")
+    return bytes.fromhex(raw_hex[2:])
+
+
+def _active_ticks(tick: int, liquidity: int) -> tuple[TickLiquidity, TickLiquidity]:
+    lo = tick - ACTIVE_TICK_HALF_WIDTH
+    hi = tick + ACTIVE_TICK_HALF_WIDTH
+    if lo < MIN_TICK or hi > MAX_TICK or not lo < tick < hi:
+        raise ShadowRunnerError(f"tick {tick} outside safe narrow window")
+    return (
+        TickLiquidity(tick=lo, liquidity_net=liquidity),
+        TickLiquidity(tick=hi, liquidity_net=-liquidity),
+    )
+
+
+def _pool_metadata_lookup(
+    pool_specs: Sequence[Any],
+) -> tuple[dict[str, int], dict[str, int], dict[str, str | None]]:
+    fixed_fees: dict[str, int] = {}
+    tick_spacings: dict[str, int] = {}
+    factories: dict[str, str | None] = {}
+    ss_spacing_by_pool = {
+        normalize_address(addr): int(spacing) for addr, spacing in SLIPSTREAM_USDC_WETH.values()
+    }
+    for spec in pool_specs:
+        addr_raw = _attr_or_key(spec, "address", "pool_id")
+        if not isinstance(addr_raw, str):
+            continue
+        addr = normalize_address(addr_raw)
+        fee_val = _attr_or_key(spec, "fixed_fee_pips", "fee_pips", "fee")
+        if type(fee_val) is int and fee_val > 0:
+            fixed_fees[addr] = fee_val
+        spacing_val = _attr_or_key(spec, "tick_spacing", "tickSpacing")
+        if type(spacing_val) is int and spacing_val > 0:
+            tick_spacings[addr] = spacing_val
+        elif addr in ss_spacing_by_pool:
+            tick_spacings[addr] = ss_spacing_by_pool[addr]
+        fac_val = _attr_or_key(spec, "factory")
+        factories[addr] = normalize_address(fac_val) if isinstance(fac_val, str) else None
+    return fixed_fees, tick_spacings, factories
+
+
+def _build_multicall3_requests(
+    pool_specs: Sequence[BasePoolSpec],
+) -> tuple[list[tuple[str, bool, bytes]], list[tuple[str, str]]]:
+    calls: list[tuple[str, bool, bytes]] = [
+        (MULTICALL3, False, bytes.fromhex(MULTICALL3_GET_CHAIN_ID_SELECTOR[2:])),
+        (ORACLE, False, bytes.fromhex(GET_L1_FEE_CALLDATA[2:])),
+        (BASE_TIME, False, bytes.fromhex(TIMESTAMP_MS_SELECTOR[2:])),
+        (BASE_TIME, False, bytes.fromhex(TIMESTAMP_MILLIS_PART_SELECTOR[2:])),
+    ]
+    tags: list[tuple[str, str]] = [
+        ("meta", "chain_id"),
+        ("meta", "l1_fee"),
+        ("meta", "timestamp_ms"),
+        ("meta", "millis_part"),
+    ]
+    for spec in pool_specs:
+        if spec.kind in (PoolKind.V3, PoolKind.SLIPSTREAM):
+            calls.append((spec.address, False, bytes.fromhex(SLOT0_SELECTOR[2:])))
+            tags.append((spec.address, "slot0"))
+            calls.append((spec.address, False, bytes.fromhex(LIQUIDITY_SELECTOR[2:])))
+            tags.append((spec.address, "liquidity"))
+            if spec.fixed_fee_pips is None:
+                calls.append((spec.address, False, bytes.fromhex(FEE_SELECTOR[2:])))
+                tags.append((spec.address, "fee"))
+        elif spec.kind is PoolKind.V2:
+            calls.append((spec.address, False, bytes.fromhex(GET_RESERVES_SELECTOR[2:])))
+            tags.append((spec.address, "reserves"))
+            if spec.factory is not None:
+                fee_cd = GET_FEE_SELECTOR + encode(["address", "bool"], [spec.address, False]).hex()
+                calls.append((spec.factory, False, bytes.fromhex(fee_cd[2:])))
+                tags.append((spec.address, "aero_fee"))
+        else:
+            raise ShadowRunnerError(f"unsupported fallback pool kind: {spec.kind}")
+    return calls, tags
+
+
+def _fetch_pinned_multicall3_fallback(
+    send: Callable[[str, bytes, float], bytes],
+    rpc_url: str,
+    pool_specs: Sequence[BasePoolSpec],
+    *,
+    timeout_s: float,
+) -> PinnedTickSnapshot:
+    header_raw = _single_rpc_call(
+        send,
+        rpc_url,
+        method="eth_getBlockByNumber",
+        params=["latest", False],
+        timeout_s=timeout_s,
+    )
+    header = strict_object(header_raw, "block header")
+    block_number = rpc_quantity(header.get("number"))
+    block_hash = normalize_hash32(strict_string(header.get("hash"), "block hash"), "block hash")
+    header_timestamp = rpc_quantity(header.get("timestamp"))
+    header_ts_ms = validate_header_timestamp_ms(header, chain_id=BASE_CHAIN_ID)
+    base_fee_per_gas = rpc_quantity(header.get("baseFeePerGas"))
+
+    calls, tags = _build_multicall3_requests(pool_specs)
+    encoded_calls = encode(["(address,bool,bytes)[]"], [calls])
+    multicall_data = AGGREGATE3_SELECTOR + encoded_calls.hex()
+    raw_mc_resp = _single_rpc_call(
+        send,
+        rpc_url,
+        method="eth_call",
+        params=[{"to": MULTICALL3, "data": multicall_data}, hex(block_number)],
+        timeout_s=timeout_s,
+    )
+    mc_bytes = _decode_hex_bytes(raw_mc_resp, "multicall3.aggregate3")
+    (decoded_results,) = decode(["(bool,bytes)[]"], mc_bytes)
+    if len(decoded_results) != len(tags):
+        raise ShadowRunnerError("Multicall3 return count mismatch")
+
+    by_tag: dict[tuple[str, str], bytes] = {}
+    for (tag_owner, tag_field), (success, ret_bytes) in zip(tags, decoded_results, strict=True):
+        if success is not True:
+            raise ShadowRunnerError(f"Multicall3 subcall failed for {tag_owner}.{tag_field}")
+        by_tag[(tag_owner, tag_field)] = bytes(ret_bytes)
+
+    chain_raw = by_tag[("meta", "chain_id")]
+    if len(chain_raw) != 32 or int.from_bytes(chain_raw, "big") != BASE_CHAIN_ID:
+        raise ShadowRunnerError("Multicall3 getChainId mismatch with Base (8453)")
+
+    l1_data_fee_wei = decode_l1_fee_wei(by_tag[("meta", "l1_fee")])
+    ts_ms_bytes = by_tag[("meta", "timestamp_ms")]
+    millis_bytes = by_tag[("meta", "millis_part")]
+    if len(ts_ms_bytes) != 32 or len(millis_bytes) != 32:
+        raise ShadowRunnerError("BaseTime predeploy output length mismatch")
+    checked_ms = parse_base_time(
+        timestamp_ms=int.from_bytes(ts_ms_bytes, "big"),
+        millis_part=int.from_bytes(millis_bytes, "big"),
+        header_timestamp=header_timestamp,
+    )
+    if header_ts_ms is not None and header_ts_ms != checked_ms:
+        raise ShadowRunnerError("base_time_header_timestamp_ms_mismatch")
+
+    nodes: list[PoolNode] = []
+    for spec in pool_specs:
+        if spec.kind in (PoolKind.V3, PoolKind.SLIPSTREAM):
+            sqrt_p, tick = decode_slot0_words(by_tag[(spec.address, "slot0")])
+            liq = decode_liquidity_word(by_tag[(spec.address, "liquidity")])
+            if spec.fixed_fee_pips is not None:
+                fee_pips = spec.fixed_fee_pips
+            else:
+                fee_pips = decode_slipstream_fee_pips(by_tag[(spec.address, "fee")])
+            nodes.append(
+                PoolNode(
+                    chain_id=BASE_CHAIN_ID,
+                    pool_id=spec.address,
+                    kind=spec.kind,
+                    token0=spec.token0,
+                    token1=spec.token1,
+                    decimals0=spec.decimals0,
+                    decimals1=spec.decimals1,
+                    fee_pips=fee_pips,
+                    sqrt_price_x96=sqrt_p,
+                    tick=tick,
+                    liquidity=liq,
+                    ticks=_active_ticks(tick, liq),
+                    block_number=block_number,
+                    timestamp_ms=checked_ms,
+                )
+            )
+        else:
+            r0, r1, _ts_last = decode_aero_get_reserves(by_tag[(spec.address, "reserves")])
+            if spec.fixed_fee_pips is not None:
+                fee_pips = spec.fixed_fee_pips
+            elif spec.factory is not None:
+                fee_pips = decode_aero_factory_fee_pips(by_tag[(spec.address, "aero_fee")])
+            else:
+                fee_pips = 3000
+            nodes.append(
+                PoolNode(
+                    chain_id=BASE_CHAIN_ID,
+                    pool_id=spec.address,
+                    kind=PoolKind.V2,
+                    token0=spec.token0,
+                    token1=spec.token1,
+                    decimals0=spec.decimals0,
+                    decimals1=spec.decimals1,
+                    fee_pips=fee_pips,
+                    reserve0=r0,
+                    reserve1=r1,
+                    block_number=block_number,
+                    timestamp_ms=checked_ms,
+                )
+            )
+
+    return PinnedTickSnapshot(
+        block_number=block_number,
+        block_hash=block_hash,
+        header_timestamp=header_timestamp,
+        base_time_ms=checked_ms,
+        base_fee_per_gas_wei=base_fee_per_gas,
+        l1_data_fee_wei=l1_data_fee_wei,
+        nodes=tuple(nodes),
+        rpc_calls_used=2,
+    )
+
+
+def _quote_hop_onchain_fallback(
+    send: Callable[[str, bytes, float], bytes],
+    rpc_url: str,
+    *,
+    pool_node: PoolNode,
+    token_in: str,
+    token_out: str,
+    amount_in: int,
+    pinned_block_hex: str,
+    timeout_s: float,
+    tick_spacings: Mapping[str, int],
+    factories: Mapping[str, str | None],
+) -> int:
+    if pool_node.kind is PoolKind.V2:
+        calldata = (
+            AERO_POOL_GET_AMOUNT_OUT_SELECTOR
+            + encode(["uint256", "address"], [amount_in, token_in]).hex()
+        )
+        raw = _single_rpc_call(
+            send,
+            rpc_url,
+            method="eth_call",
+            params=[{"to": pool_node.pool_id, "data": calldata}, pinned_block_hex],
+            timeout_s=timeout_s,
+        )
+        raw_bytes = _decode_hex_bytes(raw, "aero.getAmountOut")
+        if len(raw_bytes) != 32:
+            raise ShadowRunnerError("aero.getAmountOut returned invalid byte length")
+        (amount_out,) = decode(["uint256"], raw_bytes)
+        return int(amount_out)
+
+    if pool_node.kind is PoolKind.V3:
+        calldata = (
+            V3_QUOTER_SINGLE_SELECTOR
+            + encode(
+                ["(address,address,uint256,uint24,uint160)"],
+                [(token_in, token_out, amount_in, pool_node.fee_pips, 0)],
+            ).hex()
+        )
+        raw = _single_rpc_call(
+            send,
+            rpc_url,
+            method="eth_call",
+            params=[{"to": normalize_address(V3.quoter), "data": calldata}, pinned_block_hex],
+            timeout_s=timeout_s,
+        )
+        raw_bytes = _decode_hex_bytes(raw, "v3.quoter")
+        if len(raw_bytes) != 128:
+            raise ShadowRunnerError("v3.quoter returned invalid byte length")
+        amount_out, _, _, _ = decode(["uint256", "uint160", "uint32", "uint256"], raw_bytes)
+        return int(amount_out)
+
+    if pool_node.kind is PoolKind.SLIPSTREAM:
+        factory = factories.get(pool_node.pool_id.lower())
+        if factory is None or factory not in SLIPSTREAM:
+            raise ShadowRunnerError(f"missing Slipstream factory for pool {pool_node.pool_id}")
+        quoter_addr = normalize_address(SLIPSTREAM[factory][0])
+        spacing = tick_spacings.get(pool_node.pool_id.lower(), 1)
+        calldata = (
+            SLIPSTREAM_QUOTER_SINGLE_SELECTOR
+            + encode(
+                ["(address,address,uint256,int24,uint160)"],
+                [(token_in, token_out, amount_in, spacing, 0)],
+            ).hex()
+        )
+        raw = _single_rpc_call(
+            send,
+            rpc_url,
+            method="eth_call",
+            params=[{"to": quoter_addr, "data": calldata}, pinned_block_hex],
+            timeout_s=timeout_s,
+        )
+        raw_bytes = _decode_hex_bytes(raw, "slipstream.quoter")
+        if len(raw_bytes) != 128:
+            raise ShadowRunnerError("slipstream.quoter returned invalid byte length")
+        amount_out, _, _, _ = decode(["uint256", "uint160", "uint32", "uint256"], raw_bytes)
+        return int(amount_out)
+
+    raise ShadowRunnerError(f"quoter fallback unsupported for kind {pool_node.kind}")
+
+
+def _verify_candidate_fallback(
+    send: Callable[[str, bytes, float], bytes],
+    rpc_url: str,
+    *,
+    candidate: CycleCandidate,
+    nodes_by_id: Mapping[str, PoolNode],
+    pinned_block_number: int,
+    timeout_s: float,
+    tick_spacings: Mapping[str, int],
+    factories: Mapping[str, str | None],
+) -> QuoterCheckResult:
+    cur_amount = candidate.optimal_amount_in
+    pinned_hex = hex(pinned_block_number)
+    calls_made = 0
+    try:
+        for hop in candidate.hops:
+            pool_node = nodes_by_id.get(hop.pool_id.lower())
+            if pool_node is None:
+                return QuoterCheckResult(
+                    verified=False,
+                    quoter_amount_out=0,
+                    quoter_net_profit=-(candidate.gas_cost_in_base + candidate.l1_fee_in_base),
+                    rpc_calls_used=calls_made,
+                    reason=f"missing_pool_node:{hop.pool_id}",
+                )
+            calls_made += 1
+            cur_amount = _quote_hop_onchain_fallback(
+                send,
+                rpc_url,
+                pool_node=pool_node,
+                token_in=hop.token_in,
+                token_out=hop.token_out,
+                amount_in=cur_amount,
+                pinned_block_hex=pinned_hex,
+                timeout_s=timeout_s,
+                tick_spacings=tick_spacings,
+                factories=factories,
+            )
+            if cur_amount <= 0:
+                return QuoterCheckResult(
+                    verified=False,
+                    quoter_amount_out=0,
+                    quoter_net_profit=-(candidate.gas_cost_in_base + candidate.l1_fee_in_base),
+                    rpc_calls_used=calls_made,
+                    reason="quoter_zero_output",
+                )
+    except (RpcError, ShadowRunnerError, ValueError) as exc:
+        return QuoterCheckResult(
+            verified=False,
+            quoter_amount_out=0,
+            quoter_net_profit=-(candidate.gas_cost_in_base + candidate.l1_fee_in_base),
+            rpc_calls_used=calls_made,
+            reason=f"quoter_call_failed:{exc}",
+        )
+
+    total_gas = candidate.gas_cost_in_base + candidate.l1_fee_in_base
+    net_profit = cur_amount - candidate.optimal_amount_in - total_gas
+    verified = net_profit > 0
+    return QuoterCheckResult(
+        verified=verified,
+        quoter_amount_out=cur_amount,
+        quoter_net_profit=net_profit,
+        rpc_calls_used=calls_made,
+        reason="ok" if verified else "quoter_nonpositive_net_profit",
+    )
+
+
+def _compute_eth_price_micro_usdc(nodes: Sequence[PoolNode]) -> int:
+    """Compute median WETH/USDC mid-price in micro-USDC per 1 WETH across pinned pools."""
+    prices: list[int] = []
+    for node in nodes:
+        t0 = node.token0.lower()
+        t1 = node.token1.lower()
+        if {t0, t1} != {WETH_ADDR, USDC_ADDR}:
+            continue
+        if node.kind in (PoolKind.V3, PoolKind.SLIPSTREAM, PoolKind.V4) and node.sqrt_price_x96:
+            q192 = 1 << 192
+            sq = node.sqrt_price_x96 * node.sqrt_price_x96
+            price = (sq * 10**18) // q192 if t0 == WETH_ADDR else (10**18 * q192) // sq
+            if price > 0:
+                prices.append(price)
+        elif node.reserve0 and node.reserve1:
+            price = (
+                (node.reserve1 * 10**18) // node.reserve0
+                if t0 == WETH_ADDR
+                else (node.reserve0 * 10**18) // node.reserve1
+            )
+            if price > 0:
+                prices.append(price)
+    if not prices:
+        raise ShadowRunnerError("no valid WETH/USDC pool available to price ETH in micro-USDC")
+    prices.sort()
+    return prices[len(prices) // 2]
+
+
+def _estimate_token_amount_for_usdc(
+    nodes: Sequence[PoolNode],
+    *,
+    token_addr: str,
+    token_decimals: int,
+    usdc_amount_raw: int,
+) -> int | None:
+    """Estimate raw token amount corresponding to `usdc_amount_raw` from pinned pool mid-price."""
+    scale_token = 10**token_decimals
+    prices_micro_per_token: list[int] = []
+    for node in nodes:
+        t0 = node.token0.lower()
+        t1 = node.token1.lower()
+        if {t0, t1} != {token_addr, USDC_ADDR}:
+            continue
+        if node.kind in (PoolKind.V3, PoolKind.SLIPSTREAM, PoolKind.V4) and node.sqrt_price_x96:
+            q192 = 1 << 192
+            sq = node.sqrt_price_x96 * node.sqrt_price_x96
+            price = (sq * scale_token) // q192 if t0 == token_addr else (scale_token * q192) // sq
+            if price > 0:
+                prices_micro_per_token.append(price)
+        elif node.reserve0 and node.reserve1:
+            price = (
+                (node.reserve1 * scale_token) // node.reserve0
+                if t0 == token_addr
+                else (node.reserve0 * scale_token) // node.reserve1
+            )
+            if price > 0:
+                prices_micro_per_token.append(price)
+    if not prices_micro_per_token:
+        return None
+    prices_micro_per_token.sort()
+    mid_micro = prices_micro_per_token[len(prices_micro_per_token) // 2]
+    est = (usdc_amount_raw * scale_token) // mid_micro
+    return est if est > 0 else None
+
+
+def _measure_weth_usdc_pairwise_spread(
+    graph: FastpathPoolGraph,
+    nodes: Sequence[PoolNode],
+    *,
+    l2_gas_cost_wei: int,
+    l1_data_fee_wei: int,
+) -> tuple[float, float]:
+    """Compute best gross and net bps across pairwise 0.1 WETH quotes on WETH/USDC pools."""
+    weth_usdc_nodes = [
+        n for n in nodes if {n.token0.lower(), n.token1.lower()} == {WETH_ADDR, USDC_ADDR}
+    ]
+    total_gas_wei = l2_gas_cost_wei + l1_data_fee_wei
+    best_gross_delta: int | None = None
+    best_net_delta: int | None = None
+
+    for i, node_i in enumerate(weth_usdc_nodes):
+        for j, node_j in enumerate(weth_usdc_nodes):
+            if i == j:
+                continue
+            try:
+                leg1 = graph.quote_pool(
+                    BASE_CHAIN_ID, node_i.pool_id, WETH_ADDR, PROBE_AMOUNT_IN_WEI
+                )
+                if leg1.amount_out <= 0:
+                    continue
+                leg2 = graph.quote_pool(BASE_CHAIN_ID, node_j.pool_id, USDC_ADDR, leg1.amount_out)
+            except FastpathCallError:
+                continue
+            gross_delta = leg2.amount_out - PROBE_AMOUNT_IN_WEI
+            net_delta = gross_delta - total_gas_wei
+            if best_gross_delta is None or gross_delta > best_gross_delta:
+                best_gross_delta = gross_delta
+                best_net_delta = net_delta
+
+    if best_gross_delta is None or best_net_delta is None:
+        return -10_000.0, -10_000.0
+    gross_bps = round(
+        float((Decimal(best_gross_delta) * Decimal(10_000)) / Decimal(PROBE_AMOUNT_IN_WEI)),
+        6,
+    )
+    net_bps = round(
+        float((Decimal(best_net_delta) * Decimal(10_000)) / Decimal(PROBE_AMOUNT_IN_WEI)),
+        6,
+    )
+    return gross_bps, net_bps
+
+
+def _best_direct_pair_quotes(
+    graph: FastpathPoolGraph,
+    pair_nodes: Sequence[PoolNode],
+    *,
+    token_addr: str,
+    token_decimals: int,
+    trade_notional_usdc: int,
+) -> tuple[int | None, int, int | None]:
+    """Return `(dex_buy_token_out, trade_notional_token, dex_sell_usdc_out)` for one pair."""
+    buy_outs: list[int] = []
+    for node in pair_nodes:
+        try:
+            q = graph.quote_pool(BASE_CHAIN_ID, node.pool_id, USDC_ADDR, trade_notional_usdc)
+        except FastpathCallError:
+            continue
+        if q.amount_out > 0:
+            buy_outs.append(q.amount_out)
+    dex_buy_out = max(buy_outs) if buy_outs else None
+
+    if dex_buy_out is not None:
+        trade_notional_token = dex_buy_out
+    else:
+        est = _estimate_token_amount_for_usdc(
+            pair_nodes,
+            token_addr=token_addr,
+            token_decimals=token_decimals,
+            usdc_amount_raw=trade_notional_usdc,
+        )
+        if est is None:
+            return None, 0, None
+        trade_notional_token = est
+
+    sell_outs: list[int] = []
+    for node in pair_nodes:
+        try:
+            q = graph.quote_pool(BASE_CHAIN_ID, node.pool_id, token_addr, trade_notional_token)
+        except FastpathCallError:
+            continue
+        if q.amount_out > 0:
+            sell_outs.append(q.amount_out)
+    dex_sell_out = max(sell_outs) if sell_outs else None
+    return dex_buy_out, trade_notional_token, dex_sell_out
+
+
+def verify_campaign_attribution_chain(records: Sequence[Mapping[str, object]]) -> str:
+    """Verify hash-chain continuity, `execution_eligible=False`, and digests."""
+    if not records:
+        raise ShadowRunnerError("campaign attribution records must be non-empty")
+    expected_prev = _GENESIS_PREV_SHA256
+    for idx, rec in enumerate(records, start=1):
+        if rec.get("seq") != idx:
+            raise ShadowRunnerError(f"attribution seq mismatch at index {idx}")
+        if rec.get("prev_record_sha256") != expected_prev:
+            raise ShadowRunnerError(f"attribution prev_record_sha256 mismatch at seq {idx}")
+        if rec.get("execution_eligible") is not False:
+            raise ShadowRunnerError(f"attribution execution_eligible must be False at seq {idx}")
+        raw_digest = rec.get("record_sha256")
+        if not isinstance(raw_digest, str) or _SHA256_RE.fullmatch(raw_digest) is None:
+            raise ShadowRunnerError(f"attribution record_sha256 invalid at seq {idx}")
+        body = {k: v for k, v in rec.items() if k != "record_sha256"}
+        computed = sha256_hex(canonical_json(body))
+        if computed != raw_digest:
+            raise ShadowRunnerError(f"attribution record_sha256 tampering detected at seq {idx}")
+        expected_prev = raw_digest
+    return expected_prev
+
+
+def build_synthetic_multicall_rpc_transport(
+    *,
+    scenario: str = "aligned",
+    base_block_number: int = 58_900_000,
+    base_timestamp_sec: int = 1_795_000_000,
+    base_fee_per_gas_wei: int = 10_000_000,
+    l1_data_fee_wei: int = 1_000_000_000_000,
+    extra_pools: Sequence[BasePoolSpec] = (),
+) -> Callable[[str, bytes, float], bytes]:
+    """Build deterministic offline Base Multicall3 + Quoter JSON-RPC transport."""
+    valid_scenarios = {"aligned", "dislocated_quoter_verified", "phantom_rust_rejected"}
+    if scenario not in valid_scenarios:
+        raise ValueError(f"unsupported synthetic scenario: {scenario!r}")
+
+    pools = list(canonical_base_weth_usdc_pools()) + list(extra_pools)
+    specs_by_addr = {spec.address: spec for spec in pools}
+    aero_spec = pools[1]
+    ss1_spec = pools[2]
+    ss2_spec = pools[3]
+    aero_fee_cd = (
+        GET_FEE_SELECTOR + encode(["address", "bool"], [aero_spec.address, False]).hex()
+    ).lower()
+
+    tick_v3 = -196_258
+    tick_ss1 = -196_258
+    tick_ss2 = -196_258 if scenario == "aligned" else -196_138
+    cl_liquidity = 200_000_000_000_000_000
+    aero_weth = 1_000 * 10**18
+    aero_usdc = 3_000_000 * 10**6
+    extra_cl_liquidity = 500_000_000_000_000_000
+    tick_counter = {"n": 0}
+
+    def _u256_bytes(val: int) -> bytes:
+        return val.to_bytes(32, "big")
+
+    def _slot0_v3_bytes(tick_val: int) -> bytes:
+        return encode(
+            ["uint160", "int24", "uint16", "uint16", "uint16", "uint8", "bool"],
+            [sqrt_price_at_tick(tick_val), tick_val, 0, 1, 1, 0, True],
+        )
+
+    def _slot0_ss_bytes(tick_val: int) -> bytes:
+        return encode(
+            ["uint160", "int24", "uint16", "uint16", "uint16", "bool"],
+            [sqrt_price_at_tick(tick_val), tick_val, 0, 1, 1, True],
+        )
+
+    def _default_tick_for_pair(spec: BasePoolSpec) -> int:
+        tokens = {spec.token0.lower(), spec.token1.lower()}
+        if tokens == {CBBTC_ADDR, USDC_ADDR}:
+            # 1 cbBTC (10^8) = 90,000 USDC (9e10 raw) => raw ratio 1/900 when token0=USDC
+            return -68_028 if spec.token0.lower() == USDC_ADDR else 68_028
+        if tokens == {AERO_TOKEN_ADDR, USDC_ADDR}:
+            # 1 AERO (10^18) = 1.20 USDC (1.2e6 raw) => raw ratio ~8.33e11 when token0=USDC
+            return 274_500 if spec.token0.lower() == USDC_ADDR else -274_500
+        return tick_v3
+
+    def _handle_subcall(target: str, data_bytes: bytes, ts_ms: int) -> bytes:
+        norm_target = normalize_address(target)
+        data_hex = "0x" + data_bytes.hex()
+        if norm_target == MULTICALL3 and data_hex == MULTICALL3_GET_CHAIN_ID_SELECTOR:
+            return _u256_bytes(BASE_CHAIN_ID)
+        if norm_target == ORACLE and data_hex == GET_L1_FEE_CALLDATA:
+            return _u256_bytes(l1_data_fee_wei)
+        if norm_target == BASE_TIME and data_hex == TIMESTAMP_MS_SELECTOR:
+            return _u256_bytes(ts_ms)
+        if norm_target == BASE_TIME and data_hex == TIMESTAMP_MILLIS_PART_SELECTOR:
+            return _u256_bytes(ts_ms % 1000)
+        if norm_target == aero_spec.factory and data_hex == aero_fee_cd:
+            return _u256_bytes(30)
+
+        spec = specs_by_addr.get(norm_target)
+        if spec is None:
+            raise ValueError(f"unexpected synthetic Multicall3 subcall target={norm_target}")
+
+        if spec.kind is PoolKind.V2 and data_hex == GET_RESERVES_SELECTOR:
+            return encode(
+                ["uint256", "uint256", "uint256"],
+                [aero_weth, aero_usdc, ts_ms // 1000],
+            )
+        if spec.kind is PoolKind.V3:
+            t_val = tick_v3 if spec.address == pools[0].address else _default_tick_for_pair(spec)
+            if data_hex == SLOT0_SELECTOR:
+                return _slot0_v3_bytes(t_val)
+            if data_hex == LIQUIDITY_SELECTOR:
+                liq = cl_liquidity if spec.address == pools[0].address else extra_cl_liquidity
+                return _u256_bytes(liq)
+        if spec.kind is PoolKind.SLIPSTREAM:
+            if spec.address == ss1_spec.address:
+                t_val = tick_ss1
+            elif spec.address == ss2_spec.address:
+                t_val = tick_ss2
+            else:
+                t_val = _default_tick_for_pair(spec)
+            if data_hex == SLOT0_SELECTOR:
+                return _slot0_ss_bytes(t_val)
+            if data_hex == LIQUIDITY_SELECTOR:
+                liq = (
+                    cl_liquidity
+                    if spec.address in (ss1_spec.address, ss2_spec.address)
+                    else (extra_cl_liquidity)
+                )
+                return _u256_bytes(liq)
+            if data_hex == FEE_SELECTOR:
+                return _u256_bytes(spec.fixed_fee_pips or 100)
+        raise ValueError(f"unexpected subcall target={norm_target} data={data_hex}")
+
+    def _quote_exact_input_synthetic(
+        kind: PoolKind, token_in: str, token_out: str, amount_in: int, spec_tick: int, fee_pips: int
+    ) -> int:
+        matched_t0 = WETH_ADDR
+        pair_set = {normalize_address(token_in), normalize_address(token_out)}
+        for candidate_spec in pools:
+            if {candidate_spec.token0.lower(), candidate_spec.token1.lower()} == pair_set:
+                matched_t0 = candidate_spec.token0.lower()
+                break
+        if kind in (PoolKind.V3, PoolKind.SLIPSTREAM):
+            sqrt_p = sqrt_price_at_tick(spec_tick)
+            q192 = 1 << 192
+            raw_num = amount_in * (1_000_000 - fee_pips) // 1_000_000
+            if normalize_address(token_in) == matched_t0:
+                out = (raw_num * sqrt_p * sqrt_p) // q192
+            else:
+                out = (raw_num * q192) // (sqrt_p * sqrt_p)
+            if scenario == "phantom_rust_rejected" and spec_tick == tick_ss2:
+                return (out * 98) // 100
+            return out
+        return 0
+
+    def _transport(_url: str, payload: bytes, _timeout_s: float) -> bytes:
+        req = json.loads(payload.decode("utf-8"))
+        method = req.get("method")
+        req_id = req.get("id")
+        params = req.get("params", [])
+
+        if method == "eth_chainId":
+            return json.dumps(
+                {"jsonrpc": "2.0", "id": req_id, "result": hex(BASE_CHAIN_ID)}
+            ).encode("utf-8")
+        if method == "eth_getBlockByNumber":
+            idx = tick_counter["n"]
+            tick_counter["n"] = idx + 1
+            block_num = base_block_number + idx * 4
+            ts_ms = (base_timestamp_sec + idx) * 1000 + (idx * 200) % 1000
+            block_hash = "0x" + sha256_hex(f"base-mc-synth-block-{block_num}".encode())
+            parent_hash = "0x" + sha256_hex(f"base-mc-synth-parent-{block_num - 1}".encode())
+            state_root = "0x" + sha256_hex(f"base-mc-synth-state-{block_num}".encode())
+            header = {
+                "number": hex(block_num),
+                "hash": block_hash,
+                "parentHash": parent_hash,
+                "stateRoot": state_root,
+                "timestamp": hex(ts_ms // 1000),
+                "timestampMs": hex(ts_ms),
+                "baseFeePerGas": hex(base_fee_per_gas_wei),
+            }
+            return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": header}).encode("utf-8")
+
+        if method == "eth_call":
+            call_obj, block_hex = params
+            block_num = int(block_hex, 16)
+            idx = max(0, (block_num - base_block_number) // 4)
+            ts_ms = (base_timestamp_sec + idx) * 1000 + (idx * 200) % 1000
+            to_addr = normalize_address(call_obj["to"])
+            data_hex = call_obj["data"].lower()
+
+            if to_addr == MULTICALL3 and data_hex.startswith(AGGREGATE3_SELECTOR):
+                raw_args = bytes.fromhex(data_hex[10:])
+                (calls_list,) = decode(["(address,bool,bytes)[]"], raw_args)
+                ret_pairs = [
+                    (True, _handle_subcall(target, bytes(cd), ts_ms))
+                    for target, _allow_fail, cd in calls_list
+                ]
+                encoded_ret = "0x" + encode(["(bool,bytes)[]"], [ret_pairs]).hex()
+                return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": encoded_ret}).encode(
+                    "utf-8"
+                )
+
+            if to_addr == normalize_address(V3.quoter) and data_hex.startswith(
+                V3_QUOTER_SINGLE_SELECTOR
+            ):
+                ((t_in, t_out, amt_in, fee_pips, _lim),) = decode(
+                    ["(address,address,uint256,uint24,uint160)"],
+                    bytes.fromhex(data_hex[10:]),
+                )
+                out_amt = _quote_exact_input_synthetic(
+                    PoolKind.V3, t_in, t_out, int(amt_in), tick_v3, int(fee_pips)
+                )
+                encoded_quote = encode(
+                    ["uint256", "uint160", "uint32", "uint256"], [out_amt, 0, 0, 120_000]
+                ).hex()
+                return json.dumps(
+                    {"jsonrpc": "2.0", "id": req_id, "result": "0x" + encoded_quote}
+                ).encode("utf-8")
+
+            ss_quoter_ticks: dict[str, int] = {}
+            if ss1_spec.factory is not None and ss1_spec.factory in SLIPSTREAM:
+                ss_quoter_ticks[normalize_address(SLIPSTREAM[ss1_spec.factory][0])] = tick_ss1
+            if ss2_spec.factory is not None and ss2_spec.factory in SLIPSTREAM:
+                ss_quoter_ticks[normalize_address(SLIPSTREAM[ss2_spec.factory][0])] = tick_ss2
+            if to_addr in ss_quoter_ticks and data_hex.startswith(
+                SLIPSTREAM_QUOTER_SINGLE_SELECTOR
+            ):
+                ((t_in, t_out, amt_in, _spacing, _lim),) = decode(
+                    ["(address,address,uint256,int24,uint160)"],
+                    bytes.fromhex(data_hex[10:]),
+                )
+                used_tick = ss_quoter_ticks[to_addr]
+                out_amt = _quote_exact_input_synthetic(
+                    PoolKind.SLIPSTREAM, t_in, t_out, int(amt_in), used_tick, 100
+                )
+                encoded_quote = encode(
+                    ["uint256", "uint160", "uint32", "uint256"], [out_amt, 0, 0, 120_000]
+                ).hex()
+                return json.dumps(
+                    {"jsonrpc": "2.0", "id": req_id, "result": "0x" + encoded_quote}
+                ).encode("utf-8")
+
+            if to_addr == aero_spec.address and data_hex.startswith(
+                AERO_POOL_GET_AMOUNT_OUT_SELECTOR
+            ):
+                amt_in, t_in = decode(["uint256", "address"], bytes.fromhex(data_hex[10:]))
+                r_in, r_out = (
+                    (aero_weth, aero_usdc)
+                    if normalize_address(t_in) == WETH_ADDR
+                    else (aero_usdc, aero_weth)
+                )
+                amt_with_fee = int(amt_in) * 9970
+                out_amt = (amt_with_fee * r_out) // (r_in * 10_000 + amt_with_fee)
+                return json.dumps(
+                    {"jsonrpc": "2.0", "id": req_id, "result": "0x" + _u256_bytes(out_amt).hex()}
+                ).encode("utf-8")
+
+        raise ValueError(f"unexpected synthetic Multicall RPC request: method={method!r}")
+
+    return _transport
+
+
+def _ensure_clean_output_dir(out_dir: Path) -> tuple[Path, Path]:
+    if out_dir.is_symlink():
+        raise ShadowRunnerError(f"refusing symlink output directory: {out_dir}")
+    if out_dir.exists() and not out_dir.is_dir():
+        raise ShadowRunnerError(f"output path is not a directory: {out_dir}")
+    attribution_path = out_dir / "shadow_attribution.jsonl"
+    summary_path = out_dir / "shadow_summary.json"
+    for target in (attribution_path, summary_path):
+        if target.is_symlink():
+            raise ShadowRunnerError(f"refusing symlink output file: {target}")
+        if target.exists():
+            raise FileExistsError(f"refusing to overwrite existing output file: {target}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return attribution_path, summary_path
+
+
+def _write_new_bytes(path: Path, payload: bytes) -> None:
+    if path.is_symlink():
+        raise ShadowRunnerError(f"refusing symlink output path: {path}")
+    with path.open("xb") as handle:
+        handle.write(payload)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _extract_snapshot_from_multicall_universe(raw_snap: Any) -> PinnedTickSnapshot:
+    block_number = int(_attr_or_key(raw_snap, "block_number", "blockNumber"))
+    block_hash = normalize_hash32(
+        str(_attr_or_key(raw_snap, "block_hash", "blockHash")), "block_hash"
+    )
+    header_ts = int(_attr_or_key(raw_snap, "header_timestamp", "timestamp_s", "timestamp"))
+    base_time_ms = int(_attr_or_key(raw_snap, "base_time_ms", "timestamp_ms", "checked_ms"))
+    base_fee_wei = int(
+        _attr_or_key(raw_snap, "base_fee_per_gas_wei", "base_fee_per_gas", "baseFeePerGas")
+    )
+    l1_fee_wei = int(_attr_or_key(raw_snap, "l1_fee_wei", "l1_data_fee_wei", "l1DataFeeWei"))
+    raw_nodes = _attr_or_key(raw_snap, "nodes", "pool_nodes")
+    if not isinstance(raw_nodes, Sequence) or not raw_nodes:
+        raise ShadowRunnerError("multicall_universe snapshot returned empty nodes")
+    nodes = tuple(raw_nodes)
+    rpc_used = _attr_or_key(raw_snap, "rpc_calls_used", default=2)
+    calls_used = int(rpc_used) if type(rpc_used) is int and rpc_used > 0 else 2
+    return PinnedTickSnapshot(
+        block_number=block_number,
+        block_hash=block_hash,
+        header_timestamp=header_ts,
+        base_time_ms=base_time_ms,
+        base_fee_per_gas_wei=base_fee_wei,
+        l1_data_fee_wei=l1_fee_wei,
+        nodes=nodes,
+        rpc_calls_used=calls_used,
+    )
+
+
+def _interpret_quoter_verification_result(
+    raw_res: Any, candidate: CycleCandidate
+) -> QuoterCheckResult:
+    if isinstance(raw_res, bool):
+        return QuoterCheckResult(
+            verified=raw_res and candidate.net_profit > 0,
+            quoter_amount_out=candidate.amount_out if raw_res else 0,
+            quoter_net_profit=(
+                candidate.net_profit
+                if raw_res
+                else -(candidate.gas_cost_in_base + candidate.l1_fee_in_base)
+            ),
+            rpc_calls_used=len(candidate.hops),
+            reason="ok" if raw_res else "quoter_rejected",
+        )
+    verified = bool(_attr_or_key(raw_res, "verified", "passed", "ok", default=False))
+    amount_out = int(
+        _attr_or_key(raw_res, "quoter_amount_out", "amount_out", default=candidate.amount_out)
+    )
+    net_profit = int(
+        _attr_or_key(raw_res, "quoter_net_profit", "net_profit", default=candidate.net_profit)
+    )
+    calls_used = int(_attr_or_key(raw_res, "rpc_calls_used", default=len(candidate.hops)))
+    reason = str(
+        _attr_or_key(raw_res, "reason", "detail", default="ok" if verified else "rejected")
+    )
+    effective_verified = verified and net_profit > 0
+    return QuoterCheckResult(
+        verified=effective_verified,
+        quoter_amount_out=amount_out,
+        quoter_net_profit=net_profit,
+        rpc_calls_used=calls_used,
+        reason=reason,
+    )
+
+
+def run_multicall_campaign(
+    *,
+    out_dir: Path,
+    mode: str = "public-shadow",
+    ticks: int = DEFAULT_TICKS,
+    interval_ms: int = DEFAULT_INTERVAL_MS,
+    max_rpc_calls: int = DEFAULT_MAX_RPC_CALLS,
+    rpc_url: str = DEFAULT_BASE_RPC_URL,
+    cex_taker_fee_bps: float = float(DEFAULT_CEX_TAKER_FEE_BPS),
+    latency_haircut_bps: float = float(DEFAULT_LATENCY_HAIRCUT_BPS),
+    trade_notional_usdc: int = DEFAULT_TRADE_NOTIONAL_USDC,
+    priority_fee_wei: int = DEFAULT_PRIORITY_FEE_WEI,
+    gas_limit_units: int = GAS_LIMIT_MODEL,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    bridge: FastpathBridge | None = None,
+    rpc_transport: Callable[[str, bytes, float], bytes] | None = None,
+    coinbase_transport: Callable[[str, float], bytes] | None = None,
+    sleeper: Callable[[float], None] | None = None,
+    clock: Callable[[], float] | None = None,
+    fixture_scenario: str = "aligned",
+    extra_fixture_pools: Sequence[BasePoolSpec] = (),
+) -> CampaignRunResult:
+    """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
+    if mode not in {"public-shadow", "fixture"}:
+        raise ShadowRunnerError(f"unsupported campaign mode: {mode!r}")
+    if type(ticks) is not int or ticks <= 0:
+        raise ShadowRunnerError("ticks must be a positive integer")
+    if type(interval_ms) is not int or interval_ms < 0:
+        raise ShadowRunnerError("interval_ms must be a non-negative integer")
+    if type(max_rpc_calls) is not int or max_rpc_calls <= 0:
+        raise ShadowRunnerError("max_rpc_calls must be a positive integer")
+    if type(trade_notional_usdc) is not int or trade_notional_usdc <= 0:
+        raise ShadowRunnerError("trade_notional_usdc must be a positive integer")
+    if type(priority_fee_wei) is not int or priority_fee_wei < 0:
+        raise ShadowRunnerError("priority_fee_wei must be non-negative")
+    if type(gas_limit_units) is not int or gas_limit_units <= 0:
+        raise ShadowRunnerError("gas_limit_units must be positive")
+    for label, val in (
+        ("cex_taker_fee_bps", cex_taker_fee_bps),
+        ("latency_haircut_bps", latency_haircut_bps),
+    ):
+        if isinstance(val, bool) or not math.isfinite(float(val)) or float(val) < 0:
+            raise ShadowRunnerError(f"{label} must be finite and non-negative")
+    if (
+        isinstance(timeout_s, bool)
+        or not isinstance(timeout_s, (int, float))
+        or not math.isfinite(float(timeout_s))
+        or float(timeout_s) <= 0
+    ):
+        raise ShadowRunnerError("timeout_s must be a positive finite number")
+
+    attribution_path, summary_path = _ensure_clean_output_dir(out_dir)
+    origin, _, _ = _validate_rpc_url(
+        rpc_url, enforce_public_host=rpc_transport is None and mode != "fixture"
+    )
+
+    if mode == "fixture":
+        active_rpc_transport = (
+            build_synthetic_multicall_rpc_transport(
+                scenario=fixture_scenario,
+                extra_pools=extra_fixture_pools,
+            )
+            if rpc_transport is None
+            else rpc_transport
+        )
+        active_cb_transport = (
+            build_synthetic_coinbase_transport()
+            if coinbase_transport is None
+            else coinbase_transport
+        )
+        multicall_mod: MulticallUniverseProtocol | None = None
+    else:
+        active_rpc_transport = _default_https_transport if rpc_transport is None else rpc_transport
+        active_cb_transport = coinbase_transport
+        multicall_mod = _load_multicall_universe_module()
+
+    sleep_fn = time.sleep if sleeper is None else sleeper
+    clock_fn = time.monotonic if clock is None else clock
+    active_bridge = resolve_fastpath_bridge(bridge)
+
+    rpc_calls_used = 0
+
+    def _reserve_rpc(cost: int) -> None:
+        nonlocal rpc_calls_used
+        if rpc_calls_used + cost > max_rpc_calls:
+            raise ShadowBudgetError(
+                f"campaign RPC budget exceeded ({rpc_calls_used} + {cost} > {max_rpc_calls})"
+            )
+        rpc_calls_used += cost
+
+    pool_specs_raw: Sequence[Any]
+    if multicall_mod is not None:
+        discovered = _call_with_supported_kwargs(
+            multicall_mod.discover_base_universe_pools,
+            {
+                "rpc_url": rpc_url,
+                "transport": active_rpc_transport,
+                "timeout_s": float(timeout_s),
+                "max_rpc_calls": max_rpc_calls - rpc_calls_used,
+            },
+        )
+        extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
+        if type(extra_disc_calls) is int and extra_disc_calls > 0:
+            _reserve_rpc(extra_disc_calls)
+        extracted_pools = _attr_or_key(discovered, "pools", "pool_specs", default=discovered)
+        pool_specs_raw = tuple(extracted_pools)
+    else:
+        pool_specs_raw = tuple(canonical_base_weth_usdc_pools()) + tuple(extra_fixture_pools)
+
+    _fixed_fees, tick_spacings, factories = _pool_metadata_lookup(pool_specs_raw)
+    universe_pool_count = len(pool_specs_raw)
+    if universe_pool_count == 0:
+        raise ShadowRunnerError("discovered Base universe contains zero pools")
+
+    records: list[dict[str, Any]] = []
+    prev_record_sha256 = _GENESIS_PREV_SHA256
+    prev_block_number: int | None = None
+    prev_block_hash: str | None = None
+    total_rust_raw_candidates = 0
+    total_quoter_verified_candidates = 0
+    total_quoter_rejected_candidates = 0
+    atomic_net_bps_series: list[float] = []
+    cex_ok_evals = 0
+    cex_degraded_evals = 0
+    products_evaluated: set[str] = set()
+    cex_best_net_values: list[float] = []
+    cex_best_raw_values: list[float] = []
+    cex_best_maker_values: list[float] = []
+
+    jsonl_handle = None
+    last_tick_started: float | None = None
+
+    try:
+        for tick_idx in range(ticks):
+            if tick_idx > 0 and interval_ms > 0 and last_tick_started is not None:
+                elapsed = max(0.0, clock_fn() - last_tick_started)
+                remaining = (interval_ms / 1000.0) - elapsed
+                if remaining > 0:
+                    sleep_fn(remaining)
+            last_tick_started = clock_fn()
+
+            calls_before_tick = rpc_calls_used
+            _reserve_rpc(2)
+            if multicall_mod is not None:
+                raw_snap = _call_with_supported_kwargs(
+                    multicall_mod.fetch_pinned_universe_snapshot,
+                    {
+                        "pools": pool_specs_raw,
+                        "pool_specs": pool_specs_raw,
+                        "specs": pool_specs_raw,
+                        "universe": pool_specs_raw,
+                        "rpc_url": rpc_url,
+                        "transport": active_rpc_transport,
+                        "timeout_s": float(timeout_s),
+                        "block_tag": "latest",
+                    },
+                    first_positional_fallback=pool_specs_raw,
+                )
+                snapshot = _extract_snapshot_from_multicall_universe(raw_snap)
+                if snapshot.rpc_calls_used > 2:
+                    _reserve_rpc(snapshot.rpc_calls_used - 2)
+            else:
+                snapshot = _fetch_pinned_multicall3_fallback(
+                    active_rpc_transport,
+                    rpc_url,
+                    cast(Sequence[BasePoolSpec], pool_specs_raw),
+                    timeout_s=float(timeout_s),
+                )
+
+            if prev_block_number is not None:
+                if snapshot.block_number < prev_block_number:
+                    raise ShadowRunnerError(
+                        f"stale/regressed block number {snapshot.block_number} < "
+                        f"{prev_block_number}"
+                    )
+                if (
+                    snapshot.block_number == prev_block_number
+                    and snapshot.block_hash != prev_block_hash
+                ):
+                    raise ShadowRunnerError(
+                        f"reorg detected at block {snapshot.block_number}: block hash changed"
+                    )
+
+            graph = FastpathPoolGraph(bridge=active_bridge)
+            nodes_by_id: dict[str, PoolNode] = {}
+            for node in snapshot.nodes:
+                graph.upsert_pool(node)
+                nodes_by_id[node.pool_id.lower()] = node
+
+            l2_gas_cost_wei = gas_limit_units * (snapshot.base_fee_per_gas_wei + priority_fee_wei)
+            total_gas_cost_wei = l2_gas_cost_wei + snapshot.l1_data_fee_wei
+            eth_price_micro_usdc = _compute_eth_price_micro_usdc(snapshot.nodes)
+            eth_price_usd = Decimal(eth_price_micro_usdc) / Decimal(1_000_000)
+
+            l2_gas_usdc = (l2_gas_cost_wei * eth_price_micro_usdc + 10**18 - 1) // 10**18
+            l1_fee_usdc = (snapshot.l1_data_fee_wei * eth_price_micro_usdc + 10**18 - 1) // 10**18
+
+            weth_scan = graph.scan_cycles(
+                [WETH_ADDR],
+                max_hops=3,
+                min_amount_in=WETH_SCAN_MIN_WEI,
+                max_amount_in=WETH_SCAN_MAX_WEI,
+                gas_cost_in_base=l2_gas_cost_wei,
+                l1_fee_in_base=snapshot.l1_data_fee_wei,
+                min_net_profit=1,
+                block_number=snapshot.block_number,
+                timestamp_ns=snapshot.base_time_ms * 1_000_000,
+            )
+            usdc_scan = graph.scan_cycles(
+                [USDC_ADDR],
+                max_hops=3,
+                min_amount_in=USDC_SCAN_MIN_RAW,
+                max_amount_in=USDC_SCAN_MAX_RAW,
+                gas_cost_in_base=l2_gas_usdc,
+                l1_fee_in_base=l1_fee_usdc,
+                min_net_profit=1,
+                block_number=snapshot.block_number,
+                timestamp_ns=snapshot.base_time_ms * 1_000_000,
+            )
+
+            rust_raw_candidates = [
+                c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0
+            ]
+            rust_raw_candidates.sort(
+                key=lambda c: (c.net_profit * 10_000) / max(1, c.optimal_amount_in),
+                reverse=True,
+            )
+            total_rust_raw_candidates += len(rust_raw_candidates)
+
+            quoter_verified_list: list[dict[str, Any]] = []
+            quoter_rejected_count = 0
+            for cand in rust_raw_candidates[:MAX_CANDIDATES_TO_QUOTE_PER_TICK]:
+                hop_cost = len(cand.hops)
+                if rpc_calls_used + hop_cost > max_rpc_calls:
+                    quoter_rejected_count += 1
+                    continue
+                _reserve_rpc(hop_cost)
+                if multicall_mod is not None:
+                    try:
+                        raw_q = _call_with_supported_kwargs(
+                            multicall_mod.verify_candidate_with_onchain_quoter,
+                            {
+                                "candidate": cand,
+                                "pools": pool_specs_raw,
+                                "pool_specs": pool_specs_raw,
+                                "specs": pool_specs_raw,
+                                "nodes": snapshot.nodes,
+                                "nodes_by_id": nodes_by_id,
+                                "rpc_url": rpc_url,
+                                "block_number": snapshot.block_number,
+                                "pinned_block": snapshot.block_number,
+                                "block_tag": hex(snapshot.block_number),
+                                "transport": active_rpc_transport,
+                                "timeout_s": float(timeout_s),
+                            },
+                            first_positional_fallback=cand,
+                        )
+                        q_res = _interpret_quoter_verification_result(raw_q, cand)
+                    except (RpcError, ShadowRunnerError, ValueError) as exc:
+                        q_res = QuoterCheckResult(
+                            verified=False,
+                            quoter_amount_out=0,
+                            quoter_net_profit=-(cand.gas_cost_in_base + cand.l1_fee_in_base),
+                            rpc_calls_used=hop_cost,
+                            reason=f"quoter_bridge_failed:{exc}",
+                        )
+                    if q_res.rpc_calls_used > hop_cost:
+                        _reserve_rpc(q_res.rpc_calls_used - hop_cost)
+                else:
+                    q_res = _verify_candidate_fallback(
+                        active_rpc_transport,
+                        rpc_url,
+                        candidate=cand,
+                        nodes_by_id=nodes_by_id,
+                        pinned_block_number=snapshot.block_number,
+                        timeout_s=float(timeout_s),
+                        tick_spacings=tick_spacings,
+                        factories=factories,
+                    )
+
+                if q_res.verified and q_res.quoter_net_profit > 0:
+                    verified_net_bps = round(
+                        float(
+                            (Decimal(q_res.quoter_net_profit) * Decimal(10_000))
+                            / Decimal(cand.optimal_amount_in)
+                        ),
+                        6,
+                    )
+                    gross_gain = q_res.quoter_amount_out - cand.optimal_amount_in
+                    verified_gross_bps = round(
+                        float(
+                            (Decimal(gross_gain) * Decimal(10_000))
+                            / Decimal(cand.optimal_amount_in)
+                        ),
+                        6,
+                    )
+                    quoter_verified_list.append(
+                        {
+                            "base_token": cand.base_token,
+                            "hops": len(cand.hops),
+                            "optimal_amount_in": str(cand.optimal_amount_in),
+                            "quoter_amount_out": str(q_res.quoter_amount_out),
+                            "quoter_net_profit": str(q_res.quoter_net_profit),
+                            "net_bps": verified_net_bps,
+                            "gross_bps": verified_gross_bps,
+                        }
+                    )
+                else:
+                    quoter_rejected_count += 1
+
+            total_quoter_verified_candidates += len(quoter_verified_list)
+            total_quoter_rejected_candidates += quoter_rejected_count
+
+            pairwise_gross_bps, pairwise_net_bps = _measure_weth_usdc_pairwise_spread(
+                graph,
+                snapshot.nodes,
+                l2_gas_cost_wei=l2_gas_cost_wei,
+                l1_data_fee_wei=snapshot.l1_data_fee_wei,
+            )
+            if quoter_verified_list:
+                atomic_best_net_bps = max(float(v["net_bps"]) for v in quoter_verified_list)
+                atomic_best_gross_bps = max(float(v["gross_bps"]) for v in quoter_verified_list)
+                atomic_positive = True
+            else:
+                atomic_best_net_bps = pairwise_net_bps
+                atomic_best_gross_bps = pairwise_gross_bps
+                atomic_positive = False
+            atomic_net_bps_series.append(atomic_best_net_bps)
+
+            # Evaluate Coinbase <-> Base CEX-DEX lead-lag across available /USDC pairs
+            gas_cost_usd = gas_wei_to_usd(total_gas_cost_wei, eth_price_usd)
+            cex_evals_dict: dict[str, dict[str, Any]] = {}
+            tick_cex_ok: list[CexDexTickEvaluation] = []
+            for tok_addr in CEX_DEX_TOKEN_ORDER:
+                meta = TOKEN_META_BY_ADDR[tok_addr]
+                if meta.coinbase_product is None:
+                    continue
+                pair_nodes = [
+                    n
+                    for n in snapshot.nodes
+                    if {n.token0.lower(), n.token1.lower()} == {tok_addr, USDC_ADDR}
+                ]
+                if not pair_nodes:
+                    continue
+                products_evaluated.add(meta.coinbase_product)
+                dex_buy_out, notional_tok, dex_sell_out = _best_direct_pair_quotes(
+                    graph,
+                    pair_nodes,
+                    token_addr=tok_addr,
+                    token_decimals=meta.decimals,
+                    trade_notional_usdc=trade_notional_usdc,
+                )
+                if notional_tok <= 0:
+                    continue
+                ev = evaluate_live_cex_dex_shadow(
+                    product_or_symbol=meta.coinbase_product,
+                    trade_notional_usdc=trade_notional_usdc,
+                    dex_buy_token_for_usdc_out=dex_buy_out,
+                    trade_notional_token=notional_tok,
+                    dex_sell_token_for_usdc_out=dex_sell_out,
+                    gas_cost_usd=gas_cost_usd,
+                    cex_taker_fee_bps=cex_taker_fee_bps,
+                    latency_haircut_bps=latency_haircut_bps,
+                    timeout_s=float(timeout_s),
+                    transport=active_cb_transport,
+                )
+                cex_evals_dict[meta.coinbase_product] = ev.to_dict()
+                if ev.status == "ok" and ev.best_net_bps is not None:
+                    cex_ok_evals += 1
+                    tick_cex_ok.append(ev)
+                else:
+                    cex_degraded_evals += 1
+
+            cex_dex_best_net_bps: float | None = None
+            cex_dex_best_raw_bps: float | None = None
+            cex_dex_best_maker_bps: float | None = None
+            cex_dex_positive = False
+            if tick_cex_ok:
+                cex_dex_best_net_bps = max(cast(float, e.best_net_bps) for e in tick_cex_ok)
+                raw_vals = [
+                    e.best_raw_spread_bps for e in tick_cex_ok if e.best_raw_spread_bps is not None
+                ]
+                if raw_vals:
+                    cex_dex_best_raw_bps = max(raw_vals)
+                    cex_best_raw_values.append(cex_dex_best_raw_bps)
+                maker_vals = [
+                    e.maker_zero_fee_net_bps
+                    for e in tick_cex_ok
+                    if e.maker_zero_fee_net_bps is not None
+                ]
+                if maker_vals:
+                    cex_dex_best_maker_bps = max(maker_vals)
+                    cex_best_maker_values.append(cex_dex_best_maker_bps)
+                cex_best_net_values.append(cex_dex_best_net_bps)
+                cex_dex_positive = cex_dex_best_net_bps > 0.0
+
+            tick_net_candidates = [atomic_best_net_bps]
+            if cex_dex_best_net_bps is not None:
+                tick_net_candidates.append(cex_dex_best_net_bps)
+            tick_best_net_bps = max(tick_net_candidates)
+
+            tick_raw_candidates = [atomic_best_gross_bps]
+            if cex_dex_best_raw_bps is not None:
+                tick_raw_candidates.append(cex_dex_best_raw_bps)
+            tick_best_raw_spread_bps = max(tick_raw_candidates)
+            tick_positive = atomic_positive or cex_dex_positive
+
+            seq = tick_idx + 1
+            record_body: dict[str, Any] = {
+                "schema_version": RECORD_SCHEMA_VERSION,
+                "seq": seq,
+                "prev_record_sha256": prev_record_sha256,
+                "execution_eligible": False,
+                "mode": mode,
+                "chain_id": BASE_CHAIN_ID,
+                "rpc_origin": origin,
+                "block_number": snapshot.block_number,
+                "block_hash": snapshot.block_hash,
+                "header_timestamp": snapshot.header_timestamp,
+                "base_time_ms": snapshot.base_time_ms,
+                "l2_gas_cost_wei": l2_gas_cost_wei,
+                "l1_data_fee_wei": snapshot.l1_data_fee_wei,
+                "total_gas_cost_wei": total_gas_cost_wei,
+                "eth_price_usd": round(float(eth_price_usd), 4),
+                "universe_pool_count": len(snapshot.nodes),
+                "rpc_calls_this_tick": rpc_calls_used - calls_before_tick,
+                "rpc_calls_used_total": rpc_calls_used,
+                "rust_cycles_evaluated": weth_scan.cycles_evaluated + usdc_scan.cycles_evaluated,
+                "rust_raw_candidates_count": len(rust_raw_candidates),
+                "quoter_verified_candidates_count": len(quoter_verified_list),
+                "quoter_rejected_candidates_count": quoter_rejected_count,
+                "quoter_verified_candidates": quoter_verified_list,
+                "atomic_best_gross_bps": atomic_best_gross_bps,
+                "atomic_best_net_bps": atomic_best_net_bps,
+                "atomic_positive": atomic_positive,
+                "cex_dex_evaluations": cex_evals_dict,
+                "cex_dex_best_net_bps": cex_dex_best_net_bps,
+                "cex_dex_best_raw_spread_bps": cex_dex_best_raw_bps,
+                "cex_dex_best_maker_diagnostic_bps": cex_dex_best_maker_bps,
+                "cex_dex_positive": cex_dex_positive,
+                "tick_best_net_bps": tick_best_net_bps,
+                "tick_best_raw_spread_bps": tick_best_raw_spread_bps,
+                "tick_positive": tick_positive,
+            }
+            record_sha256 = sha256_hex(canonical_json(record_body))
+            record = {**record_body, "record_sha256": record_sha256}
+            records.append(record)
+
+            if jsonl_handle is None:
+                if attribution_path.is_symlink():
+                    raise ShadowRunnerError(f"refusing symlink output path: {attribution_path}")
+                jsonl_handle = attribution_path.open("xb")
+            jsonl_handle.write(canonical_json(record) + b"\n")
+            jsonl_handle.flush()
+            os.fsync(jsonl_handle.fileno())
+
+            prev_record_sha256 = record_sha256
+            prev_block_number = snapshot.block_number
+            prev_block_hash = snapshot.block_hash
+    finally:
+        if jsonl_handle is not None:
+            jsonl_handle.close()
+
+    chain_head_sha256 = verify_campaign_attribution_chain(records)
+    ticks_completed = len(records)
+    net_series = [float(rec["tick_best_net_bps"]) for rec in records]
+    raw_series = [float(rec["tick_best_raw_spread_bps"]) for rec in records]
+
+    mean_net_raw = sum(net_series) / ticks_completed
+    if ticks_completed >= 2:
+        variance = sum((x - mean_net_raw) ** 2 for x in net_series) / (ticks_completed - 1)
+        std_net_raw = math.sqrt(variance)
+        std_error = std_net_raw / math.sqrt(ticks_completed)
+        lcb_exact = mean_net_raw - _LCB_Z_SCORE * std_error
+    else:
+        std_net_raw = 0.0
+        lcb_exact = mean_net_raw
+
+    lcb_int = math.floor(lcb_exact)
+    atomic_positive_ticks = sum(1 for rec in records if bool(rec["atomic_positive"]))
+    cex_dex_positive_ticks = sum(1 for rec in records if bool(rec["cex_dex_positive"]))
+    positive_net_ticks = sum(1 for rec in records if bool(rec["tick_positive"]))
+    unique_blocks_observed = len({int(rec["block_number"]) for rec in records})
+
+    atomic_dex_summary: dict[str, Any] = {
+        "total_rust_raw_candidates": total_rust_raw_candidates,
+        "total_quoter_verified_candidates": total_quoter_verified_candidates,
+        "total_quoter_rejected_candidates": total_quoter_rejected_candidates,
+        "atomic_positive_net_ticks": atomic_positive_ticks,
+        "best_atomic_net_bps": round(max(atomic_net_bps_series), 6),
+        "mean_atomic_net_bps": round(sum(atomic_net_bps_series) / ticks_completed, 6),
+        "best_atomic_raw_spread_bps": round(
+            max(float(rec["atomic_best_gross_bps"]) for rec in records), 6
+        ),
+    }
+
+    cex_dex_lead_lag_summary: dict[str, Any] = {
+        "products_evaluated": sorted(products_evaluated),
+        "ok_evaluations": cex_ok_evals,
+        "degraded_evaluations": cex_degraded_evals,
+        "cex_dex_positive_net_ticks": cex_dex_positive_ticks,
+        "best_cex_dex_net_bps": round(max(cex_best_net_values), 6) if cex_best_net_values else None,
+        "best_cex_dex_raw_spread_bps": (
+            round(max(cex_best_raw_values), 6) if cex_best_raw_values else None
+        ),
+        "best_maker_zero_fee_diagnostic_bps": (
+            round(max(cex_best_maker_values), 6) if cex_best_maker_values else None
+        ),
+        "maker_zero_fee_diagnostic_only": True,
+        "cex_taker_fee_bps": float(cex_taker_fee_bps),
+        "latency_haircut_bps": float(latency_haircut_bps),
+    }
+
+    summary_body: dict[str, Any] = {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "mode": mode,
+        "chain_id": BASE_CHAIN_ID,
+        "execution_eligible": False,
+        "rpc_origin": origin,
+        "ticks_completed": ticks_completed,
+        "positive_net_ticks": positive_net_ticks,
+        "atomic_positive_net_ticks": atomic_positive_ticks,
+        "cex_dex_positive_net_ticks": cex_dex_positive_ticks,
+        "lcb_net_edge_bps": lcb_int,
+        "lcb_net_edge_bps_exact": round(lcb_exact, 6),
+        "mean_net_edge_bps": round(mean_net_raw, 6),
+        "std_net_edge_bps": round(std_net_raw, 6),
+        "best_raw_spread_bps": round(max(raw_series), 6),
+        "revert_budget_status": "active",
+        "unresolved_residuals": 0,
+        "rpc_calls_used": rpc_calls_used,
+        "max_rpc_calls": max_rpc_calls,
+        "universe_pool_count": universe_pool_count,
+        "unique_blocks_observed": unique_blocks_observed,
+        "first_block_number": records[0]["block_number"],
+        "last_block_number": records[-1]["block_number"],
+        "chain_head_sha256": chain_head_sha256,
+        "atomic_dex_summary": atomic_dex_summary,
+        "cex_dex_lead_lag_summary": cex_dex_lead_lag_summary,
+    }
+    summary_sha256 = sha256_hex(canonical_json(summary_body))
+    summary = {**summary_body, "summary_sha256": summary_sha256}
+    _write_new_bytes(
+        summary_path, json.dumps(summary, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    )
+
+    return CampaignRunResult(
+        summary=summary,
+        records=tuple(records),
+        summary_path=summary_path,
+        attribution_path=attribution_path,
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Construct CLI parser for the 100-tick Base Multicall3 shadow campaign."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--mode",
+        choices=("public-shadow", "fixture"),
+        default="public-shadow",
+        help="Live read-only Base public-shadow or deterministic offline fixture mode.",
+    )
+    parser.add_argument(
+        "--ticks",
+        type=int,
+        default=DEFAULT_TICKS,
+        help=f"Number of block ticks to evaluate (default: {DEFAULT_TICKS}).",
+    )
+    parser.add_argument(
+        "--interval-ms",
+        type=int,
+        default=DEFAULT_INTERVAL_MS,
+        help=f"Target interval between ticks in milliseconds (default: {DEFAULT_INTERVAL_MS}).",
+    )
+    parser.add_argument(
+        "--max-rpc-calls",
+        type=int,
+        default=DEFAULT_MAX_RPC_CALLS,
+        help=f"Hard cumulative Base RPC call budget (default: {DEFAULT_MAX_RPC_CALLS}).",
+    )
+    parser.add_argument(
+        "--rpc-url",
+        default=DEFAULT_BASE_RPC_URL,
+        help=f"Base HTTPS JSON-RPC URL (default: {DEFAULT_BASE_RPC_URL}).",
+    )
+    parser.add_argument(
+        "--cex-taker-fee-bps",
+        type=float,
+        default=float(DEFAULT_CEX_TAKER_FEE_BPS),
+        help=f"Coinbase taker fee assumption in bps (default: {DEFAULT_CEX_TAKER_FEE_BPS}).",
+    )
+    parser.add_argument(
+        "--latency-haircut-bps",
+        type=float,
+        default=float(DEFAULT_LATENCY_HAIRCUT_BPS),
+        help=(
+            "Non-atomic CEX-DEX latency/drift haircut in bps "
+            f"(default: {DEFAULT_LATENCY_HAIRCUT_BPS})."
+        ),
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="Output directory for shadow_attribution.jsonl and shadow_summary.json.",
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """CLI entrypoint for the unified Base shadow campaign."""
+    parser = build_parser()
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    try:
+        _ensure_clean_output_dir(args.out)
+        result = run_multicall_campaign(
+            out_dir=args.out,
+            mode=args.mode,
+            ticks=args.ticks,
+            interval_ms=args.interval_ms,
+            max_rpc_calls=args.max_rpc_calls,
+            rpc_url=args.rpc_url,
+            cex_taker_fee_bps=args.cex_taker_fee_bps,
+            latency_haircut_bps=args.latency_haircut_bps,
+        )
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        RpcError,
+        FastpathUnavailableError,
+    ) as exc:
+        print(f"multicall-campaign failed: {exc}", file=sys.stderr)
+        return 2
+
+    print(
+        json.dumps(
+            {
+                "schema_version": result.summary["schema_version"],
+                "mode": result.summary["mode"],
+                "chain_id": result.summary["chain_id"],
+                "execution_eligible": result.summary["execution_eligible"],
+                "ticks_completed": result.summary["ticks_completed"],
+                "positive_net_ticks": result.summary["positive_net_ticks"],
+                "atomic_positive_net_ticks": result.summary["atomic_positive_net_ticks"],
+                "cex_dex_positive_net_ticks": result.summary["cex_dex_positive_net_ticks"],
+                "lcb_net_edge_bps": result.summary["lcb_net_edge_bps"],
+                "mean_net_edge_bps": result.summary["mean_net_edge_bps"],
+                "best_raw_spread_bps": result.summary["best_raw_spread_bps"],
+                "rpc_calls_used": result.summary["rpc_calls_used"],
+                "universe_pool_count": result.summary["universe_pool_count"],
+                "unique_blocks_observed": result.summary["unique_blocks_observed"],
+                "summary_sha256": result.summary["summary_sha256"],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+__all__ = [
+    "AERO_TOKEN",
+    "CBBTC",
+    "DEFAULT_INTERVAL_MS",
+    "DEFAULT_MAX_RPC_CALLS",
+    "DEFAULT_TICKS",
+    "MULTICALL3",
+    "RECORD_SCHEMA_VERSION",
+    "SUMMARY_SCHEMA_VERSION",
+    "WSTETH",
+    "CampaignRunResult",
+    "MulticallUniverseProtocol",
+    "PinnedTickSnapshot",
+    "QuoterCheckResult",
+    "build_parser",
+    "build_synthetic_multicall_rpc_transport",
+    "main",
+    "run_multicall_campaign",
+    "verify_campaign_attribution_chain",
+]
+
+if __name__ == "__main__":
+    raise SystemExit(main())
