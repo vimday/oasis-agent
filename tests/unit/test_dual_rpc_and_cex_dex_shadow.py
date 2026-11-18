@@ -1886,3 +1886,237 @@ def test_campaign_dynamic_sizing_risk_headroom_and_ws_fifo_fills(
     assert captured_cli_kw["max_daily_loss_usd"] == 750
     assert captured_cli_kw["dynamic_sizing"] is True
     assert captured_cli_kw["enable_coinbase_ws"] is True
+
+
+def test_campaign_wave14_adaptive_maker_batch_oos_persistence_and_gate5(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify Wave 14 walk-forward OOS tracker, batch flush, adaptive vol, and Gate 5."""
+    weth_addr = normalize_address(WETH)
+    usdc_addr = normalize_address(USDC)
+    cbbtc_addr = normalize_address(CBBTC)
+    bc_t0, bc_t1, bc_d0, bc_d1, bc_r0, bc_r1 = (
+        (cbbtc_addr, usdc_addr, 8, 6, 100 * 10**8, 9_000_000 * 10**6)
+        if cbbtc_addr < usdc_addr
+        else (usdc_addr, cbbtc_addr, 6, 8, 9_000_000 * 10**6, 100 * 10**8)
+    )
+    disc_pools = (
+        DiscoveredPool(
+            pool_id=_synth_addr(951),
+            label="v3_weth_usdc_500",
+            venue="uniswap_v3",
+            kind=PoolKind.V3,
+            token0=weth_addr,
+            token1=usdc_addr,
+            decimals0=18,
+            decimals1=6,
+            fixed_fee_pips=500,
+            tick_spacing=None,
+            factory=UNIV3_FACTORY,
+            reserve0=500 * 10**18,
+            reserve1=1_500_000 * 10**6,
+        ),
+        DiscoveredPool(
+            pool_id=_synth_addr(952),
+            label="v2_cbbtc_usdc",
+            venue="aerodrome_v2",
+            kind=PoolKind.V2,
+            token0=bc_t0,
+            token1=bc_t1,
+            decimals0=bc_d0,
+            decimals1=bc_d1,
+            fixed_fee_pips=3000,
+            tick_spacing=None,
+            factory=_synth_addr(9952),
+            reserve0=bc_r0,
+            reserve1=bc_r1,
+        ),
+    )
+
+    snap_idx = {"n": 0}
+
+    def _mock_snap(*_args: Any, **_kwargs: Any) -> PinnedUniverseSnapshot:
+        snap_idx["n"] += 1
+        bnum = 59_300_000 + snap_idx["n"]
+        ts_ms = 1_795_600_000_000 + snap_idx["n"] * 1000
+        liq = 2_000_000_000_000_000_000
+        t = -196_258
+        nodes = (
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[0].pool_id,
+                kind=PoolKind.V3,
+                token0=weth_addr,
+                token1=usdc_addr,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_price_at_tick(t),
+                tick=t,
+                liquidity=liq,
+                ticks=(TickLiquidity(t - 500, liq), TickLiquidity(t + 500, -liq)),
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=disc_pools[1].pool_id,
+                kind=PoolKind.V2,
+                token0=bc_t0,
+                token1=bc_t1,
+                decimals0=bc_d0,
+                decimals1=bc_d1,
+                fee_pips=3000,
+                reserve0=bc_r0,
+                reserve1=bc_r1,
+                block_number=bnum,
+                timestamp_ms=ts_ms,
+            ),
+        )
+        return PinnedUniverseSnapshot(
+            chain_id=BASE_CHAIN_ID,
+            block_number=bnum,
+            block_hash=_synth_hash(f"w14-blk-{bnum}"),
+            parent_hash=_synth_hash(f"w14-blk-{bnum - 1}"),
+            header_timestamp_ms=ts_ms,
+            base_time_ms=ts_ms,
+            base_fee_per_gas_wei=10_000_000,
+            l1_fee_wei=1_000_000_000_000,
+            pools=disc_pools,
+            pool_nodes=nodes,
+            balances_by_pool={
+                disc_pools[0].pool_id: (500 * 10**18, 1_500_000 * 10**6),
+                disc_pools[1].pool_id: (bc_r0, bc_r1),
+            },
+            rpc_calls_used=2,
+            execution_eligible=False,
+        )
+
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.discover_base_universe_pools",
+        lambda *_a, **_k: disc_pools,
+    )
+    monkeypatch.setattr(
+        "oasis_agent.fastpath.multicall_universe.fetch_pinned_universe_snapshot",
+        _mock_snap,
+    )
+
+    def _mock_cb_transport(url: str, _timeout: float) -> bytes:
+        if "BTC-USD" in url:
+            # Tick 1 spikes BTC +170 bps (1-tick flicker rejected!); Ticks 2..8 collapse to $89900
+            btc_mid = Decimal("91500.00") if snap_idx["n"] == 1 else Decimal("89900.00")
+            return serialize_coinbase_book_payload(
+                build_synthetic_coinbase_l2_book(
+                    "BTC-USD", mid_price=btc_mid, level_size=Decimal("0.01"), levels=3
+                )
+            )
+        # Sustained +60 bps ETH mid above DEX so Ticks 2..7 queue & settle persistent OOS trades;
+        # level_size=0.5 gives >$1500 top-3 depth while 0.502 ETH prints leave 0.002 partial.
+        return serialize_coinbase_book_payload(
+            build_synthetic_coinbase_l2_book(
+                "ETH-USD", mid_price=Decimal("3090.00"), level_size=Decimal("0.5"), levels=5
+            )
+        )
+
+    class _PartialFillWsFeed:
+        def __init__(self, product_ids: Any) -> None:
+            self.product_ids = tuple(product_ids)
+            self._tick = 0
+            self.closed = False
+
+        def drain_events(self) -> tuple[tuple[CoinbaseTradePrint, ...], bool]:
+            self._tick += 1
+            if self._tick == 1:
+                return (
+                    (
+                        CoinbaseTradePrint(
+                            product_id="ETH-USD",
+                            trade_id=200,
+                            price=Decimal("3089.50"),
+                            size=Decimal("0.05"),
+                            maker_side="sell",
+                            traded_at_utc="2026-11-18T12:00:00Z",
+                        ),
+                    ),
+                    False,
+                )
+            if self._tick == 2:
+                # 0.5 queue_ahead + 0.002 ETH (~$6.18 < $10 min_hedge_notional_usdc) batches!
+                return (
+                    (
+                        CoinbaseTradePrint(
+                            product_id="ETH-USD",
+                            trade_id=201,
+                            price=Decimal("3090.50"),
+                            size=Decimal("0.502"),
+                            maker_side="sell",
+                            traded_at_utc="2026-11-18T12:00:01Z",
+                        ),
+                    ),
+                    False,
+                )
+            if self._tick == 3:
+                # Another 0.002 ETH (~$6.18); combined ~$12.36 >= $10 triggers batched FIFO flush!
+                return (
+                    (
+                        CoinbaseTradePrint(
+                            product_id="ETH-USD",
+                            trade_id=202,
+                            price=Decimal("3090.50"),
+                            size=Decimal("0.502"),
+                            maker_side="sell",
+                            traded_at_utc="2026-11-18T12:00:02Z",
+                        ),
+                    ),
+                    False,
+                )
+            return ((), False)
+
+        def close(self) -> None:
+            self.closed = True
+
+    out_dir = tmp_path / "wave14-walkforward"
+    res = run_multicall_campaign(
+        out_dir=out_dir,
+        mode="public-shadow",
+        ticks=8,
+        interval_ms=0,
+        max_rpc_calls=60,
+        rpc_url="https://w14-oos.example.com",
+        bridge=bridge,
+        rpc_transport=lambda _u, _p, _t: b"{}",
+        coinbase_transport=_mock_cb_transport,
+        sleeper=_noop_sleep,
+        risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
+        dynamic_sizing=True,
+        enable_coinbase_ws=True,
+        ws_feed_factory=_PartialFillWsFeed,
+    )
+
+    maker_summary = res.summary["maker_hedge_summary"]
+    oos_summary = res.summary["oos_execution_summary"]
+    assert res.summary["execution_eligible"] is False
+    assert maker_summary["adaptive_volatility_enabled"] is True
+    assert maker_summary["open_unhedged_lots"] == 0
+    assert maker_summary["unhedged_exposure_usd_micros"] == 0
+    assert res.summary["unresolved_residuals"] == 0
+
+    assert oos_summary["execution_eligible"] is False
+    assert oos_summary["rejected_one_tick_flickers"] >= 1
+    assert oos_summary["oos_taker_trades_count"] >= 5
+    assert oos_summary["oos_trades_count"] >= 5
+    assert type(oos_summary["oos_lcb_net_edge_bps"]) is int
+    assert oos_summary["oos_lcb_net_edge_bps"] >= 5
+    assert Decimal(oos_summary["oos_total_net_profit_usd"]) > 0
+    assert all("oos_step" in rec for rec in res.records)
+
+    readiness = evaluate_profit_engine_readiness(
+        shadow_summary_path=out_dir / "shadow_summary.json",
+        min_shadow_ticks=8,
+        risk_config_path=REPO_ROOT / "configs" / "profit-engine-risk.example.json",
+    )
+    gate5 = next(g for g in readiness.gates if g.name == "positive_cost_adjusted_lcb_edge")
+    assert gate5.passed is True
+    assert (
+        readiness.evidence["oos_execution"]["oos_trades_count"] == oos_summary["oos_trades_count"]
+    )

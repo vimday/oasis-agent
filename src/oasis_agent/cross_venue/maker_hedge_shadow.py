@@ -345,9 +345,7 @@ class UnhedgedMakerLot:
         fill_px = _require_finite_decimal(
             self.fill_price_usdc, "fill_price_usdc", require_positive=True
         )
-        fee_usd = _require_finite_decimal(
-            self.maker_fee_usd, "maker_fee_usd", require_nonneg=True
-        )
+        fee_usd = _require_finite_decimal(self.maker_fee_usd, "maker_fee_usd", require_nonneg=True)
         adv_usd = _require_finite_decimal(
             self.adverse_cost_usd, "adverse_cost_usd", require_nonneg=True
         )
@@ -479,8 +477,7 @@ def _compute_quote_and_unit_prices(
         dex_buy_unit_px = dex_buy_cost_usd / ask_qty
         ask_gas_bps = (gas_usd / dex_buy_cost_usd) * _BPS_DIVISOR
         ask_breakeven = dex_buy_unit_px * (
-            Decimal(1)
-            + (config.cex_maker_fee_bps + eff_adv_bps + ask_gas_bps) / _BPS_DIVISOR
+            Decimal(1) + (config.cex_maker_fee_bps + eff_adv_bps + ask_gas_bps) / _BPS_DIVISOR
         )
 
         raw_ask = max(
@@ -832,9 +829,7 @@ class MakerHedgeLifecycleTracker:
 
     def unhedged_exposure_usd_micros(self) -> int:
         """Return total gross open unhedged notional in 6-decimal USDC micros."""
-        return sum(
-            lot.notional_usdc for lots in self._open_unhedged_lots.values() for lot in lots
-        )
+        return sum(lot.notional_usdc for lots in self._open_unhedged_lots.values() for lot in lots)
 
     def unrealized_drawdown_usd_micros(self) -> int:
         """Return non-negative mark-to-market unrealized loss in USD micros vs latest mid."""
@@ -1512,9 +1507,7 @@ class MakerHedgeLifecycleTracker:
                     f"duplicate product entry in latest_dex_quotes_by_product: {spec.product_id}"
                 )
             if not isinstance(quote_row, tuple) or len(quote_row) != 6:
-                raise MakerHedgeError(
-                    f"quote tuple for {spec.product_id} must have 6 elements"
-                )
+                raise MakerHedgeError(f"quote tuple for {spec.product_id} must have 6 elements")
             t_usdc, buy_out, t_tok, sell_out, tok_dec, gas_raw = quote_row
             _require_pos_int(t_usdc, "trade_notional_usdc")
             _require_pos_int(t_tok, "trade_notional_token")

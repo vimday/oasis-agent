@@ -693,9 +693,7 @@ def _validate_oos_execution_summary(
 
     trades_count = raw_summary.get("oos_trades_count")
     if type(trades_count) is not int or trades_count < min_oos_trades:
-        errors.append(
-            f"oos_trades_count ({trades_count!r}) must be an integer >= {min_oos_trades}"
-        )
+        errors.append(f"oos_trades_count ({trades_count!r}) must be an integer >= {min_oos_trades}")
 
     pos_trades = raw_summary.get("oos_positive_trades")
     if type(pos_trades) is not int or pos_trades <= 0:

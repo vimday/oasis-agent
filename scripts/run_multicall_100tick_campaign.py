@@ -26,6 +26,7 @@ import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final, Protocol, cast, runtime_checkable
@@ -64,9 +65,14 @@ from oasis_agent.cross_venue.live_cex_dex_shadow import (
     _validate_resolved_dns as _validate_cb_dns,
 )
 from oasis_agent.cross_venue.maker_hedge_shadow import (
+    MakerFillEvent,
     MakerHedgeConfig,
     MakerHedgeLifecycleTracker,
     build_maker_quote_candidate,
+)
+from oasis_agent.cross_venue.oos_execution_tracker import (
+    OosStrategyExecutionTracker,
+    OosTrackerConfig,
 )
 from oasis_agent.errors import RpcError
 from oasis_agent.evidence.base_denim import (
@@ -1828,8 +1834,26 @@ def run_multicall_campaign(
     cex_best_net_values: list[float] = []
     cex_best_raw_values: list[float] = []
     cex_best_maker_values: list[float] = []
-    maker_config = MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
+    if dynamic_sizing:
+        maker_config = MakerHedgeConfig(
+            trade_notional_usdc=trade_notional_usdc,
+            adaptive_volatility_enabled=True,
+            min_hedge_notional_usdc=max(10_000_000, active_risk_cfg.min_clip_usd_micros),
+        )
+    else:
+        maker_config = MakerHedgeConfig(trade_notional_usdc=trade_notional_usdc)
     maker_tracker = MakerHedgeLifecycleTracker(maker_config)
+    cex_taker_fee_dec = (
+        cex_taker_fee_bps
+        if isinstance(cex_taker_fee_bps, Decimal)
+        else Decimal(str(cex_taker_fee_bps))
+    )
+    oos_tracker = OosStrategyExecutionTracker(
+        OosTrackerConfig(
+            max_signal_age_ms=max(30_000, interval_ms * 4),
+            coinbase_taker_fee_bps=cex_taker_fee_dec,
+        )
+    )
     ws_feed: CoinbaseWebSocketFeed | None = None
     ws_candidate_products: tuple[str, ...] = ()
     ws_watermarks: dict[str, int] = {}
@@ -1989,10 +2013,14 @@ def run_multicall_campaign(
 
             acct_snap = AccountCapitalSnapshot(
                 cash_available_usd_micros=active_risk_cfg.total_capital_usd_micros,
-                locked_inventory_usd_micros=0,
+                locked_inventory_usd_micros=(
+                    maker_tracker.unhedged_exposure_usd_micros() if dynamic_sizing else 0
+                ),
                 pending_commitments_usd_micros=0,
                 realized_daily_loss_usd_micros=shadow_daily_loss_usd_micros,
-                unrealized_drawdown_usd_micros=0,
+                unrealized_drawdown_usd_micros=(
+                    maker_tracker.unrealized_drawdown_usd_micros() if dynamic_sizing else 0
+                ),
                 cumulative_loss_usd_micros=shadow_cumulative_loss_usd_micros,
                 unresolved_residuals=0,
                 halted=False,
@@ -2269,6 +2297,16 @@ def run_multicall_campaign(
             cex_evals_dict: dict[str, dict[str, Any]] = {}
             maker_tick_dict: dict[str, dict[str, Any]] = {}
             tick_cex_ok: list[CexDexTickEvaluation] = []
+            pending_notional_by_product = {
+                intent.product_id: intent.notional_usdc_micros
+                for intent in oos_tracker.pending_intents
+            }
+            tick_dex_quotes_by_product: dict[
+                str, tuple[int, int | None, int, int | None, int, Decimal]
+            ] = {}
+            tick_bbo_by_product: dict[str, tuple[Decimal, Decimal]] = {}
+            tick_gas_by_product: dict[str, Decimal] = {}
+            tick_maker_realized_fills: list[MakerFillEvent] = []
             for tok_addr in CEX_DEX_TOKEN_ORDER:
                 meta = TOKEN_META_BY_ADDR[tok_addr]
                 if meta.coinbase_product is None:
@@ -2433,6 +2471,7 @@ def run_multicall_campaign(
                         feed_gap_detected=ws_gap_tick,
                     )
                     for realized_fill in (*maker_step.fifo_fills, *maker_step.strict_fills):
+                        tick_maker_realized_fills.append(realized_fill)
                         if realized_fill.realized_net_profit_usd < 0:
                             loss_micros = round(
                                 float(-realized_fill.realized_net_profit_usd) * 1_000_000
@@ -2461,6 +2500,56 @@ def run_multicall_campaign(
                         "unhedged_fill_reasons": [],
                         "execution_eligible": False,
                     }
+
+                tick_bbo_by_product[meta.coinbase_product] = (
+                    fetched_book.best_bid,
+                    fetched_book.best_ask,
+                )
+                tick_gas_by_product[meta.coinbase_product] = gas_cost_usd
+                ref_usdc = pending_notional_by_product.get(meta.coinbase_product)
+                if ref_usdc is None:
+                    ref_usdc = (
+                        ev.selected_notional_usdc
+                        if (ev.status == "ok" and ev.selected_notional_usdc is not None)
+                        else maker_notional_usdc
+                    )
+                if ref_usdc <= 0:
+                    ref_usdc = probe_notional
+                if ref_usdc == probe_notional:
+                    ref_buy_out, ref_tok, ref_sell_out = dex_buy_out, notional_tok, dex_sell_out
+                else:
+                    ref_buy_out, ref_tok, ref_sell_out = _quote_dex_cached(ref_usdc)
+                if ref_tok > 0:
+                    tick_dex_quotes_by_product[meta.coinbase_product] = (
+                        ref_usdc,
+                        ref_buy_out,
+                        ref_tok,
+                        ref_sell_out,
+                        meta.decimals,
+                        gas_cost_usd,
+                    )
+
+            observed_at_utc = (
+                datetime.fromtimestamp(snapshot.base_time_ms / 1000.0, tz=UTC)
+                .isoformat()
+                .replace("+00:00", "Z")
+            )
+            if tick_idx == ticks - 1 and maker_tracker.open_lots():
+                flushed_fills = maker_tracker.flush_all_unhedged(
+                    tick_dex_quotes_by_product,
+                    recorded_at_utc=observed_at_utc,
+                )
+                for flushed_fill in flushed_fills:
+                    if flushed_fill.realized_net_profit_usd < 0:
+                        loss_micros = round(
+                            float(-flushed_fill.realized_net_profit_usd) * 1_000_000
+                        )
+                        shadow_daily_loss_usd_micros += loss_micros
+                        shadow_cumulative_loss_usd_micros += loss_micros
+                    prod_entry = maker_tick_dict.get(flushed_fill.product_id)
+                    if prod_entry is not None:
+                        prod_entry.setdefault("flushed_fills", []).append(flushed_fill.to_dict())
+                tick_maker_realized_fills.extend(flushed_fills)
 
             cex_dex_best_net_bps: float | None = None
             cex_dex_best_raw_bps: float | None = None
@@ -2497,6 +2586,23 @@ def run_multicall_campaign(
             tick_positive = atomic_positive or cex_dex_positive
 
             seq = tick_idx + 1
+            oos_step = oos_tracker.step_tick(
+                step_seq=seq,
+                observed_at_utc=observed_at_utc,
+                observed_at_ms=snapshot.base_time_ms,
+                cex_dex_opportunities=tick_cex_ok,
+                latest_dex_quotes_by_product=tick_dex_quotes_by_product,
+                latest_bbo_by_product=tick_bbo_by_product,
+                maker_fills=tick_maker_realized_fills,
+                gas_cost_usd_by_product=tick_gas_by_product,
+                coinbase_taker_fee_bps=cex_taker_fee_dec,
+            )
+            for settled_taker in oos_step.settled_taker_trades:
+                if settled_taker.realized_net_profit_usd < 0:
+                    loss_micros = round(float(-settled_taker.realized_net_profit_usd) * 1_000_000)
+                    shadow_daily_loss_usd_micros += loss_micros
+                    shadow_cumulative_loss_usd_micros += loss_micros
+
             record_body: dict[str, Any] = {
                 "schema_version": RECORD_SCHEMA_VERSION,
                 "seq": seq,
@@ -2527,6 +2633,7 @@ def run_multicall_campaign(
                 "headroom": headroom.to_dict(),
                 "cex_dex_evaluations": cex_evals_dict,
                 "maker_hedge": maker_tick_dict,
+                "oos_step": oos_step.to_dict(),
                 "cex_dex_best_net_bps": cex_dex_best_net_bps,
                 "cex_dex_best_raw_spread_bps": cex_dex_best_raw_bps,
                 "cex_dex_best_maker_diagnostic_bps": cex_dex_best_maker_bps,
@@ -2659,6 +2766,8 @@ def run_multicall_campaign(
         "ws_rest_fallback_calls": ws_rest_fallback_calls,
     }
 
+    maker_summary = maker_tracker.summary()
+    oos_execution_summary = oos_tracker.summary()
     summary_body: dict[str, Any] = {
         "schema_version": SUMMARY_SCHEMA_VERSION,
         "mode": mode,
@@ -2682,7 +2791,7 @@ def run_multicall_campaign(
         "std_net_edge_bps": round(std_net_raw, 6),
         "best_raw_spread_bps": round(max(raw_series), 6),
         "revert_budget_status": "active",
-        "unresolved_residuals": 0,
+        "unresolved_residuals": maker_summary["open_unhedged_lots"],
         "rpc_calls_used": rpc_calls_used,
         "max_rpc_calls": max_rpc_calls,
         "universe_pool_count": universe_pool_count,
@@ -2692,7 +2801,8 @@ def run_multicall_campaign(
         "chain_head_sha256": chain_head_sha256,
         "atomic_dex_summary": atomic_dex_summary,
         "cex_dex_lead_lag_summary": cex_dex_lead_lag_summary,
-        "maker_hedge_summary": maker_tracker.summary(),
+        "maker_hedge_summary": maker_summary,
+        "oos_execution_summary": oos_execution_summary,
     }
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
@@ -2868,6 +2978,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "headroom_summary": result.summary["headroom_summary"],
                 "coinbase_trade_flow_summary": result.summary["coinbase_trade_flow_summary"],
                 "maker_hedge_summary": result.summary["maker_hedge_summary"],
+                "oos_execution_summary": result.summary["oos_execution_summary"],
                 "summary_sha256": result.summary["summary_sha256"],
             },
             sort_keys=True,

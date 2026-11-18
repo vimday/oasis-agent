@@ -1304,9 +1304,7 @@ def test_readiness_cli_min_oos_trades_and_tracker_integration(
 
     # Invalid --min-oos-trades <= 0 returns exit code 2.
     bad_out = tmp_path / "bad_cli.json"
-    assert (
-        readiness_cli_main(["--min-oos-trades", "0", "--out", str(bad_out)]) == 2
-    )
+    assert readiness_cli_main(["--min-oos-trades", "0", "--out", str(bad_out)]) == 2
     capsys.readouterr()
 
     # With default --min-oos-trades 5, 3 trades is blocked (--require-ready returns 2).

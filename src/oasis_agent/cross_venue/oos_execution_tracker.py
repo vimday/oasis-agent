@@ -504,9 +504,7 @@ def _extract_dex_quote(raw_quote: object) -> _ParsedDexQuote | None:
     tok_in = _maybe_int(
         _get_field(raw_quote, "trade_notional_token", "notional_token_base", "token_amount")
     )
-    sell_out = _maybe_int(
-        _get_field(raw_quote, "dex_sell_usdc_out", "dex_sell_token_for_usdc_out")
-    )
+    sell_out = _maybe_int(_get_field(raw_quote, "dex_sell_usdc_out", "dex_sell_token_for_usdc_out"))
     decimals = _maybe_int(_get_field(raw_quote, "token_decimals", "base_decimals", "decimals"))
     gas = _maybe_finite_decimal(_get_field(raw_quote, "gas_cost_usd"))
     return _ParsedDexQuote(
@@ -740,12 +738,7 @@ def _extract_maker_fill(
         quoted_px = _maybe_finite_decimal(_get_field(item, "quoted_price_usd"), allow_float=True)
         if filled_qty is not None and quoted_px is not None and filled_qty > 0 and quoted_px > 0:
             notional_usd = filled_qty * quoted_px
-    if (
-        notional_usd is None
-        and realized_bps is not None
-        and realized_bps != 0
-        and net_profit != 0
-    ):
+    if notional_usd is None and realized_bps is not None and realized_bps != 0 and net_profit != 0:
         derived = abs(net_profit * _BPS_DIVISOR / realized_bps)
         if derived > 0:
             notional_usd = derived
@@ -799,9 +792,7 @@ def _extract_maker_fill(
 
     raw_matched = _get_field(item, "matched_trade_ids")
     matched_ids = (
-        tuple(int(x) for x in raw_matched)
-        if isinstance(raw_matched, (tuple, list))
-        else ()
+        tuple(int(x) for x in raw_matched) if isinstance(raw_matched, (tuple, list)) else ()
     )
     raw_id = _get_field(item, "trade_id", "fill_id", "id")
     explicit_id = str(raw_id) if raw_id is not None else ""
