@@ -89,5 +89,5 @@ jobs:
         run: make install
       - name: Run contract security gate
         run: make contract-security-check
-      - name: Verify Python-Solidity ABI parity
-        run: OASIS_REQUIRE_FOUNDRY_ARTIFACTS=1 .venv/bin/python -m pytest tests/unit/test_atomic_bundle_and_revert_budget.py tests/unit/test_intent_vault_and_uniswapx_client.py -q
+      - name: Verify Python-Solidity ABI and Anvil E2E parity
+        run: OASIS_REQUIRE_FOUNDRY_ARTIFACTS=1 .venv/bin/python -m pytest tests/unit/test_atomic_bundle_and_revert_budget.py tests/unit/test_intent_vault_and_uniswapx_client.py tests/unit/test_atomic_intent_authority.py tests/unit/test_profit_engine_readiness_and_anvil.py -q

@@ -36,6 +36,7 @@
 | Rust 快路径内核与增量同步/清算引擎 | `crates/oasis-core` 多 DEX 状态图（V2/V3/Slipstream/V4/AerodromeStable）经索引零分配热循环优化至 2-hop 6 池 `101 us/scan`；[state_sync.py](../src/oasis_agent/fastpath/state_sync.py) 实现 V2/V3/V4 日志增量同步与 64 块连续性/重组回滚；[liquidation.py](../src/oasis_agent/fastpath/liquidation.py) 实现 Morpho/Aave V3 闪电贷清算扫描；[OasisAtomicExecutor.sol](../contracts/src/OasisAtomicExecutor.sol) 与分级回滚风控 | 离线差分 0 误差、Foundry 早期中止 62.4k–64.6k gas、Rust 16 测全过。增量同步与闪电贷清算已在合成日志与 `public-shadow` 中验证；实盘链上广播仍无执行授权。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)与[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
 | `eqn.news` 情报、发射台安全门与 `BaseTime` | 14 频道 `eqn.news` 只读客户端与事件冻结安全发现桥；Base Denim 毫秒级 `LaunchpadSafetyGate` 并直接接入 [spot_agent.py](../src/oasis_agent/launch/spot_agent.py) 入场前安全门；[base_time_probe.py](../src/oasis_agent/evidence/base_time_probe.py) 实现 `BaseTime` 预部署同块校验 | `public-shadow` 实测获取 20 条快讯（自动冻结 APT）并在 Base 块 `58978574` 完成 `BaseTime`（`0x4200...0030`）实读交叉核验（`1794986090400 ms` 一致，3/4 预算）。仅影子/只读证明，`execution_eligible=false`。见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
 | 意图金库、`UniswapX`、跨市场与 Stage 7 组合分配 | [OasisIntentVault.sol](../contracts/src/OasisIntentVault.sol)（双平面托管 + 域隔离 ERC-1271 + `IReactorCallback` 结算）；`UniswapX` `Dutch_V3` 只读订单簿客户端；`ALEPHTX_SHM_V12` / 只读 `ssh aleph` / `HedgeGroup`；[Stage 7 组合分配器](../src/oasis_agent/portfolio/allocator.py)（独立储备隔离、失效立即归零、相关风险域上限）与只读控制台 `/api/v1/radar/*` | Foundry 3 套件 13 测全过（512 轮 65,536 次不变量 0 违例）、Slither `--fail-low` 0 告警；`UniswapX` Base `/v2/orders` 公开轮询返回 200（0 挂单快照）。尚未部署金库或批准实盘资金权重。见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
+| 准实盘盈利闭环（Anvil 全结算 + 实时 Base 影子归因 + 8 门禁） | [atomic_authority.py](../src/oasis_agent/live/atomic_authority.py)（双源同块模拟与 EIP-1559 签名字节核对）；[live_shadow_runner.py](../src/oasis_agent/fastpath/live_shadow_runner.py)（Base V3/Aerodrome/Slipstream 四池 + L1/L2 费用实时归因）；[verify_atomic_vault_anvil.py](../scripts/verify_atomic_vault_anvil.py)（4 项真实 Anvil 结算）与 [canary_readiness.py](../src/oasis_agent/live/canary_readiness.py)（8 门禁总闸） | 回环 Anvil 4/4 通过（`EarlyAborted` `58,180 gas`、`executeCycle` `191,519 gas`、`executeReactorFill` `271,931 gas`、0 授权残留）；Base 主网 3 块实测 `-14.43 bps` 净差诚实触发 `positive_cost_adjusted_lcb_edge` 阻断，目前 4/8 通过、`release_permitted=false`。见[准实盘手册](operations/PROFIT_ENGINE_PRELIVE_RUNBOOK.md)与[准实盘核验](verification/PRELIVE_PROFIT_BRIDGE_20261118.md)。 |
 | 后续策略 | 对冲、做市、跨市场交易、Stage 7 组合分配器及全部工程基线 | 工程交付与只读影子闭环见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)；资本晋级与真实样本外净收益验收仍受[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)约束。 |
 
 ## Base LP 验收记录
@@ -78,6 +79,7 @@
 
 ## 证据导航
 
+- [准实盘盈利闭环与 Anvil/Base 实测核验](verification/PRELIVE_PROFIT_BRIDGE_20261118.md)与[准实盘操作手册](operations/PROFIT_ENGINE_PRELIVE_RUNBOOK.md)
 - [CTO 全路线推进与 P1–P4 终验记录](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)
 - [自主机会引擎与四路并行升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)
 - [外部审计报告原文](references/EXTERNAL_OASIS_AUDIT_20261115.md)与[逐项复核](verification/EXTERNAL_OASIS_AUDIT_REVIEW_20261115.md)
