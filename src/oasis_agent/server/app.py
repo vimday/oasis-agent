@@ -52,6 +52,7 @@ from .routers_launch import router as launch_router
 from .routers_observe import router as observe_router
 from .routers_ops import router as ops_router
 from .routers_p3 import router as p3_router
+from .routers_radar import router as radar_router
 from .routers_research import router as research_router
 from .routers_spot import router as spot_router
 from .runner import ShadowRunCoordinator
@@ -84,6 +85,7 @@ _ROUTERS = (
     campaigns_router,
     research_router,
     spot_router,
+    radar_router,
 )
 
 _REQUEST_ID_HEX_LENGTH = 12
