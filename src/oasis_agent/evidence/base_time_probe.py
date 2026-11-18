@@ -118,6 +118,17 @@ class BaseTimeVerificationReceipt:
             raise ValueError("verified_at_utc must be a nonempty ISO-8601 timestamp")
 
 
+_TUN_FAKE_IPV4_NET: Final[ipaddress.IPv4Network] = ipaddress.IPv4Network("198.18.0.0/15")
+_TUN_FAKE_IPV6_NET: Final[ipaddress.IPv6Network] = ipaddress.IPv6Network("2001:2::/48")
+
+
+def _is_tun_fake_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Allow local TUN Fake-IP benchmarking ranges only for DNS-resolved domain names."""
+    if isinstance(ip_obj, ipaddress.IPv4Address):
+        return ip_obj in _TUN_FAKE_IPV4_NET
+    return ip_obj in _TUN_FAKE_IPV6_NET
+
+
 def _is_forbidden_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return (
         ip_obj.is_private
@@ -172,7 +183,7 @@ def _validate_resolved_dns(hostname: str, port: int) -> None:
     for _, _, _, _, sockaddr in addr_infos:
         raw_ip = str(sockaddr[0]).split("%", 1)[0]
         ip_obj = ipaddress.ip_address(raw_ip)
-        if _is_forbidden_ip(ip_obj):
+        if _is_forbidden_ip(ip_obj) and not _is_tun_fake_ip(ip_obj):
             raise ValueError("BaseTime probe DNS resolved to a private or loopback IP")
 
 

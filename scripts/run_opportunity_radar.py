@@ -1,13 +1,19 @@
-"""Unified Opportunity Radar CLI across all four Oasis-Agent v2 engines.
+"""Unified Opportunity Radar CLI across all Oasis-Agent subsystems (v2).
 
 Runs deterministic offline/shadow orchestration (never signs, broadcasts, or mutates
 external hosts) across:
-1. Rust `oasis-core` multi-DEX local state graph + Python differential & latency benchmark
+1. Rust `oasis-core` sub-ms multi-DEX cycle graph + Python differential & latency benchmark
    paired with `OasisAtomicExecutor` bundle encoding and tiered revert-budget telemetry;
-2. Equation News (`eqn.news`) catalyst intelligence + Base Denim `LaunchpadSafetyGate`;
-3. `UniswapX V3DutchOrderReactor` zero-LP-fee shadow filler evaluation;
-4. `AlephTX` `ALEPHTX_SHM_V12` cross-language bridge + optional read-only WSL `aleph`
-   lakehouse probe + `HedgeGroup` / CEX-DEX lead-lag / funding-basis evaluators.
+2. Incremental EVM pool log state sync (`V2`/`V3`/`V4`) with reorg rollback + atomic
+   flash-loan liquidation discovery (`Morpho Blue` / `Aave V3`);
+3. Base Denim `BaseTime` (`0x4200...0030`) single-block predeploy verification probe;
+4. Equation News (`eqn.news`) 14-channel catalyst intelligence + Base Denim
+   `LaunchpadSafetyGate` & `SpotAgent` evaluator drill;
+5. `UniswapX V3DutchOrderReactor` shadow filler + read-only `/v2/orders` orderbook poll;
+6. `AlephTX` `ALEPHTX_SHM_V12` cross-language bridge + read-only WSL `aleph`
+   lakehouse probe + `HedgeGroup` / CEX-DEX lead-lag / funding-basis evaluators;
+7. Stage 7 Cross-Strategy Portfolio Capital Allocator with segregated reserves and shared
+   failure-domain exposure caps.
 """
 
 import argparse
@@ -18,7 +24,7 @@ import subprocess  # nosec B404 - bounded local oasis-fastpath benchmark invocat
 import sys
 import time
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -44,6 +50,9 @@ from oasis_agent.cross_venue.hedge_group import (
     apply_hedge_event,
 )
 from oasis_agent.cross_venue.lead_lag import LeadLagDirection, evaluate_cex_dex_lead_lag
+from oasis_agent.errors import RpcError
+from oasis_agent.evidence.base_denim import BASE_TIME
+from oasis_agent.evidence.base_time_probe import verify_base_time_predeploy
 from oasis_agent.execution.atomic_bundle import (
     AtomicCycleIntent,
     PrecheckGuardSpec,
@@ -51,12 +60,24 @@ from oasis_agent.execution.atomic_bundle import (
     encode_execute_cycle_calldata,
 )
 from oasis_agent.fastpath.bridge import FastpathBridge
+from oasis_agent.fastpath.liquidation import (
+    BorrowerPositionSnapshot,
+    FlashLiquidationConfig,
+    FlashLiquidationScanner,
+)
 from oasis_agent.fastpath.pool_graph import (
     CycleCandidate,
     FastpathPoolGraph,
     PoolKind,
     PoolNode,
     TickLiquidity,
+)
+from oasis_agent.fastpath.state_sync import (
+    V2_SYNC_TOPIC,
+    V3_SWAP_TOPIC,
+    EvmPoolLogEvent,
+    IncrementalPoolStateSynchronizer,
+    ReorgDetectedError,
 )
 from oasis_agent.intelligence.catalyst_scorer import classify_catalyst
 from oasis_agent.intelligence.discovery_bridge import (
@@ -75,6 +96,7 @@ from oasis_agent.intents.dutch_v3 import (
     validate_dutch_v3_reactor,
 )
 from oasis_agent.intents.filler_shadow import evaluate_dutch_v3_fill
+from oasis_agent.intents.uniswapx_client import UniswapXClientError, UniswapXOrderbookClient
 from oasis_agent.launch.launchpad_safety import (
     DecisionStatus,
     LaunchpadArchetype,
@@ -82,7 +104,15 @@ from oasis_agent.launch.launchpad_safety import (
     LaunchpadSafetyPolicy,
     evaluate_launchpad_safety,
 )
+from oasis_agent.launch.opportunity import Market
+from oasis_agent.launch.spot_agent import make_launchpad_safety_evaluator
 from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.portfolio.allocator import PortfolioAllocator, PortfolioAllocatorConfig
+from oasis_agent.portfolio.models import (
+    ExposureDomainCap,
+    PortfolioReserves,
+    StrategyTrackCandidate,
+)
 from oasis_agent.risk.revert_budget import (
     CYCLE_EXECUTED_TOPIC0,
     EARLY_ABORTED_TOPIC0,
@@ -94,11 +124,24 @@ from oasis_agent.risk.revert_budget import (
 )
 from oasis_agent.uniswap_v4 import liquidity_math
 
-RADAR_SCHEMA_VERSION = "oasis-opportunity-radar-v1"
+RADAR_SCHEMA_VERSION = "oasis-opportunity-radar-v2"
+DEFAULT_BASE_RPC_URL = "https://base-rpc.publicnode.com"
 
 
 def _addr(byte_hex: str) -> str:
     return "0x" + byte_hex * 20
+
+
+def _topic_addr(byte_hex: str) -> str:
+    return "0x" + ("00" * 12) + (byte_hex * 20)
+
+
+def _u256_word(value: int) -> str:
+    return value.to_bytes(32, "big").hex()
+
+
+def _i256_word(value: int) -> str:
+    return (value & ((1 << 256) - 1)).to_bytes(32, "big").hex()
 
 
 def _hash32(label: bytes) -> str:
@@ -502,6 +545,20 @@ def _run_eqn_and_launchpad_engine(
         )
         nominated = provider.nominate(BASE_CHAIN_ID)
         counts = dict(sorted(Counter(sig.kind.value for sig in signals).items()))
+        top_items = [
+            {
+                "id": sig.item_id,
+                "kind": sig.kind.value,
+                "direction": sig.direction.value,
+                "confidence_bps": sig.confidence_bps,
+                "symbols": list(sig.symbols),
+                "channels": list(sig.channels),
+                "risk_freeze": sig.risk_freeze,
+                "actionable": (not sig.risk_freeze and sig.confidence_bps >= 6_000),
+                "reason": sig.reason,
+            }
+            for sig in sorted(signals, key=lambda s: (-s.confidence_bps, s.item_id))[:20]
+        ]
         eqn_summary = {
             "status": fetch_status,
             "error": fetch_error,
@@ -514,6 +571,7 @@ def _run_eqn_and_launchpad_engine(
             "nominated_verified_addresses": nominated,
             "frozen_symbols": list(provider.frozen_symbols),
             "unmapped_symbols": list(provider.unmapped_symbols),
+            "top_items": top_items,
         }
     else:
         eqn_summary = {
@@ -528,6 +586,7 @@ def _run_eqn_and_launchpad_engine(
             "nominated_verified_addresses": [],
             "frozen_symbols": [],
             "unmapped_symbols": [],
+            "top_items": [],
         }
 
     # Base Denim LaunchpadSafetyGate triad: active decay (DEFER), safe entry (APPROVED), soft rug
@@ -622,6 +681,65 @@ def _run_eqn_and_launchpad_engine(
     d_ok = evaluate_launchpad_safety(approved_evidence, policy)
     d_rug = evaluate_launchpad_safety(rug_evidence, policy)
 
+    evidence_by_token_and_block = {
+        (defer_evidence.token, block_s): defer_evidence,
+        (approved_evidence.token, block_s + 12): approved_evidence,
+        (rug_evidence.token, block_s + 13): rug_evidence,
+    }
+    spot_evaluator = make_launchpad_safety_evaluator(
+        policy,
+        lambda market, ts: evidence_by_token_and_block.get((market.token, ts)),
+        fail_closed_on_missing=True,
+    )
+    drill_defer = spot_evaluator(
+        Market(
+            token=defer_evidence.token,
+            symbol="DOPL",
+            observed_at=block_s,
+            liquidity_usd_micros=60_000_000_000,
+            market_cap_usd_micros=500_000_000_000,
+            holders=300,
+            top10_bps=2_200,
+            unique_traders=90,
+            buys=60,
+            sells=30,
+            first_trade_at=genesis_ms // 1000,
+        ),
+        block_s,
+    )
+    drill_ok = spot_evaluator(
+        Market(
+            token=approved_evidence.token,
+            symbol="DOPL",
+            observed_at=block_s + 12,
+            liquidity_usd_micros=60_000_000_000,
+            market_cap_usd_micros=500_000_000_000,
+            holders=300,
+            top10_bps=2_200,
+            unique_traders=90,
+            buys=60,
+            sells=30,
+            first_trade_at=genesis_ms // 1000,
+        ),
+        block_s + 12,
+    )
+    drill_rug = spot_evaluator(
+        Market(
+            token=rug_evidence.token,
+            symbol="RUG",
+            observed_at=block_s + 13,
+            liquidity_usd_micros=60_000_000_000,
+            market_cap_usd_micros=500_000_000_000,
+            holders=300,
+            top10_bps=5_500,
+            unique_traders=90,
+            buys=60,
+            sells=30,
+            first_trade_at=genesis_ms // 1000,
+        ),
+        block_s + 13,
+    )
+
     return (
         {
             "eqn_news": eqn_summary,
@@ -640,6 +758,19 @@ def _run_eqn_and_launchpad_engine(
                     "status": d_rug.status.value,
                     "reasons": list(d_rug.reasons),
                 },
+                "spot_agent_gate_drill": {
+                    "defer_status": drill_defer.status.value if drill_defer else None,
+                    "approved_status": drill_ok.status.value if drill_ok else None,
+                    "rug_status": drill_rug.status.value if drill_rug else None,
+                    "parity_ok": (
+                        drill_defer is not None
+                        and drill_defer.status is DecisionStatus.DEFER_UNTIL_DECAY
+                        and drill_ok is not None
+                        and drill_ok.status is DecisionStatus.APPROVED
+                        and drill_rug is not None
+                        and drill_rug.status is DecisionStatus.REJECTED
+                    ),
+                },
                 "all_expected_statuses_ok": (
                     d_defer.status is DecisionStatus.DEFER_UNTIL_DECAY
                     and d_ok.status is DecisionStatus.APPROVED
@@ -651,7 +782,12 @@ def _run_eqn_and_launchpad_engine(
     )
 
 
-def _run_uniswapx_intent_engine() -> dict[str, Any]:
+def _run_uniswapx_intent_engine(
+    *,
+    mode: str,
+    now_ms: int,
+    uniswapx_client: UniswapXOrderbookClient | None = None,
+) -> dict[str, Any]:
     reactor_addr = _addr("31")
     validate_dutch_v3_reactor(reactor_addr, chain_id=BASE_CHAIN_ID)
     deprecated_rejected = False
@@ -705,6 +841,38 @@ def _run_uniswapx_intent_engine() -> dict[str, Any]:
         sla_budget_ms=500,
         min_net_edge_bps=5,
     )
+    if mode == "public-shadow":
+        try:
+            active_client = (
+                uniswapx_client
+                if uniswapx_client is not None
+                else UniswapXOrderbookClient(max_requests=1, timeout_s=8.0)
+            )
+            poll = active_client.poll_open_orders(limit=20, polled_at_ms=now_ms)
+            live_poll = {
+                "status": "ok",
+                "order_count": len(poll.orders),
+                "raw_sha256": poll.raw_sha256,
+                "request_url": poll.request_url,
+                "error": None,
+            }
+        except (UniswapXClientError, OSError, ValueError) as exc:
+            live_poll = {
+                "status": "error",
+                "order_count": 0,
+                "raw_sha256": None,
+                "request_url": None,
+                "error": str(exc),
+            }
+    else:
+        live_poll = {
+            "status": "synthetic_skip",
+            "order_count": 0,
+            "raw_sha256": None,
+            "request_url": None,
+            "error": None,
+        }
+
     return {
         "deprecated_priority_reactor_rejected": deprecated_rejected,
         "order_hash": decision.order_hash,
@@ -716,6 +884,7 @@ def _run_uniswapx_intent_engine() -> dict[str, Any]:
         "saved_amm_fee_usd_micros": decision.saved_amm_fee_usd_micros,
         "quote_latency_ms": decision.quote_latency_ms,
         "sla_budget_ms": decision.sla_budget_ms,
+        "live_orderbook_poll": live_poll,
         "execution_eligible": decision.execution_eligible,
     }
 
@@ -904,6 +1073,383 @@ def _run_cross_venue_and_aleph_engine(
     }
 
 
+def _run_evm_sync_and_liquidation_engine(
+    *,
+    now_ms: int,
+    bridge: FastpathBridge | None = None,
+) -> dict[str, Any]:
+    active_bridge = bridge if bridge is not None else FastpathBridge()
+    weth = _addr("11")
+    usdc = _addr("22")
+    pool_v2_id = _addr("f1")
+    pool_v3_id = _addr("f2")
+
+    head0 = 57_800_000
+    hash0 = _hash32(b"radar-evm-sync-b0")
+    hash1 = _hash32(b"radar-evm-sync-b1")
+    hash2_fork = _hash32(b"radar-evm-sync-b2-fork")
+    tick_init = -196_000
+    sqrt_init = active_bridge.sqrt_price_at_tick(tick_init)
+
+    sync = IncrementalPoolStateSynchronizer(
+        initial_pools=(
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=pool_v2_id,
+                kind=PoolKind.V2,
+                token0=weth,
+                token1=usdc,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=3000,
+                reserve0=100 * 10**18,
+                reserve1=320_000 * 10**6,
+                block_number=head0,
+                timestamp_ms=now_ms,
+            ),
+            PoolNode(
+                chain_id=BASE_CHAIN_ID,
+                pool_id=pool_v3_id,
+                kind=PoolKind.V3,
+                token0=weth,
+                token1=usdc,
+                decimals0=18,
+                decimals1=6,
+                fee_pips=500,
+                sqrt_price_x96=sqrt_init,
+                tick=tick_init,
+                liquidity=10_000_000_000_000_000,
+                ticks=(
+                    TickLiquidity(tick=-197_000, liquidity_net=10_000_000_000_000_000),
+                    TickLiquidity(tick=-195_000, liquidity_net=-10_000_000_000_000_000),
+                ),
+                block_number=head0,
+                timestamp_ms=now_ms,
+            ),
+        ),
+        head_block_number=head0,
+        head_block_hash=hash0,
+    )
+
+    tick_post = -195_950
+    sqrt_post = active_bridge.sqrt_price_at_tick(tick_post)
+    events_b1 = (
+        EvmPoolLogEvent(
+            chain_id=BASE_CHAIN_ID,
+            block_number=head0 + 1,
+            block_hash=hash1,
+            parent_hash=hash0,
+            tx_index=0,
+            log_index=0,
+            pool_id=pool_v2_id,
+            topic0=V2_SYNC_TOPIC,
+            topics=(V2_SYNC_TOPIC,),
+            data_hex="0x" + _u256_word(120 * 10**18) + _u256_word(408_000 * 10**6),
+        ),
+        EvmPoolLogEvent(
+            chain_id=BASE_CHAIN_ID,
+            block_number=head0 + 1,
+            block_hash=hash1,
+            parent_hash=hash0,
+            tx_index=1,
+            log_index=0,
+            pool_id=pool_v3_id,
+            topic0=V3_SWAP_TOPIC,
+            topics=(V3_SWAP_TOPIC, _topic_addr("aa"), _topic_addr("bb")),
+            data_hex=(
+                "0x"
+                + _i256_word(-(10**18))
+                + _i256_word(3_400 * 10**6)
+                + _u256_word(sqrt_post)
+                + _u256_word(10_000_000_000_000_000)
+                + _i256_word(tick_post)
+            ),
+        ),
+    )
+    applied_b1 = sync.apply_block_logs(head0 + 1, hash1, hash0, events_b1)
+    sync.apply_block_logs(head0 + 2, hash2_fork, hash1, ())
+
+    reorg_detected = False
+    try:
+        sync.apply_block_logs(head0 + 3, _hash32(b"radar-evm-sync-b3-conflict"), hash1, ())
+    except ReorgDetectedError:
+        reorg_detected = True
+    sync.rollback_to_block(head0 + 1, hash1)
+
+    synced_graph = sync.to_fastpath_graph(bridge=active_bridge)
+    oracle_weth_in_usdc_wad = 3_150 * 10**6  # 1e18 WETH = 3,150e6 USDC
+    positions = (
+        BorrowerPositionSnapshot(
+            protocol="morpho_blue",
+            market_id=_hash32(b"morpho-weth-usdc-base"),
+            borrower=_addr("71"),
+            debt_token=usdc,
+            collateral_token=weth,
+            debt_amount_raw=20_000 * 10**6,
+            collateral_amount_raw=8 * 10**18,
+            health_factor_wad=92 * 10**16,
+            close_factor_bps=5_000,
+            liquidation_bonus_bps=500,
+            oracle_price_collateral_in_debt_wad=oracle_weth_in_usdc_wad,
+            block_number=head0 + 1,
+            block_hash=hash1,
+        ),
+        BorrowerPositionSnapshot(
+            protocol="aave_v3",
+            market_id=_addr("82"),
+            borrower=_addr("72"),
+            debt_token=usdc,
+            collateral_token=weth,
+            debt_amount_raw=5_000 * 10**6,
+            collateral_amount_raw=5 * 10**18,
+            health_factor_wad=115 * 10**16,  # healthy -> skipped
+            close_factor_bps=5_000,
+            liquidation_bonus_bps=500,
+            oracle_price_collateral_in_debt_wad=oracle_weth_in_usdc_wad,
+            block_number=head0 + 1,
+            block_hash=hash1,
+        ),
+    )
+    liq_candidates = FlashLiquidationScanner.scan(
+        positions,
+        synced_graph,
+        FlashLiquidationConfig(
+            flash_fee_bps=0,
+            gas_cost_in_debt_raw=100_000,
+            min_net_profit_debt_raw=1_000_000,
+            max_repay_debt_raw=15_000 * 10**6,
+        ),
+    )
+    top_liq = liq_candidates[0] if liq_candidates else None
+    return {
+        "head_block_number": sync.head_block_number,
+        "head_block_hash": sync.head_block_hash,
+        "sync_events_applied": applied_b1,
+        "reorg_detected": reorg_detected,
+        "rollback_restored_head": sync.head_block_number == head0 + 1
+        and sync.head_block_hash == hash1,
+        "positions_evaluated": len(positions),
+        "liquidation_candidates_found": len(liq_candidates),
+        "top_liquidation": (
+            {
+                "protocol": top_liq.protocol,
+                "borrower": top_liq.borrower,
+                "repay_debt_raw": top_liq.repay_debt_raw,
+                "seized_collateral_raw": top_liq.seized_collateral_raw,
+                "swap_pool_id": top_liq.swap_pool_id,
+                "swap_out_debt_raw": top_liq.swap_out_debt_raw,
+                "net_profit_debt_raw": top_liq.net_profit_debt_raw,
+                "execution_eligible": top_liq.execution_eligible,
+            }
+            if top_liq is not None
+            else None
+        ),
+        "execution_eligible": False,
+    }
+
+
+def _synthetic_base_time_transport(now_ms: int) -> Callable[[str, bytes, float], bytes]:
+    sec = now_ms // 1000
+    millis_part = 400
+    ts_ms = sec * 1000 + millis_part
+    block_num = 57_800_000
+    block_hash = _hash32(b"radar-basetime-synthetic-block")
+
+    def _transport(_url: str, body: bytes, _timeout: float) -> bytes:
+        decoded = json.loads(body.decode("utf-8"))
+        if isinstance(decoded, dict):
+            return json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": decoded["id"],
+                    "result": {
+                        "number": hex(block_num),
+                        "hash": block_hash,
+                        "timestamp": hex(sec),
+                        "timestampMs": hex(ts_ms),
+                    },
+                }
+            ).encode("utf-8")
+        return json.dumps(
+            [
+                {"jsonrpc": "2.0", "id": 2, "result": "0x" + _u256_word(ts_ms)},
+                {"jsonrpc": "2.0", "id": 3, "result": "0x" + _u256_word(millis_part)},
+            ]
+        ).encode("utf-8")
+
+    return _transport
+
+
+def _run_base_time_predeploy_engine(
+    *,
+    mode: str,
+    now_ms: int,
+    base_rpc_url: str,
+    transport: Callable[[str, bytes, float], bytes] | None = None,
+) -> dict[str, Any]:
+    active_transport = (
+        transport
+        if transport is not None
+        else (_synthetic_base_time_transport(now_ms) if mode == "synthetic" else None)
+    )
+    try:
+        receipt = verify_base_time_predeploy(
+            base_rpc_url,
+            block_tag="latest",
+            timeout_s=8.0,
+            max_requests=4,
+            transport=active_transport,
+        )
+        return {
+            "status": "synthetic_verified" if mode == "synthetic" else "ok",
+            "predeploy_address": BASE_TIME,
+            "chain_id": receipt.chain_id,
+            "rpc_origin": receipt.rpc_origin,
+            "block_number": receipt.block_number,
+            "block_hash": receipt.block_hash,
+            "header_timestamp": receipt.header_timestamp,
+            "header_timestamp_ms": receipt.header_timestamp_ms,
+            "predeploy_timestamp_ms": receipt.predeploy_timestamp_ms,
+            "predeploy_millis_part": receipt.predeploy_millis_part,
+            "header_matches_predeploy": (
+                receipt.header_timestamp_ms == receipt.predeploy_timestamp_ms
+                if receipt.header_timestamp_ms is not None
+                else None
+            ),
+            "requests_used": receipt.requests_used,
+            "max_requests": receipt.max_requests,
+            "header_request_sha256": receipt.header_request_sha256,
+            "header_response_sha256": receipt.header_response_sha256,
+            "batch_request_sha256": receipt.batch_request_sha256,
+            "batch_response_sha256": receipt.batch_response_sha256,
+            "error": None,
+            "execution_eligible": False,
+        }
+    except (RpcError, OSError, ValueError) as exc:
+        return {
+            "status": "error",
+            "predeploy_address": BASE_TIME,
+            "chain_id": BASE_CHAIN_ID,
+            "rpc_origin": base_rpc_url,
+            "block_number": None,
+            "block_hash": None,
+            "header_timestamp": None,
+            "header_timestamp_ms": None,
+            "predeploy_timestamp_ms": None,
+            "predeploy_millis_part": None,
+            "header_matches_predeploy": None,
+            "requests_used": 0,
+            "max_requests": 4,
+            "header_request_sha256": None,
+            "header_response_sha256": None,
+            "batch_request_sha256": None,
+            "batch_response_sha256": None,
+            "error": str(exc),
+            "execution_eligible": False,
+        }
+
+
+def _run_stage7_portfolio_allocator_engine() -> dict[str, Any]:
+    allocator = PortfolioAllocator(
+        PortfolioAllocatorConfig(
+            min_lcb_edge_bps=5,
+            max_tail_loss_99_bps=1_500,
+            max_single_strategy_share_bps=5_000,
+        )
+    )
+    reserves = PortfolioReserves(
+        lp_unwind_gas_usd_micros=25_000_000,
+        perp_margin_buffer_usd_micros=50_000_000,
+        incident_cash_usd_micros=50_000_000,
+        ops_reserve_usd_micros=25_000_000,
+    )
+    domain_caps = (
+        ExposureDomainCap("chain", "base", 300_000_000),
+        ExposureDomainCap("sequencer", "base", 300_000_000),
+        ExposureDomainCap("stablecoin", "usdc", 320_000_000),
+        ExposureDomainCap("venue", "uniswapx", 175_000_000),
+    )
+    tracks = (
+        StrategyTrackCandidate(
+            strategy_id="base_dutch_v3_filler_shadow",
+            stage=3,
+            current_allocation_usd_micros=100_000_000,
+            capacity_usd_micros=200_000_000,
+            max_step_up_usd_micros=75_000_000,
+            lcb_net_edge_bps=24,
+            expected_drawdown_bps=120,
+            tail_loss_99_bps=350,
+            evidence_age_seconds=120,
+            max_evidence_age_seconds=900,
+            exposures=(("chain", "base"), ("sequencer", "base"), ("venue", "uniswapx")),
+        ),
+        StrategyTrackCandidate(
+            strategy_id="base_v4_atomic_liq_shadow",
+            stage=2,
+            current_allocation_usd_micros=50_000_000,
+            capacity_usd_micros=180_000_000,
+            max_step_up_usd_micros=75_000_000,
+            lcb_net_edge_bps=18,
+            expected_drawdown_bps=150,
+            tail_loss_99_bps=400,
+            evidence_age_seconds=60,
+            max_evidence_age_seconds=900,
+            exposures=(("chain", "base"), ("sequencer", "base"), ("stablecoin", "usdc")),
+        ),
+        StrategyTrackCandidate(
+            strategy_id="aleph_cross_venue_basis_shadow",
+            stage=4,
+            current_allocation_usd_micros=50_000_000,
+            capacity_usd_micros=150_000_000,
+            max_step_up_usd_micros=60_000_000,
+            lcb_net_edge_bps=14,
+            expected_drawdown_bps=180,
+            tail_loss_99_bps=500,
+            evidence_age_seconds=45,
+            max_evidence_age_seconds=900,
+            exposures=(("stablecoin", "usdc"), ("venue", "hyperliquid")),
+        ),
+        StrategyTrackCandidate(
+            strategy_id="base_launchpad_unvetted_legacy",
+            stage=6,
+            current_allocation_usd_micros=25_000_000,
+            capacity_usd_micros=100_000_000,
+            max_step_up_usd_micros=10_000_000,
+            lcb_net_edge_bps=-15,
+            expected_drawdown_bps=600,
+            tail_loss_99_bps=2_500,
+            evidence_age_seconds=100,
+            max_evidence_age_seconds=900,
+            exposures=(("chain", "base"),),
+        ),
+    )
+    report = allocator.allocate(
+        total_nav_usd_micros=500_000_000,
+        reserves=reserves,
+        tracks=tracks,
+        domain_caps=domain_caps,
+    )
+    return {
+        "total_nav_usd_micros": report.total_nav_usd_micros,
+        "segregated_reserves_usd_micros": report.segregated_reserves_usd_micros,
+        "deployable_budget_usd_micros": report.deployable_budget_usd_micros,
+        "allocated_total_usd_micros": report.allocated_total_usd_micros,
+        "unallocated_cash_usd_micros": report.unallocated_cash_usd_micros,
+        "reserve_deficit_usd_micros": report.reserve_deficit_usd_micros,
+        "domain_utilization_usd_micros": report.domain_utilization_usd_micros,
+        "report_sha256": report.report_sha256,
+        "decisions": [
+            {
+                **asdict(d),
+                "reasons": list(d.reasons),
+                "binding_constraints": list(d.binding_constraints),
+            }
+            for d in report.decisions
+        ],
+        "execution_eligible": report.execution_eligible,
+    }
+
+
 def run_radar(
     *,
     mode: str,
@@ -913,10 +1459,13 @@ def run_radar(
     eqn_limit: int = 20,
     now_ms: int | None = None,
     bench_iters: int = 50,
+    base_rpc_url: str = DEFAULT_BASE_RPC_URL,
     bridge: FastpathBridge | None = None,
     eqn_client: EqnClient | None = None,
+    base_time_transport: Callable[[str, bytes, float], bytes] | None = None,
+    uniswapx_client: UniswapXOrderbookClient | None = None,
 ) -> dict[str, Any]:
-    """Run all 4 engines into an immutable read-only/shadow directory."""
+    """Run all Oasis-Agent subsystems into an immutable read-only/shadow directory."""
     if mode not in {"synthetic", "public-shadow"}:
         raise ValueError(f"unsupported mode: {mode!r}")
     if out_dir.is_symlink():
@@ -933,6 +1482,13 @@ def run_radar(
     rust_report = _run_rust_and_executor_engine(
         bench_iters=bench_iters, now_ms=obs_ms, bridge=bridge
     )
+    evm_sync_liq_report = _run_evm_sync_and_liquidation_engine(now_ms=obs_ms, bridge=bridge)
+    base_time_report = _run_base_time_predeploy_engine(
+        mode=mode,
+        now_ms=obs_ms,
+        base_rpc_url=base_rpc_url,
+        transport=base_time_transport,
+    )
     eqn_report, eqn_raw_bytes = _run_eqn_and_launchpad_engine(
         mode=mode,
         now_ms=obs_ms,
@@ -940,7 +1496,11 @@ def run_radar(
         eqn_limit=eqn_limit,
         eqn_client=eqn_client,
     )
-    intent_report = _run_uniswapx_intent_engine()
+    intent_report = _run_uniswapx_intent_engine(
+        mode=mode,
+        now_ms=obs_ms,
+        uniswapx_client=uniswapx_client,
+    )
     cross_venue_report = _run_cross_venue_and_aleph_engine(
         mode=mode,
         out_dir=out_dir,
@@ -948,6 +1508,7 @@ def run_radar(
         ssh_host=ssh_host,
         bridge=bridge,
     )
+    portfolio_report = _run_stage7_portfolio_allocator_engine()
 
     if eqn_raw_bytes is not None and not (out_dir / "eqn_snapshot.json").exists():
         _write_new(out_dir / "eqn_snapshot.json", eqn_raw_bytes)
@@ -958,9 +1519,12 @@ def run_radar(
         "observed_at_ms": obs_ms,
         "execution_eligible": False,
         "rust_fastpath_and_atomic_executor": rust_report,
+        "evm_log_state_sync_and_liquidation": evm_sync_liq_report,
+        "base_time_predeploy_verification": base_time_report,
         "eqn_intelligence_and_launchpad_gate": eqn_report,
         "uniswapx_dutch_v3_intent_shadow": intent_report,
         "aleph_cross_venue_and_saga": cross_venue_report,
+        "stage7_portfolio_allocator": portfolio_report,
     }
     report_bytes = canonical_json(report) + b"\n"
     report_sha256 = sha256_hex(report_bytes)
@@ -974,6 +1538,8 @@ def run_radar(
         "radar_report_sha256": report_sha256,
         "aleph_shm_probe_sha256": cross_venue_report["aleph_shm_v12"]["file_sha256"],
         "eqn_raw_sha256": eqn_report["eqn_news"]["raw_sha256"],
+        "base_time_batch_response_sha256": base_time_report["batch_response_sha256"],
+        "portfolio_allocation_sha256": portfolio_report["report_sha256"],
     }
     _write_new(out_dir / "evidence_manifest.json", canonical_json(manifest) + b"\n")
     return manifest
@@ -998,6 +1564,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eqn-limit", type=int, default=20, help="EQN items limit (1..100).")
     parser.add_argument("--now-ms", type=int, default=None, help="Explicit ms timestamp.")
     parser.add_argument("--bench-iters", type=int, default=50, help="Differential bench iters.")
+    parser.add_argument(
+        "--base-rpc-url",
+        default=DEFAULT_BASE_RPC_URL,
+        help="Read-only Base HTTPS JSON-RPC URL for bounded BaseTime predeploy verification.",
+    )
     return parser
 
 
@@ -1013,6 +1584,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             eqn_limit=args.eqn_limit,
             now_ms=args.now_ms,
             bench_iters=args.bench_iters,
+            base_rpc_url=args.base_rpc_url,
         )
     except (OSError, ValueError, TypeError, json.JSONDecodeError, EqnFetchError) as exc:
         print(f"opportunity radar failed: {exc}", file=sys.stderr)

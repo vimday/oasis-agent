@@ -2,6 +2,7 @@
 
 import json
 import math
+import socket
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from oasis_agent.evidence.base_denim import (
 )
 from oasis_agent.evidence.base_time_probe import (
     BaseTimeVerificationReceipt,
+    _validate_resolved_dns,
     verify_base_time_predeploy,
 )
 from oasis_agent.intents import (
@@ -33,6 +35,7 @@ from oasis_agent.intents import (
     resolve_dutch_v3_amounts,
 )
 from oasis_agent.intents.dutch_v3 import DEPRECATED_PRIORITY_REACTOR_BASE
+from oasis_agent.intents.uniswapx_client import _validate_resolved_public_dns
 from oasis_agent.models.common import sha256_hex
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -545,3 +548,56 @@ def test_compiled_oasis_intent_vault_abi_exposes_required_surface() -> None:
         "NativeSwept",
         "PausedSet",
     }.issubset(event_names)
+
+
+def test_tun_fake_ip_dns_allowed_only_for_domain_resolution_while_private_ips_blocked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Literal IPs in RFC 2544 / RFC 5180 benchmarking or private ranges remain forbidden.
+    for literal_url in (
+        "https://198.18.0.61",
+        "https://[2001:2::40]",
+        "https://192.168.1.1",
+    ):
+        with pytest.raises(ValueError, match="private or loopback"):
+            verify_base_time_predeploy(literal_url)
+
+    # DNS resolving to loopback/RFC1918/metadata/ULA stays blocked on both probes.
+    for forbidden_ip in (
+        "127.0.0.1",
+        "10.0.0.1",
+        "169.254.169.254",
+        "192.168.1.10",
+        "::1",
+        "fc00::1",
+        "fe80::1",
+    ):
+        monkeypatch.setattr(
+            socket,
+            "getaddrinfo",
+            lambda _h, _p, type=0, _ip=forbidden_ip: [
+                (
+                    socket.AF_INET6 if ":" in _ip else socket.AF_INET,
+                    socket.SOCK_STREAM,
+                    6,
+                    "",
+                    (_ip, 443, 0, 0) if ":" in _ip else (_ip, 443),
+                )
+            ],
+        )
+        with pytest.raises(ValueError, match="private or loopback"):
+            _validate_resolved_dns("base-rpc.publicnode.com", 443)
+        with pytest.raises(UniswapXClientError, match="non-public IP"):
+            _validate_resolved_public_dns("api.uniswap.org")
+
+    # DNS resolving a valid hostname to TUN Fake-IP (198.18.0.0/15 or 2001:2::/48) succeeds.
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda _h, _p, type=0: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.0.61", 443)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("2001:2::40", 443, 0, 0)),
+        ],
+    )
+    _validate_resolved_dns("base-rpc.publicnode.com", 443)
+    _validate_resolved_public_dns("api.uniswap.org")

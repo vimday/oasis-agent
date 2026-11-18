@@ -33,10 +33,10 @@
 | 事件采集与逐过滤器覆盖 | 原始日志范围导入、持久空块/缺口、重组撤销、批次原子性；按所报高度及固定偏移选择未来块 | [Base 12 块](verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md)三个过滤器观察到 1 Swap、0 Mint、0 Burn；Elysium 8 块六个过滤器为空，原 Base 14/32 停止记录保留。 |
 | 持久事件 shadow 队列 | 冻结代码/窗口、覆盖与候选原子提交；租约重投、旧 worker 拒绝、正常 CLI 定向报价、重组同步失效 | [合成演练](verification/CYCLE_OUTBOX_20261114.md)覆盖定向报价和重组；Elysium 真实空窗已进入队列，覆盖完整、无报价任务。实时唤醒另见下一行。 |
 | 实时 Swap 定向报价 | 冻结触发、费用模型、等预算轮询、原始证据与独立收据复核 | [双链实测](verification/EVENT_QUOTE_RESULTS_20261114.md)。Base 事件组 2/4 两腿在 750 ms 内，轮询 0/4，八条毛差全负，按门槛关闭固定路线。Elysium 改用匹配池的 Aero MetaQuoter，三腿报价两组各 4/4，均超时限且毛差全负，重复收尾块读取超时。 |
-| Rust 快路径内核与有界原子执行器 | `crates/oasis-core` 多 DEX 状态图（V2/V3/Slipstream/V4/AerodromeStable）与 48 步整数闭环求解、`OASIS_AUDIT_V01` 原子熔断环；[OasisAtomicExecutor.sol](../contracts/src/OasisAtomicExecutor.sol) 双平面托管与 `EarlyAborted` 预检、1h 净燃气/分级回滚风控与 ABI 编码器 | 离线差分 0 误差、Foundry 早期中止 62.4k–64.6k gas、Slither 92 合约 0 告警、Rust 15 测全过。尚未接入 Base 实盘日志增量同步与分叉部署；无执行授权。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
-| `eqn.news` 情报与发射台安全门 | 14 频道 REST/WS/MCP 只读客户端、无浮点小数解析、事件冻结优先分类及 `VerifiedSymbolRegistry` 安全发现桥；Base Denim 毫秒级 `LaunchpadSafetyGate`（Clanker/Doppler/Zora/Flaunch/Virtuals 衰减税与防软跑路门禁） | 公开只读捕获 20 条快讯（自动冻结 APT/INJ/SPOT 风险异动，未映射 ticker 不猜合约）；门禁覆盖 `DEFER_UNTIL_DECAY` / `APPROVED` / `REJECTED`。仅影子情报输入，`execution_eligible=false`。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
-| 跨市场 `HedgeGroup`、`AlephTX` 桥与意图填充器 | `ALEPHTX_SHM_V12` 64B Seqlock 跨语言读取器、只读 `ssh aleph` 湖仓探针、幂等防幻影 delta `HedgeGroup` Saga、CEX-DEX 领航/RWA 会话门控基差引擎、`UniswapX V3DutchOrderReactor` 影子填充与统一机会雷达 CLI | Python/Rust 共享内存镜像逐字段对齐；`ssh aleph` 湖仓只读可达；`PriorityOrderReactor` 显式拒绝。尚未接通实盘 CEX 对冲下单或 Base 主网链上填充。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)。 |
-| 后续策略 | 对冲、做市、跨市场交易和组合分配的设计与部分通用组件 | 依照[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)逐项验证。当前实盘验收范围仅 Base。 |
+| Rust 快路径内核与增量同步/清算引擎 | `crates/oasis-core` 多 DEX 状态图（V2/V3/Slipstream/V4/AerodromeStable）经索引零分配热循环优化至 2-hop 6 池 `101 us/scan`；[state_sync.py](../src/oasis_agent/fastpath/state_sync.py) 实现 V2/V3/V4 日志增量同步与 64 块连续性/重组回滚；[liquidation.py](../src/oasis_agent/fastpath/liquidation.py) 实现 Morpho/Aave V3 闪电贷清算扫描；[OasisAtomicExecutor.sol](../contracts/src/OasisAtomicExecutor.sol) 与分级回滚风控 | 离线差分 0 误差、Foundry 早期中止 62.4k–64.6k gas、Rust 16 测全过。增量同步与闪电贷清算已在合成日志与 `public-shadow` 中验证；实盘链上广播仍无执行授权。见[升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)与[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
+| `eqn.news` 情报、发射台安全门与 `BaseTime` | 14 频道 `eqn.news` 只读客户端与事件冻结安全发现桥；Base Denim 毫秒级 `LaunchpadSafetyGate` 并直接接入 [spot_agent.py](../src/oasis_agent/launch/spot_agent.py) 入场前安全门；[base_time_probe.py](../src/oasis_agent/evidence/base_time_probe.py) 实现 `BaseTime` 预部署同块校验 | `public-shadow` 实测获取 20 条快讯（自动冻结 APT）并在 Base 块 `58978574` 完成 `BaseTime`（`0x4200...0030`）实读交叉核验（`1794986090400 ms` 一致，3/4 预算）。仅影子/只读证明，`execution_eligible=false`。见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
+| 意图金库、`UniswapX`、跨市场与 Stage 7 组合分配 | [OasisIntentVault.sol](../contracts/src/OasisIntentVault.sol)（双平面托管 + 域隔离 ERC-1271 + `IReactorCallback` 结算）；`UniswapX` `Dutch_V3` 只读订单簿客户端；`ALEPHTX_SHM_V12` / 只读 `ssh aleph` / `HedgeGroup`；[Stage 7 组合分配器](../src/oasis_agent/portfolio/allocator.py)（独立储备隔离、失效立即归零、相关风险域上限）与只读控制台 `/api/v1/radar/*` | Foundry 3 套件 13 测全过（512 轮 65,536 次不变量 0 违例）、Slither `--fail-low` 0 告警；`UniswapX` Base `/v2/orders` 公开轮询返回 200（0 挂单快照）。尚未部署金库或批准实盘资金权重。见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。 |
+| 后续策略 | 对冲、做市、跨市场交易、Stage 7 组合分配器及全部工程基线 | 工程交付与只读影子闭环见[CTO 全路线核验](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)；资本晋级与真实样本外净收益验收仍受[长期路线](strategies/LONG_TERM_PROFIT_ROADMAP.md)约束。 |
 
 ## Base LP 验收记录
 
@@ -78,8 +78,9 @@
 
 ## 证据导航
 
+- [CTO 全路线推进与 P1–P4 终验记录](verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)
 - [自主机会引擎与四路并行升级核验](verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)
-- [外部审计报告原文](../references/EXTERNAL_OASIS_AUDIT_20261115.md)与[逐项复核](verification/EXTERNAL_OASIS_AUDIT_REVIEW_20261115.md)
+- [外部审计报告原文](references/EXTERNAL_OASIS_AUDIT_20261115.md)与[逐项复核](verification/EXTERNAL_OASIS_AUDIT_REVIEW_20261115.md)
 - [Base Denim 头部时间戳观察](verification/BASE_DENIM_HEADER_20261115.md)
 - [Wintermute 对手方观察：归档读取被拒绝](verification/WINTERMUTE_COUNTERPARTY_20261115.md)
 - [持续执行及未完成项](strategies/NEXT_STAGE_EXECUTION.md)与[公共只读采集](strategies/PUBLIC_RPC_OBSERVATION.md)

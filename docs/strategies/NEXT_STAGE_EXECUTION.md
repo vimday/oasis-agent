@@ -60,3 +60,16 @@ Anvil 合成证明通过。[公开尝试](../verification/METRIC_STATE_PROOFS_20
 五笔 Aave 原生调用树确认六组每组一次有效入账、一次祖先回滚，五块中该类差额已对平。
 Base 实时 Swap 与同预算轮询已实测，关闭本次固定路线。Elysium 已实测同池三腿报价，收尾与故障场景待验，
 maker/oracle 触发和经济评估继续待证。Aave 账本结项，策略净收益仍未知。
+
+## 2026-11-18 全路线 CTO 推进与 P1–P4 工程闭环
+
+在保留上述全部失败记录、停止账本与风控硬边界的前提下，Wave 1–Wave 4 已完成全既定工程规划并合并至 `main`：
+见[自主机会引擎与四路并行升级核验](../verification/AUTONOMOUS_OPPORTUNITY_ENGINE_20261118.md)与
+[CTO 全路线推进与 P1–P4 终验记录](../verification/CTO_FULL_ROADMAP_COMPLETION_20261118.md)。
+
+1. **外部审计后续 P1–P4 工程交付**：
+   - P1：`LaunchpadSafetyGate` 经 `make_launchpad_safety_evaluator` 接入 `SpotAgent._try_entry` 买前防线；
+   - P2：`BaseTime`（`0x4200000000000000000000000000000000000030`）已在 Base 块 `58978574` 完成只读实测交叉核验（`header_timestamp_ms == predeploy_timestamp_ms == 1794986090400`、`timestampMillisPart() == 400`）；
+   - P3：`OasisIntentVault.sol` 完成双平面托管、域隔离按 epoch 可撤销 `ERC-1271`、以及 `IReactorCallback` 原子结算与 `<65k` gas 早期中止；
+   - P4：只读无密钥 `UniswapX` Base `Dutch_V3` 客户端、`HedgeGroup` Saga、`AlephTX` SHM 桥与 Stage 7 组合分配器接入统一机会雷达 `v2` 与只读控制台 `/api/v1/radar/*`。
+2. **明确未声称项与下一实证门槛**：所有策略 `execution_eligible` 仍为 `false`；尚未证明 untouched 实盘窗口持续正净收益或触发任何实时交易授权。后续资本晋级仍须按[长期路线](LONG_TERM_PROFIT_ROADMAP.md)与[发布边界](../operations/LIVE_RELEASE.md)独立取得双源 pinned 模拟、24h 影子归因与当次发布审批。
