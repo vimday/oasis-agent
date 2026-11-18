@@ -1,0 +1,1022 @@
+"""Integration and security tests for profit-engine Unix socket authority & Compose."""
+
+import copy
+import json
+import os
+import socket
+import stat
+import subprocess
+import sys
+import tempfile
+import threading
+from pathlib import Path
+from typing import Any
+
+import pytest
+from eth_abi.abi import encode
+from eth_account import Account
+from eth_hash.auto import keccak
+
+from oasis_agent.execution.atomic_bundle import (
+    AtomicCycleIntent,
+    PrecheckGuardSpec,
+    SwapLegSpec,
+    encode_execute_cycle_calldata,
+)
+from oasis_agent.live.atomic_authority import (
+    CYCLE_EXECUTED_TOPIC0,
+    EXECUTE_REACTOR_FILL_PARAM_TYPES,
+    EXECUTE_REACTOR_FILL_SELECTOR,
+    EXECUTE_WITH_CALLBACK_SELECTOR,
+    AtomicExecutionPolicy,
+    DualSimulationProof,
+    EnvelopeProposal,
+    admit_atomic_or_intent_proposal,
+    verify_signed_bytes_match_admission,
+)
+from oasis_agent.live.atomic_authority_socket import (
+    PROFIT_AUTHORITY_INFRA_SCHEMA,
+    PROFIT_AUTHORITY_SCHEMA,
+    AtomicOrIntentProposal,
+    ProfitAuthoritySocketClient,
+    ProfitSigningAuthorityServer,
+    build_authority_infra_proof,
+    envelope_fields_from_proposal,
+    make_local_key_signer,
+    proposal_to_dict,
+    read_frame,
+    validate_socket_endpoint,
+)
+from oasis_agent.live.authority_socket import fields_json
+from oasis_agent.live.canary_readiness import evaluate_profit_engine_readiness
+from oasis_agent.live.intent import SubmittedTransaction
+from oasis_agent.models.common import canonical_json
+from oasis_agent.risk.revert_budget import (
+    RollingRevertBudgetPolicy,
+    RollingRevertBudgetTracker,
+)
+from scripts import run_profit_authority as authority_cli
+from scripts import verify_profit_compose as compose_cli
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+EXECUTOR = f"0x{0x11:040x}"
+EXECUTOR_CODE_HASH = f"0x{0xAA:064x}"
+INTENT_VAULT = f"0x{0x12:040x}"
+INTENT_VAULT_CODE_HASH = f"0x{0xBB:064x}"
+TOKEN_A = f"0x{0x22:040x}"
+TOKEN_B = f"0x{0x33:040x}"
+POOL_V3 = f"0x{0x55:040x}"
+POOL_V2 = f"0x{0x66:040x}"
+ROUTER = f"0x{0x77:040x}"
+REACTOR = f"0x{0x88:040x}"
+SIM_BLOCK_HASH = f"0x{0xDE:064x}"
+RECEIPT_BLOCK_HASH = f"0x{0xFA:064x}"
+UINT160_SQRT_1 = 1 << 96
+NOW_S = 1_750_000_000
+
+
+def _short_socket_dir() -> tempfile.TemporaryDirectory[str]:
+    base = Path(tempfile.gettempdir()).resolve()
+    return tempfile.TemporaryDirectory(prefix="oa-p-", dir=base)
+
+
+def _make_policy(operator_account: str, *, release_gate_open: bool = True) -> AtomicExecutionPolicy:
+    return AtomicExecutionPolicy(
+        chain_id=8453,
+        operator_account=operator_account,
+        executor_address=EXECUTOR,
+        executor_code_hash=EXECUTOR_CODE_HASH,
+        intent_vault_address=INTENT_VAULT,
+        intent_vault_code_hash=INTENT_VAULT_CODE_HASH,
+        allowed_pools=frozenset({POOL_V3, POOL_V2}),
+        allowed_routers=frozenset({ROUTER}),
+        allowed_reactors=frozenset({REACTOR}),
+        allowed_profit_tokens=frozenset({TOKEN_A}),
+        max_gas_limit=650_000,
+        max_fee_per_gas_wei=5_000_000_000,
+        max_priority_fee_wei=100_000_000,
+        max_deadline_horizon_s=24,
+        release_gate_open=release_gate_open,
+    )
+
+
+def _policy_json_dict(policy: AtomicExecutionPolicy) -> dict[str, Any]:
+    return {
+        "chain_id": policy.chain_id,
+        "operator_account": policy.operator_account,
+        "executor_address": policy.executor_address,
+        "executor_code_hash": policy.executor_code_hash,
+        "intent_vault_address": policy.intent_vault_address,
+        "intent_vault_code_hash": policy.intent_vault_code_hash,
+        "allowed_pools": sorted(policy.allowed_pools),
+        "allowed_routers": sorted(policy.allowed_routers),
+        "allowed_reactors": sorted(policy.allowed_reactors),
+        "allowed_profit_tokens": sorted(policy.allowed_profit_tokens),
+        "max_capital_usd_micros": policy.max_capital_usd_micros,
+        "max_daily_loss_usd_micros": policy.max_daily_loss_usd_micros,
+        "max_cumulative_loss_usd_micros": policy.max_cumulative_loss_usd_micros,
+        "max_gas_limit": policy.max_gas_limit,
+        "max_fee_per_gas_wei": policy.max_fee_per_gas_wei,
+        "max_priority_fee_wei": policy.max_priority_fee_wei,
+        "max_deadline_horizon_s": policy.max_deadline_horizon_s,
+        "release_gate_open": policy.release_gate_open,
+        "isolated_key_volume": "oasis-canary-keys",
+        "primary_rpc_provider": "base-publicnode-archive",
+        "secondary_rpc_provider": "alchemy-base-archive",
+        "secondary_rpc_verified": True,
+    }
+
+
+def _sample_simulation(
+    *,
+    primary_profit_delta_raw: int = 2_000_000,
+    secondary_profit_delta_raw: int = 2_000_000,
+    simulated_profit_value_wei: int = 600_000_000_000_000,
+) -> DualSimulationProof:
+    return DualSimulationProof(
+        block_number=28_000_001,
+        block_hash=SIM_BLOCK_HASH,
+        primary_source="base-publicnode-archive",
+        secondary_source="alchemy-base-archive",
+        primary_reverted=False,
+        secondary_reverted=False,
+        primary_early_aborted=False,
+        secondary_early_aborted=False,
+        primary_gas_used=195_000,
+        secondary_gas_used=196_000,
+        primary_profit_delta_raw=primary_profit_delta_raw,
+        secondary_profit_delta_raw=secondary_profit_delta_raw,
+        l2_gas_fee_wei=200_000_000_000_000,
+        l1_data_fee_wei=50_000_000_000_000,
+        simulated_profit_value_wei=simulated_profit_value_wei,
+    )
+
+
+def _sample_executor_proposal(
+    *,
+    account: str,
+    nonce: int = 1,
+    min_net_profit_raw: int = 10**6,
+    value_wei: int = 0,
+    code_hash: str = EXECUTOR_CODE_HASH,
+    simulated_profit_value_wei: int = 600_000_000_000_000,
+    primary_profit_delta_raw: int = 2_000_000,
+    secondary_profit_delta_raw: int = 2_000_000,
+) -> AtomicOrIntentProposal:
+    deadline_s = NOW_S + 12
+    intent = AtomicCycleIntent(
+        chain_id=8453,
+        executor_address=EXECUTOR,
+        executor_code_hash=EXECUTOR_CODE_HASH,
+        nonce=7,
+        deadline=deadline_s,
+        profit_token=TOKEN_A,
+        initial_amount=10**8,
+        min_net_profit=max(0, min_net_profit_raw),
+        guard=PrecheckGuardSpec(
+            pool=POOL_V3,
+            min_sqrt_price_x96=UINT160_SQRT_1 - 100,
+            max_sqrt_price_x96=UINT160_SQRT_1 + 100,
+        ),
+        legs=(
+            SwapLegSpec(
+                pool=POOL_V3,
+                token_in=TOKEN_A,
+                token_out=TOKEN_B,
+                zero_for_one=True,
+                sqrt_price_limit_x96=UINT160_SQRT_1 - 1,
+                v2_fee_bps=0,
+            ),
+            SwapLegSpec(
+                pool=POOL_V2,
+                token_in=TOKEN_B,
+                token_out=TOKEN_A,
+                zero_for_one=False,
+                sqrt_price_limit_x96=0,
+                v2_fee_bps=30,
+            ),
+        ),
+    )
+    calldata, _ = encode_execute_cycle_calldata(intent)
+    envelope = EnvelopeProposal(
+        chain_id=8453,
+        account=account,
+        nonce=nonce,
+        target=EXECUTOR,
+        target_observed_code_hash=code_hash,
+        value_wei=value_wei,
+        calldata=calldata,
+        gas_limit=350_000,
+        max_fee_per_gas_wei=1_000_000_000,
+        max_priority_fee_wei=50_000_000,
+        profit_token=TOKEN_A,
+        min_net_profit_raw=min_net_profit_raw,
+        referenced_pools=(POOL_V3, POOL_V2),
+        referenced_routers=(),
+        referenced_reactor=None,
+        deadline_s=deadline_s,
+    )
+    return AtomicOrIntentProposal(
+        envelope=envelope,
+        simulation=_sample_simulation(
+            primary_profit_delta_raw=primary_profit_delta_raw,
+            secondary_profit_delta_raw=secondary_profit_delta_raw,
+            simulated_profit_value_wei=simulated_profit_value_wei,
+        ),
+        now_s=NOW_S,
+    )
+
+
+def _sample_vault_proposal(*, account: str, nonce: int = 2) -> AtomicOrIntentProposal:
+    router_sel = keccak(
+        b"exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))"
+    )[:4]
+    step_calldata = router_sel + encode(["uint256"], [12345])
+    precheck = (POOL_V3, UINT160_SQRT_1 - 50, UINT160_SQRT_1 + 50)
+    steps = [(ROUTER, POOL_V3, TOKEN_A, TOKEN_B, 50_000_000, 49_000_000, step_calldata)]
+    plan = (REACTOR, TOKEN_A, 10**6, precheck, steps)
+    reactor_calldata = EXECUTE_WITH_CALLBACK_SELECTOR + encode(
+        ["bytes", "bytes"], [b"order", b"callback"]
+    )
+    calldata = EXECUTE_REACTOR_FILL_SELECTOR + encode(
+        list(EXECUTE_REACTOR_FILL_PARAM_TYPES), [plan, reactor_calldata]
+    )
+    envelope = EnvelopeProposal(
+        chain_id=8453,
+        account=account,
+        nonce=nonce,
+        target=INTENT_VAULT,
+        target_observed_code_hash=INTENT_VAULT_CODE_HASH,
+        value_wei=0,
+        calldata=calldata,
+        gas_limit=420_000,
+        max_fee_per_gas_wei=1_200_000_000,
+        max_priority_fee_wei=40_000_000,
+        profit_token=TOKEN_A,
+        min_net_profit_raw=10**6,
+        referenced_pools=(POOL_V3,),
+        referenced_routers=(ROUTER,),
+        referenced_reactor=REACTOR,
+        deadline_s=NOW_S + 12,
+    )
+    return AtomicOrIntentProposal(
+        envelope=envelope,
+        simulation=_sample_simulation(),
+        now_s=NOW_S,
+    )
+
+
+def _raw_socket_exchange(endpoint: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
+        conn.settimeout(5.0)
+        conn.connect(str(endpoint))
+        conn.sendall(canonical_json(payload) + b"\n")
+        reply = read_frame(conn)
+    decoded: dict[str, Any] = json.loads(reply)
+    return decoded
+
+
+def _make_receipt(
+    *,
+    source: str,
+    tx_hash: str,
+    target: str = EXECUTOR,
+    status: int = 1,
+    gas_used: int = 200_000,
+    effective_gas_price_wei: int = 1_000_000_000,
+    l1_fee_wei: int = 25_000_000_000_000,
+) -> dict[str, Any]:
+    logs = (
+        [{"address": target, "topics": [CYCLE_EXECUTED_TOPIC0], "data": "0x"}]
+        if status == 1
+        else []
+    )
+    return {
+        "source": source,
+        "tx_hash": tx_hash,
+        "block_number": 28_000_005,
+        "block_hash": RECEIPT_BLOCK_HASH,
+        "status": status,
+        "gas_used": gas_used,
+        "effective_gas_price_wei": effective_gas_price_wei,
+        "l1_fee_wei": l1_fee_wei,
+        "logs": logs,
+    }
+
+
+def _reconciliation_payload(
+    *,
+    tx_hash: str,
+    status: int = 1,
+    native_residual_wei: int = 0,
+    erc20_profit_delta_raw: int = 2_000_000,
+) -> dict[str, Any]:
+    gas_used = 200_000
+    gas_price = 1_000_000_000
+    l1_fee = 25_000_000_000_000
+    expected_spend = gas_used * gas_price + l1_fee
+    native_before = 1_000_000_000_000_000_000
+    native_after = native_before - expected_spend - native_residual_wei
+    return {
+        "tx_hash": tx_hash,
+        "primary_receipt": _make_receipt(
+            source="base-publicnode-archive",
+            tx_hash=tx_hash,
+            status=status,
+            gas_used=gas_used,
+            effective_gas_price_wei=gas_price,
+            l1_fee_wei=l1_fee,
+        ),
+        "secondary_receipt": _make_receipt(
+            source="alchemy-base-archive",
+            tx_hash=tx_hash,
+            status=status,
+            gas_used=gas_used,
+            effective_gas_price_wei=gas_price,
+            l1_fee_wei=l1_fee,
+        ),
+        "native_balance_before_wei": native_before,
+        "native_balance_after_wei": native_after,
+        "profit_token_balance_before_raw": 10_000_000,
+        "profit_token_balance_after_raw": 10_000_000 + erc20_profit_delta_raw,
+        "gas_cost_usd_micros": 50_000,
+        "realized_profit_usd_micros": 500_000 if status == 1 else 0,
+        "timestamp_s": NOW_S + 5,
+    }
+
+
+def test_af_unix_happy_path_executor_and_intent_vault_plus_persistence() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    signer_cb = make_local_key_signer(bytes(acct.key), acct.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        endpoint = root / "a.sock"
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            max_signatures=5,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=4))
+            worker.start()
+            try:
+                client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
+                st0 = client.status()
+                assert st0["schema"] == PROFIT_AUTHORITY_SCHEMA
+                assert st0["account"] == acct.address.lower()
+                assert st0["signatures_used"] == 0
+                assert st0["max_signatures"] == 5
+                assert st0["last_nonce"] is None
+                assert st0["halted"] is False
+                assert st0["stop_present"] is False
+                assert st0["signing_enabled"] is True
+
+                exec_prop = _sample_executor_proposal(account=acct.address, nonce=1)
+                exec_fields = envelope_fields_from_proposal(exec_prop)
+                raw_exec = client.sign_admitted_proposal(exec_prop, exec_fields)
+                exec_admission = admit_atomic_or_intent_proposal(
+                    policy=policy,
+                    proposal=exec_prop.envelope,
+                    simulation=exec_prop.simulation,
+                    now_s=NOW_S,
+                    daily_loss_usd_micros=0,
+                    cumulative_loss_usd_micros=0,
+                    revert_budget_status=exec_prop.revert_budget_status,
+                )
+                sub_exec = verify_signed_bytes_match_admission(raw_exec, decision=exec_admission)
+                assert sub_exec.account == acct.address.lower()
+                assert sub_exec.nonce == 1
+
+                vault_prop = _sample_vault_proposal(account=acct.address, nonce=2)
+                vault_fields = envelope_fields_from_proposal(vault_prop)
+                raw_vault = client.sign_admitted_proposal(vault_prop, vault_fields)
+                vault_admission = admit_atomic_or_intent_proposal(
+                    policy=policy,
+                    proposal=vault_prop.envelope,
+                    simulation=vault_prop.simulation,
+                    now_s=NOW_S,
+                    daily_loss_usd_micros=0,
+                    cumulative_loss_usd_micros=0,
+                    revert_budget_status=vault_prop.revert_budget_status,
+                )
+                sub_vault = verify_signed_bytes_match_admission(raw_vault, decision=vault_admission)
+                assert sub_vault.account == acct.address.lower()
+                assert sub_vault.nonce == 2
+
+                st1 = client.status()
+                assert st1["signatures_used"] == 2
+                assert st1["last_nonce"] == 2
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        state_info = (state_dir / "profit_authority_state.json").lstat()
+        assert stat.S_IMODE(state_info.st_mode) == 0o600
+
+        # Restarting server reloads persisted nonce and signature count cleanly.
+        restarted = ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            max_signatures=5,
+            ttl_seconds=30,
+            require_existing_state=True,
+            now_fn=lambda: NOW_S,
+        )
+        assert restarted.current_status()["signatures_used"] == 2
+        assert restarted.current_status()["last_nonce"] == 2
+
+
+def test_fail_closed_refusals_negative_profit_codehash_nonzero_value_stop_budget_nonce_status() -> (
+    None
+):
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    signer_cb = make_local_key_signer(bytes(acct.key), acct.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        endpoint = root / "b.sock"
+
+        # 1. Client refuses invalid/unprofitable proposals BEFORE touching the socket.
+        client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
+        bad_profit = _sample_executor_proposal(account=acct.address, nonce=1, min_net_profit_raw=-1)
+        with pytest.raises(ValueError, match="nonpositive_min_net_profit"):
+            client.sign_admitted_proposal(bad_profit, envelope_fields_from_proposal(bad_profit))
+
+        bad_gas_profit = _sample_executor_proposal(
+            account=acct.address,
+            nonce=1,
+            simulated_profit_value_wei=100_000_000_000_000,  # <= 250_000_000_000_000 L1+L2 gas
+        )
+        with pytest.raises(ValueError, match="simulated_profit_below_l1_l2_gas_cost"):
+            client.sign_admitted_proposal(
+                bad_gas_profit, envelope_fields_from_proposal(bad_gas_profit)
+            )
+
+        bad_codehash = _sample_executor_proposal(
+            account=acct.address, nonce=1, code_hash=f"0x{0xCC:064x}"
+        )
+        with pytest.raises(ValueError, match="executor_code_hash_mismatch"):
+            client.sign_admitted_proposal(bad_codehash, envelope_fields_from_proposal(bad_codehash))
+
+        nonzero_val = _sample_executor_proposal(account=acct.address, nonce=1, value_wei=1)
+        with pytest.raises(ValueError, match="nonzero_transaction_value"):
+            client.sign_admitted_proposal(nonzero_val, envelope_fields_from_proposal(nonzero_val))
+
+        # 2. Direct socket checks against server for those same violations + STOP, budget, nonce.
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            max_signatures=1,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=8))
+            worker.start()
+            try:
+                for bad_prop, expected_code in (
+                    (bad_profit, "nonpositive_min_net_profit"),
+                    (bad_codehash, "executor_code_hash_mismatch"),
+                    (nonzero_val, "nonzero_transaction_value"),
+                ):
+                    reply = _raw_socket_exchange(
+                        endpoint,
+                        {
+                            "schema": PROFIT_AUTHORITY_SCHEMA,
+                            "account": acct.address.lower(),
+                            "operation": "sign",
+                            "proposal": proposal_to_dict(bad_prop),
+                            "fields": fields_json(envelope_fields_from_proposal(bad_prop)),
+                        },
+                    )
+                    assert reply == {
+                        "schema": PROFIT_AUTHORITY_SCHEMA,
+                        "refused": True,
+                        "reason_code": expected_code,
+                    }
+
+                # STOP file present blocks signing and reports stop_present=True in status().
+                stop_file = state_dir / "STOP"
+                stop_file.touch()
+                st_stop = client.status()
+                assert st_stop["stop_present"] is True
+
+                good_n5 = _sample_executor_proposal(account=acct.address, nonce=5)
+                with pytest.raises(ValueError, match="stop_file_present"):
+                    client.sign_admitted_proposal(good_n5, envelope_fields_from_proposal(good_n5))
+                stop_file.unlink()
+
+                # Valid sign with nonce=5 consumes the 1-signature budget.
+                raw_ok = client.sign_admitted_proposal(
+                    good_n5, envelope_fields_from_proposal(good_n5)
+                )
+                assert SubmittedTransaction.from_signed(raw_ok).nonce == 5
+
+                # Exhausted max_signatures refuses next sign.
+                good_n6 = _sample_executor_proposal(account=acct.address, nonce=6)
+                with pytest.raises(ValueError, match="signature_budget_exhausted"):
+                    client.sign_admitted_proposal(good_n6, envelope_fields_from_proposal(good_n6))
+
+                # Status remains available after signature budget exhaustion.
+                assert client.status()["signatures_used"] == 1
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # 3. Stale nonce refused when max_signatures allows more signatures.
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            max_signatures=5,
+            ttl_seconds=30,
+            require_existing_state=True,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=2))
+            worker.start()
+            try:
+                stale_n5 = _sample_executor_proposal(account=acct.address, nonce=5)
+                with pytest.raises(ValueError, match="stale_nonce"):
+                    client.sign_admitted_proposal(stale_n5, envelope_fields_from_proposal(stale_n5))
+                stale_n4 = _sample_executor_proposal(account=acct.address, nonce=4)
+                with pytest.raises(ValueError, match="stale_nonce"):
+                    client.sign_admitted_proposal(stale_n4, envelope_fields_from_proposal(stale_n4))
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # 4. Status-only mode holds no key_signer and refuses sign & settle.
+        status_endpoint = root / "s.sock"
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=status_endpoint,
+            key_signer=None,
+            max_signatures=5,
+            ttl_seconds=30,
+            status_only=True,
+            now_fn=lambda: NOW_S,
+        ) as status_srv:
+            worker = threading.Thread(target=lambda: status_srv.serve(max_status_requests=3))
+            worker.start()
+            try:
+                status_client = ProfitAuthoritySocketClient(
+                    status_endpoint, acct.address, policy, timeout=5.0
+                )
+                st = status_client.status()
+                assert st["signing_enabled"] is False
+                assert st["signatures_used"] == 1
+
+                prop_n6 = _sample_executor_proposal(account=acct.address, nonce=6)
+                with pytest.raises(ValueError, match="signing_disabled"):
+                    status_client.sign_admitted_proposal(
+                        prop_n6, envelope_fields_from_proposal(prop_n6)
+                    )
+                with pytest.raises(ValueError, match="signing_disabled"):
+                    status_client.record_settlement(_reconciliation_payload(tx_hash=f"0x{1:064x}"))
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+
+def test_settlement_reconciliation_latches_halt_on_residual_and_deep_revert() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    signer_cb = make_local_key_signer(bytes(acct.key), acct.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        endpoint = root / "c.sock"
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            revert_tracker=RollingRevertBudgetTracker(
+                RollingRevertBudgetPolicy(
+                    max_hourly_gas_burn_usd_micros=5_000_000,
+                    max_deep_reverts_per_hour=2,
+                )
+            ),
+            max_signatures=5,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=6))
+            worker.start()
+            try:
+                client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
+                p1 = _sample_executor_proposal(account=acct.address, nonce=1)
+                raw1 = client.sign_admitted_proposal(p1, envelope_fields_from_proposal(p1))
+                tx1 = SubmittedTransaction.from_signed(raw1).transaction_hash
+
+                # Clean reconciliation leaves halted=False.
+                res1 = client.record_settlement(
+                    _reconciliation_payload(tx_hash=tx1, status=1, native_residual_wei=0)
+                )
+                assert res1["reconciled"] is True
+                assert res1["halted"] is False
+                assert res1["native_residual_wei"] == 0
+
+                # Second transaction reconciles with 1 wei residual -> latches halted=True.
+                p2 = _sample_executor_proposal(account=acct.address, nonce=2)
+                raw2 = client.sign_admitted_proposal(p2, envelope_fields_from_proposal(p2))
+                tx2 = SubmittedTransaction.from_signed(raw2).transaction_hash
+                res2 = client.record_settlement(
+                    _reconciliation_payload(tx_hash=tx2, status=1, native_residual_wei=1)
+                )
+                assert res2["reconciled"] is False
+                assert res2["halt_latch"] is True
+                assert res2["halted"] is True
+                assert res2["native_residual_wei"] == 1
+
+                assert client.status()["halted"] is True
+
+                # New signing attempt must be refused once halted.
+                p3 = _sample_executor_proposal(account=acct.address, nonce=3)
+                with pytest.raises(ValueError, match="authority_halted"):
+                    client.sign_admitted_proposal(p3, envelope_fields_from_proposal(p3))
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # Deep revert also latches halted=True even on a fresh server with max_deep_reverts=2.
+        state_dir2 = root / "s2"
+        state_dir2.mkdir(mode=0o700)
+        ep2 = root / "d.sock"
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir2,
+            endpoint=ep2,
+            key_signer=signer_cb,
+            max_signatures=5,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as srv2:
+            worker2 = threading.Thread(target=lambda: srv2.serve(max_requests=3))
+            worker2.start()
+            try:
+                c2 = ProfitAuthoritySocketClient(ep2, acct.address, policy, timeout=5.0)
+                p = _sample_executor_proposal(account=acct.address, nonce=1)
+                raw = c2.sign_admitted_proposal(p, envelope_fields_from_proposal(p))
+                tx_h = SubmittedTransaction.from_signed(raw).transaction_hash
+                res = c2.record_settlement(
+                    _reconciliation_payload(
+                        tx_hash=tx_h, status=0, native_residual_wei=0, erc20_profit_delta_raw=0
+                    )
+                )
+                assert res["outcome"] == "deep_execution_revert"
+                assert res["halted"] is True
+                p_next = _sample_executor_proposal(account=acct.address, nonce=2)
+                with pytest.raises(ValueError, match="authority_halted"):
+                    c2.sign_admitted_proposal(p_next, envelope_fields_from_proposal(p_next))
+            finally:
+                worker2.join(timeout=6.0)
+            assert not worker2.is_alive()
+
+
+def test_wrong_signer_rejected_and_socket_permissions_enforced() -> None:
+    acct = Account.create()
+    rogue = Account.create()
+    policy = _make_policy(acct.address)
+    rogue_signer = make_local_key_signer(bytes(rogue.key), rogue.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        endpoint = root / "e.sock"
+
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=rogue_signer,
+            max_signatures=3,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=2))
+            worker.start()
+            try:
+                client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
+                prop = _sample_executor_proposal(account=acct.address, nonce=1)
+                with pytest.raises(ValueError, match="signed_bytes_verification_failed"):
+                    client.sign_admitted_proposal(prop, envelope_fields_from_proposal(prop))
+                assert client.status()["signatures_used"] == 0
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # Insecure socket permissions (0644 instead of 0600) must be rejected.
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            bad_ep = root / "bad.sock"
+            s.bind(str(bad_ep))
+            bad_ep.chmod(0o644)
+            with pytest.raises(ValueError, match="private and owned"):
+                validate_socket_endpoint(bad_ep)
+
+
+def test_infra_proof_gate8_and_cli_least_privilege() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        policy_path = root / "policy.json"
+        policy_path.write_text(json.dumps(_policy_json_dict(policy)), encoding="utf-8")
+        key_path = root / "canary.key"
+        key_path.write_text(acct.key.hex(), encoding="ascii")
+        key_path.chmod(0o600)
+        proof_path = root / "infra_proof.json"
+        endpoint = root / "p.sock"
+
+        # CLI refuses --key-file combined with --status-only or --reconcile-only.
+        for mode_flag in ("--status-only", "--reconcile-only"):
+            with pytest.raises(SystemExit) as exc_info:
+                authority_cli.main(
+                    [
+                        "--policy-config",
+                        str(policy_path),
+                        "--state-dir",
+                        str(state_dir),
+                        "--socket",
+                        str(endpoint),
+                        "--key-file",
+                        str(key_path),
+                        mode_flag,
+                    ]
+                )
+            assert exc_info.value.code == 2
+
+        # Run status-only CLI in subprocess and emit --out-proof without loading any key.
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(REPO_ROOT / "src")
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "scripts.run_profit_authority",
+                "--policy-config",
+                str(policy_path),
+                "--state-dir",
+                str(state_dir),
+                "--socket",
+                str(endpoint),
+                "--status-only",
+                "--max-status-requests",
+                "1",
+                "--ttl-seconds",
+                "1",
+                "--out-proof",
+                str(proof_path),
+            ],
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert acct.key.hex() not in proc.stdout
+        assert acct.key.hex() not in proc.stderr
+
+        proof = json.loads(proof_path.read_text(encoding="utf-8"))
+        assert proof["schema"] == PROFIT_AUTHORITY_INFRA_SCHEMA
+        assert proof["execution_eligible"] is False
+        assert proof["isolated_signer_verified"] is True
+        assert proof["isolated_key_volume"] == "oasis-canary-keys"
+        assert proof["authority_socket_path"] == str(endpoint)
+
+        # Compatibility check against canary_readiness.py Gates 7 and 8.
+        readiness = evaluate_profit_engine_readiness(
+            contracts_out_dir=root / "absent-contracts",
+            infra_proof_path=proof_path,
+        )
+        gate_map = {gate.name: gate for gate in readiness.gates}
+        assert gate_map["dual_rpc_quorum_verified"].passed is True
+        assert gate_map["isolated_signer_authority_ready"].passed is True
+        assert readiness.execution_eligible is False
+
+        # Direct builder refuses halted status or placeholder RPC metadata.
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as bound_sock:
+            bound_sock.bind(str(endpoint))
+            endpoint.chmod(0o600)
+            halted_status = {
+                "schema": PROFIT_AUTHORITY_SCHEMA,
+                "account": acct.address.lower(),
+                "signatures_used": 0,
+                "max_signatures": 12,
+                "last_nonce": None,
+                "halted": True,
+                "stop_present": False,
+            }
+            with pytest.raises(ValueError, match="halted"):
+                build_authority_infra_proof(
+                    socket_path=endpoint,
+                    account=acct.address,
+                    isolated_key_volume="oasis-canary-keys",
+                    primary_rpc_provider="base-publicnode-archive",
+                    secondary_rpc_provider="alchemy-base-archive",
+                    secondary_rpc_verified=True,
+                    authority_status=halted_status,
+                )
+            ok_status = {**halted_status, "halted": False}
+            with pytest.raises(ValueError, match="distinct"):
+                build_authority_infra_proof(
+                    socket_path=endpoint,
+                    account=acct.address,
+                    isolated_key_volume="oasis-canary-keys",
+                    primary_rpc_provider="base-publicnode-archive",
+                    secondary_rpc_provider="base-publicnode-archive",
+                    secondary_rpc_verified=True,
+                    authority_status=ok_status,
+                )
+
+
+def test_cli_reconcile_only_without_key_latches_halt_on_residual() -> None:
+    acct = Account.create()
+    policy = _make_policy(acct.address)
+    signer_cb = make_local_key_signer(bytes(acct.key), acct.address)
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        state_dir = root / "st"
+        state_dir.mkdir(mode=0o700)
+        policy_path = root / "policy.json"
+        policy_path.write_text(json.dumps(_policy_json_dict(policy)), encoding="utf-8")
+        endpoint = root / "r.sock"
+
+        # Sign one proposal cleanly in-process to populate persistent state.
+        with ProfitSigningAuthorityServer(
+            policy=policy,
+            state_dir=state_dir,
+            endpoint=endpoint,
+            key_signer=signer_cb,
+            max_signatures=5,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as srv:
+            worker = threading.Thread(target=lambda: srv.serve(max_requests=1))
+            worker.start()
+            try:
+                client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
+                prop = _sample_executor_proposal(account=acct.address, nonce=1)
+                raw = client.sign_admitted_proposal(prop, envelope_fields_from_proposal(prop))
+                tx_hash = SubmittedTransaction.from_signed(raw).transaction_hash
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # Reconcile offline via CLI --reconcile-only with a 1-wei native residual -> exit 3 & halt.
+        settle_path = root / "settle.json"
+        settle_path.write_text(
+            json.dumps(_reconciliation_payload(tx_hash=tx_hash, status=1, native_residual_wei=1)),
+            encoding="utf-8",
+        )
+        rc = authority_cli.main(
+            [
+                "--policy-config",
+                str(policy_path),
+                "--state-dir",
+                str(state_dir),
+                "--reconcile-only",
+                "--settlement-input",
+                str(settle_path),
+            ]
+        )
+        assert rc == 3
+        rc_status = authority_cli.main(
+            [
+                "--policy-config",
+                str(policy_path),
+                "--state-dir",
+                str(state_dir),
+                "--reconcile-only",
+            ]
+        )
+        assert rc_status == 3
+
+
+def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
+    report = compose_cli.inspect()
+    assert report["schema"] == "oasis.profit-compose-policy-verification.v1"
+    assert report["passed"] is True
+    assert report["execution_eligible"] is False
+    assert report["network_calls"] == 0
+    assert set(report["services"]) == {
+        "initialize",
+        "profit-authority",
+        "profit-strategy",
+        "profit-authority-status",
+        "profit-authority-recovery",
+        "profit-strategy-recovery",
+    }
+
+    # Build a synthetic expanded document and ensure every confinement regression fails closed.
+    services: dict[str, Any] = {}
+    for name, mounts in compose_cli.MOUNTS.items():
+        setup = name == "initialize"
+        offline = setup or name == "profit-authority-status"
+        service: dict[str, Any] = {
+            "user": "0:0" if setup else "10001:10001",
+            "read_only": True,
+            "cap_drop": ["ALL"],
+            "cap_add": ["CHOWN", "FOWNER", "DAC_OVERRIDE"] if setup else [],
+            "security_opt": ["no-new-privileges:true"],
+            "restart": "no",
+            "pids_limit": 128,
+            "mem_limit": "536870912",
+            "tmpfs": [f"/{'tmp'}{compose_cli.TMPFS_OPT_SUFFIX}"],
+            "environment": {} if offline else dict.fromkeys(compose_cli.RPC_NAMES),
+            "volumes": [
+                {
+                    "type": "volume",
+                    "source": source,
+                    "target": target,
+                    "read_only": target == compose_cli.READONLY_KEYS_TARGET,
+                }
+                for target, source in mounts.items()
+            ],
+            "command": list(compose_cli.COMMANDS[name]),
+        }
+        if setup:
+            service["profiles"] = ["setup"]
+        elif name not in {"profit-authority", "profit-strategy"}:
+            service["profiles"] = ["recovery"]
+        if offline:
+            service["network_mode"] = "none"
+        services[name] = service
+
+    doc: dict[str, Any] = {
+        "services": services,
+        "volumes": {"canary-keys": {"external": True, "name": "oasis-canary-keys"}},
+    }
+    compose_cli.verify_services(doc, dict.fromkeys(compose_cli.RPC_NAMES))
+
+    for fault in (
+        "strategy_key_mount",
+        "strategy_authority_state",
+        "writable_secrets",
+        "root_strategy",
+        "networked_status",
+        "secret_env",
+        "recovery_key_flag",
+        "non_external_keys",
+    ):
+        broken = copy.deepcopy(doc)
+        if fault == "strategy_key_mount":
+            broken["services"]["profit-strategy"]["volumes"].append(
+                copy.deepcopy(broken["services"]["profit-authority"]["volumes"][-1])
+            )
+        elif fault == "strategy_authority_state":
+            broken["services"]["profit-strategy"]["volumes"][0]["source"] = "profit-authority-state"
+        elif fault == "writable_secrets":
+            broken["services"]["profit-authority"]["volumes"][-1]["read_only"] = False
+        elif fault == "root_strategy":
+            broken["services"]["profit-strategy"]["user"] = "0:0"
+        elif fault == "networked_status":
+            broken["services"]["profit-authority-status"].pop("network_mode")
+        elif fault == "secret_env":
+            leaked_env = "OASIS_PRIVATE_" + "KEY"
+            broken["services"]["profit-strategy"]["environment"][leaked_env] = "synthetic-marker"
+        elif fault == "recovery_key_flag":
+            broken["services"]["profit-authority-recovery"]["command"] += ["--key-file", "/k"]
+        else:
+            broken["volumes"]["canary-keys"]["external"] = False
+        with pytest.raises(ValueError):
+            compose_cli.verify_services(broken, dict.fromkeys(compose_cli.RPC_NAMES))
+
+    dockerfile = (REPO_ROOT / "deploy/profit-engine/Dockerfile").read_text(encoding="utf-8")
+    assert "rust:1.85-slim-bookworm" in dockerfile
+    assert "cargo build --locked --manifest-path crates/Cargo.toml --release" in dockerfile
+    assert "OASIS_FASTPATH_LIB=/app/crates/target/release/liboasis_core.so" in dockerfile
+    assert "USER 10001:10001" in dockerfile

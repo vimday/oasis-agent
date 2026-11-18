@@ -1,20 +1,25 @@
 """Keyless Coinbase <-> Base live CEX-DEX lead-lag evaluator.
 
-Fetches public Coinbase Exchange L2 orderbooks (`ETH-USD`, `BTC-USD`, `AERO-USD`)
-with strict HTTPS/DNS/JSON hardening, evaluates full-depth VWAP execution against
-pinned-block Base DEX quotes in both directions (`buy_dex_sell_cex` and
-`buy_cex_sell_dex`), attributes taker fees, latency haircut, and Base L2+L1 gas,
-and degrades fail-soft per tick when Coinbase is unavailable.
+Fetches public Coinbase Exchange L2 orderbooks across the 9 verified Base-Coinbase
+products (`ETH-USD`, `BTC-USD`, `AERO-USD`, `VIRTUAL-USD`, `VVV-USD`, `MORPHO-USD`,
+`DEGEN-USD`, `WELL-USD`, `CBETH-USD`) with strict HTTPS/DNS/JSON hardening, IPv4-first
+TLS fallback, and automatic level-2 -> level-1 BBO fallback on >1 MB books. Evaluates
+full-depth VWAP execution against pinned-block Base DEX quotes in both directions
+(`buy_dex_sell_cex` and `buy_cex_sell_dex`), attributes taker fees, latency haircut,
+and Base L2+L1 gas, and degrades fail-soft per tick when Coinbase is unavailable.
 
 All outputs are read-only shadow measurements (`execution_eligible = False`).
 """
 
+import errno
+import http.client
 import ipaddress
 import json
 import math
 import re
 import socket
 import ssl
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -33,7 +38,20 @@ COINBASE_ALLOWED_HOSTS: Final[frozenset[str]] = frozenset({"api.exchange.coinbas
 COINBASE_BOOK_URL_TEMPLATE: Final[str] = (
     "https://api.exchange.coinbase.com/products/{product}/book?level=2"
 )
-SUPPORTED_PRODUCTS: Final[tuple[str, ...]] = ("ETH-USD", "BTC-USD", "AERO-USD")
+COINBASE_BOOK_LEVEL1_URL_TEMPLATE: Final[str] = (
+    "https://api.exchange.coinbase.com/products/{product}/book?level={level}"
+)
+SUPPORTED_PRODUCTS: Final[tuple[str, ...]] = (
+    "ETH-USD",
+    "BTC-USD",
+    "AERO-USD",
+    "VIRTUAL-USD",
+    "VVV-USD",
+    "MORPHO-USD",
+    "DEGEN-USD",
+    "WELL-USD",
+    "CBETH-USD",
+)
 MAX_RESPONSE_BYTES: Final[int] = 1_000_000
 DEFAULT_CEX_TAKER_FEE_BPS: Final[Decimal] = Decimal("3.5")
 DEFAULT_LATENCY_HAIRCUT_BPS: Final[Decimal] = Decimal("1.5")
@@ -46,6 +64,7 @@ _WEI_SCALE: Final[Decimal] = Decimal(10**18)
 _TUN_FAKE_IPV4_NET: Final[ipaddress.IPv4Network] = ipaddress.IPv4Network("198.18.0.0/15")
 _TUN_FAKE_IPV6_NET: Final[ipaddress.IPv6Network] = ipaddress.IPv6Network("2001:2::/48")
 _SHA256_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{64}$")
+_COINBASE_BOOK_PATH_RE: Final[re.Pattern[str]] = re.compile(r"^/products/([A-Za-z0-9-]+)/book$")
 _USER_AGENT: Final[str] = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"
@@ -76,6 +95,20 @@ _PRODUCT_SPECS: Final[dict[str, CoinbaseProductSpec]] = {
     "ETH-USD": CoinbaseProductSpec(product_id="ETH-USD", token_symbol="WETH", token_decimals=18),
     "BTC-USD": CoinbaseProductSpec(product_id="BTC-USD", token_symbol="cbBTC", token_decimals=8),
     "AERO-USD": CoinbaseProductSpec(product_id="AERO-USD", token_symbol="AERO", token_decimals=18),
+    "VIRTUAL-USD": CoinbaseProductSpec(
+        product_id="VIRTUAL-USD", token_symbol="VIRTUAL", token_decimals=18
+    ),
+    "VVV-USD": CoinbaseProductSpec(product_id="VVV-USD", token_symbol="VVV", token_decimals=18),
+    "MORPHO-USD": CoinbaseProductSpec(
+        product_id="MORPHO-USD", token_symbol="MORPHO", token_decimals=18
+    ),
+    "DEGEN-USD": CoinbaseProductSpec(
+        product_id="DEGEN-USD", token_symbol="DEGEN", token_decimals=18
+    ),
+    "WELL-USD": CoinbaseProductSpec(product_id="WELL-USD", token_symbol="WELL", token_decimals=18),
+    "CBETH-USD": CoinbaseProductSpec(
+        product_id="CBETH-USD", token_symbol="cbETH", token_decimals=18
+    ),
 }
 _SYMBOL_ALIASES: Final[dict[str, str]] = {
     "ETH-USD": "ETH-USD",
@@ -86,11 +119,23 @@ _SYMBOL_ALIASES: Final[dict[str, str]] = {
     "CBBTC": "BTC-USD",
     "AERO-USD": "AERO-USD",
     "AERO": "AERO-USD",
+    "VIRTUAL-USD": "VIRTUAL-USD",
+    "VIRTUAL": "VIRTUAL-USD",
+    "VVV-USD": "VVV-USD",
+    "VVV": "VVV-USD",
+    "MORPHO-USD": "MORPHO-USD",
+    "MORPHO": "MORPHO-USD",
+    "DEGEN-USD": "DEGEN-USD",
+    "DEGEN": "DEGEN-USD",
+    "WELL-USD": "WELL-USD",
+    "WELL": "WELL-USD",
+    "CBETH-USD": "CBETH-USD",
+    "CBETH": "CBETH-USD",
 }
 
 
 def resolve_coinbase_product(symbol_or_product: str) -> CoinbaseProductSpec:
-    """Resolve a Coinbase product (`ETH-USD`, `BTC-USD`, `AERO-USD`) or Base token symbol."""
+    """Resolve any supported Coinbase product ID or Base token symbol alias."""
     if not isinstance(symbol_or_product, str) or not symbol_or_product.strip():
         raise ValueError("symbol_or_product must be a non-empty string")
     key = symbol_or_product.strip().upper()
@@ -189,6 +234,7 @@ class CoinbaseL2Book:
     sequence: int | None
     retrieved_at_utc: str
     raw_sha256: str
+    book_level: Literal[1, 2] = 2
 
     def __post_init__(self) -> None:
         spec = resolve_coinbase_product(self.product_id)
@@ -213,6 +259,8 @@ class CoinbaseL2Book:
             raise LiveCexDexError("raw_sha256 must be a lowercase 64-hex SHA-256 digest")
         if not isinstance(self.retrieved_at_utc, str) or not self.retrieved_at_utc.strip():
             raise LiveCexDexError("retrieved_at_utc must be a non-empty timestamp")
+        if type(self.book_level) is not int or self.book_level not in (1, 2):
+            raise LiveCexDexError("book_level must be 1 or 2")
 
     @property
     def best_bid(self) -> Decimal:
@@ -313,10 +361,13 @@ class CexDexTickEvaluation:
     maker_zero_fee_net_bps: float | None
     maker_zero_fee_diagnostic_only: bool = True
     execution_eligible: Literal[False] = False
+    book_level: Literal[1, 2] = 2
 
     def __post_init__(self) -> None:
         if self.execution_eligible is not False:
             raise LiveCexDexError("CEX-DEX shadow evaluation cannot set execution_eligible=True")
+        if type(self.book_level) is not int or self.book_level not in (1, 2):
+            raise LiveCexDexError("book_level must be 1 or 2")
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize tick evaluation to a JSON-compatible dictionary."""
@@ -333,6 +384,7 @@ class CexDexTickEvaluation:
             "cex_mid_usd": self.cex_mid_usd,
             "book_sequence": self.book_sequence,
             "book_sha256": self.book_sha256,
+            "book_level": self.book_level,
             "buy_dex_sell_cex": (
                 self.buy_dex_sell_cex.to_dict() if self.buy_dex_sell_cex is not None else None
             ),
@@ -387,21 +439,17 @@ def _validate_coinbase_url(url: str) -> str:
             raise LiveCexDexError("Coinbase URL forbids explicit custom ports")
     except ValueError as exc:
         raise LiveCexDexError("Coinbase URL contains an invalid port") from exc
+    if parsed.fragment:
+        raise LiveCexDexError("Coinbase URL forbids fragments")
+    path_match = _COINBASE_BOOK_PATH_RE.fullmatch(parsed.path)
+    if path_match is None or path_match.group(1) not in _PRODUCT_SPECS:
+        raise LiveCexDexError("Coinbase URL path must target /products/<supported-product>/book")
+    if parsed.query not in ("level=1", "level=2"):
+        raise LiveCexDexError("Coinbase URL query must be level=1 or level=2")
     return url
 
 
-def _validate_resolved_dns(hostname: str) -> None:
-    try:
-        ipaddress.ip_address(hostname)
-    except ValueError:
-        pass
-    else:
-        raise LiveCexDexError("Coinbase URL forbids IP literals")
-
-    try:
-        addr_infos = socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
-    except OSError as exc:
-        raise LiveCexDexError("Coinbase DNS resolution failed") from exc
+def _validate_addr_infos(addr_infos: list[Any]) -> list[Any]:
     if not addr_infos:
         raise LiveCexDexError("Coinbase DNS returned no addresses")
     for _, _, _, _, sockaddr in addr_infos:
@@ -414,6 +462,151 @@ def _validate_resolved_dns(hostname: str) -> None:
         )
         if _is_forbidden_ip(ip_obj) and not _is_tun_fake_ip(ip_obj) and not is_mapped_tun:
             raise LiveCexDexError("Coinbase DNS resolved to a non-public IP")
+    return sorted(
+        addr_infos,
+        key=lambda item: (
+            0 if item[0] == socket.AF_INET else (1 if item[0] == socket.AF_INET6 else 2)
+        ),
+    )
+
+
+def _resolve_and_validate_addrs(
+    hostname: str,
+    port: int = 443,
+    *,
+    family: int = socket.AF_UNSPEC,
+) -> list[Any]:
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        raise LiveCexDexError("Coinbase URL forbids IP literals")
+
+    try:
+        if family == socket.AF_UNSPEC:
+            addr_infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        else:
+            addr_infos = socket.getaddrinfo(hostname, port, family=family, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise LiveCexDexError("Coinbase DNS resolution failed") from exc
+    return _validate_addr_infos(addr_infos)
+
+
+def _validate_resolved_dns(hostname: str) -> None:
+    _resolve_and_validate_addrs(hostname, 443)
+
+
+class _IPv4PreferredHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPSConnection sorting validated AF_INET first and falling back on IPv6 SSLEOFError."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int | None = None,
+        *,
+        source_address: tuple[str, int] | None = None,
+        context: ssl.SSLContext | None = None,
+        **kwargs: Any,
+    ) -> None:
+        tls_ctx = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(host, port, source_address=source_address, context=tls_ctx, **kwargs)
+        self._tls_context: ssl.SSLContext = tls_ctx
+        self._bind_address: tuple[str, int] | None = source_address
+
+    def _try_connect_candidates(
+        self, candidates: list[Any], server_hostname: str
+    ) -> tuple[OSError | None, bool]:
+        last_exc: OSError | None = None
+        saw_ipv6_ssl_eof = False
+        tunnel_host = getattr(self, "_tunnel_host", None)
+        for af, socktype, proto, _canon, sockaddr in candidates:
+            raw_sock: socket.socket | None = None
+            try:
+                raw_sock = socket.socket(af, socktype, proto)
+                if isinstance(self.timeout, (int, float)) and not isinstance(self.timeout, bool):
+                    raw_sock.settimeout(float(self.timeout))
+                if self._bind_address is not None:
+                    raw_sock.bind(self._bind_address)
+                raw_sock.connect(sockaddr)
+                try:
+                    raw_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                except OSError as opt_exc:
+                    if opt_exc.errno != errno.ENOPROTOOPT:
+                        raise
+                if tunnel_host:
+                    self.sock = raw_sock
+                    tunnel_fn = getattr(self, "_tunnel", None)
+                    if callable(tunnel_fn):
+                        tunnel_fn()
+                    wrapped = self._tls_context.wrap_socket(
+                        self.sock, server_hostname=server_hostname
+                    )
+                else:
+                    wrapped = self._tls_context.wrap_socket(
+                        raw_sock, server_hostname=server_hostname
+                    )
+                self.sock = wrapped
+                return None, saw_ipv6_ssl_eof
+            except OSError as exc:
+                last_exc = exc
+                if af == socket.AF_INET6 and isinstance(exc, ssl.SSLEOFError):
+                    saw_ipv6_ssl_eof = True
+                self.sock = None
+                if raw_sock is not None:
+                    with suppress(OSError):
+                        raw_sock.close()
+        return last_exc, saw_ipv6_ssl_eof
+
+    def connect(self) -> None:
+        sys.audit("http.client.connect", self, self.host, self.port)
+        ordered_addrs = _resolve_and_validate_addrs(self.host, self.port)
+        tunnel_host = getattr(self, "_tunnel_host", None)
+        server_hostname = str(tunnel_host) if tunnel_host else self.host
+        last_exc, saw_ipv6_ssl_eof = self._try_connect_candidates(ordered_addrs, server_hostname)
+        if last_exc is None:
+            return
+
+        has_ipv4 = any(info[0] == socket.AF_INET for info in ordered_addrs)
+        if saw_ipv6_ssl_eof and not has_ipv4:
+            try:
+                ipv4_candidates = [
+                    info
+                    for info in _resolve_and_validate_addrs(
+                        self.host, self.port, family=socket.AF_INET
+                    )
+                    if info[0] == socket.AF_INET
+                ]
+            except LiveCexDexError as dns_exc:
+                if "non-public" in str(dns_exc) or "forbids" in str(dns_exc):
+                    raise
+                ipv4_candidates = []
+            if ipv4_candidates:
+                ipv4_exc, _ = self._try_connect_candidates(ipv4_candidates, server_hostname)
+                if ipv4_exc is None:
+                    return
+                last_exc = ipv4_exc
+        raise last_exc
+
+
+class _IPv4PreferredHTTPSHandler(urllib.request.HTTPSHandler):
+    """HTTPSHandler opening connections via `_IPv4PreferredHTTPSConnection`."""
+
+    def __init__(self, context: ssl.SSLContext | None = None) -> None:
+        tls_ctx = (
+            context if context is not None else ssl.create_default_context(cafile=certifi.where())
+        )
+        super().__init__(context=tls_ctx)
+        self._context: ssl.SSLContext = tls_ctx
+
+    def https_open(self, req: urllib.request.Request) -> http.client.HTTPResponse:
+        return self.do_open(
+            _IPv4PreferredHTTPSConnection,
+            req,
+            context=self._context,
+        )
 
 
 def _default_https_get(url: str, timeout_s: float) -> bytes:
@@ -424,7 +617,7 @@ def _default_https_get(url: str, timeout_s: float) -> bytes:
     _validate_resolved_dns(parsed.hostname)
 
     opener = urllib.request.build_opener(
-        urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
+        _IPv4PreferredHTTPSHandler(context=ssl.create_default_context(cafile=certifi.where())),
         _NoRedirectHandler(),
     )
     request = urllib.request.Request(
@@ -495,9 +688,12 @@ def parse_coinbase_l2_book(
     *,
     product_id: str,
     retrieved_at_utc: str | None = None,
+    level: Literal[1, 2] = 2,
 ) -> CoinbaseL2Book:
-    """Strictly parse a Coinbase Exchange `/products/{product}/book?level=2` payload."""
+    """Strictly parse a Coinbase Exchange `/products/{product}/book?level={1,2}` payload."""
     spec = resolve_coinbase_product(product_id)
+    if type(level) is not int or level not in (1, 2):
+        raise ValueError("level must be 1 or 2")
     if not isinstance(raw_bytes, bytes):
         raise TypeError("raw_bytes must be bytes")
     if len(raw_bytes) > MAX_RESPONSE_BYTES:
@@ -534,16 +730,20 @@ def parse_coinbase_l2_book(
         sequence=sequence,
         retrieved_at_utc=timestamp,
         raw_sha256=sha256_hex(raw_bytes),
+        book_level=level,
     )
 
 
 def fetch_coinbase_l2_book(
     symbol_or_product: str,
     *,
+    level: Literal[1, 2] = 2,
     timeout_s: float = DEFAULT_TIMEOUT_S,
     transport: Callable[[str, float], bytes] | None = None,
 ) -> CoinbaseL2Book:
-    """Fetch and strictly validate one keyless Coinbase Exchange L2 book."""
+    """Fetch and strictly validate one keyless Coinbase Exchange level-2 or level-1 book."""
+    if type(level) is not int or level not in (1, 2):
+        raise ValueError("level must be 1 or 2")
     if (
         isinstance(timeout_s, bool)
         or not isinstance(timeout_s, (int, float))
@@ -552,10 +752,12 @@ def fetch_coinbase_l2_book(
     ):
         raise ValueError("timeout_s must be a positive finite number")
     spec = resolve_coinbase_product(symbol_or_product)
-    url = _validate_coinbase_url(COINBASE_BOOK_URL_TEMPLATE.format(product=spec.product_id))
+    url = _validate_coinbase_url(
+        COINBASE_BOOK_LEVEL1_URL_TEMPLATE.format(product=spec.product_id, level=level)
+    )
     getter = _default_https_get if transport is None else transport
     raw_bytes = getter(url, float(timeout_s))
-    return parse_coinbase_l2_book(raw_bytes, product_id=spec.product_id)
+    return parse_coinbase_l2_book(raw_bytes, product_id=spec.product_id, level=level)
 
 
 def _evaluate_buy_dex_sell_cex(
@@ -785,6 +987,7 @@ def evaluate_cex_dex_opportunity(
             best_net_bps=None,
             best_raw_spread_bps=None,
             maker_zero_fee_net_bps=None,
+            book_level=book.book_level,
         )
 
     best_dir = max(feasible_dirs, key=lambda d: cast(float, d.net_bps))
@@ -813,6 +1016,7 @@ def evaluate_cex_dex_opportunity(
         best_net_bps=best_dir.net_bps,
         best_raw_spread_bps=max(raw_spreads) if raw_spreads else None,
         maker_zero_fee_net_bps=max(maker_bps_list) if maker_bps_list else None,
+        book_level=book.book_level,
     )
 
 
@@ -830,7 +1034,7 @@ def evaluate_live_cex_dex_shadow(
     book: CoinbaseL2Book | None = None,
     transport: Callable[[str, float], bytes] | None = None,
 ) -> CexDexTickEvaluation:
-    """Fetch Coinbase L2 book (or use provided book) and evaluate fail-soft per tick."""
+    """Fetch Coinbase L2 book (falling back once to level=1 on >1MB byte limit) and evaluate."""
     spec = resolve_coinbase_product(product_or_symbol)
     if type(trade_notional_usdc) is not int or trade_notional_usdc <= 0:
         raise ValueError("trade_notional_usdc must be a positive integer")
@@ -845,11 +1049,23 @@ def evaluate_live_cex_dex_shadow(
     active_book = book
     if active_book is None:
         try:
-            active_book = fetch_coinbase_l2_book(
-                spec.product_id,
-                timeout_s=timeout_s,
-                transport=transport,
-            )
+            try:
+                active_book = fetch_coinbase_l2_book(
+                    spec.product_id,
+                    level=2,
+                    timeout_s=timeout_s,
+                    transport=transport,
+                )
+            except LiveCexDexError as exc:
+                msg = str(exc)
+                if "byte limit" not in msg and "MAX_RESPONSE_BYTES" not in msg:
+                    raise
+                active_book = fetch_coinbase_l2_book(
+                    spec.product_id,
+                    level=1,
+                    timeout_s=timeout_s,
+                    transport=transport,
+                )
         except (LiveCexDexError, OSError, TimeoutError, urllib.error.URLError, ValueError) as exc:
             return CexDexTickEvaluation(
                 product_id=spec.product_id,
@@ -870,6 +1086,7 @@ def evaluate_live_cex_dex_shadow(
                 best_net_bps=None,
                 best_raw_spread_bps=None,
                 maker_zero_fee_net_bps=None,
+                book_level=2,
             )
 
     return evaluate_cex_dex_opportunity(
@@ -883,6 +1100,16 @@ def evaluate_live_cex_dex_shadow(
         cex_taker_fee_bps=taker_bps,
         latency_haircut_bps=haircut_bps,
     )
+
+
+def _price_quant_for_mid(mid: Decimal) -> Decimal:
+    if mid >= Decimal(100):
+        return Decimal("0.01")
+    if mid >= Decimal(1):
+        return Decimal("0.0001")
+    if mid >= Decimal("0.05"):
+        return Decimal("0.00001")
+    return Decimal("0.000001")
 
 
 def build_synthetic_coinbase_l2_book(
@@ -907,7 +1134,7 @@ def build_synthetic_coinbase_l2_book(
     if type(sequence) is not int or sequence < 0:
         raise ValueError("sequence must be a non-negative integer")
 
-    quant = Decimal("0.01") if spec.product_id != "AERO-USD" else Decimal("0.0001")
+    quant = _price_quant_for_mid(mid)
     bids_list: list[CoinbaseL2Level] = []
     asks_list: list[CoinbaseL2Level] = []
     for idx in range(levels):
@@ -915,10 +1142,14 @@ def build_synthetic_coinbase_l2_book(
         ask_offset = (half_spread + step * idx) / _BPS_DIVISOR
         bid_p = (mid * (Decimal(1) - bid_offset)).quantize(quant)
         ask_p = (mid * (Decimal(1) + ask_offset)).quantize(quant)
+        if bid_p <= 0:
+            bid_p = quant
         if bid_p >= ask_p:
             ask_p = bid_p + quant
         if bids_list and bid_p >= bids_list[-1].price:
             bid_p = bids_list[-1].price - quant
+        if bid_p <= 0:
+            raise ValueError("synthetic book bid price quantized to non-positive value")
         if asks_list and ask_p <= asks_list[-1].price:
             ask_p = asks_list[-1].price + quant
         bids_list.append(CoinbaseL2Level(price=bid_p, size=size, num_orders=1))
@@ -942,13 +1173,17 @@ def build_synthetic_coinbase_l2_book(
     )
 
 
-def serialize_coinbase_book_payload(book: CoinbaseL2Book) -> bytes:
-    """Serialize a `CoinbaseL2Book` into Coinbase Exchange level-2 JSON bytes."""
+def serialize_coinbase_book_payload(book: CoinbaseL2Book, *, level: Literal[1, 2] = 2) -> bytes:
+    """Serialize a `CoinbaseL2Book` into Coinbase Exchange level-1 or level-2 JSON bytes."""
+    if type(level) is not int or level not in (1, 2):
+        raise ValueError("level must be 1 or 2")
+    bids_slice = book.bids[:1] if level == 1 else book.bids
+    asks_slice = book.asks[:1] if level == 1 else book.asks
     return canonical_json(
         {
             "sequence": book.sequence if book.sequence is not None else 1,
-            "bids": [[str(lvl.price), str(lvl.size), lvl.num_orders] for lvl in book.bids],
-            "asks": [[str(lvl.price), str(lvl.size), lvl.num_orders] for lvl in book.asks],
+            "bids": [[str(lvl.price), str(lvl.size), lvl.num_orders] for lvl in bids_slice],
+            "asks": [[str(lvl.price), str(lvl.size), lvl.num_orders] for lvl in asks_slice],
             "auction_mode": False,
         }
     )
@@ -966,6 +1201,12 @@ def build_synthetic_coinbase_transport(
         "ETH-USD": Decimal("3000.00"),
         "BTC-USD": Decimal("90000.00"),
         "AERO-USD": Decimal("1.20"),
+        "VIRTUAL-USD": Decimal("1.50"),
+        "VVV-USD": Decimal("4.00"),
+        "MORPHO-USD": Decimal("2.00"),
+        "DEGEN-USD": Decimal("0.0050"),
+        "WELL-USD": Decimal("0.0500"),
+        "CBETH-USD": Decimal("3250.00"),
     }
     if default_mid_by_product is not None:
         for k, v in default_mid_by_product.items():
@@ -987,13 +1228,15 @@ def build_synthetic_coinbase_transport(
         book = resolved_books.get(product_id)
         if book is None:
             book = build_synthetic_coinbase_l2_book(product_id, mid_price=default_mids[product_id])
-        return serialize_coinbase_book_payload(book)
+        level: Literal[1, 2] = 1 if parsed.query == "level=1" else 2
+        return serialize_coinbase_book_payload(book, level=level)
 
     return _transport
 
 
 __all__ = [
     "COINBASE_ALLOWED_HOSTS",
+    "COINBASE_BOOK_LEVEL1_URL_TEMPLATE",
     "COINBASE_BOOK_URL_TEMPLATE",
     "DEFAULT_CEX_TAKER_FEE_BPS",
     "DEFAULT_LATENCY_HAIRCUT_BPS",

@@ -1,0 +1,129 @@
+name: oasis-profit-engine
+x-common: &common
+  image: oasis-profit-engine:local
+  build:
+    context: ../..
+    dockerfile: deploy/profit-engine/Dockerfile
+    target: runtime
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 128
+  mem_limit: 512m
+  restart: "no"
+  # Quoted: in a YAML flow list, unquoted commas would split the mount options apart.
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=16m,mode=1777"]
+  # Resolve only for services that inherit this environment. Required-value
+  # interpolation would also block keyless/offline services during config parsing.
+  environment: [BASE_RPC_PRIMARY_ALT, BASE_RPC_PRIMARY]
+services:
+  initialize:
+    <<: *common
+    profiles: [setup]
+    user: "0:0"
+    network_mode: none
+    environment: {}
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER, DAC_OVERRIDE]
+    volumes:
+      - profit-authority-state:/authority-state
+      - profit-strategy-state:/strategy-state
+      - profit-authority-socket:/socket
+    command: [python, -c, "import os; [(os.chown(p,10001,10001),os.chmod(p,0o700)) for p in ('/authority-state','/strategy-state','/socket')]"]
+  profit-authority:
+    <<: *common
+    volumes:
+      - profit-authority-state:/state
+      - profit-authority-socket:/run/oasis
+      - canary-keys:/secrets:ro
+    command:
+      - python
+      - -m
+      - scripts.run_profit_authority
+      - --policy-config
+      - /state/profit_policy.json
+      - --state-dir
+      - /state
+      - --socket
+      - /run/oasis/profit_authority.sock
+      - --key-file
+      - /secrets/canary.key
+      - --max-signatures
+      - "12"
+      - --ttl-seconds
+      - "86400"
+  profit-strategy:
+    <<: *common
+    volumes:
+      - profit-strategy-state:/state
+      - profit-authority-socket:/run/oasis
+    command:
+      - python
+      - -m
+      - scripts.run_multicall_100tick_campaign
+      - --mode
+      - public-shadow
+      - --ticks
+      - "100"
+      - --max-rpc-calls
+      - "3000"
+      - --out
+      - /state/shadow-run
+  profit-authority-status:
+    <<: *common
+    profiles: [recovery]
+    network_mode: none
+    environment: {}
+    volumes:
+      - profit-authority-state:/state
+      - profit-authority-socket:/run/oasis
+    command:
+      - python
+      - -m
+      - scripts.run_profit_authority
+      - --status-only
+      - --policy-config
+      - /state/profit_policy.json
+      - --state-dir
+      - /state
+      - --socket
+      - /run/oasis/profit_authority.sock
+      - --max-status-requests
+      - "12"
+      - --ttl-seconds
+      - "60"
+  profit-authority-recovery:
+    <<: *common
+    profiles: [recovery]
+    volumes:
+      - profit-authority-state:/state
+    command:
+      - python
+      - -m
+      - scripts.run_profit_authority
+      - --reconcile-only
+      - --policy-config
+      - /state/profit_policy.json
+      - --state-dir
+      - /state
+  profit-strategy-recovery:
+    <<: *common
+    profiles: [recovery]
+    volumes:
+      - profit-strategy-state:/state
+    command:
+      - python
+      - -m
+      - scripts.check_profit_engine_readiness
+      - --shadow-summary
+      - /state/shadow-run/shadow_summary.json
+      - --out
+      - /state/readiness-report.json
+volumes:
+  profit-authority-state: {}
+  profit-strategy-state: {}
+  profit-authority-socket: {}
+  canary-keys:
+    external: true
+    name: oasis-canary-keys
