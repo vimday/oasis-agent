@@ -34,7 +34,7 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
   --out reports/research/<run-id>/shadow-500-final
 ```
 
-可选精细过滤与韧性参数：`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `6` 且开启 Coinbase Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `6.5` 配合 `1.5x` 波动倍增、按产品 lot 计时、队列顺位保留及 `$25` / `60`-step 批量对冲）、`--max-book-workers`（默认 `9` 并发 L2 预拉取）、`--timeout-s`（单请求 HTTPS/WS 超时，默认 `15.0s`）与 `--stop-gracefully-on-rpc-error`（首 tick 后遇公共 RPC 错误不重试、即停机并落盘已完成区块哈希链与汇总）。
+可选精细过滤与韧性参数：`--include-aero-cl2`（将 Base 活跃发现池扩展至 Aero Slipstream 2 `CLFactory`）、`--cex-venue coinbase|bybit`（切换 Coinbase 或 Bybit Spot V5 实时订单簿与 WebSocket 成交，Bybit 路径自动拉取实时 Coinbase `USDT-USD` 锚定归一化）、`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `6` 且开启 CEX Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `6.5` 配合 `1.5x` 波动倍增、按产品 lot 计时、队列顺位保留、成本感知 CEX 粉尘平仓及 `$25` / `60`-step 批量对冲）、`--max-book-workers`（默认 `9` 并发 L2 预拉取）、`--timeout-s`（单请求 HTTPS/WS 超时，默认 `15.0s`）与 `--stop-gracefully-on-rpc-error`（首 tick 后遇公共 RPC 错误不重试、即停机并落盘已完成区块哈希链与汇总）。
 
 同步运行无密钥 Base Aave V3 健康度与按剩余额度截断清算扫描时（底层直连传输已显式注入 `ProxyHandler({})` 绕过本地系统代理误路由）：
 

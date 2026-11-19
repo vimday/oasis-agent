@@ -46,6 +46,12 @@ from oasis_agent.fastpath.live_shadow_runner import (
     run_base_arb_shadow,
     verify_attribution_chain,
 )
+from oasis_agent.fastpath.multicall_universe import (
+    AERO_CL2_FACTORY,
+    CANONICAL_BASE_TOKENS,
+    ECOSYSTEM_BASE_TOKENS,
+    _build_factory_queries,
+)
 from oasis_agent.intents.uniswapx_client import UniswapXClientError, UniswapXOrderbookClient
 from oasis_agent.models.common import canonical_json, normalize_address, sha256_hex
 from oasis_agent.sniping.venues import (
@@ -779,3 +785,17 @@ def test_cli_synthetic_main_and_subprocess(
     ]
     assert len(records) == 3
     assert verify_attribution_chain(records) == sub_summary["chain_head_sha256"]
+
+
+def test_multicall_universe_aero_cl2_factory_opt_in() -> None:
+    """`include_aero_cl2=True` appends Aero CL2 factory queries while default preserves legacy."""
+    legacy = _build_factory_queries(CANONICAL_BASE_TOKENS, ecosystem_tokens=ECOSYSTEM_BASE_TOKENS)
+    expanded = _build_factory_queries(
+        CANONICAL_BASE_TOKENS,
+        ecosystem_tokens=ECOSYSTEM_BASE_TOKENS,
+        include_aero_cl2=True,
+    )
+    assert not any(q.factory == AERO_CL2_FACTORY for q in legacy)
+    cl2_queries = [q for q in expanded if q.factory == AERO_CL2_FACTORY]
+    assert len(cl2_queries) > 0
+    assert all(q.venue == "aero_cl2" for q in cl2_queries)

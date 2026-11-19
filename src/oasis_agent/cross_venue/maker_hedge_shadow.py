@@ -107,6 +107,8 @@ class MakerHedgeConfig:
     max_unhedged_drift_bps: Decimal = Decimal("15.0")
     preserve_queue_priority: bool = False
     deduplicate_fifo_and_strict: bool = False
+    cex_dust_unwind_enabled: bool = False
+    cex_dust_unwind_taker_fee_bps: Decimal = Decimal("3.5")
 
     def __post_init__(self) -> None:
         _require_pos_int(self.trade_notional_usdc, "trade_notional_usdc")
@@ -155,6 +157,13 @@ class MakerHedgeConfig:
             raise MakerHedgeError("preserve_queue_priority must be a boolean")
         if type(self.deduplicate_fifo_and_strict) is not bool:
             raise MakerHedgeError("deduplicate_fifo_and_strict must be a boolean")
+        if type(self.cex_dust_unwind_enabled) is not bool:
+            raise MakerHedgeError("cex_dust_unwind_enabled must be a boolean")
+        dust_taker_fee = _require_finite_decimal(
+            self.cex_dust_unwind_taker_fee_bps,
+            "cex_dust_unwind_taker_fee_bps",
+            require_nonneg=True,
+        )
         object.__setattr__(self, "cex_maker_fee_bps", fee)
         object.__setattr__(self, "adverse_selection_bps", adv)
         object.__setattr__(self, "min_quote_edge_bps", min_edge)
@@ -163,6 +172,7 @@ class MakerHedgeConfig:
         object.__setattr__(self, "max_adaptive_adverse_bps", max_adv)
         object.__setattr__(self, "max_acceptable_gas_drag_bps", max_gas_drag)
         object.__setattr__(self, "max_unhedged_drift_bps", max_drift)
+        object.__setattr__(self, "cex_dust_unwind_taker_fee_bps", dust_taker_fee)
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,7 +261,9 @@ class MakerFillEvent:
     filled_qty_tokens: str | None = None
     fill_ratio: float = 1.0
     matched_trade_ids: tuple[int, ...] = ()
-    hedge_mode: Literal["immediate_dex", "batched_dex", "natural_netted"] = "immediate_dex"
+    hedge_mode: Literal["immediate_dex", "batched_dex", "natural_netted", "cex_dust_unwind"] = (
+        "immediate_dex"
+    )
     hedge_note: str = ""
 
     def __post_init__(self) -> None:
@@ -259,7 +271,12 @@ class MakerFillEvent:
             raise MakerHedgeError(f"invalid maker fill side: {self.side!r}")
         if self.fill_classification not in ("strict_cross", "touch_lift", "trade_flow_fifo"):
             raise MakerHedgeError(f"invalid fill_classification: {self.fill_classification!r}")
-        if self.hedge_mode not in ("immediate_dex", "batched_dex", "natural_netted"):
+        if self.hedge_mode not in (
+            "immediate_dex",
+            "batched_dex",
+            "natural_netted",
+            "cex_dust_unwind",
+        ):
             raise MakerHedgeError(f"invalid hedge_mode: {self.hedge_mode!r}")
         if not isinstance(self.hedge_note, str):
             raise MakerHedgeError("hedge_note must be a string")
@@ -831,8 +848,10 @@ class MakerHedgeLifecycleTracker:
         self._open_unhedged_lots: dict[str, list[UnhedgedMakerLot]] = {}
         self._mid_returns_bps_by_product: dict[str, deque[Decimal]] = {}
         self._last_mid_by_product: dict[str, Decimal] = {}
+        self._last_book_by_product: dict[str, CoinbaseL2Book] = {}
         self._batched_fifo_hedges: int = 0
         self._natural_netted_fills: int = 0
+        self._cex_dust_unwinds: int = 0
 
     @property
     def config(self) -> MakerHedgeConfig:
@@ -1332,6 +1351,64 @@ class MakerHedgeLifecycleTracker:
             self._open_unhedged_lots.pop(product_id, None)
         return emitted
 
+    def _build_cex_dust_unwind_events(
+        self,
+        *,
+        product_id: str,
+        side: Literal["ask_maker", "bid_maker"],
+        side_lots: Sequence[UnhedgedMakerLot],
+        current_book: CoinbaseL2Book,
+        note_prefix: str,
+    ) -> list[MakerFillEvent]:
+        unwind_px = current_book.best_ask if side == "ask_maker" else current_book.best_bid
+        taker_fee_frac = self._config.cex_dust_unwind_taker_fee_bps / _BPS_DIVISOR
+        unwind_note = f"{note_prefix}:cex_dust_unwind:lots={len(side_lots)}:zero_dex_gas"
+        events: list[MakerFillEvent] = []
+        for lot in side_lots:
+            lot_scale = Decimal(10**lot.token_decimals)
+            lot_qty_dec = Decimal(lot.notional_token) / lot_scale
+            quote_qty = lot.quote_qty_tokens if lot.quote_qty_tokens is not None else lot_qty_dec
+            lot_ratio = max(1e-12, min(1.0, float(lot_qty_dec / quote_qty)))
+            next_book_px = (
+                lot.next_book_price_usd
+                if lot.next_book_price_usd is not None
+                else lot.fill_price_usdc
+            )
+            if side == "ask_maker":
+                proceeds_usd = lot_qty_dec * lot.fill_price_usdc
+                unwind_cost_usd = lot_qty_dec * unwind_px
+                taker_fee_usd = unwind_cost_usd * taker_fee_frac
+                net_profit_usd = proceeds_usd - unwind_cost_usd - lot.maker_fee_usd - taker_fee_usd
+                denom_usd = unwind_cost_usd
+            else:
+                buy_cost_usd = lot_qty_dec * lot.fill_price_usdc
+                unwind_proceeds_usd = lot_qty_dec * unwind_px
+                taker_fee_usd = unwind_proceeds_usd * taker_fee_frac
+                net_profit_usd = (
+                    unwind_proceeds_usd - buy_cost_usd - lot.maker_fee_usd - taker_fee_usd
+                )
+                denom_usd = buy_cost_usd
+            net_bps = (net_profit_usd / denom_usd) * _BPS_DIVISOR if denom_usd > 0 else Decimal(0)
+            events.append(
+                MakerFillEvent(
+                    product_id=product_id,
+                    side=side,
+                    fill_classification=lot.fill_mode,
+                    quoted_price_usd=lot.fill_price_usdc,
+                    next_book_price_usd=next_book_px,
+                    hedge_dex_price_usd=unwind_px,
+                    realized_net_bps=net_bps,
+                    realized_net_profit_usd=net_profit_usd,
+                    latency_drift_bps=Decimal(0),
+                    filled_qty_tokens=_format_decimal_plain(lot_qty_dec),
+                    fill_ratio=lot_ratio,
+                    matched_trade_ids=lot.matched_trade_ids,
+                    hedge_mode="cex_dust_unwind",
+                    hedge_note=unwind_note,
+                )
+            )
+        return events
+
     def _flush_product_side_lots(
         self,
         *,
@@ -1344,13 +1421,41 @@ class MakerHedgeLifecycleTracker:
         token_decimals: int,
         gas_usd: Decimal,
         note_prefix: str,
+        allow_cex_dust_unwind: bool = False,
+        current_book: CoinbaseL2Book | None = None,
     ) -> tuple[list[MakerFillEvent], list[str]]:
         product_lots = self._open_unhedged_lots.get(product_id, [])
         side_lots = [lot for lot in product_lots if lot.side == side]
         if not side_lots:
             return [], []
 
+        cex_unwind_events: list[MakerFillEvent] | None = None
+        if allow_cex_dust_unwind and current_book is not None:
+            cex_unwind_events = self._build_cex_dust_unwind_events(
+                product_id=product_id,
+                side=side,
+                side_lots=side_lots,
+                current_book=current_book,
+                note_prefix=note_prefix,
+            )
+
         token_scale = Decimal(10**token_decimals)
+        dex_quote_ok = (
+            (dex_buy_token_out is not None and dex_buy_token_out > 0)
+            if side == "ask_maker"
+            else (dex_sell_usdc_out is not None and dex_sell_usdc_out > 0)
+        )
+        if not dex_quote_ok:
+            if cex_unwind_events is not None:
+                remaining = [lot for lot in product_lots if lot.side != side]
+                if remaining:
+                    self._open_unhedged_lots[product_id] = remaining
+                else:
+                    self._open_unhedged_lots.pop(product_id, None)
+                self._cex_dust_unwinds += 1
+                return cex_unwind_events, []
+            return [], [f"{product_id}:{side}:{note_prefix}_missing_dex_quote"]
+
         if side == "ask_maker":
             if dex_buy_token_out is None or dex_buy_token_out <= 0:
                 return [], [f"{product_id}:{side}:{note_prefix}_missing_dex_quote"]
@@ -1446,6 +1551,14 @@ class MakerHedgeLifecycleTracker:
             self._open_unhedged_lots[product_id] = remaining
         else:
             self._open_unhedged_lots.pop(product_id, None)
+        if cex_unwind_events is not None:
+            dex_total_profit = sum((ev.realized_net_profit_usd for ev in emitted), Decimal(0))
+            cex_total_profit = sum(
+                (ev.realized_net_profit_usd for ev in cex_unwind_events), Decimal(0)
+            )
+            if cex_total_profit > dex_total_profit:
+                self._cex_dust_unwinds += 1
+                return cex_unwind_events, []
         self._batched_fifo_hedges += 1
         return emitted, []
 
@@ -1461,6 +1574,7 @@ class MakerHedgeLifecycleTracker:
         dex_sell_usdc_out: int | None,
         token_decimals: int,
         gas_usd: Decimal,
+        current_book: CoinbaseL2Book | None = None,
     ) -> tuple[list[MakerFillEvent], list[str]]:
         product_lots = self._open_unhedged_lots.get(product_id)
         if not product_lots:
@@ -1490,6 +1604,10 @@ class MakerHedgeLifecycleTracker:
 
             if trigger_reason is None:
                 continue
+            allow_cex_unwind = (
+                self._config.cex_dust_unwind_enabled
+                and total_notional_usdc < dynamic_min_hedge_usdc
+            )
             side_fills, side_warnings = self._flush_product_side_lots(
                 product_id=product_id,
                 side=side,
@@ -1500,6 +1618,8 @@ class MakerHedgeLifecycleTracker:
                 token_decimals=token_decimals,
                 gas_usd=gas_usd,
                 note_prefix=trigger_reason,
+                allow_cex_dust_unwind=allow_cex_unwind,
+                current_book=current_book,
             )
             flushed.extend(side_fills)
             warnings.extend(side_warnings)
@@ -1563,6 +1683,11 @@ class MakerHedgeLifecycleTracker:
                     self._unhedged_warnings.append(f"{pid}:{side}:{note_prefix}_missing_dex_quote")
                     continue
                 t_usdc, buy_out, t_tok, sell_out, tok_dec, gas_dec = quote_entry
+                dyn_min = _compute_dynamic_min_hedge_usdc(self._config, gas_dec)
+                side_notional_usdc = sum(lot.notional_usdc for lot in side_lots)
+                allow_cex_unwind = (
+                    self._config.cex_dust_unwind_enabled and side_notional_usdc < dyn_min
+                )
                 side_fills, side_warnings = self._flush_product_side_lots(
                     product_id=pid,
                     side=side,
@@ -1573,6 +1698,8 @@ class MakerHedgeLifecycleTracker:
                     token_decimals=tok_dec,
                     gas_usd=gas_dec,
                     note_prefix=note_prefix,
+                    allow_cex_dust_unwind=allow_cex_unwind,
+                    current_book=self._last_book_by_product.get(pid),
                 )
                 flushed_fills.extend(side_fills)
                 self._unhedged_warnings.extend(side_warnings)
@@ -1604,6 +1731,7 @@ class MakerHedgeLifecycleTracker:
             )
 
         current_step_idx = self._step_index_by_product.get(spec.product_id, 0)
+        self._last_book_by_product[spec.product_id] = current_book
         eff_adv_bps = self._update_volatility_and_get_effective_adverse(
             spec.product_id,
             current_book.mid_price,
@@ -1755,6 +1883,7 @@ class MakerHedgeLifecycleTracker:
                 dex_sell_usdc_out=dex_sell_usdc_out,
                 token_decimals=token_decimals,
                 gas_usd=candidate.gas_cost_usd,
+                current_book=current_book,
             )
             fills.extend(batch_fills)
             unhedged.extend(batch_warnings)
@@ -1846,6 +1975,7 @@ class MakerHedgeLifecycleTracker:
             "unhedged_fill_warnings": len(self._unhedged_warnings),
             "batched_fifo_hedges": self._batched_fifo_hedges,
             "natural_netted_fills": self._natural_netted_fills,
+            "cex_dust_unwinds": self._cex_dust_unwinds,
             "open_unhedged_lots": open_lot_count,
             "unhedged_exposure_usd_micros": self.unhedged_exposure_usd_micros(),
             "adaptive_volatility_enabled": self._config.adaptive_volatility_enabled,

@@ -99,6 +99,7 @@ MULTICALL3: Final[str] = _addr20(954245306222959992705383, 119606053305043181102
 UNIV3_FACTORY: Final[str] = _addr20(241182716431300492361166, 495498167475622741736957)
 UNIV3_QUOTER_V2: Final[str] = _addr20(289508167577201351124465, 871012247504659137541994)
 SLIPSTREAM_FACTORY: Final[str] = _addr20(446184154468680566683266, 806398540398612560904346)
+AERO_CL2_FACTORY: Final[str] = _addr20(739975022415904667873827, 5605979072538092796534)
 CBBTC: Final[str] = _addr20(962029985257869835451167, 429691464623657203872703)
 AERO_TOKEN: Final[str] = _addr20(698938029289277408845381, 196638687667187760072241)
 WSTETH: Final[str] = _addr20(915173236817837272783139, 736850604702865302676562)
@@ -111,6 +112,7 @@ CBETH_TOKEN: Final[str] = _addr20(202544235633287275663338, 83158585115042214143
 
 UNIV3_FEE_TIERS: Final[tuple[int, ...]] = (100, 500, 3000, 10000)
 SLIPSTREAM_TICK_SPACINGS: Final[tuple[int, ...]] = (1, 50, 100, 200)
+AERO_CL2_TICK_SPACINGS: Final[tuple[int, ...]] = (1, 10, 50, 100, 200)
 
 AGGREGATE3_SELECTOR: Final[str] = _selector("aggregate3((address,bool,bytes)[])")
 UNIV3_GET_POOL_SELECTOR: Final[str] = _selector("getPool(address,address,uint24)")
@@ -696,6 +698,8 @@ def _append_pair_venue_queries(
     seen_slipstream_keys: set[tuple[str, str, str, int]],
     token_a: BaseTokenMeta,
     token_b: BaseTokenMeta,
+    *,
+    include_aero_cl2: bool = False,
 ) -> None:
     if token_a.address == token_b.address:
         return
@@ -752,6 +756,29 @@ def _append_pair_venue_queries(
             )
         )
 
+    if include_aero_cl2:
+        for ts in AERO_CL2_TICK_SPACINGS:
+            seen_slipstream_keys.add((AERO_CL2_FACTORY, meta0.address, meta1.address, ts))
+            _add(
+                _FactoryQuerySpec(
+                    label=f"aero_cl2_{s0}_{s1}_ts{ts}",
+                    venue="aero_cl2",
+                    kind=PoolKind.SLIPSTREAM,
+                    meta0=meta0,
+                    meta1=meta1,
+                    fixed_fee_pips=None,
+                    tick_spacing=ts,
+                    factory=AERO_CL2_FACTORY,
+                    calldata=bytes.fromhex(
+                        SLIPSTREAM_GET_POOL_SELECTOR[2:]
+                        + encode(
+                            ["address", "address", "int24"],
+                            [meta0.address, meta1.address, ts],
+                        ).hex()
+                    ),
+                )
+            )
+
     _add(
         _FactoryQuerySpec(
             label=f"aerodrome_v2_{s0}_{s1}",
@@ -777,6 +804,7 @@ def _build_factory_queries(
     tokens: Sequence[BaseTokenMeta],
     *,
     ecosystem_tokens: Sequence[BaseTokenMeta] = (),
+    include_aero_cl2: bool = False,
 ) -> tuple[_FactoryQuerySpec, ...]:
     queries: list[_FactoryQuerySpec] = []
     seen_query_keys: set[tuple[str, bytes]] = set()
@@ -786,7 +814,12 @@ def _build_factory_queries(
     for i in range(len(tokens)):
         for j in range(i + 1, len(tokens)):
             _append_pair_venue_queries(
-                queries, seen_query_keys, seen_slipstream_keys, tokens[i], tokens[j]
+                queries,
+                seen_query_keys,
+                seen_slipstream_keys,
+                tokens[i],
+                tokens[j],
+                include_aero_cl2=include_aero_cl2,
             )
 
     if ecosystem_tokens:
@@ -794,7 +827,12 @@ def _build_factory_queries(
         for eco_tok in ecosystem_tokens:
             for quote_tok in quote_tokens:
                 _append_pair_venue_queries(
-                    queries, seen_query_keys, seen_slipstream_keys, eco_tok, quote_tok
+                    queries,
+                    seen_query_keys,
+                    seen_slipstream_keys,
+                    eco_tok,
+                    quote_tok,
+                    include_aero_cl2=include_aero_cl2,
                 )
 
     # Include every SLIPSTREAM_USDC_WETH factory entry (e.g. second Slipstream v2 factory).
@@ -850,10 +888,13 @@ def discover_base_universe_pools(
     timeout_s: float = 10.0,
     block_tag: str = "latest",
     include_ecosystem_tokens: bool = False,
+    include_aero_cl2: bool = False,
 ) -> tuple[DiscoveredPool, ...]:
     """Discover and reserve-filter Base multi-asset pools in 3 pinned JSON-RPC calls."""
     if type(include_ecosystem_tokens) is not bool:
         raise MulticallUniverseError("include_ecosystem_tokens must be a boolean")
+    if type(include_aero_cl2) is not bool:
+        raise MulticallUniverseError("include_aero_cl2 must be a boolean")
     checked_timeout = _validate_timeout(timeout_s)
     normalized_tag = _validate_block_tag(block_tag)
     _validate_rpc_url(rpc_url, enforce_public_host=transport is None)
@@ -867,6 +908,7 @@ def discover_base_universe_pools(
     factory_specs = _build_factory_queries(
         CANONICAL_BASE_TOKENS,
         ecosystem_tokens=ECOSYSTEM_BASE_TOKENS if include_ecosystem_tokens else (),
+        include_aero_cl2=include_aero_cl2,
     )
     factory_calldata = _encode_aggregate3_calldata(
         [(spec.factory, True, spec.calldata) for spec in factory_specs]
@@ -1601,6 +1643,8 @@ def verify_candidate_with_onchain_quoter(
 
 
 __all__ = [
+    "AERO_CL2_FACTORY",
+    "AERO_CL2_TICK_SPACINGS",
     "AERO_GET_POOL_SELECTOR",
     "AERO_TOKEN",
     "AGGREGATE3_SELECTOR",

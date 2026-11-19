@@ -1162,3 +1162,84 @@ def test_multi_product_lot_aging_preserve_queue_and_fifo_dedup() -> None:
     assert dex_s4.fifo_fills == ()
     assert len(dex_s4.strict_fills) == 1
     assert dex_s4.strict_fills[0].side == "bid_maker"
+
+
+def test_cex_dust_unwind_avoids_high_gas_drag_on_micro_partial_fill() -> None:
+    """Sub-threshold dust lots unwind on CEX when zero-gas CEX close beats Base DEX gas drag."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        min_hedge_notional_usdc=25_000_000,
+        max_unhedged_steps=2,
+        cex_dust_unwind_enabled=True,
+        cex_dust_unwind_taker_fee_bps=Decimal("3.5"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    qty_0_08 = 8 * 10**16  # 0.08 ETH at $2500 = $200
+    gas_usd = Decimal("0.01")  # 100 bps gas drag on a $1.00 dust fill
+
+    # Tick 0: post ask at ~$2514.87 (DEX buy at $2500 => ~59 bps gross edge)
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="1.0", sequence=50),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.ask_active is True
+
+    # Tick 1: tiny $1.00 partial FIFO ask fill (0.0004 ETH) sits in batch buffer
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2514.00", ask="2514.50", size="1.0", sequence=51),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(
+            CoinbaseTradePrint(
+                product_id="ETH-USD",
+                trade_id=7001,
+                price=Decimal("2515.00"),
+                size=Decimal("0.0004"),
+                maker_side="sell",
+                traded_at_utc="2026-11-19T02:01:00Z",
+            ),
+        ),
+    )
+    assert s1.fifo_fills == ()
+    assert tracker.summary()["open_unhedged_lots"] == 1
+
+    # Tick 2 -> Tick 3: age reaches max_unhedged_steps=2; CEX unwind at $2514.50 beats $0.01 DEX gas
+    tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2514.00", ask="2514.50", size="1.0", sequence=52),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2514.00", ask="2514.50", size="1.0", sequence=53),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s3.fifo_fills) == 1
+    assert s3.fifo_fills[0].hedge_mode == "cex_dust_unwind"
+    assert "cex_dust_unwind" in s3.fifo_fills[0].hedge_note
+    assert tracker.summary()["open_unhedged_lots"] == 0
+    assert tracker.summary()["cex_dust_unwinds"] == 1
+    # Paid ~$0.00035 taker fee instead of burning $0.01 DEX gas on a $1.00 dust fill!
+    assert s3.fifo_fills[0].realized_net_profit_usd > Decimal("-0.001")

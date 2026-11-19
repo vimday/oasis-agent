@@ -38,6 +38,15 @@ from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
 
 from oasis_agent.arbitrage.event_quote import GAS_LIMIT_MODEL, ORACLE, V3
+from oasis_agent.cross_venue.bybit_spot_feed import (
+    BYBIT_SYMBOL_BY_PRODUCT,
+    BybitSpotFeedError,
+    BybitSpotWebSocketFeed,
+    UsdtUsdPeg,
+    fetch_bybit_l2_book,
+    fetch_bybit_recent_trades,
+    fetch_usdt_usd_peg,
+)
 from oasis_agent.cross_venue.coinbase_trade_flow import (
     CoinbaseTradeFlowError,
     CoinbaseTradePrint,
@@ -1218,6 +1227,45 @@ def _select_dynamic_maker_quotes(
     return chosen, quote_fn(chosen)
 
 
+def _fetch_cex_book_for_tick(
+    product_id: str,
+    *,
+    cex_venue: str,
+    usdt_peg: UsdtUsdPeg | None,
+    timeout_s: float,
+    transport: Callable[[str, float], bytes] | None,
+) -> tuple[CoinbaseL2Book | None, str | None]:
+    """Fetch CEX L2 book for either Coinbase or Bybit Spot (USD-normalized)."""
+    if cex_venue == "bybit":
+        if usdt_peg is None:
+            return None, "usdt_usd_peg_unavailable"
+        try:
+            return (
+                fetch_bybit_l2_book(
+                    product_id,
+                    usdt_peg=usdt_peg,
+                    limit=25,
+                    timeout_s=timeout_s,
+                    transport=transport,
+                ),
+                None,
+            )
+        except (
+            BybitSpotFeedError,
+            LiveCexDexError,
+            OSError,
+            TimeoutError,
+            urllib.error.URLError,
+            ValueError,
+        ) as exc:
+            return None, str(exc) or exc.__class__.__name__
+    return _fetch_coinbase_book_for_tick(
+        product_id,
+        timeout_s=timeout_s,
+        transport=transport,
+    )
+
+
 def _fetch_coinbase_book_for_tick(
     product_id: str,
     *,
@@ -1857,13 +1905,17 @@ def run_multicall_campaign(
     fixture_scenario: str = "aligned",
     extra_fixture_pools: Sequence[BasePoolSpec] = (),
     include_ecosystem_tokens: bool = False,
+    include_aero_cl2: bool = False,
+    cex_venue: str = "coinbase",
     risk_config: CapitalRiskConfig | None = None,
     risk_config_path: Path | None = None,
     total_capital_usd: int | None = None,
     max_daily_loss_usd: int | None = None,
     dynamic_sizing: bool = False,
     enable_coinbase_ws: bool = False,
-    ws_feed_factory: Callable[[Sequence[str]], CoinbaseWebSocketFeed] | None = None,
+    ws_feed_factory: (
+        Callable[[Sequence[str]], CoinbaseWebSocketFeed | BybitSpotWebSocketFeed] | None
+    ) = None,
     trades_transport: Callable[[str, float], bytes] | None = None,
     allowed_products: Sequence[str] | None = None,
     min_taker_edge_bps: int | None = None,
@@ -1876,6 +1928,10 @@ def run_multicall_campaign(
         raise ShadowRunnerError(f"unsupported campaign mode: {mode!r}")
     if type(include_ecosystem_tokens) is not bool:
         raise ShadowRunnerError("include_ecosystem_tokens must be a boolean")
+    if type(include_aero_cl2) is not bool:
+        raise ShadowRunnerError("include_aero_cl2 must be a boolean")
+    if cex_venue not in {"coinbase", "bybit"}:
+        raise ShadowRunnerError(f"unsupported cex_venue: {cex_venue!r}")
     if type(dynamic_sizing) is not bool:
         raise ShadowRunnerError("dynamic_sizing must be a boolean")
     if type(enable_coinbase_ws) is not bool:
@@ -1961,7 +2017,10 @@ def run_multicall_campaign(
         )
         active_cb_transport = (
             http_pool.get
-            if coinbase_transport is None and rpc_transport is None and http_pool is not None
+            if cex_venue == "coinbase"
+            and coinbase_transport is None
+            and rpc_transport is None
+            and http_pool is not None
             else coinbase_transport
         )
         multicall_mod = _load_multicall_universe_module()
@@ -1996,6 +2055,11 @@ def run_multicall_campaign(
     cex_best_net_values: list[float] = []
     cex_best_raw_values: list[float] = []
     cex_best_maker_values: list[float] = []
+    cex_taker_fee_dec = (
+        cex_taker_fee_bps
+        if isinstance(cex_taker_fee_bps, Decimal)
+        else Decimal(str(cex_taker_fee_bps))
+    )
     if dynamic_sizing:
         maker_config = MakerHedgeConfig(
             trade_notional_usdc=trade_notional_usdc,
@@ -2006,6 +2070,8 @@ def run_multicall_campaign(
             max_unhedged_steps=60,
             preserve_queue_priority=True,
             deduplicate_fifo_and_strict=enable_coinbase_ws,
+            cex_dust_unwind_enabled=True,
+            cex_dust_unwind_taker_fee_bps=cex_taker_fee_dec,
         )
     else:
         maker_config = MakerHedgeConfig(
@@ -2013,11 +2079,6 @@ def run_multicall_campaign(
             min_quote_edge_bps=effective_maker_min_edge,
         )
     maker_tracker = MakerHedgeLifecycleTracker(maker_config)
-    cex_taker_fee_dec = (
-        cex_taker_fee_bps
-        if isinstance(cex_taker_fee_bps, Decimal)
-        else Decimal(str(cex_taker_fee_bps))
-    )
     oos_tracker = OosStrategyExecutionTracker(
         OosTrackerConfig(
             max_signal_age_ms=max(30_000, interval_ms * 4),
@@ -2026,7 +2087,8 @@ def run_multicall_campaign(
             cex_ioc_limit_enabled=dynamic_sizing,
         )
     )
-    ws_feed: CoinbaseWebSocketFeed | None = None
+    ws_feed: CoinbaseWebSocketFeed | BybitSpotWebSocketFeed | None = None
+    active_usdt_peg: UsdtUsdPeg | None = None
     book_executor: concurrent.futures.ThreadPoolExecutor | None = None
     ws_candidate_products: tuple[str, ...] = ()
     ws_watermarks: dict[str, int] = {}
@@ -2044,11 +2106,39 @@ def run_multicall_campaign(
     selected_maker_notionals: list[int] = []
     final_headroom: HeadroomAllocation | None = None
 
-    def _open_ws(products: Sequence[str]) -> CoinbaseWebSocketFeed | None:
+    def _refresh_usdt_peg_if_needed(force: bool = False) -> None:
+        nonlocal active_usdt_peg
+        if cex_venue != "bybit":
+            return
+        if active_usdt_peg is not None and not force:
+            return
+        try:
+            active_usdt_peg = fetch_usdt_usd_peg(
+                timeout_s=float(timeout_s),
+                transport=coinbase_transport,
+            )
+            if isinstance(ws_feed, BybitSpotWebSocketFeed):
+                ws_feed.update_usdt_peg(active_usdt_peg)
+        except (BybitSpotFeedError, OSError, ssl.SSLError, TimeoutError, urllib.error.URLError):
+            if active_usdt_peg is None:
+                raise
+
+    def _open_ws(products: Sequence[str]) -> CoinbaseWebSocketFeed | BybitSpotWebSocketFeed | None:
         if not products:
             return None
         if ws_feed_factory is not None:
             return ws_feed_factory(products)
+        if cex_venue == "bybit":
+            _refresh_usdt_peg_if_needed(force=active_usdt_peg is None)
+            if active_usdt_peg is None:
+                return None
+            feed = BybitSpotWebSocketFeed(
+                products,
+                usdt_peg=active_usdt_peg,
+                timeout_s=float(timeout_s),
+            )
+            feed.connect()
+            return feed
         return CoinbaseWebSocketFeed(products, timeout_s=float(timeout_s))
 
     try:
@@ -2069,6 +2159,7 @@ def run_multicall_campaign(
                     "timeout_s": float(timeout_s),
                     "max_rpc_calls": max_rpc_calls - rpc_calls_used,
                     "include_ecosystem_tokens": include_ecosystem_tokens,
+                    "include_aero_cl2": include_aero_cl2,
                 },
             )
             extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
@@ -2089,6 +2180,11 @@ def run_multicall_campaign(
             raise ShadowRunnerError("discovered Base universe contains zero pools")
 
         discovered_cb_products = _discover_eligible_coinbase_products(pool_specs_raw)
+        if cex_venue == "bybit":
+            discovered_cb_products = tuple(
+                p for p in discovered_cb_products if p in BYBIT_SYMBOL_BY_PRODUCT
+            )
+            _refresh_usdt_peg_if_needed(force=True)
         ws_candidate_products = (
             tuple(p for p in discovered_cb_products if p in allowed_products_set)
             if allowed_products_set is not None
@@ -2101,7 +2197,13 @@ def run_multicall_campaign(
         ):
             try:
                 ws_feed = _open_ws(ws_candidate_products)
-            except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+            except (
+                CoinbaseTradeFlowError,
+                BybitSpotFeedError,
+                OSError,
+                ssl.SSLError,
+                TimeoutError,
+            ):
                 ws_feed = None
                 ws_gap_events += 1
 
@@ -2413,7 +2515,11 @@ def run_multicall_campaign(
                 atomic_positive = False
             atomic_net_bps_series.append(atomic_best_net_bps)
 
-            # Drain Coinbase WebSocket trade prints once per tick (REST /trades fallback on gap)
+            # Refresh USDT-USD peg periodically when evaluating Bybit Spot
+            if cex_venue == "bybit" and tick_idx > 0 and tick_idx % 30 == 0:
+                _refresh_usdt_peg_if_needed(force=True)
+
+            # Drain CEX WebSocket trade prints once per tick (REST trades fallback on gap)
             ws_gap_tick = False
             tick_prints_by_product: dict[str, list[CoinbaseTradePrint]] = {}
             if enable_coinbase_ws:
@@ -2426,7 +2532,13 @@ def run_multicall_campaign(
                     try:
                         ws_feed = _open_ws(ws_candidate_products)
                         ws_reconnects += 1
-                    except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+                    except (
+                        CoinbaseTradeFlowError,
+                        BybitSpotFeedError,
+                        OSError,
+                        ssl.SSLError,
+                        TimeoutError,
+                    ):
                         ws_feed = None
                 if ws_feed is not None:
                     try:
@@ -2447,7 +2559,13 @@ def run_multicall_campaign(
                                 ws_prints_by_product_counts[tp.product_id] = (
                                     ws_prints_by_product_counts.get(tp.product_id, 0) + 1
                                 )
-                    except (CoinbaseTradeFlowError, OSError, ssl.SSLError, TimeoutError):
+                    except (
+                        CoinbaseTradeFlowError,
+                        BybitSpotFeedError,
+                        OSError,
+                        ssl.SSLError,
+                        TimeoutError,
+                    ):
                         ws_gap_tick = True
                         ws_gap_events += 1
                         with suppress(Exception):
@@ -2467,15 +2585,28 @@ def run_multicall_campaign(
                     for fb_prod in ws_candidate_products:
                         ws_rest_fallback_calls += 1
                         try:
-                            rest_prints = fetch_coinbase_recent_trades(
-                                fb_prod,
-                                limit=25,
-                                since_trade_id=ws_watermarks.get(fb_prod),
-                                timeout_s=float(timeout_s),
-                                transport=active_trades_tr,
-                            )
+                            if cex_venue == "bybit":
+                                if active_usdt_peg is None:
+                                    continue
+                                rest_prints = fetch_bybit_recent_trades(
+                                    fb_prod,
+                                    usdt_peg=active_usdt_peg,
+                                    limit=60,
+                                    since_trade_id=ws_watermarks.get(fb_prod),
+                                    timeout_s=float(timeout_s),
+                                    transport=active_trades_tr,
+                                )
+                            else:
+                                rest_prints = fetch_coinbase_recent_trades(
+                                    fb_prod,
+                                    limit=25,
+                                    since_trade_id=ws_watermarks.get(fb_prod),
+                                    timeout_s=float(timeout_s),
+                                    transport=active_trades_tr,
+                                )
                         except (
                             CoinbaseTradeFlowError,
+                            BybitSpotFeedError,
                             LiveCexDexError,
                             OSError,
                             urllib.error.URLError,
@@ -2522,6 +2653,8 @@ def run_multicall_campaign(
                 meta = TOKEN_META_BY_ADDR[tok_addr]
                 if meta.coinbase_product is None:
                     continue
+                if cex_venue == "bybit" and meta.coinbase_product not in BYBIT_SYMBOL_BY_PRODUCT:
+                    continue
                 if (
                     allowed_products_set is not None
                     and meta.coinbase_product not in allowed_products_set
@@ -2544,8 +2677,10 @@ def run_multicall_campaign(
             if book_executor is not None and active_token_quotes:
                 future_by_product = {
                     cast(str, meta.coinbase_product): book_executor.submit(
-                        _fetch_coinbase_book_for_tick,
+                        _fetch_cex_book_for_tick,
                         cast(str, meta.coinbase_product),
+                        cex_venue=cex_venue,
+                        usdt_peg=active_usdt_peg,
                         timeout_s=float(timeout_s),
                         transport=active_cb_transport,
                     )
@@ -2566,8 +2701,10 @@ def run_multicall_campaign(
                 if product_id in prefetched_books:
                     fetched_book, cb_err = prefetched_books[product_id]
                 else:
-                    fetched_book, cb_err = _fetch_coinbase_book_for_tick(
+                    fetched_book, cb_err = _fetch_cex_book_for_tick(
                         product_id,
+                        cex_venue=cex_venue,
+                        usdt_peg=active_usdt_peg,
                         timeout_s=float(timeout_s),
                         transport=active_cb_transport,
                     )
@@ -3000,7 +3137,12 @@ def run_multicall_campaign(
         "mode": mode,
         "chain_id": BASE_CHAIN_ID,
         "execution_eligible": False,
+        "cex_venue": cex_venue,
         "include_ecosystem_tokens": include_ecosystem_tokens,
+        "include_aero_cl2": include_aero_cl2,
+        "usdt_usd_peg_mid": (
+            round(float(active_usdt_peg.mid), 6) if active_usdt_peg is not None else None
+        ),
         "allowed_products": (
             sorted(allowed_products_set) if allowed_products_set is not None else None
         ),
@@ -3128,6 +3270,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--include-aero-cl2",
+        action="store_true",
+        default=False,
+        help="Include Aero Slipstream 2 CLFactory pools in Base Multicall3 universe discovery.",
+    )
+    parser.add_argument(
+        "--cex-venue",
+        choices=("coinbase", "bybit"),
+        default="coinbase",
+        help="Public CEX L2 + WebSocket venue for CEX-DEX shadow evaluation (default: coinbase).",
+    )
+    parser.add_argument(
         "--risk-config",
         type=Path,
         default=None,
@@ -3229,6 +3383,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             latency_haircut_bps=args.latency_haircut_bps,
             trade_notional_usdc=args.trade_notional_usdc,
             include_ecosystem_tokens=args.include_ecosystem_tokens,
+            include_aero_cl2=args.include_aero_cl2,
+            cex_venue=args.cex_venue,
             risk_config_path=args.risk_config,
             total_capital_usd=args.total_capital_usd,
             max_daily_loss_usd=args.max_daily_loss_usd,
@@ -3257,7 +3413,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "mode": result.summary["mode"],
                 "chain_id": result.summary["chain_id"],
                 "execution_eligible": result.summary["execution_eligible"],
+                "cex_venue": result.summary["cex_venue"],
                 "include_ecosystem_tokens": result.summary["include_ecosystem_tokens"],
+                "include_aero_cl2": result.summary["include_aero_cl2"],
+                "usdt_usd_peg_mid": result.summary["usdt_usd_peg_mid"],
                 "allowed_products": result.summary["allowed_products"],
                 "min_taker_edge_bps": result.summary["min_taker_edge_bps"],
                 "maker_min_edge_bps": result.summary["maker_min_edge_bps"],
