@@ -12,8 +12,10 @@ import { OasisIntentVault } from "../src/OasisIntentVault.sol";
 ///      keystores (`cast wallet new` / `--account`), external wallets, remote signers, or optional
 ///      multisigs. Enforces Two-Zone Cold-vs-Hot Plane Separation between the Cold Admin Plane
 ///      (`deployer`, `owner`, `guardian`, `treasury`, `revenueSink`) and the Hot Canary Plane
-///      (`operator`, `quoteSigner`). A solo operator may share one Cold Admin EOA across all Cold
-///      roles and one Hot Canary EOA across Hot roles; when `deployer == owner` and
+///      (`operator`, `quoteSigner`). By default every cold role must be distinct and the quote
+///      signer must differ from the operator. A solo operator may instead set
+///      `OASIS_ALLOW_SOLO_ROLE_COLLAPSE=true` to share one Cold Admin EOA across all Cold roles and
+///      one Hot Canary EOA across Hot roles; when `deployer == owner` and
 ///      `OASIS_WIRE_OPERATORS_ON_DEPLOY=true`, `deployAndWireSoloOperator` also executes post-deploy
 ///      operator and quote-signer wiring atomically.
 contract DeployOasisProfitEngine is Script {
@@ -28,6 +30,7 @@ contract DeployOasisProfitEngine is Script {
         address revenueSink;
         bytes32 executorSalt;
         bytes32 vaultSalt;
+        bool allowSoloRoleCollapse;
     }
 
     struct DeployedProfitEngine {
@@ -104,17 +107,29 @@ contract DeployOasisProfitEngine is Script {
         uint256 expectedChainId = vm.envUint("OASIS_CHAIN_ID");
         address owner = vm.envAddress("OASIS_PROFIT_OWNER");
         address operator = vm.envAddress("OASIS_PROFIT_OPERATOR");
+        bool allowSolo = vm.envOr("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", false);
         params = DeployParams({
             expectedChainId: expectedChainId,
-            deployer: _envAddressOr("OASIS_DEPLOYER", owner),
+            deployer: allowSolo
+                ? _envAddressOr("OASIS_DEPLOYER", owner)
+                : vm.envAddress("OASIS_DEPLOYER"),
             owner: owner,
-            guardian: _envAddressOr("OASIS_PROFIT_GUARDIAN", owner),
+            guardian: allowSolo
+                ? _envAddressOr("OASIS_PROFIT_GUARDIAN", owner)
+                : vm.envAddress("OASIS_PROFIT_GUARDIAN"),
             operator: operator,
-            quoteSigner: _envAddressOr("OASIS_QUOTE_SIGNER", operator),
-            treasury: _envAddressOr("OASIS_TREASURY", owner),
-            revenueSink: _envAddressOr("OASIS_REVENUE_SINK", owner),
+            quoteSigner: allowSolo
+                ? _envAddressOr("OASIS_QUOTE_SIGNER", operator)
+                : vm.envAddress("OASIS_QUOTE_SIGNER"),
+            treasury: allowSolo
+                ? _envAddressOr("OASIS_TREASURY", owner)
+                : vm.envAddress("OASIS_TREASURY"),
+            revenueSink: allowSolo
+                ? _envAddressOr("OASIS_REVENUE_SINK", owner)
+                : vm.envAddress("OASIS_REVENUE_SINK"),
             executorSalt: vm.envBytes32("OASIS_EXECUTOR_SALT"),
-            vaultSalt: vm.envBytes32("OASIS_VAULT_SALT")
+            vaultSalt: vm.envBytes32("OASIS_VAULT_SALT"),
+            allowSoloRoleCollapse: allowSolo
         });
     }
 
@@ -150,6 +165,16 @@ contract DeployOasisProfitEngine is Script {
                 if (hot[h] == cold[c]) revert RolesNotSeparated();
             }
         }
+        if (params.allowSoloRoleCollapse) {
+            return;
+        }
+        // Strict default: every cold role is distinct and the quote signer is not the operator.
+        for (uint256 i = 0; i < _COLD_ROLE_COUNT; ++i) {
+            for (uint256 j = i + 1; j < _COLD_ROLE_COUNT; ++j) {
+                if (cold[i] == cold[j]) revert RolesNotSeparated();
+            }
+        }
+        if (params.operator == params.quoteSigner) revert RolesNotSeparated();
     }
 
     function _verifyDeployment(

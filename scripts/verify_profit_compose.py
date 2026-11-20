@@ -145,7 +145,7 @@ def verify_services(
         if not isinstance(service, dict):
             raise ValueError("profit-engine service entry malformed")
         setup = name == "initialize"
-        offline = setup or name == "profit-authority-status"
+        offline = setup or name in {"profit-authority", "profit-authority-status"}
         if (
             service.get("user") != ("0:0" if setup else "10001:10001")
             or service.get("read_only") is not True

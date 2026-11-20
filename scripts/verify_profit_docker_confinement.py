@@ -162,6 +162,7 @@ def _build_policy_template(
         "max_priority_fee_wei": 100_000_000,
         "max_deadline_horizon_s": 24,
         "release_gate_open": False,
+        "rehearsal_only": True,
         "revert_budget": {
             "max_hourly_gas_burn_usd_micros": 5_000_000,
             "max_deep_reverts_per_hour": 2,

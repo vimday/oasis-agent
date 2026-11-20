@@ -85,6 +85,7 @@ _POLICY_CONFIG_KEYS: Final[frozenset[str]] = frozenset(
         "max_priority_fee_wei",
         "max_deadline_horizon_s",
         "release_gate_open",
+        "rehearsal_only",
         "revert_budget",
         "isolated_key_volume",
         "primary_rpc_provider",
@@ -610,6 +611,7 @@ def _policy_digest(policy: AtomicExecutionPolicy) -> str:
         "max_priority_fee_wei": policy.max_priority_fee_wei,
         "max_deadline_horizon_s": policy.max_deadline_horizon_s,
         "release_gate_open": policy.release_gate_open,
+        "rehearsal_only": policy.rehearsal_only,
     }
     return sha256_hex(canonical_json(payload))
 
@@ -753,6 +755,8 @@ def load_atomic_execution_policy(path: Path) -> LoadedPolicyConfig:
         kwargs["release_gate_open"] = _require_bool(
             decoded["release_gate_open"], "release_gate_open"
         )
+    if "rehearsal_only" in decoded:
+        kwargs["rehearsal_only"] = _require_bool(decoded["rehearsal_only"], "rehearsal_only")
     policy = AtomicExecutionPolicy(**kwargs)
 
     revert_policy = _DEFAULT_REVERT_POLICY
@@ -1353,6 +1357,15 @@ class ProfitSigningAuthorityServer:
         pending_hashes = sorted(
             tx_h for tx_h, entry in self._state.signed_decisions.items() if not entry["settled"]
         )
+        settled_hashes = sorted(
+            {
+                entry["tx_hash"]
+                for entry in self._state.settlement_history
+                if isinstance(entry, dict)
+                and entry.get("reconciled") is True
+                and isinstance(entry.get("tx_hash"), str)
+            }
+        )
         return {
             "schema": PROFIT_AUTHORITY_SCHEMA,
             "account": self.policy.operator_account,
@@ -1367,6 +1380,7 @@ class ProfitSigningAuthorityServer:
             "signing_enabled": self._key_signer is not None and not self.status_only,
             "signing_unresolved": self._state.signing_attempt is not None,
             "pending_tx_hashes": pending_hashes,
+            "settled_tx_hashes": settled_hashes,
             "expired": self._monotonic() >= self._deadline,
         }
 
@@ -1565,9 +1579,14 @@ class ProfitSigningAuthorityServer:
         if self._state.last_nonce is not None and nonce <= self._state.last_nonce:
             raise _Refusal("stale_nonce")
 
-        rehearsal = self.allow_rehearsal_loopback_anvil and proposal.rehearsal_loopback_anvil
+        rehearsal = self.allow_rehearsal_loopback_anvil
         if proposal.rehearsal_loopback_anvil and not self.allow_rehearsal_loopback_anvil:
             raise _Refusal("rehearsal_mode_disabled")
+
+        # Derive unresolved-pending from the authority's own ledger; never trust the client flag.
+        has_unsettled_signature = any(
+            entry.get("settled") is not True for entry in self._state.signed_decisions.values()
+        )
 
         effective_budget = (
             RevertBudgetStatus.HALT
@@ -1588,7 +1607,7 @@ class ProfitSigningAuthorityServer:
                     self._state.cumulative_loss_usd_micros, proposal.cumulative_loss_usd_micros
                 ),
                 revert_budget_status=effective_budget,
-                has_unresolved_pending=proposal.has_unresolved_pending,
+                has_unresolved_pending=has_unsettled_signature or proposal.has_unresolved_pending,
                 rehearsal_loopback_anvil=rehearsal,
             )
         except (TypeError, ValueError) as exc:

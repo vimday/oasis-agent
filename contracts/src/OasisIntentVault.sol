@@ -14,6 +14,20 @@ interface IV3PoolState {
     function slot0() external view returns (uint160 sqrtPriceX96);
 }
 
+/// @notice Owner-approved exact-input swap adapter used by `OasisIntentVault`.
+/// @dev The adapter must pull `amountIn` of `tokenIn` from the caller, enforce `minOut`, and send
+///      every unit of `tokenOut` to `recipient`. The vault calls this typed interface instead of
+///      forwarding arbitrary router calldata, so a compromised hot operator cannot redirect value.
+interface IOasisSwapAdapter {
+    function swapExactInput(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minOut,
+        address recipient
+    ) external returns (uint256 amountOut);
+}
+
 /// @notice Canonical UniswapX order metadata included in `ResolvedOrder`.
 struct OrderInfo {
     address reactor;
@@ -79,8 +93,10 @@ interface IReactorCallback {
 ///        can be invalidated immediately via `pause()`, `rotateQuoteSigner()`, `disableQuoteSigner()`,
 ///        or `revokeDigest()`.
 ///      - `fillerOperator` can trigger bounded reactor fills (`executeReactorFill`) against
-///        allowlisted reactors, routers, router selectors, and pools, subject to an optional
-///        `<65k` gas `slot0` precheck and strict post-fill `minNetProfit` enforcement.
+///        allowlisted reactors and pools, subject to an optional `<65k` gas `slot0` precheck and
+///        strict post-fill `minNetProfit` enforcement. Swap steps call only the typed
+///        `IOasisSwapAdapter` interface with the vault as recipient; arbitrary router calldata is
+///        never forwarded.
 contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
     using SafeERC20 for IERC20;
 
@@ -92,6 +108,8 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
     }
 
     /// @notice Bounded hedge/swap leg executed inside `reactorCallback`.
+    /// @dev `data` is retained for ABI compatibility but ignored: the vault calls the typed
+    ///      `IOasisSwapAdapter.swapExactInput` interface and always sends output to itself.
     struct SwapStep {
         address router;
         address pool;
@@ -121,9 +139,10 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
     uint256 private constant _SECP256K1N_HALF =
         0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0;
     uint256 private constant _ENCODED_SIG_LENGTH = 192;
+    // Quotes are short-lived; a compromised or buggy signer cannot authorize a far-future fill.
+    uint256 private constant _MAX_QUOTE_DEADLINE = 300;
     uint256 private constant _MAX_SWAP_STEPS = 3;
     uint256 private constant _MAX_OUTPUT_TOKENS = 4;
-    uint256 private constant _MAX_STEP_CALLDATA_BYTES = 4096;
     uint8 private constant _UNLOCKED = 0;
     uint8 private constant _LOCKED = 1;
 
@@ -211,6 +230,8 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
     mapping(bytes32 digest => bool revoked) public revokedDigests;
     mapping(address reactor => bool allowed) public allowedReactors;
     mapping(address router => bool allowed) public allowedRouters;
+    // Deprecated: swap steps use the typed `IOasisSwapAdapter` interface. Retained for ABI
+    // compatibility with existing deployment tooling; it no longer grants calldata permission.
     mapping(bytes4 selector => bool allowed) public allowedRouterSelectors;
     mapping(address pool => bool allowed) public allowedPools;
 
@@ -444,7 +465,7 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
         // Short-lived quote expiry deadline against bounded block timestamps.
         // forge-lint: disable-start(block-timestamp)
         // slither-disable-start timestamp
-        if (block.timestamp > deadline) {
+        if (block.timestamp > deadline || deadline > block.timestamp + _MAX_QUOTE_DEADLINE) {
             return _ERC1271_INVALID;
         }
         // slither-disable-end timestamp
@@ -601,12 +622,9 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
         }
         if (!allowedRouters[step.router]) revert UnapprovedRouter(step.router);
         if (!allowedPools[step.pool]) revert UnapprovedPool(step.pool);
-        if (step.tokenIn == step.tokenOut || step.amountIn == 0) revert InvalidSwapStep();
-        if (step.data.length < 4 || step.data.length > _MAX_STEP_CALLDATA_BYTES) {
+        if (step.tokenIn == step.tokenOut || step.amountIn == 0 || step.minOut == 0) {
             revert InvalidSwapStep();
         }
-        bytes4 selector = bytes4(step.data[:4]);
-        if (!allowedRouterSelectors[selector]) revert UnapprovedRouterSelector(selector);
     }
 
     function _executeSwapSteps(SwapStep[] memory steps) private {
@@ -626,31 +644,21 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
         }
         if (!allowedRouters[step.router]) revert UnapprovedRouter(step.router);
         if (!allowedPools[step.pool]) revert UnapprovedPool(step.pool);
-        if (
-            step.tokenIn == step.tokenOut || step.amountIn == 0 || step.data.length < 4
-                || step.data.length > _MAX_STEP_CALLDATA_BYTES
-        ) {
+        if (step.tokenIn == step.tokenOut || step.amountIn == 0 || step.minOut == 0) {
             revert InvalidSwapStep();
         }
-        bytes4 selector;
-        bytes memory stepData = step.data;
-        assembly ("memory-safe") {
-            selector := mload(add(stepData, 32))
-        }
-        if (!allowedRouterSelectors[selector]) revert UnapprovedRouterSelector(selector);
 
-        // `nonReentrant` and single-use `_activeReactor` guard this router call and delta check.
+        // `nonReentrant` and single-use `_activeReactor` guard this adapter call and delta check.
         // slither-disable-start reentrancy-balance
         // slither-disable-start reentrancy-benign
         uint256 outBefore = IERC20(step.tokenOut).balanceOf(address(this));
         IERC20(step.tokenIn).forceApprove(step.router, step.amountIn);
-        (bool swapOk, bytes memory swapRet) = step.router.call(stepData);
-        if (!swapOk) {
-            _revertWithData(swapRet, RouterSwapFailed.selector);
-        }
+        uint256 reportedOut = IOasisSwapAdapter(step.router)
+            .swapExactInput(step.tokenIn, step.tokenOut, step.amountIn, step.minOut, address(this));
         IERC20(step.tokenIn).forceApprove(step.router, 0);
         uint256 outAfter = IERC20(step.tokenOut).balanceOf(address(this));
-        if (outAfter < outBefore || outAfter - outBefore < step.minOut) {
+        if (reportedOut < step.minOut || outAfter < outBefore || outAfter - outBefore < step.minOut)
+        {
             revert InsufficientStepOutput(
                 step.pool, step.tokenOut, outBefore, outAfter, step.minOut
             );

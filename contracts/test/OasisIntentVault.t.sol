@@ -165,6 +165,19 @@ contract MockSwapRouter {
         require(IERC20(tokenOut).transfer(recipient, amountOut), "SEND_OUT");
     }
 
+    function swapExactInput(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minOut,
+        address recipient
+    ) external returns (uint256 amountOut) {
+        require(IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn), "PULL_IN");
+        amountOut = (amountIn * rateNum) / rateDen;
+        require(amountOut >= minOut, "MIN_OUT");
+        require(IERC20(tokenOut).transfer(recipient, amountOut), "SEND_OUT");
+    }
+
     function unapprovedMethod(uint256 x) external pure returns (uint256) {
         return x + 1;
     }
@@ -269,7 +282,6 @@ contract OasisIntentVaultTest is Test {
         vault.rotateQuoteSigner(signer1);
         vault.setReactorAllowed(address(reactor), true);
         vault.setRouterAllowed(address(router), true);
-        vault.setRouterSelectorAllowed(MockSwapRouter.swapExactInput.selector, true);
         vault.setPoolAllowed(address(v3Pool), true);
         vault.setPoolAllowed(address(slipPool), true);
         vm.stopPrank();
@@ -336,6 +348,12 @@ contract OasisIntentVaultTest is Test {
         assertEq(vault.isValidSignature(orderHash, sigEpoch1), _ERC1271_INVALID);
         vm.warp(deadline - 10);
 
+        // A far-future deadline is rejected even though it has not expired yet.
+        // forge-lint: disable-next-line(environment-read-across-mutation)
+        uint256 longDeadline = block.timestamp + 301;
+        bytes memory longSig = _signQuote(vault, signer1Key, orderHash, longDeadline);
+        assertEq(vault.isValidSignature(orderHash, longSig), _ERC1271_INVALID);
+
         // Guardian pause invalidates signature; owner unpause restores it.
         vm.prank(GUARDIAN);
         vault.pause();
@@ -400,10 +418,7 @@ contract OasisIntentVaultTest is Test {
             tokenOut: address(usdc),
             amountIn: 1 ether,
             minOut: 2_550e6,
-            data: abi.encodeCall(
-                MockSwapRouter.swapExactInput,
-                (address(weth), address(usdc), 1 ether, address(vault))
-            )
+            data: ""
         });
 
         OasisIntentVault.ReactorFillPlan memory plan = OasisIntentVault.ReactorFillPlan({
@@ -434,6 +449,63 @@ contract OasisIntentVaultTest is Test {
         assertEq(usdc.balanceOf(SWAPPER), 2_500e6);
         assertEq(weth.allowance(address(vault), address(router)), 0);
         assertEq(usdc.allowance(address(vault), address(reactor)), 0);
+    }
+
+    function test_executeReactorFillIgnoresArbitraryRouterCalldata() public {
+        OutputToken[] memory outputs = new OutputToken[](1);
+        outputs[0] = OutputToken({ token: address(usdc), amount: 2_500e6, recipient: SWAPPER });
+
+        ResolvedOrder memory order = ResolvedOrder({
+            info: OrderInfo({
+                reactor: address(reactor),
+                swapper: SWAPPER,
+                nonce: 1,
+                deadline: block.timestamp + 60,
+                additionalValidationContract: address(0),
+                additionalValidationData: ""
+            }),
+            input: InputToken({ token: weth, amount: 1 ether, maxAmount: 1 ether }),
+            outputs: outputs,
+            sig: "",
+            hash: keccak256("malicious-data-order")
+        });
+
+        OasisIntentVault.SwapStep[] memory steps = new OasisIntentVault.SwapStep[](1);
+        steps[0] = OasisIntentVault.SwapStep({
+            router: address(router),
+            pool: address(v3Pool),
+            tokenIn: address(weth),
+            tokenOut: address(usdc),
+            amountIn: 1 ether,
+            minOut: 2_550e6,
+            // Ignored by the typed adapter call; must not be able to redirect vault funds.
+            data: abi.encodeCall(IERC20.transfer, (address(0xBAD), 1_000e6))
+        });
+
+        OasisIntentVault.ReactorFillPlan memory plan = OasisIntentVault.ReactorFillPlan({
+            reactor: address(reactor),
+            profitToken: address(usdc),
+            minNetProfit: 90e6,
+            precheck: OasisIntentVault.PrecheckSqrtPrice({
+                pool: address(v3Pool),
+                minSqrtPriceX96: _INIT_SQRT - 10,
+                maxSqrtPriceX96: _INIT_SQRT + 10
+            }),
+            steps: steps
+        });
+
+        SignedOrder memory signedOrder = SignedOrder({ order: abi.encode(order), sig: "" });
+        bytes memory reactorCalldata =
+            abi.encodeCall(IReactor.executeWithCallback, (signedOrder, abi.encode(steps)));
+
+        vm.prank(OPERATOR);
+        (bool executed, uint256 netProfit) = vault.executeReactorFill(plan, reactorCalldata);
+
+        assertTrue(executed);
+        assertEq(netProfit, 100e6);
+        assertEq(usdc.balanceOf(address(vault)), 100e6);
+        assertEq(usdc.balanceOf(address(0xBAD)), 0);
+        assertEq(weth.allowance(address(vault), address(router)), 0);
     }
 
     function test_executeReactorFillBatchOrdersAggregatesSharedOutputTokens() public {
@@ -494,10 +566,7 @@ contract OasisIntentVaultTest is Test {
             tokenOut: address(usdc),
             amountIn: 1 ether,
             minOut: 2_600e6,
-            data: abi.encodeCall(
-                MockSwapRouter.swapExactInput,
-                (address(weth), address(usdc), 1 ether, address(vault))
-            )
+            data: ""
         });
 
         OasisIntentVault.ReactorFillPlan memory plan = OasisIntentVault.ReactorFillPlan({

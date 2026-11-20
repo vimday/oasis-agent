@@ -16,8 +16,11 @@ import { IOasisPositionManager } from "../src/interfaces/IOasisPositionManager.s
 /// @dev This script deliberately does not read a private key. Use Foundry encrypted software
 ///      keystores (`cast wallet new` / `--account`), external wallets, or optional multisigs with
 ///      Two-Zone Cold-vs-Hot separation (`deployer`, `governor`, and `guardian` in the Cold Admin
-///      zone, distinct from `lpOwner` in the Hot Canary zone). Governance config and pool
-///      initialization are separate transactions owned by the configured governor.
+///      zone, distinct from `lpOwner` in the Hot Canary zone). By default all four roles must be
+///      distinct; set `OASIS_ALLOW_SOLO_ROLE_COLLAPSE=true` to allow the documented solo-operator
+///      profile where `deployer`/`guardian` default to `governor`.
+///      Governance config and pool initialization are separate transactions owned by the configured
+///      governor.
 contract DeployOasisContracts is Script {
     error WrongChain(uint256 actual, uint256 expected);
     error ZeroAddress();
@@ -38,8 +41,12 @@ contract DeployOasisContracts is Script {
         PositionManager positionManager =
             PositionManager(payable(vm.envAddress("OASIS_POSITION_MANAGER")));
         address governor = vm.envAddress("OASIS_GOVERNOR");
-        address deployer = _envAddressOr("OASIS_DEPLOYER", governor);
-        address guardian = _envAddressOr("OASIS_GUARDIAN", governor);
+        address deployer = vm.envOr("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", false)
+            ? _envAddressOr("OASIS_DEPLOYER", governor)
+            : vm.envAddress("OASIS_DEPLOYER");
+        address guardian = vm.envOr("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", false)
+            ? _envAddressOr("OASIS_GUARDIAN", governor)
+            : vm.envAddress("OASIS_GUARDIAN");
         address lpOwner = vm.envAddress("OASIS_LP_OWNER");
         uint256 maxLiquidity = vm.envUint("OASIS_MAX_LIQUIDITY");
         bytes32 expectedPoolManagerHash = vm.envBytes32("OASIS_POOL_MANAGER_HASH");
@@ -51,7 +58,14 @@ contract DeployOasisContracts is Script {
                 || address(positionManager) == address(0) || governor == address(0)
                 || guardian == address(0) || lpOwner == address(0) || maxLiquidity == 0
         ) revert ZeroAddress();
-        if (lpOwner == governor || lpOwner == guardian || lpOwner == deployer) {
+        if (allowSoloRoleCollapse()) {
+            if (lpOwner == governor || lpOwner == guardian || lpOwner == deployer) {
+                revert RolesNotSeparated();
+            }
+        } else if (
+            governor == guardian || governor == lpOwner || guardian == lpOwner
+                || deployer == governor || deployer == guardian || deployer == lpOwner
+        ) {
             revert RolesNotSeparated();
         }
         if (address(positionManager.poolManager()) != address(poolManager)) {
@@ -133,5 +147,9 @@ contract DeployOasisContracts is Script {
             return fallbackAddress;
         }
         return vm.parseAddress(raw);
+    }
+
+    function allowSoloRoleCollapse() private view returns (bool) {
+        return vm.envOr("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", false);
     }
 }

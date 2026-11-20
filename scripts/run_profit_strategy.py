@@ -52,6 +52,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional non-secret AtomicExecutionPolicy JSON path for client admission.",
     )
     parser.add_argument(
+        "--readiness-report",
+        type=Path,
+        default=None,
+        help="Required in live mode: emitted 9-gate profit-engine readiness report.",
+    )
+    parser.add_argument(
         "--account",
         default=None,
         help="Optional operator account address for status queries without --policy-config.",
@@ -127,6 +133,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.policy_config is None:
             parser.error("--mode live requires --policy-config")
         if not args.reconcile_only:
+            if args.readiness_report is None:
+                parser.error("--mode live requires --readiness-report")
             require_live_start()
 
     max_ticks = 1 if args.once else args.max_ticks
@@ -149,6 +157,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         poll_interval_ms=args.poll_interval_ms,
         max_ticks=max_ticks,
         socket_timeout_s=args.socket_timeout_s,
+        readiness_report_path=args.readiness_report,
     )
 
     with lock_cm as lock_handle:

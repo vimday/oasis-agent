@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Final, Literal, Protocol
 
 from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
-from ..reporting.live_release import live_release, require_live_release
+from ..reporting.live_release import require_live_release
 from ..risk.capital_policy import (
     USD_MICROS_SCALE,
     AccountCapitalSnapshot,
@@ -51,6 +51,7 @@ from .atomic_authority_socket import (
     strict_json_loads,
     validate_socket_endpoint,
 )
+from .canary_readiness import verify_profit_engine_readiness_report
 from .intent import SubmittedTransaction
 
 STRATEGY_DAEMON_SCHEMA: Final[str] = "oasis.profit-strategy-daemon.v1"
@@ -152,6 +153,7 @@ def _compute_policy_digest(policy: AtomicExecutionPolicy) -> str:
         "max_priority_fee_wei": policy.max_priority_fee_wei,
         "max_deadline_horizon_s": policy.max_deadline_horizon_s,
         "release_gate_open": policy.release_gate_open,
+        "rehearsal_only": policy.rehearsal_only,
     }
     return sha256_hex(canonical_json(payload))
 
@@ -263,6 +265,7 @@ class ProfitStrategyDaemonConfig:
     socket_timeout_s: float = 10.0
     cash_available_usd_micros: int | None = None
     rehearsal_loopback_anvil: bool = False
+    readiness_report_path: Path | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.authority_socket, Path):
@@ -303,6 +306,10 @@ class ProfitStrategyDaemonConfig:
                 low=0,
             )
         _require_plain_bool(self.rehearsal_loopback_anvil, "rehearsal_loopback_anvil")
+        if self.readiness_report_path is not None and not isinstance(
+            self.readiness_report_path, Path
+        ):
+            raise TypeError("readiness_report_path must be a Path")
 
     def resolve_risk_config(self) -> CapitalRiskConfig:
         """Load or return the configured `CapitalRiskConfig`, verifying consistency."""
@@ -361,6 +368,7 @@ class AuthorityLedgerView:
     locked_inventory_usd_micros: int
     pending_commitments_usd_micros: int
     unrealized_drawdown_usd_micros: int
+    settled_tx_hashes: tuple[str, ...] = ()
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -376,6 +384,7 @@ class AuthorityLedgerView:
             "revert_budget_status": self.revert_budget_status,
             "pending_count": self.pending_count,
             "pending_tx_hashes": list(self.pending_tx_hashes),
+            "settled_tx_hashes": list(self.settled_tx_hashes),
             "signing_enabled": self.signing_enabled,
             "signing_unresolved": self.signing_unresolved,
             "signatures_used": self.signatures_used,
@@ -589,6 +598,11 @@ def _parse_authority_status(
         raise ValueError("authority status pending_tx_hashes malformed")
     pending_hashes = tuple(normalize_hash32(tx, "pending_tx_hash") for tx in raw_pending)
 
+    raw_settled = raw.get("settled_tx_hashes", [])
+    if not isinstance(raw_settled, list) or any(not isinstance(tx, str) for tx in raw_settled):
+        raise ValueError("authority status settled_tx_hashes malformed")
+    settled_hashes = tuple(normalize_hash32(tx, "settled_tx_hash") for tx in raw_settled)
+
     signing_unresolved = (
         _require_plain_bool(raw["signing_unresolved"], "signing_unresolved")
         if "signing_unresolved" in raw
@@ -682,6 +696,7 @@ def _parse_authority_status(
         locked_inventory_usd_micros=locked_micros,
         pending_commitments_usd_micros=pending_commitments_micros,
         unrealized_drawdown_usd_micros=unrealized_drawdown_micros,
+        settled_tx_hashes=settled_hashes,
         error=None,
     )
 
@@ -925,8 +940,10 @@ class ProfitStrategyBridge:
             return False
         if self.config.rehearsal_loopback_anvil:
             return False
-        report = live_release()
-        return bool(report.new_actions_allowed and not report.blockers)
+        if self.config.readiness_report_path is None:
+            return False
+        allowed, _reason = verify_profit_engine_readiness_report(self.config.readiness_report_path)
+        return allowed
 
     def sync_status(
         self,
@@ -1561,13 +1578,12 @@ class ProfitStrategyBridge:
             )
 
         authority_pending = set(bridge_status.authority_status.pending_tx_hashes)
+        authority_settled = set(bridge_status.authority_status.settled_tx_hashes)
         local_pending = set(self._local_pending_hashes())
-        # If authority reports a local tx already settled (no longer pending), mark settled locally.
+        # Only the authority's own settlement journal may clear a local pending transaction.
+        # Absence from the pending list is not proof of settlement; it may indicate state loss.
         for tx_hash in list(local_pending):
-            if (
-                tx_hash not in authority_pending
-                and not bridge_status.authority_status.signing_unresolved
-            ):
+            if tx_hash in authority_settled:
                 entry = self._local_state.pending_txs.get(tx_hash)
                 if entry is not None and entry.get("ambiguous") is not True:
                     entry["settled"] = True

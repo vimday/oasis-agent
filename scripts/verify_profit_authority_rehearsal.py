@@ -108,6 +108,7 @@ def _build_policy_dict(
         "max_priority_fee_wei": 100_000_000,
         "max_deadline_horizon_s": 24,
         "release_gate_open": False,
+        "rehearsal_only": True,
         "revert_budget": {
             "max_hourly_gas_burn_usd_micros": 5_000_000,
             "max_deep_reverts_per_hour": 2,
@@ -495,7 +496,7 @@ def _rehearse_charter_default() -> tuple[dict[str, Any], dict[str, Any]]:
                 "--max-signatures",
                 "12",
                 "--max-status-requests",
-                "2",
+                "3",
                 "--ttl-seconds",
                 "30",
             ],
@@ -519,6 +520,21 @@ def _rehearse_charter_default() -> tuple[dict[str, Any], dict[str, Any]]:
         )
         tx1_hash, tx1_hex = _sign_proposal_via_socket(client, loaded.policy, p1)
         signed_hexes.append(tx1_hex)
+
+        # The authority permits one unsettled signature at a time; settle the first probe before
+        # exercising the daily-loss refusal and the second signed probe.
+        p1_settlement = client.record_settlement(
+            _early_abort_settlement_payload(
+                tx_hash=tx1_hash, timestamp_s=now_s + 5, gas_cost_usd_micros=3_000_000
+            )
+        )
+        if p1_settlement["halted"] is not False:
+            raise AssertionError("single bounded early-abort probe should not latch halt")
+        post_settle_status = client.status()
+        if tx1_hash in post_settle_status["pending_tx_hashes"]:
+            raise AssertionError("settlement did not clear the authority pending set")
+        if tx1_hash not in post_settle_status["settled_tx_hashes"]:
+            raise AssertionError("settlement was not recorded in the authority settlement journal")
 
         p_over_loss = _build_proposal(
             account=acct.address,
@@ -562,17 +578,9 @@ def _rehearse_charter_default() -> tuple[dict[str, Any], dict[str, Any]]:
         sg_out, sg_err = _finish_subprocess(sign_proc, expected_rc=0)
         _assert_no_secrets_leaked(sg_out + sg_err, key_hex=key_hex, signed_hexes=signed_hexes)
 
-        # 3. Reconcile two consecutive settled failures via --reconcile-only.
-        settle1_path = root / "s1.json"
+        # 3. Reconcile the second signed failure via --reconcile-only; together with the first
+        # client-side settlement this is the second consecutive failure and must latch halt.
         settle2_path = root / "s2.json"
-        settle1_path.write_text(
-            json.dumps(
-                _early_abort_settlement_payload(
-                    tx_hash=tx1_hash, timestamp_s=now_s + 5, gas_cost_usd_micros=3_000_000
-                )
-            ),
-            encoding="utf-8",
-        )
         settle2_path.write_text(
             json.dumps(
                 _early_abort_settlement_payload(
@@ -581,34 +589,6 @@ def _rehearse_charter_default() -> tuple[dict[str, Any], dict[str, Any]]:
             ),
             encoding="utf-8",
         )
-
-        rec1 = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "scripts.run_profit_authority",
-                "--policy-config",
-                str(policy_path),
-                "--state-dir",
-                str(state_dir),
-                "--reconcile-only",
-                "--settlement-input",
-                str(settle1_path),
-            ],
-            cwd=REPO_ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-        if rec1.returncode != 0:
-            raise RuntimeError(
-                f"first reconcile expected rc=0, got {rec1.returncode}: {rec1.stderr}"
-            )
-        rec1_json = json.loads(rec1.stdout)
-        if rec1_json["halted"] is not False:
-            raise AssertionError("single bounded early-abort probe should not latch halt")
 
         rec2 = subprocess.run(
             [
@@ -725,7 +705,7 @@ def _rehearse_charter_default() -> tuple[dict[str, Any], dict[str, Any]]:
         "in_limit_signatures_used": mid_status["signatures_used"],
         "over_daily_loss_refused": True,
         "over_daily_loss_reason": over_loss_reason,
-        "first_failure_halted": rec1_json["halted"],
+        "first_failure_halted": p1_settlement["halted"],
         "two_failure_reconcile_halt_latched": rec2_json["halted"],
         "halt_persisted_across_reload": reload_json["halted"],
         "restarted_daemon_refused_sign": True,
@@ -778,6 +758,7 @@ def _rehearse_scaled_policy() -> tuple[dict[str, Any], dict[str, Any]]:
             max_daily_loss_usd_micros=200_000_000,
             max_cumulative_loss_usd_micros=500_000_000,
             release_gate_open=False,
+            rehearsal_only=True,
         )
 
         now_s = int(time.time())
@@ -836,8 +817,17 @@ def _rehearse_scaled_policy() -> tuple[dict[str, Any], dict[str, Any]]:
         _wait_for_socket_and_optional_proof(sign_proc, sign_sock)
         client = ProfitAuthoritySocketClient(sign_sock, acct.address, loaded.policy, timeout=5.0)
 
-        _tx_hash, tx_hex = _sign_proposal_via_socket(client, loaded.policy, scaled_in_limit)
+        scaled_tx_hash, tx_hex = _sign_proposal_via_socket(client, loaded.policy, scaled_in_limit)
         signed_hexes.append(tx_hex)
+
+        # Settle the in-limit probe first: the authority allows one unsettled signature at a time.
+        scaled_settlement = client.record_settlement(
+            _early_abort_settlement_payload(
+                tx_hash=scaled_tx_hash, timestamp_s=now_s + 5, gas_cost_usd_micros=3_000_000
+            )
+        )
+        if scaled_settlement["halted"] is not False:
+            raise AssertionError("scaled in-limit probe should not latch halt")
 
         p_over_scaled = _build_proposal(
             account=acct.address,

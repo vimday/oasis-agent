@@ -39,4 +39,5 @@
 ## 4. 明确非声明与后续合规前提
 
 - 本次交付完成全部既定工程模块、不变量测试、静态安全审计与有界 `public-shadow` 接口采证，**不构成**对 untouched 实盘窗口持续正净收益的承诺，也**不授予**任何实时钱包签名、广播、资金划转或合约部署权限（全部输出维持 `execution_eligible = false`）。
+- 实盘执行链路尚未接线：`scripts/run_profit_strategy.py` 只执行状态同步，`submit_dual_simulated_intent` 目前仅由测试调用；在完成真实信号到签名/广播的接线并通过 9 门禁前，`--mode live` 不得视为可签名路径。
 - 任何未来从影子或离线研究向实盘 Canary 的晋级，仍必须遵循 [AGENTS.md](../../AGENTS.md) 与 [LIVE_RELEASE.md](../operations/LIVE_RELEASE.md)：由 owner 显式批准当次资本与 RPC 范围，提供独立完整 NAV 与双源 pinned 模拟证据、双账本结算对账及事故暂停恢复演练。

@@ -25,6 +25,8 @@ _BPS_DIVISOR: Final[Decimal] = Decimal(10_000)
 _USDC_SCALE: Final[Decimal] = Decimal(1_000_000)
 _EPOCH_UTC: Final[datetime] = datetime(1970, 1, 1, tzinfo=UTC)
 _LCB_Z_SCORE: Final[Decimal] = Decimal("1.96")
+# Below this sample size the normal approximation is not credible; report a conservative LCB.
+_MIN_LCB_SAMPLE: Final[int] = 5
 _USD_QUANT: Final[Decimal] = Decimal("0.000001")
 _BPS_QUANT: Final[Decimal] = Decimal("0.000001")
 _RATE_QUANT: Final[Decimal] = Decimal("0.0001")
@@ -1295,6 +1297,8 @@ class OosStrategyExecutionTracker:
                 "oos_std_net_edge_bps": "0",
                 "oos_lcb_net_edge_bps_exact": "0",
                 "oos_lcb_net_edge_bps": 0,
+                "oos_lcb_sample_floor": _MIN_LCB_SAMPLE,
+                "oos_lcb_min_sample_met": False,
                 "oos_max_drawdown_usd": "0.000000",
                 "oos_tail_loss_p5_bps": "0.000000",
                 "pending_unsettled_intents": len(self._pending_intents),
@@ -1350,6 +1354,8 @@ class OosStrategyExecutionTracker:
             "oos_std_net_edge_bps": std_str,
             "oos_lcb_net_edge_bps_exact": str(lcb_quantized),
             "oos_lcb_net_edge_bps": lcb_int,
+            "oos_lcb_sample_floor": _MIN_LCB_SAMPLE,
+            "oos_lcb_min_sample_met": n_trades >= _MIN_LCB_SAMPLE,
             "oos_max_drawdown_usd": str(max_drawdown.quantize(_USD_QUANT)),
             "oos_tail_loss_p5_bps": str(tail_p5_bps.quantize(_BPS_QUANT)),
             "pending_unsettled_intents": len(self._pending_intents),

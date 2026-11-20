@@ -110,6 +110,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     loaded = load_atomic_execution_policy(args.policy_config)
     _validate_state_dir(args.state_dir)
+    if args.allow_rehearsal_loopback_anvil and not loaded.policy.rehearsal_only:
+        raise ValueError(
+            "--allow-rehearsal-loopback-anvil requires a rehearsal_only "
+            "policy without a live release"
+        )
 
     lock_path = args.state_dir / "profit_authority.lock"
     if lock_path.is_symlink():

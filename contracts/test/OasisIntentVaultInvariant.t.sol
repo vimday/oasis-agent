@@ -123,10 +123,7 @@ contract IntentVaultHandler is Test {
             tokenOut: address(usdc),
             amountIn: amountIn,
             minOut: routerOut,
-            data: abi.encodeCall(
-                MockSwapRouter.swapExactInput,
-                (address(weth), address(usdc), amountIn, address(vault))
-            )
+            data: ""
         });
 
         OasisIntentVault.ReactorFillPlan memory plan = OasisIntentVault.ReactorFillPlan({
@@ -324,7 +321,6 @@ contract OasisIntentVaultInvariantTest is StdInvariant, Test {
         vault.rotateQuoteSigner(initialSigner);
         vault.setReactorAllowed(address(reactor), true);
         vault.setRouterAllowed(address(router), true);
-        vault.setRouterSelectorAllowed(MockSwapRouter.swapExactInput.selector, true);
         vault.setPoolAllowed(address(v3Pool), true);
         vm.stopPrank();
 

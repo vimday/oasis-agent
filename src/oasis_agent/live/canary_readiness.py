@@ -2236,6 +2236,31 @@ def evaluate_profit_engine_readiness(
     )
 
 
+def verify_profit_engine_readiness_report(path: Path) -> tuple[bool, str]:
+    """Verify an emitted 9-gate readiness report before allowing live profit-engine actions."""
+    data, err = _load_json_object(path, "readiness_report")
+    if data is None:
+        return False, err or "readiness report unavailable"
+    if data.get("schema_version") != READINESS_SCHEMA_VERSION:
+        return False, "readiness report schema_version mismatch"
+    if data.get("execution_eligible") is not False:
+        return False, "readiness report execution_eligible must remain False"
+    if data.get("release_permitted") is not True:
+        return False, "readiness report does not permit release"
+    if data.get("passed_count") != len(GATE_NAMES) or data.get("total_gates") != len(GATE_NAMES):
+        return False, "readiness report does not have all gates passed"
+    gates = data.get("gates")
+    if not isinstance(gates, list) or len(gates) != len(GATE_NAMES):
+        return False, "readiness report gates malformed"
+    if any(not isinstance(gate, dict) or gate.get("passed") is not True for gate in gates):
+        return False, "readiness report contains a blocked gate"
+    declared_sha = data.get("report_sha256")
+    body = {key: value for key, value in data.items() if key != "report_sha256"}
+    if not isinstance(declared_sha, str) or declared_sha != sha256_hex(canonical_json(body)):
+        return False, "readiness report report_sha256 integrity check failed"
+    return True, "verified"
+
+
 __all__ = [
     "ANVIL_E2E_SCHEMA_VERSION",
     "BASE_CHAIN_ID",
@@ -2257,4 +2282,5 @@ __all__ = [
     "GateCheckResult",
     "ProfitEngineReadinessReport",
     "evaluate_profit_engine_readiness",
+    "verify_profit_engine_readiness_report",
 ]

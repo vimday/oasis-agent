@@ -375,7 +375,7 @@ def test_af_unix_happy_path_executor_and_intent_vault_plus_persistence() -> None
             ttl_seconds=30,
             now_fn=lambda: NOW_S,
         ) as server:
-            worker = threading.Thread(target=lambda: server.serve(max_requests=4))
+            worker = threading.Thread(target=lambda: server.serve(max_requests=5))
             worker.start()
             try:
                 client = ProfitAuthoritySocketClient(endpoint, acct.address, policy, timeout=5.0)
@@ -404,6 +404,12 @@ def test_af_unix_happy_path_executor_and_intent_vault_plus_persistence() -> None
                 sub_exec = verify_signed_bytes_match_admission(raw_exec, decision=exec_admission)
                 assert sub_exec.account == acct.address.lower()
                 assert sub_exec.nonce == 1
+
+                # The authority now permits only one unsettled signature at a time.
+                settled_exec = client.record_settlement(
+                    _reconciliation_payload(tx_hash=sub_exec.transaction_hash)
+                )
+                assert settled_exec["reconciled"] is True
 
                 vault_prop = _sample_vault_proposal(account=acct.address, nonce=2)
                 vault_fields = envelope_fields_from_proposal(vault_prop)
@@ -955,7 +961,7 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
     services: dict[str, Any] = {}
     for name, mounts in compose_cli.MOUNTS.items():
         setup = name == "initialize"
-        offline = setup or name == "profit-authority-status"
+        offline = setup or name in {"profit-authority", "profit-authority-status"}
         vol_entries: list[dict[str, Any]] = []
         for target, source in mounts.items():
             if target == compose_cli.RISK_CONFIG_TARGET:

@@ -154,6 +154,7 @@ class AtomicExecutionPolicy:
     max_priority_fee_wei: int = 100_000_000
     max_deadline_horizon_s: int = 24
     release_gate_open: bool = False
+    rehearsal_only: bool = False
 
     def __post_init__(self) -> None:
         _require_plain_int(self.chain_id, "chain_id", low=1, high=(1 << 256) - 1)
@@ -212,6 +213,9 @@ class AtomicExecutionPolicy:
         )
         _require_plain_int(self.max_deadline_horizon_s, "max_deadline_horizon_s", low=1)
         _require_plain_bool(self.release_gate_open, "release_gate_open")
+        _require_plain_bool(self.rehearsal_only, "rehearsal_only")
+        if self.release_gate_open and self.rehearsal_only:
+            raise ValueError("release_gate_open and rehearsal_only cannot both be true")
 
 
 @dataclass(frozen=True, slots=True)
@@ -614,18 +618,25 @@ def _validate_execute_reactor_fill_calldata(
         reasons.append("invalid_reactor_step_count")
         return reasons
 
-    for raw_router, raw_pool, raw_in, raw_out, amount_in, _, step_data in steps:
+    for raw_router, raw_pool, raw_in, raw_out, amount_in, min_out, step_data in steps:
         router = normalize_address(raw_router)
         pool = normalize_address(raw_pool)
         token_in = normalize_address(raw_in)
         token_out = normalize_address(raw_out)
         if ZERO_ADDRESS in (router, pool, token_in, token_out):
             reasons.append("zero_address_in_reactor_step")
-        if token_in == token_out or type(amount_in) is not int or amount_in <= 0:
+        if (
+            token_in == token_out
+            or type(amount_in) is not int
+            or amount_in <= 0
+            or type(min_out) is not int
+            or min_out <= 0
+        ):
             reasons.append("invalid_reactor_swap_step")
-        if not isinstance(step_data, bytes) or not 4 <= len(step_data) <= MAX_STEP_CALLDATA_BYTES:
+        # `step_data` is ignored by the typed adapter call; retain the bound only as a sanity check.
+        if not isinstance(step_data, bytes) or len(step_data) > MAX_STEP_CALLDATA_BYTES:
             reasons.append("invalid_reactor_step_calldata")
-        else:
+        elif len(step_data) >= 4:
             selector = step_data[:4]
             if selector == b"\x00\x00\x00\x00" or selector in FORBIDDEN_ROUTER_SELECTORS:
                 reasons.append("forbidden_router_selector")

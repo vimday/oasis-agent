@@ -19,6 +19,14 @@ pub enum GraphArbError {
     InvalidPool(String),
     #[error("pool not found for chain_id={chain_id} pool_id={pool_id}")]
     PoolNotFound { chain_id: u64, pool_id: String },
+    #[error(
+        "conflicting pool snapshot for chain_id={chain_id} pool_id={pool_id} at block {block_number}"
+    )]
+    ConflictingPoolSnapshot {
+        chain_id: u64,
+        pool_id: String,
+        block_number: u64,
+    },
     #[error("token {token} does not belong to pool {pool_id}")]
     TokenNotInPool { pool_id: String, token: String },
     #[error("route cannot be empty")]
@@ -579,10 +587,26 @@ impl PoolGraph {
 
     pub fn upsert_pool(&mut self, pool: PoolState) -> Result<(), GraphArbError> {
         let normalized = pool.normalized_and_validated()?;
-        self.pools.insert(
-            (normalized.chain_id, normalized.pool_id.clone()),
-            normalized,
-        );
+        let key = (normalized.chain_id, normalized.pool_id.clone());
+        if let Some(existing) = self.pools.get(&key) {
+            if existing.block_number == normalized.block_number && existing != &normalized {
+                return Err(GraphArbError::ConflictingPoolSnapshot {
+                    chain_id: normalized.chain_id,
+                    pool_id: normalized.pool_id,
+                    block_number: normalized.block_number,
+                });
+            }
+            if normalized.block_number < existing.block_number {
+                return Err(GraphArbError::InvalidPool(format!(
+                    "stale pool snapshot for chain_id={} pool_id={}: block {} < {}",
+                    normalized.chain_id,
+                    normalized.pool_id,
+                    normalized.block_number,
+                    existing.block_number
+                )));
+            }
+        }
+        self.pools.insert(key, normalized);
         Ok(())
     }
 

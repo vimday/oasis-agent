@@ -152,6 +152,17 @@ contract MaliciousRouter {
     }
 
     function swapExactInput(address, address, uint256, address) external returns (uint256) {
+        return _runMode();
+    }
+
+    function swapExactInput(address, address, uint256, uint256, address)
+        external
+        returns (uint256)
+    {
+        return _runMode();
+    }
+
+    function _runMode() private returns (uint256) {
         if (mode == Mode.REENTER_CALLBACK) {
             ResolvedOrder[] memory empty = new ResolvedOrder[](0);
             IReactorCallback(msg.sender).reactorCallback(empty, "");
@@ -219,7 +230,6 @@ contract OasisIntentVaultAdversarialTest is Test {
         vault.setReactorAllowed(address(malReactor), true);
         vault.setRouterAllowed(address(goodRouter), true);
         vault.setRouterAllowed(address(malRouter), true);
-        vault.setRouterSelectorAllowed(MockSwapRouter.swapExactInput.selector, true);
         vault.setPoolAllowed(address(v3Pool), true);
         vm.stopPrank();
     }
@@ -348,6 +358,21 @@ contract OasisIntentVaultAdversarialTest is Test {
         vault.executeReactorFill(plan, reactorCall);
     }
 
+    function test_swapStepRejectsZeroMinOut() public {
+        address benignReactor = address(new BenignSingleCallbackReactor());
+        vm.prank(OWNER);
+        vault.setReactorAllowed(benignReactor, true);
+
+        OasisIntentVault.SwapStep[] memory zeroMinOutSteps = _singleSwapStep(address(goodRouter), 0);
+        ResolvedOrder memory order = _sampleResolvedOrder();
+
+        vm.prank(OPERATOR);
+        vm.expectRevert(OasisIntentVault.InvalidSwapStep.selector);
+        vault.executeReactorFill(
+            _planWithSteps(benignReactor, zeroMinOutSteps), _reactorCall(order, zeroMinOutSteps)
+        );
+    }
+
     function test_reentrancyFromReactorRouterAndTokenHookReverts() public {
         ResolvedOrder memory order = _sampleResolvedOrder();
         OasisIntentVault.SwapStep[] memory goodSteps = _singleSwapStep(address(goodRouter), 2_550e6);
@@ -380,7 +405,8 @@ contract OasisIntentVaultAdversarialTest is Test {
         vault.executeReactorFill(malPlan, malCall);
 
         // 2. Malicious router inside normal reactor callback cannot reenter callback or fill.
-        OasisIntentVault.SwapStep[] memory badRouterSteps = _singleSwapStep(address(malRouter), 0);
+        OasisIntentVault.SwapStep[] memory badRouterSteps =
+            _singleSwapStep(address(malRouter), 2_550e6);
         bytes memory malReactorFill = _reactorCall(order, badRouterSteps);
 
         address benignReactor = address(new BenignSingleCallbackReactor());
@@ -462,28 +488,6 @@ contract OasisIntentVaultAdversarialTest is Test {
             )
         );
         vault.executeReactorFill(_planWithSteps(benignReactor, steps), hex"12345678");
-
-        OasisIntentVault.SwapStep[] memory badSelectorSteps =
-            _singleSwapStep(address(goodRouter), 0);
-        badSelectorSteps[0].data = abi.encodeCall(MockSwapRouter.unapprovedMethod, (7));
-        vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                OasisIntentVault.UnapprovedRouterSelector.selector,
-                MockSwapRouter.unapprovedMethod.selector
-            )
-        );
-        vault.executeReactorFill(
-            _planWithSteps(benignReactor, badSelectorSteps), _reactorCall(order, badSelectorSteps)
-        );
-
-        vm.prank(OWNER);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                OasisIntentVault.UnapprovedRouterSelector.selector, IERC20.approve.selector
-            )
-        );
-        vault.setRouterSelectorAllowed(IERC20.approve.selector, true);
 
         // > 3 swap steps rejected.
         OasisIntentVault.SwapStep[] memory fourSteps = new OasisIntentVault.SwapStep[](4);
@@ -591,10 +595,7 @@ contract OasisIntentVaultAdversarialTest is Test {
             tokenOut: address(usdc),
             amountIn: 1 ether,
             minOut: minOut,
-            data: abi.encodeCall(
-                MockSwapRouter.swapExactInput,
-                (address(weth), address(usdc), 1 ether, address(vault))
-            )
+            data: ""
         });
     }
 

@@ -122,6 +122,7 @@ contract DeployOasisProfitEngineTest is Test {
         vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(303))));
         vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(404))));
         vm.setEnv("OASIS_WIRE_OPERATORS_ON_DEPLOY", "true");
+        vm.setEnv("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", "true");
 
         DeployOasisProfitEngine.DeployParams memory soloParams = _soloParams();
         soloParams.executorSalt = bytes32(uint256(303));
@@ -155,6 +156,7 @@ contract DeployOasisProfitEngineTest is Test {
         vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(101))));
         vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(202))));
         vm.setEnv("OASIS_WIRE_OPERATORS_ON_DEPLOY", "false");
+        vm.setEnv("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", "false");
 
         DeployOasisProfitEngine.DeployParams memory expectedParams = _defaultParams();
         expectedParams.executorSalt = bytes32(uint256(101));
@@ -183,6 +185,7 @@ contract DeployOasisProfitEngineTest is Test {
         vm.setEnv("OASIS_REVENUE_SINK", "");
         vm.setEnv("OASIS_EXECUTOR_SALT", vm.toString(bytes32(uint256(505))));
         vm.setEnv("OASIS_VAULT_SALT", vm.toString(bytes32(uint256(606))));
+        vm.setEnv("OASIS_ALLOW_SOLO_ROLE_COLLAPSE", "true");
 
         DeployOasisProfitEngine.DeployParams memory fallbackParams = _soloParams();
         fallbackParams.executorSalt = bytes32(uint256(505));
@@ -320,7 +323,8 @@ contract DeployOasisProfitEngineTest is Test {
             treasury: TREASURY,
             revenueSink: REVENUE_SINK,
             executorSalt: EXECUTOR_SALT,
-            vaultSalt: VAULT_SALT
+            vaultSalt: VAULT_SALT,
+            allowSoloRoleCollapse: false
         });
     }
 
@@ -339,7 +343,8 @@ contract DeployOasisProfitEngineTest is Test {
                 treasury: SOLO_ADMIN_EOA,
                 revenueSink: SOLO_ADMIN_EOA,
                 executorSalt: EXECUTOR_SALT,
-                vaultSalt: VAULT_SALT
+                vaultSalt: VAULT_SALT,
+                allowSoloRoleCollapse: true
             });
     }
 

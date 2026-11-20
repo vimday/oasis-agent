@@ -123,6 +123,7 @@ def _make_policy(
     *,
     operator_account: str,
     release_gate_open: bool = True,
+    rehearsal_only: bool = False,
     max_fee_per_gas_wei: int = 5_000_000_000,
     max_priority_fee_wei: int = 100_000_000,
     max_gas_limit: int = 650_000,
@@ -147,6 +148,7 @@ def _make_policy(
         max_priority_fee_wei=max_priority_fee_wei,
         max_deadline_horizon_s=24,
         release_gate_open=release_gate_open,
+        rehearsal_only=rehearsal_only,
     )
 
 
@@ -487,6 +489,16 @@ def test_loopback_anvil_rehearsal_flag_and_release_gate_enforcement() -> None:
     )
     assert rehearsal_open.admitted is True
     assert rehearsal_open.execution_eligible is False
+
+
+def test_policy_rejects_simultaneous_live_release_and_rehearsal() -> None:
+    acct = Account.create()
+    with pytest.raises(ValueError, match="rehearsal_only"):
+        _make_policy(
+            operator_account=acct.address,
+            release_gate_open=True,
+            rehearsal_only=True,
+        )
 
 
 def test_admission_rejects_every_risk_policy_calldata_and_simulation_violation() -> None:
