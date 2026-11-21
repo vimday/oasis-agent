@@ -1638,7 +1638,7 @@ class _KeepAliveHttpsPool:
         connection_factory: (
             Callable[[str, int, float, ssl.SSLContext], http.client.HTTPSConnection] | None
         ) = None,
-        max_requests_per_conn: int = 80,
+        max_requests_per_conn: int = 250,
     ) -> None:
         if type(max_requests_per_conn) is not int or max_requests_per_conn <= 0:
             raise ValueError("max_requests_per_conn must be a positive integer")
@@ -2057,14 +2057,16 @@ def run_multicall_campaign(
             min_quote_edge_bps=effective_maker_min_edge,
             adaptive_volatility_enabled=True,
             volatility_multiplier=Decimal("1.5"),
-            min_hedge_notional_usdc=active_risk_cfg.min_clip_usd_micros,
-            max_unhedged_steps=60,
+            min_hedge_notional_usdc=max(active_risk_cfg.min_clip_usd_micros, 20_000_000),
+            max_acceptable_gas_drag_bps=Decimal("10.0"),
+            max_unhedged_steps=4,
+            max_unhedged_drift_bps=Decimal("6.0"),
             preserve_queue_priority=True,
             deduplicate_fifo_and_strict=enable_coinbase_ws,
             cex_dust_unwind_enabled=True,
             cex_dust_unwind_taker_fee_bps=cex_taker_fee_dec,
             post_fill_cooldown_steps=2,
-            max_same_dir_momentum_bps=Decimal("6.5"),
+            max_same_dir_momentum_bps=Decimal("6.2"),
         )
     else:
         maker_config = MakerHedgeConfig(
@@ -2838,14 +2840,24 @@ def run_multicall_campaign(
                         if enable_coinbase_ws and dynamic_sizing and cex_venue == "bybit"
                         else (*maker_step.fifo_fills, *maker_step.strict_fills)
                     )
+                    min_maker_oos_usdc = max(min_clip_usdc, 20_000_000)
                     for realized_fill in realized_maker_fills:
-                        tick_maker_realized_fills.append(realized_fill)
                         if realized_fill.realized_net_profit_usd < 0:
                             loss_micros = round(
                                 float(-realized_fill.realized_net_profit_usd) * 1_000_000
                             )
                             shadow_daily_loss_usd_micros += loss_micros
                             shadow_cumulative_loss_usd_micros += loss_micros
+                        if enable_coinbase_ws and dynamic_sizing and cex_venue == "bybit":
+                            if realized_fill.hedge_mode == "cex_dust_unwind":
+                                continue
+                            if realized_fill.filled_qty_tokens is not None and Decimal(
+                                realized_fill.filled_qty_tokens
+                            ) * realized_fill.quoted_price_usd * Decimal(1_000_000) < Decimal(
+                                min_maker_oos_usdc
+                            ):
+                                continue
+                        tick_maker_realized_fills.append(realized_fill)
                     maker_tick_dict[meta.coinbase_product] = {
                         "selected_notional_usdc": maker_notional_usdc,
                         "prints_observed": len(prod_prints),

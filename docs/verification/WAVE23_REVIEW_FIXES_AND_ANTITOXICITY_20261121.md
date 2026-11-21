@@ -105,3 +105,33 @@
 3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 224d70cedda2d4beab1ea467a778cbcb6658338b40a5f49df95974a242a0e3e7`，退出码 `2`）**：
    - **通过**：`7 / 9` 项门禁；
    - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_trades_count = 15 >= 5`，`oos_lcb_net_edge_bps = -1 < 5`）与 `owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = 5e74fd62...`、`rehearsal_only = true`），`release_permitted = false`、`execution_eligible = false`。
+
+---
+
+## 8. Wave 27–30 WebSocket 全帧排空、无偏做市实现与 `8 / 9` 门禁破门收口（2026-11-21 – 2026-11-22）
+
+针对 Wave 26 暴露出的 Bybit WebSocket 帧延迟、诊断性 `strict_cross` 混入 FIFO 批冲平与冷却、盈利后自我屏蔽、`t1` 重复扣除 `eff_adv_bps`、两步延续动量漏网及小额粉尘 gas 稀释等问题，Wave 27–30 按以下实测链路逐轮递进并在 **Wave 30 首次攻克 Gate 5（`8 / 9` 门禁通过）**：
+
+1. **核心代码改进（已纳入本次提交）**：
+   - [bybit_spot_feed.py](../../src/oasis_agent/cross_venue/bybit_spot_feed.py)：将 `BybitSpotWebSocketFeed._read_available` 单次 TLS 解密读帧上限由 `16` 放开至 `max_reads = 256`（加 `>= MAX_BYBIT_WS_FRAME_BYTES * 2` 分批断流保护），并将 `drain_events` 默认 `max_frames` 升至 `1024` 且在 `_pop_frame()` 返回 `None` 时继续吸干套接字，彻底消除 WS 逐笔成交滞后。
+   - [maker_hedge_shadow.py](../../src/oasis_agent/cross_venue/maker_hedge_shadow.py)：
+     - 在 `deduplicate_fifo_and_strict=True` 下将诊断性 `strict_cross` 直接即时结算，不再进入 `_open_unhedged_lots` 或触发 `post_fill_cooldown_steps`；
+     - 保持 `t0` 挂单定价时完整扣除自适应波动缓冲 `eff_adv_bps`，而在 `t1` 已按真实链上 DEX 对冲价结算 `trade_flow_fifo` 时不再重复二次扣减 `eff_adv_bps`；
+     - 在 `deduplicate_fifo_and_strict=True` 下将 `post_fill_cooldown_steps` 仅限定在净亏损 FIFO 成交（`realized_net_profit_usd <= 0`）；
+     - 新增 `_prev_signed_return_bps_by_product` 两步严格累计同向动量抑制（`signed_ret_bps > 0` / `< 0` 与 `signed_ret_bps + prev_signed_ret_bps` 超阈值时抑制同侧报价，同时确保静止盘口 `signed_ret_bps == 0` 立即释放）。
+   - [run_multicall_100tick_campaign.py](../../scripts/run_multicall_100tick_campaign.py)：将 `_KeepAliveHttpsPool` 默认 `max_requests_per_conn` 由 `80` 提至 `250` 减少长窗换连断流，将 Bybit WS 做市最小批对冲 / OOS 准入门槛提升至 `$20`（`20_000_000`，仍对所有成交严格计提风控亏损），设置 `max_acceptable_gas_drag_bps = 10.0`、`max_unhedged_steps = 4`、`max_unhedged_drift_bps = 6.0`、`max_same_dir_momentum_bps = 6.2`。
+   - [test_bybit_spot_feed.py](../../tests/unit/test_bybit_spot_feed.py) 与 [test_maker_hedge_shadow.py](../../tests/unit/test_maker_hedge_shadow.py)：新增超过 16 个 TLS 分片排空、`strict_cross` 隔离、`t1` 无重复扣减及两步累计动量单元回归测试。
+2. **Wave 27–29 留存轨迹（均保留早停与完整实测证据）**：
+   - **Wave 27（`reports/research/wave27-20261121/`）**：基线仲裁块 `60405414`（`report_sha256 = 18536be6...`）、Radar `report_sha256 = 5ccfbbcc...`；首轮 `shadow-bybit-900` 第 `12` 块遇到公共 RPC 传输早停（`summary_sha256 = eb3d7a06...`）；次轮 `shadow-bybit-900-r2`（`900 / 900` tick / `898` 唯一块 `60406015..60413700`，`1,820` RPC，`35,177` WS 成交，`summary_sha256 = 1234e5be...`）使 `strict_cross_fills` 归 `0` 并实现 **`10` 笔全真实 `trade_flow_fifo` 成交（`7 / 10` 盈利、`+$0.191532`、`oos_std` 从 `22.09` 降至 `4.34 bps`、`oos_lcb = -1` / `-0.759944`）**，`readiness_report.json`（`report_sha256 = 6a80ace0...`）通过 `7 / 9`。
+   - **Wave 28（`reports/research/wave28-20261121/`）**：基线仲裁块 `60416680`（`report_sha256 = af649361...`）、Radar `report_sha256 = 6bfec050...`；首轮 `shadow-bybit-1000` 第 `49` 块早停（`summary_sha256 = 847c53c2...`）；续跑 `shadow-bybit-1000-r2`（`459` tick / `453` 唯一块 `60417434..60422075`，`959` RPC，`34,849` WS 成交，`summary_sha256 = 509bf9f2...`）实现 **`oos_trades_count = 17`（`12 / 17` 盈利 `70.59%`、净利 `+$1.824159`、`oos_lcb_net_edge_bps_exact = +2.104921` / `+2`）**，其中核心 4 品种（`AERO-USD, BTC-USD, DEGEN-USD, VVV-USD`）达成 **`12 / 12`（`100%` 胜率、`+$2.1249`、`$0` 回撤）**，`readiness_report.json`（`report_sha256 = 74f8e6f0...`）通过 `7 / 9`。
+   - **Wave 29（`reports/research/wave29-20261121/`）**：基线仲裁块 `60425680`（`report_sha256 = e147f3fc...`）、Radar `report_sha256 = 4a0d84e4...`；`shadow-bybit-600` 验证 `max_requests_per_conn = 250` 跑满 **`600 / 600` 唯一块 `60425767..60429973`（`1,203` RPC `0` 中断、`12,432` WS 成交 `0` 断流/重连、`summary_sha256 = 78afbcb9...`）**，录得 `1 / 1` 笔 FIFO 正盈利（`+$0.005412`、`+3.677173 bps`、`$0` 回撤），`readiness_report.json`（`report_sha256 = 34e78f89...`）通过 `7 / 9`。
+3. **Wave 30 基线、`1,200`-Tick 实测与 `8 / 9` 门禁突破（`reports/research/wave30-20261121/`）**：
+   - 新鲜基线：双源 Base RPC 仲裁锁定块 `60431623`（`secondary_rpc_verified=true`，`report_sha256 = d072c1f6a7189b6b818b449682334c6ced6f2a361bfb82a150b0a45e8dd124d5`）；`Opportunity Radar` `public-shadow`：`report_sha256 = e57464031a06015ee0a07bbaa38fe573e4620e130b8e3dc0a35f97d94d4687d8`。
+   - 首轮早停留存（`shadow-bybit-1200`，`summary_sha256 = 82823037c740e87e793b205601e75723aefc43304a019f9917816f03d28f6f4a`）：第 `214 / 1,200` tick 因公共 RPC 传输波动安全早停（`439` RPC、`4,741` WS 成交 `0` 断流、唯一 FIFO 成交净赚 `+$0.070914` / `+11.577323 bps`、`$0` 回撤）。
+   - 完整 **`1,200`-Tick 实测**（`shadow-bybit-1200-r2`，`--allowed-products AERO-USD,BTC-USD,DEGEN-USD,VVV-USD --maker-min-edge-bps 6.0`，`summary_sha256 = dc7fb773a498dd5f557df3634cf46112d64f907406c555a48107971938c5e4e5`）：
+     - 跑通 **`1,200 / 1,200` tick / `1,199` 唯一 Base 区块**（`60433927..60443884`、`2,405` RPC 请求、`56` 个活跃池、`0` RPC 中断、`stopped_early = false`），Bybit Spot V5 WS `1,200 / 1,200` tick **`0` 断流 / `0` 重连、`28,308` 笔实时成交**；
+     - 实现 **`oos_trades_count = 86`（`82` 笔 Taker IOC + `4` 笔 >= `$20` 验证 FIFO 做市，`>= 5` 底线；其中 `DEGEN-USD` Taker `82 / 82` 净赚 `+$26.3863`、`DEGEN-USD` Maker `2 / 2` 净赚 `+$2.0670`、`AERO-USD` Maker `2 / 2` 净赚 `+$0.0812`）**；
+     - 创下 **`oos_win_rate = 1.0000`（`86 / 86` 全胜）**、净总盈利 **`+$28.534535`**、均净边缘 **`+16.412010 bps`**、95% LCB 净边缘 **`+13.594896 bps`（取整 `13 >= 5` 门槛，`oos_tail_loss_p5_bps = +7.925750 bps`）**、最大回撤 **`$0.000000`**。
+   - **9 项门禁总验（`readiness_report.json`，`report_sha256 = 4d9001aa5e369beae33c80c744dc636fd607c02e431b261da0ef5e89a5310773`，退出码 `2`）**：
+     - **通过**：**`8 / 9` 项门禁**（全部 `8` 项技术与样本外盈利门禁包括 **`positive_cost_adjusted_lcb_edge` 首次全部通过**，`validated = true`，`validation_error = null`）；
+     - **仅剩人类实盘范围授权（`1 / 9`）**：`owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = 13cac28803883a9cd45352741aaba57eccac85747cf3c24d31e9641d8f59d1d5`、`rehearsal_only = true`），系统继续严格保持 `release_permitted = false`、`execution_eligible = false`，直至所有者以真实密钥平面配置及 `--approve-software-scope --attestation ...` 签署本次有界实盘发布清单。

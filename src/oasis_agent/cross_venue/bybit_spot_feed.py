@@ -692,11 +692,11 @@ class BybitSpotWebSocketFeed:
         except OSError, ssl.SSLError, TimeoutError:
             return False
 
-    def _read_available(self) -> bool:
+    def _read_available(self, *, max_reads: int = 256) -> bool:
         """Non-blocking read into `_recv_buf`; returns False if EOF or transport error."""
         if self._sock is None:
             return False
-        for _ in range(16):
+        for _ in range(max_reads):
             pending_fn = getattr(self._sock, "pending", None)
             has_ssl_pending = bool(callable(pending_fn) and pending_fn() > 0)
             if not has_ssl_pending:
@@ -722,6 +722,8 @@ class BybitSpotWebSocketFeed:
             self._recv_buf.extend(chunk)
             if len(self._recv_buf) > MAX_BYBIT_WS_FRAME_BYTES * 4:
                 return False
+            if len(self._recv_buf) >= MAX_BYBIT_WS_FRAME_BYTES * 2:
+                break
         return True
 
     def _pop_frame(self) -> tuple[bool, int, bytes] | None:
@@ -814,7 +816,9 @@ class BybitSpotWebSocketFeed:
             )
         return False
 
-    def drain_events(self, *, max_frames: int = 256) -> tuple[tuple[CoinbaseTradePrint, ...], bool]:
+    def drain_events(
+        self, *, max_frames: int = 1024
+    ) -> tuple[tuple[CoinbaseTradePrint, ...], bool]:
         """Drain buffered Bybit `publicTrade` prints without blocking; return `(prints, gap)`."""
         if not self.is_connected:
             return (), True
@@ -843,7 +847,18 @@ class BybitSpotWebSocketFeed:
                 self.close()
                 break
             if frame is None:
-                break
+                if not self._read_available():
+                    gap_detected = True
+                    self.close()
+                    break
+                try:
+                    frame = self._pop_frame()
+                except BybitSpotFeedError:
+                    gap_detected = True
+                    self.close()
+                    break
+                if frame is None:
+                    break
             frames_processed += 1
             fin, opcode, payload = frame
 

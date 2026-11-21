@@ -903,6 +903,7 @@ class MakerHedgeLifecycleTracker:
         self._mid_returns_bps_by_product: dict[str, deque[Decimal]] = {}
         self._last_mid_by_product: dict[str, Decimal] = {}
         self._last_signed_return_bps_by_product: dict[str, Decimal] = {}
+        self._prev_signed_return_bps_by_product: dict[str, Decimal] = {}
         self._cooldown_until_step_by_product_side: dict[tuple[str, str], int] = {}
         self._last_book_by_product: dict[str, CoinbaseL2Book] = {}
         self._batched_fifo_hedges: int = 0
@@ -1005,6 +1006,9 @@ class MakerHedgeLifecycleTracker:
     ) -> Decimal:
         prev_mid = self._last_mid_by_product.get(product_id)
         if record_return and prev_mid is not None and prev_mid > 0:
+            self._prev_signed_return_bps_by_product[product_id] = (
+                self._last_signed_return_bps_by_product.get(product_id, Decimal(0))
+            )
             signed_ret_bps = ((mid_price - prev_mid) / prev_mid) * _BPS_DIVISOR
             self._last_signed_return_bps_by_product[product_id] = signed_ret_bps
             step_ret_bps = abs(signed_ret_bps)
@@ -1014,6 +1018,7 @@ class MakerHedgeLifecycleTracker:
                 self._mid_returns_bps_by_product[product_id] = returns
             returns.append(step_ret_bps)
         else:
+            self._prev_signed_return_bps_by_product[product_id] = Decimal(0)
             self._last_signed_return_bps_by_product[product_id] = Decimal(0)
         self._last_mid_by_product[product_id] = mid_price
 
@@ -1890,9 +1895,21 @@ class MakerHedgeLifecycleTracker:
                 detected_fills.extend(resting_detected)
 
                 for detected in detected_fills:
+                    realized_adv_bps = (
+                        Decimal(0)
+                        if (
+                            self._config.deduplicate_fifo_and_strict
+                            and detected.classification == "trade_flow_fifo"
+                        )
+                        else eff_adv_bps
+                    )
                     if (
                         self._config.min_hedge_notional_usdc <= 0
                         or detected.classification == "touch_lift"
+                        or (
+                            self._config.deduplicate_fifo_and_strict
+                            and detected.classification != "trade_flow_fifo"
+                        )
                     ):
                         ev, warn = self._hedge_detected_immediate(
                             product_id=spec.product_id,
@@ -1903,7 +1920,7 @@ class MakerHedgeLifecycleTracker:
                             dex_sell_usdc_out=dex_sell_usdc_out,
                             token_scale=token_scale,
                             gas_usd=candidate.gas_cost_usd,
-                            effective_adverse_bps=eff_adv_bps,
+                            effective_adverse_bps=realized_adv_bps,
                         )
                         if ev is not None:
                             fills.append(ev)
@@ -1915,7 +1932,7 @@ class MakerHedgeLifecycleTracker:
                                 product_id=spec.product_id,
                                 detected=detected,
                                 token_decimals=token_decimals,
-                                effective_adverse_bps=eff_adv_bps,
+                                effective_adverse_bps=realized_adv_bps,
                                 fill_step_idx=current_step_idx,
                             )
                         )
@@ -1923,7 +1940,16 @@ class MakerHedgeLifecycleTracker:
             _flush_triggered()
 
             realized_filled_sides: set[Literal["ask_maker", "bid_maker"]] = {
-                ev.side for ev in fills if ev.fill_classification != "touch_lift"
+                ev.side
+                for ev in fills
+                if (
+                    (
+                        ev.fill_classification == "trade_flow_fifo"
+                        and ev.realized_net_profit_usd <= 0
+                    )
+                    if self._config.deduplicate_fifo_and_strict
+                    else ev.fill_classification != "touch_lift"
+                )
             }
             if self._config.post_fill_cooldown_steps > 0:
                 for filled_side in realized_filled_sides:
@@ -1934,19 +1960,31 @@ class MakerHedgeLifecycleTracker:
             signed_ret_bps = self._last_signed_return_bps_by_product.get(
                 spec.product_id, Decimal(0)
             )
+            prev_signed_ret_bps = self._prev_signed_return_bps_by_product.get(
+                spec.product_id, Decimal(0)
+            )
             ask_cooldown = current_step_idx < self._cooldown_until_step_by_product_side.get(
                 (spec.product_id, "ask_maker"), 0
             )
             bid_cooldown = current_step_idx < self._cooldown_until_step_by_product_side.get(
                 (spec.product_id, "bid_maker"), 0
             )
-            ask_momentum_toxic = (
-                self._config.max_same_dir_momentum_bps is not None
-                and signed_ret_bps > self._config.max_same_dir_momentum_bps
+            max_mom = self._config.max_same_dir_momentum_bps
+            ask_momentum_toxic = max_mom is not None and (
+                signed_ret_bps > max_mom
+                or (
+                    self._config.deduplicate_fifo_and_strict
+                    and signed_ret_bps > Decimal(0)
+                    and (signed_ret_bps + prev_signed_ret_bps) > max_mom
+                )
             )
-            bid_momentum_toxic = (
-                self._config.max_same_dir_momentum_bps is not None
-                and signed_ret_bps < -self._config.max_same_dir_momentum_bps
+            bid_momentum_toxic = max_mom is not None and (
+                signed_ret_bps < -max_mom
+                or (
+                    self._config.deduplicate_fifo_and_strict
+                    and signed_ret_bps < Decimal(0)
+                    and (signed_ret_bps + prev_signed_ret_bps) < -max_mom
+                )
             )
             new_ask_active = candidate.ask_active
             if candidate.ask_active and (ask_cooldown or ask_momentum_toxic):

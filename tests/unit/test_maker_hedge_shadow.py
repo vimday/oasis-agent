@@ -1654,3 +1654,222 @@ def test_sub_threshold_partial_fifo_fill_retains_front_queue_without_premature_c
     )
     assert s6.quote.ask_active is True
     assert tracker.summary()["cooldown_quote_skips"] == 3
+
+
+def test_strict_cross_does_not_enter_fifo_batch_or_cooldown_when_dedup_enabled() -> None:
+    """When dedup is enabled, `strict_cross` settles immediately without FIFO batch/cooldown."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("5.0"),
+        min_hedge_notional_usdc=50_000_000,
+        preserve_queue_priority=True,
+        deduplicate_fifo_and_strict=True,
+        post_fill_cooldown_steps=2,
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.005")
+    qty_token = (200 * 10**18) // 2500
+
+    # Step 0: Resting ask active at $2509.90
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2509.80", ask="2510.00", size="0.5", sequence=10),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.ask_active is True
+
+    # Step 1: Book crosses strictly upward without a trade print -> diagnostic strict_cross only,
+    # no open_unhedged_lots queued, and no cooldown blocking the next ask quote!
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2512.00", ask="2512.20", size="0.5", sequence=11),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s1.strict_fills) == 1
+    assert s1.fifo_fills == ()
+    assert tracker.open_lots() == {}
+    assert tracker.summary()["cooldown_quote_skips"] == 0
+    assert s1.quote.ask_active is True
+
+
+def test_dedup_fifo_no_double_adverse_and_post_loss_only_cooldown() -> None:
+    """When dedup is enabled, FIFO fills skip t1 double-adverse and cool down only after loss."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("5.0"),
+        tick_improvement_bps=Decimal(0),
+        min_hedge_notional_usdc=50_000_000,
+        preserve_queue_priority=True,
+        deduplicate_fifo_and_strict=True,
+        post_fill_cooldown_steps=2,
+        adverse_selection_bps=Decimal("10.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.01")
+    qty_win = (200 * 10**18) // 2500  # 0.08 ETH ($2500/ETH)
+
+    # Step 0: resting ask active at $2515.00 with queue_ahead=0.50
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="0.5", sequence=10),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_win,
+        trade_notional_token=qty_win,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.ask_active is True
+    assert s0.quote.quoted_ask_usd == Decimal("2515.00")
+
+    # Step 1: Winning FIFO fill on t1 (no double-counted 10 bps adverse at t1):
+    # proceeds=$201.20, hedge=$200.00, maker fee=$0.2012, gas=$0.01 -> profit ~$0.9888 (> $0.7888).
+    # Profitable FIFO fill must NOT trigger cooldown!
+    p_win = CoinbaseTradePrint(
+        product_id="ETH-USD",
+        trade_id=8001,
+        price=Decimal("2515.00"),
+        size=Decimal("0.60"),
+        maker_side="sell",
+        traded_at_utc="2026-11-21T00:00:01Z",
+    )
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="0.5", sequence=11),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_win,
+        trade_notional_token=qty_win,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(p_win,),
+    )
+    assert len(s1.fifo_fills) == 1
+    win_fill = s1.fifo_fills[0]
+    assert win_fill.realized_net_profit_usd > Decimal("0.90")
+    assert tracker.summary()["cooldown_quote_skips"] == 0
+    assert s1.quote.ask_active is True
+
+    # Step 2: Losing FIFO fill on t1 (DEX buy jumps to $2525 > $2515):
+    # even while step2 candidate ask would otherwise still be active at $2500? Keep DEX favorable
+    # ONLY if candidate ask were active at $2535? Use small t1 DEX move via book at $2515 and
+    # losing DEX price ($2520) vs fresh candidate on $2535? Wait: on Step 2, `compute_quote`
+    # uses the same Step 2 DEX buy output; verify cooldown activates by checking
+    # `_cooldown_until_step_by_product_side` and Step 3 cooldown skip!
+    qty_lose = (200 * 10**18) // 2520
+    p_lose = CoinbaseTradePrint(
+        product_id="ETH-USD",
+        trade_id=8002,
+        price=Decimal("2515.00"),
+        size=Decimal("0.60"),
+        maker_side="sell",
+        traded_at_utc="2026-11-21T00:00:02Z",
+    )
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="0.5", sequence=12),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_lose,
+        trade_notional_token=qty_lose,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(p_lose,),
+    )
+    assert len(s2.fifo_fills) == 1
+    assert s2.fifo_fills[0].realized_net_profit_usd < Decimal(0)
+
+    # Step 3: Now DEX buy is profitable again ($2500), yet ask must be suppressed by cooldown!
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2505.00", ask="2515.00", size="0.5", sequence=13),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_win,
+        trade_notional_token=qty_win,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s3.quote.ask_active is False
+    assert tracker.summary()["cooldown_quote_skips"] == 1
+
+
+def test_two_step_cumulative_momentum_suppresses_continuation_with_dedup() -> None:
+    """Two-step cumulative momentum suppresses bid_maker after -10 bps then -1 bps drop."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        deduplicate_fifo_and_strict=True,
+        max_same_dir_momentum_bps=Decimal("5.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    qty_0_10 = 10**17  # 0.10 ETH = $2000/ETH
+    gas_usd = Decimal("0.01")
+
+    # Step 0: Baseline mid = $2000.00
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="1990.00", ask="2010.00", size="1.0", sequence=50),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_10,
+        trade_notional_token=qty_0_10,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.bid_active is True
+    assert s0.quote.ask_active is True
+
+    # Step 1: Sharp -10 bps drop ($2000.00 -> $1998.00) -> 1-step < -5 bps blocks bid_maker
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="1988.00", ask="2008.00", size="1.0", sequence=51),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_10,
+        trade_notional_token=qty_0_10,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1.quote.bid_active is False
+    assert s1.quote.ask_active is True
+
+    # Step 2: Small -1 bps continuation ($1998.00 -> $1997.80): 1-step (-1 bps) > -5 bps,
+    # but 2-step sum (-11 bps) < -5 bps -> bid_maker must remain suppressed!
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="1987.80", ask="2007.80", size="1.0", sequence=52),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_10,
+        trade_notional_token=qty_0_10,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2.quote.bid_active is False
+    assert s2.quote.ask_active is True
+    assert tracker.summary()["momentum_quote_skips"] == 2
+
+    # Step 3: Stationary book (signed_ret_bps == 0) must release bid_maker immediately
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="1987.80", ask="2007.80", size="1.0", sequence=53),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_10,
+        trade_notional_token=qty_0_10,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s3.quote.bid_active is True
+    assert tracker.summary()["momentum_quote_skips"] == 2

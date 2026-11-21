@@ -288,3 +288,56 @@ def test_bybit_ws_feed_handshake_trade_drain_and_close() -> None:
     assert gap2 is True
     assert feed.is_connected is False
     assert fake_sock.closed is True
+
+
+def test_bybit_ws_feed_drains_more_than_16_tls_record_chunks_in_single_call() -> None:
+    """One TLS record per recv() must drain past 16 frames without multi-tick lag."""
+    peg = _sample_peg()
+    frames = []
+    for idx in range(24):
+        payload = json.dumps(
+            {
+                "topic": "publicTrade.ETHUSDT",
+                "type": "trade",
+                "data": [
+                    {
+                        "i": str(995001 + idx),
+                        "T": 1795000010000 + idx * 10,
+                        "p": "1700.00",
+                        "v": "0.10",
+                        "S": "Buy",
+                        "s": "ETHUSDT",
+                    }
+                ],
+            }
+        ).encode("utf-8")
+        frames.append(build_websocket_frame(_WS_OP_TEXT, payload, masked=False))
+
+    class _OneFramePerRecvSocket(_FakeWsSocket):
+        def recv(self, size: int) -> bytes:
+            if not self._incoming:
+                raise BlockingIOError
+            # Simulate SSLSocket.recv returning one decrypted TLS record (WS frame) per call.
+            first = bytes(self._incoming[:2])
+            ln = first[1] & 0x7F
+            pos = 2
+            if ln == 126:
+                ln = int.from_bytes(self._incoming[2:4], "big")
+                pos = 4
+            total = min(size, pos + ln)
+            chunk = bytes(self._incoming[:total])
+            del self._incoming[:total]
+            return chunk
+
+    fake_sock = _OneFramePerRecvSocket(frames)
+    feed = BybitSpotWebSocketFeed(
+        ["ETH-USD"],
+        usdt_peg=peg,
+        socket_factory=lambda _h, _p, _t: fake_sock,
+    )
+    feed.connect()
+    prints, gap = feed.drain_events()
+    assert gap is False
+    assert len(prints) == 24
+    assert prints[0].trade_id == 995001
+    assert prints[-1].trade_id == 995024
