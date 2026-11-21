@@ -266,7 +266,7 @@ def _row_to_record(row: sqlite3.Row | tuple[object, ...]) -> dict[str, object]:
 def _maybe_decode_payload(payload: bytes) -> object:
     try:
         value = json.loads(payload)
-    except (UnicodeDecodeError, json.JSONDecodeError):
+    except UnicodeDecodeError, json.JSONDecodeError:
         return payload.hex()
     return value
 

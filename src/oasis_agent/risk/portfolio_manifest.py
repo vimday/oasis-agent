@@ -37,7 +37,7 @@ class ManifestFeed(Strict):
     max_age_seconds: Positive
 
     @model_validator(mode="after")
-    def usable(self) -> "ManifestFeed":
+    def usable(self) -> ManifestFeed:
         if self.address == ZERO_ADDRESS:
             raise ValueError("USD feed must be a deployed contract")
         object.__setattr__(self, "runtime_keccak", normalize_hash32(self.runtime_keccak))
@@ -66,7 +66,7 @@ class ManifestAsset(Strict):
     feed: ManifestFeed
 
     @model_validator(mode="after")
-    def consistent(self) -> "ManifestAsset":
+    def consistent(self) -> ManifestAsset:
         if self.address == ZERO_ADDRESS:
             if self.decimals != 18 or self.runtime_keccak is not None:
                 raise ValueError("native asset requires decimals 18 and no runtime hash")
@@ -110,7 +110,7 @@ class ManifestPosition(Strict):
     currency1_id: Annotated[str, Field(min_length=1, max_length=160)]
 
     @model_validator(mode="after")
-    def usable(self) -> "ManifestPosition":
+    def usable(self) -> ManifestPosition:
         if (
             self.position_manager == ZERO_ADDRESS
             or self.state_view == ZERO_ADDRESS
@@ -140,7 +140,7 @@ class ChainInventory(Strict):
     positions: tuple[ManifestPosition, ...] = ()
 
     @model_validator(mode="after")
-    def consistent(self) -> "ChainInventory":
+    def consistent(self) -> ChainInventory:
         if self.primary_source == self.secondary_source:
             raise ValueError("inventory requires two distinct providers")
         if int(self.account, 16) == 0:
@@ -209,7 +209,7 @@ class PortfolioManifest(Strict):
     chains: Annotated[tuple[ChainInventory, ...], Field(min_length=1)]
 
     @model_validator(mode="after")
-    def consistent(self) -> "PortfolioManifest":
+    def consistent(self) -> PortfolioManifest:
         if len({c.key for c in self.chains}) != len(self.chains):
             raise ValueError("unique chain/account identities required")
         if {c.key for c in self.chains} != set(self.policy.inventory):

@@ -376,7 +376,7 @@ def main() -> None:
                     try:
                         Rpc(url, retries=1).block()
                         break
-                    except (OSError, RuntimeError):
+                    except OSError, RuntimeError:
                         time.sleep(1)
                 report = exercise(url, directory)
                 args.out.parent.mkdir(parents=True, exist_ok=True)

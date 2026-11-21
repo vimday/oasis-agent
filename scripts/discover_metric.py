@@ -66,7 +66,7 @@ def main() -> int:
         recorder.publish(args.output, report)
         print(f"{len(report['chains'])} isolated chain directories; execution eligible false")
         return 0
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         print(
             "Metric discovery refused: invalid input, incomplete capture or output exists",
             file=sys.stderr,

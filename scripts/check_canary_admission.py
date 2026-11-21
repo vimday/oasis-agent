@@ -40,7 +40,7 @@ def main() -> None:
             cap_usd_micros=usd_micros(args.cap_usd),
             now=int(time.time()) if args.now is None else args.now,
         )
-    except (OSError, KeyError, TypeError, ValueError):
+    except OSError, KeyError, TypeError, ValueError:
         parser.exit(1, "Invalid shadow window or manifest; no signing is available.\n")
     result = {
         "schema": "oasis.account-canary-admission.v1",

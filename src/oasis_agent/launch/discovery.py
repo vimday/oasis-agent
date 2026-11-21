@@ -24,7 +24,7 @@ class DiscoverySignal(StrictModel):
     window_seconds: Positive | None = None
 
     @model_validator(mode="after")
-    def coherent(self) -> "DiscoverySignal":
+    def coherent(self) -> DiscoverySignal:
         if int(self.token, 16) == 0 or self.observed_at > self.retrieved_at:
             raise ValueError("nonzero token and coherent capture times required")
         if self.created_at is not None and self.created_at > self.observed_at:
@@ -43,7 +43,7 @@ class DiscoveryPolicy(StrictModel):
     max_candidates: Annotated[int, Field(ge=1, le=500)] = 100
 
     @model_validator(mode="after")
-    def unique_chains(self) -> "DiscoveryPolicy":
+    def unique_chains(self) -> DiscoveryPolicy:
         if len(set(self.chains)) != len(self.chains):
             raise ValueError("duplicate discovery chain")
         if self.min_pair_age_seconds > self.new_pair_age_seconds:

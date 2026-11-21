@@ -251,5 +251,5 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         run_with_term_handler(main)
-    except (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error):
+    except OSError, ValueError, RuntimeError, KeyError, sqlite3.Error:
         raise SystemExit("Transaction authority refused or stopped; details redacted.") from None

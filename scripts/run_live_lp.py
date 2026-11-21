@@ -132,7 +132,7 @@ def run_bounded(
                 tx_hash = state.settled_blocks[-1]["transaction_hash"]
                 if authority.settle(tx_hash) != settlement_digest(state, tx_hash):
                     raise ValueError("settlement digest differs")
-            except (OSError, RuntimeError, ValueError, KeyError):
+            except OSError, RuntimeError, ValueError, KeyError:
                 state.halted = "dual-service receipt reconciliation unresolved"
                 state.record("halt", reason=state.halted)
                 loop.store.save(state)
@@ -394,7 +394,7 @@ def main() -> None:
                         report["observation"]["nav_evidence_ephemeral"] = True
                     report["rpc_budget_persistent"] = True
 
-        except (Exception, SystemExit):  # noqa: BLE001 - redact endpoint/configuration failures
+        except Exception, SystemExit:  # noqa: BLE001 - redact endpoint/configuration failures
             report = {
                 "schema": "oasis.live-operational-precheck.v1",
                 "operational_checks_passed": False,

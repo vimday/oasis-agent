@@ -228,7 +228,7 @@ def run(plan_path: Path, image_path: Path, artifact_path: Path, directory: Path)
     if record["status"] == "complete":
         try:
             chronology(record)
-        except (ValueError, TypeError, KeyError):
+        except ValueError, TypeError, KeyError:
             record.update(
                 status="incomplete", reason="local_clock_or_coverage_failure", outcome=None
             )
@@ -416,7 +416,7 @@ def main() -> int:
             ok = result["outcome"]["status"] == "local_probe_observed"
         print("Local synthetic probe observed" if ok else "Local synthetic probe refused")
         return 0 if ok else 3
-    except (ValueError, TypeError, KeyError, OSError, EOFError, subprocess.SubprocessError):
+    except ValueError, TypeError, KeyError, OSError, EOFError, subprocess.SubprocessError:
         print("Local probe refused; retain failed directory, no automatic retry", file=sys.stderr)
         return 2
 

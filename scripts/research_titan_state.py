@@ -143,7 +143,7 @@ def main() -> int:
         publish(args.output, result)
         print(f"{result['status']} | builder declarations | execution eligible false")
         return 0
-    except (ValueError, TypeError, OSError):
+    except ValueError, TypeError, OSError:
         print("Titan replay refused: invalid evidence or output exists", file=sys.stderr)
         return 2
 

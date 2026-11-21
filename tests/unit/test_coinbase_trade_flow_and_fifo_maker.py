@@ -316,7 +316,7 @@ def test_fetch_coinbase_recent_trades_url_proxy_bypass_ssrf_and_redirects(
         def close(self) -> None:
             return None
 
-        def __enter__(self) -> "_FakeResponse":
+        def __enter__(self) -> _FakeResponse:
             return self
 
         def __exit__(self, *_exc: object) -> None:

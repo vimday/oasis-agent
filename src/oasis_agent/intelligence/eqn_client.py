@@ -283,7 +283,7 @@ class EqnClient:
         self._consume_budget()
         try:
             response = self._client.send(request)
-        except (httpx.HTTPError, OSError):
+        except httpx.HTTPError, OSError:
             raise EqnFetchError("EQN HTTP GET transport failure") from None
 
         raw_bytes = self._read_bounded(response)
@@ -336,7 +336,7 @@ class EqnClient:
                 content=body,
                 headers={"Content-Type": "application/json", "Accept": "application/json"},
             )
-        except (httpx.HTTPError, OSError):
+        except httpx.HTTPError, OSError:
             raise EqnFetchError("EQN MCP POST transport failure") from None
 
         raw_bytes = self._read_bounded(response)

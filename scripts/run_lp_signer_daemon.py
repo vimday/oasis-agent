@@ -62,7 +62,7 @@ def main() -> None:
         )
     except KeyboardInterrupt:
         parser.exit(130, "Signing authority interrupted.\n")
-    except (OSError, TypeError, ValueError):
+    except OSError, TypeError, ValueError:
         # Never echo the underlying message: a path or key error can carry material.
         parser.exit(1, "Invalid signing authority configuration; no key material is logged.\n")
     print(canonical_json({"schema": RUN_SCHEMA, "account": account, "signatures": signed}).decode())

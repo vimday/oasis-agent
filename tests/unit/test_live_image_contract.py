@@ -190,7 +190,7 @@ def test_base_id_lookup_requires_exact_repository_digest(monkeypatch, fault):
         if args == ("image", "inspect", cli.BASE_IMAGE):
             raise subprocess.CalledProcessError(1, ["docker", *args])
         if args[:2] == ("image", "ls"):
-            assert args[-1] == "reference=python:3.12-slim"
+            assert args[-1] == "reference=python:3.15-slim"
             return (
                 ""
                 if fault == "missing"

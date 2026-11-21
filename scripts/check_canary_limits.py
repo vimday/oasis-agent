@@ -13,7 +13,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         limits = parse_canary_instructions(args.config.read_bytes())
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         parser.exit(1, "Invalid canary instructions; execution remains disabled.\n")
     print(limits.payload.decode())
     print(canonical_json({"limits_digest": limits.digest}).decode())

@@ -114,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             else "LP simulation plan retained; execution_eligible=false"
         )
         return 0
-    except (ValueError, TypeError, KeyError, OSError, sqlite3.Error, OasisError):
+    except ValueError, TypeError, KeyError, OSError, sqlite3.Error, OasisError:
         parser.exit(1, "LP preparation failed; details redacted; no execution authorized.\n")
     finally:
         if journal is not None:

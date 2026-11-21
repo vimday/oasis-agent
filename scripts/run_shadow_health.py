@@ -79,7 +79,7 @@ def main() -> None:
             )
             if decision["decision"] == "HALT":
                 break
-    except (RpcError, ValueError, TypeError, OSError, subprocess.SubprocessError):
+    except RpcError, ValueError, TypeError, OSError, subprocess.SubprocessError:
         decisions.append(journal.fault(now=int(time.time())))
         (args.output / "summary.json").write_bytes(
             canonical_json(

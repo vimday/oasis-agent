@@ -1069,7 +1069,8 @@ def test_verify_profit_compose_inspect_and_confinement_regressions() -> None:
             )
 
     dockerfile = (REPO_ROOT / "deploy/profit-engine/Dockerfile").read_text(encoding="utf-8")
-    assert "rust:1-slim-bookworm" in dockerfile
+    assert "rust:1.100-slim-bookworm@sha256:" in dockerfile
+    assert "python:3.15-slim@sha256:" in dockerfile
     assert "rust:1.85-slim-bookworm" not in dockerfile
     assert "cargo build --locked --manifest-path crates/Cargo.toml --release" in dockerfile
     assert "OASIS_FASTPATH_LIB=/app/crates/target/release/liboasis_core.so" in dockerfile

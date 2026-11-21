@@ -138,9 +138,8 @@ def _gas_debit(receipt: dict[str, object], chain_id: int, operator_fee: int | No
         if blob_gas == 0 or blob_gas % 131072 or blob_price == 0:
             raise ValueError("invalid Ethereum blob gas/price")
         debit += blob_gas * blob_price
-    elif family == "nitro":
-        if rpc_quantity(receipt.get("gasUsedForL1")) > gas:
-            raise ValueError("L1 gas exceeds total Nitro gas")
+    elif family == "nitro" and rpc_quantity(receipt.get("gasUsedForL1")) > gas:
+        raise ValueError("L1 gas exceeds total Nitro gas")
     if debit >= 1 << 256:
         raise ValueError("total transaction cost overflows uint256")
     return debit

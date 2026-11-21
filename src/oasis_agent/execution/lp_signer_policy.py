@@ -410,7 +410,7 @@ def authorize_lp_signing(policy: LpSignerPolicy, request: LpSigningRequest) -> L
             or amount1_max > policy.max_amount1
         ):
             reasons.append("decoded capital exceeds signer policy")
-    except (DecodingError, ValueError, TypeError, OverflowError):
+    except DecodingError, ValueError, TypeError, OverflowError:
         reasons.append("executor calldata is malformed or noncanonical")
 
     identity = canonical_json(

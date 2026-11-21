@@ -826,7 +826,7 @@ class LpBroadcaster:
             )
         try:
             submitted_hash = normalize_hash32(returned, "transaction hash")
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return self._unresolved(
                 expectation,
                 observed,

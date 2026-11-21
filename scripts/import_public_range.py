@@ -89,7 +89,7 @@ def main() -> int:
         finally:
             chain.close()
         publish(args.output, report)
-    except (ValueError, TypeError, OSError, sqlite3.Error):
+    except ValueError, TypeError, OSError, sqlite3.Error:
         print("Range import refused; no usable shadow output", file=sys.stderr)
         return 2
     print(f"Imported verified filter coverage; {len(dataset.logs)} logs; observation only")

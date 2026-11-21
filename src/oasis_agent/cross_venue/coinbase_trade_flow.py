@@ -656,7 +656,7 @@ def _socket_has_readable_data(sock: Any) -> bool:
     if callable(fileno_fn):
         try:
             fd = fileno_fn()
-        except (OSError, ValueError):
+        except OSError, ValueError:
             fd = -1
         if isinstance(fd, int) and fd >= 0:
             readable, _, _ = select.select([sock], [], [], 0.0)
@@ -869,7 +869,7 @@ class CoinbaseWebSocketFeed:
             self._set_socket_timeout(0.0)
             try:
                 chunk = sock.recv(_RECV_CHUNK_BYTES)
-            except (ssl.SSLWantReadError, BlockingIOError):
+            except ssl.SSLWantReadError, BlockingIOError:
                 return None, False
             finally:
                 with suppress(OSError):
@@ -910,7 +910,7 @@ class CoinbaseWebSocketFeed:
                 self._close_socket_quietly()
                 self._closed = True
                 raise
-            except (OSError, ssl.SSLError, TimeoutError):
+            except OSError, ssl.SSLError, TimeoutError:
                 self._close_socket_quietly()
                 self._closed = True
                 gap_detected = True
@@ -928,7 +928,7 @@ class CoinbaseWebSocketFeed:
             if opcode == _WS_OP_PING:
                 try:
                     self._send_frame(_WS_OP_PONG, payload)
-                except (OSError, ssl.SSLError, TimeoutError):
+                except OSError, ssl.SSLError, TimeoutError:
                     self._close_socket_quietly()
                     self._closed = True
                     gap_detected = True

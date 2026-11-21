@@ -274,7 +274,7 @@ class LpShadowService:
                     or (latest and latest["decision"] == "halt")
                 )
                 return LpConsumption(bool(matches), record, halted)
-        except (ValueError, TypeError, KeyError):
+        except ValueError, TypeError, KeyError:
             self.journal.fault(now=now)
             raise ValueError("LP cycle failed; halt retained") from None
 
@@ -297,7 +297,7 @@ class LpShadowService:
                 or inputs.interpretation_payload is None
             ):
                 raise ValueError("shadow input evidence binding mismatch")
-        except (ValueError, TypeError, KeyError):
+        except ValueError, TypeError, KeyError:
             self.journal.fault(now=now)
             raise ValueError("shadow input validation failed; halt retained") from None
         return self.runner.decide(

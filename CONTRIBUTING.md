@@ -6,8 +6,8 @@ to an observation screen or simulator must not create a signing or broadcast pat
 
 ## Local workflow
 
-Use Python 3.12+, Node.js for frontend validation, and the repository-pinned Foundry and contract
-dependencies. Install locked dependencies with `make install` and `make contract-install`.
+Use Python 3.15+, Node.js 26 LTS for frontend validation, and the repository-pinned Foundry and
+contract dependencies. Install locked dependencies with `make install` and `make contract-install`.
 Inject only the credentials required by each process. Do not source a shared wallet-bearing `.env`
 into observation or strategy services; keep signing material in an isolated signing service.
 Use synthetic fixtures for local tests and demonstrations. Unix-socket tests need local socket-binding

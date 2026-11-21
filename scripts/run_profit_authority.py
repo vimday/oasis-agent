@@ -207,7 +207,7 @@ def _cli_entry() -> None:
 if __name__ == "__main__":
     try:
         completed = run_with_term_handler(_cli_entry)
-    except (OSError, ValueError, RuntimeError, KeyError, TypeError):
+    except OSError, ValueError, RuntimeError, KeyError, TypeError:
         print("Profit authority refused or stopped; details redacted.", file=sys.stderr)
         raise SystemExit(3) from None
     if not completed:

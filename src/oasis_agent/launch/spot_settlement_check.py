@@ -241,7 +241,7 @@ def check_block_settlement(
         result = _check(records, cost_binding, binding, store)
     except _Refused as refused:
         result = {"status": refused.status, "reason": refused.reason, "tokens": None}
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         result = {"status": "unverified", "reason": "settlement_unreadable", "tokens": None}
     key = cost_binding.get("intent_id") if isinstance(cost_binding, dict) else None
     return {

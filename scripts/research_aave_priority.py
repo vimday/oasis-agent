@@ -248,7 +248,7 @@ def main() -> int:
             args.priority, args.baseline, args.index, args.receipts, args.pages, args.balances
         )
         rpc.publish(args.output, result)
-    except (ValueError, TypeError, KeyError, IndexError, OSError, DatabaseError):
+    except ValueError, TypeError, KeyError, IndexError, OSError, DatabaseError:
         print("Priority Aave evidence refused", file=sys.stderr)
         return 2
     print(result["status"])

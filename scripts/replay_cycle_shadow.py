@@ -93,7 +93,7 @@ def main() -> int:
         if queue is not None:
             try:
                 queue.fault(args.queue_session)
-            except (ValueError, OSError, sqlite3.Error):
+            except ValueError, OSError, sqlite3.Error:
                 print(
                     "Queue fault could not be recorded; inspect its original database",
                     file=sys.stderr,

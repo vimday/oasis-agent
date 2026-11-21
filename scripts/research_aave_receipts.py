@@ -193,7 +193,7 @@ def main() -> int:
         if args.scaled and report["scaled_positions"]["status"] == "residual":
             return 3
         return 0
-    except (ValueError, TypeError, OSError):
+    except ValueError, TypeError, OSError:
         print("Aave receipt interpretation refused; no complete ledger claim", file=sys.stderr)
         return 2
 

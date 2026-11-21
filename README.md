@@ -40,8 +40,8 @@ evidence and conditions for that run.
 
 ## Quickstart
 
-Use Python 3.12 and `uv` for the offline demo. The full development environment also uses Node.js 22
-and Foundry 1.8.1, as pinned in [CI](.github/workflows/ci.yml).
+Use Python 3.15 and `uv` for the offline demo. The full development environment also uses Node.js 26
+LTS and Foundry 1.10.0, as pinned in [CI](.github/workflows/ci.yaml).
 
 ```bash
 make install

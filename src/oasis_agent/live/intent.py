@@ -45,7 +45,7 @@ class SubmittedTransaction:
             raise ValueError("transaction commitment chain/gas/fees invalid")
 
     @classmethod
-    def from_signed(cls, raw: bytes) -> "SubmittedTransaction":
+    def from_signed(cls, raw: bytes) -> SubmittedTransaction:
         """Recover the signer and derive every field from the actual signed envelope."""
         tx = decode_signed_transaction(raw)
         return cls(

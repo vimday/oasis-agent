@@ -6,10 +6,10 @@ CARGO ?= cargo
 # uv owns the environment: uv.lock is the source of truth; requirements*.lock
 # are hashed exports kept for pip-audit and must never be edited by hand.
 install:
-	uv sync --frozen --all-extras --python 3.12
+	uv sync --frozen --all-extras --python 3.15
 
 lock:
-	uv lock --python 3.12
+	uv lock --python 3.15
 	uv export --frozen --no-emit-project --no-header --format requirements.txt -o requirements.lock
 	uv export --frozen --all-extras --no-emit-project --no-header --format requirements.txt -o requirements-dev.lock
 

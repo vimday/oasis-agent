@@ -2,11 +2,11 @@
 name = "oasis-agent"
 version = "0.1.0"
 description = "Reproducible multi-chain EVM Uniswap v4 research and guarded execution toolkit"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = [
     "pydantic>=2.7",
     "httpx>=0.27",
-    "web3>=7.16,<8",
+    "web3>=8.0,<9",
     # Security floors also protect installs that bypass the hashed lockfile.
     "aiohttp>=3.14.3,<4",
     # Local observation API server (P0-P3 dashboard backend).
@@ -60,10 +60,10 @@ filterwarnings = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py315"
 
 [tool.ruff.lint]
-# Expanded Python 3.12 rule set. Every rule below must stay green
+# Expanded Python 3.15 rule set. Every rule below must stay green
 # on `ruff check`; removing a rule requires a justification in the commit.
 select = [
     "E",      # pycodestyle errors (incl. E501 line length)
@@ -88,6 +88,6 @@ select = [
 ]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.15"
 strict = true
 packages = ["oasis_agent"]

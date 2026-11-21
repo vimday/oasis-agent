@@ -295,7 +295,7 @@ def main() -> int:
         report = run(args.plan, args.campaign, args.borrow_receipt)
         publish(args.output, report)
         return 3 if report["status"] == "balance_residual" else 0
-    except (ValueError, TypeError, OSError, KeyError):
+    except ValueError, TypeError, OSError, KeyError:
         print("Aave incident replay refused", file=sys.stderr)
         return 2
 

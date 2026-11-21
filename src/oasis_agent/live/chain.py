@@ -97,7 +97,7 @@ class Rpc:
             if len(raw) > MAX_RPC_RESPONSE_BYTES:
                 raise ValueError("RPC response exceeds byte limit")
             _, data = decode_exchange(RpcExchange(method, request_id, body, raw, 1))
-        except (ValueError, TypeError, RecursionError):
+        except ValueError, TypeError, RecursionError:
             raise ChainError(f"{method}: malformed response (details redacted)") from None
         if "error" in data:
             raise RpcRejected(f"{method}: provider rejected request (details redacted)")
@@ -119,7 +119,7 @@ class Rpc:
         """Exactly one attempt: a lost response must not trigger a resend."""
         try:
             result = self._post("eth_sendRawTransaction", ["0x" + raw.hex()])
-        except (ChainError, OSError, ValueError, TypeError):
+        except ChainError, OSError, ValueError, TypeError:
             raise SubmissionUnknown("broadcast outcome unresolved; details redacted") from None
         expected = "0x" + keccak(raw).hex()
         if result != expected:
@@ -145,7 +145,7 @@ class Rpc:
     def uint(self, method: str, params: list[Any]) -> int:
         try:
             return rpc_quantity(self.call(method, params))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             raise ChainError(f"{method}: invalid quantity (details redacted)") from None
 
     def balance(self, account: str) -> int:
@@ -271,7 +271,7 @@ def send_transaction(
             raise ChainError("transaction authority requires decision context")
         try:
             raw = signer.sign_envelope(fields, authority_context)
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             raise ChainError("transaction authority outcome unresolved") from None
     else:
         if authority_context is not None:
@@ -282,7 +282,7 @@ def send_transaction(
     on_signed(commitment)
     try:
         rpc.send_raw(raw)
-    except (ChainError, OSError, ValueError, TypeError):
+    except ChainError, OSError, ValueError, TypeError:
         # Even a node rejection can mean "already known". Keep the published
         # commitment and let the independent pending-receipt path reconcile it.
         raise SubmissionUnknown("broadcast outcome unresolved; details redacted") from None

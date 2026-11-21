@@ -431,7 +431,7 @@ def successful_response(payload, raw, url):
         _, response = decode_exchange(
             RpcExchange(request["method"], request["id"], payload, raw, 1)
         )
-    except (ValueError, TypeError, KeyError, RecursionError):
+    except ValueError, TypeError, KeyError, RecursionError:
         raise ResponseRefused("rpc_protocol_error") from None
     if "error" in response:
         raise ResponseRefused("rpc_error", code=response["error"]["code"])

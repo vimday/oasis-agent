@@ -499,7 +499,7 @@ def _eval_base_time_predeploy_verified(
         try:
             normalized_predeploy = normalize_address(str(predeploy))
             normalize_hash32(str(block_hash), "block_hash")
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             normalized_predeploy = ""
         ok = (
             status == "ok"

@@ -297,7 +297,7 @@ def main() -> int:
         report = run(args)
         publish(args.output, report)
         return 0
-    except (ValueError, TypeError, OSError, KeyError, sqlite3.Error):
+    except ValueError, TypeError, OSError, KeyError, sqlite3.Error:
         print("Wallet evidence comparison refused", file=sys.stderr)
         return 2
 

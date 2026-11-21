@@ -94,12 +94,12 @@ the applicable rule files explicitly. Read only the guidance needed for the task
    Preserve concurrent and unrelated changes. Identify the invariant and smallest failing case.
 2. Fix the normal entry point and verify partial failures, restarts, and competing writers where
    applicable. For financial or execution changes, trace data and value from input to recovery.
-3. Use the locked `uv` environment. `make install` provisions Python 3.12 and
+3. Use the locked `uv` environment. `make install` provisions Python 3.15 and
    `make contract-install` installs locked contract dependencies. Change Python dependencies
    through `pyproject.toml` and `make lock`. Avoid hand-editing exported lockfiles.
 4. Run the focused regression first. For code changes run `make check`, `make security-check`,
    and `make contract-security-check`. Run applicable documentation link, example, and interface
-   checks for docs changes. See [CI](.github/workflows/ci.yml). Use a permitted local environment
+   checks for docs changes. See [CI](.github/workflows/ci.yaml). Use a permitted local environment
    for Unix socket tests. Record exit codes and the actual logs for blocked or failed checks.
 5. Run `git diff --check`. Review for secrets, broadened authority, financial units, evidence
    integrity, and stale behavior. Keep raw keys, auth headers, credentialed RPC URLs, raw signed

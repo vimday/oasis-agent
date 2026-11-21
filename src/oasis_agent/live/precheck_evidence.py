@@ -12,7 +12,7 @@ from ..models.common import EvidenceRef
 @contextmanager
 def precheck_evidence(
     temporary: Path, retained: Path, state_lock: Path
-) -> Iterator["PrecheckEvidenceStore"]:
+) -> Iterator[PrecheckEvidenceStore]:
     """Refuse a running strategy before reading its evidence or spending RPC quota.
 
     Hold its existing lock shared for the diagnostic, so its exclusive writer

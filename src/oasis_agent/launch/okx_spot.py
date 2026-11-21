@@ -22,7 +22,7 @@ class UsdcValue(StrictModel):
     evidence_sha256: Digest
 
     @model_validator(mode="after")
-    def ordered(self) -> "UsdcValue":
+    def ordered(self) -> UsdcValue:
         if self.low_usd_micros > self.high_usd_micros:
             raise ValueError("USDC valuation bounds reversed")
         return self
@@ -42,7 +42,7 @@ class SpotMarket(StrictModel):
     sell: QuoteCapture
 
     @model_validator(mode="after")
-    def tradable_identity(self) -> "SpotMarket":
+    def tradable_identity(self) -> SpotMarket:
         if int(self.token, 16) in (0, int(BASE_USDC, 16), int("e" * 40, 16)):
             raise ValueError("a distinct Base ERC-20 token is required")
         return self

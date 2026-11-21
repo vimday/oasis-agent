@@ -496,14 +496,14 @@ def _validate_execute_cycle_calldata(
         return ["invalid_executor_selector"]
     try:
         decoded_items = decode([EXECUTE_CYCLE_TYPE], proposal.calldata[4:])
-    except (DecodingError, ValueError, TypeError, OverflowError):
+    except DecodingError, ValueError, TypeError, OverflowError:
         return ["malformed_execute_cycle_calldata"]
     if len(decoded_items) != 1:
         return ["malformed_execute_cycle_calldata"]
     decoded = decoded_items[0]
     try:
         reencoded = EXECUTE_CYCLE_SELECTOR + encode([EXECUTE_CYCLE_TYPE], [decoded])
-    except (ValueError, TypeError, OverflowError):
+    except ValueError, TypeError, OverflowError:
         return ["malformed_execute_cycle_calldata"]
     if reencoded != proposal.calldata:
         return ["noncanonical_execute_cycle_calldata"]
@@ -571,7 +571,7 @@ def _validate_execute_reactor_fill_calldata(
         return ["invalid_intent_vault_selector"]
     try:
         decoded_items = decode(list(EXECUTE_REACTOR_FILL_PARAM_TYPES), proposal.calldata[4:])
-    except (DecodingError, ValueError, TypeError, OverflowError):
+    except DecodingError, ValueError, TypeError, OverflowError:
         return ["malformed_execute_reactor_fill_calldata"]
     if len(decoded_items) != 2:
         return ["malformed_execute_reactor_fill_calldata"]
@@ -579,7 +579,7 @@ def _validate_execute_reactor_fill_calldata(
         reencoded = EXECUTE_REACTOR_FILL_SELECTOR + encode(
             list(EXECUTE_REACTOR_FILL_PARAM_TYPES), list(decoded_items)
         )
-    except (ValueError, TypeError, OverflowError):
+    except ValueError, TypeError, OverflowError:
         return ["malformed_execute_reactor_fill_calldata"]
     if reencoded != proposal.calldata:
         return ["noncanonical_execute_reactor_fill_calldata"]

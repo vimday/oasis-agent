@@ -74,7 +74,7 @@ class OkxPriceReadGrant:
             raise ValueError("bounded time, request quota and documented free allowance required")
 
     @classmethod
-    def load(cls, path: Path) -> "OkxPriceReadGrant":
+    def load(cls, path: Path) -> OkxPriceReadGrant:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         try:
             if not stat.S_ISREG(os.fstat(descriptor).st_mode):

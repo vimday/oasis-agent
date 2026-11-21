@@ -214,7 +214,7 @@ def read_live_status(
             status="missing",
             blockers=["live_state_missing"],
         )
-    except (OSError, ValueError, TypeError, RecursionError, ValidationError):
+    except OSError, ValueError, TypeError, RecursionError, ValidationError:
         return LiveStatusResponse(
             release=release,
             startup=startup,

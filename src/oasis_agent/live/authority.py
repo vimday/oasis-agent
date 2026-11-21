@@ -136,7 +136,7 @@ class TransactionAuthority:
         try:
             self._admit(market, context)
             self._envelope(fields, market, context)
-        except (ValueError, ChainError):
+        except ValueError, ChainError:
             # Persist risk latches and observations even when the proposal is refused.
             loop.store.save(s)
             raise

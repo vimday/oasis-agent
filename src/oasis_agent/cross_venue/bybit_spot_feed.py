@@ -689,7 +689,7 @@ class BybitSpotWebSocketFeed:
         try:
             self._sock.sendall(build_websocket_frame(opcode, payload, masked=True))
             return True
-        except (OSError, ssl.SSLError, TimeoutError):
+        except OSError, ssl.SSLError, TimeoutError:
             return False
 
     def _read_available(self) -> bool:
@@ -702,20 +702,20 @@ class BybitSpotWebSocketFeed:
             if not has_ssl_pending:
                 try:
                     fileno = self._sock.fileno()
-                except (AttributeError, OSError, ValueError):
+                except AttributeError, OSError, ValueError:
                     fileno = -1
                 if fileno >= 0:
                     try:
                         readable, _, _ = select.select([self._sock], [], [], 0.0)
-                    except (OSError, ValueError):
+                    except OSError, ValueError:
                         return False
                     if not readable:
                         break
             try:
                 chunk = self._sock.recv(_RECV_CHUNK_BYTES)
-            except (BlockingIOError, ssl.SSLWantReadError, ssl.SSLWantWriteError):
+            except BlockingIOError, ssl.SSLWantReadError, ssl.SSLWantWriteError:
                 break
-            except (OSError, ssl.SSLError, TimeoutError):
+            except OSError, ssl.SSLError, TimeoutError:
                 return False
             if not chunk:
                 return False

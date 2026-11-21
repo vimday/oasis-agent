@@ -68,7 +68,7 @@ class CampaignSpec(StrictModel):
     events: bool = False
 
     @model_validator(mode="after")
-    def validate_kind(self) -> "CampaignSpec":
+    def validate_kind(self) -> CampaignSpec:
         if self.kind != "spot" and self.timeout_seconds > 86_400:
             raise ValueError("only spot shadow runs may exceed 24 hours")
         if self.kind == "spot":

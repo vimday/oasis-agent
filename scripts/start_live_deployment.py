@@ -288,7 +288,7 @@ def require_local_runtime_policy() -> tuple[str, int, dict[str, str]]:
     profile_input = f"configs/{RPC_PROFILE_NAME}"
     try:
         profile, profile_file_hash = read_local_rpc_profile(compose.ROOT / profile_input)
-    except (OSError, ValueError, RecursionError):
+    except OSError, ValueError, RecursionError:
         raise ValueError("valid local RPC profile required") from None
     return (
         sha256_hex(canonical_json(asdict(config))),

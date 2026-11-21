@@ -95,7 +95,7 @@ class BudgetedRpc(Rpc):
         if self.poster.usage_limit is not None:
             try:
                 self.poster.reserve()
-            except (OSError, ValueError, sqlite3.Error):
+            except OSError, ValueError, sqlite3.Error:
                 raise ChainError("broadcast RPC reservation refused") from None
         return super().send_raw(raw)
 

@@ -161,7 +161,7 @@ def read_local_startup_readiness(
         read_local_rpc_profile(path.with_name(RPC_PROFILE_NAME))
     except FileNotFoundError:
         blockers.append("live_rpc_profile_missing")
-    except (OSError, ValueError, RecursionError):
+    except OSError, ValueError, RecursionError:
         blockers.append("live_rpc_profile_invalid")
     return LiveStartupReadiness(
         release_gate_passed=True,

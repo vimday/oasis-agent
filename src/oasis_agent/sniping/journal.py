@@ -43,7 +43,7 @@ class ExecutionJournal:
                 if row != (self.policy,):
                     raise ValueError("execution policy cannot change on restart")
                 self._verify()
-        except (ValueError, sqlite3.Error):
+        except ValueError, sqlite3.Error:
             self.db.close()
             raise
         self.policy_digest = sha256_hex(self.policy)
@@ -119,7 +119,7 @@ class ExecutionJournal:
             self._verified_version = version
             self._verified_changes = self.db.total_changes
             return record | {"digest": digest}
-        except (ValueError, TypeError, KeyError, sqlite3.Error):
+        except ValueError, TypeError, KeyError, sqlite3.Error:
             self._verified_head = None
             self.db.rollback()
             raise
@@ -127,7 +127,7 @@ class ExecutionJournal:
     def close(self) -> None:
         self.db.close()
 
-    def __enter__(self) -> "ExecutionJournal":
+    def __enter__(self) -> ExecutionJournal:
         return self
 
     def __exit__(self, *exc: object) -> None:

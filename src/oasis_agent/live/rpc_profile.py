@@ -35,7 +35,7 @@ class LiveRpcProfile:
             raise ValueError("RPC profile requires exactly quota and interval")
         return cls(**raw)
 
-    def policies(self, sources: tuple[str, str]) -> tuple["BudgetPolicy", ...]:
+    def policies(self, sources: tuple[str, str]) -> tuple[BudgetPolicy, ...]:
         from ..rpc.budget import BudgetPolicy  # noqa: PLC0415 - static readers need no ledger
 
         return tuple(BudgetPolicy(s, self.max_requests, self.min_interval_ms) for s in sources)

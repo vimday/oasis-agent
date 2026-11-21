@@ -298,7 +298,7 @@ def main() -> int:
         rpc.publish(args.output, report)
         print(report["status"])
         return 0 if report["status"] == "complete" else 3
-    except (OSError, ValueError, TypeError, DatabaseError):
+    except OSError, ValueError, TypeError, DatabaseError:
         print("Event window refused; retain the original campaign", file=sys.stderr)
         return 2
 

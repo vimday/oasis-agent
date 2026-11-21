@@ -31,7 +31,7 @@ class Position:
         product = self.scaled * index
         return ceil_div(product, RAY) if self.debt else product // RAY
 
-    def advance(self, delta: int, index: int) -> "Position":
+    def advance(self, delta: int, index: int) -> Position:
         scaled = self.scaled + delta
         if not max(RAY, self.index) <= index < 1 << 128 or not 0 <= scaled < 1 << 120:
             raise ValueError("scaled_position_index_or_balance")

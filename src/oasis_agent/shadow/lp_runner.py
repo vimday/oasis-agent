@@ -239,7 +239,7 @@ class LpShadowRunner:
                 return self._halt(
                     header, evidence, now, health_digest, ("fee_quote_expired",), "HOLD"
                 )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return self._halt(
                 header, evidence, now, health_digest, ("strategy_evaluation_failed",), "HOLD"
             )
@@ -247,7 +247,7 @@ class LpShadowRunner:
         if candidates is not None:
             try:
                 range_action = select_action(candidates, self.min_benefit)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return self._halt(
                     header, evidence, now, health_digest, ("range_evaluation_failed",), "HOLD"
                 )
@@ -259,7 +259,7 @@ class LpShadowRunner:
         if gate_input is not None:
             try:
                 gate = rebalance_gate(gate_input)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return self._halt(
                     header, evidence, now, health_digest, ("rebalance_gate_failed",), "HOLD"
                 )
@@ -269,7 +269,7 @@ class LpShadowRunner:
         if self.canary_limits is not None:
             try:
                 canary = canary_cap(self.canary_limits)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return self._halt(
                     header, evidence, now, health_digest, ("canary_sizing_failed",), "HOLD"
                 )

@@ -418,7 +418,7 @@ def apply_pair(
                 ):
                     raise ValueError("committed halted migration changed before projection")
                 store.save(migrated)
-            except (OSError, ValueError, sqlite3.Error):
+            except OSError, ValueError, sqlite3.Error:
                 projection_complete = False
         return {
             "execution_eligible": False,

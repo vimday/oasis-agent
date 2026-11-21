@@ -69,7 +69,7 @@ def parse_tx_hash(raw: bytes) -> str | None:
     """The swap transaction hash the CLI claims; None when it states no broadcast."""
     try:
         root = json.loads(raw, parse_float=str, parse_int=str)
-    except (ValueError, RecursionError):
+    except ValueError, RecursionError:
         return None
     if not isinstance(root, dict) or root.get("ok") is not True:
         return None

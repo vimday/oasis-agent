@@ -293,7 +293,7 @@ def _classify_quote_error(exchange: RpcExchange) -> dict[str, object]:
             }
         if len(raw) >= 4:
             return {"reason": "unknown_revert", "revert_selector": "0x" + raw[:4].hex()}
-    except (ValueError, TypeError, json.JSONDecodeError):
+    except ValueError, TypeError, json.JSONDecodeError:
         pass
     return {"reason": "rpc_error"}
 
@@ -448,7 +448,7 @@ def run(config: ProbeConfig, block_number: int, output: Path) -> dict[str, objec
                         quoted_amount=result.quoted_amount,
                         gas_estimate=result.gas_estimate,
                     )
-                except (RpcError, ValueError, TypeError):
+                except RpcError, ValueError, TypeError:
                     if len(recorder.exchanges) == before:
                         raise
                     row.update(status="error", **_classify_quote_error(recorder.exchanges[before]))

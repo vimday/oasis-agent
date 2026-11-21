@@ -214,7 +214,7 @@ def apply_pair(strategy, authority, target, references, gas_evidence, retained, 
                 if store.journal.revision != staged[name][1] or not state.halted:
                     raise ValueError("committed runtime epoch changed before projection")
                 store.save(state)
-            except (OSError, ValueError, sqlite3.Error):
+            except OSError, ValueError, sqlite3.Error:
                 complete = False
         return {
             "execution_eligible": False,

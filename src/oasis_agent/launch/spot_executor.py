@@ -190,7 +190,7 @@ def _fee_quantity(raw: dict[str, Any], field: str) -> int | None:
     """A canonical hex quantity, or None; `missing` and `invalid` are told apart by caller."""
     try:
         return rpc_quantity(raw[field])
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return None
 
 

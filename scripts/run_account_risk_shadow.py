@@ -134,7 +134,7 @@ def _refusal_reason(directory: Path) -> str:
     """The observer's own bounded refusal text, never a provider message."""
     try:
         reason = _json(directory / "report.json").get("rejected_reason")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return "reason not retained"
     return reason if isinstance(reason, str) and reason else "reason not retained"
 

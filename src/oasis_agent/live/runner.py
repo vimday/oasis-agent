@@ -191,7 +191,7 @@ class LiveLoop:
     @classmethod
     def recovery(
         cls, config: LiveConfig, rpc: Rpc, store: StateStore, mode: str, *, read_only: bool = False
-    ) -> "LiveLoop":
+    ) -> LiveLoop:
         """A loop over `mode`'s state that can read chain state but never sign."""
         loop = cls.__new__(cls)
         loop.c, loop.rpc, loop.store, loop.mode = config, rpc, store, mode
@@ -417,7 +417,7 @@ class LiveLoop:
         )
         try:
             info = decode_position_info(packed)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             raise ChainError("observed position info is invalid") from None
         if (
             owner != self.c.account
@@ -490,7 +490,7 @@ class LiveLoop:
                             rpc.call("eth_getCode", [implementation, pin]),
                         )
                     )
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     raise ChainError("gas oracle runtime proof malformed") from None
             if pins and seen != pins:
                 raise ChainError("providers disagree on runtime code")
@@ -840,7 +840,7 @@ class LiveLoop:
             return -1  # No finality claim: every anchor stays under per-tick verification.
         try:
             return int(str(block["number"]), 16)
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             return -1
 
     def _range_text(self, m: Market) -> str:

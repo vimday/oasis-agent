@@ -75,7 +75,7 @@ def main() -> int:
         publish(args.output, result)
         print(f"{result['status']} | execution eligible false")
         return 0 if result["status"] == "header_observations_agree" else 3
-    except (ValueError, TypeError, OSError):
+    except ValueError, TypeError, OSError:
         print("Metric context refused: invalid evidence or output exists", file=sys.stderr)
         return 2
 

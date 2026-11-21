@@ -105,11 +105,11 @@ class SigningRiskGuard(Protocol):
     @property
     def policy_digest(self) -> str: ...
 
-    def reserve(self, request: "LpSidecarRequest") -> str:
+    def reserve(self, request: LpSidecarRequest) -> str:
         """Independently reconcile, check global limits and durably reserve capital."""
         ...
 
-    def release(self, request: "LpSidecarRequest", *, reason: str) -> None:
+    def release(self, request: LpSidecarRequest, *, reason: str) -> None:
         """Withdraw a reservation whose signing attempt produced no transaction."""
         ...
 
@@ -591,7 +591,7 @@ class LpSignerSidecar:
 
         try:
             self.journal.reserve_nonce(signing.account_nonce, request_hash)
-        except (StaleAccountNonce, UnresolvedAccountNonce):
+        except StaleAccountNonce, UnresolvedAccountNonce:
             # The reservation is deliberately kept: an unresolved or already
             # reserved nonce means another attempt owns this request identity and
             # its capital commitment, possibly with a transaction in flight.

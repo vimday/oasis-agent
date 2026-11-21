@@ -1760,7 +1760,7 @@ class _KeepAliveHttpsPool:
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book transport failure") from None
                 raise RpcError("Base shadow RPC transport failure") from None
-            except (http.client.HTTPException, OSError, TimeoutError):
+            except http.client.HTTPException, OSError, TimeoutError:
                 self._drop_conn(key)
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book transport failure") from None
@@ -2119,7 +2119,7 @@ def run_multicall_campaign(
             )
             if isinstance(ws_feed, BybitSpotWebSocketFeed):
                 ws_feed.update_usdt_peg(active_usdt_peg)
-        except (BybitSpotFeedError, OSError, ssl.SSLError, TimeoutError, urllib.error.URLError):
+        except BybitSpotFeedError, OSError, ssl.SSLError, TimeoutError, urllib.error.URLError:
             if active_usdt_peg is None:
                 raise
 

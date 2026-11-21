@@ -69,7 +69,7 @@ class PublicPoster:
                 check=True,
                 timeout=25,
             ).stdout
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        except subprocess.CalledProcessError, subprocess.TimeoutExpired:
             # Match JsonRpcTransport's bounded read-retry contract. Do not expose
             # command arguments, endpoint credentials or upstream diagnostics.
             raise OSError("public RPC transport failed") from None

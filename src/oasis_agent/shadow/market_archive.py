@@ -40,7 +40,7 @@ class ArchiveConfig(StrictModel):
     max_requests_per_provider: Annotated[int, Field(ge=1, le=100_000)]
 
     @model_validator(mode="after")
-    def bounded(self) -> "ArchiveConfig":
+    def bounded(self) -> ArchiveConfig:
         if self.observer.market is None:
             raise ValueError("archive requires a pool and chunk size")
         if not 1 <= self.end_block - self.start_block + 1 <= 1000:

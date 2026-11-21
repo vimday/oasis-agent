@@ -36,7 +36,7 @@ class SpotPolicy(StrictModel):
     reference_max_age_seconds: Annotated[int, Field(gt=0, le=3600)]
 
     @model_validator(mode="after")
-    def fresh_assessments(self) -> "SpotPolicy":
+    def fresh_assessments(self) -> SpotPolicy:
         if self.score.max_age_seconds > 120:
             raise ValueError("spot assessments must be at most 120 seconds old")
         return self
@@ -48,7 +48,7 @@ class SpotFrame(StrictModel):
     markets: Annotated[tuple[SpotMarket, ...], Field(max_length=100)] = ()
 
     @model_validator(mode="after")
-    def verify_scope(self) -> "SpotFrame":
+    def verify_scope(self) -> SpotFrame:
         if (
             self.discovery.policy.chains != (8453,)
             or len({c.token for c in self.candidates}) != len(self.candidates)
@@ -71,7 +71,7 @@ class SpotReplay(StrictModel):
     frames: Annotated[tuple[SpotFrame, ...], Field(min_length=1, max_length=512)]
 
     @model_validator(mode="after")
-    def chronological(self) -> "SpotReplay":
+    def chronological(self) -> SpotReplay:
         if any(
             a.discovery.evaluated_at >= b.discovery.evaluated_at
             or a.discovery.policy != b.discovery.policy
@@ -131,7 +131,7 @@ def _quote(
             max_impact_bps=policy.score.max_impact_bps,
             slippage_bps=policy.slippage_bps,
         )
-    except (ValueError, RecursionError):
+    except ValueError, RecursionError:
         return None
 
 

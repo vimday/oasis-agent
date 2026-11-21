@@ -236,5 +236,5 @@ def read_bounded_run(path: Path | None, *, now: int | None = None) -> BoundedRun
         )
     except FileNotFoundError:
         return BoundedRunStatus(status="missing")
-    except (OSError, ValueError, TypeError, KeyError, RecursionError):
+    except OSError, ValueError, TypeError, KeyError, RecursionError:
         return BoundedRunStatus(status="invalid")

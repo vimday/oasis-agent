@@ -167,7 +167,7 @@ class CapitalRiskConfig:
         return sha256_hex(canonical_json(self.to_dict()))
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, object]) -> "CapitalRiskConfig":
+    def from_dict(cls, data: Mapping[str, object]) -> CapitalRiskConfig:
         """Build a CapitalRiskConfig from a mapping, rejecting unknown keys."""
         if not isinstance(data, Mapping):
             raise TypeError("capital risk config data must be a mapping")

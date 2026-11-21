@@ -24,7 +24,7 @@ def main() -> int:
             if len(captures) == 2
             else "single_source_historical"
         )
-    except (OSError, TypeError, ValueError):
+    except OSError, TypeError, ValueError:
         print(
             "Pyth candidate refused: invalid capture, disagreement or stale review clock",
             file=sys.stderr,

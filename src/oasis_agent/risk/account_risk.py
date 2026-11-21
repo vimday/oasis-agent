@@ -64,7 +64,7 @@ class AccountFrame(Strict):
     unresolved_operations: UInt
 
     @model_validator(mode="after")
-    def unique_assets(self) -> "AccountFrame":
+    def unique_assets(self) -> AccountFrame:
         if not self.assets or len({a.asset_id for a in self.assets}) != len(self.assets):
             raise ValueError("unique complete asset inventory required")
         if set(self.movements) != {a.asset_id for a in self.assets}:
@@ -100,7 +100,7 @@ class GlobalRiskPolicy(Strict):
     max_skew_seconds: UInt
 
     @model_validator(mode="after")
-    def valid(self) -> "GlobalRiskPolicy":
+    def valid(self) -> GlobalRiskPolicy:
         if not self.inventory or self.daily_loss_usd_micros > self.cumulative_loss_usd_micros:
             raise ValueError("complete inventory and ordered loss limits required")
         for assets in self.inventory.values():

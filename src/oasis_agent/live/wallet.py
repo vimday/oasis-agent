@@ -48,7 +48,7 @@ class WalletScope:
         object.__setattr__(self, "implementation_word", normalize_hash32(self.implementation_word))
 
     @classmethod
-    def from_config(cls, config: LiveConfig) -> "WalletScope":
+    def from_config(cls, config: LiveConfig) -> WalletScope:
         return cls(
             config.chain_id,
             config.account,

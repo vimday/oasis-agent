@@ -114,7 +114,7 @@ def run_cli(
                 if process.poll() is None:
                     try:
                         os.killpg(process.pid, signal.SIGKILL)
-                    except (ProcessLookupError, PermissionError):
+                    except ProcessLookupError, PermissionError:
                         process.kill()
                 process.wait(timeout=5)
 

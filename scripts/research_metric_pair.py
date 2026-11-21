@@ -178,7 +178,7 @@ def main() -> int:
         rpc.publish(args.output, result)
         print(result["status"])
         return 0 if result["status"] == "complete" else 3
-    except (ValueError, TypeError, KeyError, IndexError, OSError, DatabaseError):
+    except ValueError, TypeError, KeyError, IndexError, OSError, DatabaseError:
         print(
             "Metric comparison refused. Inspect original capture and prerequisites.",
             file=sys.stderr,

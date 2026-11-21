@@ -98,7 +98,7 @@ def rejection_summary(error: Any) -> str:
                 reason = raw[64 : 64 + size].decode("ascii")
                 if size == len(reason) and reason in {"SPL", "LOK", "STF", "TF", "IIA", "AS"}:
                     suffix = f" revert={reason}"
-        except (ValueError, UnicodeDecodeError):
+        except ValueError, UnicodeDecodeError:
             pass
     return f"{category} code={code if type(code) is int else 'unknown'}{suffix}"
 

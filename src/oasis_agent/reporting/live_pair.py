@@ -53,7 +53,7 @@ class ServiceInspection(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def coherent_projection(self) -> "ServiceInspection":
+    def coherent_projection(self) -> ServiceInspection:
         if self.projection_current != (self.state_hash == self.projection_hash):
             raise ValueError("projection status contradicts its hashes")
         return self
@@ -139,7 +139,7 @@ def read_pair_status(
             raise ValueError("inspection hash differs")
     except FileNotFoundError:
         return LivePairStatus(status="missing", blockers=["pair_inspection_missing"])
-    except (OSError, ValueError, TypeError, RecursionError):
+    except OSError, ValueError, TypeError, RecursionError:
         return LivePairStatus(status="invalid", blockers=["pair_inspection_invalid"])
     clock = int(time.time()) if now is None else now
     age = clock - report.inspected_at

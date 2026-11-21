@@ -126,7 +126,7 @@ def main() -> None:
         )
         prepared = parse_prepared_simulation(args.plan.read_bytes())
         entry = manifest.chains[0]
-    except (OSError, TypeError, ValueError, KeyError):
+    except OSError, TypeError, ValueError, KeyError:
         parser.exit(1, "Invalid assembly configuration; no signing is available.\n")
 
     intent = prepared.plan.intent

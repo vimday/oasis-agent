@@ -639,7 +639,7 @@ supervise(blocked_request, out, seconds=0.3)
             try:
                 worker = int(marker.read_text())
                 break
-            except (FileNotFoundError, ValueError):
+            except FileNotFoundError, ValueError:
                 if process.poll() is not None:
                     break
                 time.sleep(0.01)

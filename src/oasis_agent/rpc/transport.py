@@ -148,7 +148,7 @@ class JsonRpcTransport:
                     self._recorder.record(
                         RpcExchange(method, request_id, payload, raw_response, attempt + 1)
                     )
-            except (ValueError, TypeError, OSError):
+            except ValueError, TypeError, OSError:
                 last_error = RpcError("RPC transport failure (details redacted)")
                 if attempt + 1 < attempts:
                     self._sleep(attempt, deadline)
@@ -156,7 +156,7 @@ class JsonRpcTransport:
                 raise last_error from None
             try:
                 response = response_envelope(raw_response, request_id)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 # Protocol ambiguity is terminal, even for retryable reads.
                 raise RpcError("invalid JSON-RPC response (details redacted)") from None
             if "error" in response:

@@ -459,7 +459,7 @@ def main() -> int:
     archive = None
     try:
         archive = ExecutionJournal(args.out / "capture.db", {"schema": CAPTURE_SCHEMA})
-    except (ValueError, sqlite3.Error):
+    except ValueError, sqlite3.Error:
         print("input capture disabled: archive unavailable", file=sys.stderr)
     if plan is not None and archive is None:
         # A research run without its archive could never show where its plan was bound.

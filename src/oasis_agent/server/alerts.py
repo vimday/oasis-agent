@@ -145,7 +145,7 @@ def evaluate_alerts(
                     observed_at=observed_at,
                 )
             )
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         pass
 
     return tuple(alerts)

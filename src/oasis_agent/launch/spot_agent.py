@@ -272,7 +272,7 @@ class SpotAgent:
                 row = self._security(token, now)
                 flags = None if row is None else security_flags(row)[0]
                 value, quote_hash = self._sell_quote(position, now)
-            except (SourceFailure, ValueError):
+            except SourceFailure, ValueError:
                 missed = position.missed_marks + 1
                 self.state.positions[token] = replace(position, missed_marks=missed)
                 out.append(
@@ -693,7 +693,7 @@ class SpotAgent:
                 submitted = self.submissions()
                 try:
                     entry = self._try_entry(market, assessment, now, stop)
-                except (SourceFailure, ValueError):
+                except SourceFailure, ValueError:
                     if self.submissions() != submitted:
                         # A swap was handed to the wallet: this is not a refused quote.
                         raise

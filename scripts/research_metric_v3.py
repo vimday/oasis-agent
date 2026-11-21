@@ -44,7 +44,7 @@ def main() -> int:
             "complete quotes | execution eligible false"
         )
         return 0
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         print("Metric/V3 research refused: invalid input or output exists", file=sys.stderr)
         return 2
 

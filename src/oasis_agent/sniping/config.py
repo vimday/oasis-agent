@@ -84,7 +84,7 @@ class ExecutionConfig(StrictModel):
     rpc_retries: int = Field(default=3, ge=0, le=8)
 
     @model_validator(mode="after")
-    def _ordered_tranches(self) -> "ExecutionConfig":
+    def _ordered_tranches(self) -> ExecutionConfig:
         if self.schema_ == "oasis.launch-execution-config.v1" and (
             self.token_decimals != 18 or self.reference_supply != 1_000_000_000
         ):

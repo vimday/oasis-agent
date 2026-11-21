@@ -79,6 +79,7 @@
 
 ## 证据导航
 
+- [2026-11-21 工具链与依赖升级核验](verification/TOOLCHAIN_UPGRADE_20261121.md)
 - [2026-11-20 利润引擎安全复核修复记录](verification/SECURITY_REVIEW_FIXES_20261120.md)
 - [Wave 21–22 Aero Slipstream 2、Bybit Spot V5 与 600-Tick 样本外实测核验](verification/BASE_AERO_CL2_BYBIT_600TICK_20261119.md)
 - [Wave 19–20 做市生命周期、`TickMath` 闭上界、Keep-Alive 轮换与 2,942 块长窗口综合核验](verification/BASE_1000TICK_LONG_WINDOW_READINESS_20261119.md)

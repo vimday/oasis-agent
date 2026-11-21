@@ -88,7 +88,7 @@ def capture_requests(
                     raise ValueError("capture_deadline")
                 if row["http_status"] == 200:
                     strict_json_object(bytes(body))
-            except (httpx.HTTPError, ValueError):
+            except httpx.HTTPError, ValueError:
                 row["error"] = "transport_or_resource_limit"
             row["received"] = int(time.time())
             row["response_sha256"] = sha256_hex(bytes(body))
@@ -211,7 +211,7 @@ def main() -> int:
             f"{report['positive_estimates']} positive estimates | execution eligible false"
         )
         return 0
-    except (OSError, ValueError, TypeError, ValidationError):
+    except OSError, ValueError, TypeError, ValidationError:
         print(
             "Metric research refused: invalid input, incomplete capture or output exists",
             file=sys.stderr,

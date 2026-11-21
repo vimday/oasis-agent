@@ -214,7 +214,7 @@ This map describes the repository as currently structured. `Partial` does not au
 | Execution lifecycle | `src/oasis_agent/execution/state_machine.py` | Guard stub | simulation, intent binding, signer policy, broadcast/finality/reconciliation |
 | Solidity hook | `contracts/src/{OasisDynamicFeeHook,OasisHookFactory}.sol`, canonical-core swap test, official v4-periphery PositionManager lifecycle, fuzz and stateful invariants | Partial | pinned Robinhood fork, real Permit2/malicious-token/reentry campaign, Slither/symbolic review; external audit waived by owner on 2026-09-15 |
 | Independent signer/monitor | none | Missing | isolated service/policy, inventory, drills, evidence |
-| CI/release provenance | `.github/workflows/ci.yml`, locked npm graph, full-SHA actions | Partial | protected required checks, Python dependency lock, coverage/secret/dependency scans, artifact/SBOM provenance |
+| CI/release provenance | `.github/workflows/ci.yaml`, locked npm graph, full-SHA actions | Partial | protected required checks, Python dependency lock, coverage/secret/dependency scans, artifact/SBOM provenance |
 
 The current absence of a broadcast implementation is a safety property to preserve until all upstream
 controls exist. Do not fill that gap ahead of state truth, risk, reconciliation, and signer policy.

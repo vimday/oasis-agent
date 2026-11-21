@@ -388,7 +388,7 @@ def collect(scope, plan, plan_raw, scope_raw, out, budget, guard: Callable[[], N
                     first = checked_response(plan, index, value, first)
             except RpcReadError:
                 row["error"] = "rpc_error"
-            except (httpx.HTTPError, ValueError, TypeError, OSError):
+            except httpx.HTTPError, ValueError, TypeError, OSError:
                 row["error"] = "transport_context_or_resource_failure"
             row["received_ms"] = time.time_ns() // 1_000_000
             if first is not None and first.ref.timestamp * 1000 > row["received_ms"]:
@@ -524,7 +524,7 @@ def replay_loaded(
         prior = received
         try:
             response = response_envelope(body, index + 1)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             if not failed:
                 raise
             continue
@@ -649,7 +649,7 @@ def main() -> int:
             publish(args.output, result["exports"] if args.exports_only else result)
             print(f"Verified retained bytes; status {result['status']}; no execution authority")
         return 0
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         print(
             "Public RPC operation refused; inspect retained state, no automatic retry",
             file=sys.stderr,

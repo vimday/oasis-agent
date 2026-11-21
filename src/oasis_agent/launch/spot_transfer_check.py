@@ -213,7 +213,7 @@ def check_order_transfers(records: list[Record], binding: object, store: Evidenc
             "intent_id": key if isinstance(key, str) else None,
             "assets": None,
         }
-    except (KeyError, TypeError, ValueError):
+    except KeyError, TypeError, ValueError:
         key = binding.get("intent_id") if isinstance(binding, dict) else None
         result = {
             "status": "unverified",

@@ -313,7 +313,7 @@ def _stopped_marker(directory: Path, role: Role) -> os.stat_result:
         marker = require_file(directory / "STOP")
         if stat.S_IMODE(marker.st_mode) == 0o600 and marker.st_size <= 4096:
             return marker
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass
     raise StartupRefused(StartupBlocker.STOP_UNVERIFIED, role, "private STOP required")
 

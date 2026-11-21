@@ -476,7 +476,7 @@ def apply_pair(
                 if store.journal is None or store.journal.revision != tips[role] or current.halted:
                     raise JournalConflict("committed rearm changed before projection")
                 store.save(current)
-            except (OSError, ValueError, sqlite3.Error):
+            except OSError, ValueError, sqlite3.Error:
                 projection_complete = False
         return {
             **report,

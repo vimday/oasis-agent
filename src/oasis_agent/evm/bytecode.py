@@ -27,7 +27,7 @@ def extract_cbor_metadata(bytecode: bytes) -> MetadataResult:
     raw = bytecode[start:-2]
     try:
         fields = _solidity_metadata_fields(raw)
-    except (ValueError, UnicodeDecodeError):
+    except ValueError, UnicodeDecodeError:
         return MetadataResult(None, None, None, None)
     ipfs = fields.get("ipfs")
     version = fields.get("solc")

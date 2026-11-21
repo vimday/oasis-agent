@@ -53,7 +53,7 @@ def main() -> None:
                 print(result.record["decision"], flush=True)
             if completed >= args.cycles:
                 break
-    except (ValueError, TypeError, KeyError, OSError):
+    except ValueError, TypeError, KeyError, OSError:
         journal.fault(now=int(time.time()))
         raise SystemExit("LP shadow halted; details redacted; inspect journal") from None
     finally:

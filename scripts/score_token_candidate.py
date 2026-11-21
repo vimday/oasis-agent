@@ -22,7 +22,7 @@ def main() -> None:
         )
         with args.output.open("xb") as handle:
             handle.write(canonical_json(result.model_dump(mode="json")) + b"\n")
-    except (ValueError, TypeError, OSError):
+    except ValueError, TypeError, OSError:
         parser.exit(1, "Candidate scoring failed; no execution authorized.\n")
     print(result.action)
 

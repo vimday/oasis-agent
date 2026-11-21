@@ -29,7 +29,7 @@ def main() -> int:
         publish(args.output, result)
         print(f"{result['status']} | reference guards only | execution eligible false")
         return 0
-    except (ValueError, TypeError, OSError):
+    except ValueError, TypeError, OSError:
         print("Metric oracle diagnosis refused: invalid input or output exists", file=sys.stderr)
         return 2
 

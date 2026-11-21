@@ -12,7 +12,8 @@ misrepresented as the provenance of the npm Solidity package. Before promotion, 
 must independently record and verify the source commit and artifact hashes for every Solidity
 dependency.
 
-Builds use Foundry 1.8.1, Solidity 0.8.26, Cancun EVM semantics, optimizer runs 200, no upgradeable
+Builds use Foundry 1.10.0, Solidity 0.8.26 (pinned by the exact pragma in the Uniswap v4 1.0.2/1.0.3
+dependencies), Cancun EVM semantics, optimizer runs 200, no upgradeable
 proxy, and deterministic metadata settings. `make contract-check` runs formatting, strict compilation,
 10,000-case fuzz tests under the CI profile, the complete contract suite, and Foundry lint. The current
 suite includes a real local canonical `PoolManager` callback/fee-override path, official

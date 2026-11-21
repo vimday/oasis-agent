@@ -66,7 +66,7 @@ def main() -> int:
         publish(args.output, result)
         print(f"{result['status']} | execution eligible false")
         return 3 if result["status"] == "rejected_or_incomplete" else 0
-    except (ValueError, TypeError, KeyError, OSError):
+    except ValueError, TypeError, KeyError, OSError:
         print("Probe research refused: invalid input/build or output exists", file=sys.stderr)
         return 2
 

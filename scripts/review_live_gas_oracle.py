@@ -104,7 +104,7 @@ def main() -> None:
         report = review(
             args.wire, args.config, args.out, sources=tuple(args.sources), now=int(time.time())
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         parser.exit(3, "Review setup refused; previous evidence preserved.\n")
     print(json.dumps(report, indent=2))
     raise SystemExit(0 if report["status"] == "candidate_requires_review" else 3)

@@ -58,7 +58,7 @@ class PositionSignal(StrictModel):
     evidence_sha256: Digest
 
     @model_validator(mode="after")
-    def coherent_high_water(self) -> "PositionSignal":
+    def coherent_high_water(self) -> PositionSignal:
         if self.high_water_exit_value_usd_micros < self.net_exit_value_usd_micros:
             raise ValueError("high water cannot be below current net exit value")
         return self
@@ -107,7 +107,7 @@ class ScorePolicy(StrictModel):
     weights: tuple[Bps, Bps, Bps, Bps, Bps] = (2000, 2000, 2500, 2000, 1500)
 
     @model_validator(mode="after")
-    def weights_sum(self) -> "ScorePolicy":
+    def weights_sum(self) -> ScorePolicy:
         if sum(self.weights) != 10000:
             raise ValueError("score weights must sum to 10000")
         return self

@@ -216,7 +216,7 @@ class SniperJournal:
                 if self.db.execute("SELECT payload FROM launch_policy").fetchone() != (policy,):
                     raise ValueError("launch code/config cannot change on restart")
                 read_records(self.db)
-        except (ValueError, sqlite3.Error):
+        except ValueError, sqlite3.Error:
             self.db.close()
             raise
         self.policy_digest = sha256_hex(policy)
@@ -250,6 +250,6 @@ class SniperJournal:
             )
             self.db.commit()
             return record | {"digest": digest}
-        except (ValueError, TypeError, KeyError, sqlite3.Error):
+        except ValueError, TypeError, KeyError, sqlite3.Error:
             self.db.rollback()
             raise

@@ -313,7 +313,7 @@ def main():
                 }
             ).decode()
         )
-    except (ValueError, TypeError, OSError, KeyError, RpcError):
+    except ValueError, TypeError, OSError, KeyError, RpcError:
         print(canonical_json({"stage": "refused", "execution_eligible": False}).decode())
         raise SystemExit(3) from None
 

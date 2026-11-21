@@ -13,7 +13,7 @@ from pathlib import Path
 from oasis_agent.models.common import canonical_json, sha256_hex
 
 BASE_IMAGE = (
-    "python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1"
+    "python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928"
 )
 BASE_REPO_DIGEST = "python@" + BASE_IMAGE.split("@", 1)[1]
 RUNTIME_COMMAND = ["python", "-m", "scripts.run_live_lp", "--mode", "live", "--readiness"]
@@ -101,7 +101,7 @@ def inspect_base(*, env: dict[str, str] | None = None) -> dict:
                 "--quiet",
                 "--no-trunc",
                 "--filter",
-                "reference=python:3.12-slim",
+                "reference=python:3.15-slim",
                 env=env,
             ).splitlines()
         )

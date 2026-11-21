@@ -430,7 +430,7 @@ def restore_stops(attempt: str) -> dict[str, bool]:
                 _sync(root)
             _marker(marker)
             restored[role] = True
-        except (OSError, ValueError):
+        except OSError, ValueError:
             # Try the other role even if this marker cannot be restored.
             continue
     return restored

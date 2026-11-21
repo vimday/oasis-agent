@@ -256,7 +256,7 @@ def main() -> int:
         )
         publish(args.output, report)
         return 3 if report["status"] == "cashflow_residual" else 0
-    except (ValueError, TypeError, OSError, KeyError):
+    except ValueError, TypeError, OSError, KeyError:
         print("Aave sale replay refused", file=sys.stderr)
         return 2
 

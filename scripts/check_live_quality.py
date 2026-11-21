@@ -92,7 +92,7 @@ def main() -> None:
     args = parser.parse_args()
     try:
         report = run_checks(args.out)
-    except (OSError, ValueError):
+    except OSError, ValueError:
         parser.exit(3, "Quality check setup refused; previous evidence preserved.\n")
     print(json.dumps({key: report[key] for key in ("passed", "execution_eligible", "checks")}))
     raise SystemExit(0 if report["passed"] else 3)
