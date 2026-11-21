@@ -1503,9 +1503,9 @@ def test_dynamic_maker_quote_sizer_rejects_oversized_inactive_notional() -> None
 
     def _quote_fn(notional_usdc: int) -> tuple[int | None, int, int | None]:
         # At $25-$100 DEX ask is ~$2500 -> edge ~18 bps (active >= 10 bps).
-        # Above $100 DEX price impact jumps to $2510 -> negative edge (inactive < 10 bps).
+        # Above $100 DEX price impact jumps to $2503 -> +5.8 bps (positive, yet inactive < 10 bps).
         usd_val = Decimal(notional_usdc) / Decimal(1_000_000)
-        dex_px = Decimal("2500.00") if notional_usdc <= 100_000_000 else Decimal("2510.00")
+        dex_px = Decimal("2500.00") if notional_usdc <= 100_000_000 else Decimal("2503.00")
         tok_out = int((usd_val / dex_px) * Decimal(10**18))
         return tok_out, tok_out, None
 

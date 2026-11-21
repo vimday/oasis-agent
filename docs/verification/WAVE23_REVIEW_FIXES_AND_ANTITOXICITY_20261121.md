@@ -83,3 +83,25 @@
 3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 5564882e89d97d967c6118ebe052a8d4b38381e33fdbdb0bd74b51b69e5b2375`，退出码 `2`）**：
    - **通过**：`7 / 9` 项门禁；
    - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_trades_count = 2 < 5` 且 `4.0 bps` 组 `oos_lcb_net_edge_bps = -3 < 5`）与 `owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = d86a74ab...`、`rehearsal_only = true`），`release_permitted = false`、`execution_eligible = false`。
+
+---
+
+## 7. Wave 26 有效激活档位优先寻优、WS 尾帧对齐与 900-Tick 样本破门实测（2026-11-21）
+
+针对 Wave 25 遗留的高手数未激活档位挤压低手数激活档位、同 tick WS 成交漂移、以及 `889 / 900` tick 时 `MulticallUniverseError` 未被 `--stop-gracefully-on-rpc-error` 接住等问题，Wave 26 完成收口并首次在 untouched 长窗上跨过 `oos_trades_count >= 5` 样本门槛且录得显著正向累计收益：
+
+1. **代码修复与单元测试**：
+   - [run_multicall_100tick_campaign.py](../../scripts/run_multicall_100tick_campaign.py)：
+     - `_select_dynamic_maker_quotes`（`_eval_maker`）对激活腿与未激活腿分层打分（激活腿保证正分、未激活腿保持 `<= 0`），避免 `$225` 未激活档位掩盖 `$25–$100` 激活做市档位；
+     - 将 Bybit / Coinbase WS 逐笔成交流排空与 REST 回补移至 `prefetched_books` 并发拉取之后执行，对齐同 tick 盘口与成交流时间窗；
+     - 收敛做市参数为 `min_hedge_notional_usdc = 10_000_000`（`$10.00`）、`post_fill_cooldown_steps = 2`、`max_same_dir_momentum_bps = 6.5`；
+     - 在 Bybit WS 动态做市模式下，仅将经过实时逐笔成交流验证队列排空的 `fifo_fills` 纳入 OOS 已实现做市成交（保留 Coinbase 既有路径不变）；
+     - `--stop-gracefully-on-rpc-error` 扩展捕获 `ValueError`（含 `MulticallUniverseError`）以避免末段公共 RPC 响应空块头时中止丢失汇总报告。
+   - [test_maker_hedge_shadow.py](../../tests/unit/test_maker_hedge_shadow.py) 与 [test_dual_rpc_and_cex_dex_shadow.py](../../tests/unit/test_dual_rpc_and_cex_dex_shadow.py)：做市与影子回归测试 `42 passed`。
+2. **基线与完整 900-Tick 实测（`reports/research/wave26-20261121/`）**：
+   - 新鲜基线：双源 Base RPC 仲裁锁定块 `60378381`（`secondary_rpc_verified=true`，`report_sha256 = 88bc4869178813eb5a5fc1fa85769885d30cc33b330d61054a721ad7de9caa6d`）；`Opportunity Radar` `public-shadow`：`file_sha256 = 004feed47291d219aa41778adb3492ce186c23bb9961735a9e3abde72cacfc33`。
+   - 完整 `900`-tick 实测（`shadow-bybit-900`，`--maker-min-edge-bps 5.0`，`summary_sha256 = c21dc4fa6c5e476083ce9aa27c3ab87a94b06a51b3ecd83c008e8b1fd878d00d`）：跑通 **`900 / 900` tick / `887` 唯一 Base 区块**（`60387561..60394055`、`1,917` RPC 请求、`57` 个活跃池、`0` RPC 中断、`stopped_early = false`），Bybit Spot V5 WS `900 / 900` tick `0` 断流 / `0` 重连、`34,618` 笔实时成交。
+   - OOS 样本与收益分析：录得 **`oos_trades_count = 15`（`oos_lcb_min_sample_met = true`，首次跨过 `>= 5` 样本底线）**，其中 **`11 / 15` 笔盈利（`73.33%` 胜率）**、总净利 **`+$4.418231`**、均净边缘 **`+10.556903 bps`**、最大回撤仅 **`$0.068345`**；拆解显示 **`11` 笔 Taker IOC 成交单独已达 `+$4.4476`、均净边缘 `+17.907 bps`、95% LCB `+6.071330 bps >= 5`**，但两笔 FIFO 做市止损单（`AERO-USD` `-18.551241 bps` / `-$0.023576` 与 `VVV-USD` `$5.33` 小额粉尘平仓 `cex_dust_unwind` `-24.670488 bps` / `-$0.013149`）在等权统计中拉大标准差至 `22.088712 bps`，将合计 `oos_lcb_net_edge_bps_exact` 拉低至 `-0.621528 bps`（取整 `-1`）。
+3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 224d70cedda2d4beab1ea467a778cbcb6658338b40a5f49df95974a242a0e3e7`，退出码 `2`）**：
+   - **通过**：`7 / 9` 项门禁；
+   - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_trades_count = 15 >= 5`，`oos_lcb_net_edge_bps = -1 < 5`）与 `owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = 5e74fd62...`、`rehearsal_only = true`），`release_permitted = false`、`execution_eligible = false`。

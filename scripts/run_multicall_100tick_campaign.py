@@ -1210,6 +1210,7 @@ def _select_dynamic_maker_quotes(
             active_edges.append(float(cand.bid_edge_bps))
         if active_edges:
             best_edge = max(active_edges)
+            profit_micros = max(1, round((notional_usdc * best_edge) / 10_000.0))
         else:
             all_edges = [
                 float(edge) for edge in (cand.ask_edge_bps, cand.bid_edge_bps) if edge is not None
@@ -1217,7 +1218,8 @@ def _select_dynamic_maker_quotes(
             if not all_edges:
                 return None
             best_edge = max(all_edges)
-        profit_micros = round((notional_usdc * best_edge) / 10_000.0)
+            shortfall_bps = best_edge - float(maker_config.min_quote_edge_bps)
+            profit_micros = min(0, round((notional_usdc * shortfall_bps) / 10_000.0))
         return profit_micros, best_edge
 
     opt = solve_optimal_notional(
@@ -2055,14 +2057,14 @@ def run_multicall_campaign(
             min_quote_edge_bps=effective_maker_min_edge,
             adaptive_volatility_enabled=True,
             volatility_multiplier=Decimal("1.5"),
-            min_hedge_notional_usdc=max(25_000_000, active_risk_cfg.min_clip_usd_micros),
+            min_hedge_notional_usdc=active_risk_cfg.min_clip_usd_micros,
             max_unhedged_steps=60,
             preserve_queue_priority=True,
             deduplicate_fifo_and_strict=enable_coinbase_ws,
             cex_dust_unwind_enabled=True,
             cex_dust_unwind_taker_fee_bps=cex_taker_fee_dec,
-            post_fill_cooldown_steps=5,
-            max_same_dir_momentum_bps=Decimal("9.0"),
+            post_fill_cooldown_steps=2,
+            max_same_dir_momentum_bps=Decimal("6.5"),
         )
     else:
         maker_config = MakerHedgeConfig(
@@ -2276,10 +2278,14 @@ def run_multicall_campaign(
                             f"{prev_block_number}"
                         )
                     snapshot = refetched
-            except RpcError as exc:
+            except (RpcError, ValueError) as exc:
                 if stop_gracefully_on_rpc_error and records:
                     stopped_early = True
-                    stop_reason = str(exc)
+                    stop_reason = (
+                        str(exc)
+                        if isinstance(exc, RpcError)
+                        else f"Base shadow RPC payload failure: {exc}"
+                    )
                     break
                 raise
             seen_hashes_by_block[snapshot.block_number] = snapshot.block_hash
@@ -2509,7 +2515,75 @@ def run_multicall_campaign(
             # Keep active_usdt_peg pinned across the campaign run so Bybit L2 books and
             # WS/REST trade prints share an invariant USD scale across tick transitions.
 
-            # Drain CEX WebSocket trade prints once per tick (REST trades fallback on gap)
+            # Evaluate Coinbase <-> Base CEX-DEX & Maker-Hedge lifecycle across 1/2-hop pairs
+            gas_cost_usd = gas_wei_to_usd(total_gas_cost_wei, eth_price_usd)
+            cex_evals_dict: dict[str, dict[str, Any]] = {}
+            maker_tick_dict: dict[str, dict[str, Any]] = {}
+            tick_cex_ok: list[CexDexTickEvaluation] = []
+            pending_notional_by_product = {
+                intent.product_id: intent.notional_usdc_micros
+                for intent in oos_tracker.pending_intents
+            }
+            tick_dex_quotes_by_product: dict[
+                str, tuple[int, int | None, int, int | None, int, Decimal]
+            ] = {}
+            tick_bbo_by_product: dict[str, tuple[Decimal, Decimal]] = {}
+            tick_gas_by_product: dict[str, Decimal] = {}
+            tick_maker_realized_fills: list[MakerFillEvent] = []
+            probe_notional = (
+                min_clip_usdc if dynamic_sizing and min_clip_usdc > 0 else trade_notional_usdc
+            )
+            active_token_quotes: list[
+                tuple[
+                    TokenMeta,
+                    Callable[[int], tuple[int | None, int, int | None]],
+                    int | None,
+                    int,
+                    int | None,
+                ]
+            ] = []
+            for tok_addr in CEX_DEX_TOKEN_ORDER:
+                meta = TOKEN_META_BY_ADDR[tok_addr]
+                if meta.coinbase_product is None:
+                    continue
+                if cex_venue == "bybit" and meta.coinbase_product not in BYBIT_SYMBOL_BY_PRODUCT:
+                    continue
+                if (
+                    allowed_products_set is not None
+                    and meta.coinbase_product not in allowed_products_set
+                ):
+                    continue
+                quote_dex_cached = _make_dex_quote_cache_fn(
+                    graph,
+                    snapshot.nodes,
+                    tok_addr=tok_addr,
+                    token_decimals=meta.decimals,
+                )
+                dex_buy_out, notional_tok, dex_sell_out = quote_dex_cached(probe_notional)
+                if notional_tok <= 0:
+                    continue
+                active_token_quotes.append(
+                    (meta, quote_dex_cached, dex_buy_out, notional_tok, dex_sell_out)
+                )
+
+            prefetched_books: dict[str, tuple[CoinbaseL2Book | None, str | None]] = {}
+            if book_executor is not None and active_token_quotes:
+                future_by_product = {
+                    cast(str, meta.coinbase_product): book_executor.submit(
+                        _fetch_cex_book_for_tick,
+                        cast(str, meta.coinbase_product),
+                        cex_venue=cex_venue,
+                        usdt_peg=active_usdt_peg,
+                        timeout_s=float(timeout_s),
+                        transport=active_cb_transport,
+                    )
+                    for meta, _quote_fn, _buy_out, _tok_amt, _sell_out in active_token_quotes
+                }
+                for product_id, fut in future_by_product.items():
+                    prefetched_books[product_id] = fut.result()
+
+            # Drain CEX WebSocket trade prints right after CEX REST L2 book prefetching
+            # so prints arriving during the 200-400 ms REST window align with the tick book.
             ws_gap_tick = False
             tick_prints_by_product: dict[str, list[CoinbaseTradePrint]] = {}
             if enable_coinbase_ws:
@@ -2611,73 +2685,6 @@ def run_multicall_campaign(
                                 ws_prints_by_product_counts[tp.product_id] = (
                                     ws_prints_by_product_counts.get(tp.product_id, 0) + 1
                                 )
-
-            # Evaluate Coinbase <-> Base CEX-DEX & Maker-Hedge lifecycle across 1/2-hop pairs
-            gas_cost_usd = gas_wei_to_usd(total_gas_cost_wei, eth_price_usd)
-            cex_evals_dict: dict[str, dict[str, Any]] = {}
-            maker_tick_dict: dict[str, dict[str, Any]] = {}
-            tick_cex_ok: list[CexDexTickEvaluation] = []
-            pending_notional_by_product = {
-                intent.product_id: intent.notional_usdc_micros
-                for intent in oos_tracker.pending_intents
-            }
-            tick_dex_quotes_by_product: dict[
-                str, tuple[int, int | None, int, int | None, int, Decimal]
-            ] = {}
-            tick_bbo_by_product: dict[str, tuple[Decimal, Decimal]] = {}
-            tick_gas_by_product: dict[str, Decimal] = {}
-            tick_maker_realized_fills: list[MakerFillEvent] = []
-            probe_notional = (
-                min_clip_usdc if dynamic_sizing and min_clip_usdc > 0 else trade_notional_usdc
-            )
-            active_token_quotes: list[
-                tuple[
-                    TokenMeta,
-                    Callable[[int], tuple[int | None, int, int | None]],
-                    int | None,
-                    int,
-                    int | None,
-                ]
-            ] = []
-            for tok_addr in CEX_DEX_TOKEN_ORDER:
-                meta = TOKEN_META_BY_ADDR[tok_addr]
-                if meta.coinbase_product is None:
-                    continue
-                if cex_venue == "bybit" and meta.coinbase_product not in BYBIT_SYMBOL_BY_PRODUCT:
-                    continue
-                if (
-                    allowed_products_set is not None
-                    and meta.coinbase_product not in allowed_products_set
-                ):
-                    continue
-                quote_dex_cached = _make_dex_quote_cache_fn(
-                    graph,
-                    snapshot.nodes,
-                    tok_addr=tok_addr,
-                    token_decimals=meta.decimals,
-                )
-                dex_buy_out, notional_tok, dex_sell_out = quote_dex_cached(probe_notional)
-                if notional_tok <= 0:
-                    continue
-                active_token_quotes.append(
-                    (meta, quote_dex_cached, dex_buy_out, notional_tok, dex_sell_out)
-                )
-
-            prefetched_books: dict[str, tuple[CoinbaseL2Book | None, str | None]] = {}
-            if book_executor is not None and active_token_quotes:
-                future_by_product = {
-                    cast(str, meta.coinbase_product): book_executor.submit(
-                        _fetch_cex_book_for_tick,
-                        cast(str, meta.coinbase_product),
-                        cex_venue=cex_venue,
-                        usdt_peg=active_usdt_peg,
-                        timeout_s=float(timeout_s),
-                        transport=active_cb_transport,
-                    )
-                    for meta, _quote_fn, _buy_out, _tok_amt, _sell_out in active_token_quotes
-                }
-                for product_id, fut in future_by_product.items():
-                    prefetched_books[product_id] = fut.result()
 
             for (
                 meta,
@@ -2826,7 +2833,12 @@ def run_multicall_campaign(
                         recent_trades=prod_prints,
                         feed_gap_detected=ws_gap_tick,
                     )
-                    for realized_fill in (*maker_step.fifo_fills, *maker_step.strict_fills):
+                    realized_maker_fills = (
+                        maker_step.fifo_fills
+                        if enable_coinbase_ws and dynamic_sizing and cex_venue == "bybit"
+                        else (*maker_step.fifo_fills, *maker_step.strict_fills)
+                    )
+                    for realized_fill in realized_maker_fills:
                         tick_maker_realized_fills.append(realized_fill)
                         if realized_fill.realized_net_profit_usd < 0:
                             loss_micros = round(
