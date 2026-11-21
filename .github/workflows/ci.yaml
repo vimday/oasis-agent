@@ -43,6 +43,8 @@ jobs:
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.8.4
+      - name: Install locked contract dependencies
+        run: make contract-install
       - name: Run Python gate
         run: make python-check frontend-check security-check
 
@@ -68,7 +70,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@34e1148760b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        # This job's runner repeatedly failed to resolve the pinned commit SHA; the
+        # immutable release tag resolves reliably. Credentials stay disabled below.
+        uses: actions/checkout@v4.3.1
         with:
           persist-credentials: false
       - name: Set up Python

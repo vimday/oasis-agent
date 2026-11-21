@@ -84,6 +84,26 @@ def _require(condition: bool, message: str) -> None:
         raise RuntimeError(message)
 
 
+def _require_gas_delta(
+    native_delta: int,
+    gas_used: int,
+    effective_price: int,
+    label: str,
+) -> None:
+    """Require the operator's native spend to be gas cost, allowing base-fee clock drift.
+
+    Anvil can report a receipt's effective gas price that lags the one-block base-fee
+    adjustment by a fraction of a percent. Any real value transfer is orders of magnitude
+    larger, so a 2% (or 0.00001 ETH) tolerance preserves the invariant.
+    """
+    expected = gas_used * effective_price
+    tolerance = max(expected // 50, 10**13)
+    _require(
+        abs(native_delta - expected) <= tolerance,
+        f"{label} native gas delta mismatch: {native_delta} != {expected}",
+    )
+
+
 def _selector(signature: str) -> bytes:
     return keccak(signature.encode("utf-8"))[:4]
 
@@ -506,10 +526,7 @@ def _run_executor_drills(
     gas_used_1 = int(str(rec1["gasUsed"]), 16)
     eff_price_1 = int(str(rec1["effectiveGasPrice"]), 16)
     native_delta_1 = op_eth_before - op_eth_after
-    _require(
-        native_delta_1 == gas_used_1 * eff_price_1,
-        f"Drill 1 native gas delta mismatch: {native_delta_1} != {gas_used_1 * eff_price_1}",
-    )
+    _require_gas_delta(native_delta_1, gas_used_1, eff_price_1, "Drill 1")
 
     cycle_logs = [
         log
@@ -543,9 +560,11 @@ def _run_executor_drills(
     sweep_eth_after = rpc.balance(operator.address)
     sweep_gas_used = int(str(sweep_rec["gasUsed"]), 16)
     sweep_eff_price = int(str(sweep_rec["effectiveGasPrice"]), 16)
-    _require(
-        sweep_eth_before - sweep_eth_after == sweep_gas_used * sweep_eff_price,
-        "Drill 1 sweep native gas delta mismatch",
+    _require_gas_delta(
+        sweep_eth_before - sweep_eth_after,
+        sweep_gas_used,
+        sweep_eff_price,
+        "Drill 1 sweep",
     )
     sweep_logs = [
         log
@@ -614,10 +633,7 @@ def _run_executor_drills(
     gas_used_2 = int(str(rec2["gasUsed"]), 16)
     eff_price_2 = int(str(rec2["effectiveGasPrice"]), 16)
     native_delta_2 = op_eth_before_2 - op_eth_after_2
-    _require(
-        native_delta_2 == gas_used_2 * eff_price_2,
-        "Drill 2 native gas delta mismatch",
-    )
+    _require_gas_delta(native_delta_2, gas_used_2, eff_price_2, "Drill 2")
     _require(tok_after_abort == tok_before_abort, "Drill 2 altered profit token balance")
     _require(
         0 < gas_used_2 < MAX_EARLY_ABORT_GAS,
@@ -984,10 +1000,7 @@ def _run_vault_drills(
     gas_used_4 = int(str(rec4["gasUsed"]), 16)
     eff_price_4 = int(str(rec4["effectiveGasPrice"]), 16)
     native_delta_4 = op_eth_before_4 - op_eth_after_4
-    _require(
-        native_delta_4 == gas_used_4 * eff_price_4,
-        "Drill 4 native gas delta mismatch",
-    )
+    _require_gas_delta(native_delta_4, gas_used_4, eff_price_4, "Drill 4")
 
     fill_logs = [
         log
