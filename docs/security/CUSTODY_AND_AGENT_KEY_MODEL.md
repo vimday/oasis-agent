@@ -44,7 +44,7 @@ For solo operators running the profit engine (`OasisAtomicExecutor` + `OasisInte
 | Cold Admin Zone | `Admin EOA` (1 encrypted keystore) | `deployer`, `owner` / `governor`, `guardian`, `treasury`, `revenueSink` | Held offline/encrypted by operator; never mounted inside strategy or Docker runtime containers |
 | Hot Canary Zone | `Operator EOA` (1 container key) | `operator` / `fillerOperator`, `quoteSigner` (optional `lpOwner`) | Mounted `:ro` exclusively inside isolated `profit-authority` container; bounded by capital/loss caps and non-custodial `REVENUE_SINK` sweeps |
 
-Contract deployment scripts (`DeployOasisProfitEngine.s.sol` and `DeployOasisContracts.s.sol`) enforce **Cold-vs-Hot Plane Separation**: roles within the Cold Admin Zone may share the single `Admin EOA` and roles within the Hot Canary Zone may share the single `Operator EOA`, while any collision across zones reverts with `RolesNotSeparated()`. Multisig/HSM custody remains an optional enterprise upgrade above this baseline.
+Contract deployment scripts (`DeployOasisProfitEngine.s.sol` and `DeployOasisContracts.s.sol`) enforce **Cold-vs-Hot Plane Separation** and by default require every cold role to be distinct and `operator != quoteSigner`: roles within the Cold Admin Zone may share the single `Admin EOA` and roles within the Hot Canary Zone may share the single `Operator EOA` only when explicitly opting into the solo-operator profile with `OASIS_ALLOW_SOLO_ROLE_COLLAPSE=true`, while any collision across zones always reverts with `RolesNotSeparated()`. Multisig/HSM custody remains an optional enterprise upgrade above this baseline.
 
 ## 3. Staged rollout
 

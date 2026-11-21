@@ -1180,6 +1180,7 @@ def _select_dynamic_maker_quotes(
     min_clip_usdc: int,
     max_clip_usdc: int,
     fallback_notional_usdc: int,
+    effective_adverse_bps: Decimal | None = None,
 ) -> tuple[int, tuple[int | None, int, int | None]]:
     book_cap = compute_coinbase_book_capacity_usdc(fetched_book).max_directional_capacity_usdc
     effective_max = min(max_clip_usdc, book_cap)
@@ -1200,21 +1201,16 @@ def _select_dynamic_maker_quotes(
             token_decimals=token_decimals,
             gas_cost_usd=gas_cost_usd,
             config=maker_config,
+            effective_adverse_bps=effective_adverse_bps,
         )
         active_edges: list[float] = []
         if cand.ask_active and cand.ask_edge_bps is not None:
             active_edges.append(float(cand.ask_edge_bps))
         if cand.bid_active and cand.bid_edge_bps is not None:
             active_edges.append(float(cand.bid_edge_bps))
-        if active_edges:
-            best_edge = max(active_edges)
-        else:
-            all_edges = [
-                float(edge) for edge in (cand.ask_edge_bps, cand.bid_edge_bps) if edge is not None
-            ]
-            if not all_edges:
-                return None
-            best_edge = max(all_edges)
+        if not active_edges:
+            return None
+        best_edge = max(active_edges)
         profit_micros = round((notional_usdc * best_edge) / 10_000.0)
         return profit_micros, best_edge
 
@@ -2072,6 +2068,8 @@ def run_multicall_campaign(
             deduplicate_fifo_and_strict=enable_coinbase_ws,
             cex_dust_unwind_enabled=True,
             cex_dust_unwind_taker_fee_bps=cex_taker_fee_dec,
+            post_fill_cooldown_steps=5,
+            max_same_dir_momentum_bps=Decimal("8.0"),
         )
     else:
         maker_config = MakerHedgeConfig(
@@ -2797,6 +2795,9 @@ def run_multicall_campaign(
                     cex_degraded_evals += 1
 
                 if dynamic_sizing and headroom.can_deploy and max_clip_usdc >= min_clip_usdc:
+                    peek_adv_bps = maker_tracker.peek_effective_adverse_bps(
+                        meta.coinbase_product, fetched_book.mid_price
+                    )
                     maker_notional_usdc, (m_buy_out, m_tok, m_sell_out) = (
                         _select_dynamic_maker_quotes(
                             product_id=meta.coinbase_product,
@@ -2808,6 +2809,7 @@ def run_multicall_campaign(
                             min_clip_usdc=min_clip_usdc,
                             max_clip_usdc=max_clip_usdc,
                             fallback_notional_usdc=min_clip_usdc,
+                            effective_adverse_bps=peek_adv_bps,
                         )
                     )
                     selected_maker_notionals.append(maker_notional_usdc)

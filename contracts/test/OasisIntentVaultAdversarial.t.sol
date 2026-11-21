@@ -155,7 +155,7 @@ contract MaliciousRouter {
         return _runMode();
     }
 
-    function swapExactInput(address, address, uint256, uint256, address)
+    function swapExactInput(address, address, address, uint256, uint256, address)
         external
         returns (uint256)
     {

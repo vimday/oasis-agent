@@ -143,6 +143,7 @@ contract MockVaultSlipstreamPool {
 contract MockSwapRouter {
     uint256 public rateNum;
     uint256 public rateDen;
+    address public lastPool;
 
     constructor(uint256 rateNum_, uint256 rateDen_) {
         require(rateDen_ > 0, "DENOM");
@@ -166,12 +167,15 @@ contract MockSwapRouter {
     }
 
     function swapExactInput(
+        address pool,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
         uint256 minOut,
         address recipient
     ) external returns (uint256 amountOut) {
+        require(pool != address(0), "POOL");
+        lastPool = pool;
         require(IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn), "PULL_IN");
         amountOut = (amountIn * rateNum) / rateDen;
         require(amountOut >= minOut, "MIN_OUT");
@@ -503,6 +507,7 @@ contract OasisIntentVaultTest is Test {
 
         assertTrue(executed);
         assertEq(netProfit, 100e6);
+        assertEq(router.lastPool(), address(v3Pool));
         assertEq(usdc.balanceOf(address(vault)), 100e6);
         assertEq(usdc.balanceOf(address(0xBAD)), 0);
         assertEq(weth.allowance(address(vault), address(router)), 0);

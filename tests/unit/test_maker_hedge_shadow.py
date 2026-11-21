@@ -37,6 +37,7 @@ from oasis_agent.cross_venue.maker_hedge_shadow import (
     UnhedgedMakerLot,
     build_maker_quote_candidate,
 )
+from scripts.run_multicall_100tick_campaign import _select_dynamic_maker_quotes
 
 
 def _make_book(
@@ -1243,3 +1244,173 @@ def test_cex_dust_unwind_avoids_high_gas_drag_on_micro_partial_fill() -> None:
     assert tracker.summary()["cex_dust_unwinds"] == 1
     # Paid ~$0.00035 taker fee instead of burning $0.01 DEX gas on a $1.00 dust fill!
     assert s3.fifo_fills[0].realized_net_profit_usd > Decimal("-0.001")
+
+
+def test_post_fill_same_side_cooldown_and_opposite_side_allowed() -> None:
+    """`post_fill_cooldown_steps` suppresses same-side re-quoting while keeping opposite active."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        post_fill_cooldown_steps=2,
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    qty_0_08 = 8 * 10**16
+    gas_usd = Decimal("0.01")
+
+    # Step 0: both ask and bid active around $2500 DEX mid
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2485.00", ask="2515.00", size="1.0", sequence=10),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.ask_active is True
+    assert s0.quote.bid_active is True
+
+    # Step 1: strict ask fill lifts resting ask -> ask enters cooldown for steps 1, 2 (2 steps)
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2516.00", ask="2525.00", size="1.0", sequence=11),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert len(s1.strict_fills) == 1
+    assert s1.strict_fills[0].side == "ask_maker"
+    assert s1.quote.ask_active is False
+
+    # Step 2: still in ask cooldown while opposite bid side remains allowed when edge clears floor
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2485.00", ask="2515.00", size="1.0", sequence=12),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2.quote.ask_active is False
+    assert s2.quote.bid_active is True
+
+    # Step 3: cooldown still active (fill_step=1 -> until 1+2+1=4; steps 1,2,3 suppressed) -> wait!
+    # Wait: fill step 1 + cooldown_steps=2 + 1 = 4, so step 3 is suppressed and step 4 resumes!
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2485.00", ask="2515.00", size="1.0", sequence=13),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s3.quote.ask_active is False
+    assert s3.quote.bid_active is True
+
+    # Step 4: cooldown expires -> ask re-activates
+    s4 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2485.00", ask="2515.00", size="1.0", sequence=14),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s4.quote.ask_active is True
+    assert s4.quote.bid_active is True
+    assert tracker.summary()["cooldown_quote_skips"] == 3
+
+
+def test_same_dir_momentum_suppresses_toxic_side_and_keeps_counter_side() -> None:
+    """Breakout momentum suppresses the toxic side without blocking counter-side liquidity."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        min_quote_edge_bps=Decimal("3.0"),
+        max_same_dir_momentum_bps=Decimal("8.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    qty_0_08 = 8 * 10**16
+    gas_usd = Decimal("0.01")
+
+    # Step 0: baseline mid = $2500.00
+    s0 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2485.00", ask="2515.00", size="1.0", sequence=20),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=200_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s0.quote.ask_active is True
+
+    # Step 1: upward spike (+40 bps mid jump) suppresses ask_maker while keeping bid_maker active
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2495.00", ask="2525.00", size="1.0", sequence=21),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=201_000_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1.quote.ask_active is False
+    assert s1.quote.bid_active is True
+
+    # Step 2: sharp drop (-80 bps mid jump) suppresses bid_maker while keeping ask_maker active
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=_make_book("ETH-USD", bid="2475.00", ask="2505.00", size="1.0", sequence=22),
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_0_08,
+        trade_notional_token=qty_0_08,
+        dex_sell_usdc_out=199_500_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2.quote.ask_active is True
+    assert s2.quote.bid_active is False
+    assert tracker.summary()["momentum_quote_skips"] == 2
+
+
+def test_dynamic_maker_quote_sizer_rejects_oversized_inactive_notional() -> None:
+    """`_select_dynamic_maker_quotes` chooses smaller active size over large inactive impact."""
+    book = _make_book("ETH-USD", bid="2490.00", ask="2505.00", size="1.0", sequence=30)
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=25_000_000,
+        min_quote_edge_bps=Decimal("10.0"),
+        adverse_selection_bps=Decimal("1.5"),
+    )
+
+    def _quote_fn(notional_usdc: int) -> tuple[int | None, int, int | None]:
+        # At $25-$100 DEX ask is ~$2500 -> edge ~18 bps (active >= 10 bps).
+        # Above $100 DEX price impact jumps to $2504 -> edge ~2 bps (inactive < 10 bps).
+        usd_val = Decimal(notional_usdc) / Decimal(1_000_000)
+        dex_px = Decimal("2500.00") if notional_usdc <= 100_000_000 else Decimal("2504.50")
+        tok_out = int((usd_val / dex_px) * Decimal(10**18))
+        return tok_out, tok_out, None
+
+    chosen_usdc, _ = _select_dynamic_maker_quotes(
+        product_id="ETH-USD",
+        token_decimals=18,
+        fetched_book=book,
+        quote_fn=_quote_fn,
+        gas_cost_usd=Decimal("0.01"),
+        maker_config=cfg,
+        min_clip_usdc=25_000_000,
+        max_clip_usdc=500_000_000,
+        fallback_notional_usdc=25_000_000,
+    )
+    assert chosen_usdc <= 100_000_000

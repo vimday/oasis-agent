@@ -20,6 +20,7 @@ interface IV3PoolState {
 ///      forwarding arbitrary router calldata, so a compromised hot operator cannot redirect value.
 interface IOasisSwapAdapter {
     function swapExactInput(
+        address pool,
         address tokenIn,
         address tokenOut,
         uint256 amountIn,
@@ -654,7 +655,9 @@ contract OasisIntentVault is Ownable2Step, IERC1271, IReactorCallback {
         uint256 outBefore = IERC20(step.tokenOut).balanceOf(address(this));
         IERC20(step.tokenIn).forceApprove(step.router, step.amountIn);
         uint256 reportedOut = IOasisSwapAdapter(step.router)
-            .swapExactInput(step.tokenIn, step.tokenOut, step.amountIn, step.minOut, address(this));
+            .swapExactInput(
+                step.pool, step.tokenIn, step.tokenOut, step.amountIn, step.minOut, address(this)
+            );
         IERC20(step.tokenIn).forceApprove(step.router, 0);
         uint256 outAfter = IERC20(step.tokenOut).balanceOf(address(this));
         if (reportedOut < step.minOut || outAfter < outBefore || outAfter - outBefore < step.minOut)

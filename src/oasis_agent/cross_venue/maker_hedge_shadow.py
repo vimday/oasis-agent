@@ -12,7 +12,7 @@ All quotes, fills, and PnL summaries are strictly read-only shadow measurements
 import math
 from collections import deque
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any, Final, Literal
 
@@ -109,6 +109,8 @@ class MakerHedgeConfig:
     deduplicate_fifo_and_strict: bool = False
     cex_dust_unwind_enabled: bool = False
     cex_dust_unwind_taker_fee_bps: Decimal = Decimal("3.5")
+    post_fill_cooldown_steps: int = 0
+    max_same_dir_momentum_bps: Decimal | None = None
 
     def __post_init__(self) -> None:
         _require_pos_int(self.trade_notional_usdc, "trade_notional_usdc")
@@ -164,6 +166,16 @@ class MakerHedgeConfig:
             "cex_dust_unwind_taker_fee_bps",
             require_nonneg=True,
         )
+        _require_nonneg_int(self.post_fill_cooldown_steps, "post_fill_cooldown_steps")
+        max_mom = (
+            _require_finite_decimal(
+                self.max_same_dir_momentum_bps,
+                "max_same_dir_momentum_bps",
+                require_positive=True,
+            )
+            if self.max_same_dir_momentum_bps is not None
+            else None
+        )
         object.__setattr__(self, "cex_maker_fee_bps", fee)
         object.__setattr__(self, "adverse_selection_bps", adv)
         object.__setattr__(self, "min_quote_edge_bps", min_edge)
@@ -173,6 +185,7 @@ class MakerHedgeConfig:
         object.__setattr__(self, "max_acceptable_gas_drag_bps", max_gas_drag)
         object.__setattr__(self, "max_unhedged_drift_bps", max_drift)
         object.__setattr__(self, "cex_dust_unwind_taker_fee_bps", dust_taker_fee)
+        object.__setattr__(self, "max_same_dir_momentum_bps", max_mom)
 
 
 @dataclass(frozen=True, slots=True)
@@ -848,10 +861,14 @@ class MakerHedgeLifecycleTracker:
         self._open_unhedged_lots: dict[str, list[UnhedgedMakerLot]] = {}
         self._mid_returns_bps_by_product: dict[str, deque[Decimal]] = {}
         self._last_mid_by_product: dict[str, Decimal] = {}
+        self._last_signed_return_bps_by_product: dict[str, Decimal] = {}
+        self._cooldown_until_step_by_product_side: dict[tuple[str, str], int] = {}
         self._last_book_by_product: dict[str, CoinbaseL2Book] = {}
         self._batched_fifo_hedges: int = 0
         self._natural_netted_fills: int = 0
         self._cex_dust_unwinds: int = 0
+        self._cooldown_quote_skips: int = 0
+        self._momentum_quote_skips: int = 0
 
     @property
     def config(self) -> MakerHedgeConfig:
@@ -913,6 +930,37 @@ class MakerHedgeLifecycleTracker:
         """Return only trade-flow FIFO (`trade_flow_fifo`) fills."""
         return tuple(f for f in self._all_fills if f.fill_classification == "trade_flow_fifo")
 
+    def peek_effective_adverse_bps(self, product_id: str, current_mid: Decimal) -> Decimal:
+        """Preview effective adaptive adverse bps without mutating tracker state."""
+        spec = resolve_coinbase_product(product_id)
+        mid_dec = _require_finite_decimal(current_mid, "current_mid", require_positive=True)
+        if not self._config.adaptive_volatility_enabled:
+            return self._config.adverse_selection_bps
+        prev_mid = self._last_mid_by_product.get(spec.product_id)
+        existing = self._mid_returns_bps_by_product.get(spec.product_id)
+        candidate_returns = (
+            deque(existing, maxlen=self._config.volatility_window_steps)
+            if existing is not None
+            else deque(maxlen=self._config.volatility_window_steps)
+        )
+        step_ret_bps: Decimal | None = None
+        if prev_mid is not None and prev_mid > 0:
+            step_ret_bps = (abs(mid_dec - prev_mid) / prev_mid) * _BPS_DIVISOR
+            candidate_returns.append(step_ret_bps)
+        if not candidate_returns:
+            return self._config.adverse_selection_bps
+        rolling_vol_bps = sum(candidate_returns, Decimal(0)) / Decimal(len(candidate_returns))
+        base_vol_bps = (
+            max(rolling_vol_bps, step_ret_bps)
+            if self._config.max_same_dir_momentum_bps is not None and step_ret_bps is not None
+            else rolling_vol_bps
+        )
+        scaled = base_vol_bps * self._config.volatility_multiplier
+        return min(
+            self._config.max_adaptive_adverse_bps,
+            max(self._config.adverse_selection_bps, scaled),
+        )
+
     def _update_volatility_and_get_effective_adverse(
         self,
         product_id: str,
@@ -922,12 +970,16 @@ class MakerHedgeLifecycleTracker:
     ) -> Decimal:
         prev_mid = self._last_mid_by_product.get(product_id)
         if record_return and prev_mid is not None and prev_mid > 0:
-            step_ret_bps = (abs(mid_price - prev_mid) / prev_mid) * _BPS_DIVISOR
+            signed_ret_bps = ((mid_price - prev_mid) / prev_mid) * _BPS_DIVISOR
+            self._last_signed_return_bps_by_product[product_id] = signed_ret_bps
+            step_ret_bps = abs(signed_ret_bps)
             returns = self._mid_returns_bps_by_product.get(product_id)
             if returns is None:
                 returns = deque(maxlen=self._config.volatility_window_steps)
                 self._mid_returns_bps_by_product[product_id] = returns
             returns.append(step_ret_bps)
+        else:
+            self._last_signed_return_bps_by_product[product_id] = Decimal(0)
         self._last_mid_by_product[product_id] = mid_price
 
         if not self._config.adaptive_volatility_enabled:
@@ -936,7 +988,12 @@ class MakerHedgeLifecycleTracker:
         if not returns:
             return self._config.adverse_selection_bps
         rolling_vol_bps = sum(returns, Decimal(0)) / Decimal(len(returns))
-        scaled = rolling_vol_bps * self._config.volatility_multiplier
+        base_vol_bps = (
+            max(rolling_vol_bps, returns[-1])
+            if self._config.max_same_dir_momentum_bps is not None
+            else rolling_vol_bps
+        )
+        scaled = base_vol_bps * self._config.volatility_multiplier
         return min(
             self._config.max_adaptive_adverse_bps,
             max(self._config.adverse_selection_bps, scaled),
@@ -1784,6 +1841,10 @@ class MakerHedgeLifecycleTracker:
                 detected_fills.extend(resting_detected)
 
                 for detected in detected_fills:
+                    if self._config.post_fill_cooldown_steps > 0:
+                        self._cooldown_until_step_by_product_side[
+                            (spec.product_id, detected.side)
+                        ] = current_step_idx + self._config.post_fill_cooldown_steps + 1
                     if (
                         self._config.min_hedge_notional_usdc <= 0
                         or detected.classification == "touch_lift"
@@ -1813,6 +1874,40 @@ class MakerHedgeLifecycleTracker:
                                 fill_step_idx=current_step_idx,
                             )
                         )
+
+            signed_ret_bps = self._last_signed_return_bps_by_product.get(
+                spec.product_id, Decimal(0)
+            )
+            ask_cooldown = current_step_idx < self._cooldown_until_step_by_product_side.get(
+                (spec.product_id, "ask_maker"), 0
+            )
+            bid_cooldown = current_step_idx < self._cooldown_until_step_by_product_side.get(
+                (spec.product_id, "bid_maker"), 0
+            )
+            ask_momentum_toxic = (
+                self._config.max_same_dir_momentum_bps is not None
+                and signed_ret_bps > self._config.max_same_dir_momentum_bps
+            )
+            bid_momentum_toxic = (
+                self._config.max_same_dir_momentum_bps is not None
+                and signed_ret_bps < -self._config.max_same_dir_momentum_bps
+            )
+            new_ask_active = candidate.ask_active
+            if candidate.ask_active and (ask_cooldown or ask_momentum_toxic):
+                new_ask_active = False
+                if ask_cooldown:
+                    self._cooldown_quote_skips += 1
+                else:
+                    self._momentum_quote_skips += 1
+            new_bid_active = candidate.bid_active
+            if candidate.bid_active and (bid_cooldown or bid_momentum_toxic):
+                new_bid_active = False
+                if bid_cooldown:
+                    self._cooldown_quote_skips += 1
+                else:
+                    self._momentum_quote_skips += 1
+            if new_ask_active != candidate.ask_active or new_bid_active != candidate.bid_active:
+                candidate = replace(candidate, ask_active=new_ask_active, bid_active=new_bid_active)
 
             filled_sides = {detected.side for detected in detected_fills}
             queue_ahead_ask = Decimal(0)
@@ -1866,8 +1961,8 @@ class MakerHedgeLifecycleTracker:
                 ask_t_dex_unit_px=computed.dex_buy_unit_px if candidate.ask_active else None,
                 bid_price=candidate.quoted_bid_usd if candidate.bid_active else None,
                 bid_t_dex_unit_px=computed.dex_sell_unit_px if candidate.bid_active else None,
-                ask_qty_tokens=computed.ask_qty_tokens,
-                bid_qty_tokens=computed.bid_qty_tokens,
+                ask_qty_tokens=computed.ask_qty_tokens if candidate.ask_active else None,
+                bid_qty_tokens=computed.bid_qty_tokens if candidate.bid_active else None,
                 queue_ahead_ask=queue_ahead_ask,
                 queue_ahead_bid=queue_ahead_bid,
             )
@@ -1976,6 +2071,8 @@ class MakerHedgeLifecycleTracker:
             "batched_fifo_hedges": self._batched_fifo_hedges,
             "natural_netted_fills": self._natural_netted_fills,
             "cex_dust_unwinds": self._cex_dust_unwinds,
+            "cooldown_quote_skips": self._cooldown_quote_skips,
+            "momentum_quote_skips": self._momentum_quote_skips,
             "open_unhedged_lots": open_lot_count,
             "unhedged_exposure_usd_micros": self.unhedged_exposure_usd_micros(),
             "adaptive_volatility_enabled": self._config.adaptive_volatility_enabled,
