@@ -205,18 +205,47 @@ def scan_cycles(
     gas_cost_in_base: int = 0,
     l1_fee_in_base: int = 0,
     min_net_profit: int = 1,
+    per_hop_gas_cost_in_base: int = 0,
+    v2_hop_gas_cost_in_base: int | None = None,
+    cl_hop_gas_cost_in_base: int | None = None,
+    deduplicate_cycles: bool = False,
+    changed_pools: Sequence[str] | None = None,
     audit_ring_path: Path | None = None,
     block_number: int | None = None,
     timestamp_ns: int | None = None,
     bridge: FastpathBridge | None = None,
 ) -> CycleScanReport:
-    """Scan 2-hop and 3-hop cycles across `pools` using native Rust ternary search."""
+    """Scan 2-to-4-hop cycles across `pools` using native Rust ternary search."""
     checked_hops = require_int(max_hops, "max_hops", non_negative=True)
     checked_min = require_int(min_amount_in, "min_amount_in", non_negative=True)
     checked_max = require_int(max_amount_in, "max_amount_in", non_negative=True)
     checked_gas = require_int(gas_cost_in_base, "gas_cost_in_base", non_negative=True)
     checked_l1 = require_int(l1_fee_in_base, "l1_fee_in_base", non_negative=True)
     checked_profit = require_int(min_net_profit, "min_net_profit", non_negative=True)
+    checked_per_hop = require_int(
+        per_hop_gas_cost_in_base, "per_hop_gas_cost_in_base", non_negative=True
+    )
+    checked_v2_hop = (
+        require_int(v2_hop_gas_cost_in_base, "v2_hop_gas_cost_in_base", non_negative=True)
+        if v2_hop_gas_cost_in_base is not None
+        else None
+    )
+    checked_cl_hop = (
+        require_int(cl_hop_gas_cost_in_base, "cl_hop_gas_cost_in_base", non_negative=True)
+        if cl_hop_gas_cost_in_base is not None
+        else None
+    )
+    if type(deduplicate_cycles) is not bool:
+        raise TypeError("deduplicate_cycles must be a bool")
+    normalized_changed: list[str] | None = None
+    if changed_pools is not None:
+        if isinstance(changed_pools, str):
+            raise TypeError("changed_pools must be a sequence of pool ID strings")
+        normalized_changed = []
+        for pool_id in changed_pools:
+            if not isinstance(pool_id, str):
+                raise TypeError("changed_pools items must be strings")
+            normalized_changed.append(pool_id)
     if block_number is not None:
         require_int(block_number, "block_number", non_negative=True)
     if timestamp_ns is not None:
@@ -234,6 +263,11 @@ def scan_cycles(
             "gas_cost_in_base": str(checked_gas),
             "l1_fee_in_base": str(checked_l1),
             "min_net_profit": str(checked_profit),
+            "per_hop_gas_cost_in_base": str(checked_per_hop),
+            "v2_hop_gas_cost_in_base": str(checked_v2_hop) if checked_v2_hop is not None else None,
+            "cl_hop_gas_cost_in_base": str(checked_cl_hop) if checked_cl_hop is not None else None,
+            "deduplicate_cycles": deduplicate_cycles,
+            "changed_pools": normalized_changed,
             "audit_ring_path": str(audit_ring_path) if audit_ring_path is not None else None,
             "block_number": block_number,
             "timestamp_ns": timestamp_ns,
@@ -284,6 +318,11 @@ class FastpathPoolGraph:
         gas_cost_in_base: int = 0,
         l1_fee_in_base: int = 0,
         min_net_profit: int = 1,
+        per_hop_gas_cost_in_base: int = 0,
+        v2_hop_gas_cost_in_base: int | None = None,
+        cl_hop_gas_cost_in_base: int | None = None,
+        deduplicate_cycles: bool = False,
+        changed_pools: Sequence[str] | None = None,
         audit_ring_path: Path | None = None,
         block_number: int | None = None,
         timestamp_ns: int | None = None,
@@ -297,6 +336,11 @@ class FastpathPoolGraph:
             gas_cost_in_base=gas_cost_in_base,
             l1_fee_in_base=l1_fee_in_base,
             min_net_profit=min_net_profit,
+            per_hop_gas_cost_in_base=per_hop_gas_cost_in_base,
+            v2_hop_gas_cost_in_base=v2_hop_gas_cost_in_base,
+            cl_hop_gas_cost_in_base=cl_hop_gas_cost_in_base,
+            deduplicate_cycles=deduplicate_cycles,
+            changed_pools=changed_pools,
             audit_ring_path=audit_ring_path,
             block_number=block_number,
             timestamp_ns=timestamp_ns,

@@ -696,6 +696,32 @@ impl PoolGraph {
         l1_fee_in_base: U256,
         min_net_profit: U256,
     ) -> Result<CycleScanReport, GraphArbError> {
+        self.scan_cycles_with_options(
+            base_tokens,
+            max_hops,
+            min_amount_in,
+            max_amount_in,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            min_net_profit,
+            &ScanCyclesOptions::default(),
+        )
+    }
+
+    /// Enumerates simple 2-hop to 4-hop cycles with configurable per-hop/pool-kind gas,
+    /// cross-base canonical deduplication, and `changed_pools` incremental filtering.
+    #[allow(clippy::too_many_arguments)]
+    pub fn scan_cycles_with_options(
+        &self,
+        base_tokens: &[String],
+        max_hops: usize,
+        min_amount_in: U256,
+        max_amount_in: U256,
+        gas_cost_in_base: U256,
+        l1_fee_in_base: U256,
+        min_net_profit: U256,
+        options: &ScanCyclesOptions,
+    ) -> Result<CycleScanReport, GraphArbError> {
         let start = Instant::now();
         if base_tokens.is_empty() {
             return Err(GraphArbError::EmptyBaseTokens);
@@ -713,10 +739,12 @@ impl PoolGraph {
             return Err(GraphArbError::EmptyBaseTokens);
         }
 
-        let total_gas = gas_cost_in_base
-            .to_u512()
-            .checked_add(l1_fee_in_base.to_u512())
-            .expect("sum of two U256 values fits U512");
+        let changed_pool_set: Option<BTreeSet<String>> = options.changed_pools.as_ref().map(|ps| {
+            ps.iter()
+                .map(|p| normalize_id(p))
+                .filter(|p| !p.is_empty())
+                .collect()
+        });
         let min_profit_u512 = min_net_profit.to_u512();
 
         let mut cycles_evaluated = 0usize;
@@ -742,8 +770,9 @@ impl PoolGraph {
                         max_amount_in,
                         gas_cost_in_base,
                         l1_fee_in_base,
-                        total_gas,
                         min_profit_u512,
+                        options,
+                        changed_pool_set.as_ref(),
                         &mut cycles_evaluated,
                         &mut candidates,
                     )?;
@@ -764,11 +793,16 @@ impl PoolGraph {
                 max_amount_in,
                 gas_cost_in_base,
                 l1_fee_in_base,
-                total_gas,
                 min_profit_u512,
+                options,
+                changed_pool_set.as_ref(),
                 &mut cycles_evaluated,
                 &mut candidates,
             )?;
+        }
+
+        if options.deduplicate_cycles && candidates.len() > 1 {
+            candidates = deduplicate_cycle_candidates(candidates);
         }
 
         candidates.sort_by(|a, b| {
@@ -788,6 +822,117 @@ impl PoolGraph {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScanCyclesOptions {
+    #[serde(default)]
+    pub per_hop_gas_cost_in_base: U256,
+    #[serde(default)]
+    pub v2_hop_gas_cost_in_base: Option<U256>,
+    #[serde(default)]
+    pub cl_hop_gas_cost_in_base: Option<U256>,
+    #[serde(default)]
+    pub deduplicate_cycles: bool,
+    #[serde(default)]
+    pub changed_pools: Option<Vec<String>>,
+}
+
+impl ScanCyclesOptions {
+    #[must_use]
+    pub fn hop_gas_for_kind(&self, kind: PoolKind) -> U256 {
+        match kind {
+            PoolKind::V2 | PoolKind::AerodromeStable => self
+                .v2_hop_gas_cost_in_base
+                .unwrap_or(self.per_hop_gas_cost_in_base),
+            PoolKind::V3 | PoolKind::Slipstream | PoolKind::V4 => self
+                .cl_hop_gas_cost_in_base
+                .unwrap_or(self.per_hop_gas_cost_in_base),
+        }
+    }
+
+    fn cycle_gas_cost(
+        &self,
+        base_gas_cost: U256,
+        graph: &IndexedGraph<'_>,
+        steps: &[IndexedStep],
+    ) -> U256 {
+        let mut total = base_gas_cost;
+        for step in steps {
+            let hop_gas = self.hop_gas_for_kind(graph.pools[step.pool_idx].kind);
+            total = total.checked_add(hop_gas).unwrap_or(U256::MAX);
+        }
+        total
+    }
+}
+
+type CanonicalHopKey = (String, String, String);
+
+fn canonical_hop_rotation(hops: &[CycleHop]) -> Vec<CanonicalHopKey> {
+    let n = hops.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let directed: Vec<CanonicalHopKey> = hops
+        .iter()
+        .map(|h| (h.pool_id.clone(), h.token_in.clone(), h.token_out.clone()))
+        .collect();
+    let mut best_offset = 0usize;
+    for offset in 1..n {
+        for idx in 0..n {
+            let cand = &directed[(offset + idx) % n];
+            let best = &directed[(best_offset + idx) % n];
+            match cand.cmp(best) {
+                Ordering::Less => {
+                    best_offset = offset;
+                    break;
+                }
+                Ordering::Greater => break,
+                Ordering::Equal => {}
+            }
+        }
+    }
+    let mut rotated = Vec::with_capacity(n);
+    for idx in 0..n {
+        rotated.push(directed[(best_offset + idx) % n].clone());
+    }
+    rotated
+}
+
+fn deduplicate_cycle_candidates(candidates: Vec<CycleCandidate>) -> Vec<CycleCandidate> {
+    let mut best_by_rotation: BTreeMap<(u64, Vec<CanonicalHopKey>), CycleCandidate> =
+        BTreeMap::new();
+    for cand in candidates {
+        let key = (cand.chain_id, canonical_hop_rotation(&cand.hops));
+        match best_by_rotation.get(&key) {
+            Some(prev) => {
+                let better = match cand.net_profit.cmp(&prev.net_profit) {
+                    Ordering::Greater => true,
+                    Ordering::Less => false,
+                    Ordering::Equal => cand.base_token < prev.base_token,
+                };
+                if better {
+                    best_by_rotation.insert(key, cand);
+                }
+            }
+            None => {
+                best_by_rotation.insert(key, cand);
+            }
+        }
+    }
+    best_by_rotation.into_values().collect()
+}
+
+struct IndexedScanParams<'a> {
+    max_hops: usize,
+    min_amount_in: U256,
+    max_amount_in: U256,
+    base_gas_cost_in_base: U256,
+    l1_fee_in_base: U256,
+    min_profit_u512: U512,
+    options: &'a ScanCyclesOptions,
+    base_rank_by_token: Option<&'a [Option<usize>]>,
+    pool_changed: Option<&'a [bool]>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn scan_indexed_chain(
     graph: &IndexedGraph<'_>,
@@ -797,12 +942,45 @@ fn scan_indexed_chain(
     max_amount_in: U256,
     gas_cost_in_base: U256,
     l1_fee_in_base: U256,
-    total_gas: U512,
     min_profit_u512: U512,
+    options: &ScanCyclesOptions,
+    changed_pool_set: Option<&BTreeSet<String>>,
     cycles_evaluated: &mut usize,
     candidates: &mut Vec<CycleCandidate>,
 ) -> Result<(), GraphArbError> {
-    for base in normalized_bases {
+    let base_rank_vec: Option<Vec<Option<usize>>> = if options.deduplicate_cycles {
+        let mut ranks = vec![None; graph.tokens.len()];
+        for (rank, base) in normalized_bases.iter().enumerate() {
+            if let Some(id) = graph.token_id(base) {
+                ranks[id] = Some(rank);
+            }
+        }
+        Some(ranks)
+    } else {
+        None
+    };
+
+    let pool_changed_vec: Option<Vec<bool>> = changed_pool_set.map(|set| {
+        graph
+            .pools
+            .iter()
+            .map(|pool| set.contains(&pool.pool_id))
+            .collect()
+    });
+
+    let params = IndexedScanParams {
+        max_hops,
+        min_amount_in,
+        max_amount_in,
+        base_gas_cost_in_base: gas_cost_in_base,
+        l1_fee_in_base,
+        min_profit_u512,
+        options,
+        base_rank_by_token: base_rank_vec.as_deref(),
+        pool_changed: pool_changed_vec.as_deref(),
+    };
+
+    for (base_rank, base) in normalized_bases.iter().enumerate() {
         let Some(base_id) = graph.token_id(base) else {
             continue;
         };
@@ -814,20 +992,16 @@ fn scan_indexed_chain(
         enumerate_indexed_cycles(
             graph,
             base_id,
+            base_rank,
             base_id,
-            max_hops,
             0,
             1,
             1.0_f64,
+            false,
             &mut visited_tokens,
             &mut used_pools,
             &mut current_steps,
-            min_amount_in,
-            max_amount_in,
-            gas_cost_in_base,
-            l1_fee_in_base,
-            total_gas,
-            min_profit_u512,
+            &params,
             cycles_evaluated,
             candidates,
         )?;
@@ -839,20 +1013,16 @@ fn scan_indexed_chain(
 fn enumerate_indexed_cycles(
     graph: &IndexedGraph<'_>,
     base_id: usize,
+    base_rank: usize,
     current_token: usize,
-    max_hops: usize,
     depth: usize,
     visited_len: usize,
     running_upper_rate: f64,
+    touched_changed_pool: bool,
     visited_tokens: &mut [usize; MAX_SUPPORTED_HOPS],
     used_pools: &mut [usize; MAX_SUPPORTED_HOPS],
     current_steps: &mut [IndexedStep; MAX_SUPPORTED_HOPS],
-    min_amount_in: U256,
-    max_amount_in: U256,
-    gas_cost_in_base: U256,
-    l1_fee_in_base: U256,
-    total_gas: U512,
-    min_profit_u512: U512,
+    params: &IndexedScanParams<'_>,
     cycles_evaluated: &mut usize,
     candidates: &mut Vec<CycleCandidate>,
 ) -> Result<(), GraphArbError> {
@@ -862,8 +1032,14 @@ fn enumerate_indexed_cycles(
         if used_pools[..depth].contains(&edge.pool_idx) {
             continue;
         }
+        let next_touched = params
+            .pool_changed
+            .is_none_or(|mask| touched_changed_pool || mask[edge.pool_idx]);
         if edge.to_token == base_id {
             if next_depth >= 2 {
+                if !next_touched {
+                    continue;
+                }
                 current_steps[depth] = IndexedStep {
                     pool_idx: edge.pool_idx,
                     zero_for_one: edge.zero_for_one,
@@ -874,26 +1050,40 @@ fn enumerate_indexed_cycles(
                     continue;
                 }
                 let cycle_steps = &current_steps[..next_depth];
+                let cycle_gas_cost =
+                    params
+                        .options
+                        .cycle_gas_cost(params.base_gas_cost_in_base, graph, cycle_steps);
+                let cycle_total_gas = cycle_gas_cost
+                    .to_u512()
+                    .checked_add(params.l1_fee_in_base.to_u512())
+                    .expect("sum of two U256 values fits U512");
                 if let Some(best) = ternary_search_indexed(
                     graph,
                     cycle_steps,
-                    min_amount_in,
-                    max_amount_in,
-                    total_gas,
-                    min_profit_u512,
+                    params.min_amount_in,
+                    params.max_amount_in,
+                    cycle_total_gas,
+                    params.min_profit_u512,
                 ) {
                     candidates.push(graph.materialize_candidate(
                         base_id,
                         cycle_steps,
                         best,
-                        gas_cost_in_base,
-                        l1_fee_in_base,
+                        cycle_gas_cost,
+                        params.l1_fee_in_base,
                     )?);
                 }
             }
             continue;
         }
-        if next_depth >= max_hops || visited_tokens[..visited_len].contains(&edge.to_token) {
+        if next_depth >= params.max_hops || visited_tokens[..visited_len].contains(&edge.to_token) {
+            continue;
+        }
+        if let Some(ranks) = params.base_rank_by_token
+            && let Some(target_rank) = ranks[edge.to_token]
+            && target_rank < base_rank
+        {
             continue;
         }
         visited_tokens[visited_len] = edge.to_token;
@@ -906,20 +1096,16 @@ fn enumerate_indexed_cycles(
         enumerate_indexed_cycles(
             graph,
             base_id,
+            base_rank,
             edge.to_token,
-            max_hops,
             next_depth,
             visited_len + 1,
             running_upper_rate * edge.max_rate_upper,
+            next_touched,
             visited_tokens,
             used_pools,
             current_steps,
-            min_amount_in,
-            max_amount_in,
-            gas_cost_in_base,
-            l1_fee_in_base,
-            total_gas,
-            min_profit_u512,
+            params,
             cycles_evaluated,
             candidates,
         )?;
@@ -2046,5 +2232,210 @@ mod tests {
             avg_us < budget_us,
             "34-pool scan_cycles took {avg_us} us/scan (budget < {budget_us} us)"
         );
+    }
+
+    #[test]
+    fn per_hop_and_pool_kind_gas_model_scales_with_hops_and_penalizes_long_thin_cycles() {
+        let (graph, weth, _) = build_six_pool_multidex_graph();
+        let min_in = U256::from_u128(10_000_000_000_000_000);
+        let max_in = U256::from_u128(5_000_000_000_000_000_000);
+        let base_gas = U256::from_u128(100_000_000_000_000); // 0.0001 WETH fixed base
+        let gas_l1 = U256::from_u128(50_000_000_000_000);
+        let min_profit = U256::from_u128(100_000_000_000_000);
+        let v2_hop_gas = U256::from_u128(200_000_000_000_000); // 0.0002 WETH per V2/Stable hop
+        let cl_hop_gas = U256::from_u128(400_000_000_000_000); // 0.0004 WETH per V3/Slipstream/V4 hop
+
+        let constant_report = graph
+            .scan_cycles(
+                std::slice::from_ref(&weth),
+                4,
+                min_in,
+                max_in,
+                base_gas,
+                gas_l1,
+                min_profit,
+            )
+            .unwrap();
+        let per_hop_opts = ScanCyclesOptions {
+            per_hop_gas_cost_in_base: v2_hop_gas,
+            v2_hop_gas_cost_in_base: Some(v2_hop_gas),
+            cl_hop_gas_cost_in_base: Some(cl_hop_gas),
+            deduplicate_cycles: false,
+            changed_pools: None,
+        };
+        let scaled_report = graph
+            .scan_cycles_with_options(
+                std::slice::from_ref(&weth),
+                4,
+                min_in,
+                max_in,
+                base_gas,
+                gas_l1,
+                min_profit,
+                &per_hop_opts,
+            )
+            .unwrap();
+
+        assert!(!constant_report.candidates.is_empty());
+        assert!(!scaled_report.candidates.is_empty());
+        assert!(scaled_report.candidates.len() <= constant_report.candidates.len());
+
+        for cand in &scaled_report.candidates {
+            let mut expected_gas = base_gas;
+            for hop in &cand.hops {
+                expected_gas = expected_gas
+                    .checked_add(match hop.kind {
+                        PoolKind::V2 | PoolKind::AerodromeStable => v2_hop_gas,
+                        PoolKind::V3 | PoolKind::Slipstream | PoolKind::V4 => cl_hop_gas,
+                    })
+                    .unwrap();
+            }
+            assert_eq!(cand.gas_cost_in_base, expected_gas);
+            assert_eq!(
+                cand.amount_out
+                    .checked_sub(cand.optimal_amount_in)
+                    .unwrap()
+                    .checked_sub(cand.gas_cost_in_base)
+                    .unwrap()
+                    .checked_sub(cand.l1_fee_in_base)
+                    .unwrap(),
+                cand.net_profit
+            );
+        }
+
+        // Large per-hop CL penalty prunes 3/4-hop CL cycles while preserving strictly higher-edge short paths
+        // when those clear the threshold, or rejects thin cycles whose per-hop cost exceeds gross spread.
+        let prohibitive_cl_opts = ScanCyclesOptions {
+            per_hop_gas_cost_in_base: v2_hop_gas,
+            v2_hop_gas_cost_in_base: Some(v2_hop_gas),
+            cl_hop_gas_cost_in_base: Some(U256::from_u128(5_000_000_000_000_000_000)),
+            deduplicate_cycles: false,
+            changed_pools: None,
+        };
+        let blocked_report = graph
+            .scan_cycles_with_options(
+                std::slice::from_ref(&weth),
+                4,
+                min_in,
+                max_in,
+                base_gas,
+                gas_l1,
+                min_profit,
+                &prohibitive_cl_opts,
+            )
+            .unwrap();
+        assert!(
+            blocked_report.candidates.iter().all(|c| c
+                .hops
+                .iter()
+                .all(|h| matches!(h.kind, PoolKind::V2 | PoolKind::AerodromeStable))),
+            "CL-containing cycles exceeding gas must be rejected"
+        );
+    }
+
+    #[test]
+    fn deduplicate_cycles_eliminates_multi_base_rotated_duplicates() {
+        let (graph, weth, _) = build_six_pool_multidex_graph();
+        let aero = token("44");
+        let min_in = U256::from_u128(10_000_000_000_000_000);
+        let max_in = U256::from_u128(5_000_000_000_000_000_000);
+        let gas_l2 = U256::from_u128(200_000_000_000_000);
+        let gas_l1 = U256::from_u128(50_000_000_000_000);
+        let min_profit = U256::from_u128(100_000_000_000_000);
+        let bases = [weth, aero];
+
+        let raw_report = graph
+            .scan_cycles(&bases, 4, min_in, max_in, gas_l2, gas_l1, min_profit)
+            .unwrap();
+        let dedup_report = graph
+            .scan_cycles_with_options(
+                &bases,
+                4,
+                min_in,
+                max_in,
+                gas_l2,
+                gas_l1,
+                min_profit,
+                &ScanCyclesOptions {
+                    deduplicate_cycles: true,
+                    ..ScanCyclesOptions::default()
+                },
+            )
+            .unwrap();
+
+        assert!(dedup_report.cycles_evaluated < raw_report.cycles_evaluated);
+        assert!(dedup_report.candidates.len() < raw_report.candidates.len());
+
+        let mut seen_rotations = BTreeSet::new();
+        for cand in &dedup_report.candidates {
+            let rot = canonical_hop_rotation(&cand.hops);
+            assert!(
+                seen_rotations.insert((cand.chain_id, rot)),
+                "duplicate rotated cycle emitted"
+            );
+        }
+    }
+
+    #[test]
+    fn incremental_changed_pools_scan_matches_full_scan_on_affected_routes_with_fewer_evaluations()
+    {
+        let (graph, weth, usdt) = build_six_pool_multidex_graph();
+        let min_in = U256::from_u128(10_000_000_000_000_000);
+        let max_in = U256::from_u128(5_000_000_000_000_000_000);
+        let gas_l2 = U256::from_u128(200_000_000_000_000);
+        let gas_l1 = U256::from_u128(50_000_000_000_000);
+        let min_profit = U256::from_u128(100_000_000_000_000);
+        let bases = [weth, usdt];
+        let changed_pool = format!("0x{}", "a5".repeat(32));
+
+        let full_report = graph
+            .scan_cycles(&bases, 4, min_in, max_in, gas_l2, gas_l1, min_profit)
+            .unwrap();
+        let expected_affected: Vec<CycleCandidate> = full_report
+            .candidates
+            .iter()
+            .filter(|c| c.hops.iter().any(|h| h.pool_id == changed_pool))
+            .cloned()
+            .collect();
+        assert!(!expected_affected.is_empty());
+        assert!(expected_affected.len() < full_report.candidates.len());
+
+        let inc_report = graph
+            .scan_cycles_with_options(
+                &bases,
+                4,
+                min_in,
+                max_in,
+                gas_l2,
+                gas_l1,
+                min_profit,
+                &ScanCyclesOptions {
+                    changed_pools: Some(vec![changed_pool.to_ascii_uppercase()]),
+                    ..ScanCyclesOptions::default()
+                },
+            )
+            .unwrap();
+
+        assert_eq!(inc_report.candidates, expected_affected);
+        assert!(inc_report.cycles_evaluated < full_report.cycles_evaluated);
+
+        // Empty changed_pools skips every route cleanly.
+        let empty_inc = graph
+            .scan_cycles_with_options(
+                &bases,
+                4,
+                min_in,
+                max_in,
+                gas_l2,
+                gas_l1,
+                min_profit,
+                &ScanCyclesOptions {
+                    changed_pools: Some(Vec::new()),
+                    ..ScanCyclesOptions::default()
+                },
+            )
+            .unwrap();
+        assert_eq!(empty_inc.cycles_evaluated, 0);
+        assert!(empty_inc.candidates.is_empty());
     }
 }

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from oasis_agent.fastpath import (
+    CycleCandidate,
     FastpathBridge,
     FastpathCallError,
     FastpathPoolGraph,
@@ -356,3 +357,133 @@ def test_oasis_fastpath_cli_benchmark_and_scan(tmp_path: Path, bridge: FastpathB
     assert scan_json["cycles_evaluated"] == 6
     assert len(scan_json["candidates"]) >= 1
     assert int(scan_json["candidates"][0]["net_profit"]) >= 10**14
+
+
+def test_scan_cycles_per_hop_gas_deduplication_and_changed_pools_incremental(
+    bridge: FastpathBridge,
+) -> None:
+    weth = _addr("11")
+    usdc = _addr("22")
+    aero = _addr("44")
+    base_pools, _ = _base_four_pool_universe(bridge)
+    # Add two 18-decimal AERO pools so both `weth` and `aero` bases share multi-hop cycles.
+    aero_pools = [
+        *base_pools,
+        PoolNode(
+            chain_id=8453,
+            pool_id="0x" + "a5" * 32,
+            kind=PoolKind.V4,
+            token0=usdc,
+            token1=aero,
+            decimals0=6,
+            decimals1=18,
+            fee_pips=500,
+            sqrt_price_x96=bridge.sqrt_price_at_tick(283_255),
+            tick=283_255,
+            liquidity=10**21,
+        ),
+        PoolNode(
+            chain_id=8453,
+            pool_id=_addr("a6"),
+            kind=PoolKind.V2,
+            token0=weth,
+            token1=aero,
+            decimals0=18,
+            decimals1=18,
+            fee_pips=3000,
+            reserve0=50 * 10**18,
+            reserve1=290_000 * 10**18,
+        ),
+    ]
+    graph = FastpathPoolGraph(bridge=bridge)
+    for pool in aero_pools:
+        graph.upsert_pool(pool)
+
+    # 1. Per-hop & pool-kind gas model scales `gas_cost_in_base` with hop count and kind.
+    base_gas = 10**14
+    v2_hop_gas = 2 * 10**14
+    cl_hop_gas = 4 * 10**14
+    scaled = graph.scan_cycles(
+        [weth],
+        max_hops=4,
+        min_amount_in=10**16,
+        max_amount_in=5 * 10**18,
+        gas_cost_in_base=base_gas,
+        l1_fee_in_base=5 * 10**13,
+        min_net_profit=10**14,
+        per_hop_gas_cost_in_base=v2_hop_gas,
+        v2_hop_gas_cost_in_base=v2_hop_gas,
+        cl_hop_gas_cost_in_base=cl_hop_gas,
+    )
+    assert len(scaled.candidates) >= 1
+    for cand in scaled.candidates:
+        expected_gas = base_gas + sum(
+            v2_hop_gas if h.kind in (PoolKind.V2, PoolKind.AERODROME_STABLE) else cl_hop_gas
+            for h in cand.hops
+        )
+        assert cand.gas_cost_in_base == expected_gas
+        assert (
+            cand.amount_out - cand.optimal_amount_in - cand.gas_cost_in_base - cand.l1_fee_in_base
+            == cand.net_profit
+        )
+
+    # 2. Multi-base deduplication drops duplicate rotated cycles across WETH and AERO.
+    raw = graph.scan_cycles(
+        [weth, aero],
+        max_hops=4,
+        min_amount_in=10**16,
+        max_amount_in=5 * 10**18,
+        gas_cost_in_base=2 * 10**14,
+        l1_fee_in_base=5 * 10**13,
+        min_net_profit=10**14,
+    )
+    dedup = graph.scan_cycles(
+        [weth, aero],
+        max_hops=4,
+        min_amount_in=10**16,
+        max_amount_in=5 * 10**18,
+        gas_cost_in_base=2 * 10**14,
+        l1_fee_in_base=5 * 10**13,
+        min_net_profit=10**14,
+        deduplicate_cycles=True,
+    )
+    assert dedup.cycles_evaluated < raw.cycles_evaluated
+    assert len(dedup.candidates) < len(raw.candidates)
+
+    def _canon_rot(cand: CycleCandidate) -> tuple[tuple[str, str, str], ...]:
+        directed = tuple((h.pool_id, h.token_in, h.token_out) for h in cand.hops)
+        return min(directed[i:] + directed[:i] for i in range(len(directed)))
+
+    rotations = [_canon_rot(c) for c in dedup.candidates]
+    assert len(rotations) == len(set(rotations))
+
+    # 3. Incremental changed_pools filter matches full scan on affected routes cleanly.
+    changed_id = _addr("a6")
+    expected_affected = tuple(
+        c for c in raw.candidates if any(h.pool_id == changed_id for h in c.hops)
+    )
+    assert len(expected_affected) >= 1
+    assert len(expected_affected) < len(raw.candidates)
+
+    incremental = graph.scan_cycles(
+        [weth, aero],
+        max_hops=4,
+        min_amount_in=10**16,
+        max_amount_in=5 * 10**18,
+        gas_cost_in_base=2 * 10**14,
+        l1_fee_in_base=5 * 10**13,
+        min_net_profit=10**14,
+        changed_pools=[changed_id.upper()],
+    )
+    assert incremental.candidates == expected_affected
+    assert incremental.cycles_evaluated < raw.cycles_evaluated
+
+    empty_inc = graph.scan_cycles(
+        [weth, aero],
+        max_hops=4,
+        min_amount_in=10**16,
+        max_amount_in=5 * 10**18,
+        changed_pools=[],
+    )
+    assert empty_inc.cycles_evaluated == 0
+    assert empty_inc.candidates == ()

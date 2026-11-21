@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::aleph_shm::{AlephShmReader, SyntheticBboUpdate, write_synthetic_shm_v12};
 use crate::audit_ring::{AuditHeaderSnapshot, OasisAuditRing};
-use crate::graph_arb::{CycleCandidate, CycleScanReport, PoolGraph, PoolState};
+use crate::graph_arb::{CycleCandidate, CycleScanReport, PoolGraph, PoolState, ScanCyclesOptions};
 use crate::pool_math::{
     amount0_delta, amount1_delta, amounts_for_liquidity, serde_u128_str, sqrt_price_at_tick,
 };
@@ -31,6 +31,16 @@ pub struct ScanCyclesInput {
     pub block_number: Option<u64>,
     #[serde(default)]
     pub timestamp_ns: Option<u64>,
+    #[serde(default)]
+    pub per_hop_gas_cost_in_base: U256,
+    #[serde(default)]
+    pub v2_hop_gas_cost_in_base: Option<U256>,
+    #[serde(default)]
+    pub cl_hop_gas_cost_in_base: Option<U256>,
+    #[serde(default)]
+    pub deduplicate_cycles: bool,
+    #[serde(default)]
+    pub changed_pools: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -159,7 +169,15 @@ pub fn execute_scan_cycles(input: ScanCyclesInput) -> anyhow::Result<CycleScanRe
         graph.upsert_pool(pool)?;
     }
 
-    let report = graph.scan_cycles(
+    let options = ScanCyclesOptions {
+        per_hop_gas_cost_in_base: input.per_hop_gas_cost_in_base,
+        v2_hop_gas_cost_in_base: input.v2_hop_gas_cost_in_base,
+        cl_hop_gas_cost_in_base: input.cl_hop_gas_cost_in_base,
+        deduplicate_cycles: input.deduplicate_cycles,
+        changed_pools: input.changed_pools,
+    };
+
+    let report = graph.scan_cycles_with_options(
         &input.base_tokens,
         input.max_hops,
         input.min_amount_in,
@@ -167,6 +185,7 @@ pub fn execute_scan_cycles(input: ScanCyclesInput) -> anyhow::Result<CycleScanRe
         input.gas_cost_in_base,
         input.l1_fee_in_base,
         input.min_net_profit,
+        &options,
     )?;
 
     if let Some(ref mut audit_ring) = ring {
