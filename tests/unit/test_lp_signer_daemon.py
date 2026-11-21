@@ -122,11 +122,15 @@ def raw_request(endpoint: Path, payload: bytes) -> bytes:
             client.shutdown(socket.SHUT_WR)
         except OSError as exc:
             # The daemon may close a refused connection before this half-close; on macOS
-            # that surfaces as ENOTCONN. It means the same thing: no reply was sent.
-            if exc.errno != errno.ENOTCONN:
+            # that surfaces as ENOTCONN and on Linux as ECONNRESET. Both mean: no reply.
+            if exc.errno not in (errno.ENOTCONN, errno.ECONNRESET):
                 raise
             return b""
-        return client.recv(4096)
+        try:
+            return client.recv(4096)
+        except ConnectionResetError:
+            # Linux reports the daemon's close as a reset instead of a clean EOF.
+            return b""
 
 
 def request_frame(**overrides: object) -> bytes:
