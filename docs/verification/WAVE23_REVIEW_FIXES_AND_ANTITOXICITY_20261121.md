@@ -50,3 +50,19 @@
 - `make contract-check`：`125 passed / 17 suites`；`forge fmt --check` 与 `forge lint` 通过。
 - `make contract-security-check`：`slither`（98 contracts / 94 detectors）通过。
 - `OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" make check` 与 `git diff --check` 在本次文档更新后终验通过。
+
+## 5. Wave 24 冷却口径与波动惩罚解耦实测验证（2026-11-21）
+
+针对 Wave 23 定位出的两项过严过滤，在不修改 `execution_eligible = false`、`release_permitted = false` 与预注册 Gate 5 门槛（`min_oos_trades = 5`、`min_lcb_net_edge_bps = 5`）的前提下完成三处精准修正与新鲜 600-Tick 实测：
+
+1. **核心改动**：
+   - [maker_hedge_shadow.py](../../src/oasis_agent/cross_venue/maker_hedge_shadow.py)：`post_fill_cooldown_steps` 仅对非 `"touch_lift"` 真实成交触发（`and detected.classification != "touch_lift"`）；`peek_effective_adverse_bps` 与 `_update_volatility_and_get_effective_adverse` 移除 `max(rolling_vol_bps, instantaneous_return)` 对滚动波动的双重惩罚，由 `max_same_dir_momentum_bps` 独立承担单 tick 突破动量防毒流职责。
+   - [run_multicall_100tick_campaign.py](../../scripts/run_multicall_100tick_campaign.py)：`_select_dynamic_maker_quotes` 在双腿未激活时恢复基于最佳边缘（允许负值被最优手数求解器排除）的评估分支；`--dynamic-sizing` 恢复默认 `maker_min_edge_bps = 6.5` 与 `max_same_dir_momentum_bps = 9.0`（保留 `post_fill_cooldown_steps = 5`）。
+   - [test_maker_hedge_shadow.py](../../tests/unit/test_maker_hedge_shadow.py)：新增 `test_touch_lift_does_not_trigger_post_fill_cooldown` 与 `test_adaptive_vol_uses_rolling_mean_even_with_momentum_gate`，并更新超大无效手数单测使超大单价呈现严格负边缘；4 组聚焦单测共 `58 passed`。
+2. **新鲜基线与未触碰 600-Tick 实测（`reports/research/wave24-20261121/`，本地保留未入库）**：
+   - 双源 Base RPC 仲裁：Base 块 `60336138`（`secondary_rpc_verified=true`，`report_sha256 = 7a1d2350a70f8c4caf42eb75c226e9eb2e347f4bea655a6c36c3c4ea57403848`）；Opportunity Radar `public-shadow`：`report_sha256 = afcf2248fb981836cf713bce8fe389f6da2b0e3a06cc32b69d7d67f250b44df5`；复用已验 Anvil/Compose/权限演练及 `aleph` WSL Docker 隔离证明；演练 signoff `manifest_sha256 = e017551ad9e538b1688551ed6a4c7ca0c4182f6aa21cc54c4bec132f259e068d`。
+   - `shadow-bybit-600`（`summary_sha256 = 3d603ffac961fd8ef8bc52f3d3af376a3685a2f116d724cb95946dc17001e9a9`）：`600 / 600` 唯一 Base 区块（`60336220..60340124`）、`1,209` RPC 请求、`56` 个活跃池、实时 `USDT-USD` 锚定 `0.998285`；Bybit Spot V5 WS `600 / 600` tick `0` 断流 / `0` 重连、`16,223` 笔实时成交。
+   - 策略与样本外表现：`active_quote_legs = 378`、`cooldown_quote_skips = 12`（较 Wave 23 的 `222` 显著解除误杀）、`momentum_quote_skips = 7`（有效拦截单 tick 动量追涨杀跌）、`touch_lift_fills = 16`、`trade_flow_fifo_fills = 2`、`open_unhedged_lots = 0`、`unresolved_residuals = 0`；**2 / 2 笔真实 OOS 成交全部正盈利（`oos_win_rate = 1.0000`）**、均净边缘 **`+35.773988 bps`**、标准差 `5.314595 bps`、成本调整后 95% LCB **`+28.408334 bps`**（`28 >= 5` 已跨越正边际门槛）、总净收益 **`+$0.411350`**、最大回撤 **`$0.000000`**。
+3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 552f1f6992b71d804db6239a3fda51b86c57a4684556ec43ddf7cba0a2f1e3cb`，退出码 `2`）**：
+   - **通过**：`7 / 9` 项门禁；
+   - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_lcb_net_edge_bps = 28 >= 5` 已达标，但 `oos_trades_count = 2 < 5` 未满最小样本下限）与 `owner_scope_release_manifest_present`（`rehearsal_only = true`）。下一步仅需在更高成交窗口运行未触碰长窗样本以累积 `oos_trades_count >= 5`。

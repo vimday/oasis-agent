@@ -1331,6 +1331,113 @@ def test_post_fill_same_side_cooldown_and_opposite_side_allowed() -> None:
     assert tracker.summary()["cooldown_quote_skips"] == 3
 
 
+def test_touch_lift_does_not_trigger_post_fill_cooldown() -> None:
+    """Diagnostic `touch_lift` fills must not suppress subsequent OOS maker quoting."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        cex_maker_fee_bps=Decimal(0),
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("3.0"),
+        tick_improvement_bps=Decimal("0.5"),
+        require_strict_cross_for_fill=True,
+        post_fill_cooldown_steps=2,
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.04")
+    qty_token = (10**18) // 15
+
+    # Tick 1: Wide book (2990 / 3010) -> active ask & bid quotes
+    book_t1 = _make_book("ETH-USD", bid="2990.00", ask="3010.00", sequence=201)
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=book_t1,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1.quote.ask_active is True
+
+    # Tick 2: Ask lifts above resting ask without bid strictly crossing -> touch_lift only
+    book_t2 = _make_book("ETH-USD", bid="3005.00", ask="3014.00", sequence=202)
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=book_t2,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s2.strict_fills == ()
+    assert len(s2.touch_lift_fills) == 1
+    assert s2.touch_lift_fills[0].fill_classification == "touch_lift"
+    assert s2.quote.ask_active is True
+
+    # Tick 3: Return to wide book (2990 / 3010) -> ask_maker stays active with 0 cooldown skips
+    book_t3 = _make_book("ETH-USD", bid="2990.00", ask="3010.00", sequence=203)
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=book_t3,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=199_800_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s3.quote.ask_active is True
+    assert s3.quote.bid_active is True
+    assert tracker.summary()["cooldown_quote_skips"] == 0
+
+
+def test_adaptive_vol_uses_rolling_mean_even_with_momentum_gate() -> None:
+    """Momentum gate must not override rolling volatility with single-step return."""
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        adverse_selection_bps=Decimal("1.5"),
+        adaptive_volatility_enabled=True,
+        volatility_window_steps=4,
+        volatility_multiplier=Decimal("1.5"),
+        max_adaptive_adverse_bps=Decimal("25.0"),
+        max_same_dir_momentum_bps=Decimal("9.0"),
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.04")
+    qty_token = (10**18) // 10  # ~$2000/ETH
+
+    b1 = _make_book("ETH-USD", bid="1999.00", ask="2001.00", sequence=301)
+    tracker.step(
+        "ETH-USD",
+        current_book=b1,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=199_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    # 1 bps step return: mid 2000.0 -> 2000.20
+    b2 = _make_book("ETH-USD", bid="1999.20", ask="2001.20", sequence=302)
+    tracker.step(
+        "ETH-USD",
+        current_book=b2,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=199_900_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    # Preview a +7 bps jump (~2001.60 mid): rolling mean = (1 + 7)/2 = 4 bps;
+    # scaled = 4 * 1.5 = 6 bps (NOT 7 * 1.5 = 10.5 bps).
+    eff = tracker.peek_effective_adverse_bps("ETH-USD", Decimal("2001.60"))
+    assert Decimal("5.9") < eff < Decimal("6.2")
+
+
 def test_same_dir_momentum_suppresses_toxic_side_and_keeps_counter_side() -> None:
     """Breakout momentum suppresses the toxic side without blocking counter-side liquidity."""
     cfg = MakerHedgeConfig(
@@ -1396,9 +1503,9 @@ def test_dynamic_maker_quote_sizer_rejects_oversized_inactive_notional() -> None
 
     def _quote_fn(notional_usdc: int) -> tuple[int | None, int, int | None]:
         # At $25-$100 DEX ask is ~$2500 -> edge ~18 bps (active >= 10 bps).
-        # Above $100 DEX price impact jumps to $2504 -> edge ~2 bps (inactive < 10 bps).
+        # Above $100 DEX price impact jumps to $2510 -> negative edge (inactive < 10 bps).
         usd_val = Decimal(notional_usdc) / Decimal(1_000_000)
-        dex_px = Decimal("2500.00") if notional_usdc <= 100_000_000 else Decimal("2504.50")
+        dex_px = Decimal("2500.00") if notional_usdc <= 100_000_000 else Decimal("2510.00")
         tok_out = int((usd_val / dex_px) * Decimal(10**18))
         return tok_out, tok_out, None
 

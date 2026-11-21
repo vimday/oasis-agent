@@ -1208,9 +1208,15 @@ def _select_dynamic_maker_quotes(
             active_edges.append(float(cand.ask_edge_bps))
         if cand.bid_active and cand.bid_edge_bps is not None:
             active_edges.append(float(cand.bid_edge_bps))
-        if not active_edges:
-            return None
-        best_edge = max(active_edges)
+        if active_edges:
+            best_edge = max(active_edges)
+        else:
+            all_edges = [
+                float(edge) for edge in (cand.ask_edge_bps, cand.bid_edge_bps) if edge is not None
+            ]
+            if not all_edges:
+                return None
+            best_edge = max(all_edges)
         profit_micros = round((notional_usdc * best_edge) / 10_000.0)
         return profit_micros, best_edge
 
@@ -2069,7 +2075,7 @@ def run_multicall_campaign(
             cex_dust_unwind_enabled=True,
             cex_dust_unwind_taker_fee_bps=cex_taker_fee_dec,
             post_fill_cooldown_steps=5,
-            max_same_dir_momentum_bps=Decimal("8.0"),
+            max_same_dir_momentum_bps=Decimal("9.0"),
         )
     else:
         maker_config = MakerHedgeConfig(

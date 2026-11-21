@@ -943,19 +943,13 @@ class MakerHedgeLifecycleTracker:
             if existing is not None
             else deque(maxlen=self._config.volatility_window_steps)
         )
-        step_ret_bps: Decimal | None = None
         if prev_mid is not None and prev_mid > 0:
             step_ret_bps = (abs(mid_dec - prev_mid) / prev_mid) * _BPS_DIVISOR
             candidate_returns.append(step_ret_bps)
         if not candidate_returns:
             return self._config.adverse_selection_bps
         rolling_vol_bps = sum(candidate_returns, Decimal(0)) / Decimal(len(candidate_returns))
-        base_vol_bps = (
-            max(rolling_vol_bps, step_ret_bps)
-            if self._config.max_same_dir_momentum_bps is not None and step_ret_bps is not None
-            else rolling_vol_bps
-        )
-        scaled = base_vol_bps * self._config.volatility_multiplier
+        scaled = rolling_vol_bps * self._config.volatility_multiplier
         return min(
             self._config.max_adaptive_adverse_bps,
             max(self._config.adverse_selection_bps, scaled),
@@ -988,12 +982,7 @@ class MakerHedgeLifecycleTracker:
         if not returns:
             return self._config.adverse_selection_bps
         rolling_vol_bps = sum(returns, Decimal(0)) / Decimal(len(returns))
-        base_vol_bps = (
-            max(rolling_vol_bps, returns[-1])
-            if self._config.max_same_dir_momentum_bps is not None
-            else rolling_vol_bps
-        )
-        scaled = base_vol_bps * self._config.volatility_multiplier
+        scaled = rolling_vol_bps * self._config.volatility_multiplier
         return min(
             self._config.max_adaptive_adverse_bps,
             max(self._config.adverse_selection_bps, scaled),
@@ -1841,7 +1830,10 @@ class MakerHedgeLifecycleTracker:
                 detected_fills.extend(resting_detected)
 
                 for detected in detected_fills:
-                    if self._config.post_fill_cooldown_steps > 0:
+                    if (
+                        self._config.post_fill_cooldown_steps > 0
+                        and detected.classification != "touch_lift"
+                    ):
                         self._cooldown_until_step_by_product_side[
                             (spec.product_id, detected.side)
                         ] = current_step_idx + self._config.post_fill_cooldown_steps + 1
