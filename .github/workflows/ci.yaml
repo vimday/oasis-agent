@@ -53,7 +53,7 @@ jobs:
           persist-credentials: false
       - name: Install Rust toolchain
         run: |
-          rustup toolchain install stable --profile minimal --component rustfmt clippy
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
           rustup default stable
       - name: Run Rust gate
         run: make rust-check
@@ -98,7 +98,7 @@ jobs:
       - name: Set up Foundry
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
-          version: v1.8.1
+          version: v1.8.4
       - name: Install locked contract dependencies
         run: make contract-install
       - name: Run contract gate
