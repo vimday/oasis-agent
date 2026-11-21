@@ -26,6 +26,9 @@ Docker-image assertions. This record grants no signing, broadcast, or deployment
   dependencies use `pragma solidity =0.8.26`. Attempting 0.8.39 fails on those exact pragmas.
 - Slither resolves to 0.10.3 because 0.11.6 requires `web3>=7.10,<8`; the project now requires
   `web3>=8.0`. The resolved version passes the contract security gate.
+- `ckzg` 2.1.8 publishes no CPython 3.15 wheel, so both Dockerfiles install `build-essential` in
+  the same layer as the hashed `pip` install and purge it before the layer closes. The CI image
+  build exercises this path.
 
 ## Verification
 

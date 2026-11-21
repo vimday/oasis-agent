@@ -10,7 +10,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     OASIS_FASTPATH_LIB=/app/crates/target/release/liboasis_core.so
 WORKDIR /app
 COPY requirements.lock /app/requirements.lock
-RUN python -m pip install --no-cache-dir --require-hashes -r requirements.lock
+# ckzg 2.1.8 publishes no CPython 3.15 wheel, so pip builds the C extension.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && python -m pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && apt-get purge -y --auto-remove build-essential \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=rust-builder /build/crates/target/release/liboasis_core.so /app/crates/target/release/liboasis_core.so
 COPY src /app/src
 COPY scripts /app/scripts
