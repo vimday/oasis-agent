@@ -373,7 +373,7 @@ def parse_bybit_orderbook_payload(
             raise BybitSpotFeedError(f"Bybit orderbook {bybit_sym} bid[{idx}] malformed")
         px_usdt = _strict_pos_decimal(entry[0], f"bid[{idx}].price")
         sz = _strict_pos_decimal(entry[1], f"bid[{idx}].size")
-        bids.append(CoinbaseL2Level(price=px_usdt * usdt_peg.bid, size=sz, num_orders=1))
+        bids.append(CoinbaseL2Level(price=px_usdt * usdt_peg.mid, size=sz, num_orders=1))
 
     asks: list[CoinbaseL2Level] = []
     for idx, entry in enumerate(raw_asks):
@@ -381,7 +381,7 @@ def parse_bybit_orderbook_payload(
             raise BybitSpotFeedError(f"Bybit orderbook {bybit_sym} ask[{idx}] malformed")
         px_usdt = _strict_pos_decimal(entry[0], f"ask[{idx}].price")
         sz = _strict_pos_decimal(entry[1], f"ask[{idx}].size")
-        asks.append(CoinbaseL2Level(price=px_usdt * usdt_peg.ask, size=sz, num_orders=1))
+        asks.append(CoinbaseL2Level(price=px_usdt * usdt_peg.mid, size=sz, num_orders=1))
 
     raw_seq = result.get("u")
     seq: int | None

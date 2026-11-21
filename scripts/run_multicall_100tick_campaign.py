@@ -1636,7 +1636,7 @@ class _KeepAliveHttpsPool:
         connection_factory: (
             Callable[[str, int, float, ssl.SSLContext], http.client.HTTPSConnection] | None
         ) = None,
-        max_requests_per_conn: int = 200,
+        max_requests_per_conn: int = 80,
     ) -> None:
         if type(max_requests_per_conn) is not int or max_requests_per_conn <= 0:
             raise ValueError("max_requests_per_conn must be a positive integer")
@@ -1747,23 +1747,10 @@ class _KeepAliveHttpsPool:
                 conn.request(method, target_path, body=body, headers=headers)
                 resp = conn.getresponse()
                 raw = resp.read(max_bytes + 1)
-            except (
-                http.client.RemoteDisconnected,
-                http.client.BadStatusLine,
-                http.client.IncompleteRead,
-                BrokenPipeError,
-                ConnectionResetError,
-                ssl.SSLError,
-                EOFError,
-            ):
+            except http.client.HTTPException, OSError, TimeoutError, EOFError:
                 self._drop_conn(key)
                 if reused and attempt == 0:
                     continue
-                if is_coinbase:
-                    raise LiveCexDexError("Coinbase book transport failure") from None
-                raise RpcError("Base shadow RPC transport failure") from None
-            except http.client.HTTPException, OSError, TimeoutError:
-                self._drop_conn(key)
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book transport failure") from None
                 raise RpcError("Base shadow RPC transport failure") from None
@@ -2519,9 +2506,8 @@ def run_multicall_campaign(
                 atomic_positive = False
             atomic_net_bps_series.append(atomic_best_net_bps)
 
-            # Refresh USDT-USD peg periodically when evaluating Bybit Spot
-            if cex_venue == "bybit" and tick_idx > 0 and tick_idx % 30 == 0:
-                _refresh_usdt_peg_if_needed(force=True)
+            # Keep active_usdt_peg pinned across the campaign run so Bybit L2 books and
+            # WS/REST trade prints share an invariant USD scale across tick transitions.
 
             # Drain CEX WebSocket trade prints once per tick (REST trades fallback on gap)
             ws_gap_tick = False

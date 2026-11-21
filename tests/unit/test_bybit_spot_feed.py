@@ -102,9 +102,40 @@ def test_parse_and_fetch_bybit_l2_book_normalizes_usdt_to_usd() -> None:
     )
     assert book.product_id == "VVV-USD"
     assert book.sequence == 42
-    assert book.bids[0].price == Decimal("20.00") * Decimal("0.9990")
-    assert book.asks[0].price == Decimal("20.10") * Decimal("0.9992")
+    assert book.bids[0].price == Decimal("20.00") * peg.mid
+    assert book.asks[0].price == Decimal("20.10") * peg.mid
     assert book.best_bid < book.best_ask
+
+    # Verify trade-print normalization aligns bit-for-bit with top-of-book L2 prices
+    tob_trades = json.dumps(
+        {
+            "retCode": 0,
+            "result": {
+                "category": "spot",
+                "list": [
+                    {
+                        "execId": "1001",
+                        "symbol": "VVVUSDT",
+                        "price": "20.10",
+                        "size": "1.0",
+                        "side": "Buy",
+                        "time": "1795000001000",
+                    },
+                    {
+                        "execId": "1000",
+                        "symbol": "VVVUSDT",
+                        "price": "20.00",
+                        "size": "1.0",
+                        "side": "Sell",
+                        "time": "1795000000000",
+                    },
+                ],
+            },
+        }
+    ).encode("utf-8")
+    parsed_tob = parse_bybit_recent_trades_payload("VVV-USD", tob_trades, usdt_peg=peg)
+    assert parsed_tob[0].price == book.best_bid
+    assert parsed_tob[1].price == book.best_ask
 
     bad_ret = json.dumps({"retCode": 10001, "result": {}}).encode("utf-8")
     with pytest.raises(BybitSpotFeedError, match="retCode"):

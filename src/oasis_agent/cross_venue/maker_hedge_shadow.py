@@ -815,6 +815,47 @@ def _drain_fifo_queue_ahead(
     return q_ahead
 
 
+def _next_queue_ahead_for_side(
+    *,
+    is_ask: bool,
+    side_active: bool,
+    quoted_price: Decimal | None,
+    top_price: Decimal,
+    top_size: Decimal,
+    prev_quoted_price: Decimal | None,
+    prev_queue_ahead: Decimal,
+    preserve_queue_priority: bool,
+    new_prints: tuple[CoinbaseTradePrint, ...],
+    side_key: Literal["ask_maker", "bid_maker"],
+    partial_unflushed_sides: set[Literal["ask_maker", "bid_maker"]],
+    realized_filled_sides: set[Literal["ask_maker", "bid_maker"]],
+) -> Decimal:
+    """Compute next resting queue-ahead quantity without resetting on unflushed partial fills."""
+    at_or_behind_touch = (
+        (quoted_price >= top_price if is_ask else quoted_price <= top_price)
+        if quoted_price is not None
+        else False
+    )
+    if not (side_active and quoted_price is not None and at_or_behind_touch):
+        return Decimal(0)
+    if (
+        preserve_queue_priority
+        and prev_quoted_price is not None
+        and prev_quoted_price == quoted_price
+    ):
+        if side_key in partial_unflushed_sides:
+            return Decimal(0)
+        if side_key not in realized_filled_sides:
+            drained = _drain_fifo_queue_ahead(
+                prints=new_prints,
+                quoted_price=prev_quoted_price,
+                initial_queue_ahead=prev_queue_ahead,
+                is_ask=is_ask,
+            )
+            return min(drained, top_size)
+    return top_size
+
+
 @dataclass(frozen=True, slots=True)
 class _DetectedFill:
     side: Literal["ask_maker", "bid_maker"]
@@ -1803,6 +1844,24 @@ class MakerHedgeLifecycleTracker:
         prev_state = self._resting_by_product.get(spec.product_id)
         token_scale = Decimal(10**token_decimals)
 
+        def _flush_triggered() -> None:
+            if self._config.min_hedge_notional_usdc <= 0:
+                return
+            batch_fills, batch_warnings = self._check_and_flush_triggered_lots(
+                product_id=spec.product_id,
+                current_mid=current_book.mid_price,
+                current_step_idx=current_step_idx,
+                trade_notional_usdc=trade_notional_usdc,
+                dex_buy_token_out=dex_buy_token_out,
+                trade_notional_token=trade_notional_token,
+                dex_sell_usdc_out=dex_sell_usdc_out,
+                token_decimals=token_decimals,
+                gas_usd=candidate.gas_cost_usd,
+                current_book=current_book,
+            )
+            fills.extend(batch_fills)
+            unhedged.extend(batch_warnings)
+
         if feed_gap_detected:
             self._resting_by_product.pop(spec.product_id, None)
             if prev_state is not None and (
@@ -1810,6 +1869,7 @@ class MakerHedgeLifecycleTracker:
             ):
                 self._feed_gap_cancels += 1
                 unhedged.append(f"{spec.product_id}:feed_gap_cancelled_prior_quote")
+            _flush_triggered()
         else:
             detected_fills: list[_DetectedFill] = []
             if prev_state is not None:
@@ -1830,13 +1890,6 @@ class MakerHedgeLifecycleTracker:
                 detected_fills.extend(resting_detected)
 
                 for detected in detected_fills:
-                    if (
-                        self._config.post_fill_cooldown_steps > 0
-                        and detected.classification != "touch_lift"
-                    ):
-                        self._cooldown_until_step_by_product_side[
-                            (spec.product_id, detected.side)
-                        ] = current_step_idx + self._config.post_fill_cooldown_steps + 1
                     if (
                         self._config.min_hedge_notional_usdc <= 0
                         or detected.classification == "touch_lift"
@@ -1866,6 +1919,17 @@ class MakerHedgeLifecycleTracker:
                                 fill_step_idx=current_step_idx,
                             )
                         )
+
+            _flush_triggered()
+
+            realized_filled_sides: set[Literal["ask_maker", "bid_maker"]] = {
+                ev.side for ev in fills if ev.fill_classification != "touch_lift"
+            }
+            if self._config.post_fill_cooldown_steps > 0:
+                for filled_side in realized_filled_sides:
+                    self._cooldown_until_step_by_product_side[(spec.product_id, filled_side)] = (
+                        current_step_idx + self._config.post_fill_cooldown_steps + 1
+                    )
 
             signed_ret_bps = self._last_signed_return_bps_by_product.get(
                 spec.product_id, Decimal(0)
@@ -1901,50 +1965,43 @@ class MakerHedgeLifecycleTracker:
             if new_ask_active != candidate.ask_active or new_bid_active != candidate.bid_active:
                 candidate = replace(candidate, ask_active=new_ask_active, bid_active=new_bid_active)
 
-            filled_sides = {detected.side for detected in detected_fills}
-            queue_ahead_ask = Decimal(0)
-            if (
-                candidate.ask_active
-                and candidate.quoted_ask_usd is not None
-                and candidate.quoted_ask_usd >= current_book.best_ask
-            ):
-                if (
-                    self._config.preserve_queue_priority
-                    and prev_state is not None
-                    and prev_state.ask_price == candidate.quoted_ask_usd
-                    and "ask_maker" not in filled_sides
-                ):
-                    drained_ask = _drain_fifo_queue_ahead(
-                        prints=new_prints,
-                        quoted_price=prev_state.ask_price,
-                        initial_queue_ahead=prev_state.queue_ahead_ask,
-                        is_ask=True,
-                    )
-                    queue_ahead_ask = min(drained_ask, current_book.asks[0].size)
-                else:
-                    queue_ahead_ask = current_book.asks[0].size
-
-            queue_ahead_bid = Decimal(0)
-            if (
-                candidate.bid_active
-                and candidate.quoted_bid_usd is not None
-                and candidate.quoted_bid_usd <= current_book.best_bid
-            ):
-                if (
-                    self._config.preserve_queue_priority
-                    and prev_state is not None
-                    and prev_state.bid_price == candidate.quoted_bid_usd
-                    and "bid_maker" not in filled_sides
-                ):
-                    drained_bid = _drain_fifo_queue_ahead(
-                        prints=new_prints,
-                        quoted_price=prev_state.bid_price,
-                        initial_queue_ahead=prev_state.queue_ahead_bid,
-                        is_ask=False,
-                    )
-                    queue_ahead_bid = min(drained_bid, current_book.bids[0].size)
-                else:
-                    queue_ahead_bid = current_book.bids[0].size
+            partial_unflushed_sides: set[Literal["ask_maker", "bid_maker"]] = {
+                d.side
+                for d in detected_fills
+                if d.classification == "trade_flow_fifo" and d.side not in realized_filled_sides
+            }
+            queue_ahead_ask = _next_queue_ahead_for_side(
+                is_ask=True,
+                side_active=candidate.ask_active,
+                quoted_price=candidate.quoted_ask_usd,
+                top_price=current_book.best_ask,
+                top_size=current_book.asks[0].size,
+                prev_quoted_price=prev_state.ask_price if prev_state is not None else None,
+                prev_queue_ahead=(
+                    prev_state.queue_ahead_ask if prev_state is not None else Decimal(0)
+                ),
+                preserve_queue_priority=self._config.preserve_queue_priority,
+                new_prints=new_prints,
+                side_key="ask_maker",
+                partial_unflushed_sides=partial_unflushed_sides,
+                realized_filled_sides=realized_filled_sides,
+            )
+            queue_ahead_bid = _next_queue_ahead_for_side(
+                is_ask=False,
+                side_active=candidate.bid_active,
+                quoted_price=candidate.quoted_bid_usd,
+                top_price=current_book.best_bid,
+                top_size=current_book.bids[0].size,
+                prev_quoted_price=prev_state.bid_price if prev_state is not None else None,
+                prev_queue_ahead=(
+                    prev_state.queue_ahead_bid if prev_state is not None else Decimal(0)
+                ),
+                preserve_queue_priority=self._config.preserve_queue_priority,
+                new_prints=new_prints,
+                side_key="bid_maker",
+                partial_unflushed_sides=partial_unflushed_sides,
+                realized_filled_sides=realized_filled_sides,
+            )
 
             self._resting_by_product[spec.product_id] = _RestingQuoteState(
                 book_best_bid=current_book.best_bid,
@@ -1958,22 +2015,6 @@ class MakerHedgeLifecycleTracker:
                 queue_ahead_ask=queue_ahead_ask,
                 queue_ahead_bid=queue_ahead_bid,
             )
-
-        if self._config.min_hedge_notional_usdc > 0:
-            batch_fills, batch_warnings = self._check_and_flush_triggered_lots(
-                product_id=spec.product_id,
-                current_mid=current_book.mid_price,
-                current_step_idx=current_step_idx,
-                trade_notional_usdc=trade_notional_usdc,
-                dex_buy_token_out=dex_buy_token_out,
-                trade_notional_token=trade_notional_token,
-                dex_sell_usdc_out=dex_sell_usdc_out,
-                token_decimals=token_decimals,
-                gas_usd=candidate.gas_cost_usd,
-                current_book=current_book,
-            )
-            fills.extend(batch_fills)
-            unhedged.extend(batch_warnings)
 
         self._step_index_by_product[spec.product_id] = current_step_idx + 1
         self._total_steps += 1

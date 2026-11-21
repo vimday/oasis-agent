@@ -34,7 +34,7 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
   --out reports/research/<run-id>/shadow-500-final
 ```
 
-可选精细过滤与韧性参数：`--include-aero-cl2`（将 Base 活跃发现池扩展至 Aero Slipstream 2 `CLFactory`）、`--cex-venue coinbase|bybit`（切换 Coinbase 或 Bybit Spot V5 实时订单簿与 WebSocket 成交，Bybit 路径自动拉取实时 Coinbase `USDT-USD` 锚定归一化）、`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `6` 且开启 CEX Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `6.5` 配合 `1.5x` 滚动波动倍增、按产品 lot 计时、队列顺位保留、成本感知 CEX 粉尘平仓、非 `touch_lift` 成交后 `post_fill_cooldown_steps=5`、`max_same_dir_momentum_bps=9.0` 及 `$25` / `60`-step 批量对冲）、`--max-book-workers`（默认 `9` 并发 L2 预拉取）、`--timeout-s`（单请求 HTTPS/WS 超时，默认 `15.0s`）与 `--stop-gracefully-on-rpc-error`（首 tick 后遇公共 RPC 错误不重试、即停机并落盘已完成区块哈希链与汇总）。
+可选精细过滤与韧性参数：`--include-aero-cl2`（将 Base 活跃发现池扩展至 Aero Slipstream 2 `CLFactory`）、`--cex-venue coinbase|bybit`（切换 Coinbase 或 Bybit Spot V5 实时订单簿与 WebSocket 成交，Bybit 路径在启动时拉取并锁定单轮统一的 `usdt_peg.mid` 归一化 L2 盘口与成交流）、`--allowed-products`（逗号分隔交易对白名单）、`--min-taker-edge-bps`（`dynamic-sizing` 默认 `6` 且开启 CEX Limit IOC 优先模式）、`--maker-min-edge-bps`（`dynamic-sizing` 默认 `6.5` 配合 `1.5x` 滚动波动倍增、按产品 lot 计时、未冲销部分成交 `queue_ahead == 0` 队列顺位保留、成本感知 CEX 粉尘平仓、已冲销非 `touch_lift` 成交后 `post_fill_cooldown_steps=5`、`max_same_dir_momentum_bps=9.0` 及 `$25` / `60`-step 批量对冲）、HTTP Keep-Alive 每 `80` 请求主动轮换与复用套接字重连、`--max-book-workers`（默认 `9` 并发 L2 预拉取）、`--timeout-s`（单请求 HTTPS/WS 超时，默认 `15.0s`）与 `--stop-gracefully-on-rpc-error`（首 tick 后遇公共 RPC 错误不重试、即停机并落盘已完成区块哈希链与汇总）。
 
 同步运行无密钥 Base Aave V3 健康度与按剩余额度截断清算扫描时（底层直连传输已显式注入 `ProxyHandler({})` 绕过本地系统代理误路由）：
 
@@ -55,6 +55,7 @@ OASIS_FASTPATH_LIB="$PWD/crates/target/release/liboasis_core.dylib" \
 - Wave 18（`300` 唯一区块 `59157950..59160987`、`21,358` WS 成交、`9` 并发 L2 预拉取 0 限流）：单 tick 速度提升至 **`2.040 秒/tick`（`612.08s` 跑完 `300` 块）**，`10 bps` 做市过滤 + Limit IOC 优先模式实现 **`0` 亏损 / `0` 毒穿价（`strict_cross=0`、`drawdown=$0`）**，唯一成交 `DEGEN-USD` 净赚 **`+$0.023090`（`+11.586679 bps`、`100%` 胜率）**；
 - Wave 20（四轮合计 **`2,942` 唯一区块**，定位并修复 Rust/Python `TickMath` `slot0` 闭上界及 HTTP/1.1 Keep-Alive 200 请求轮换）：前三轮达 **`9/10` 正盈利（`+$0.2471`、`max_drawdown <= $0.0022`）**，其中第三轮连续无断流跑至 **`1,045` tick（`56,090` WS 成交 0 断流）**；终验收口 `shadow-500-final`（`500 / 500` 块 `59213388..59217254`、`1,003` RPC、`25,184` WS 成交 `0` 断流）因低波凌晨窗口仅 1 笔 `$0.99` 超时批冲平单（`-$0.003682`），预注册 Gate 5 如实阻断（`oos_trades_count = 1 < 5`），**系统严格锁定 `release_permitted = false` 拒绝发布**。
 - Wave 24（Bybit Spot V5 + Aero Slipstream 2 未触碰 `600 / 600` 块 `60336220..60340124`、`56` 池、`16,223` WS 成交 `0` 断流）：解耦 `touch_lift` 冷却与单步瞬时收益对滚动波动的双重惩罚后，`cooldown_quote_skips` 从 `222` 降至 `12`、`momentum_quote_skips = 7`；录得 **`2 / 2` 笔真实 OOS 成交（`100%` 胜率，均净边缘 `+35.77 bps`、LCB `+28.41 bps >= 5`、净赚 `+$0.411350`、最大回撤 `$0`）**，9 门禁通过 `7 / 9` 并因 `oos_trades_count = 2 < 5` 与 `--rehearsal` 保持 `release_permitted = false`。
+- Wave 25（Bybit `usdt_peg.mid` 统一折算、未冲销队列保位与 Keep-Alive `80` 请求重连）：首轮第 `55` 块早停后引入 `80` 请求轮换与复用重连，次轮 `shadow-bybit-600-r2` 稳定跑完 **`600 / 600` 唯一区块 `60357699..60362355`（`57` 池、`21,621` WS 成交、`0` RPC 错误）**；`--maker-min-edge-bps 4.0` 实验组触发 `531` 个激活 leg 与 `2` 笔 `strict_cross`（`1/2` 正、`+$0.009713`、`oos_lcb = -3`），从实测对比确认默认 `6.5 bps` 做市边际门槛不可轻易下调，9 门禁保持 `7 / 9` 与 `release_permitted = false`。
 
 ## 阶段 3：双源 RPC 仲裁、双平面软件 EOA 部署与隔离签名就绪
 

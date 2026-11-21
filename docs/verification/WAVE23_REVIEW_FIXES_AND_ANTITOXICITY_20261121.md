@@ -66,3 +66,20 @@
 3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 552f1f6992b71d804db6239a3fda51b86c57a4684556ec43ddf7cba0a2f1e3cb`，退出码 `2`）**：
    - **通过**：`7 / 9` 项门禁；
    - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_lcb_net_edge_bps = 28 >= 5` 已达标，但 `oos_trades_count = 2 < 5` 未满最小样本下限）与 `owner_scope_release_manifest_present`（`rehearsal_only = true`）。下一步仅需在更高成交窗口运行未触碰长窗样本以累积 `oos_trades_count >= 5`。
+
+## 6. Wave 25 Bybit 汇率对齐、未冲销队列保位与 Keep-Alive 长窗重连验证（2026-11-21）
+
+针对 Wave 24 归因日志发现的两处结构失配与长跑连接断流问题完成三项修复，并运行两轮未触碰 600-Tick 实测（`reports/research/wave25-20261121/`，本地保留未入库）：
+
+1. **核心改动**：
+   - [bybit_spot_feed.py](../../src/oasis_agent/cross_venue/bybit_spot_feed.py)（`parse_bybit_orderbook_payload`）：买一/卖一订单簿与 WS/REST 成交统一采用 `usdt_peg.mid` 折算 USD（替代此前 `bid/ask` 与 `mid` 混用导致的顶档成交错位），[test_bybit_spot_feed.py](../../tests/unit/test_bybit_spot_feed.py) 验证盘口顶档与成交流逐位对齐。
+   - [maker_hedge_shadow.py](../../src/oasis_agent/cross_venue/maker_hedge_shadow.py)（`_next_queue_ahead_for_side` 与 `step()`）：先运行 `_check_and_flush_triggered_lots` 批量冲销，再仅对本步实际产生非 `touch_lift` 实盘冲销的 `realized_filled_sides` 开启 `post_fill_cooldown_steps`；低于 `$25` 门槛的未冲销 FIFO 部分成交保持 `queue_ahead == 0` 队列首位且不提前冷却；[test_maker_hedge_shadow.py](../../tests/unit/test_maker_hedge_shadow.py) 新增 `test_sub_threshold_partial_fifo_fill_retains_front_queue_without_premature_cooldown` 验证（5 组聚焦单测共 `65 passed`）。
+   - [run_multicall_100tick_campaign.py](../../scripts/run_multicall_100tick_campaign.py)：取消循环内每 30 tick 刷新 `active_usdt_peg` 造成的跨 tick 假 `touch_lift` 抖动；首轮（`shadow-bybit-600`）因公共 RPC 约百次 Keep-Alive 复用连接在 `reused=True, attempt=0` 抛出超时而安全停机后，将 `_KeepAliveHttpsPool` 默认 `max_requests_per_conn` 从 `200` 降至 `80` 并为 `HTTPException/OSError/TimeoutError/EOFError` 增加一次旧连接销毁重连（`test_dual_rpc_and_cex_dex_shadow.py` `27 passed`）。
+2. **基线、首轮早停对照与次轮完整 600-Tick 实测**：
+   - 新鲜基线：双源 Base RPC 仲裁锁定块 `60355703`（`secondary_rpc_verified=true`，`report_sha256 = 416975f5af46157dadab57283f5e893a1ed930bdf6c4c5c22a14eabca95bd0e6`）；`Opportunity Radar` `public-shadow`：`report_sha256 = fcae0fc49ca8396b1a6dadba133f44d271f1bacb3723ef49696c4c2dc76fbd67`。
+   - 首轮早停留存（`shadow-bybit-600`，`summary_sha256 = 3ca08527751facbccaee8ee9294dd7b45297a50255bed3b97f3734282510cb7a`）：`ticks_completed = 55 / 600`、`stopped_early = true`（`stop_reason = "Base shadow RPC transport failure"`、`115` RPC）；在统一汇率锚与固定 `active_usdt_peg` 下 55 个 tick 录得 `active_quote_legs = 55`、`touch_lift_fills = 0`、`cooldown_quote_skips = 0`。
+   - 续跑完整实测（`shadow-bybit-600-r2`，`--maker-min-edge-bps 4.0`，`summary_sha256 = b7425be7c180186a1cc2b6af22fc1225a1789fee8ef6ac6fcb2003e08ed8e38d`）：Keep-Alive 80 请求主动轮换配合失败重连完整跑通 **`600 / 600` 唯一 Base 区块**（`60357699..60362355`、`1,212` RPC 请求、`57` 个活跃池、`0` RPC 中断、`stopped_early = false`），Bybit WS 在遭遇 1 次断流后通过 14 次 REST 回补与 1 次重连完成全 600 块（`21,621` 笔实时成交、`feed_gap_cancels = 1`、`open_unhedged_lots = 0`、`unresolved_residuals = 0`）。
+   - 做市与 Gate 5 对照：`active_quote_legs = 531`（覆盖 `DEGEN-USD`、`AERO-USD`、`VVV-USD`、`VIRTUAL-USD`、`MORPHO-USD`）、`cooldown_quote_skips = 2`、`momentum_quote_skips = 4`；在 `--maker-min-edge-bps 4.0` 下触发 2 笔 `strict_cross` 成交（`VVV-USD` `-$0.023097` / `-1.025879 bps`、`VIRTUAL-USD` `+$0.032810` / `+1.461193 bps`），合计 `oos_trades_count = 2`、`oos_win_rate = 0.5000`、`oos_mean_net_edge_bps = +0.217657 bps`、`oos_lcb_net_edge_bps = -3`（`-2.219674 bps`）、净赚 `+$0.009713`、`oos_max_drawdown_usd = $0.023097`。实证显示 `4.0 bps` 做市边际在 `t -> t+1` 跨块漂移后偏薄，后续长窗应继续保持 Wave 24 的 `--maker-min-edge-bps 6.5` 默认门槛。
+3. **9 项门禁总验（`readiness_report.json`，`report_sha256 = 5564882e89d97d967c6118ebe052a8d4b38381e33fdbdb0bd74b51b69e5b2375`，退出码 `2`）**：
+   - **通过**：`7 / 9` 项门禁；
+   - **如实阻断（`2 / 9`）**：`positive_cost_adjusted_lcb_edge`（`oos_trades_count = 2 < 5` 且 `4.0 bps` 组 `oos_lcb_net_edge_bps = -3 < 5`）与 `owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = d86a74ab...`、`rehearsal_only = true`），`release_permitted = false`、`execution_eligible = false`。

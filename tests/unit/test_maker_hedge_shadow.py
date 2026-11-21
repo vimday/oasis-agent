@@ -1521,3 +1521,136 @@ def test_dynamic_maker_quote_sizer_rejects_oversized_inactive_notional() -> None
         fallback_notional_usdc=25_000_000,
     )
     assert chosen_usdc <= 100_000_000
+
+
+def test_sub_threshold_partial_fifo_fill_retains_front_queue_without_premature_cooldown() -> None:
+    """Sub-`$25` partial FIFO fills retain `queue_ahead == 0` and delay cooldown until flush."""
+    # ETH book with tight spread (2509.90 / 2510.00) so quoted_ask equals best_ask (2510.00).
+    # Keep bid below DEX sell ($2490 vs $2480) so only ask_maker is active and cleanly isolated.
+    cfg = MakerHedgeConfig(
+        trade_notional_usdc=200_000_000,
+        cex_maker_fee_bps=Decimal(0),
+        adverse_selection_bps=Decimal("1.5"),
+        min_quote_edge_bps=Decimal("5.0"),
+        tick_improvement_bps=Decimal(0),
+        preserve_queue_priority=True,
+        min_hedge_notional_usdc=25_000_000,
+        post_fill_cooldown_steps=2,
+    )
+    tracker = MakerHedgeLifecycleTracker(cfg)
+    gas_usd = Decimal("0.005")
+    qty_token = (200 * 10**18) // 2500  # 0.08 ETH -> ask edge ~37 bps
+
+    book = _make_book("ETH-USD", bid="2509.90", ask="2510.00", size="0.5", sequence=401)
+    s1 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s1.quote.ask_active is True
+    assert s1.quote.quoted_ask_usd == Decimal("2510.00")
+    assert tracker._resting_by_product["ETH-USD"].queue_ahead_ask == Decimal("0.5")
+
+    # Step 2: Drain 0.5 ETH ahead + $5.02 (~0.002 ETH < $25) partial fill -> held open, NOT flushed.
+    p_drain = CoinbaseTradePrint(
+        product_id="ETH-USD",
+        trade_id=1001,
+        price=Decimal("2510.00"),
+        size=Decimal("0.5"),
+        maker_side="sell",
+        traded_at_utc="2026-11-21T11:00:01Z",
+    )
+    p_partial = CoinbaseTradePrint(
+        product_id="ETH-USD",
+        trade_id=1002,
+        price=Decimal("2510.00"),
+        size=Decimal("0.002"),
+        maker_side="sell",
+        traded_at_utc="2026-11-21T11:00:02Z",
+    )
+    s2 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(p_drain, p_partial),
+    )
+    assert s2.fifo_fills == ()
+    assert len(tracker.open_lots()) == 1
+    assert s2.quote.ask_active is True
+    assert tracker.summary()["cooldown_quote_skips"] == 0
+    assert tracker._resting_by_product["ETH-USD"].queue_ahead_ask == Decimal(0)
+
+    # Step 3: Next ~$37.65 (0.015 ETH) fill catches front-of-queue order and flushes both lots!
+    p_flush = CoinbaseTradePrint(
+        product_id="ETH-USD",
+        trade_id=1003,
+        price=Decimal("2510.00"),
+        size=Decimal("0.015"),
+        maker_side="sell",
+        traded_at_utc="2026-11-21T11:00:03Z",
+    )
+    s3 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+        recent_trades=(p_flush,),
+    )
+    assert len(s3.fifo_fills) == 2
+    assert tracker.open_lots() == {}
+    # Cooldown engages now on step 3 (skip 1) and step 4 (skip 2), before resuming on step 5.
+    assert s3.quote.ask_active is False
+    assert tracker.summary()["cooldown_quote_skips"] == 1
+
+    s4 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s4.quote.ask_active is False
+    assert tracker.summary()["cooldown_quote_skips"] == 2
+
+    s5 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s5.quote.ask_active is False
+    assert tracker.summary()["cooldown_quote_skips"] == 3
+
+    s6 = tracker.step(
+        "ETH-USD",
+        current_book=book,
+        trade_notional_usdc=200_000_000,
+        dex_buy_token_out=qty_token,
+        trade_notional_token=qty_token,
+        dex_sell_usdc_out=198_400_000,
+        token_decimals=18,
+        gas_cost_usd=gas_usd,
+    )
+    assert s6.quote.ask_active is True
+    assert tracker.summary()["cooldown_quote_skips"] == 3
