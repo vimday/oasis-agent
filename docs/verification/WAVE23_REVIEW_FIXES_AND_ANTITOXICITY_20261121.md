@@ -135,3 +135,19 @@
    - **9 项门禁总验（`readiness_report.json`，`report_sha256 = 4d9001aa5e369beae33c80c744dc636fd607c02e431b261da0ef5e89a5310773`，退出码 `2`）**：
      - **通过**：**`8 / 9` 项门禁**（全部 `8` 项技术与样本外盈利门禁包括 **`positive_cost_adjusted_lcb_edge` 首次全部通过**，`validated = true`，`validation_error = null`）；
      - **仅剩人类实盘范围授权（`1 / 9`）**：`owner_scope_release_manifest_present`（演练清单 `manifest_sha256 = 13cac28803883a9cd45352741aaba57eccac85747cf3c24d31e9641d8f59d1d5`、`rehearsal_only = true`），系统继续严格保持 `release_permitted = false`、`execution_eligible = false`，直至所有者以真实密钥平面配置及 `--approve-software-scope --attestation ...` 签署本次有界实盘发布清单。
+
+---
+
+## 9. Wave 31 P2.2 双源预签名 RPC 模拟器与策略守护进程主循环接线收口（2026-11-22）
+
+针对 [2026-11-21 复核记录](REVIEW_208E3E8_07AA611_20261121.md) 保留的 **P2.2** 工程缺口（策略主循环此前仅轮询 `sync_status` 且缺少独立双源 JSON-RPC 预签名模拟器实现），Wave 31 完成端到端无密钥闭环接线：
+
+1. **双源 JSON-RPC 预签名模拟器（[profit_strategy_daemon.py](../../src/oasis_agent/live/profit_strategy_daemon.py)）**：
+   - 实现 `simulate_atomic_or_intent_envelope_dual` 与可调用配置对象 `DualRpcEnvelopeSimulator`，仅依赖只读 HTTPS JSON-RPC（仍零 `eth_account`、零私钥与零 `.env` 导入，且不在 [atomic_authority.py](../../src/oasis_agent/live/atomic_authority.py) 纯策略模块引入网络 I/O）；
+   - 按固定次序校验双端 `eth_chainId`、校验双端块高偏斜（`<= 32` 块）并按延迟锁定 `target_block`、校验相同 `blockHash`/`parentHash`/`stateRoot`、校验相同非空目标合约字节码与 `target_observed_code_hash`（支持 EVM `keccak256` 及 `sha256`）、执行 exact EIP-1559 交易上下文 `eth_call` 与 `eth_estimateGas`、并调用 Base OP `GasPriceOracle.getL1FeeUpperBound(uint256)` 计算 `l1_data_fee_wei` 与 `l2_gas_fee_wei`；
+   - 将 `eth_call` 返回 `(false, 0)` 精确标为 `early_aborted=True`、将 JSON-RPC 执行 `error` 标为 `reverted=True`，并将双端盈利分歧原样写入 `DualSimulationProof`，确保 `admit_atomic_or_intent_proposal` 稳定输出对应拒绝码；同时在 `submit_dual_simulated_intent` 异常捕获中加入 `RpcError`，保证双源传输故障 fail-closed 拦截。
+2. **主循环与 CLI 候选接线（[profit_strategy_daemon.py](../../src/oasis_agent/live/profit_strategy_daemon.py)、[run_profit_strategy.py](../../scripts/run_profit_strategy.py)）**：
+   - 新增 `StrategyCandidateIntent`、`ProfitStrategyBridge.__init__(..., simulate_fn=...)`、`ProfitStrategyBridge.run_tick` 与增强版 `ProfitStrategyBridge.run_loop`：每轮先对 `pending_count > 0` 调用 `reconcile_pending(receipt_fn=...)`，再对候选提案执行 `submit_dual_simulated_intent`，在向后兼容既有 JSON 字段的前提下通过可选 `last_reconciliation` 与 `last_submission` 输出状态；
+   - `scripts/run_profit_strategy.py` 新增 `--candidate-proposal-json` 参数，使用严格 `proposal_from_dict` 解码并禁止符号链接与 `--reconcile-only` 混用；`shadow` 模式维持永久只读阻断（`signed=false`、`broadcast=false`、`execution_eligible=false`）。
+3. **测试回归验证（[test_profit_authority_socket_and_compose.py](../../tests/unit/test_profit_authority_socket_and_compose.py)）**：
+   - 新增 `test_simulate_atomic_or_intent_envelope_dual_paths_and_quorum_failures` 与 `test_profit_strategy_run_loop_with_dual_simulator_and_cli_candidate`，覆盖 USDC/WETH 估值、`EarlyAborted`、JSON-RPC revert、双端盈利分歧、块哈希/字节码不一致 `DualRpcQuorumError`、AF_UNIX 回环实签广播与断流自动重对账，以及 CLI `--mode shadow`/`dry_run --candidate-proposal-json`；该单元测试文件 `15 passed`，`ruff` 与 `mypy src` 均零错误通过。

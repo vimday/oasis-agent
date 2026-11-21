@@ -10,14 +10,17 @@ import fcntl
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
+from oasis_agent.live.atomic_authority_socket import proposal_from_dict, strict_json_loads
 from oasis_agent.live.profit_strategy_daemon import (
+    BridgeSyncSnapshot,
     ProfitStrategyBridge,
     ProfitStrategyDaemonConfig,
+    StrategyCandidateIntent,
     atomic_write_json_file,
 )
 from oasis_agent.live.shutdown import run_with_term_handler
@@ -102,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=10.0,
         help="Authority Unix socket exchange timeout in seconds (default: 10.0).",
     )
+    parser.add_argument(
+        "--candidate-proposal-json",
+        type=Path,
+        default=None,
+        help="Optional serialized AtomicOrIntentProposal JSON file evaluated on tick 1.",
+    )
     return parser
 
 
@@ -129,6 +138,27 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--once conflicts with --max-ticks != 1")
     if args.out_json is not None and args.out_json.is_symlink():
         parser.error("--out-json cannot be a symlink")
+    candidate_fn: Callable[[BridgeSyncSnapshot], StrategyCandidateIntent | None] | None = None
+    if args.candidate_proposal_json is not None:
+        if args.reconcile_only:
+            parser.error("--candidate-proposal-json cannot be used with --reconcile-only")
+        if args.candidate_proposal_json.is_symlink():
+            parser.error("--candidate-proposal-json cannot be a symlink")
+        if not args.candidate_proposal_json.is_file():
+            raise ValueError("--candidate-proposal-json must reference an existing regular file")
+        candidate_proposal = proposal_from_dict(
+            strict_json_loads(args.candidate_proposal_json.read_bytes())
+        )
+        emitted_candidate = False
+
+        def _single_candidate(_snapshot: BridgeSyncSnapshot) -> StrategyCandidateIntent | None:
+            nonlocal emitted_candidate
+            if emitted_candidate:
+                return None
+            emitted_candidate = True
+            return StrategyCandidateIntent(proposal=candidate_proposal)
+
+        candidate_fn = _single_candidate
     if args.mode == "live":
         if args.policy_config is None:
             parser.error("--mode live requires --policy-config")
@@ -173,7 +203,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(payload, sort_keys=True), flush=True)
             return 3 if (result.halted or result.pending_count > 0) else 0
 
-        snapshots = bridge.run_loop(out_json=args.out_json)
+        snapshots = bridge.run_loop(out_json=args.out_json, candidate_fn=candidate_fn)
         final_payload = snapshots[-1].to_dict() if snapshots else bridge.sync_status().to_dict()
         print(json.dumps(final_payload, sort_keys=True), flush=True)
         return 0

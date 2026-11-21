@@ -50,18 +50,25 @@ from oasis_agent.live.atomic_authority_socket import (
 )
 from oasis_agent.live.authority_socket import fields_json
 from oasis_agent.live.canary_readiness import evaluate_profit_engine_readiness
+from oasis_agent.live.dual_rpc_probe import DualRpcQuorumError
+from oasis_agent.live.gas_oracle import ORACLE
 from oasis_agent.live.intent import SubmittedTransaction
 from oasis_agent.live.profit_strategy_daemon import (
     STRATEGY_DAEMON_SCHEMA,
+    DualRpcEnvelopeSimulator,
     ProfitStrategyBridge,
     ProfitStrategyDaemonConfig,
+    StrategyCandidateIntent,
+    simulate_atomic_or_intent_envelope_dual,
 )
-from oasis_agent.models.common import canonical_json, sha256_hex
+from oasis_agent.models.common import canonical_json, normalize_address, sha256_hex
 from oasis_agent.risk.capital_policy import CapitalRiskConfig, load_capital_risk_config
 from oasis_agent.risk.revert_budget import (
+    RevertBudgetStatus,
     RollingRevertBudgetPolicy,
     RollingRevertBudgetTracker,
 )
+from oasis_agent.sniping.venues import USDC, WETH
 from scripts import run_profit_authority as authority_cli
 from scripts import run_profit_strategy as strategy_cli
 from scripts import verify_profit_compose as compose_cli
@@ -1926,3 +1933,650 @@ def test_verify_profit_docker_confinement_cleanup_on_strategy_failure(
     assert len(harness.created_volumes) == 4
     assert harness.authority_container in harness.removed_containers
     assert set(harness.removed_volumes) == set(harness.created_volumes)
+
+
+class _SyntheticDualSimRpcTransport:
+    """Deterministic two-provider JSON-RPC transport for dual envelope simulation tests."""
+
+    def __init__(
+        self,
+        *,
+        runtime_code: bytes,
+        target: str = EXECUTOR,
+        block_number: int = 28_000_003,
+        lag_block_number: int = 28_000_001,
+        block_hash: str = SIM_BLOCK_HASH,
+        primary_profit: int = 2_000_000,
+        secondary_profit: int = 2_000_000,
+        primary_executed: bool = True,
+        secondary_executed: bool = True,
+        primary_gas_used: int = 195_000,
+        secondary_gas_used: int = 196_000,
+        l1_fee_wei: int = 50_000_000_000_000,
+        primary_call_reverts: bool = False,
+        secondary_call_reverts: bool = False,
+        primary_gas_reverts: bool = False,
+        secondary_block_hash: str | None = None,
+        secondary_code: bytes | None = None,
+    ) -> None:
+        self.runtime_code = runtime_code
+        self.target = normalize_address(target)
+        self.block_number = block_number
+        self.lag_block_number = lag_block_number
+        self.block_hash = block_hash
+        self.primary_profit = primary_profit
+        self.secondary_profit = secondary_profit
+        self.primary_executed = primary_executed
+        self.secondary_executed = secondary_executed
+        self.primary_gas_used = primary_gas_used
+        self.secondary_gas_used = secondary_gas_used
+        self.l1_fee_wei = l1_fee_wei
+        self.primary_call_reverts = primary_call_reverts
+        self.secondary_call_reverts = secondary_call_reverts
+        self.primary_gas_reverts = primary_gas_reverts
+        self.secondary_block_hash = secondary_block_hash or block_hash
+        self.secondary_code = runtime_code if secondary_code is None else secondary_code
+        self.calls: list[tuple[str, str]] = []
+
+    def __call__(self, url: str, payload: bytes, timeout_s: float) -> bytes:
+        del timeout_s
+        req = json.loads(payload.decode("utf-8"))
+        method = str(req["method"])
+        params = req["params"]
+        role = "primary" if "primary" in url else "secondary"
+        self.calls.append((role, method))
+
+        if method == "eth_chainId":
+            return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": hex(8453)}).encode(
+                "utf-8"
+            )
+        if method == "eth_blockNumber":
+            return json.dumps(
+                {"jsonrpc": "2.0", "id": req["id"], "result": hex(self.block_number)}
+            ).encode("utf-8")
+        if method == "eth_getBlockByNumber":
+            bhash = self.block_hash if role == "primary" else self.secondary_block_hash
+            return json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": req["id"],
+                    "result": {
+                        "number": hex(self.lag_block_number),
+                        "hash": bhash,
+                        "parentHash": f"0x{0x12:064x}",
+                        "stateRoot": f"0x{0x34:064x}",
+                    },
+                }
+            ).encode("utf-8")
+        if method == "eth_getCode":
+            code = self.runtime_code if role == "primary" else self.secondary_code
+            return json.dumps(
+                {"jsonrpc": "2.0", "id": req["id"], "result": "0x" + code.hex()}
+            ).encode("utf-8")
+        if method == "eth_call":
+            call_obj = params[0]
+            call_to = normalize_address(str(call_obj["to"]))
+            if call_to == normalize_address(ORACLE):
+                encoded_l1 = "0x" + encode(["uint256"], [self.l1_fee_wei]).hex()
+                return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": encoded_l1}).encode(
+                    "utf-8"
+                )
+            reverted = (
+                self.primary_call_reverts if role == "primary" else self.secondary_call_reverts
+            )
+            if reverted:
+                return json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req["id"],
+                        "error": {"code": -32000, "message": "execution reverted"},
+                    }
+                ).encode("utf-8")
+            executed = self.primary_executed if role == "primary" else self.secondary_executed
+            profit = self.primary_profit if role == "primary" else self.secondary_profit
+            ret_hex = "0x" + encode(["bool", "uint256"], [executed, profit]).hex()
+            return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": ret_hex}).encode(
+                "utf-8"
+            )
+        if method == "eth_estimateGas":
+            if role == "primary" and self.primary_gas_reverts:
+                return json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": req["id"],
+                        "error": {"code": -32000, "message": "gas estimation reverted"},
+                    }
+                ).encode("utf-8")
+            gas_used = self.primary_gas_used if role == "primary" else self.secondary_gas_used
+            return json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": hex(gas_used)}).encode(
+                "utf-8"
+            )
+        raise AssertionError(f"unexpected RPC method: {method}")
+
+
+def _build_token_envelope(
+    *,
+    account: str,
+    code_hash: str,
+    profit_token: str,
+    nonce: int = 1,
+    min_net_profit_raw: int = 1_000_000,
+) -> EnvelopeProposal:
+    deadline_s = NOW_S + 12
+    norm_profit = normalize_address(profit_token)
+    other_token = normalize_address(WETH if norm_profit == normalize_address(USDC) else USDC)
+    intent = AtomicCycleIntent(
+        chain_id=8453,
+        executor_address=EXECUTOR,
+        executor_code_hash=code_hash,
+        nonce=7,
+        deadline=deadline_s,
+        profit_token=norm_profit,
+        initial_amount=10**8,
+        min_net_profit=min_net_profit_raw,
+        guard=PrecheckGuardSpec(
+            pool=POOL_V3,
+            min_sqrt_price_x96=UINT160_SQRT_1 - 100,
+            max_sqrt_price_x96=UINT160_SQRT_1 + 100,
+        ),
+        legs=(
+            SwapLegSpec(
+                pool=POOL_V3,
+                token_in=norm_profit,
+                token_out=other_token,
+                zero_for_one=True,
+                sqrt_price_limit_x96=UINT160_SQRT_1 - 1,
+                v2_fee_bps=0,
+            ),
+            SwapLegSpec(
+                pool=POOL_V2,
+                token_in=other_token,
+                token_out=norm_profit,
+                zero_for_one=False,
+                sqrt_price_limit_x96=0,
+                v2_fee_bps=30,
+            ),
+        ),
+    )
+    calldata, _ = encode_execute_cycle_calldata(intent)
+    return EnvelopeProposal(
+        chain_id=8453,
+        account=account,
+        nonce=nonce,
+        target=EXECUTOR,
+        target_observed_code_hash=code_hash,
+        value_wei=0,
+        calldata=calldata,
+        gas_limit=350_000,
+        max_fee_per_gas_wei=1_000_000_000,
+        max_priority_fee_wei=50_000_000,
+        profit_token=norm_profit,
+        min_net_profit_raw=min_net_profit_raw,
+        referenced_pools=(POOL_V3, POOL_V2),
+        referenced_routers=(),
+        referenced_reactor=None,
+        deadline_s=deadline_s,
+    )
+
+
+def test_simulate_atomic_or_intent_envelope_dual_paths_and_quorum_failures() -> None:
+    acct = Account.create()
+    runtime_code = b"\x60\x80\x60\x40\x52oasis-executor-runtime"
+    keccak_hash = "0x" + keccak(runtime_code).hex()
+    sha_hash = "0x" + sha256_hex(runtime_code)
+
+    usdc_env = _build_token_envelope(
+        account=acct.address,
+        code_hash=keccak_hash,
+        profit_token=USDC,
+        min_net_profit_raw=1_000_000,
+    )
+    happy_transport = _SyntheticDualSimRpcTransport(runtime_code=runtime_code)
+    proof = simulate_atomic_or_intent_envelope_dual(
+        usdc_env,
+        primary_rpc_url="https://primary.rpc.example",
+        primary_source="base_primary",
+        secondary_rpc_url="https://secondary.rpc.example",
+        secondary_source="base_secondary",
+        eth_usd_micros=2_500_000_000,
+        transport=happy_transport,
+    )
+    assert proof.block_number == 28_000_001
+    assert proof.block_hash == SIM_BLOCK_HASH
+    assert proof.primary_reverted is False
+    assert proof.secondary_reverted is False
+    assert proof.primary_early_aborted is False
+    assert proof.secondary_early_aborted is False
+    assert proof.primary_gas_used == 195_000
+    assert proof.secondary_gas_used == 196_000
+    assert proof.l2_gas_fee_wei == 196_000 * 1_000_000_000
+    assert proof.l1_data_fee_wei == 50_000_000_000_000
+    assert proof.simulated_profit_value_wei == (2_000_000 * 10**18) // 2_500_000_000
+
+    # WETH profit token uses raw profit directly in wei and accepts SHA-256 runtime code hash.
+    weth_env = _build_token_envelope(
+        account=acct.address,
+        code_hash=sha_hash,
+        profit_token=WETH,
+        min_net_profit_raw=400_000_000_000_000,
+    )
+    sim_callable = DualRpcEnvelopeSimulator(
+        primary_rpc_url="https://primary.rpc.example",
+        primary_source="base_primary",
+        secondary_rpc_url="https://secondary.rpc.example",
+        secondary_source="base_secondary",
+        transport=_SyntheticDualSimRpcTransport(
+            runtime_code=runtime_code,
+            primary_profit=750_000_000_000_000,
+            secondary_profit=750_000_000_000_000,
+        ),
+    )
+    weth_proof = sim_callable(weth_env)
+    assert weth_proof.simulated_profit_value_wei == 750_000_000_000_000
+
+    # Missing eth_usd_micros for USDC profit token raises upfront without making RPC calls.
+    with pytest.raises(ValueError, match="eth_usd_micros"):
+        simulate_atomic_or_intent_envelope_dual(
+            usdc_env,
+            primary_rpc_url="https://primary.rpc.example",
+            primary_source="base_primary",
+            secondary_rpc_url="https://secondary.rpc.example",
+            secondary_source="base_secondary",
+            transport=happy_transport,
+        )
+
+    usdc_policy = AtomicExecutionPolicy(
+        chain_id=8453,
+        operator_account=acct.address,
+        executor_address=EXECUTOR,
+        executor_code_hash=keccak_hash,
+        intent_vault_address=INTENT_VAULT,
+        intent_vault_code_hash=INTENT_VAULT_CODE_HASH,
+        allowed_pools=frozenset({POOL_V3, POOL_V2}),
+        allowed_routers=frozenset({ROUTER}),
+        allowed_reactors=frozenset({REACTOR}),
+        allowed_profit_tokens=frozenset({normalize_address(USDC)}),
+        release_gate_open=True,
+    )
+
+    # Early abort (False, 0) surfaces in DualSimulationProof and is denied deterministically.
+    abort_proof = simulate_atomic_or_intent_envelope_dual(
+        usdc_env,
+        primary_rpc_url="https://primary.rpc.example",
+        primary_source="base_primary",
+        secondary_rpc_url="https://secondary.rpc.example",
+        secondary_source="base_secondary",
+        eth_usd_micros=2_500_000_000,
+        transport=_SyntheticDualSimRpcTransport(
+            runtime_code=runtime_code,
+            primary_executed=False,
+            primary_gas_used=58_204,
+            secondary_executed=True,
+        ),
+    )
+    assert abort_proof.primary_early_aborted is True
+    assert abort_proof.primary_reverted is False
+    assert abort_proof.primary_profit_delta_raw == 0
+    assert abort_proof.primary_gas_used == 58_204
+    abort_decision = admit_atomic_or_intent_proposal(
+        policy=usdc_policy,
+        proposal=usdc_env,
+        simulation=abort_proof,
+        now_s=NOW_S,
+        daily_loss_usd_micros=0,
+        cumulative_loss_usd_micros=0,
+        revert_budget_status=RevertBudgetStatus.ACTIVE,
+    )
+    assert abort_decision.admitted is False
+    assert "simulation_early_aborted" in abort_decision.reasons
+
+    # JSON-RPC error revert marks reverted=True and is rejected with simulation_reverted.
+    revert_proof = simulate_atomic_or_intent_envelope_dual(
+        usdc_env,
+        primary_rpc_url="https://primary.rpc.example",
+        primary_source="base_primary",
+        secondary_rpc_url="https://secondary.rpc.example",
+        secondary_source="base_secondary",
+        eth_usd_micros=2_500_000_000,
+        transport=_SyntheticDualSimRpcTransport(
+            runtime_code=runtime_code,
+            secondary_call_reverts=True,
+        ),
+    )
+    assert revert_proof.secondary_reverted is True
+    assert revert_proof.secondary_gas_used == 0
+    assert revert_proof.secondary_profit_delta_raw == 0
+    revert_decision = admit_atomic_or_intent_proposal(
+        policy=usdc_policy,
+        proposal=usdc_env,
+        simulation=revert_proof,
+        now_s=NOW_S,
+        daily_loss_usd_micros=0,
+        cumulative_loss_usd_micros=0,
+        revert_budget_status=RevertBudgetStatus.ACTIVE,
+    )
+    assert revert_decision.admitted is False
+    assert "simulation_reverted" in revert_decision.reasons
+
+    # Profit disagreement between providers is preserved and rejected by admission.
+    disagree_proof = simulate_atomic_or_intent_envelope_dual(
+        usdc_env,
+        primary_rpc_url="https://primary.rpc.example",
+        primary_source="base_primary",
+        secondary_rpc_url="https://secondary.rpc.example",
+        secondary_source="base_secondary",
+        eth_usd_micros=2_500_000_000,
+        transport=_SyntheticDualSimRpcTransport(
+            runtime_code=runtime_code,
+            primary_profit=2_000_000,
+            secondary_profit=1_900_000,
+        ),
+    )
+    assert disagree_proof.primary_profit_delta_raw == 2_000_000
+    assert disagree_proof.secondary_profit_delta_raw == 1_900_000
+    disagree_decision = admit_atomic_or_intent_proposal(
+        policy=usdc_policy,
+        proposal=usdc_env,
+        simulation=disagree_proof,
+        now_s=NOW_S,
+        daily_loss_usd_micros=0,
+        cumulative_loss_usd_micros=0,
+        revert_budget_status=RevertBudgetStatus.ACTIVE,
+    )
+    assert disagree_decision.admitted is False
+    assert "simulation_profit_disagreement" in disagree_decision.reasons
+
+    # Block hash mismatch or target bytecode mismatch fails closed with DualRpcQuorumError.
+    with pytest.raises(DualRpcQuorumError, match="header"):
+        simulate_atomic_or_intent_envelope_dual(
+            usdc_env,
+            primary_rpc_url="https://primary.rpc.example",
+            primary_source="base_primary",
+            secondary_rpc_url="https://secondary.rpc.example",
+            secondary_source="base_secondary",
+            eth_usd_micros=2_500_000_000,
+            transport=_SyntheticDualSimRpcTransport(
+                runtime_code=runtime_code,
+                secondary_block_hash=f"0x{0x99:064x}",
+            ),
+        )
+
+    with pytest.raises(DualRpcQuorumError, match="bytecode"):
+        simulate_atomic_or_intent_envelope_dual(
+            usdc_env,
+            primary_rpc_url="https://primary.rpc.example",
+            primary_source="base_primary",
+            secondary_rpc_url="https://secondary.rpc.example",
+            secondary_source="base_secondary",
+            eth_usd_micros=2_500_000_000,
+            transport=_SyntheticDualSimRpcTransport(
+                runtime_code=runtime_code,
+                secondary_code=b"\x60\x00\x00",
+            ),
+        )
+
+
+def test_profit_strategy_run_loop_with_dual_simulator_and_cli_candidate() -> None:
+    acct = Account.create()
+    runtime_code = b"\x60\x80\x60\x40\x52oasis-bridge-e2e"
+    exec_code_hash = "0x" + keccak(runtime_code).hex()
+    usdc_policy = AtomicExecutionPolicy(
+        chain_id=8453,
+        operator_account=acct.address,
+        executor_address=EXECUTOR,
+        executor_code_hash=exec_code_hash,
+        intent_vault_address=INTENT_VAULT,
+        intent_vault_code_hash=INTENT_VAULT_CODE_HASH,
+        allowed_pools=frozenset({POOL_V3, POOL_V2}),
+        allowed_routers=frozenset({ROUTER}),
+        allowed_reactors=frozenset({REACTOR}),
+        allowed_profit_tokens=frozenset({normalize_address(USDC)}),
+        release_gate_open=False,
+    )
+    risk_path = REPO_ROOT / "configs/profit-engine-risk.example.json"
+
+    with _short_socket_dir() as td:
+        root = Path(td)
+        os.chmod(root, 0o700)
+        auth_state_dir = root / "auth"
+        strat_state_dir = root / "strat"
+        auth_state_dir.mkdir(mode=0o700)
+        strat_state_dir.mkdir(mode=0o700)
+        endpoint = root / "r.sock"
+
+        with ProfitSigningAuthorityServer(
+            policy=usdc_policy,
+            state_dir=auth_state_dir,
+            endpoint=endpoint,
+            key_signer=make_local_key_signer(bytes(acct.key), acct.address),
+            max_signatures=5,
+            ttl_seconds=30,
+            allow_rehearsal_loopback_anvil=True,
+            now_fn=lambda: NOW_S,
+        ) as server:
+            worker = threading.Thread(target=lambda: server.serve(max_requests=18))
+            worker.start()
+            try:
+                sim = DualRpcEnvelopeSimulator(
+                    primary_rpc_url="https://primary.rpc.example",
+                    primary_source="base-publicnode-archive",
+                    secondary_rpc_url="https://secondary.rpc.example",
+                    secondary_source="alchemy-base-archive",
+                    eth_usd_micros=2_500_000_000,
+                    transport=_SyntheticDualSimRpcTransport(runtime_code=runtime_code),
+                )
+                live_cfg = ProfitStrategyDaemonConfig(
+                    authority_socket=endpoint,
+                    mode="live",
+                    risk_config_path=risk_path,
+                    policy=usdc_policy,
+                    state_dir=strat_state_dir,
+                    poll_interval_ms=10,
+                    max_ticks=2,
+                    rehearsal_loopback_anvil=True,
+                )
+                bridge = ProfitStrategyBridge(live_cfg, now_fn=lambda: NOW_S, simulate_fn=sim)
+
+                # Tick 1: dual-simulates envelope, signs over AF_UNIX, broadcasts, settles.
+                # Tick 2: no new candidate emitted (candidate_fn returns None).
+                def _candidate_fn(snap: Any) -> StrategyCandidateIntent | None:
+                    if snap.tick != 1:
+                        return None
+                    return StrategyCandidateIntent(
+                        envelope=_build_token_envelope(
+                            account=acct.address,
+                            code_hash=exec_code_hash,
+                            profit_token=USDC,
+                            nonce=1,
+                        ),
+                        notional_usd_micros=50_000_000,
+                    )
+
+                out_loop_json = root / "loop.json"
+                snapshots = bridge.run_loop(
+                    out_json=out_loop_json,
+                    sleep_fn=lambda _s: None,
+                    candidate_fn=_candidate_fn,
+                    broadcast_fn=lambda _raw, sub: sub.transaction_hash,
+                    receipt_fn=lambda tx_h: _reconciliation_payload(tx_hash=tx_h, status=1),
+                )
+                assert len(snapshots) == 2
+                snap1 = snapshots[0]
+                assert snap1.last_submission is not None
+                assert snap1.last_submission["status"] == "settled"
+                assert snap1.last_submission["signed"] is True
+                assert snap1.last_submission["broadcast"] is True
+                assert snap1.last_submission["reconciled"] is True
+                assert snap1.authority_status.signatures_used == 1
+                assert snap1.pending_count == 0
+                assert snap1.execution_eligible is False
+                assert snap1.release_permitted is False
+
+                # Tick 3 with a mismatched block-hash dual simulator fails closed without signing.
+                bad_sim = DualRpcEnvelopeSimulator(
+                    primary_rpc_url="https://primary.rpc.example",
+                    primary_source="base-publicnode-archive",
+                    secondary_rpc_url="https://secondary.rpc.example",
+                    secondary_source="alchemy-base-archive",
+                    eth_usd_micros=2_500_000_000,
+                    transport=_SyntheticDualSimRpcTransport(
+                        runtime_code=runtime_code,
+                        secondary_block_hash=f"0x{0x88:064x}",
+                    ),
+                )
+                fail_snap = bridge.run_tick(
+                    tick=3,
+                    candidate_fn=lambda _s: StrategyCandidateIntent(
+                        envelope=_build_token_envelope(
+                            account=acct.address,
+                            code_hash=exec_code_hash,
+                            profit_token=USDC,
+                            nonce=2,
+                        ),
+                        simulate_fn=bad_sim,
+                        notional_usd_micros=50_000_000,
+                    ),
+                )
+                assert fail_snap.last_submission is not None
+                assert fail_snap.last_submission["status"] == "simulation_or_admission_error"
+                assert fail_snap.last_submission["signed"] is False
+                assert fail_snap.authority_status.signatures_used == 1
+
+                # Pending ambiguous tx reconciled automatically on next run_tick with receipt_fn.
+                ambig_bridge = ProfitStrategyBridge(
+                    ProfitStrategyDaemonConfig(
+                        authority_socket=endpoint,
+                        mode="live",
+                        risk_config_path=risk_path,
+                        policy=usdc_policy,
+                        state_dir=strat_state_dir,
+                        rehearsal_loopback_anvil=True,
+                    ),
+                    now_fn=lambda: NOW_S,
+                    simulate_fn=sim,
+                )
+                ambig_res = ambig_bridge.submit_dual_simulated_intent(
+                    envelope=_build_token_envelope(
+                        account=acct.address,
+                        code_hash=exec_code_hash,
+                        profit_token=USDC,
+                        nonce=2,
+                    ),
+                    notional_usd_micros=50_000_000,
+                    broadcast_fn=lambda _r, _s: (_ for _ in ()).throw(TimeoutError("lost")),
+                )
+                assert ambig_res.status == "ambiguous_halted"
+                assert ambig_res.tx_hash is not None
+                rec_tick = ambig_bridge.run_tick(
+                    tick=4,
+                    receipt_fn=lambda tx_h: _reconciliation_payload(tx_hash=tx_h, status=1),
+                )
+                assert rec_tick.last_reconciliation is not None
+                assert ambig_res.tx_hash in rec_tick.last_reconciliation["settled_hashes"]
+
+                # Shadow CLI evaluates candidate -> shadow_blocked, 0 signatures used.
+                cand_prop = _sample_executor_proposal(account=acct.address, nonce=3)
+                cand_path = root / "candidate.json"
+                cand_path.write_text(json.dumps(proposal_to_dict(cand_prop)), encoding="utf-8")
+                shadow_cli_out = root / "shadow_cand_out.json"
+                rc_shadow = strategy_cli.main(
+                    [
+                        "--mode",
+                        "shadow",
+                        "--once",
+                        "--authority-socket",
+                        str(endpoint),
+                        "--risk-config",
+                        str(risk_path),
+                        "--account",
+                        acct.address,
+                        "--candidate-proposal-json",
+                        str(cand_path),
+                        "--out-json",
+                        str(shadow_cli_out),
+                    ]
+                )
+                assert rc_shadow == 0
+                shadow_out_payload = json.loads(shadow_cli_out.read_text(encoding="utf-8"))
+                assert shadow_out_payload["last_submission"]["status"] == "shadow_blocked"
+                assert shadow_out_payload["last_submission"]["signed"] is False
+            finally:
+                worker.join(timeout=6.0)
+            assert not worker.is_alive()
+
+        # Dedicated CLI dry_run --candidate-proposal-json check against open release policy.
+        dry_endpoint = root / "d.sock"
+        dry_auth_dir = root / "auth_dry"
+        dry_auth_dir.mkdir(mode=0o700)
+        dry_policy = AtomicExecutionPolicy(
+            chain_id=8453,
+            operator_account=acct.address,
+            executor_address=EXECUTOR,
+            executor_code_hash=exec_code_hash,
+            intent_vault_address=INTENT_VAULT,
+            intent_vault_code_hash=INTENT_VAULT_CODE_HASH,
+            allowed_pools=frozenset({POOL_V3, POOL_V2}),
+            allowed_routers=frozenset({ROUTER}),
+            allowed_reactors=frozenset({REACTOR}),
+            allowed_profit_tokens=frozenset({normalize_address(USDC)}),
+            release_gate_open=True,
+        )
+        dry_policy_path = root / "dry_policy_open.json"
+        dry_policy_path.write_text(json.dumps(_policy_json_dict(dry_policy)), encoding="utf-8")
+        dry_cand_path = root / "dry_cand_open.json"
+        dry_cand_path.write_text(
+            json.dumps(
+                proposal_to_dict(
+                    AtomicOrIntentProposal(
+                        envelope=_build_token_envelope(
+                            account=acct.address,
+                            code_hash=exec_code_hash,
+                            profit_token=USDC,
+                            nonce=1,
+                        ),
+                        simulation=_sample_simulation(),
+                        now_s=NOW_S,
+                    )
+                )
+            ),
+            encoding="utf-8",
+        )
+        dry_cli_out = root / "dry_cli_out.json"
+        with ProfitSigningAuthorityServer(
+            policy=dry_policy,
+            state_dir=dry_auth_dir,
+            endpoint=dry_endpoint,
+            key_signer=make_local_key_signer(bytes(acct.key), acct.address),
+            max_signatures=2,
+            ttl_seconds=30,
+            now_fn=lambda: NOW_S,
+        ) as dry_server:
+            dry_worker = threading.Thread(target=lambda: dry_server.serve(max_requests=3))
+            dry_worker.start()
+            try:
+                rc_dry = strategy_cli.main(
+                    [
+                        "--mode",
+                        "dry_run",
+                        "--once",
+                        "--authority-socket",
+                        str(dry_endpoint),
+                        "--risk-config",
+                        str(risk_path),
+                        "--policy-config",
+                        str(dry_policy_path),
+                        "--candidate-proposal-json",
+                        str(dry_cand_path),
+                        "--out-json",
+                        str(dry_cli_out),
+                    ]
+                )
+                assert rc_dry == 0
+                dry_payload = json.loads(dry_cli_out.read_text(encoding="utf-8"))
+                assert dry_payload["last_submission"]["status"] == "dry_run_admitted"
+                assert dry_payload["last_submission"]["admitted"] is True
+                assert dry_payload["last_submission"]["signed"] is False
+                assert dry_payload["authority_status"]["signatures_used"] == 0
+            finally:
+                dry_worker.join(timeout=6.0)
+            assert not dry_worker.is_alive()

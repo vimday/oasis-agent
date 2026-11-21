@@ -10,6 +10,8 @@ secrets. In `shadow` mode, it only reads `status()` + computes headroom and emit
 `execution_eligible=False` and `release_permitted=False`.
 """
 
+import json
+import math
 import os
 import socket
 import stat
@@ -22,6 +24,16 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Final, Literal, Protocol
 
+from eth_abi.abi import decode, encode
+from eth_hash.auto import keccak
+
+from ..errors import RpcError
+from ..evidence.rpc_validation import (
+    rpc_quantity,
+    strict_json_object,
+    strict_object,
+    strict_string,
+)
 from ..models.common import canonical_json, normalize_address, normalize_hash32, sha256_hex
 from ..reporting.live_release import require_live_release
 from ..risk.capital_policy import (
@@ -33,6 +45,7 @@ from ..risk.capital_policy import (
     load_capital_risk_config,
 )
 from ..risk.revert_budget import RevertBudgetStatus
+from ..sniping.venues import USDC, WETH
 from .atomic_authority import (
     AtomicExecutionPolicy,
     DualSimulationProof,
@@ -52,6 +65,21 @@ from .atomic_authority_socket import (
     validate_socket_endpoint,
 )
 from .canary_readiness import verify_profit_engine_readiness_report
+from .dual_rpc_probe import (
+    DEFAULT_BLOCK_LAG,
+    DEFAULT_PRIMARY_PROVIDER,
+    DEFAULT_PRIMARY_URL,
+    DEFAULT_SECONDARY_PROVIDER,
+    DEFAULT_SECONDARY_URL,
+    DEFAULT_TIMEOUT_S,
+    MAX_RESPONSE_BYTES,
+    DualRpcQuorumError,
+    _default_https_transport,
+    _single_rpc_call,
+    _validate_provider_label,
+    _validate_rpc_endpoint,
+)
+from .gas_oracle import ORACLE
 from .intent import SubmittedTransaction
 
 STRATEGY_DAEMON_SCHEMA: Final[str] = "oasis.profit-strategy-daemon.v1"
@@ -402,6 +430,33 @@ class AuthorityLedgerView:
 
 
 @dataclass(frozen=True, slots=True)
+class StrategyCandidateIntent:
+    """Candidate envelope or prebuilt proposal emitted for a single strategy tick."""
+
+    envelope: EnvelopeProposal | None = None
+    proposal: AtomicOrIntentProposal | None = None
+    simulate_fn: Callable[[EnvelopeProposal], DualSimulationProof] | None = None
+    notional_usd_micros: int | None = None
+    cash_available_usd_micros: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.proposal is None and self.envelope is None:
+            raise ValueError("candidate requires either proposal or envelope")
+        if self.proposal is not None and (
+            self.envelope is not None or self.simulate_fn is not None
+        ):
+            raise ValueError("pass either proposal or envelope + simulate_fn, not both")
+        if self.proposal is not None and not isinstance(self.proposal, AtomicOrIntentProposal):
+            raise TypeError("proposal must be an AtomicOrIntentProposal")
+        if self.envelope is not None and not isinstance(self.envelope, EnvelopeProposal):
+            raise TypeError("envelope must be an EnvelopeProposal")
+        if self.notional_usd_micros is not None:
+            _require_plain_int(self.notional_usd_micros, "notional_usd_micros", low=1)
+        if self.cash_available_usd_micros is not None:
+            _require_plain_int(self.cash_available_usd_micros, "cash_available_usd_micros", low=0)
+
+
+@dataclass(frozen=True, slots=True)
 class BridgeSyncSnapshot:
     """Synchronized authority status + capital headroom snapshot for one tick."""
 
@@ -424,10 +479,12 @@ class BridgeSyncSnapshot:
     release_permitted: bool
     tick: int
     schema: str = STRATEGY_DAEMON_SCHEMA
+    last_submission: dict[str, Any] | None = None
+    last_reconciliation: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize bridge status snapshot into deterministic JSON form."""
-        return {
+        payload: dict[str, Any] = {
             "schema": self.schema,
             "mode": self.mode,
             "tick": self.tick,
@@ -448,6 +505,11 @@ class BridgeSyncSnapshot:
             "execution_eligible": self.execution_eligible,
             "release_permitted": self.release_permitted,
         }
+        if self.last_submission is not None:
+            payload["last_submission"] = dict(self.last_submission)
+        if self.last_reconciliation is not None:
+            payload["last_reconciliation"] = dict(self.last_reconciliation)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -701,6 +763,479 @@ def _parse_authority_status(
     )
 
 
+_GET_L1_FEE_UPPER_BOUND_SELECTOR: Final[bytes] = keccak(b"getL1FeeUpperBound(uint256)")[:4]
+_MAX_RPC_TIP_SKEW_BLOCKS: Final[int] = 32
+_TOKEN_USDC: Final[str] = normalize_address(USDC)
+_TOKEN_WETH: Final[str] = normalize_address(WETH)
+
+
+def _validate_simulator_args(
+    *,
+    primary_rpc_url: str,
+    primary_source: str,
+    secondary_rpc_url: str,
+    secondary_source: str,
+    block_lag: int,
+    pinned_block_number: int | None,
+    eth_usd_micros: int | None,
+    timeout_s: float,
+    validate_endpoints: bool,
+) -> tuple[str, str, float]:
+    primary_label = _validate_provider_label(primary_source, "primary_source")
+    secondary_label = _validate_provider_label(secondary_source, "secondary_source")
+    if primary_label.lower() == secondary_label.lower():
+        raise DualRpcQuorumError("primary_source and secondary_source must be distinct")
+    _require_plain_int(block_lag, "block_lag", low=0)
+    if pinned_block_number is not None:
+        _require_plain_int(pinned_block_number, "pinned_block_number", low=1)
+    if eth_usd_micros is not None:
+        _require_plain_int(eth_usd_micros, "eth_usd_micros", low=1)
+    if (
+        isinstance(timeout_s, bool)
+        or not isinstance(timeout_s, (int, float))
+        or not math.isfinite(float(timeout_s))
+        or float(timeout_s) <= 0
+    ):
+        raise DualRpcQuorumError("timeout_s must be a positive finite number")
+    if validate_endpoints:
+        p_netloc, p_host, p_port = _validate_rpc_endpoint(primary_rpc_url, role="primary")
+        s_netloc, s_host, s_port = _validate_rpc_endpoint(secondary_rpc_url, role="secondary")
+        if p_netloc == s_netloc or (p_host, p_port) == (s_host, s_port):
+            raise DualRpcQuorumError(
+                "primary_rpc_url and secondary_rpc_url must have distinct netlocs"
+            )
+    else:
+        for role, url in (
+            ("primary_rpc_url", primary_rpc_url),
+            ("secondary_rpc_url", secondary_rpc_url),
+        ):
+            if not isinstance(url, str) or not url.strip():
+                raise DualRpcQuorumError(f"{role} must be a non-empty string")
+        if primary_rpc_url.strip() == secondary_rpc_url.strip():
+            raise DualRpcQuorumError("primary_rpc_url and secondary_rpc_url must be distinct")
+    return primary_label, secondary_label, float(timeout_s)
+
+
+def _rpc_call_or_revert(
+    send: Callable[[str, bytes, float], bytes],
+    url: str,
+    *,
+    role: str,
+    method: str,
+    params: list[object],
+    timeout_s: float,
+) -> tuple[object | None, bool]:
+    req_bytes = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    resp_bytes = send(url, req_bytes, timeout_s)
+    if not isinstance(resp_bytes, bytes) or len(resp_bytes) > MAX_RESPONSE_BYTES:
+        raise RpcError(f"{role} {method} response must be bounded bytes")
+    try:
+        envelope = strict_json_object(resp_bytes)
+    except ValueError as exc:
+        raise DualRpcQuorumError(f"{role} {method} returned invalid JSON: {exc}") from exc
+    if (
+        envelope.get("jsonrpc") != "2.0"
+        or type(envelope.get("id")) is not int
+        or envelope["id"] != 1
+    ):
+        raise DualRpcQuorumError(f"{role} {method} JSON-RPC version or ID mismatch")
+    if ("result" in envelope) == ("error" in envelope):
+        raise DualRpcQuorumError(f"{role} {method} must contain exactly one result or error")
+    if "error" in envelope:
+        return None, True
+    return envelope["result"], False
+
+
+def _query_pinned_block_header(
+    send: Callable[[str, bytes, float], bytes],
+    url: str,
+    *,
+    role: str,
+    target_block: int,
+    timeout_s: float,
+) -> tuple[str, str, str]:
+    raw_header = _single_rpc_call(
+        send,
+        url,
+        role=role,
+        method="eth_getBlockByNumber",
+        params=[hex(target_block), False],
+        timeout_s=timeout_s,
+    )
+    try:
+        header = strict_object(raw_header, f"{role} block header")
+        header_num = rpc_quantity(header.get("number"))
+        if header_num != target_block:
+            raise DualRpcQuorumError(
+                f"{role} returned block {header_num}, expected pinned block {target_block}"
+            )
+        block_hash = normalize_hash32(strict_string(header.get("hash"), "hash"), "hash")
+        if int(block_hash, 16) == 0:
+            raise DualRpcQuorumError(f"{role} returned zero block hash")
+        parent_hash = normalize_hash32(
+            strict_string(header.get("parentHash"), "parentHash"), "parentHash"
+        )
+        state_root = normalize_hash32(
+            strict_string(header.get("stateRoot"), "stateRoot"), "stateRoot"
+        )
+    except ValueError as exc:
+        if isinstance(exc, DualRpcQuorumError):
+            raise
+        raise DualRpcQuorumError(f"{role} block header invalid: {exc}") from exc
+    return block_hash, parent_hash, state_root
+
+
+def _decode_runtime_code_bytes(
+    send: Callable[[str, bytes, float], bytes],
+    url: str,
+    *,
+    role: str,
+    target: str,
+    pin: dict[str, object],
+    timeout_s: float,
+) -> bytes:
+    raw_code = _single_rpc_call(
+        send,
+        url,
+        role=role,
+        method="eth_getCode",
+        params=[target, pin],
+        timeout_s=timeout_s,
+    )
+    try:
+        raw_hex = strict_string(raw_code, f"{role}.eth_getCode")
+    except ValueError as exc:
+        raise DualRpcQuorumError(str(exc)) from exc
+    if raw_hex == "0x" or not raw_hex.startswith("0x") or len(raw_hex) < 4 or len(raw_hex) % 2:
+        raise DualRpcQuorumError(f"{role} returned empty or malformed target bytecode")
+    try:
+        code_bytes = bytes.fromhex(raw_hex[2:])
+    except ValueError as exc:
+        raise DualRpcQuorumError(f"{role} returned non-hex target bytecode") from exc
+    if not code_bytes:
+        raise DualRpcQuorumError(f"{role} returned empty target bytecode")
+    return code_bytes
+
+
+def _simulate_single_provider_call(
+    send: Callable[[str, bytes, float], bytes],
+    url: str,
+    *,
+    role: str,
+    tx_obj: dict[str, str],
+    pin: dict[str, object],
+    gas_limit: int,
+    timeout_s: float,
+) -> tuple[bool, bool, int, int]:
+    raw_call, call_reverted = _rpc_call_or_revert(
+        send,
+        url,
+        role=role,
+        method="eth_call",
+        params=[tx_obj, pin],
+        timeout_s=timeout_s,
+    )
+    if call_reverted:
+        return True, False, 0, 0
+
+    try:
+        raw_call_hex = strict_string(raw_call, f"{role}.eth_call")
+    except ValueError as exc:
+        raise DualRpcQuorumError(str(exc)) from exc
+    if not raw_call_hex.startswith("0x") or len(raw_call_hex) != 130:
+        raise DualRpcQuorumError(f"{role}.eth_call must return 64-byte (bool, uint256)")
+    try:
+        call_ret_bytes = bytes.fromhex(raw_call_hex[2:])
+    except ValueError as exc:
+        raise DualRpcQuorumError(f"{role}.eth_call returned non-hex bytes") from exc
+    if int.from_bytes(call_ret_bytes[:32], "big") not in (0, 1):
+        raise DualRpcQuorumError(f"{role}.eth_call returned non-canonical bool word")
+    executed_raw, net_profit_raw = decode(["bool", "uint256"], call_ret_bytes)
+    executed = bool(executed_raw)
+    net_profit = int(net_profit_raw)
+
+    raw_est_gas, gas_reverted = _rpc_call_or_revert(
+        send,
+        url,
+        role=role,
+        method="eth_estimateGas",
+        params=[tx_obj, pin],
+        timeout_s=timeout_s,
+    )
+    if gas_reverted:
+        return True, False, 0, 0
+    try:
+        gas_used = rpc_quantity(raw_est_gas)
+    except ValueError as exc:
+        raise DualRpcQuorumError(f"{role} invalid eth_estimateGas response: {exc}") from exc
+    if gas_used <= 0 or gas_used > gas_limit:
+        return True, False, 0, 0
+    if not executed:
+        return False, True, gas_used, 0
+    return False, False, gas_used, net_profit
+
+
+def _query_l1_fee_upper_bound(
+    send: Callable[[str, bytes, float], bytes],
+    url: str,
+    *,
+    role: str,
+    oracle_calldata: str,
+    pin: dict[str, object],
+    timeout_s: float,
+) -> int:
+    raw_l1 = _single_rpc_call(
+        send,
+        url,
+        role=role,
+        method="eth_call",
+        params=[{"to": normalize_address(ORACLE), "data": oracle_calldata}, pin],
+        timeout_s=timeout_s,
+    )
+    try:
+        raw_l1_hex = strict_string(raw_l1, f"{role}.getL1FeeUpperBound")
+        if len(raw_l1_hex) != 66 or not raw_l1_hex.startswith("0x"):
+            raise ValueError("expected 32-byte uint256 hex output")
+        norm_l1 = normalize_hash32(raw_l1_hex, f"{role}.getL1FeeUpperBound")
+    except ValueError as exc:
+        raise DualRpcQuorumError(f"{role}.getL1FeeUpperBound invalid output: {exc}") from exc
+    return int(norm_l1, 16)
+
+
+def simulate_atomic_or_intent_envelope_dual(
+    envelope: EnvelopeProposal,
+    *,
+    primary_rpc_url: str = DEFAULT_PRIMARY_URL,
+    primary_source: str = DEFAULT_PRIMARY_PROVIDER,
+    secondary_rpc_url: str = DEFAULT_SECONDARY_URL,
+    secondary_source: str = DEFAULT_SECONDARY_PROVIDER,
+    block_lag: int = DEFAULT_BLOCK_LAG,
+    pinned_block_number: int | None = None,
+    eth_usd_micros: int | None = None,
+    timeout_s: float = DEFAULT_TIMEOUT_S,
+    transport: Callable[[str, bytes, float], bytes] | None = None,
+) -> DualSimulationProof:
+    """Dual-simulate an atomic executor or intent vault envelope at a pinned canonical block."""
+    if not isinstance(envelope, EnvelopeProposal):
+        raise TypeError("envelope must be an EnvelopeProposal")
+    primary_label, secondary_label, timeout_val = _validate_simulator_args(
+        primary_rpc_url=primary_rpc_url,
+        primary_source=primary_source,
+        secondary_rpc_url=secondary_rpc_url,
+        secondary_source=secondary_source,
+        block_lag=block_lag,
+        pinned_block_number=pinned_block_number,
+        eth_usd_micros=eth_usd_micros,
+        timeout_s=timeout_s,
+        validate_endpoints=transport is None,
+    )
+    if envelope.profit_token == _TOKEN_USDC:
+        if eth_usd_micros is None or eth_usd_micros <= 0:
+            raise ValueError("eth_usd_micros must be positive when profit_token is USDC")
+    elif envelope.profit_token != _TOKEN_WETH:
+        raise ValueError("unsupported profit_token for dual-RPC profit valuation")
+
+    send = _default_https_transport if transport is None else transport
+    providers = (("primary", primary_rpc_url), ("secondary", secondary_rpc_url))
+
+    # 1. Verify eth_chainId matches envelope.chain_id on both providers.
+    for role, url in providers:
+        raw_chain = _single_rpc_call(
+            send, url, role=role, method="eth_chainId", params=[], timeout_s=timeout_val
+        )
+        try:
+            chain_id = rpc_quantity(raw_chain)
+        except ValueError as exc:
+            raise DualRpcQuorumError(f"{role} invalid eth_chainId response: {exc}") from exc
+        if chain_id != envelope.chain_id:
+            raise DualRpcQuorumError(
+                f"{role} eth_chainId mismatch: expected {envelope.chain_id}, got {chain_id}"
+            )
+
+    # 2. Resolve pinned canonical block height.
+    if pinned_block_number is not None:
+        target_block = pinned_block_number
+    else:
+        tips: list[int] = []
+        for role, url in providers:
+            raw_tip = _single_rpc_call(
+                send, url, role=role, method="eth_blockNumber", params=[], timeout_s=timeout_val
+            )
+            try:
+                tips.append(rpc_quantity(raw_tip))
+            except ValueError as exc:
+                raise DualRpcQuorumError(f"{role} invalid eth_blockNumber response: {exc}") from exc
+        if abs(tips[0] - tips[1]) > _MAX_RPC_TIP_SKEW_BLOCKS:
+            raise DualRpcQuorumError(
+                f"provider tip skew exceeds {_MAX_RPC_TIP_SKEW_BLOCKS} blocks: "
+                f"{tips[0]} vs {tips[1]}"
+            )
+        target_block = min(tips) - block_lag
+        if target_block <= 0:
+            raise DualRpcQuorumError("resolved pinned_block_number must be positive")
+
+    # 3. Verify identical pinned block header across both providers.
+    primary_header = _query_pinned_block_header(
+        send, primary_rpc_url, role="primary", target_block=target_block, timeout_s=timeout_val
+    )
+    secondary_header = _query_pinned_block_header(
+        send, secondary_rpc_url, role="secondary", target_block=target_block, timeout_s=timeout_val
+    )
+    if primary_header != secondary_header:
+        raise DualRpcQuorumError(f"dual RPC quorum mismatch on block {target_block} header fields")
+    block_hash, _parent_hash, _state_root = primary_header
+    pin: dict[str, object] = {"blockHash": block_hash, "requireCanonical": True}
+
+    # 4. Verify identical non-empty target bytecode and pin hash across both providers.
+    primary_code = _decode_runtime_code_bytes(
+        send,
+        primary_rpc_url,
+        role="primary",
+        target=envelope.target,
+        pin=pin,
+        timeout_s=timeout_val,
+    )
+    secondary_code = _decode_runtime_code_bytes(
+        send,
+        secondary_rpc_url,
+        role="secondary",
+        target=envelope.target,
+        pin=pin,
+        timeout_s=timeout_val,
+    )
+    if primary_code != secondary_code:
+        raise DualRpcQuorumError("dual RPC quorum mismatch on target contract bytecode")
+    observed_keccak = "0x" + keccak(primary_code).hex()
+    observed_sha256 = "0x" + sha256_hex(primary_code)
+    if envelope.target_observed_code_hash not in (observed_keccak, observed_sha256):
+        raise DualRpcQuorumError("target_observed_code_hash disagrees with pinned bytecode")
+
+    # 5. Simulate exact EIP-1559 envelope call & estimateGas on both providers.
+    tx_obj: dict[str, str] = {
+        "from": envelope.account,
+        "to": envelope.target,
+        "data": "0x" + envelope.calldata.hex(),
+        "value": hex(envelope.value_wei),
+        "gas": hex(envelope.gas_limit),
+        "maxFeePerGas": hex(envelope.max_fee_per_gas_wei),
+        "maxPriorityFeePerGas": hex(envelope.max_priority_fee_wei),
+        "nonce": hex(envelope.nonce),
+    }
+    p_rev, p_abort, p_gas, p_profit = _simulate_single_provider_call(
+        send,
+        primary_rpc_url,
+        role="primary",
+        tx_obj=tx_obj,
+        pin=pin,
+        gas_limit=envelope.gas_limit,
+        timeout_s=timeout_val,
+    )
+    s_rev, s_abort, s_gas, s_profit = _simulate_single_provider_call(
+        send,
+        secondary_rpc_url,
+        role="secondary",
+        tx_obj=tx_obj,
+        pin=pin,
+        gas_limit=envelope.gas_limit,
+        timeout_s=timeout_val,
+    )
+
+    # 6. Query OP GasPriceOracle getL1FeeUpperBound(uint256) at the pinned block.
+    tx_size = len(envelope.calldata) + 256
+    encoded_size = encode(["uint256"], [tx_size])
+    oracle_calldata = "0x" + (_GET_L1_FEE_UPPER_BOUND_SELECTOR + encoded_size).hex()
+    p_l1 = _query_l1_fee_upper_bound(
+        send,
+        primary_rpc_url,
+        role="primary",
+        oracle_calldata=oracle_calldata,
+        pin=pin,
+        timeout_s=timeout_val,
+    )
+    s_l1 = _query_l1_fee_upper_bound(
+        send,
+        secondary_rpc_url,
+        role="secondary",
+        oracle_calldata=oracle_calldata,
+        pin=pin,
+        timeout_s=timeout_val,
+    )
+    if p_l1 != s_l1:
+        raise DualRpcQuorumError("dual RPC mismatch on GasPriceOracle.getL1FeeUpperBound")
+
+    l2_gas_fee_wei = max(p_gas, s_gas) * envelope.max_fee_per_gas_wei
+    agreed_profit_raw = max(0, min(p_profit, s_profit))
+    if envelope.profit_token == _TOKEN_WETH:
+        simulated_profit_value_wei = agreed_profit_raw
+    else:
+        if eth_usd_micros is None or eth_usd_micros <= 0:
+            raise ValueError("eth_usd_micros must be positive when profit_token is USDC")
+        simulated_profit_value_wei = (agreed_profit_raw * 10**18) // eth_usd_micros
+
+    return DualSimulationProof(
+        block_number=target_block,
+        block_hash=block_hash,
+        primary_source=primary_label,
+        secondary_source=secondary_label,
+        primary_reverted=p_rev,
+        secondary_reverted=s_rev,
+        primary_early_aborted=p_abort,
+        secondary_early_aborted=s_abort,
+        primary_gas_used=p_gas,
+        secondary_gas_used=s_gas,
+        primary_profit_delta_raw=p_profit,
+        secondary_profit_delta_raw=s_profit,
+        l2_gas_fee_wei=l2_gas_fee_wei,
+        l1_data_fee_wei=p_l1,
+        simulated_profit_value_wei=simulated_profit_value_wei,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class DualRpcEnvelopeSimulator:
+    """Configurable two-provider JSON-RPC pre-submission simulator for `ProfitStrategyBridge`."""
+
+    primary_rpc_url: str = DEFAULT_PRIMARY_URL
+    primary_source: str = DEFAULT_PRIMARY_PROVIDER
+    secondary_rpc_url: str = DEFAULT_SECONDARY_URL
+    secondary_source: str = DEFAULT_SECONDARY_PROVIDER
+    block_lag: int = DEFAULT_BLOCK_LAG
+    pinned_block_number: int | None = None
+    eth_usd_micros: int | None = None
+    timeout_s: float = DEFAULT_TIMEOUT_S
+    transport: Callable[[str, bytes, float], bytes] | None = None
+
+    def __post_init__(self) -> None:
+        _validate_simulator_args(
+            primary_rpc_url=self.primary_rpc_url,
+            primary_source=self.primary_source,
+            secondary_rpc_url=self.secondary_rpc_url,
+            secondary_source=self.secondary_source,
+            block_lag=self.block_lag,
+            pinned_block_number=self.pinned_block_number,
+            eth_usd_micros=self.eth_usd_micros,
+            timeout_s=self.timeout_s,
+            validate_endpoints=self.transport is None,
+        )
+
+    def __call__(self, envelope: EnvelopeProposal) -> DualSimulationProof:
+        return simulate_atomic_or_intent_envelope_dual(
+            envelope,
+            primary_rpc_url=self.primary_rpc_url,
+            primary_source=self.primary_source,
+            secondary_rpc_url=self.secondary_rpc_url,
+            secondary_source=self.secondary_source,
+            block_lag=self.block_lag,
+            pinned_block_number=self.pinned_block_number,
+            eth_usd_micros=self.eth_usd_micros,
+            timeout_s=self.timeout_s,
+            transport=self.transport,
+        )
+
+
 class ProfitStrategyBridge:
     """Bridge connecting `profit-strategy` to `profit_authority.sock` fail-closed."""
 
@@ -710,6 +1245,7 @@ class ProfitStrategyBridge:
         *,
         client: AuthoritySocketProtocol | None = None,
         now_fn: Callable[[], int] | None = None,
+        simulate_fn: Callable[[EnvelopeProposal], DualSimulationProof] | None = None,
     ) -> None:
         if not isinstance(config, ProfitStrategyDaemonConfig):
             raise TypeError("config must be a ProfitStrategyDaemonConfig")
@@ -725,6 +1261,7 @@ class ProfitStrategyBridge:
             else (normalize_address(config.account) if config.account is not None else None)
         )
         self._now_fn: Callable[[], int] = now_fn if now_fn is not None else lambda: int(time.time())
+        self._simulate_fn = simulate_fn
         self._state_dir = (
             _validate_private_state_dir(config.state_dir) if config.state_dir is not None else None
         )
@@ -1266,11 +1803,15 @@ class ProfitStrategyBridge:
                 release_permitted=False,
             )
 
+        effective_simulate_fn = (
+            simulate_fn if (simulate_fn is not None or proposal is not None) else self._simulate_fn
+        )
+
         try:
             active_proposal = self._build_proposal(
                 proposal=proposal,
                 envelope=envelope,
-                simulate_fn=simulate_fn,
+                simulate_fn=effective_simulate_fn,
                 bridge_status=bridge_status,
                 now_s=resolved_now,
             )
@@ -1285,7 +1826,7 @@ class ProfitStrategyBridge:
                 has_unresolved_pending=active_proposal.has_unresolved_pending,
                 rehearsal_loopback_anvil=active_proposal.rehearsal_loopback_anvil,
             )
-        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+        except (OSError, ValueError, TypeError, RuntimeError, RpcError) as exc:
             return IntentSubmissionResult(
                 status="simulation_or_admission_error",
                 mode=self.config.mode,
@@ -1644,14 +2185,130 @@ class ProfitStrategyBridge:
             headroom=bridge_status.headroom,
         )
 
+    @staticmethod
+    def _with_tick_outcomes(
+        snapshot: BridgeSyncSnapshot,
+        *,
+        last_submission: dict[str, Any] | None,
+        last_reconciliation: dict[str, Any] | None,
+    ) -> BridgeSyncSnapshot:
+        if last_submission is None and last_reconciliation is None:
+            return snapshot
+        return BridgeSyncSnapshot(
+            mode=snapshot.mode,
+            authority_socket=snapshot.authority_socket,
+            risk_config_sha256=snapshot.risk_config_sha256,
+            policy_digest=snapshot.policy_digest,
+            authority_reachable=snapshot.authority_reachable,
+            authority_status=snapshot.authority_status,
+            capital_snapshot=snapshot.capital_snapshot,
+            headroom=snapshot.headroom,
+            deployable_notional_usd_micros=snapshot.deployable_notional_usd_micros,
+            can_deploy=snapshot.can_deploy,
+            blocked_reason=snapshot.blocked_reason,
+            blocked_reasons=snapshot.blocked_reasons,
+            halted=snapshot.halted,
+            stop_active=snapshot.stop_active,
+            pending_count=snapshot.pending_count,
+            execution_eligible=snapshot.execution_eligible,
+            release_permitted=snapshot.release_permitted,
+            tick=snapshot.tick,
+            schema=snapshot.schema,
+            last_submission=last_submission,
+            last_reconciliation=last_reconciliation,
+        )
+
+    def run_tick(
+        self,
+        *,
+        tick: int = 1,
+        candidate_fn: Callable[[BridgeSyncSnapshot], StrategyCandidateIntent | None] | None = None,
+        simulate_fn: Callable[[EnvelopeProposal], DualSimulationProof] | None = None,
+        broadcast_fn: Callable[[bytes, SubmittedTransaction], str] | None = None,
+        receipt_fn: Callable[[str], dict[str, Any] | None] | None = None,
+        now_s: int | None = None,
+        cash_available_usd_micros: int | None = None,
+        locked_inventory_usd_micros: int | None = None,
+        pending_commitments_usd_micros: int | None = None,
+        unrealized_drawdown_usd_micros: int | None = None,
+    ) -> BridgeSyncSnapshot:
+        """Execute one synchronized tick: reconcile pending, evaluate candidate, and submit."""
+        snapshot = self.sync_status(
+            tick=tick,
+            cash_available_usd_micros=cash_available_usd_micros,
+            locked_inventory_usd_micros=locked_inventory_usd_micros,
+            pending_commitments_usd_micros=pending_commitments_usd_micros,
+            unrealized_drawdown_usd_micros=unrealized_drawdown_usd_micros,
+        )
+        last_reconciliation: dict[str, Any] | None = None
+        last_submission: dict[str, Any] | None = None
+
+        if snapshot.pending_count > 0 and receipt_fn is not None:
+            reconciliation = self.reconcile_pending(receipt_fn=receipt_fn)
+            last_reconciliation = reconciliation.to_dict()
+            snapshot = self.sync_status(
+                tick=tick,
+                cash_available_usd_micros=cash_available_usd_micros,
+                locked_inventory_usd_micros=locked_inventory_usd_micros,
+                pending_commitments_usd_micros=pending_commitments_usd_micros,
+                unrealized_drawdown_usd_micros=unrealized_drawdown_usd_micros,
+            )
+
+        if candidate_fn is not None and (snapshot.can_deploy or self.config.mode == "shadow"):
+            candidate = candidate_fn(snapshot)
+            if candidate is not None:
+                if not isinstance(candidate, StrategyCandidateIntent):
+                    raise TypeError("candidate_fn must return a StrategyCandidateIntent or None")
+                eff_cash = (
+                    candidate.cash_available_usd_micros
+                    if candidate.cash_available_usd_micros is not None
+                    else cash_available_usd_micros
+                )
+                eff_simulate = (
+                    None
+                    if candidate.proposal is not None
+                    else (
+                        candidate.simulate_fn if candidate.simulate_fn is not None else simulate_fn
+                    )
+                )
+                submission = self.submit_dual_simulated_intent(
+                    proposal=candidate.proposal,
+                    envelope=candidate.envelope,
+                    simulate_fn=eff_simulate,
+                    notional_usd_micros=candidate.notional_usd_micros,
+                    broadcast_fn=broadcast_fn,
+                    receipt_fn=receipt_fn,
+                    now_s=now_s,
+                    cash_available_usd_micros=eff_cash,
+                )
+                last_submission = submission.to_dict()
+                snapshot = self.sync_status(
+                    tick=tick,
+                    cash_available_usd_micros=eff_cash,
+                    locked_inventory_usd_micros=locked_inventory_usd_micros,
+                    pending_commitments_usd_micros=pending_commitments_usd_micros,
+                    unrealized_drawdown_usd_micros=unrealized_drawdown_usd_micros,
+                )
+
+        return self._with_tick_outcomes(
+            snapshot,
+            last_submission=last_submission,
+            last_reconciliation=last_reconciliation,
+        )
+
     def run_loop(
         self,
         *,
         out_json: Path | None = None,
         stop_requested: Callable[[], bool] | None = None,
         sleep_fn: Callable[[float], None] | None = None,
+        candidate_fn: Callable[[BridgeSyncSnapshot], StrategyCandidateIntent | None] | None = None,
+        simulate_fn: Callable[[EnvelopeProposal], DualSimulationProof] | None = None,
+        broadcast_fn: Callable[[bytes, SubmittedTransaction], str] | None = None,
+        receipt_fn: Callable[[str], dict[str, Any] | None] | None = None,
+        now_s: int | None = None,
     ) -> list[BridgeSyncSnapshot]:
-        """Run bounded or continuous status sync ticks, persisting deterministic JSON."""
+        """Run bounded or continuous strategy ticks, persisting deterministic JSON."""
         sleeper = time.sleep if sleep_fn is None else sleep_fn
         snapshots: list[BridgeSyncSnapshot] = []
         tick = 0
@@ -1659,7 +2316,14 @@ class ProfitStrategyBridge:
             if stop_requested is not None and stop_requested():
                 break
             tick += 1
-            snapshot = self.sync_status(tick=tick)
+            snapshot = self.run_tick(
+                tick=tick,
+                candidate_fn=candidate_fn,
+                simulate_fn=simulate_fn,
+                broadcast_fn=broadcast_fn,
+                receipt_fn=receipt_fn,
+                now_s=now_s,
+            )
             snapshots.append(snapshot)
             if out_json is not None:
                 atomic_write_json_file(out_json, snapshot.to_dict(), mode=0o600)
@@ -1678,11 +2342,14 @@ __all__ = [
     "AuthorityLedgerView",
     "AuthoritySocketProtocol",
     "BridgeSyncSnapshot",
+    "DualRpcEnvelopeSimulator",
     "IntentSubmissionResult",
     "ProfitStrategyBridge",
     "ProfitStrategyDaemonConfig",
     "ReconciliationPassResult",
+    "StrategyCandidateIntent",
     "StrategyMode",
     "UnixAtomicAuthorityClient",
     "atomic_write_json_file",
+    "simulate_atomic_or_intent_envelope_dual",
 ]
