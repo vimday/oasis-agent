@@ -1,0 +1,187 @@
+{
+  "all_assets_decimals": 6,
+  "cost_base_units_per_swap": 3,
+  "currency": "A",
+  "evidence_kind": "synthetic_offline",
+  "execution_eligible": false,
+  "fee_bps_per_swap": 30,
+  "merge": {
+    "allocation_points": 601,
+    "best_merged": {
+      "amount_in": 600,
+      "amount_out": 731,
+      "cost": 15,
+      "left": 292,
+      "net": 116,
+      "right": 308,
+      "swaps": 5
+    },
+    "best_single": {
+      "amount_in": 600,
+      "amount_out": 651,
+      "cost": 9,
+      "left": 600,
+      "net": 42,
+      "right": 0,
+      "swaps": 3
+    },
+    "feasible_points": 601,
+    "fresh_reserve_overstatement_vs_mutating_two_exits": 15,
+    "fresh_reserve_per_branch_incorrect_output": 745,
+    "input_capital": 600,
+    "same_allocation_two_mutating_exit_swaps": {
+      "amount_in": 600,
+      "amount_out": 730,
+      "cost": 18,
+      "net": 112,
+      "swaps": 6
+    },
+    "shared_exit_initial_reserves": {
+      "label": "MA-shared",
+      "reserve0": 15000,
+      "reserve1": 18500,
+      "token0": "M",
+      "token1": "A"
+    },
+    "shared_exit_reserves_after_one_merge": {
+      "label": "MA-shared",
+      "reserve0": 15619,
+      "reserve1": 17769,
+      "token0": "M",
+      "token1": "A"
+    },
+    "shared_exit_reserves_after_two_swaps": {
+      "label": "MA-shared",
+      "reserve0": 15619,
+      "reserve1": 17770,
+      "token0": "M",
+      "token1": "A"
+    }
+  },
+  "release_permitted": false,
+  "ring": [
+    {
+      "best_net_including_hold": 0,
+      "hop_cap": 4,
+      "positive_routes": 0,
+      "routes": [
+        {
+          "amount_in": 3,
+          "amount_out": 1,
+          "cost": 6,
+          "net": -8,
+          "path": [
+            "AB",
+            "AB-parallel"
+          ],
+          "swaps": 2
+        },
+        {
+          "amount_in": 3,
+          "amount_out": 1,
+          "cost": 6,
+          "net": -8,
+          "path": [
+            "AB-parallel",
+            "AB"
+          ],
+          "swaps": 2
+        }
+      ]
+    },
+    {
+      "best_net_including_hold": 134,
+      "hop_cap": 6,
+      "positive_routes": 2,
+      "routes": [
+        {
+          "amount_in": 702,
+          "amount_out": 854,
+          "cost": 18,
+          "net": 134,
+          "path": [
+            "AB",
+            "BC",
+            "CD",
+            "DE",
+            "EF",
+            "FA"
+          ],
+          "swaps": 6
+        },
+        {
+          "amount_in": 3,
+          "amount_out": 1,
+          "cost": 6,
+          "net": -8,
+          "path": [
+            "AB",
+            "AB-parallel"
+          ],
+          "swaps": 2
+        },
+        {
+          "amount_in": 10,
+          "amount_out": 1,
+          "cost": 18,
+          "net": -27,
+          "path": [
+            "FA",
+            "EF",
+            "DE",
+            "CD",
+            "BC",
+            "AB"
+          ],
+          "swaps": 6
+        },
+        {
+          "amount_in": 10,
+          "amount_out": 1,
+          "cost": 18,
+          "net": -27,
+          "path": [
+            "FA",
+            "EF",
+            "DE",
+            "CD",
+            "BC",
+            "AB-parallel"
+          ],
+          "swaps": 6
+        },
+        {
+          "amount_in": 3,
+          "amount_out": 1,
+          "cost": 6,
+          "net": -8,
+          "path": [
+            "AB-parallel",
+            "AB"
+          ],
+          "swaps": 2
+        },
+        {
+          "amount_in": 702,
+          "amount_out": 854,
+          "cost": 18,
+          "net": 134,
+          "path": [
+            "AB-parallel",
+            "BC",
+            "CD",
+            "DE",
+            "EF",
+            "FA"
+          ],
+          "swaps": 6
+        }
+      ]
+    }
+  ],
+  "ring_amount_bounds_inclusive": [
+    1,
+    1200
+  ],
+  "unit": "integer asset base unit"
+}

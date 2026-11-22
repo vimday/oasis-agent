@@ -299,6 +299,7 @@ class QuoterVerificationResult:
     reason: str
     rpc_calls_used: int
     execution_eligible: bool = False
+    hop_quote_sources: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.verified) is not bool:
@@ -1131,6 +1132,7 @@ def fetch_pinned_universe_snapshot(
     timeout_s: float = 10.0,
     block_tag: str = "latest",
     previous_snapshot: PinnedUniverseSnapshot | None = None,
+    pin_call_to_hash: bool = False,
 ) -> PinnedUniverseSnapshot:
     """Fetch a coherent block-pinned snapshot across all pools in exactly 2 RPC calls."""
     if not pools:
@@ -1171,12 +1173,15 @@ def fetch_pinned_universe_snapshot(
                 f"reorg detected at block {block_number}: parent_hash mismatch"
             )
 
-    pinned_block = hex(block_number)
     calls: list[tuple[str, bool, bytes]] = [
         (BASE_TIME, False, bytes.fromhex(TIMESTAMP_MS_SELECTOR[2:])),
         (BASE_TIME, False, bytes.fromhex(TIMESTAMP_MILLIS_PART_SELECTOR[2:])),
         (ORACLE, False, bytes.fromhex(GET_L1_FEE_CALLDATA[2:])),
     ]
+    pinned_block: str | dict[str, str | bool] = hex(block_number)
+    if pin_call_to_hash:
+        pinned_block = {"blockHash": block_hash, "requireCanonical": True}
+        calls.append((MULTICALL3, False, bytes.fromhex(_selector("getChainId()")[2:])))
     pool_call_slices: list[tuple[DiscoveredPool, int, int]] = []
     for pool in pool_list:
         start_idx = len(calls)
@@ -1224,6 +1229,11 @@ def fetch_pinned_universe_snapshot(
     for idx, (success, _) in enumerate(results):
         if not success:
             raise MulticallUniverseError(f"snapshot Multicall3 subcall {idx} failed")
+    if (
+        pin_call_to_hash
+        and _decode_uint256_bounded(results[3][1], "Multicall3.getChainId") != BASE_CHAIN_ID
+    ):
+        raise MulticallUniverseError("snapshot Multicall3 getChainId mismatch")
 
     ts_ms_word = _decode_uint256_bounded(results[0][1], "BaseTime.timestampMs", limit=1 << 64)
     millis_word = _decode_uint256_bounded(
@@ -1332,7 +1342,7 @@ def _quoter_single_call(
     req_id: int,
     quoter_addr: str,
     calldata_hex: str,
-    pinned_block: str,
+    pinned_block: str | dict[str, str | bool],
 ) -> tuple[int, int]:
     """Execute one pinned QuoterV2/Slipstream `quoteExactInputSingle` eth_call strictly."""
     raw_result = _rpc_call(
@@ -1386,6 +1396,7 @@ def verify_candidate_with_onchain_quoter(
     pools_by_id: Mapping[str, PoolNode],
     block_number_hex: str,
     *,
+    block_hash: str | None = None,
     transport: RpcTransport | None = None,
     timeout_s: float = 10.0,
     balances_by_pool: Mapping[str, tuple[int, int]] | None = None,
@@ -1396,7 +1407,12 @@ def verify_candidate_with_onchain_quoter(
     checked_timeout = _validate_timeout(timeout_s)
     _validate_rpc_url(rpc_url, enforce_public_host=transport is None)
     pinned_num = rpc_quantity(block_number_hex)
-    pinned_block = hex(pinned_num)
+    pinned_block: str | dict[str, str | bool] = hex(pinned_num)
+    if block_hash is not None:
+        pinned_block = {
+            "blockHash": normalize_hash32(block_hash, "block_hash"),
+            "requireCanonical": True,
+        }
     require_int(amount_in, "amount_in", non_negative=True)
     require_int(gas_cost_in_base, "gas_cost_in_base", non_negative=True)
     require_int(l1_fee_in_base, "l1_fee_in_base", non_negative=True)
@@ -1438,6 +1454,7 @@ def verify_candidate_with_onchain_quoter(
     local_graph: FastpathPoolGraph | None = None
     rpc_calls_used = 0
     hop_outputs: list[int] = []
+    quote_sources: list[str] = []
     cur_amount = amount_in
     expected_in = normalize_address(hops[0].token_in)
 
@@ -1486,6 +1503,7 @@ def verify_candidate_with_onchain_quoter(
 
         out_amount = 0
         if pool_node.kind == PoolKind.V3:
+            source = "v3_quoter"
             calldata_hex = (
                 UNIV3_QUOTE_SINGLE_SELECTOR
                 + encode(
@@ -1517,6 +1535,7 @@ def verify_candidate_with_onchain_quoter(
             disc = normalized_discovered.get(pool_id)
             quoter_entry = SLIPSTREAM.get(disc.factory) if disc is not None else None
             if disc is not None and disc.tick_spacing is not None and quoter_entry is not None:
+                source = "slipstream_quoter"
                 calldata_hex = (
                     SLIPSTREAM_QUOTE_SINGLE_SELECTOR
                     + encode(
@@ -1545,6 +1564,7 @@ def verify_candidate_with_onchain_quoter(
                         rpc_calls_used=rpc_calls_used,
                     )
             else:
+                source = "local_slipstream"
                 try:
                     out_amount = (
                         _get_local_graph()
@@ -1561,6 +1581,7 @@ def verify_candidate_with_onchain_quoter(
                         rpc_calls_used=rpc_calls_used,
                     )
         elif pool_node.kind == PoolKind.V2:
+            source = "local_v2"
             try:
                 out_amount = (
                     _get_local_graph()
@@ -1607,6 +1628,7 @@ def verify_candidate_with_onchain_quoter(
                 rpc_calls_used=rpc_calls_used,
             )
 
+        quote_sources.append(source)
         hop_outputs.append(out_amount)
         cur_amount = out_amount
         expected_in = token_out
@@ -1628,6 +1650,7 @@ def verify_candidate_with_onchain_quoter(
             simulated_amount_out=cur_amount,
             simulated_net_profit=simulated_net_profit,
             hop_outputs=tuple(hop_outputs),
+            hop_quote_sources=tuple(quote_sources),
             reason="non_positive_net_profit",
             rpc_calls_used=rpc_calls_used,
         )
@@ -1637,6 +1660,7 @@ def verify_candidate_with_onchain_quoter(
         simulated_amount_out=cur_amount,
         simulated_net_profit=simulated_net_profit,
         hop_outputs=tuple(hop_outputs),
+        hop_quote_sources=tuple(quote_sources),
         reason="ok",
         rpc_calls_used=rpc_calls_used,
     )

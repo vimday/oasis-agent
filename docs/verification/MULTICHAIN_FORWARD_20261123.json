@@ -1,0 +1,833 @@
+{
+  "schema": "oasis-multichain-forward-summary-v1",
+  "base_commit": "14260a4e224cf9bc0b039bcb1a937afc6482cb1f",
+  "mode": "bounded anonymous read-only shadow",
+  "raw_local_root": "reports/research/multichain-forward-20261122",
+  "sha256": {
+    "ethereum/scope.json": "c1431437f15782537103176704eef08de23806861f3147739c46f6d567e82f05",
+    "ethereum/result.json": "625fa1924a8e2bdae174a412cd37ac982c20650826fa4607c7cad6a72449998e",
+    "ethereum-wide/scope.json": "44e45e2e267a5de824764f4dc2a303cfe76932c93e432bc3c4bf4fe51ac227a7",
+    "ethereum-wide/result.json": "b72c27766c63c6f264b6a201b44ef35f3fc3885cc1a50f82e0068110cd0d623b",
+    "ethereum-wide/diagnostics.json": "40ffe06779e58f29f56f571288dae604eb12b1299c281015e18daa34ffde4546",
+    "ethereum-wide/all_simple.py": "a7ed37164be19a59297fda80c3c5af05ae968d30be0e5eab802f92ea5c3bc5b9",
+    "ethereum-wide/all_simple.json": "a3d180d3420def5712c282c5aad717505cfb14d9278bfcacbca37aa075845cee",
+    "bsc/plan.json": "529929478f519c674161a135964f555aabe298e29cbb4428f0d2b3d5ab64166c",
+    "bsc/summary.json": "89f53f80ace8cc36d28af068acc83d9a9437f8fe52fae7e59808218fddfd4a38",
+    "bsc/graph_certificates.json": "48ab38a6dd06a3d9c80b4ebcac9018cd010032ebf17b8dbd99227d69df7d49fa",
+    "bsc-router-depth/capture.py": "baad7238a4ca9f0847ae5144e0e4bffa4b4d2493ad512792370eff724ef2a0da",
+    "bsc-router-depth/Measure.sol": "40a6d883123ab29a3a1369d2f03685c558b948173c7ec7293e3893b0a6db406d",
+    "bsc-router-depth/ledger.jsonl": "fb35611198468c1116d80ac0e65d2c70b45cbe6d36ad33945012f6b6579d038e",
+    "bsc-router-depth/result.json": "fa184ee096206ace7355713da2d2843ad5de695739aea028945a5797b8b3bcbb",
+    "robinhood/scope.json": "05305b5292e0b2eb291b64baa4850070a2f6ce984eada449b9b636abadb3f9ea",
+    "robinhood/STOP": "54b0c6b6daab21e75ab401178af78c32186f8fbef7f7aaf0527cad59b0498c29",
+    "robinhood/recovery-amendment.json": "34e291a3e10ea3d46840efbbf574c238f0bb3cdb48d9a11634fbb3eeec8b05a8",
+    "robinhood/bounded-validation/capture.json": "60d4a4690ce666d52e91d83d2f3dde5a1a9e75e9f9d93a563fcbfa9bdfb58fdf",
+    "robinhood/bounded-validation/decode.json": "67446f049e7c7262ba6a95de81cafc901a4e6ccff1377b0faee9057647fc0bc3",
+    "robinhood/bounded-validation/rpc/summary.json": "bbf434195c2789f8b340c148485444a20923dd7dddc2f1d1b3f00e7215d6bf66"
+  },
+  "incremental_rpc_spend_usd": "0",
+  "signed_or_broadcast": 0,
+  "ethereum_v2": {
+    "chain_id": 1,
+    "source": "https://ethereum-rpc.publicnode.com",
+    "block_hashes": {
+      "26471708": "0x36cb9b074b42fe1dfbe6127894697fc7cfaee682d8f146e3a882aa65095e549a",
+      "26471709": "0x973e30da663ca641d9fa889fd61b70c732a263d73d36d09322a9c378849cee8a",
+      "26471710": "0x3475ed1056ce88a7680f2fbda0b63c0dd923b2a72cf0d60fd6335cef028277d6",
+      "26471711": "0x1b120845b55082a58ce4a6176b68162cb76406008fc522aa7c6ea04379c0aa47"
+    },
+    "distinct_reserve_vectors": 1,
+    "route_block_observations": 48,
+    "net_positive_grid_inputs": 0,
+    "negative_control": [
+      {
+        "block": 26471709,
+        "route": [
+          "WETH",
+          "USDC",
+          "USDT",
+          "WETH"
+        ],
+        "integer_amounts": [
+          "10000000000000000",
+          "17104139",
+          "17085631",
+          "9916223845337372"
+        ]
+      },
+      {
+        "block": 26471710,
+        "route": [
+          "WETH",
+          "USDC",
+          "USDT",
+          "WETH"
+        ],
+        "integer_amounts": [
+          "10000000000000000",
+          "17104139",
+          "17085631",
+          "9916223845337372"
+        ]
+      }
+    ],
+    "http_calls": 11,
+    "logical_rpc": 64
+  },
+  "ethereum_v2_two_factories": {
+    "chain_id": 1,
+    "source": "https://ethereum-rpc.publicnode.com",
+    "http_calls": 23,
+    "logical_rpc": 287,
+    "cumulative_ethereum_http_calls": 34,
+    "economic_whole_simulations": 0,
+    "survival_rate": null,
+    "snapshots": [
+      {
+        "block": 26471752,
+        "hash": "0x84bbe967f199ff92feacf450d044b11e19b6cec9fef5a921d0387197aae26c81",
+        "active_pools": 45,
+        "base_fee_wei_per_gas": "123548440",
+        "state_ready_ms": 1795363701499,
+        "counts": {
+          "2:continuous_gross_upper_above_floor": 0,
+          "2:grid_above_conservative_gate": 0,
+          "2:grid_above_intrinsic_floor": 0,
+          "2:grid_gross_positive": 0,
+          "2:routes": 24,
+          "3:continuous_gross_upper_above_floor": 0,
+          "3:grid_above_conservative_gate": 0,
+          "3:grid_above_intrinsic_floor": 0,
+          "3:grid_gross_positive": 0,
+          "3:routes": 156,
+          "4:continuous_gross_upper_above_floor": 4,
+          "4:grid_above_conservative_gate": 0,
+          "4:grid_above_intrinsic_floor": 0,
+          "4:grid_gross_positive": 2,
+          "4:routes": 820,
+          "5:continuous_gross_upper_above_floor": 0,
+          "5:grid_above_conservative_gate": 0,
+          "5:grid_above_intrinsic_floor": 0,
+          "5:grid_gross_positive": 0,
+          "5:routes": 2520,
+          "6:continuous_gross_upper_above_floor": 0,
+          "6:grid_above_conservative_gate": 0,
+          "6:grid_above_intrinsic_floor": 0,
+          "6:grid_gross_positive": 0,
+          "6:routes": 4456
+        },
+        "grid_valuations": 79760,
+        "top_grid": {
+          "assets": [
+            "WETH",
+            "AAVE",
+            "USDC",
+            "CRV",
+            "WETH"
+          ],
+          "gross_upper_wei": 2860521360269,
+          "gross_wei": 186078803207,
+          "input_wei": 100000000000000,
+          "pools": [
+            "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+            "0x674e114dad81838d151d9beda2271228eeae0e8b",
+            "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+            "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+          ],
+          "projected_net_after_gas_upper_wei": -169906716696793
+        },
+        "exact_borderline_routes": [
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+            ],
+            "venues": [
+              "uni",
+              "uni",
+              "uni",
+              "sushi"
+            ],
+            "integer_optimal_input_wei": 49460114820510,
+            "integer_optimal_gross_wei": 2860521360232,
+            "continuous_optimal_input_floor_wei": 49459935130601,
+            "continuous_gross_upper_wei": 2860521360269,
+            "searched_usdc_middle_atoms": 174500,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3098100681440,
+            "integer_optimum_less_intrinsic_wei": -237579321208,
+            "remaining_execution_gas_from_continuous_upper": -1923,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x3da1313ae46132a397d90d95b1424a9a7e3e0fce"
+            ],
+            "venues": [
+              "uni",
+              "uni",
+              "uni",
+              "uni"
+            ],
+            "integer_optimal_input_wei": 49325484311945,
+            "integer_optimal_gross_wei": 2844239422922,
+            "continuous_optimal_input_floor_wei": 49325548673180,
+            "continuous_gross_upper_wei": 2844239422928,
+            "searched_usdc_middle_atoms": 174048,
+            "calldata_bytes": 452,
+            "zero_bytes": 264,
+            "nonzero_bytes": 188,
+            "envelope_intrinsic_gas_floor": 25064,
+            "envelope_intrinsic_base_fee_floor_wei": 3096618100160,
+            "integer_optimum_less_intrinsic_wei": -252378677238,
+            "remaining_execution_gas_from_continuous_upper": -2043,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xd75ea151a61d06868e31f8988d28dfe5e9df57b4",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+            ],
+            "venues": [
+              "sushi",
+              "uni",
+              "uni",
+              "sushi"
+            ],
+            "integer_optimal_input_wei": 48486016094260,
+            "integer_optimal_gross_wei": 2743076087836,
+            "continuous_optimal_input_floor_wei": 48486104374853,
+            "continuous_gross_upper_wei": 2743076087846,
+            "searched_usdc_middle_atoms": 170839,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3098100681440,
+            "integer_optimum_less_intrinsic_wei": -355024593604,
+            "remaining_execution_gas_from_continuous_upper": -2874,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xd75ea151a61d06868e31f8988d28dfe5e9df57b4",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x3da1313ae46132a397d90d95b1424a9a7e3e0fce"
+            ],
+            "venues": [
+              "sushi",
+              "uni",
+              "uni",
+              "uni"
+            ],
+            "integer_optimal_input_wei": 48351287009122,
+            "integer_optimal_gross_wei": 2727118697790,
+            "continuous_optimal_input_floor_wei": 48351313447935,
+            "continuous_gross_upper_wei": 2727118697793,
+            "searched_usdc_middle_atoms": 170386,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3098100681440,
+            "integer_optimum_less_intrinsic_wei": -370981983650,
+            "remaining_execution_gas_from_continuous_upper": -3003,
+            "all_sizes_excluded_with_envelope": true
+          }
+        ]
+      },
+      {
+        "block": 26471753,
+        "hash": "0x0b24a98e6ceda4c7f3b5edb5dc2224547455a86aa14ab1f231a48cef8714725f",
+        "active_pools": 45,
+        "base_fee_wei_per_gas": "121572772",
+        "state_ready_ms": 1795363717556,
+        "counts": {
+          "2:continuous_gross_upper_above_floor": 0,
+          "2:grid_above_conservative_gate": 0,
+          "2:grid_above_intrinsic_floor": 0,
+          "2:grid_gross_positive": 0,
+          "2:routes": 24,
+          "3:continuous_gross_upper_above_floor": 0,
+          "3:grid_above_conservative_gate": 0,
+          "3:grid_above_intrinsic_floor": 0,
+          "3:grid_gross_positive": 0,
+          "3:routes": 156,
+          "4:continuous_gross_upper_above_floor": 4,
+          "4:grid_above_conservative_gate": 0,
+          "4:grid_above_intrinsic_floor": 0,
+          "4:grid_gross_positive": 2,
+          "4:routes": 820,
+          "5:continuous_gross_upper_above_floor": 0,
+          "5:grid_above_conservative_gate": 0,
+          "5:grid_above_intrinsic_floor": 0,
+          "5:grid_gross_positive": 0,
+          "5:routes": 2520,
+          "6:continuous_gross_upper_above_floor": 0,
+          "6:grid_above_conservative_gate": 0,
+          "6:grid_above_intrinsic_floor": 0,
+          "6:grid_gross_positive": 0,
+          "6:routes": 4456
+        },
+        "grid_valuations": 79760,
+        "top_grid": {
+          "assets": [
+            "WETH",
+            "AAVE",
+            "USDC",
+            "CRV",
+            "WETH"
+          ],
+          "gross_upper_wei": 2860521360269,
+          "gross_wei": 186078803207,
+          "input_wei": 100000000000000,
+          "pools": [
+            "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+            "0x674e114dad81838d151d9beda2271228eeae0e8b",
+            "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+            "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+          ],
+          "projected_net_after_gas_upper_wei": -167906353296793
+        },
+        "exact_borderline_routes": [
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+            ],
+            "venues": [
+              "uni",
+              "uni",
+              "uni",
+              "sushi"
+            ],
+            "integer_optimal_input_wei": 49460114820510,
+            "integer_optimal_gross_wei": 2860521360232,
+            "continuous_optimal_input_floor_wei": 49459935130601,
+            "continuous_gross_upper_wei": 2860521360269,
+            "searched_usdc_middle_atoms": 174500,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3048558830672,
+            "integer_optimum_less_intrinsic_wei": -188037470440,
+            "remaining_execution_gas_from_continuous_upper": -1547,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x3da1313ae46132a397d90d95b1424a9a7e3e0fce"
+            ],
+            "venues": [
+              "uni",
+              "uni",
+              "uni",
+              "uni"
+            ],
+            "integer_optimal_input_wei": 49325484311945,
+            "integer_optimal_gross_wei": 2844239422922,
+            "continuous_optimal_input_floor_wei": 49325548673180,
+            "continuous_gross_upper_wei": 2844239422928,
+            "searched_usdc_middle_atoms": 174048,
+            "calldata_bytes": 452,
+            "zero_bytes": 264,
+            "nonzero_bytes": 188,
+            "envelope_intrinsic_gas_floor": 25064,
+            "envelope_intrinsic_base_fee_floor_wei": 3047099957408,
+            "integer_optimum_less_intrinsic_wei": -202860534486,
+            "remaining_execution_gas_from_continuous_upper": -1669,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xd75ea151a61d06868e31f8988d28dfe5e9df57b4",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+            ],
+            "venues": [
+              "sushi",
+              "uni",
+              "uni",
+              "sushi"
+            ],
+            "integer_optimal_input_wei": 48486016094260,
+            "integer_optimal_gross_wei": 2743076087836,
+            "continuous_optimal_input_floor_wei": 48486104374853,
+            "continuous_gross_upper_wei": 2743076087846,
+            "searched_usdc_middle_atoms": 170839,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3048558830672,
+            "integer_optimum_less_intrinsic_wei": -305482742836,
+            "remaining_execution_gas_from_continuous_upper": -2513,
+            "all_sizes_excluded_with_envelope": true
+          },
+          {
+            "assets": [
+              "WETH",
+              "AAVE",
+              "USDC",
+              "CRV",
+              "WETH"
+            ],
+            "pools": [
+              "0xd75ea151a61d06868e31f8988d28dfe5e9df57b4",
+              "0x674e114dad81838d151d9beda2271228eeae0e8b",
+              "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+              "0x3da1313ae46132a397d90d95b1424a9a7e3e0fce"
+            ],
+            "venues": [
+              "sushi",
+              "uni",
+              "uni",
+              "uni"
+            ],
+            "integer_optimal_input_wei": 48351287009122,
+            "integer_optimal_gross_wei": 2727118697790,
+            "continuous_optimal_input_floor_wei": 48351313447935,
+            "continuous_gross_upper_wei": 2727118697793,
+            "searched_usdc_middle_atoms": 170386,
+            "calldata_bytes": 452,
+            "zero_bytes": 263,
+            "nonzero_bytes": 189,
+            "envelope_intrinsic_gas_floor": 25076,
+            "envelope_intrinsic_base_fee_floor_wei": 3048558830672,
+            "integer_optimum_less_intrinsic_wei": -321440132882,
+            "remaining_execution_gas_from_continuous_upper": -2645,
+            "all_sizes_excluded_with_envelope": true
+          }
+        ]
+      }
+    ],
+    "posthoc_all_simple": [
+      {
+        "number": 26471752,
+        "block_hash": "0x84bbe967f199ff92feacf450d044b11e19b6cec9fef5a921d0387197aae26c81",
+        "base_fee_only_21000_wei": 2594517240000,
+        "counts_by_hops": {
+          "3": 156,
+          "4": 820,
+          "5": 2520,
+          "6": 4456,
+          "2": 24,
+          "7": 2352
+        },
+        "max_all_size_fee_included_gross_upper_wei": {
+          "3": 1809277288035,
+          "4": 2860521360269,
+          "5": 1898654717889,
+          "6": 2039577506099,
+          "2": 3711331318,
+          "7": 1744309192013
+        },
+        "curves_above_21000_by_hops": {
+          "3": 0,
+          "4": 4,
+          "5": 0,
+          "6": 0,
+          "2": 0,
+          "7": 0
+        }
+      },
+      {
+        "number": 26471753,
+        "block_hash": "0x0b24a98e6ceda4c7f3b5edb5dc2224547455a86aa14ab1f231a48cef8714725f",
+        "base_fee_only_21000_wei": 2553028212000,
+        "counts_by_hops": {
+          "3": 156,
+          "4": 820,
+          "5": 2520,
+          "6": 4456,
+          "2": 24,
+          "7": 2352
+        },
+        "max_all_size_fee_included_gross_upper_wei": {
+          "3": 1809277288035,
+          "4": 2860521360269,
+          "5": 1898654717889,
+          "6": 2039577506099,
+          "2": 3711331318,
+          "7": 1744309192013
+        },
+        "curves_above_21000_by_hops": {
+          "3": 0,
+          "4": 4,
+          "5": 0,
+          "6": 0,
+          "2": 0,
+          "7": 0
+        }
+      }
+    ]
+  },
+  "bsc_triangles": {
+    "chain_id": 56,
+    "source": "https://bsc-dataseed.bnbchain.org",
+    "request_counts": {
+      "official": 95,
+      "witness": 1
+    },
+    "first_block": {
+      "base_fee_wei": 0,
+      "gas_limit": 80000000,
+      "gas_used": 31830359,
+      "hash": "0xf568878021a2fd12dda307c7a357c34896f06d5d0bd0bc765b31c6c31527e9e1",
+      "number": 135107340,
+      "parent": "0x66efc77476f174e655d146bda27ca82ad1d9a59865ef0fa1283a43faecc659c6",
+      "receive": {
+        "mono_ns": 962372705938750,
+        "wall_ns": 1795363215325088000
+      },
+      "rpc": 28,
+      "timestamp": 1795363214
+    },
+    "last_block": {
+      "base_fee_wei": 0,
+      "gas_limit": 79999389,
+      "gas_used": 16753723,
+      "hash": "0x58e98596cdcf1dc979931bb352cb0ff353d73bcd35c3aa0a99eb5ada37ee6b34",
+      "number": 135107359,
+      "parent": "0x523aa2d05a7068de2af74a54e99d2f475ef7d7ae1a1b856cc8d82f84c06d31b2",
+      "receive": {
+        "mono_ns": 962381163918500,
+        "wall_ns": 1795363223783066000
+      },
+      "rpc": 93,
+      "timestamp": 1795363223
+    },
+    "timing_ms": {
+      "head_to_score": {
+        "max": 170.240584,
+        "p50": 140.663458,
+        "p95": 157.9245
+      },
+      "head_to_state": {
+        "max": 162.247584,
+        "p50": 129.76975,
+        "p95": 147.201166
+      },
+      "integer_timestamp_to_head": {
+        "max": 1454.236,
+        "p50": 880.402,
+        "p95": 1392.126
+      },
+      "score_to_same_head_readback": {
+        "max": 137.3725,
+        "p50": 122.2755,
+        "p95": 128.068416
+      },
+      "state_to_score": {
+        "max": 15.428167,
+        "p50": 10.4485,
+        "p95": 14.105959
+      }
+    },
+    "witness": "HTTP 429 on first request",
+    "negative_control_swap_return_bps_min_max": [
+      -76.98582137575198,
+      -41.00357396818416
+    ],
+    "economic_denominator": 0,
+    "official_route_instances_pruned_before_gas": 2560,
+    "block_count": 20,
+    "static_graph_no_positive_blocks": 20,
+    "strongest_by_path_length": {
+      "2": {
+        "block": 135107345,
+        "gain": [
+          125293742325759017488571946202487226594442528924158517617447018321,
+          125318062113971362581962870569575229096376753604836528340500000000
+        ],
+        "gain_bps": -1.940645091545327,
+        "length": 2,
+        "pools": [
+          "0x92b7807bf19b7dddf89b706143896d05228f3121",
+          "0x4f31fa980a675570939b737ebdde0471a4be40eb"
+        ],
+        "tokens": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        ]
+      },
+      "3": {
+        "block": 135107353,
+        "gain": [
+          539450137678148189827584656831713560097805797178344798670510370928800567132565718857176132933759148133384103986724864,
+          539549037964530186708335586342044300783016850712062458387271985921947007579128613495475051518815367328607031298828125
+        ],
+        "gain_bps": -1.8330175650966236,
+        "length": 3,
+        "pools": [
+          "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "0x4f31fa980a675570939b737ebdde0471a4be40eb"
+        ],
+        "tokens": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        ]
+      }
+    },
+    "survival_rate": null
+  },
+  "bsc_router_depth": {
+    "chain_id": 56,
+    "source": "https://bsc-dataseed.bnbchain.org",
+    "synthetic_control": true,
+    "amount_wei": "10000000000000000",
+    "requests": 30,
+    "unit": "BNB wei, WBNB at par",
+    "cost_model": "gas reference times measured router gas interval and ordinary calldata intrinsic",
+    "trials": [
+      {
+        "depth": 3,
+        "order": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "gas_price_wei": "50000000",
+        "intrinsic_legacy": 23112,
+        "detection_before_gas_upper_wei": "-4995266940207",
+        "envelope_sha256": "3e8cf84e2dbad586c6ea31ed8076f999b4333c7c08e1a1e74997b8ee9994a108",
+        "detection_utc": "2026-11-22T16:01:23.864499+00:00",
+        "at_detection": {
+          "block": 135107492,
+          "hash": "0x59e90efbd282e6ba372ca0846da7a4f485f25b8934533b11d11b93a1156ad08e",
+          "before_gas_wei": "-5018789976271",
+          "credit_wei": "9994981210023729",
+          "gas_interval": 390048,
+          "modeled_net_wei": "-25676789976271",
+          "elapsed_since_detection_ms": 114.406,
+          "completed_utc": "2026-11-22T16:01:23.978733+00:00"
+        },
+        "after_sim": {
+          "block": 135107493,
+          "hash": "0x81055a9767e60078a358a70dd036ee52558c6b80385b93d6325a928ecb6498ae",
+          "before_gas_wei": "-5018789976271",
+          "credit_wei": "9994981210023729",
+          "gas_interval": 390048,
+          "modeled_net_wei": "-25676789976271",
+          "elapsed_since_detection_ms": 345.262,
+          "completed_utc": "2026-11-22T16:01:24.207825+00:00"
+        }
+      },
+      {
+        "depth": 30,
+        "order": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "gas_price_wei": "50000000",
+        "intrinsic_legacy": 32692,
+        "detection_before_gas_upper_wei": "-49840531732702",
+        "envelope_sha256": "65e023a7c5ea6e6437e8ef1c6427e3bc4593b9057081aef695fe5fd8fe188f2b",
+        "detection_utc": "2026-11-22T16:01:24.776692+00:00",
+        "at_detection": {
+          "block": 135107494,
+          "hash": "0xcd941bfc7aeb09a8b1836e5eee0511758dbe4c4479c316e08c48ea6ee701b61a",
+          "before_gas_wei": "-52178587827454",
+          "credit_wei": "9947821412172546",
+          "gas_interval": 2053412,
+          "modeled_net_wei": "-156483787827454",
+          "elapsed_since_detection_ms": 117.631,
+          "completed_utc": "2026-11-22T16:01:24.894208+00:00"
+        },
+        "after_sim": {
+          "block": 135107495,
+          "hash": "0x17d299988467746470136226782117ec87e88a149ce905d9b360ed456d5a8104",
+          "before_gas_wei": "-52178587827454",
+          "credit_wei": "9947821412172546",
+          "gas_interval": 2053412,
+          "modeled_net_wei": "-156483787827454",
+          "elapsed_since_detection_ms": 353.152,
+          "completed_utc": "2026-11-22T16:01:25.129741+00:00"
+        }
+      },
+      {
+        "depth": 102,
+        "order": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "gas_price_wei": "50000000",
+        "intrinsic_legacy": 57952,
+        "detection_before_gas_upper_wei": "-168446659945888",
+        "envelope_sha256": "91bc6b064d59fdb7c67842f6d93c84859f878d14ea647fc6cdf6c2fd61cd348f",
+        "detection_utc": "2026-11-22T16:01:25.692712+00:00",
+        "at_detection": {
+          "block": 135107496,
+          "hash": "0x33b8506132ff8b884bdeb0a9df654c3ae020f473dfeddfd5a503c4001dcee17a",
+          "before_gas_wei": "-195002532288044",
+          "credit_wei": "9804997467711956",
+          "gas_interval": 6791266,
+          "modeled_net_wei": "-537463432288044",
+          "elapsed_since_detection_ms": 134.496,
+          "completed_utc": "2026-11-22T16:01:25.827059+00:00"
+        },
+        "after_sim": {
+          "block": 135107497,
+          "hash": "0x707d44aaf446ddf2c2c0381cd7c7d4c2ba4afffbfaf5d684378e893005a3704e",
+          "before_gas_wei": "-193114533980426",
+          "credit_wei": "9806885466019574",
+          "gas_interval": 6775601,
+          "modeled_net_wei": "-534792183980426",
+          "elapsed_since_detection_ms": 379.973,
+          "completed_utc": "2026-11-22T16:01:26.072534+00:00"
+        }
+      }
+    ]
+  },
+  "robinhood_feed": {
+    "chain_id": 4663,
+    "source": "wss://feed.mainnet.chain.robinhood.com",
+    "connections": 2,
+    "frames": 144,
+    "messages": 136,
+    "first_sequence": 120740508,
+    "last_sequence": 120740643,
+    "first_receive_utc": "2026-11-22T16:04:02.114180+00:00",
+    "last_receive_utc": "2026-11-22T16:04:16.621444+00:00",
+    "receive_span_seconds": 14.507275542,
+    "signed_eth_hashes": 371,
+    "signatures_verified": 0,
+    "forward_gap_missing": 0,
+    "non_increasing_pairs": 0,
+    "calls_reserved": 4,
+    "official_rpc": "https://rpc.mainnet.chain.robinhood.com",
+    "sequence_block_anchors": [
+      {
+        "feed_received": {
+          "monotonic_ns": 962603014241333,
+          "utc": "2026-11-22T16:04:05.633373+00:00"
+        },
+        "hash": "0xc8c79e9f0867a431aeff9829ed494755b17be3d3d6ffed69a9acec349525e806",
+        "number": 120740543,
+        "parent_chain_block": 26471730,
+        "sequence": 120740543,
+        "signed_feed_transactions": 1,
+        "signed_feed_tx_indices": [
+          1
+        ],
+        "timestamp": 1795363445,
+        "transactions": 2
+      },
+      {
+        "feed_received": {
+          "monotonic_ns": 962614002340375,
+          "utc": "2026-11-22T16:04:16.621444+00:00"
+        },
+        "hash": "0xa9c57bca8c16c5e316f57d45a0d446b54a2fe401b221e47563884646a35ed2b1",
+        "number": 120740643,
+        "parent_chain_block": 26471731,
+        "sequence": 120740643,
+        "signed_feed_transactions": 4,
+        "signed_feed_tx_indices": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "timestamp": 1795363456,
+        "transactions": 5
+      }
+    ],
+    "receipt": {
+      "block_hash": "0xc8c79e9f0867a431aeff9829ed494755b17be3d3d6ffed69a9acec349525e806",
+      "block_number": 120740543,
+      "distinct_pool_keys": 1,
+      "effective_gas_price_wei": 20022000,
+      "gas_used": 134588,
+      "logs": 2,
+      "net_pnl": null,
+      "official_uniswap_v4_pool_ids": [
+        "0xa1ec4ae8f73473055aeec51c604eeb16962f284afd43a31c39e0f20cf3afc151"
+      ],
+      "recognized_swap_log_shapes": {
+        "v4": 1
+      },
+      "reported_gas_fee_wei": 2694720936000,
+      "status": 1,
+      "transaction_hash": "0xab4c1b4c174cf81dca7b357e0879e86e4797236bbd564dfdc44e6c6dda6254b7",
+      "transaction_index": 1,
+      "transfer_logs": 1
+    },
+    "independent_finality_validation": false,
+    "economic_opportunities": null
+  }
+}

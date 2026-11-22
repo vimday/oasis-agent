@@ -95,6 +95,25 @@ def test_missing_or_invalid_receipt_data_fails(field, value):
         replace(c, exchanges=tuple(xs))
 
 
+@pytest.mark.parametrize("failure", ["missing", "wrong_gas", "no_result"])
+def test_op_requires_operator_fee_result_for_exact_pinned_receipt_gas(failure):
+    c = fixture(8453)
+    exchanges = list(c.exchanges)
+    if failure == "missing":
+        del exchanges[4]
+    elif failure == "wrong_gas":
+        request = json.loads(exchanges[4].request_payload)
+        request["params"][0]["data"] = OP_SELECTOR + encode(["uint256"], [101]).hex()
+        exchanges[4] = replace(exchanges[4], request_payload=canonical_json(request))
+    else:
+        response = json.loads(exchanges[4].response_payload)
+        del response["result"]
+        response["error"] = {"code": -32000, "message": "historical state unavailable"}
+        exchanges[4] = replace(exchanges[4], response_payload=canonical_json(response))
+    with pytest.raises(ValueError, match=r"incomplete|request/response mismatch"):
+        replace(c, exchanges=tuple(exchanges))
+
+
 def test_unsupported_chain_never_defaults_to_eth():
     with pytest.raises(ValueError, match="unknown chain"):
         fixture(999999)

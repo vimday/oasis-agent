@@ -15,6 +15,7 @@ import subprocess  # nosec B404 - bounded local anvil/forge execution only
 import sys
 import time
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import TracebackType
 from typing import Any, Final, Self
@@ -146,6 +147,12 @@ def _load_or_build_artifacts(contracts_out_dir: Path) -> dict[str, dict[str, Any
     return artifacts
 
 
+class _AnvilRpcError(RuntimeError):
+    def __init__(self, method: str, error: Any) -> None:
+        super().__init__(f"Anvil RPC {method} returned an error")
+        self.data = error.get("data") if isinstance(error, dict) else None
+
+
 class _AnvilRpc:
     """Strictly loopback-only JSON-RPC client using httpx.Client."""
 
@@ -193,7 +200,7 @@ class _AnvilRpc:
         if not isinstance(payload, dict) or payload.get("id") != req_id:
             raise RuntimeError(f"Anvil RPC {method} returned malformed envelope")
         if "error" in payload:
-            raise RuntimeError(f"Anvil RPC {method} error: {payload['error']}")
+            raise _AnvilRpcError(method, payload["error"])
         if "result" not in payload:
             raise RuntimeError(f"Anvil RPC {method} missing result")
         return payload["result"]
@@ -518,7 +525,45 @@ def _run_executor_drills(
     op_eth_before = rpc.balance(operator.address)
     exec_tok_before = rpc.erc20_balance(token_a, executor_addr)
 
-    rec1 = rpc.send_eip1559(operator, to=executor_addr, data=calldata1)
+    parent = rpc.latest_block()
+    pinned = {"blockHash": parent["hash"], "requireCanonical": True}
+    gas_limit = 1_000_000
+    call = {
+        "from": operator.address,
+        "to": executor_addr,
+        "data": "0x" + calldata1.hex(),
+        "gas": hex(gas_limit),
+        "value": "0x0",
+    }
+    raw = rpc.call("eth_call", [call, pinned])
+    executed, sim_profit = decode(["bool", "uint256"], bytes.fromhex(raw[2:]))
+    _require(
+        executed is True and sim_profit >= min_net_profit, "positive whole-cycle preflight failed"
+    )
+
+    # At the identical prestate, moving the minimum one raw unit above the simulated
+    # gain must produce the exact contract error, including both token balances.
+    higher_min = sim_profit + 1
+    negative_data, _ = encode_execute_cycle_calldata(replace(intent1, min_net_profit=higher_min))
+    error_sig = keccak(b"InsufficientNetProfit(uint256,uint256,uint256)")[:4]
+    expected_error = error_sig + encode(
+        ["uint256"] * 3, [exec_tok_before, exec_tok_before + sim_profit, higher_min]
+    )
+    try:
+        rpc.call("eth_call", [{**call, "data": "0x" + negative_data.hex()}, pinned])
+    except _AnvilRpcError as exc:
+        _require(
+            exc.data == "0x" + expected_error.hex(), "negative preflight returned unexpected error"
+        )
+    else:
+        raise RuntimeError("negative whole-cycle preflight unexpectedly succeeded")
+
+    rec1 = rpc.send_eip1559(operator, to=executor_addr, data=calldata1, gas_limit=gas_limit)
+    mined_block = rpc.call("eth_getBlockByHash", [rec1["blockHash"], False])
+    _require(
+        mined_block["parentHash"] == parent["hash"] and int(rec1["transactionIndex"], 16) == 0,
+        "preflight state is not the settled transaction prestate",
+    )
     _require(int(str(rec1["status"]), 16) == 1, "Drill 1 executeCycle reverted")
 
     op_eth_after = rpc.balance(operator.address)
@@ -539,6 +584,9 @@ def _run_executor_drills(
         ["uint256", "uint256"], bytes.fromhex(cycle_logs[0]["data"][2:])
     )
     net_profit = exec_tok_after - exec_tok_before
+    _require(
+        sim_profit == net_profit, "whole-cycle preflight differs from settlement balance delta"
+    )
     _require(int(decoded_init) == initial_amount, "Drill 1 logged initialAmount mismatch")
     _require(
         int(decoded_profit) == net_profit,
@@ -595,6 +643,23 @@ def _run_executor_drills(
         "initial_amount_raw": initial_amount,
         "min_net_profit_raw": min_net_profit,
         "net_profit_raw": net_profit,
+        "whole_cycle_preflight": {
+            "fixture": "loopback_anvil",
+            "chain_id": BASE_CHAIN_ID,
+            "block_number": int(parent["number"], 16),
+            "block_hash": parent["hash"],
+            "state_root": parent["stateRoot"],
+            "caller": operator.address,
+            "target": executor_addr,
+            "calldata_sha256": calldata1_sha256,
+            "value_wei": 0,
+            "gas_limit": gas_limit,
+            "simulated_token_delta_raw": sim_profit,
+            "settled_token_delta_raw": net_profit,
+            "negative_control_min_raw": higher_min,
+            "negative_control_error": "InsufficientNetProfit",
+            "executor_code_hash": executor_code_hash,
+        },
         "swept_to_revenue_sink_raw": rev_bal,
         "treasury_delta_raw": treasury_bal,
         "operator_token_delta_raw": op_tok_bal,

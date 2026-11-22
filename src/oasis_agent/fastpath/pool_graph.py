@@ -124,10 +124,24 @@ class CycleCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class CycleSizingResidual:
+    """A containing interval that may hold a qualifying or better amount, in base units."""
+
+    chain_id: int
+    base_token: str
+    pool_ids: tuple[str, ...]
+    min_amount_in: int
+    max_amount_in: int
+    net_profit_upper: int
+
+
+@dataclass(frozen=True, slots=True)
 class CycleScanReport:
     candidates: tuple[CycleCandidate, ...]
     cycles_evaluated: int
     elapsed_ns: int
+    # An older native library omitted this field, so coverage is unknown.
+    sizing_residuals: tuple[CycleSizingResidual, ...] | None = None
 
 
 def _parse_hop(raw: object) -> CycleHop:
@@ -161,6 +175,37 @@ def _parse_candidate(raw: object) -> CycleCandidate:
         gas_cost_in_base=parse_int_str(raw.get("gas_cost_in_base"), "gas_cost_in_base"),
         l1_fee_in_base=parse_int_str(raw.get("l1_fee_in_base"), "l1_fee_in_base"),
         net_profit=parse_int_str(raw.get("net_profit"), "net_profit"),
+    )
+
+
+def _parse_sizing_residual(raw: object) -> CycleSizingResidual:
+    if not isinstance(raw, Mapping):
+        raise FastpathCallError("cycle sizing residual payload must be an object")
+    chain_id = raw.get("chain_id")
+    if type(chain_id) is not int or chain_id <= 0:
+        raise FastpathCallError("sizing residual chain_id must be a positive integer")
+    base_token = raw.get("base_token")
+    pool_ids = raw.get("pool_ids")
+    if not isinstance(base_token, str) or not base_token:
+        raise FastpathCallError("sizing residual base_token must be a non-empty string")
+    if (
+        not isinstance(pool_ids, list)
+        or not 2 <= len(pool_ids) <= 4
+        or any(not isinstance(pool, str) or not pool for pool in pool_ids)
+    ):
+        raise FastpathCallError("sizing residual pool_ids must identify a two- to four-hop route")
+    min_amount = parse_int_str(raw.get("min_amount_in"), "min_amount_in")
+    max_amount = parse_int_str(raw.get("max_amount_in"), "max_amount_in")
+    profit_upper = parse_int_str(raw.get("net_profit_upper"), "net_profit_upper")
+    if not 0 < min_amount <= max_amount or profit_upper < 0:
+        raise FastpathCallError("sizing residual bounds are invalid")
+    return CycleSizingResidual(
+        chain_id=chain_id,
+        base_token=base_token,
+        pool_ids=tuple(pool_ids),
+        min_amount_in=min_amount,
+        max_amount_in=max_amount,
+        net_profit_upper=profit_upper,
     )
 
 
@@ -283,11 +328,18 @@ def scan_cycles(
         raise FastpathCallError("cycles_evaluated must be an integer")
     if isinstance(elapsed_ns, bool) or not isinstance(elapsed_ns, int):
         raise FastpathCallError("elapsed_ns must be an integer")
+    sizing_residuals = None
+    if "sizing_residuals" in result:
+        raw_residuals = result["sizing_residuals"]
+        if not isinstance(raw_residuals, list):
+            raise FastpathCallError("scan_cycles sizing_residuals must be a list")
+        sizing_residuals = tuple(_parse_sizing_residual(item) for item in raw_residuals)
 
     return CycleScanReport(
         candidates=tuple(_parse_candidate(item) for item in raw_candidates),
         cycles_evaluated=cycles_evaluated,
         elapsed_ns=elapsed_ns,
+        sizing_residuals=sizing_residuals,
     )
 
 

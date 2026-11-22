@@ -61,7 +61,7 @@ from oasis_agent.fastpath.multicall_universe import (
     PinnedUniverseSnapshot,
     QuoterVerificationResult,
 )
-from oasis_agent.fastpath.pool_graph import PoolNode, TickLiquidity
+from oasis_agent.fastpath.pool_graph import CycleCandidate, PoolNode, TickLiquidity
 from oasis_agent.live.canary_readiness import evaluate_profit_engine_readiness
 from oasis_agent.live.dual_rpc_probe import (
     CODE_TARGETS,
@@ -91,6 +91,7 @@ from scripts.run_multicall_100tick_campaign import (  # noqa: E402
     AERO_TOKEN,
     CBBTC,
     SUMMARY_SCHEMA_VERSION,
+    _interpret_quoter_verification_result,
     _KeepAliveHttpsPool,
     run_multicall_campaign,
     verify_campaign_attribution_chain,
@@ -544,6 +545,17 @@ def test_coinbase_l2_vwap_bidirectional_math_and_degradation(
     _validate_cb_dns("api.exchange.coinbase.com")
 
 
+def test_positive_per_leg_verdict_requires_explicit_reconciled_amounts() -> None:
+    candidate = CycleCandidate(BASE_CHAIN_ID, WETH, (), 100, 115, 3, 2, 10)
+    for invalid in (
+        True,
+        {"verified": True},
+        {"verified": True, "amount_out": 115, "net_profit": 15},
+    ):
+        with pytest.raises(ShadowRunnerError):
+            _interpret_quoter_verification_result(invalid, candidate)
+
+
 def test_campaign_quoter_separation_phantom_vs_verified_and_hash_chain(
     tmp_path: Path, bridge: FastpathBridge
 ) -> None:
@@ -575,6 +587,23 @@ def test_campaign_quoter_separation_phantom_vs_verified_and_hash_chain(
     disk_lines = res_ok.attribution_path.read_text(encoding="utf-8").splitlines()
     disk_records = [json.loads(line) for line in disk_lines]
     assert verify_campaign_attribution_chain(disk_records) == res_ok.summary["chain_head_sha256"]
+    counts = res_ok.summary["atomic_dex_summary"]["candidate_dispositions_completed_ticks"]
+    assert sum(counts.values()) == res_ok.summary["atomic_dex_summary"]["total_rust_raw_candidates"]
+    for record in disk_records:
+        rows = record["atomic_candidate_dispositions"]
+        assert len(rows) == record["rust_raw_candidates_count"]
+        assert [r["rank"] for r in rows] == list(range(1, len(rows) + 1))
+        assert all(r["whole_transaction_status"] == "not_simulated" for r in rows)
+        assert all(r["status"] == "not_checked_rank_limit" for r in rows[3:])
+        assert len({r["topology_sha256"] for r in rows}) < len(rows)
+        assert len({r["base_token"] for r in rows}) == 2
+        for row in rows:
+            if row["status"] == "per_leg_positive":
+                assert len(row["route"]) == len(row["hop_quote_sources"])
+                assert int(row["quoted_output_raw"]) == sum(
+                    int(row[k])
+                    for k in ("quoted_net_raw", "input_raw", "l2_cost_raw", "l1_cost_raw")
+                )
 
     tampered = [dict(r) for r in disk_records]
     tampered[0]["atomic_best_net_bps"] = 9999.0

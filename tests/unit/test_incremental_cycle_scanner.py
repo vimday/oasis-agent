@@ -1,6 +1,7 @@
 import json
 import subprocess
 import sys
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,8 @@ from oasis_agent.fastpath import (
     run_multihop_ab_experiment,
     scan_cycles,
 )
+from oasis_agent.fastpath import incremental_scanner as scanner_mod
+from oasis_agent.fastpath.pool_graph import CycleCandidate, CycleScanReport
 from scripts import run_multihop_ab_experiment as ab_cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -401,3 +404,47 @@ def test_multihop_ab_experiment_parity_and_cli_execution(
         bridge=bridge,
     )
     assert single_report.exact_bit_for_bit_blocks == 1
+
+
+def test_recall_empty_and_missed_amounts_keep_their_denominations(
+    bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pools, weth, _ = _sample_six_pool_universe(bridge)
+    usdc = pools[0].token1
+    snap = BlockPoolSnapshot(1, 1000, tuple(pools), (weth, usdc), 0, 0)
+    empty_result = scanner_mod.IncrementalCycleScanResult(
+        candidates=(),
+        cycles_evaluated=1,
+        rust_elapsed_ns=1,
+        wall_elapsed_ns=1,
+        used_full_scan=True,
+        fallback_reason="initial_scan",
+        changed_pools=(),
+        retained_cached_candidates=0,
+        fresh_candidates=0,
+        sizing_residuals=(),
+    )
+    monkeypatch.setattr(IncrementalCycleScanner, "scan_block", lambda *_a, **_kw: empty_result)
+    ref = CycleScanReport((), 1, 1, ())
+    monkeypatch.setattr(scanner_mod, "scan_cycles", lambda *_a, **_kw: ref)
+    empty = run_multihop_ab_experiment([snap], bridge=bridge, min_p99_reduction_ratio=0)
+    assert empty.recall is None
+    assert empty.hypothesis_a_passed is False
+    ref = replace(
+        ref,
+        candidates=tuple(
+            CycleCandidate(8453, token, (), 1, 1 + n, 0, 0, n)
+            for token, n in ((weth, 31), (usdc, 19))
+        ),
+    )
+    report = run_multihop_ab_experiment([snap], bridge=bridge)
+    assert report.recall == 0
+    assert report.missed_net_profit_raw is None
+    assert report.to_dict()["missed_net_profit_by_asset"] == [
+        {"chain_id": 8453, "token": weth, "decimals": 18, "net_raw": "31"},
+        {"chain_id": 8453, "token": usdc, "decimals": 6, "net_raw": "19"},
+    ]
+    blocked = run_multihop_ab_experiment([replace(snap, headroom_blocked=True)], bridge=bridge)
+    assert blocked.arm_a.total_candidates == blocked.arm_b.total_candidates == 0
+    assert blocked.recall is None
+    assert blocked.hypothesis_a_passed is False

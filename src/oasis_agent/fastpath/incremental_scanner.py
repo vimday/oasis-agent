@@ -3,14 +3,22 @@
 import math
 import random
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Final, Literal
 
 from .bridge import FastpathBridge, require_int
-from .pool_graph import CycleCandidate, PoolKind, PoolNode, TickLiquidity, scan_cycles
+from .pool_graph import (
+    CycleCandidate,
+    CycleSizingResidual,
+    PoolKind,
+    PoolNode,
+    TickLiquidity,
+    scan_cycles,
+)
 
-AB_EXPERIMENT_SCHEMA: Final[str] = "oasis.multihop-ab-experiment.v1"
+AB_EXPERIMENT_SCHEMA: Final[str] = "oasis.multihop-ab-experiment.v2"
 
 FallbackReason = Literal[
     "initial_scan",
@@ -34,11 +42,12 @@ class IncrementalCycleScanResult:
     changed_pools: tuple[str, ...]
     retained_cached_candidates: int
     fresh_candidates: int
+    sizing_residuals: tuple[CycleSizingResidual, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class BlockPoolSnapshot:
-    """Deterministic per-block pool universe and gas snapshot for offline A/B comparison."""
+    """Per-block pool universe and gas inputs for offline A/B comparison."""
 
     block_number: int
     timestamp_ms: int
@@ -50,6 +59,11 @@ class BlockPoolSnapshot:
     v2_hop_gas_cost_in_base: int | None = None
     cl_hop_gas_cost_in_base: int | None = None
     explicit_changed_pools: tuple[str, ...] | None = None
+    min_amount_in: int | None = None
+    max_amount_in: int | None = None
+    min_net_profit: int | None = None
+    force_full_scan: bool = False
+    headroom_blocked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +81,8 @@ class MultihopAbArmMetrics:
     p95_ns: int
     p99_ns: int
     max_ns: int
+    first_block_ns: int
+    subsequent_p99_ns: int | None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize arm metrics deterministically."""
@@ -82,6 +98,8 @@ class MultihopAbArmMetrics:
             "p95_ns": self.p95_ns,
             "p99_ns": self.p99_ns,
             "max_ns": self.max_ns,
+            "first_block_ns": self.first_block_ns,
+            "subsequent_p99_ns": self.subsequent_p99_ns,
         }
 
 
@@ -93,9 +111,13 @@ class MultihopAbExperimentReport:
     min_p99_reduction_ratio: float
     p99_reduction_ratio: float
     cycles_evaluated_reduction_ratio: float
-    recall: float
+    recall: float | None
     missed_candidates_count: int
-    missed_net_profit_raw: int
+    sizing_unknown_blocks: int
+    sizing_residual_mismatch_blocks: int
+    full_scan_open_interval_count: int
+    missed_net_profit_raw: int | None
+    missed_net_profit_by_asset: dict[tuple[int, str, int], int]
     false_positive_count: int
     exact_bit_for_bit_blocks: int
     total_blocks: int
@@ -121,8 +143,21 @@ class MultihopAbExperimentReport:
             "p99_reduction_ratio": self.p99_reduction_ratio,
             "cycles_evaluated_reduction_ratio": self.cycles_evaluated_reduction_ratio,
             "recall": self.recall,
+            "recall_scope": "same_model_candidate_agreement",
+            "timing_scope": "in_memory_pools_to_candidate_scan_return",
+            "arm_order": "alternating_ab_ba",
+            "whole_transaction_recall": None,
+            "sizing_unknown_blocks": self.sizing_unknown_blocks,
+            "sizing_residual_mismatch_blocks": self.sizing_residual_mismatch_blocks,
+            "full_scan_open_interval_count": self.full_scan_open_interval_count,
             "missed_candidates_count": self.missed_candidates_count,
             "missed_net_profit_raw": self.missed_net_profit_raw,
+            "missed_net_profit_by_asset": [
+                {"chain_id": chain, "token": token, "decimals": decimals, "net_raw": str(amount)}
+                for (chain, token, decimals), amount in sorted(
+                    self.missed_net_profit_by_asset.items()
+                )
+            ],
             "false_positive_count": self.false_positive_count,
             "exact_bit_for_bit_blocks": self.exact_bit_for_bit_blocks,
             "total_blocks": self.total_blocks,
@@ -192,6 +227,7 @@ class IncrementalCycleScanner:
         self._prev_pool_sigs: dict[tuple[int, str], tuple[object, ...]] = {}
         self._prev_params_key: tuple[object, ...] | None = None
         self._cached_candidates: tuple[CycleCandidate, ...] = ()
+        self._cached_sizing_residuals: tuple[CycleSizingResidual, ...] | None = None
         self._steps_since_full_scan = 0
 
     def reset(self) -> None:
@@ -200,6 +236,7 @@ class IncrementalCycleScanner:
         self._prev_pool_sigs.clear()
         self._prev_params_key = None
         self._cached_candidates = ()
+        self._cached_sizing_residuals = None
         self._steps_since_full_scan = 0
 
     def _determine_fallback_reason(
@@ -310,6 +347,7 @@ class IncrementalCycleScanner:
             self._prev_pool_sigs = current_sigs
             self._prev_params_key = params_key
             self._cached_candidates = report.candidates
+            self._cached_sizing_residuals = report.sizing_residuals
             self._steps_since_full_scan = 0
             return IncrementalCycleScanResult(
                 candidates=report.candidates,
@@ -321,6 +359,7 @@ class IncrementalCycleScanner:
                 changed_pools=(),
                 retained_cached_candidates=0,
                 fresh_candidates=len(report.candidates),
+                sizing_residuals=report.sizing_residuals,
             )
 
         changed_ids = {
@@ -348,6 +387,7 @@ class IncrementalCycleScanner:
             rust_elapsed_ns = 0
             fresh: tuple[CycleCandidate, ...] = ()
             merged = self._cached_candidates
+            merged_residuals = self._cached_sizing_residuals
         else:
             inc_report = scan_cycles(
                 pools,
@@ -372,10 +412,20 @@ class IncrementalCycleScanner:
             rust_elapsed_ns = inc_report.elapsed_ns
             fresh = inc_report.candidates
             merged = tuple(sorted((*retained, *fresh), key=_candidate_sort_key))
+            if self._cached_sizing_residuals is None or inc_report.sizing_residuals is None:
+                merged_residuals = None
+            else:
+                retained_residuals = tuple(
+                    residual
+                    for residual in self._cached_sizing_residuals
+                    if all(pool_id.lower() not in changed_ids for pool_id in residual.pool_ids)
+                )
+                merged_residuals = retained_residuals + inc_report.sizing_residuals
 
         wall_ns = time.perf_counter_ns() - t0
         self._prev_pool_sigs = current_sigs
         self._cached_candidates = merged
+        self._cached_sizing_residuals = merged_residuals
         self._steps_since_full_scan += 1
 
         return IncrementalCycleScanResult(
@@ -388,6 +438,7 @@ class IncrementalCycleScanner:
             changed_pools=sorted_changed,
             retained_cached_candidates=len(retained),
             fresh_candidates=len(fresh),
+            sizing_residuals=merged_residuals,
         )
 
 
@@ -586,6 +637,12 @@ def generate_34pool_block_snapshots(
     return tuple(snapshots)
 
 
+def _time_scan[T](scan: Callable[[], T]) -> tuple[T, int]:
+    start = time.perf_counter_ns()
+    result = scan()
+    return result, time.perf_counter_ns() - start
+
+
 def run_multihop_ab_experiment(
     snapshots: Sequence[BlockPoolSnapshot] | None = None,
     *,
@@ -631,21 +688,27 @@ def run_multihop_ab_experiment(
     arm_b_inc_blocks = 0
 
     exact_blocks = 0
+    sizing_unknown_blocks = 0
+    sizing_mismatches = 0
+    open_intervals = 0
     missed_count = 0
-    missed_profit = 0
+    missed_by_asset: dict[tuple[int, str, int], int] = {}
     fp_count = 0
 
-    for snap in active_snapshots:
-        t_a0 = time.perf_counter_ns()
-        res_a = scan_cycles(
+    for block_index, snap in enumerate(active_snapshots):
+        block_min_in = min_amount_in if snap.min_amount_in is None else snap.min_amount_in
+        block_max_in = max_amount_in if snap.max_amount_in is None else snap.max_amount_in
+        block_min_profit = min_net_profit if snap.min_net_profit is None else snap.min_net_profit
+        scan_a = partial(
+            scan_cycles,
             snap.pools,
             snap.base_tokens,
             max_hops=max_hops,
-            min_amount_in=min_amount_in,
-            max_amount_in=max_amount_in,
+            min_amount_in=block_min_in,
+            max_amount_in=block_max_in,
             gas_cost_in_base=snap.gas_cost_in_base,
             l1_fee_in_base=snap.l1_fee_in_base,
-            min_net_profit=min_net_profit,
+            min_net_profit=block_min_profit,
             per_hop_gas_cost_in_base=snap.per_hop_gas_cost_in_base,
             v2_hop_gas_cost_in_base=snap.v2_hop_gas_cost_in_base,
             cl_hop_gas_cost_in_base=snap.cl_hop_gas_cost_in_base,
@@ -654,45 +717,72 @@ def run_multihop_ab_experiment(
             timestamp_ns=snap.timestamp_ms * 1_000_000,
             bridge=active_bridge,
         )
-        wall_a = time.perf_counter_ns() - t_a0
-        arm_a_durations.append(wall_a)
-        arm_a_evals += res_a.cycles_evaluated
-        arm_a_cands_total += len(res_a.candidates)
-
-        res_b = scanner.scan_block(
+        scan_b = partial(
+            scanner.scan_block,
             snap.pools,
             snap.base_tokens,
             max_hops=max_hops,
-            min_amount_in=min_amount_in,
-            max_amount_in=max_amount_in,
+            min_amount_in=block_min_in,
+            max_amount_in=block_max_in,
             gas_cost_in_base=snap.gas_cost_in_base,
             l1_fee_in_base=snap.l1_fee_in_base,
-            min_net_profit=min_net_profit,
+            min_net_profit=block_min_profit,
             per_hop_gas_cost_in_base=snap.per_hop_gas_cost_in_base,
             v2_hop_gas_cost_in_base=snap.v2_hop_gas_cost_in_base,
             cl_hop_gas_cost_in_base=snap.cl_hop_gas_cost_in_base,
             deduplicate_cycles=deduplicate_cycles,
             explicit_changed_pools=snap.explicit_changed_pools,
+            force_full_scan=snap.force_full_scan,
             block_number=snap.block_number,
             timestamp_ns=snap.timestamp_ms * 1_000_000,
         )
-        arm_b_durations.append(res_b.wall_elapsed_ns)
+        if block_index % 2 == 0:
+            res_a, wall_a = _time_scan(scan_a)
+            res_b, wall_b = _time_scan(scan_b)
+        else:
+            res_b, wall_b = _time_scan(scan_b)
+            res_a, wall_a = _time_scan(scan_a)
+        # The campaign still scans for diagnostics when headroom is blocked,
+        # then excludes every candidate from ranking and quote admission.
+        candidates_a = () if snap.headroom_blocked else res_a.candidates
+        candidates_b = () if snap.headroom_blocked else res_b.candidates
+        arm_a_durations.append(wall_a)
+        arm_a_evals += res_a.cycles_evaluated
+        arm_a_cands_total += len(candidates_a)
+        arm_b_durations.append(wall_b)
         arm_b_evals += res_b.cycles_evaluated
-        arm_b_cands_total += len(res_b.candidates)
+        arm_b_cands_total += len(candidates_b)
         if res_b.used_full_scan:
             arm_b_full_blocks += 1
         else:
             arm_b_inc_blocks += 1
 
-        if res_b.candidates == res_a.candidates:
+        if res_a.sizing_residuals is not None:
+            open_intervals += len(res_a.sizing_residuals)
+        if res_a.sizing_residuals is None or res_b.sizing_residuals is None:
+            sizing_unknown_blocks += 1
+        elif set(res_a.sizing_residuals) != set(res_b.sizing_residuals):
+            sizing_mismatches += 1
+        if candidates_b == candidates_a:
             exact_blocks += 1
-        map_a = {_candidate_identity(c): c for c in res_a.candidates}
-        map_b = {_candidate_identity(c): c for c in res_b.candidates}
+        map_a = {_candidate_identity(c): c for c in candidates_a}
+        map_b = {_candidate_identity(c): c for c in candidates_b}
         for ident, cand_a in map_a.items():
             cand_b = map_b.get(ident)
             if cand_b is None or cand_b != cand_a:
                 missed_count += 1
-                missed_profit += cand_a.net_profit
+                token = cand_a.base_token.lower()
+                decimals = {
+                    d
+                    for pool in snap.pools
+                    if pool.chain_id == cand_a.chain_id
+                    for asset, d in ((pool.token0, pool.decimals0), (pool.token1, pool.decimals1))
+                    if asset.lower() == token
+                }
+                if len(decimals) != 1:
+                    raise ValueError("missing or conflicting anchor decimals in missed candidate")
+                asset_key = (cand_a.chain_id, token, decimals.pop())
+                missed_by_asset[asset_key] = missed_by_asset.get(asset_key, 0) + cand_a.net_profit
         for ident in map_b:
             if ident not in map_a:
                 fp_count += 1
@@ -705,7 +795,7 @@ def run_multihop_ab_experiment(
     p99_reduction = (p99_a - p99_b) / p99_a if p99_a > 0 else 0.0
     cycles_reduction = (arm_a_evals - arm_b_evals) / arm_a_evals if arm_a_evals > 0 else 0.0
     recall = (
-        (arm_a_cands_total - missed_count) / arm_a_cands_total if arm_a_cands_total > 0 else 1.0
+        (arm_a_cands_total - missed_count) / arm_a_cands_total if arm_a_cands_total > 0 else None
     )
 
     arm_a_metrics = MultihopAbArmMetrics(
@@ -720,6 +810,10 @@ def run_multihop_ab_experiment(
         p95_ns=_percentile_int(sorted_a, 0.95),
         p99_ns=p99_a,
         max_ns=sorted_a[-1],
+        first_block_ns=arm_a_durations[0],
+        subsequent_p99_ns=_percentile_int(sorted(arm_a_durations[1:]), 0.99)
+        if len(arm_a_durations) > 1
+        else None,
     )
     arm_b_metrics = MultihopAbArmMetrics(
         arm="B_cpu_incremental",
@@ -733,12 +827,19 @@ def run_multihop_ab_experiment(
         p95_ns=_percentile_int(sorted_b, 0.95),
         p99_ns=p99_b,
         max_ns=sorted_b[-1],
+        first_block_ns=arm_b_durations[0],
+        subsequent_p99_ns=_percentile_int(sorted(arm_b_durations[1:]), 0.99)
+        if len(arm_b_durations) > 1
+        else None,
     )
 
     hypothesis_a_passed = bool(
         missed_count == 0
         and fp_count == 0
+        and sizing_unknown_blocks == 0
+        and sizing_mismatches == 0
         and exact_blocks == len(active_snapshots)
+        and recall is not None
         and recall >= 1.0
         and p99_reduction >= min_p99_reduction_ratio
     )
@@ -750,7 +851,11 @@ def run_multihop_ab_experiment(
         cycles_evaluated_reduction_ratio=cycles_reduction,
         recall=recall,
         missed_candidates_count=missed_count,
-        missed_net_profit_raw=missed_profit,
+        sizing_unknown_blocks=sizing_unknown_blocks,
+        sizing_residual_mismatch_blocks=sizing_mismatches,
+        full_scan_open_interval_count=open_intervals,
+        missed_net_profit_raw=sum(missed_by_asset.values()) if len(missed_by_asset) <= 1 else None,
+        missed_net_profit_by_asset=missed_by_asset,
         false_positive_count=fp_count,
         exact_bit_for_bit_blocks=exact_blocks,
         total_blocks=len(active_snapshots),

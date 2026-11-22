@@ -27,9 +27,10 @@ import urllib.error
 import urllib.parse
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, Final, Protocol, cast, runtime_checkable
 
@@ -139,7 +140,15 @@ from oasis_agent.fastpath.multicall_universe import (
     VIRTUAL_TOKEN,
     VVV_TOKEN,
     WELL_TOKEN,
+    DiscoveredPool,
     _IPv4PreferredHTTPSConnection,
+    fetch_pinned_universe_snapshot,
+)
+from oasis_agent.fastpath.multihop_replay import (
+    REPLAY_DIRECTORY,
+    MultihopReplayCapture,
+    ReplayAnchorInput,
+    ReplayDecodedState,
 )
 from oasis_agent.fastpath.pool_graph import (
     CycleCandidate,
@@ -295,6 +304,7 @@ class QuoterCheckResult:
     quoter_net_profit: int
     rpc_calls_used: int
     reason: str
+    hop_quote_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -479,6 +489,7 @@ def _fetch_pinned_multicall3_fallback(
     *,
     timeout_s: float,
     block_tag: str = "latest",
+    pin_call_to_hash: bool = False,
 ) -> PinnedTickSnapshot:
     normalized_tag = _validate_block_tag(block_tag)
     header_raw = _single_rpc_call(
@@ -504,11 +515,14 @@ def _fetch_pinned_multicall3_fallback(
     calls, tags = _build_multicall3_requests(pool_specs)
     encoded_calls = encode(["(address,bool,bytes)[]"], [calls])
     multicall_data = AGGREGATE3_SELECTOR + encoded_calls.hex()
+    pinned_block: str | dict[str, str | bool] = hex(block_number)
+    if pin_call_to_hash:
+        pinned_block = {"blockHash": block_hash, "requireCanonical": True}
     raw_mc_resp = _single_rpc_call(
         send,
         rpc_url,
         method="eth_call",
-        params=[{"to": MULTICALL3, "data": multicall_data}, hex(block_number)],
+        params=[{"to": MULTICALL3, "data": multicall_data}, pinned_block],
         timeout_s=timeout_s,
     )
     mc_bytes = _decode_hex_bytes(raw_mc_resp, "multicall3.aggregate3")
@@ -612,7 +626,7 @@ def _quote_hop_onchain_fallback(
     token_in: str,
     token_out: str,
     amount_in: int,
-    pinned_block_hex: str,
+    pinned_block_hex: str | dict[str, str | bool],
     timeout_s: float,
     tick_spacings: Mapping[str, int],
     factories: Mapping[str, str | None],
@@ -692,12 +706,18 @@ def _verify_candidate_fallback(
     candidate: CycleCandidate,
     nodes_by_id: Mapping[str, PoolNode],
     pinned_block_number: int,
+    pinned_block_hash: str | None = None,
     timeout_s: float,
     tick_spacings: Mapping[str, int],
     factories: Mapping[str, str | None],
 ) -> QuoterCheckResult:
     cur_amount = candidate.optimal_amount_in
-    pinned_hex = hex(pinned_block_number)
+    pinned_hex: str | dict[str, str | bool] = hex(pinned_block_number)
+    if pinned_block_hash is not None:
+        pinned_hex = {
+            "blockHash": normalize_hash32(pinned_block_hash, "block_hash"),
+            "requireCanonical": True,
+        }
     calls_made = 0
     try:
         for hop in candidate.hops:
@@ -749,6 +769,7 @@ def _verify_candidate_fallback(
         quoter_net_profit=net_profit,
         rpc_calls_used=calls_made,
         reason="ok" if verified else "quoter_nonpositive_net_profit",
+        hop_quote_sources=tuple("rpc_pool_or_quoter" for _ in candidate.hops),
     )
 
 
@@ -1451,6 +1472,8 @@ def build_synthetic_multicall_rpc_transport(
             return out
         return 0
 
+    blocks_by_hash: dict[str, int] = {}
+
     def _transport(_url: str, payload: bytes, _timeout_s: float) -> bytes:
         req = json.loads(payload.decode("utf-8"))
         method = req.get("method")
@@ -1467,6 +1490,7 @@ def build_synthetic_multicall_rpc_transport(
             block_num = base_block_number + idx * 4
             ts_ms = (base_timestamp_sec + idx) * 1000 + (idx * 200) % 1000
             block_hash = "0x" + sha256_hex(f"base-mc-synth-block-{block_num}".encode())
+            blocks_by_hash[block_hash] = block_num
             parent_hash = "0x" + sha256_hex(f"base-mc-synth-parent-{block_num - 1}".encode())
             state_root = "0x" + sha256_hex(f"base-mc-synth-state-{block_num}".encode())
             header = {
@@ -1481,8 +1505,13 @@ def build_synthetic_multicall_rpc_transport(
             return json.dumps({"jsonrpc": "2.0", "id": req_id, "result": header}).encode("utf-8")
 
         if method == "eth_call":
-            call_obj, block_hex = params
-            block_num = int(block_hex, 16)
+            call_obj, block_param = params
+            if isinstance(block_param, dict):
+                if block_param.get("requireCanonical") is not True:
+                    raise ValueError("fixture hash-pinned call requires canonical block")
+                block_num = blocks_by_hash[block_param["blockHash"]]
+            else:
+                block_num = int(block_param, 16)
             idx = max(0, (block_num - base_block_number) // 4)
             ts_ms = (base_timestamp_sec + idx) * 1000 + (idx * 200) % 1000
             to_addr = normalize_address(call_obj["to"])
@@ -1626,6 +1655,48 @@ def _extract_snapshot_from_multicall_universe(raw_snap: Any) -> PinnedTickSnapsh
         rpc_calls_used=calls_used,
         balances_by_pool=balances_by_pool,
         parent_hash=parent_hash,
+    )
+
+
+def decode_retained_multihop_snapshot(
+    snapshot_format: str,
+    pool_specs: list[object],
+    send: Callable[[str, bytes, float], bytes],
+    block_tag: str,
+) -> ReplayDecodedState:
+    """Rebuild the pool graph with the campaign's decoders and an offline-only transport."""
+    specs = []
+    for raw_spec in pool_specs:
+        spec = dict(strict_object(raw_spec, "replay pool spec"))
+        spec["kind"] = PoolKind(strict_string(spec.get("kind"), "pool kind"))
+        specs.append(spec)
+    # The decoders require a syntactically valid endpoint even with a supplied transport.
+    endpoint = "https://offline.invalid"
+    if snapshot_format == "discovered_multicall":
+        snapshot = _extract_snapshot_from_multicall_universe(
+            fetch_pinned_universe_snapshot(
+                endpoint,
+                [DiscoveredPool(**spec) for spec in specs],
+                transport=send,
+                block_tag=block_tag,
+                pin_call_to_hash=True,
+            )
+        )
+    elif snapshot_format == "fixed_pool_multicall":
+        snapshot = _fetch_pinned_multicall3_fallback(
+            send,
+            endpoint,
+            [BasePoolSpec(**spec) for spec in specs],
+            timeout_s=1.0,
+            block_tag=block_tag,
+            pin_call_to_hash=True,
+        )
+    else:
+        raise ValueError("unsupported retained snapshot format")
+    return ReplayDecodedState(
+        pools=snapshot.nodes,
+        l1_fee_wei=snapshot.l1_data_fee_wei,
+        eth_price_micro_usdc=_compute_eth_price_micro_usdc(snapshot.nodes),
     )
 
 
@@ -1829,43 +1900,38 @@ class _KeepAliveHttpsPool:
 def _interpret_quoter_verification_result(
     raw_res: Any, candidate: CycleCandidate
 ) -> QuoterCheckResult:
-    if isinstance(raw_res, bool):
-        return QuoterCheckResult(
-            verified=raw_res and candidate.net_profit > 0,
-            quoter_amount_out=candidate.amount_out if raw_res else 0,
-            quoter_net_profit=(
-                candidate.net_profit
-                if raw_res
-                else -(candidate.gas_cost_in_base + candidate.l1_fee_in_base)
-            ),
-            rpc_calls_used=len(candidate.hops),
-            reason="ok" if raw_res else "quoter_rejected",
-        )
-    verified = bool(_attr_or_key(raw_res, "verified", "passed", "ok", default=False))
-    amount_out = int(
-        _attr_or_key(
-            raw_res,
-            "quoter_amount_out",
-            "simulated_amount_out",
-            "amount_out",
-            default=candidate.amount_out,
-        )
+    verified = _attr_or_key(raw_res, "verified", "passed", "ok", default=None)
+    calls_used = _attr_or_key(raw_res, "rpc_calls_used", default=len(candidate.hops))
+    if type(verified) is not bool or type(calls_used) is not int or calls_used < 0:
+        raise ShadowRunnerError("invalid per-leg quote status or request count")
+    amount_out = _attr_or_key(raw_res, "quoter_amount_out", "simulated_amount_out", "amount_out")
+    net_profit = _attr_or_key(raw_res, "quoter_net_profit", "simulated_net_profit", "net_profit")
+    if type(amount_out) is not int or type(net_profit) is not int or amount_out < 0:
+        raise ShadowRunnerError("missing or malformed per-leg amounts")
+    expected_net = (
+        amount_out
+        - candidate.optimal_amount_in
+        - candidate.gas_cost_in_base
+        - candidate.l1_fee_in_base
     )
-    net_profit = int(
-        _attr_or_key(
-            raw_res,
-            "quoter_net_profit",
-            "simulated_net_profit",
-            "net_profit",
-            default=candidate.net_profit,
-        )
-    )
-    calls_used = int(_attr_or_key(raw_res, "rpc_calls_used", default=len(candidate.hops)))
-    reason = str(
-        _attr_or_key(raw_res, "reason", "detail", default="ok" if verified else "rejected")
-    )
+    if verified and net_profit != expected_net:
+        raise ShadowRunnerError("per-leg output and modeled costs do not reconcile")
     effective_verified = verified and net_profit > 0
+    reason = str(
+        _attr_or_key(
+            raw_res, "reason", "detail", default="ok" if effective_verified else "rejected"
+        )
+    )
+    sources = _attr_or_key(raw_res, "hop_quote_sources", default=())
+    if not isinstance(sources, (tuple, list)) or (sources and len(sources) != len(candidate.hops)):
+        raise ShadowRunnerError("invalid per-leg source count")
+    if any(
+        source not in ("v3_quoter", "slipstream_quoter", "local_slipstream", "local_v2")
+        for source in sources
+    ):
+        raise ShadowRunnerError("invalid per-leg source")
     return QuoterCheckResult(
+        hop_quote_sources=tuple(sources),
         verified=effective_verified,
         quoter_amount_out=amount_out,
         quoter_net_profit=net_profit,
@@ -1913,6 +1979,7 @@ def run_multicall_campaign(
     maker_min_edge_bps: Decimal | float | None = None,
     max_book_workers: int = 9,
     stop_gracefully_on_rpc_error: bool = False,
+    record_multihop_replay: bool = False,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -1931,6 +1998,8 @@ def run_multicall_campaign(
         raise ShadowRunnerError("max_book_workers must be a positive integer")
     if type(stop_gracefully_on_rpc_error) is not bool:
         raise ShadowRunnerError("stop_gracefully_on_rpc_error must be a boolean")
+    if type(record_multihop_replay) is not bool:
+        raise ShadowRunnerError("record_multihop_replay must be a boolean")
     normalized_allowed_products = _normalize_allowed_products(allowed_products)
     allowed_products_set = (
         frozenset(normalized_allowed_products) if normalized_allowed_products is not None else None
@@ -1980,6 +2049,16 @@ def run_multicall_campaign(
     attribution_path, summary_path = _ensure_clean_output_dir(out_dir)
     origin, _, _ = _validate_rpc_url(
         rpc_url, enforce_public_host=rpc_transport is None and mode != "fixture"
+    )
+    capture = (
+        MultihopReplayCapture(
+            out_dir / REPLAY_DIRECTORY,
+            source=origin,
+            mode="injected" if mode == "public-shadow" and rpc_transport is not None else mode,
+            ticks_requested=ticks,
+        )
+        if record_multihop_replay
+        else None
     )
 
     http_pool: _KeepAliveHttpsPool | None = None
@@ -2146,16 +2225,24 @@ def run_multicall_campaign(
             )
             if is_native_universe:
                 _reserve_rpc(3)
-            discovered = _call_with_supported_kwargs(
-                multicall_mod.discover_base_universe_pools,
-                {
-                    "rpc_url": rpc_url,
-                    "transport": active_rpc_transport,
-                    "timeout_s": float(timeout_s),
-                    "max_rpc_calls": max_rpc_calls - rpc_calls_used,
-                    "include_ecosystem_tokens": include_ecosystem_tokens,
-                    "include_aero_cl2": include_aero_cl2,
-                },
+
+            def discover(send: Callable[[str, bytes, float], bytes]) -> Any:
+                return _call_with_supported_kwargs(
+                    multicall_mod.discover_base_universe_pools,
+                    {
+                        "rpc_url": rpc_url,
+                        "transport": send,
+                        "timeout_s": float(timeout_s),
+                        "max_rpc_calls": max_rpc_calls - rpc_calls_used,
+                        "include_ecosystem_tokens": include_ecosystem_tokens,
+                        "include_aero_cl2": include_aero_cl2,
+                    },
+                )
+
+            discovered = (
+                capture.record_attempt(active_rpc_transport, discover)
+                if capture is not None
+                else discover(active_rpc_transport)
             )
             extra_disc_calls = _attr_or_key(discovered, "rpc_calls_used", default=0)
             if not is_native_universe and type(extra_disc_calls) is int and extra_disc_calls > 0:
@@ -2211,35 +2298,47 @@ def run_multicall_campaign(
 
         def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
             _reserve_rpc(2)
-            if multicall_mod is not None:
-                snap_kwargs: dict[str, Any] = {
-                    "pools": pool_specs_raw,
-                    "pool_specs": pool_specs_raw,
-                    "specs": pool_specs_raw,
-                    "universe": pool_specs_raw,
-                    "rpc_url": rpc_url,
-                    "transport": active_rpc_transport,
-                    "timeout_s": float(timeout_s),
-                    "block_tag": tag,
-                }
-                raw_snap = _call_with_supported_kwargs(
-                    multicall_mod.fetch_pinned_universe_snapshot,
-                    snap_kwargs,
-                    first_positional_fallback=pool_specs_raw,
+
+            def read(send: Callable[[str, bytes, float], bytes]) -> PinnedTickSnapshot:
+                if multicall_mod is not None:
+                    snap_kwargs: dict[str, Any] = {
+                        "pools": pool_specs_raw,
+                        "pool_specs": pool_specs_raw,
+                        "specs": pool_specs_raw,
+                        "universe": pool_specs_raw,
+                        "rpc_url": rpc_url,
+                        "transport": send,
+                        "timeout_s": float(timeout_s),
+                        "block_tag": tag,
+                    }
+                    if capture is not None:
+                        snap_kwargs["pin_call_to_hash"] = True
+                    raw_snap = _call_with_supported_kwargs(
+                        multicall_mod.fetch_pinned_universe_snapshot,
+                        snap_kwargs,
+                        first_positional_fallback=pool_specs_raw,
+                    )
+                    snap = _extract_snapshot_from_multicall_universe(raw_snap)
+                    if snap.rpc_calls_used > 2:
+                        _reserve_rpc(snap.rpc_calls_used - 2)
+                    return snap
+                return _fetch_pinned_multicall3_fallback(
+                    send,
+                    rpc_url,
+                    cast(Sequence[BasePoolSpec], pool_specs_raw),
+                    timeout_s=float(timeout_s),
+                    block_tag=tag,
+                    pin_call_to_hash=capture is not None,
                 )
-                snap = _extract_snapshot_from_multicall_universe(raw_snap)
-                if snap.rpc_calls_used > 2:
-                    _reserve_rpc(snap.rpc_calls_used - 2)
+
+            if capture is not None:
+                snap = capture.record_attempt(active_rpc_transport, read)
+                capture.validate_snapshot(snap.block_number, snap.block_hash)
                 return snap
-            return _fetch_pinned_multicall3_fallback(
-                active_rpc_transport,
-                rpc_url,
-                cast(Sequence[BasePoolSpec], pool_specs_raw),
-                timeout_s=float(timeout_s),
-                block_tag=tag,
-            )
+            return read(active_rpc_transport)
 
         stopped_early = False
+        canonical_conflict = False
         stop_reason: str | None = None
         last_tick_started: float | None = None
         for tick_idx in range(ticks):
@@ -2256,6 +2355,7 @@ def run_multicall_campaign(
 
                 seen_hash = seen_hashes_by_block.get(snapshot.block_number)
                 if seen_hash is not None and seen_hash != snapshot.block_hash:
+                    canonical_conflict = True
                     raise ShadowRunnerError(
                         f"reorg detected at block {snapshot.block_number}: block hash changed"
                     )
@@ -2265,12 +2365,18 @@ def run_multicall_campaign(
                     and snapshot.parent_hash is not None
                     and snapshot.parent_hash != prev_block_hash
                 ):
+                    canonical_conflict = True
                     raise ShadowRunnerError(
                         f"reorg detected at block {snapshot.block_number}: parent_hash mismatch"
                     )
                 if prev_block_number is not None and snapshot.block_number < prev_block_number:
                     seen_hashes_by_block.setdefault(snapshot.block_number, snapshot.block_hash)
                     refetched = _read_snapshot_at_tag(hex(prev_block_number))
+                    if (
+                        refetched.block_number == prev_block_number
+                        and refetched.block_hash != prev_block_hash
+                    ):
+                        canonical_conflict = True
                     if (
                         refetched.block_number != prev_block_number
                         or refetched.block_hash != prev_block_hash
@@ -2349,7 +2455,46 @@ def run_multicall_campaign(
                 scan_usdc_min = USDC_SCAN_MIN_RAW
                 scan_usdc_max = USDC_SCAN_MAX_RAW
 
-            if dynamic_sizing and not headroom.can_deploy:
+            headroom_blocked = dynamic_sizing and not headroom.can_deploy
+            if capture is not None:
+                captured_weth_min, captured_weth_max = (
+                    (WETH_SCAN_MIN_WEI, WETH_SCAN_MIN_WEI)
+                    if headroom_blocked
+                    else (scan_weth_min, scan_weth_max)
+                )
+                captured_usdc_min, captured_usdc_max = (
+                    (USDC_SCAN_MIN_RAW, USDC_SCAN_MIN_RAW)
+                    if headroom_blocked
+                    else (scan_usdc_min, scan_usdc_max)
+                )
+                capture.save_snapshot(
+                    block_number=snapshot.block_number,
+                    block_hash=snapshot.block_hash,
+                    pools=snapshot.nodes,
+                    anchors=(
+                        ReplayAnchorInput(
+                            WETH_ADDR,
+                            captured_weth_min,
+                            captured_weth_max,
+                            1,
+                            l2_gas_cost_wei,
+                            snapshot.l1_data_fee_wei,
+                        ),
+                        ReplayAnchorInput(
+                            USDC_ADDR,
+                            captured_usdc_min,
+                            captured_usdc_max,
+                            1,
+                            l2_gas_usdc,
+                            l1_fee_usdc,
+                        ),
+                    ),
+                    gas_limit_units=gas_limit_units,
+                    priority_fee_wei=priority_fee_wei,
+                    eth_price_micro_usdc=eth_price_micro_usdc,
+                    headroom_blocked=headroom_blocked,
+                )
+            if headroom_blocked:
                 weth_scan = graph.scan_cycles(
                     [WETH_ADDR],
                     max_hops=3,
@@ -2400,17 +2545,36 @@ def run_multicall_campaign(
                     c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0
                 ]
             rust_raw_candidates.sort(
-                key=lambda c: (c.net_profit * 10_000) / max(1, c.optimal_amount_in),
+                key=lambda candidate: Fraction(candidate.net_profit, candidate.optimal_amount_in),
                 reverse=True,
             )
             total_rust_raw_candidates += len(rust_raw_candidates)
 
             quoter_verified_list: list[dict[str, Any]] = []
+            dispositions: list[dict[str, Any]] = []
             quoter_rejected_count = 0
-            for cand in rust_raw_candidates[:MAX_CANDIDATES_TO_QUOTE_PER_TICK]:
+            for rank, cand in enumerate(rust_raw_candidates, start=1):
+                route = [[hop.pool_id, hop.token_in, hop.token_out] for hop in cand.hops]
+                rotation = min(route[i:] + route[:i] for i in range(len(route)))
+                outcome = {
+                    "rank": rank,
+                    "topology_sha256": sha256_hex(canonical_json([cand.chain_id, rotation])),
+                    "route": route,
+                    "base_token": cand.base_token,
+                    "input_raw": str(cand.optimal_amount_in),
+                    "modeled_net_raw": str(cand.net_profit),
+                    "l2_cost_raw": str(cand.gas_cost_in_base),
+                    "l1_cost_raw": str(cand.l1_fee_in_base),
+                    "whole_transaction_status": "not_simulated",
+                }
+                dispositions.append(outcome)
+                if rank > MAX_CANDIDATES_TO_QUOTE_PER_TICK:
+                    outcome["status"] = "not_checked_rank_limit"
+                    continue
                 hop_cost = len(cand.hops)
                 if rpc_calls_used + hop_cost > max_rpc_calls:
-                    quoter_rejected_count += 1
+                    outcome["status"] = "not_checked_rpc_budget"
+                    quoter_rejected_count += 1  # legacy counter includes budget skips
                     continue
                 _reserve_rpc(hop_cost)
                 if multicall_mod is not None:
@@ -2434,6 +2598,7 @@ def run_multicall_campaign(
                                 "pinned_block": snapshot.block_number,
                                 "block_tag": hex(snapshot.block_number),
                                 "block_number_hex": hex(snapshot.block_number),
+                                "block_hash": snapshot.block_hash if capture is not None else None,
                                 "balances_by_pool": snapshot.balances_by_pool,
                                 "discovered_pools_by_id": discovered_pools_by_id or None,
                                 "bridge": active_bridge,
@@ -2460,12 +2625,18 @@ def run_multicall_campaign(
                         candidate=cand,
                         nodes_by_id=nodes_by_id,
                         pinned_block_number=snapshot.block_number,
+                        pinned_block_hash=snapshot.block_hash if capture is not None else None,
                         timeout_s=float(timeout_s),
                         tick_spacings=tick_spacings,
                         factories=factories,
                     )
 
+                outcome["quote_rpc_calls"] = q_res.rpc_calls_used
+                outcome["hop_quote_sources"] = list(q_res.hop_quote_sources) or None
                 if q_res.verified and q_res.quoter_net_profit > 0:
+                    outcome["status"] = "per_leg_positive"
+                    outcome["quoted_output_raw"] = str(q_res.quoter_amount_out)
+                    outcome["quoted_net_raw"] = str(q_res.quoter_net_profit)
                     verified_net_bps = round(
                         float(
                             (Decimal(q_res.quoter_net_profit) * Decimal(10_000))
@@ -2493,6 +2664,13 @@ def run_multicall_campaign(
                         }
                     )
                 else:
+                    outcome["status"] = "per_leg_rejected"
+                    reason_code = q_res.reason.partition(":")[0]
+                    outcome["reason"] = (
+                        reason_code
+                        if re.fullmatch(r"[a-z][a-z0-9_]{0,79}", reason_code)
+                        else "other_quote_failure"
+                    )
                     quoter_rejected_count += 1
 
             total_quoter_verified_candidates += len(quoter_verified_list)
@@ -3007,6 +3185,24 @@ def run_multicall_campaign(
                 "quoter_verified_candidates_count": len(quoter_verified_list),
                 "quoter_rejected_candidates_count": quoter_rejected_count,
                 "quoter_verified_candidates": quoter_verified_list,
+                "atomic_candidate_dispositions": dispositions,
+                "sizing_residuals_by_base": {
+                    base: None
+                    if scan.sizing_residuals is None
+                    else [
+                        {
+                            "pool_ids": list(r.pool_ids),
+                            "min_input_raw": str(r.min_amount_in),
+                            "max_input_raw": str(r.max_amount_in),
+                            "net_upper_raw": str(r.net_profit_upper),
+                        }
+                        for r in scan.sizing_residuals
+                    ]
+                    for base, scan in ((WETH_ADDR, weth_scan), (USDC_ADDR, usdc_scan))
+                },
+                "atomic_best_source": "per_leg_quote"
+                if quoter_verified_list
+                else "fixed_size_pair_diagnostic",
                 "atomic_best_gross_bps": atomic_best_gross_bps,
                 "atomic_best_net_bps": atomic_best_net_bps,
                 "atomic_positive": atomic_positive,
@@ -3069,7 +3265,13 @@ def run_multicall_campaign(
     positive_net_ticks = sum(1 for rec in records if bool(rec["tick_positive"]))
     unique_blocks_observed = len({int(rec["block_number"]) for rec in records})
 
+    disposition_counts: dict[str, int] = {}
+    for rec in records:
+        for disposition in rec["atomic_candidate_dispositions"]:
+            status = disposition["status"]
+            disposition_counts[status] = disposition_counts.get(status, 0) + 1
     atomic_dex_summary: dict[str, Any] = {
+        "candidate_dispositions_completed_ticks": disposition_counts,
         "total_rust_raw_candidates": total_rust_raw_candidates,
         "total_quoter_verified_candidates": total_quoter_verified_candidates,
         "total_quoter_rejected_candidates": total_quoter_rejected_candidates,
@@ -3204,6 +3406,16 @@ def run_multicall_campaign(
     _write_new_bytes(
         summary_path, json.dumps(summary, indent=2, sort_keys=True).encode("utf-8") + b"\n"
     )
+    if capture is not None:
+        capture.finish(
+            pool_specs=[asdict(spec) for spec in pool_specs_raw],
+            snapshot_format=(
+                "discovered_multicall" if multicall_mod is not None else "fixed_pool_multicall"
+            ),
+            stopped_early=stopped_early,
+            canonical_conflict=canonical_conflict,
+            campaign_summary_sha256=summary_sha256,
+        )
 
     return CampaignRunResult(
         summary=summary,
@@ -3374,6 +3586,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--record-multihop-replay",
+        action="store_true",
+        help="Record hash-pinned pool inputs and raw RPC bytes for the offline multi-hop A/B CLI.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -3413,6 +3630,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             maker_min_edge_bps=args.maker_min_edge_bps,
             max_book_workers=args.max_book_workers,
             stop_gracefully_on_rpc_error=args.stop_gracefully_on_rpc_error,
+            record_multihop_replay=args.record_multihop_replay,
         )
     except (
         OSError,

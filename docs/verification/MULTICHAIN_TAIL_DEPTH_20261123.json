@@ -1,0 +1,1268 @@
+{
+  "schema": "oasis-multichain-tail-depth-v1",
+  "date_local": "2026-11-23",
+  "chain_data_scope": "bounded exploratory read-only",
+  "base_commit": "14260a4e224cf9bc0b039bcb1a937afc6482cb1f",
+  "raw_root": "reports/research/multichain-depth-20261123",
+  "paid_rpc_usd": "0",
+  "signed_transactions": 0,
+  "broadcast_transactions": 0,
+  "ethereum": {
+    "block": {
+      "base_fee_wei": 135723129,
+      "hash": "0x4ba51527c843bd19b8d83412fe495a007cc92b5fbe9550684de9da4fe584db08",
+      "head_received_ms": 1795364879797,
+      "number": 26471850,
+      "parent_hash": "0x594bcb52932ca6c9c9b4f5a428041fc5caa1e9e307de01492893375ab0d1ec08",
+      "state_ready_ms": 1795364892003,
+      "state_root": "0x9ec1eb5632d73dfa0a89db108adc31ea5ec1c888ad693f4a96fd3602104fe80f",
+      "timestamp_ms": 1795364867000
+    },
+    "fetched_pools": 812,
+    "nonzero_pools": 798,
+    "active_assets": 803,
+    "weth_side_depth_buckets": {
+      "0.01..<1": 38,
+      "1..<100": 35,
+      "<0.01": 539,
+      ">=100": 10
+    },
+    "weth_reachable_assets": 708,
+    "weth_component_bridge_pools": 690,
+    "weth_nonbridge_pools": 53,
+    "simple_prefixes_visited": 9247,
+    "simple_counts_by_hop": {
+      "2": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 24,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 1
+      },
+      "3": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 168,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 24
+      },
+      "4": {
+        "continuous_gross_upper_gt_intrinsic": 1,
+        "cycles": 946,
+        "gross_positive_grid": 2,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 209
+      },
+      "5": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 3000,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 839
+      },
+      "6": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 5780,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 2066
+      },
+      "7": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 4112,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 1825
+      },
+      "8": {
+        "continuous_gross_upper_gt_intrinsic": 0,
+        "cycles": 688,
+        "gross_positive_grid": 0,
+        "positive_after_fee_floor_grid": 0,
+        "positive_marginal": 344
+      }
+    },
+    "simple_by_cap": {
+      "2": 24,
+      "4": 1138,
+      "6": 9918,
+      "10": 14718,
+      "20": 14718,
+      "50": 14718,
+      "100": 14718,
+      "200": 14718,
+      "400": 14718
+    },
+    "only_above_intrinsic_curve_diagnostics": {
+      "assets": [
+        "WETH",
+        "AAVE",
+        "USDC",
+        "CRV",
+        "WETH"
+      ],
+      "envelope_intrinsic_cost_wei": 3403393182804,
+      "envelope_intrinsic_gas": 25076,
+      "exact_gross_wei": 2860521360232,
+      "exact_input_wei": 49460114820510,
+      "exact_net_after_envelope_intrinsic_wei": -542871822572,
+      "midpoint_count": 174500,
+      "pools": [
+        "0xdfc14d2af169b0d36c4eff567ada9b2e0cae044f",
+        "0x674e114dad81838d151d9beda2271228eeae0e8b",
+        "0x210a97ba874a8e279c95b350ae8ba143a143c159",
+        "0x58dc5a51fe44589beb22e8ce67720b5bc5378009"
+      ],
+      "upper_extra_gas_vs_plain_intrinsic": 76
+    },
+    "requests_http": 20,
+    "logical_rpc": 39,
+    "multicall_subreads": 4051,
+    "longest_enumerated_simple_hops": 8,
+    "max_rooted_token_biconnected_block": 15,
+    "independent_pool_witnesses": [
+      {
+        "label": "full",
+        "hops": 49,
+        "integer_quotes": [
+          {
+            "input_wei": 100000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 1000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 3000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 10000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 30000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 100000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 300000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 1000000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 3000000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          },
+          {
+            "input_wei": 10000000000000000000,
+            "completed_hops": 1,
+            "status": "zero_output"
+          }
+        ]
+      },
+      {
+        "label": "known_assets",
+        "hops": 40,
+        "integer_quotes": [
+          {
+            "input_wei": 100000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 1000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 3000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 10000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 30000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 100000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 300000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 1000000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 3000000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          },
+          {
+            "input_wei": 10000000000000000000,
+            "completed_hops": 40,
+            "status": "closed",
+            "output_wei": 1785982441863
+          }
+        ]
+      }
+    ]
+  },
+  "bsc": {
+    "head": {
+      "baseFeePerGas": "0x0",
+      "gasLimit": "0x4c11d86",
+      "hash": "0x99a7be4216715996b26e9116bd08896a913efc890ade501a3c62e6e5d12a5c64",
+      "number": "0x80da104",
+      "parentHash": "0xc7f62f6a84dddddc8bca5e522cf5e1777710b7b359bf821b66f0cc4a20692f4c",
+      "stateRoot": "0xa431fedbde569cceee8e683e896399acc813b815a0bd8b76a559220c28a34ebc",
+      "timestamp": "0x6b0317d8"
+    },
+    "requests": 55,
+    "factory_lengths": {
+      "pancake": 3751393,
+      "uniswap": 9453
+    },
+    "gas_price_wei": "50000000",
+    "unique_being_tested": 777,
+    "active_venue_counts": {
+      "pancake": 221,
+      "uniswap": 347
+    },
+    "active_direct_wbnb_liquidity": {
+      "0.01\u2013<1 WBNB": 34,
+      "1\u2013<10 WBNB": 17,
+      "<0.01 WBNB": 240,
+      "\u226510 WBNB": 22
+    },
+    "simple_topology_upper": 20,
+    "simple_long_band_status": [
+      {
+        "min_hops": 20,
+        "max_hops": 20,
+        "edge_visits": 250000,
+        "status": "budget_exhausted"
+      },
+      {
+        "min_hops": 19,
+        "max_hops": 19,
+        "edge_visits": 250000,
+        "status": "budget_exhausted"
+      },
+      {
+        "min_hops": 18,
+        "max_hops": 18,
+        "edge_visits": 250000,
+        "status": "budget_exhausted"
+      },
+      {
+        "min_hops": 17,
+        "max_hops": 17,
+        "edge_visits": 250000,
+        "status": "budget_exhausted"
+      },
+      {
+        "min_hops": 16,
+        "max_hops": 16,
+        "edge_visits": 73,
+        "status": "positive_marginal_witness"
+      },
+      {
+        "min_hops": 15,
+        "max_hops": 15,
+        "edge_visits": 74,
+        "status": "positive_marginal_witness"
+      }
+    ],
+    "universe_counts": {
+      "all": {
+        "pools": 568,
+        "tokens": 478,
+        "runs": [
+          {
+            "max_hops": 2,
+            "edge_attempts": 982,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "<0.01 WBNB:marginal": 4
+            }
+          },
+          {
+            "max_hops": 3,
+            "edge_attempts": 12587,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20,
+              "3": 628
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 34,
+              "1\u2013<10 WBNB:marginal": 5,
+              "<0.01 WBNB:marginal": 104,
+              "\u226510 WBNB:marginal": 23
+            }
+          },
+          {
+            "max_hops": 4,
+            "edge_attempts": 147720,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20,
+              "3": 628,
+              "4": 8306
+            },
+            "gross_upper_above_intrinsic_by_hop": {
+              "4": 3
+            },
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 618,
+              "0.01\u2013<1 WBNB:positive_model_net": 0,
+              "1\u2013<10 WBNB:marginal": 82,
+              "<0.01 WBNB:marginal": 1584,
+              "\u226510 WBNB:marginal": 464,
+              "\u226510 WBNB:positive_model_net": 0
+            }
+          },
+          {
+            "max_hops": 6,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "2": 1,
+              "3": 25,
+              "4": 302,
+              "5": 3498,
+              "6": 33793
+            },
+            "gross_upper_above_intrinsic_by_hop": {
+              "4": 1,
+              "5": 11,
+              "6": 68
+            },
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 6873,
+              "0.01\u2013<1 WBNB:positive_model_net": 0,
+              "<0.01 WBNB:marginal": 5578,
+              "<0.01 WBNB:positive_model_net": 0
+            }
+          },
+          {
+            "max_hops": 12,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 2,
+              "7": 24,
+              "8": 199,
+              "9": 1122,
+              "10": 4754,
+              "11": 13883,
+              "12": 26293
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 5260,
+              "<0.01 WBNB:marginal": 4496
+            }
+          },
+          {
+            "max_hops": 100,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 2,
+              "7": 17,
+              "8": 138,
+              "9": 776,
+              "10": 3223,
+              "11": 9227,
+              "12": 17063,
+              "13": 17427,
+              "14": 6340,
+              "15": 290
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 3427,
+              "<0.01 WBNB:marginal": 3300
+            }
+          },
+          {
+            "max_hops": 300,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 2,
+              "7": 17,
+              "8": 138,
+              "9": 776,
+              "10": 3223,
+              "11": 9227,
+              "12": 17063,
+              "13": 17427,
+              "14": 6340,
+              "15": 290
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 3427,
+              "<0.01 WBNB:marginal": 3300
+            }
+          }
+        ]
+      },
+      "named": {
+        "pools": 115,
+        "tokens": 15,
+        "runs": [
+          {
+            "max_hops": 2,
+            "edge_attempts": 401,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "<0.01 WBNB:marginal": 4
+            }
+          },
+          {
+            "max_hops": 3,
+            "edge_attempts": 5914,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20,
+              "3": 606
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 34,
+              "1\u2013<10 WBNB:marginal": 5,
+              "<0.01 WBNB:marginal": 93,
+              "\u226510 WBNB:marginal": 23
+            }
+          },
+          {
+            "max_hops": 4,
+            "edge_attempts": 76963,
+            "exhaustive": true,
+            "closed_routes_by_hop": {
+              "2": 20,
+              "3": 606,
+              "4": 7910
+            },
+            "gross_upper_above_intrinsic_by_hop": {
+              "4": 3
+            },
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 618,
+              "0.01\u2013<1 WBNB:positive_model_net": 0,
+              "1\u2013<10 WBNB:marginal": 82,
+              "<0.01 WBNB:marginal": 1375,
+              "\u226510 WBNB:marginal": 464,
+              "\u226510 WBNB:positive_model_net": 0
+            }
+          },
+          {
+            "max_hops": 6,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "2": 1,
+              "3": 45,
+              "4": 583,
+              "5": 6472,
+              "6": 61953
+            },
+            "gross_upper_above_intrinsic_by_hop": {
+              "4": 1,
+              "5": 11,
+              "6": 68
+            },
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 10180,
+              "0.01\u2013<1 WBNB:positive_model_net": 0,
+              "<0.01 WBNB:marginal": 14113,
+              "<0.01 WBNB:positive_model_net": 0
+            }
+          },
+          {
+            "max_hops": 12,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 4,
+              "7": 37,
+              "8": 293,
+              "9": 1692,
+              "10": 7338,
+              "11": 22094,
+              "12": 42294
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 11163,
+              "<0.01 WBNB:marginal": 7286
+            }
+          },
+          {
+            "max_hops": 15,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 2,
+              "7": 24,
+              "8": 190,
+              "9": 1064,
+              "10": 4486,
+              "11": 13059,
+              "12": 24410,
+              "13": 24827,
+              "14": 7888,
+              "15": 205
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 11581,
+              "<0.01 WBNB:marginal": 5682
+            }
+          },
+          {
+            "max_hops": 15,
+            "edge_attempts": 600000,
+            "exhaustive": false,
+            "closed_routes_by_hop": {
+              "6": 2,
+              "7": 24,
+              "8": 190,
+              "9": 1064,
+              "10": 4486,
+              "11": 13059,
+              "12": 24410,
+              "13": 24827,
+              "14": 7888,
+              "15": 205
+            },
+            "gross_upper_above_intrinsic_by_hop": {},
+            "by_wbnb_endpoint_reserve": {
+              "0.01\u2013<1 WBNB:marginal": 11581,
+              "<0.01 WBNB:marginal": 5682
+            }
+          }
+        ]
+      }
+    },
+    "sized_distinct_token_candidates": [
+      {
+        "hops": 4,
+        "amount_in_wei": 23628665173800,
+        "gross_wei": 1250012214060,
+        "continuous_upper_wei": 1250012214063,
+        "model_gas_wei": 26000000000000,
+        "model_net_wei": -24749987785940,
+        "upper_less_21000_model_wei": 200012214063,
+        "tokens": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0xfb5b838b6cfeedc2873ab27866079ac55363d37e",
+          "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "pools": [
+          "0xd99c7f6c65857ac913a8f880a4cb84032ab2fc5b",
+          "0x9d4f0204441beec5a43d457a87c307da51650f6c",
+          "0x3dda0a96a8517bc0133704102a75aa4f6cc632d9",
+          "0x03f18135c44c64ebfdcbad8297fe5bdafdbbdd86"
+        ],
+        "calldata_examples": [
+          {
+            "signature": "swapExactETHForTokens(uint256,address[],address,uint256)",
+            "intrinsic": 23640,
+            "intrinsic_wei": 1182000000000,
+            "continuous_upper_less_intrinsic_wei": 68012214063,
+            "gas_headroom_above_intrinsic": 1360
+          }
+        ]
+      },
+      {
+        "hops": 14,
+        "amount_in_wei": 18,
+        "gross_wei": -18,
+        "continuous_upper_wei": 2,
+        "model_gas_wei": 83500000000000,
+        "model_net_wei": -83500000000018,
+        "upper_less_21000_model_wei": -1049999999998,
+        "tokens": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xe9e7cea3dedca5984780bafc599bd69add087d56",
+          "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+          "0xfb5b838b6cfeedc2873ab27866079ac55363d37e",
+          "0xba2ae424d960c26247dd6c32edc70b295c744c43",
+          "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+          "0x570a5d26f7765ecb712c0924e4de545b89fd43df",
+          "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47",
+          "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",
+          "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "pools": [
+          "0xd99c7f6c65857ac913a8f880a4cb84032ab2fc5b",
+          "0xb69b73cb660ea400415d19a43c088c8d3b76894e",
+          "0x3f803ec2b816ea7f06ec76aa2b6f2532f9892d62",
+          "0xe25c17d6988e9dae3057be5977ce1bc614dd21c2",
+          "0x8339cfc9002d1ecbb23b9de95cf17abf0a9c2ea8",
+          "0x3dda0a96a8517bc0133704102a75aa4f6cc632d9",
+          "0xb4fa8c4e99d821337d0630619cf44de6a50dbc4a",
+          "0xcb0c07f31a3fa4876b61056a21c58316bd1fa331",
+          "0x84f6c267cfec584519456283881699782b5f8edf",
+          "0x55b42d82077b8b912a9efe055d58a021f766470e",
+          "0x0a9499125eb4166b93f58c92dd1947fc76a6e162",
+          "0xd6f11f944d227ad11ab2f5197875907bef416e13",
+          "0xe5cde4990b11d7ce7a0af36d29fbeda26b21c52e",
+          "0xb9600e90414a9c8c128c78d4078784ecdfb03e49"
+        ]
+      },
+      {
+        "hops": 16,
+        "amount_in_wei": 24,
+        "gross_wei": -24,
+        "continuous_upper_wei": 4,
+        "model_gas_wei": 95000000000000,
+        "model_net_wei": -95000000000024,
+        "upper_less_21000_model_wei": -1049999999996,
+        "tokens": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0xf8a0bf9cf54bb92f17374d9e9a321e6a111a51bd",
+          "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xe9e7cea3dedca5984780bafc599bd69add087d56",
+          "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+          "0xfb5b838b6cfeedc2873ab27866079ac55363d37e",
+          "0xba2ae424d960c26247dd6c32edc70b295c744c43",
+          "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+          "0x570a5d26f7765ecb712c0924e4de545b89fd43df",
+          "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47",
+          "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",
+          "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "pools": [
+          "0x92052da1ee1dac56876bcbbd8f7b5c353cf17711",
+          "0x509ac3e21c51cdca5fb9fa683cb38bb18d26ab3b",
+          "0x2df244535624761f6fcc381cae3e9b903429d9ff",
+          "0x6ab0ae46c4b450bc1b4ffcaa192b235134d584b2",
+          "0xe25c17d6988e9dae3057be5977ce1bc614dd21c2",
+          "0x8339cfc9002d1ecbb23b9de95cf17abf0a9c2ea8",
+          "0x3dda0a96a8517bc0133704102a75aa4f6cc632d9",
+          "0xb4fa8c4e99d821337d0630619cf44de6a50dbc4a",
+          "0xcb0c07f31a3fa4876b61056a21c58316bd1fa331",
+          "0x84f6c267cfec584519456283881699782b5f8edf",
+          "0x55b42d82077b8b912a9efe055d58a021f766470e",
+          "0x0a9499125eb4166b93f58c92dd1947fc76a6e162",
+          "0xd6f11f944d227ad11ab2f5197875907bef416e13",
+          "0xe5cde4990b11d7ce7a0af36d29fbeda26b21c52e",
+          "0xaae3c0635b51d98c67605efa9be6ef2a4adc3058",
+          "0x9be89c1fe6d7d8dce6b614f6214dd97975b85e30"
+        ],
+        "marginal_bp": 1843.2345348805056
+      },
+      {
+        "hops": 15,
+        "amount_in_wei": 25,
+        "gross_wei": -25,
+        "continuous_upper_wei": 4,
+        "model_gas_wei": 89250000000000,
+        "model_net_wei": -89250000000025,
+        "upper_less_21000_model_wei": -1049999999996,
+        "tokens": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "0xf8a0bf9cf54bb92f17374d9e9a321e6a111a51bd",
+          "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xe9e7cea3dedca5984780bafc599bd69add087d56",
+          "0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe",
+          "0xfb5b838b6cfeedc2873ab27866079ac55363d37e",
+          "0xba2ae424d960c26247dd6c32edc70b295c744c43",
+          "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+          "0x570a5d26f7765ecb712c0924e4de545b89fd43df",
+          "0x3ee2200efb3400fabb9aacf31297cbdd1d435d47",
+          "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",
+          "0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82",
+          "0xc5f0f7b66764f6ec8c8dff7ba683102295e16409",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        ],
+        "pools": [
+          "0x92052da1ee1dac56876bcbbd8f7b5c353cf17711",
+          "0x509ac3e21c51cdca5fb9fa683cb38bb18d26ab3b",
+          "0x2df244535624761f6fcc381cae3e9b903429d9ff",
+          "0x6ab0ae46c4b450bc1b4ffcaa192b235134d584b2",
+          "0xe25c17d6988e9dae3057be5977ce1bc614dd21c2",
+          "0x8339cfc9002d1ecbb23b9de95cf17abf0a9c2ea8",
+          "0x3dda0a96a8517bc0133704102a75aa4f6cc632d9",
+          "0xb4fa8c4e99d821337d0630619cf44de6a50dbc4a",
+          "0xcb0c07f31a3fa4876b61056a21c58316bd1fa331",
+          "0x84f6c267cfec584519456283881699782b5f8edf",
+          "0x55b42d82077b8b912a9efe055d58a021f766470e",
+          "0x0a9499125eb4166b93f58c92dd1947fc76a6e162",
+          "0x29084c8d46cce9b50629f01ebbbe11523a7a3ec2",
+          "0xaae3c0635b51d98c67605efa9be6ef2a4adc3058",
+          "0x9be89c1fe6d7d8dce6b614f6214dd97975b85e30"
+        ],
+        "marginal_bp": 1967.8962197894966
+      }
+    ],
+    "repeat_real_pool_state": [
+      {
+        "hops": 4,
+        "unique_pools": 4,
+        "output_wei": 24878677387860,
+        "input_wei": 23628665173800,
+        "net_before_execution_gas_wei": 1250012214060,
+        "generic_cost_scenario_wei": 26000000000000,
+        "net_after_generic_cost_wei": -24749987785940
+      },
+      {
+        "hops": 100,
+        "unique_pools": 4,
+        "output_wei": 1645708612,
+        "input_wei": 23628665173800,
+        "net_before_execution_gas_wei": -23627019465188,
+        "generic_cost_scenario_wei": 578000000000000,
+        "net_after_generic_cost_wei": -601627019465188
+      },
+      {
+        "hops": 200,
+        "unique_pools": 4,
+        "output_wei": 16951,
+        "input_wei": 23628665173800,
+        "net_before_execution_gas_wei": -23628665156849,
+        "generic_cost_scenario_wei": 1153000000000000,
+        "net_after_generic_cost_wei": -1176628665156849
+      },
+      {
+        "hops": 300,
+        "unique_pools": 4,
+        "stopped_at_hop": 254,
+        "reason": "zero integer output",
+        "pool": "0x9d4f0204441beec5a43d457a87c307da51650f6c",
+        "amount_in_step_wei": 10014
+      }
+    ],
+    "unfiltered_distinct_pool_paths": {
+      "distinct_pool_closed_trail_upper": 128,
+      "bridgeless_native_tokens": 22,
+      "native_component_bridge_count": 421,
+      "named_floor_native_wei": 0,
+      "pool_count_after_floor": 568,
+      "witnesses": [
+        {
+          "hops": 123,
+          "tokens": 22,
+          "directions": [
+            {
+              "continuous_gross_upper_wei": 43,
+              "full_integer_quotes": 0,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 18,
+                  "pool": "0x0b0aca806f5b55f02f818dca0d3c212b3ea7ab31",
+                  "incoming_raw": 25907331
+                }
+              }
+            },
+            {
+              "continuous_gross_upper_wei": 0,
+              "full_integer_quotes": 0,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 13,
+                  "pool": "0x27f190037ab0dcf89a5f79eca5179c3dbe474302",
+                  "incoming_raw": 628
+                }
+              }
+            }
+          ]
+        },
+        {
+          "hops": 100,
+          "tokens": 22,
+          "directions": [
+            {
+              "continuous_gross_upper_wei": 36,
+              "full_integer_quotes": 0,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 18,
+                  "pool": "0x0b0aca806f5b55f02f818dca0d3c212b3ea7ab31",
+                  "incoming_raw": 25907331
+                }
+              }
+            },
+            {
+              "continuous_gross_upper_wei": 0,
+              "full_integer_quotes": 0,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 13,
+                  "pool": "0x27f190037ab0dcf89a5f79eca5179c3dbe474302",
+                  "incoming_raw": 628
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "marked_minimum_reserve_distinct_pool_paths": {
+      "distinct_pool_closed_trail_upper": 104,
+      "bridgeless_native_tokens": 15,
+      "native_component_bridge_count": 0,
+      "named_floor_native_wei": 1000000,
+      "pool_count_after_floor": 104,
+      "witnesses": [
+        {
+          "hops": 101,
+          "tokens": 15,
+          "directions": [
+            {
+              "continuous_gross_upper_wei": 0,
+              "full_integer_quotes": 6,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -9999999998517919,
+                "failure": null
+              }
+            },
+            {
+              "continuous_gross_upper_wei": 40925,
+              "full_integer_quotes": 0,
+              "samples": 16,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 55,
+                  "pool": "0xea5a744110dbd13ff01cf91b5c6e6cf78629363d",
+                  "incoming_raw": 7555
+                }
+              }
+            }
+          ]
+        },
+        {
+          "hops": 100,
+          "tokens": 15,
+          "directions": [
+            {
+              "continuous_gross_upper_wei": 0,
+              "full_integer_quotes": 6,
+              "samples": 9,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -9999999998517919,
+                "failure": null
+              }
+            },
+            {
+              "continuous_gross_upper_wei": 47765,
+              "full_integer_quotes": 0,
+              "samples": 16,
+              "input_0_01_wbnb": {
+                "input_wei": 10000000000000000,
+                "before_gas_wei": -10000000000000000,
+                "failure": {
+                  "hop": 37,
+                  "pool": "0xea5a744110dbd13ff01cf91b5c6e6cf78629363d",
+                  "incoming_raw": 8939
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "robinhood": {
+    "state_block": 120754470,
+    "state_hash": "0x2e8694313cd9a8ccc86298bcbe142fc7a5a4e6be61e14679fbe1c4fbe4f71461",
+    "state_timestamp": 1795365024,
+    "observed_swap_logs": 1955,
+    "pinned_verified_by_family": {
+      "official_v4": 140,
+      "v3_like": 74
+    },
+    "price_fee_screen_by_family": {
+      "official_v4": 77,
+      "v3_like": 72
+    },
+    "current_state_stop": {
+      "additional_rpcs_reserved": 4,
+      "additional_rpcs_sent": 4,
+      "block_hash": "0x2e8694313cd9a8ccc86298bcbe142fc7a5a4e6be61e14679fbe1c4fbe4f71461",
+      "block_number": 120754470,
+      "block_timestamp": 1795365024,
+      "cost_usd": 0,
+      "exact_pool_identities": 214,
+      "historical_rpcs_reserved": 6,
+      "historical_state_rows_recovered": 0,
+      "pages_complete": [
+        {
+          "pools": 93,
+          "sentinels_verified": true,
+          "subcalls": 417,
+          "success": 414
+        },
+        {
+          "pools": 93,
+          "sentinels_verified": true,
+          "subcalls": 402,
+          "success": 401
+        },
+        {
+          "pools": 92,
+          "sentinels_verified": true,
+          "subcalls": 411,
+          "success": 409
+        }
+      ],
+      "pair_getters_returned": 269,
+      "pool_state_rows": 278,
+      "pool_state_sha256": "9f11c3b8f66f658f3bdb3f760421314ae1b2fb02b6284dccfc511dfcaec6676a",
+      "scope_sha256": "6bef55f29f452b7cef0a35d352c2a85b6ba6bbcba65f0e4751a05015bbaabc9b",
+      "stop": "bounded_scope_completed",
+      "stopped": {
+        "monotonic_ns": 964189832495875,
+        "utc": "2026-11-22T16:30:32.451084+00:00"
+      },
+      "total_rpcs_reserved": 10
+    },
+    "historical_stop": {
+      "anchor_block": 120740643,
+      "anchor_hash": "0xa9c57bca8c16c5e316f57d45a0d446b54a2fe401b221e47563884646a35ed2b1",
+      "anchor_timestamp": 1795363456,
+      "calls_reserved": 6,
+      "calls_sent": 6,
+      "chain_id": 4663,
+      "closing_anchor_match": false,
+      "methods_sent": {
+        "eth_chainId": 1,
+        "eth_getBlockByNumber": 1,
+        "eth_getCode": 1,
+        "eth_getLogs": 3
+      },
+      "pinned_state_rows": 0,
+      "pools_sha256": "e9884b408eaa0132fb33787c6ea915a696b2985445c246e92c7a33c982e3b348",
+      "source": "robinhood_official_public",
+      "stop": "ValueError: RPC -32000: historical state c2d5ed38796b4b4ba4c6f526f26261758e8efaefa534b7386469277cd9ed4971 is not available",
+      "stopped": {
+        "monotonic_ns": 964044204941875,
+        "utc": "2026-11-22T16:28:06.823563+00:00"
+      },
+      "swap_logs_total": 1955,
+      "unique_pool_ids": 278,
+      "usd_total": 0,
+      "window_results": {
+        "120722000": {
+          "by_shape": {
+            "official_v4": 286,
+            "pancake_v3_shape": 7,
+            "v3_shape": 595
+          },
+          "feed_matching_log_blocks": 0,
+          "foreign_v4": 0,
+          "logs_kept": 888,
+          "max_log_block": 120722504,
+          "min_log_block": 120722000,
+          "pool_ids": 139
+        },
+        "120733000": {
+          "by_shape": {
+            "official_v4": 366,
+            "pancake_v3_shape": 5,
+            "v3_shape": 297
+          },
+          "feed_matching_log_blocks": 0,
+          "foreign_v4": 0,
+          "logs_kept": 668,
+          "max_log_block": 120733510,
+          "min_log_block": 120733001,
+          "pool_ids": 157
+        },
+        "120740132": {
+          "by_shape": {
+            "official_v4": 203,
+            "pancake_v3_shape": 1,
+            "v3_shape": 195
+          },
+          "feed_matching_log_blocks": 51,
+          "foreign_v4": 0,
+          "logs_kept": 399,
+          "max_log_block": 120740643,
+          "min_log_block": 120740132,
+          "pool_ids": 102
+        }
+      }
+    },
+    "simple_path_bounds": {
+      "exact_identity_topology": {
+        "simple_open_path_upper": 29,
+        "token_simple_cycle_upper": 26,
+        "vertex_cover_certificates": [
+          {
+            "branch_cap": 100000,
+            "branch_nodes": 15,
+            "core_vertex_cover": [
+              "0x0000000000000000000000000000000000000000",
+              "0x00b795114a823670d7ddacc2693d40fcbdc63c36",
+              "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+              "0x189505a04f906debdc79ac3c2374c1922eb90012",
+              "0x1a5a6a2448590487d16937d8478bd102a86b0889",
+              "0x1c252b71e231269d39f78765b3ad457204561e18",
+              "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+              "0x344d741ad5e30654b5dfa9e5fdb7824dd2ef71d6",
+              "0x5f17d58e4f5f7addc604cc01bbcd7e00f73eba8a",
+              "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x7dbf38976f6d3b9c529e7d9484a71898b409ee6a",
+              "0x96765066f6a040a21eb027167d2315b707c82633"
+            ],
+            "core_vertices": 40,
+            "two_fringe_arms_hops": 3
+          }
+        ]
+      },
+      "getter_inclusive_tentative_topology": {
+        "simple_open_path_upper": 33,
+        "token_simple_cycle_upper": 30,
+        "vertex_cover_certificates": [
+          {
+            "branch_cap": 100000,
+            "branch_nodes": 16,
+            "core_vertex_cover": [
+              "0x0000000000000000000000000000000000000000",
+              "0x00b795114a823670d7ddacc2693d40fcbdc63c36",
+              "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+              "0x189505a04f906debdc79ac3c2374c1922eb90012",
+              "0x1a5a6a2448590487d16937d8478bd102a86b0889",
+              "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+              "0x1c252b71e231269d39f78765b3ad457204561e18",
+              "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+              "0x344d741ad5e30654b5dfa9e5fdb7824dd2ef71d6",
+              "0x5f17d58e4f5f7addc604cc01bbcd7e00f73eba8a",
+              "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x6572eade9fb17f4027baf92feac222b9aa746bd0",
+              "0x7dbf38976f6d3b9c529e7d9484a71898b409ee6a",
+              "0x96765066f6a040a21eb027167d2315b707c82633"
+            ],
+            "core_vertices": 48,
+            "two_fringe_arms_hops": 3
+          }
+        ]
+      },
+      "static_fast_price_fee_topology": {
+        "simple_open_path_upper": 28,
+        "token_simple_cycle_upper": 24,
+        "vertex_cover_certificates": [
+          {
+            "branch_cap": 100000,
+            "branch_nodes": 14,
+            "core_vertex_cover": [
+              "0x0000000000000000000000000000000000000000",
+              "0x00b795114a823670d7ddacc2693d40fcbdc63c36",
+              "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+              "0x189505a04f906debdc79ac3c2374c1922eb90012",
+              "0x1a5a6a2448590487d16937d8478bd102a86b0889",
+              "0x1c252b71e231269d39f78765b3ad457204561e18",
+              "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+              "0x5f17d58e4f5f7addc604cc01bbcd7e00f73eba8a",
+              "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+              "0x7dbf38976f6d3b9c529e7d9484a71898b409ee6a",
+              "0x96765066f6a040a21eb027167d2315b707c82633"
+            ],
+            "core_vertices": 31,
+            "two_fringe_arms_hops": 4
+          }
+        ]
+      }
+    },
+    "independent_pool_paths": {
+      "getter_inclusive": {
+        "bridgeless_component_pool_counts": [
+          182
+        ],
+        "bridges": 87,
+        "pool_edges": 269,
+        "pool_unique_closed_trail_hops_upper_bound": 182,
+        "pool_unique_closed_trail_witness_hops": 170,
+        "pools": 170,
+        "repeated_tokens": 118,
+        "rounds_per_component": 150,
+        "tokens": 171
+      },
+      "static_fee_model": {
+        "bridgeless_component_pool_counts": [
+          86,
+          3
+        ],
+        "bridges": 60,
+        "pool_edges": 149,
+        "pool_unique_closed_trail_hops_upper_bound": 86,
+        "pool_unique_closed_trail_witness_hops": 78,
+        "pools": 78,
+        "repeated_tokens": 47,
+        "rounds_per_component": 150,
+        "tokens": 79
+      },
+      "verified_identity": {
+        "bridgeless_component_pool_counts": [
+          121
+        ],
+        "bridges": 93,
+        "pool_edges": 214,
+        "pool_unique_closed_trail_hops_upper_bound": 121,
+        "pool_unique_closed_trail_witness_hops": 109,
+        "pools": 109,
+        "repeated_tokens": 65,
+        "rounds_per_component": 150,
+        "tokens": 110
+      }
+    },
+    "marginal": {
+      "conditions": "2 or 3 hops, distinct pools, direction-specific fee, zero-hook v4 only",
+      "missing": [
+        "tick bitmap/depth along whole finite trade",
+        "gas quotes and settlement costs",
+        "token/venue transfer behavior",
+        "independent source",
+        "atomic execution"
+      ],
+      "net_executable_candidates_verified": 0,
+      "positive_fee_adjusted_infinitesimal": {
+        "2": 3,
+        "3": 34
+      },
+      "roundtrips_tested": {
+        "2": 92,
+        "3": 362
+      }
+    },
+    "exactly_100_distinct_pools": {
+      "hops": 100,
+      "distinct_tokens": 41,
+      "by_family": {
+        "official_v4": 65,
+        "v3_like": 35
+      },
+      "hooked_v4_pools": 20,
+      "static_model_pools": 80
+    },
+    "static_long_trail_marginal": {
+      "hops": 78,
+      "printed_trail_expected_ratio": "0.002519426474249453961812615667",
+      "reversed_trail_expected_ratio": "0.000001913028336698755268644002105"
+    },
+    "single_tick_integer_quote_trial": {
+      "routes": 20,
+      "amount_quotes": 345,
+      "rotations_with_positive_gross": 0,
+      "costs_included": false
+    }
+  },
+  "raw_sha256": {
+    "bsc/scope.json": "0cabfae8f1ec2100d87b95bcdd2e0584f7e38534bb4b3794836188a16d166ef3",
+    "bsc/result.json": "9eec8764ca9d77c291903f7a2df1e88e4b7cc42a6e690998943ceecbc124162f",
+    "bsc/ledger.jsonl": "7b61a7957c022ec5b2730214a7e4276e9e0fcddcbbf37b5f0ef198969e96d13c",
+    "bsc/verify.py": "bac81026901d4e0360778b85b428b16868a68c8930159f7f602864c035df1718",
+    "bsc/rank.py": "5b0f6fb831138263eb441ec9345d4d1afaa0b1255c624d091b98f52f3482f823",
+    "bsc/rank.json": "48832ed82b3b0b00d3488d76e1ae3907230caf7a7161a9b1aab46efc5afbb690",
+    "bsc/long-topology.json": "64bdb8e34f27d8b4af4deb1e31f73f60e499a869797384c382f9f4ec6b6ec2ae",
+    "bsc/long-topology-deeper.json": "8a54c3ac0f1ac0794195d9ea1e65d26094c222a8f5338da78a2cafa2f4e8d20e",
+    "bsc/depth_price.py": "10f66a03d80fb3d0bb72ac576fa60016c3d803afb66454e4614adc4f76e32ace",
+    "bsc/depth-price.json": "db947e6127148f8ce46a4cf712e0f4bedeb69333f2e100b983b38a59d6f0fb7c",
+    "bsc/distinct_trail.py": "70c882a55f3ffa80b739338ebba788e172e4fe63f3b508b7b3048e16c7f33c0c",
+    "bsc/distinct-trail.json": "a042fd8ac8e97de5c45b6550feae8dca8a496a44ef5647cea9f096db5d745a7d",
+    "bsc/distinct-trail-floor-1000000.json": "24807675576597cb50e22691df21d29973b3164393a3464377d4eda4613eb3f1",
+    "ethereum/scope.json": "9d7b6114ac0bebf1c0ff7dc9faba57ac926719ad283a5f163796dd75ba42009a",
+    "ethereum/graph.json": "18fd56d4ae6467a4106cbf4f07d9d94fe1f37411075ac7facd43a20a1dd8b9e1",
+    "ethereum/depth_with_funded_witness.json": "bf12084d1f38d001241ed9cd053d7f4d76d9d0a6383410493f744cfc256f56d5",
+    "ethereum/original-budget.sqlite3": "9f4f9d7ed6db7b6c3968c7d3ea1606c236e3f035bcbed2a4228a0461176a4636",
+    "robinhood/scope.json": "b69fadf1133f169ad54bcb64ceccaa0e59afc29a3dc9ddf4fd446c9e069c11e3",
+    "robinhood/pools.json": "e9884b408eaa0132fb33787c6ea915a696b2985445c246e92c7a33c982e3b348",
+    "robinhood/STOP": "aa27b2cad54318bd30d54ed91738bfc4a82c5f3b1ad200e50a59fa8a82ba229d",
+    "robinhood/original-budget.sqlite3": "82b76ad7214aae3dc5834441abb77c8c591e9dde0a7fd85f2f08eb9325e088b8",
+    "robinhood/current-state/scope.json": "6bef55f29f452b7cef0a35d352c2a85b6ba6bbcba65f0e4751a05015bbaabc9b",
+    "robinhood/current-state/STOP": "24534528a383a7e40bcad16d3e5a44b430f38d65526ed35da27c12bc1f50b997",
+    "robinhood/current-state/pool-state.json": "9f11c3b8f66f658f3bdb3f760421314ae1b2fb02b6284dccfc511dfcaec6676a",
+    "robinhood/topology-and-marginal.json": "3a3b908890454132bddeac20a88cf858dd04e9f1cebca51098986b9978ef6ab3",
+    "robinhood/topology-bounds.json": "7d64974be03e4883dd2675f266b8b73d5469f6f8a4f8ba1943f709e82d2273b0",
+    "robinhood/long-witnesses.json": "bbc6e3bccf4c49dec53e8c8e34829aa5f049a4edea54a8eaf8e1c44f932d9922",
+    "robinhood/pool-unique-closed-trails.json": "39be3c9d921655e5fa9ad00ac1213b2bc65a3add33605a0b2d770ff61fce9ab3",
+    "robinhood/diagnostic-witnesses.json": "d143fb44da0c1f755bdc86ca5bebee18d29f3d127131f500555cf0c3f009e550"
+  }
+}

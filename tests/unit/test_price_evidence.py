@@ -1,5 +1,7 @@
 import json
 from dataclasses import replace
+from fractions import Fraction
+from math import ceil
 
 import pytest
 from eth_abi.abi import encode
@@ -25,6 +27,8 @@ from oasis_agent.models.common import ZERO_ADDRESS, canonical_json
 from oasis_agent.rpc.transport import RpcExchange
 from tests.unit.test_transaction_costs import fixture as cost_fixture
 
+BASE_WETH = "0x4200000000000000000000000000000000000006"
+BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 QUOTE = "0x" + "99" * 20
 
 
@@ -108,6 +112,41 @@ def test_cost_rounds_up_and_never_assumes_stablecoin_peg():
         num = c.reconstruct().total_native * 2000 * 10**8
         assert actual * q >= num
         assert (actual - 1) * q < num
+
+
+def test_base_receipt_fee_flips_positive_usdc_edge_with_explicit_quote():
+    base = cost_fixture(8453)
+    exchanges = list(base.exchanges)
+    receipt = json.loads(exchanges[2].response_payload)
+    # Fixture gasUsed is 100. These inputs model three distinct fee debits.
+    receipt["result"].update(effectiveGasPrice=hex(5_000_000_000), l1Fee=hex(600_000_000_000))
+    exchanges[2] = replace(exchanges[2], response_payload=canonical_json(receipt))
+    operator = json.loads(exchanges[4].response_payload)
+    operator["result"] = "0x" + encode(["uint256"], [400_000_000_000]).hex()
+    exchanges[4] = replace(exchanges[4], response_payload=canonical_json(operator))
+    capture = replace(base, exchanges=tuple(exchanges))
+    native = price(capture, ZERO_ADDRESS, 2000 * 10**8)
+    weth = price(capture, BASE_WETH, 2000 * 10**8)
+    usdc = price(capture, BASE_USDC, 99 * 10**6)
+    weth_fee = value_cost_in_quote(capture, native, weth, quote_token=BASE_WETH, quote_decimals=18)
+    usdc_fee = value_cost_in_quote(capture, native, usdc, quote_token=BASE_USDC, quote_decimals=6)
+    cost = capture.reconstruct()
+    assert weth_fee.value_quote_units == cost.total_native == 1_500_000_000_000
+    assert usdc_fee.value_quote_units == 3031
+    gross_usdc_raw = 2500
+    assert gross_usdc_raw - usdc_fee.value_quote_units == -531
+    # Omitting the pinned operator fee would leave positive net value.
+    usd_per_eth = 2000
+    usd_per_usdc = Fraction(99, 100)
+    partial_usdc_raw = ceil(
+        Fraction(cost.execution_native + cost.l1_native, 10**18)
+        * usd_per_eth
+        / usd_per_usdc
+        * 10**6
+    )
+    assert gross_usdc_raw - partial_usdc_raw == 277
+    with pytest.raises(ValueError, match="denomination"):
+        value_cost_in_quote(capture, native, weth, quote_token=BASE_USDC, quote_decimals=6)
 
 
 @pytest.mark.parametrize("answer,age", [(0, 0), (-1, 0), (100, 61), (100, -1)])

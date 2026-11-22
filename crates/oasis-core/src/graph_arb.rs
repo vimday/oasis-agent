@@ -11,7 +11,7 @@ use crate::pool_math::{
     TickLiquidity, aerodrome_stable_swap_exact_in, cl_swap_exact_in_prevalidated, serde_u128_str,
     sqrt_price_at_tick, v2_swap_exact_in, validate_sorted_ticks,
 };
-use crate::u256_math::{U256, U512, div_rem_u256};
+use crate::u256_math::{U256, U512, div_rem_u256, div_rem_u512, mul_u256_to_u512};
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum GraphArbError {
@@ -326,6 +326,19 @@ pub struct CycleScanReport {
     pub candidates: Vec<CycleCandidate>,
     pub cycles_evaluated: usize,
     pub elapsed_ns: u64,
+    /// Evaluated routes whose sizing could not rule out a qualifying or better result.
+    pub sizing_residuals: Vec<CycleSizingResidual>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CycleSizingResidual {
+    pub chain_id: u64,
+    pub base_token: String,
+    pub pool_ids: Vec<String>,
+    /// A containing interval; it can include amounts already ruled out.
+    pub min_amount_in: U256,
+    pub max_amount_in: U256,
+    pub net_profit_upper: U256,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -384,6 +397,8 @@ impl PartialOrd for SignedU512 {
 }
 
 const MAX_SUPPORTED_HOPS: usize = 4;
+const EXACT_SIZING_MAX_SPAN: U256 = U256::from_u64(255);
+const V2_SIZING_REFINEMENT_LIMIT: usize = 12;
 const SPOT_UPPER_SAFETY_MULT: f64 = 1.000_001;
 
 #[allow(clippy::cast_precision_loss)]
@@ -682,9 +697,8 @@ impl PoolGraph {
         })
     }
 
-    /// Enumerates simple 2-hop to 4-hop cycles starting & ending at each `base_token`,
-    /// optimizing `amount_in` with 48-iteration exact integer ternary search over an
-    /// indexed zero-allocation graph representation.
+    /// Enumerates simple 2-hop to 4-hop cycles starting & ending at each `base_token`.
+    /// Reports amount ranges that may contain a qualifying or better net result.
     #[allow(clippy::too_many_arguments)]
     pub fn scan_cycles(
         &self,
@@ -747,8 +761,7 @@ impl PoolGraph {
         });
         let min_profit_u512 = min_net_profit.to_u512();
 
-        let mut cycles_evaluated = 0usize;
-        let mut candidates = Vec::new();
+        let mut outcome = IndexedScanOutcome::default();
 
         // `self.pools` is a `BTreeMap<(chain_id, pool_id), PoolState>`, so chains appear in
         // contiguous ascending `(chain_id, pool_id)` order.
@@ -773,8 +786,7 @@ impl PoolGraph {
                         min_profit_u512,
                         options,
                         changed_pool_set.as_ref(),
-                        &mut cycles_evaluated,
-                        &mut candidates,
+                        &mut outcome,
                     )?;
                     cur_chain = Some(*chain_id);
                 }
@@ -796,16 +808,15 @@ impl PoolGraph {
                 min_profit_u512,
                 options,
                 changed_pool_set.as_ref(),
-                &mut cycles_evaluated,
-                &mut candidates,
+                &mut outcome,
             )?;
         }
 
-        if options.deduplicate_cycles && candidates.len() > 1 {
-            candidates = deduplicate_cycle_candidates(candidates);
+        if options.deduplicate_cycles && outcome.candidates.len() > 1 {
+            outcome.candidates = deduplicate_cycle_candidates(outcome.candidates);
         }
 
-        candidates.sort_by(|a, b| {
+        outcome.candidates.sort_by(|a, b| {
             b.net_profit
                 .cmp(&a.net_profit)
                 .then_with(|| a.chain_id.cmp(&b.chain_id))
@@ -815,9 +826,10 @@ impl PoolGraph {
 
         let elapsed_ns = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
         Ok(CycleScanReport {
-            candidates,
-            cycles_evaluated,
+            candidates: outcome.candidates,
+            cycles_evaluated: outcome.cycles_evaluated,
             elapsed_ns,
+            sizing_residuals: outcome.sizing_residuals,
         })
     }
 }
@@ -933,6 +945,13 @@ struct IndexedScanParams<'a> {
     pool_changed: Option<&'a [bool]>,
 }
 
+#[derive(Default)]
+struct IndexedScanOutcome {
+    candidates: Vec<CycleCandidate>,
+    cycles_evaluated: usize,
+    sizing_residuals: Vec<CycleSizingResidual>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn scan_indexed_chain(
     graph: &IndexedGraph<'_>,
@@ -945,8 +964,7 @@ fn scan_indexed_chain(
     min_profit_u512: U512,
     options: &ScanCyclesOptions,
     changed_pool_set: Option<&BTreeSet<String>>,
-    cycles_evaluated: &mut usize,
-    candidates: &mut Vec<CycleCandidate>,
+    outcome: &mut IndexedScanOutcome,
 ) -> Result<(), GraphArbError> {
     let base_rank_vec: Option<Vec<Option<usize>>> = if options.deduplicate_cycles {
         let mut ranks = vec![None; graph.tokens.len()];
@@ -1002,8 +1020,7 @@ fn scan_indexed_chain(
             &mut used_pools,
             &mut current_steps,
             &params,
-            cycles_evaluated,
-            candidates,
+            outcome,
         )?;
     }
     Ok(())
@@ -1023,8 +1040,7 @@ fn enumerate_indexed_cycles(
     used_pools: &mut [usize; MAX_SUPPORTED_HOPS],
     current_steps: &mut [IndexedStep; MAX_SUPPORTED_HOPS],
     params: &IndexedScanParams<'_>,
-    cycles_evaluated: &mut usize,
-    candidates: &mut Vec<CycleCandidate>,
+    outcome: &mut IndexedScanOutcome,
 ) -> Result<(), GraphArbError> {
     let edges = &graph.adj[current_token];
     let next_depth = depth + 1;
@@ -1044,7 +1060,7 @@ fn enumerate_indexed_cycles(
                     pool_idx: edge.pool_idx,
                     zero_for_one: edge.zero_for_one,
                 };
-                *cycles_evaluated += 1;
+                outcome.cycles_evaluated += 1;
                 let cycle_upper = running_upper_rate * edge.max_rate_upper;
                 if cycle_upper > 0.0 && cycle_upper.is_finite() && cycle_upper <= 1.0 {
                     continue;
@@ -1058,21 +1074,35 @@ fn enumerate_indexed_cycles(
                     .to_u512()
                     .checked_add(params.l1_fee_in_base.to_u512())
                     .expect("sum of two U256 values fits U512");
-                if let Some(best) = ternary_search_indexed(
+                let sizing = size_indexed_cycle(
                     graph,
                     cycle_steps,
                     params.min_amount_in,
                     params.max_amount_in,
                     cycle_total_gas,
                     params.min_profit_u512,
-                ) {
-                    candidates.push(graph.materialize_candidate(
+                );
+                if let Some(best) = sizing.best {
+                    outcome.candidates.push(graph.materialize_candidate(
                         base_id,
                         cycle_steps,
                         best,
                         cycle_gas_cost,
                         params.l1_fee_in_base,
                     )?);
+                }
+                if let Some((min_amount_in, max_amount_in, net_profit_upper)) = sizing.residual {
+                    outcome.sizing_residuals.push(CycleSizingResidual {
+                        chain_id: graph.chain_id,
+                        base_token: graph.tokens[base_id].to_owned(),
+                        pool_ids: cycle_steps
+                            .iter()
+                            .map(|step| graph.pools[step.pool_idx].pool_id.clone())
+                            .collect(),
+                        min_amount_in,
+                        max_amount_in,
+                        net_profit_upper,
+                    });
                 }
             }
             continue;
@@ -1106,8 +1136,7 @@ fn enumerate_indexed_cycles(
             used_pools,
             current_steps,
             params,
-            cycles_evaluated,
-            candidates,
+            outcome,
         )?;
     }
     Ok(())
@@ -1137,31 +1166,250 @@ fn evaluate_indexed_cycle_in(
     })
 }
 
+fn keep_better_point(best: &mut Option<EvaluatedIndexedPoint>, point: EvaluatedIndexedPoint) {
+    if best.is_none_or(|previous| point.net_profit > previous.net_profit) {
+        *best = Some(point);
+    }
+}
+
+struct CycleSizing {
+    best: Option<EvaluatedIndexedPoint>,
+    residual: Option<(U256, U256, U256)>,
+}
+
+/// Exact continuous CPMM composition F(x) = a*x / (b + c*x). Each simulated
+/// hop rounds toward zero, so F bounds the realized output from above.
+struct ContinuousV2Cycle {
+    a: U256,
+    b: U256,
+    c: U256,
+}
+
+impl ContinuousV2Cycle {
+    fn from_steps(graph: &IndexedGraph<'_>, steps: &[IndexedStep]) -> Option<Self> {
+        let mut curve = Self {
+            a: U256::ONE,
+            b: U256::ONE,
+            c: U256::ZERO,
+        };
+        for step in steps {
+            let pool = graph.pools[step.pool_idx];
+            if pool.kind != PoolKind::V2 {
+                return None;
+            }
+            let (reserve_in, reserve_out) = if step.zero_for_one {
+                (pool.reserve0?, pool.reserve1?)
+            } else {
+                (pool.reserve1?, pool.reserve0?)
+            };
+            if reserve_in.is_zero() || reserve_out.is_zero() {
+                return None;
+            }
+            let kept_fee = FEE_PIPS_DENOM - pool.fee_pips;
+            let (mut divisor, mut remainder) = (FEE_PIPS_DENOM, kept_fee);
+            while remainder != 0 {
+                (divisor, remainder) = (remainder, divisor % remainder);
+            }
+            let fee_factor = U256::from_u64(u64::from(kept_fee / divisor));
+            let input_weight =
+                reserve_in.checked_mul(U256::from_u64(u64::from(FEE_PIPS_DENOM / divisor)))?;
+            let weighted_a = fee_factor.checked_mul(curve.a)?;
+            curve.a = reserve_out.checked_mul(weighted_a)?;
+            curve.b = input_weight.checked_mul(curve.b)?;
+            curve.c = input_weight.checked_mul(curve.c)?.checked_add(weighted_a)?;
+        }
+        Some(curve)
+    }
+
+    /// F(x) - x >= cost iff x * (a - b - c*cost - c*x) >= b*cost.
+    /// The quadratic peaks at one of the two integers next to its vertex.
+    fn possible_amount(&self, lo: U256, hi: U256, cost: U256) -> Option<U256> {
+        let linear = self
+            .a
+            .checked_sub(self.b)?
+            .checked_sub(mul_u256_to_u512(self.c, cost).to_u256()?)?;
+        let floor_vertex = self.c.checked_add(self.c).map_or(U256::ZERO, |twice_c| {
+            linear
+                .checked_div(twice_c)
+                .expect("positive CPMM curve coefficient")
+        });
+        let min_product = mul_u256_to_u512(self.b, cost);
+        for point in [
+            floor_vertex.clamp(lo, hi),
+            floor_vertex
+                .checked_add(U256::ONE)
+                .unwrap_or(floor_vertex)
+                .clamp(lo, hi),
+        ] {
+            if let Some(second_factor) = self
+                .c
+                .checked_mul(point)
+                .and_then(|curvature| linear.checked_sub(curvature))
+                && mul_u256_to_u512(point, second_factor) >= min_product
+            {
+                return Some(point);
+            }
+        }
+        None
+    }
+
+    fn output_upper(&self, x: U256) -> U256 {
+        let denom = mul_u256_to_u512(self.c, x)
+            .checked_add(self.b.to_u512())
+            .expect("a U256 product plus a U256 fits in U512");
+        div_rem_u512(mul_u256_to_u512(self.a, x), denom)
+            .and_then(|(quotient, _)| quotient.to_u256())
+            .unwrap_or(U256::MAX)
+    }
+}
+
+fn minimum_improving_profit(best: Option<EvaluatedIndexedPoint>, minimum: U512) -> U512 {
+    best.filter(|point| !point.net_profit.negative && point.net_profit.mag >= minimum)
+        .map_or(minimum, |point| {
+            point
+                .net_profit
+                .mag
+                .checked_add(U512::ONE)
+                .expect("net output fits U256")
+        })
+}
+
+fn size_indexed_cycle(
+    graph: &IndexedGraph<'_>,
+    steps: &[IndexedStep],
+    lo: U256,
+    hi: U256,
+    total_gas: U512,
+    min_profit: U512,
+) -> CycleSizing {
+    let mut residual = None;
+    let mut best = None;
+    let output_cap = steps.last().map_or(U256::MAX, |step| {
+        let pool = graph.pools[step.pool_idx];
+        if pool.kind == PoolKind::V2 {
+            let reserve_out = if step.zero_for_one {
+                pool.reserve1
+            } else {
+                pool.reserve0
+            };
+            reserve_out
+                .and_then(|amount| amount.checked_sub(U256::ONE))
+                .unwrap_or(U256::MAX)
+        } else {
+            U256::MAX
+        }
+    });
+    let mut record_residual = |lower: U256, upper: U256, bound: U256| {
+        residual = Some(residual.map_or(
+            (lower, upper, bound),
+            |(prev_lower, prev_upper, prev_bound): (U256, U256, U256)| {
+                (
+                    prev_lower.min(lower),
+                    prev_upper.max(upper),
+                    prev_bound.max(bound),
+                )
+            },
+        ));
+    };
+    let profit_upper = |lower: U256, output_upper: U256| {
+        output_upper
+            .min(output_cap)
+            .to_u512()
+            .checked_sub(lower.to_u512())?
+            .checked_sub(total_gas)?
+            .to_u256()
+    };
+    if profit_upper(lo, output_cap).is_none_or(|bound| bound.to_u512() < min_profit) {
+        return CycleSizing { best, residual };
+    }
+
+    if hi.checked_sub(lo).expect("validated amount range") <= EXACT_SIZING_MAX_SPAN {
+        let mut amount = lo;
+        loop {
+            match evaluate_indexed_cycle_in(graph, steps, amount, total_gas) {
+                Ok(point) => keep_better_point(&mut best, point),
+                Err(GraphArbError::Math(PoolMathError::ZeroAmount)) => (),
+                Err(_) => {
+                    if let Some(upper) = profit_upper(amount, output_cap) {
+                        record_residual(amount, amount, upper);
+                    }
+                }
+            }
+            if amount == hi {
+                break;
+            }
+            amount = amount.checked_add(U256::ONE).expect("amount below hi");
+        }
+    } else {
+        // Ternary search supplies a good lower bound on smooth routes. Its
+        // discarded intervals remain unproven until checked separately.
+        best = ternary_search_indexed(graph, steps, lo, hi, total_gas);
+        if let Some(curve) = ContinuousV2Cycle::from_steps(graph, steps) {
+            let mut intervals = [(U256::ZERO, U256::ZERO); V2_SIZING_REFINEMENT_LIMIT + 1];
+            intervals[0] = (lo, hi);
+            let mut used = 1;
+            for _ in 0..V2_SIZING_REFINEMENT_LIMIT {
+                if used == 0 {
+                    break;
+                }
+                used -= 1;
+                let (lower, upper) = intervals[used];
+                let Some(cost) = total_gas
+                    .checked_add(minimum_improving_profit(best, min_profit))
+                    .and_then(U512::to_u256)
+                else {
+                    break;
+                };
+                let Some(amount) = curve.possible_amount(lower, upper, cost) else {
+                    continue;
+                };
+                match evaluate_indexed_cycle_in(graph, steps, amount, total_gas) {
+                    Ok(point) => keep_better_point(&mut best, point),
+                    Err(GraphArbError::Math(PoolMathError::ZeroAmount)) => (),
+                    Err(_) => {
+                        if let Some(bound) = profit_upper(amount, curve.output_upper(amount)) {
+                            record_residual(amount, amount, bound);
+                        }
+                    }
+                }
+                if amount < upper {
+                    intervals[used] = (amount.checked_add(U256::ONE).expect("below upper"), upper);
+                    used += 1;
+                }
+                if amount > lower {
+                    intervals[used] = (lower, amount.checked_sub(U256::ONE).expect("above lower"));
+                    used += 1;
+                }
+            }
+            for &(lower, upper) in &intervals[..used] {
+                if let Some(bound) = profit_upper(lower, curve.output_upper(upper)) {
+                    record_residual(lower, upper, bound);
+                }
+            }
+        } else if let Some(bound) = profit_upper(lo, output_cap) {
+            record_residual(lo, hi, bound);
+        }
+    }
+    let required = minimum_improving_profit(best, min_profit);
+    CycleSizing {
+        best: best.filter(|point| !point.net_profit.negative && point.net_profit.mag >= min_profit),
+        residual: residual.filter(|(_, _, upper)| upper.to_u512() >= required),
+    }
+}
+
 fn ternary_search_indexed(
     graph: &IndexedGraph<'_>,
     steps: &[IndexedStep],
     min_amount_in: U256,
     max_amount_in: U256,
     total_gas: U512,
-    min_profit_u512: U512,
 ) -> Option<EvaluatedIndexedPoint> {
     let mut lo = min_amount_in;
     let mut hi = max_amount_in;
     let mut best: Option<EvaluatedIndexedPoint> = None;
 
-    let update_best = |best_slot: &mut Option<EvaluatedIndexedPoint>,
-                       cand: EvaluatedIndexedPoint| {
-        let replace = match best_slot {
-            None => true,
-            Some(prev) => cand.net_profit > prev.net_profit,
-        };
-        if replace {
-            *best_slot = Some(cand);
-        }
-    };
-
     if let Ok(lo_pt) = evaluate_indexed_cycle_in(graph, steps, lo, total_gas) {
-        update_best(&mut best, lo_pt);
+        keep_better_point(&mut best, lo_pt);
     }
 
     let three = U256::from_u64(3);
@@ -1184,8 +1432,8 @@ fn ternary_search_indexed(
         ) {
             (Ok(p1), Ok(p2)) => {
                 let cmp = p1.net_profit.cmp(&p2.net_profit);
-                update_best(&mut best, p1);
-                update_best(&mut best, p2);
+                keep_better_point(&mut best, p1);
+                keep_better_point(&mut best, p2);
                 match cmp {
                     Ordering::Less => lo = m1,
                     Ordering::Greater => hi = m2,
@@ -1196,11 +1444,11 @@ fn ternary_search_indexed(
                 }
             }
             (Ok(p1), Err(_)) => {
-                update_best(&mut best, p1);
+                keep_better_point(&mut best, p1);
                 hi = m2.checked_sub(U256::ONE).unwrap_or(m1);
             }
             (Err(_), Ok(p2)) => {
-                update_best(&mut best, p2);
+                keep_better_point(&mut best, p2);
                 lo = m1.checked_add(U256::ONE).unwrap_or(m2);
             }
             (Err(_), Err(_)) => {
@@ -1217,7 +1465,7 @@ fn ternary_search_indexed(
             let mut cur = lo;
             while cur <= hi {
                 if let Ok(pt) = evaluate_indexed_cycle_in(graph, steps, cur, total_gas) {
-                    update_best(&mut best, pt);
+                    keep_better_point(&mut best, pt);
                 }
                 let Some(next) = cur.checked_add(U256::ONE) else {
                     break;
@@ -1229,17 +1477,13 @@ fn ternary_search_indexed(
             let mid = lo.checked_add(half).unwrap_or(lo);
             for probe in [lo, mid, hi] {
                 if let Ok(pt) = evaluate_indexed_cycle_in(graph, steps, probe, total_gas) {
-                    update_best(&mut best, pt);
+                    keep_better_point(&mut best, pt);
                 }
             }
         }
     }
 
-    let candidate = best?;
-    if candidate.net_profit.negative || candidate.net_profit.mag < min_profit_u512 {
-        return None;
-    }
-    Some(candidate)
+    best
 }
 
 #[must_use]
@@ -1370,6 +1614,225 @@ mod tests {
     struct ReferenceEvaluatedPoint {
         quote: RouteQuote,
         net_profit: SignedU512,
+    }
+
+    #[test]
+    fn small_integer_sizing_matches_exhaustive_v2_profit_at_threshold() {
+        let mut graph = PoolGraph::new();
+        let token_a = token("11");
+        let token_b = token("22");
+        let pool_ids = [token("aa"), token("bb")];
+        for (pool_id, (reserve0, reserve1)) in pool_ids.iter().zip([(615, 1497), (1730, 1521)]) {
+            graph
+                .upsert_pool(PoolState {
+                    chain_id: 8453,
+                    pool_id: pool_id.clone(),
+                    kind: PoolKind::V2,
+                    token0: token_a.clone(),
+                    token1: token_b.clone(),
+                    decimals0: 6,
+                    decimals1: 8,
+                    fee_pips: 3000,
+                    reserve0: Some(U256::from_u64(reserve0)),
+                    reserve1: Some(U256::from_u64(reserve1)),
+                    sqrt_price_x96: None,
+                    tick: None,
+                    liquidity: None,
+                    ticks: vec![],
+                    block_number: 1,
+                    timestamp_ms: 1,
+                })
+                .unwrap();
+        }
+        let swap = |input: u64, reserve_in: u64, reserve_out: u64| {
+            input * 997 * reserve_out / (1000 * reserve_in + 997 * input)
+        };
+        for (base, first, second, expected_first, expected_second) in [
+            (
+                &token_a,
+                (615, 1497),
+                (1521, 1730),
+                &pool_ids[0],
+                &pool_ids[1],
+            ),
+            (
+                &token_b,
+                (1521, 1730),
+                (615, 1497),
+                &pool_ids[1],
+                &pool_ids[0],
+            ),
+        ] {
+            let exhaustive_profit = (1..=250)
+                .map(|amount| {
+                    swap(swap(amount, first.0, first.1), second.0, second.1).saturating_sub(amount)
+                })
+                .max()
+                .unwrap();
+            for profit_threshold in [exhaustive_profit, exhaustive_profit + 1] {
+                let report = graph
+                    .scan_cycles(
+                        std::slice::from_ref(base),
+                        2,
+                        U256::ONE,
+                        U256::from_u64(250),
+                        U256::ZERO,
+                        U256::ZERO,
+                        U256::from_u64(profit_threshold),
+                    )
+                    .unwrap();
+                assert!(report.sizing_residuals.is_empty());
+                if profit_threshold > exhaustive_profit {
+                    assert!(report.candidates.is_empty());
+                    continue;
+                }
+                assert_eq!(report.candidates.len(), 1);
+                let candidate = &report.candidates[0];
+                assert_eq!(candidate.net_profit, U256::from_u64(exhaustive_profit));
+                assert_eq!(&candidate.hops[0].pool_id, expected_first);
+                assert_eq!(&candidate.hops[1].pool_id, expected_second);
+                if base == &token_a {
+                    assert_eq!(candidate.net_profit, U256::from_u64(135));
+                    assert!(matches!(
+                        candidate.optimal_amount_in.to_u64(),
+                        Some(204 | 207)
+                    ));
+                }
+            }
+        }
+
+        let indexed = IndexedGraph::from_chain_pools(8453, graph.pools.values().collect());
+        let curve = ContinuousV2Cycle::from_steps(
+            &indexed,
+            &[
+                IndexedStep {
+                    pool_idx: 0,
+                    zero_for_one: true,
+                },
+                IndexedStep {
+                    pool_idx: 1,
+                    zero_for_one: false,
+                },
+            ],
+        )
+        .unwrap();
+        // Independently compose the two continuous swaps by cross-multiplication.
+        for (lo, hi) in [(1, 100), (199, 203), (204, 207), (208, 500), (500, 1000)] {
+            for cost in 130..=140 {
+                let qualifies = |amount: u64| {
+                    let first_num = amount * 997 * 1497;
+                    let first_denom = 615 * 1000 + amount * 997;
+                    let cycle_num = first_num * 997 * 1730;
+                    let cycle_denom = first_denom * 1521 * 1000 + first_num * 997;
+                    cycle_num >= (amount + cost) * cycle_denom
+                };
+                let possible = curve.possible_amount(
+                    U256::from_u64(lo),
+                    U256::from_u64(hi),
+                    U256::from_u64(cost),
+                );
+                assert_eq!(possible.is_some(), (lo..=hi).any(qualifies));
+                if let Some(amount) = possible {
+                    assert!(qualifies(amount.to_u64().unwrap()));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn bounded_cl_sizing_matches_direct_quotes_across_ticks() {
+        let mut graph = PoolGraph::new();
+        let token_a = token("11");
+        let token_b = token("22");
+        let pool_ids = [token("aa"), token("bb")];
+        for (index, (pool_id, tick)) in pool_ids.iter().zip([0, -3000]).enumerate() {
+            let ticks = if index == 0 {
+                vec![TickLiquidity {
+                    tick: -100,
+                    liquidity_net: 3000,
+                }]
+            } else {
+                vec![]
+            };
+            graph
+                .upsert_pool(PoolState {
+                    chain_id: 8453,
+                    pool_id: pool_id.clone(),
+                    kind: PoolKind::V3,
+                    token0: token_a.clone(),
+                    token1: token_b.clone(),
+                    decimals0: 6,
+                    decimals1: 6,
+                    fee_pips: 500,
+                    reserve0: None,
+                    reserve1: None,
+                    sqrt_price_x96: Some(sqrt_price_at_tick(tick).unwrap()),
+                    tick: Some(tick),
+                    liquidity: Some(10_000),
+                    ticks,
+                    block_number: 1,
+                    timestamp_ms: 1,
+                })
+                .unwrap();
+        }
+        let route = [
+            RouteStep {
+                chain_id: 8453,
+                pool_id: pool_ids[0].clone(),
+                token_in: token_a.clone(),
+            },
+            RouteStep {
+                chain_id: 8453,
+                pool_id: pool_ids[1].clone(),
+                token_in: token_b,
+            },
+        ];
+        // An amount of 250 crosses the first pool's initialized tick.
+        let pool = &graph.pools[&(8453, pool_ids[0].clone())];
+        let mut without_tick = pool.clone();
+        without_tick.ticks.clear();
+        let upper = U256::from_u64(250);
+        assert_ne!(
+            pool.quote_exact_in_direction(true, upper).unwrap().0,
+            without_tick
+                .quote_exact_in_direction(true, upper)
+                .unwrap()
+                .0,
+        );
+
+        let reference_profit = (1..=250)
+            .filter_map(|raw| {
+                let amount = U256::from_u64(raw);
+                graph
+                    .quote_route(&route, amount)
+                    .ok()?
+                    .amount_out
+                    .checked_sub(amount)
+            })
+            .max()
+            .unwrap();
+        assert!(reference_profit > U256::ZERO);
+        let scan = |max_amount_in| {
+            graph
+                .scan_cycles(
+                    std::slice::from_ref(&token_a),
+                    2,
+                    U256::ONE,
+                    max_amount_in,
+                    U256::ZERO,
+                    U256::ZERO,
+                    reference_profit,
+                )
+                .unwrap()
+        };
+        let bounded = scan(upper);
+        assert!(bounded.sizing_residuals.is_empty());
+        assert_eq!(bounded.candidates[0].net_profit, reference_profit);
+        let wider = scan(U256::from_u64(500));
+        assert_eq!(wider.sizing_residuals[0].pool_ids, pool_ids);
+        assert_eq!(wider.sizing_residuals[0].min_amount_in, U256::ONE);
+        assert_eq!(wider.sizing_residuals[0].max_amount_in, U256::from_u64(500));
+        assert!(wider.sizing_residuals[0].net_profit_upper >= reference_profit);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1640,6 +2103,7 @@ mod tests {
             candidates,
             cycles_evaluated,
             elapsed_ns: 0,
+            sizing_residuals: Vec::new(),
         }
     }
 

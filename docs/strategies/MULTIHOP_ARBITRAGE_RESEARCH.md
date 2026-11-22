@@ -4,37 +4,41 @@ Updated 2026-11-22. 研究记录，不构成交易授权或收益承诺。本文
 合成证据；`execution_eligible = false`、`release_permitted = false`。外部数字以论文原文为准，
 推导数字在文中标注为“本文计算”。
 
+后续实验、证据要求和停止条件见[多跳套利研究待办](MULTIHOP_ARBITRAGE_TODO.md)。 Ethereum、BSC 的实时净利筛选、102 跳整笔对照和 Robinhood feed 接入结果见[11 月 23 日验证](../verification/MULTICHAIN_FORWARD_20261123.md)。
+
 ## 0. 结论先行
 
-1. **几十跳在静态图上存在，但已执行、扣费后为正的原子套利仍以短路径为主。** MeVisor 统计
-   30,646 笔历史套利，82.21% 涉及少于 3 个 DEX；它允许最长 16 笔交易的搜索，实际发现 2–14 笔，
-   其中 14 笔只有 3 个 bundle、平均利润约 USD 350。RICH 默认 `k = 5`，并引用既有工作指出加密
-   市场超过 5 跳的环少于 2%。MMBF 在 Uniswap V2 静态图上找到的主模态是 7–11 跳，但该文明确
+1. **公开数据中的原子套利以短路径为主。** MeVisor 统计 30,646 笔历史套利，按论文口径
+   82.21% 涉及少于 3 个 DEX。其独立回放实验搜索上限为每个 bundle 16 笔交易，返回的正净额
+   bundle 含 2–14 笔交易，长度为 14 的 3 个 bundle 平均估算约 USD 350。RICH 默认 `k = 5`，
+   并引用既有工作指出加密市场超过 5 跳的环少于 2%。MMBF 在 Uniswap V2 静态图上找到的主模态是 7–11 跳，但该文明确
    不考虑 gas，且大量机会低于 USD 10。2026 年 BSC builder 的 963 万条 cycle 也显示 2–3 swap
    为主、10–20 跳只是小尾部，且更长路径没有系统性更高利润。
 2. **“几十跳”至少混用了三种对象。** 聚合器的支付路由（A→N，可拆单，不是无风险套利）、多交易
    bundle（MeVisor 的 14 是交易数，不是简单环跳数）、静态图上的潜在长环（多数是粉尘）。不先
    区分口径，就会把“搜得到”误当成“执行得了”。
-3. **长路径的瓶颈不是搜不到，而是扣完费用、gas、状态漂移和竞争后还剩多少。** 在 Base 上，
-   30 bps × 20 跳的费用拖累约 5.83%，盈亏平衡需要约 6.19% 的毛差；32 跳的 L2 gas 约 6.5M，
-   按最低 base fee 约 USD 0.054，在 USD 1,000 名义额上约 0.54 bps。gas 不是主要约束，费用拖累
-   与状态新鲜度才是。
-4. **Oasis 当前 Rust 内核上限 4 跳，34 池、1,868 条四跳环路 2.37 ms。** 真正的瓶颈是状态读取与
-   远程报价：历史事件实验两腿报价 489–1,082 ms，加完整费用模型后 0/4 在 750 ms 内完成。
-   Wave 32–33 已把按跳 gas、canonical 去重和 `changed_pools` 增量过滤下沉到 Rust，并在 120 块
-   固定快照 A/B 上取得 120/120 召回与 p99 −52.99%；下一步是真实 Base 快照、路径库与 k=5/6
-   研究，GPU 仍应排在最后。
-5. **建议把长路径限定为研究模式。** 生产仍以 2–4 跳为主；k≤8 的按需枚举只用于研究、可视化和
+3. **长路径需要实测池费、完整网络费、状态寿命与竞争成本。** 在静态乘积模型中，30 bps × 20 跳
+   的费用拖累约 5.83%，单为覆盖池费需约 6.19% 的毛差。若假设 32 跳使用 6.5M gas，按 Base
+   最低 base fee 计算约 USD 0.054，在 USD 1,000 名义额上约 0.54 bps。这一估算的适用范围是
+   L2 base fee 项，完整费用和状态变化分别计量。
+4. **Oasis 当前 Rust 内核上限 4 跳，34 池、1,868 条四跳环路的合成基准为 2.37 ms。** 另一项
+   历史事件实验的两腿远程报价为 489–1,082 ms，加完整费用模型后 0/4 在 750 ms 内完成。
+   Wave 32–33 已加入按跳 gas、环旋转去重和 `changed_pools`。在 120 个合成快照上，
+   两种扫描方式逐块一致，增量扫描的 p99 降低 52.99%。真实 Base 端到端对照仍待完成。
+5. **建议把长路径限定为研究模式。** 当前 2–4 跳是离线或影子工作的基线；拟增加的 k≤8 枚举用于研究、可视化和
    对照实验。A/B/C 的判定指标应是“从收到状态到完整复核的 p95/p99、时限内真实正净候选召回、
    漏掉候选的净额”，不是模拟吞吐。
 6. **路径枚举与路径管理已经工程化，但“路径库存”不等于“执行跳数”。** 典型实现是 DFS + 最大
    跳数 + 池不复用；CPMM 路线可以用虚拟池参数逐跳合成，并得到闭式最优投入；路径库用
    `DashMap`/`DashSet` 做 pool→path 倒排索引和哈希去重。跨链套利则是另一条非原子路线：
    一年 242,535 笔、USD 868.64M 成交量，66.96% 用预置库存、中位 9 s，桥接中位 242 s。
-7. **2026-11-22 链上抽样：Robinhood 的“几十跳”是实测存在的。** 20,000 个连续区块（38 min）内
-   出现 4 笔 ≥20 Swap、2 笔 22 Swap；其中 21/20/19/15 Swap 的多笔在扣 gas 后仍有 +USD 1–2 的
-   WETH/USDG 残差。Base 的 500 块（100 s）样本最大只有 4 Swap。**本轮抽样仍未出现“上百跳”；
-   20–22 跳是本轮抽样中可复核的上限。**
+7. **2026-11-22 链上抽样：Robinhood 单笔最多观测到 22 条匹配的 Swap 日志。** 20,000 个
+   连续区块内有 4 笔记录到至少 20 条 Swap 日志，2 笔记录到 22 条。部分交易的正
+   WETH/USDG 转账残差减去回执 gas 乘积后约为 USD 1–2，最终受益人与完整净额仍待核对。
+   Base 的 500 块（约 100 s）样本最大为 4 条 Swap 日志。
+8. **一位搜索者报告从环切换到 DAG。** @aliez_ren 于 2026-11 自述 62 跳赚 23.5U。另一帖
+   自述 10M gas、利润 4U，并更正计数为 **109 跳、272 次转账**。链名、交易哈希、跳数定义、gas
+   口径与净额均待核实。多分支拆分、合流已有可独立回放的公开交易案例，见 2.12。
 
 ## 1. 先把“跳”的口径定清楚
 
@@ -42,7 +46,7 @@ Updated 2026-11-22. 研究记录，不构成交易授权或收益承诺。本文
 | --- | --- | ---: | --- | --- |
 | 池跳 | 一次池内 swap | 2–4；长尾可到 10 以上 | 一个池的状态、费用、价格冲击 | RICH、MeVisor |
 | DEX 跳 | 跨一个 DEX 或协议 | 82.21% 少于 3 | 执行路径的协议数 | MeVisor 图 2 |
-| 交易数 | 一个 bundle 内的 tx 数 | 2–14 | 排序、原子性、bundle 级 gas | MeVisor 表 IX |
+| 交易数 | 一个 bundle 内的 tx 数 | 2–14 | 排序、包含规则和交易级 gas | MeVisor 表 IX |
 | 聚合器路由 | A→N 的支付路径，可拆单 | 可达数十 | 最优执行，不是无风险套利 | CFMM routing |
 | 路径库跳数 | 路径管理器存储的候选路径长度 | 可变，几十到上百 | 搜索/库存规模，不等于执行 | swap-path、2026 行业观察 |
 | 跨链跳 | 桥或链切换 | 2–N | 非原子，带桥和链风险 | N-hops |
@@ -58,7 +62,9 @@ Updated 2026-11-22. 研究记录，不构成交易授权或收益承诺。本文
   `N−1` 个费率），SwapRouter 逐段解码执行；真正的限制是 gas、calldata、tick 跨度和执行风险，
   不是编码格式。
 
-本文后续若不做特别说明，“跳”指池跳；“简单环”指不重复 token、且每个池最多用一次的有向环。
+本文后续若无特别说明，“跳”指池跳；“简单环”指除起终点外不重复 token、且每个池最多使用
+一次的有向环。分支交易分别记录总 Swap 次数、不同池数量、最长依赖链的 Swap 深度、交易笔数
+与转账事件数。行业帖中的“跳”保留作者口径。
 
 ## 2. 外部证据
 
@@ -76,18 +82,18 @@ MeVisor 把 MEV bot 编译到 GPU，用并行遗传算法搜索套利和 sandwic
 | 逐笔完全一致 | 1,149 / 2,380 | 48.28% |
 | 仅 V3 案例 | 154 / 649 | 23.7% |
 | 汇总值比例 | 99.71% | 按 ETH 计的 output 比例，不是逐笔精度 |
-| Q1 2025 套利利润 | USD 884,116.65 | 单个 4 笔交易案例 USD 753,407.19，占 85.2% |
-| 长 swap bundle | 6,618 个正收入 | 其中 6,389 个不足以覆盖 gas（96.5%） |
+| Q1 2025 套利估计净额 | USD 884,116.65 | 229 个正净额 bundle 中有 210 个长度为 2，唯一长度为 4 的 bundle 估算 USD 753,407.19，占 85.2% |
+| Q1 2025 套利候选 | 6,618 个正收入 | 其中 6,389 个不足以覆盖论文费用模型中的 gas（96.5%） |
 | 历史路径分布 | 82.21% 少于 3 个 DEX | 30,646 笔 2025 年 1–6 月套利 |
-| 搜索上限 | 16 笔交易 | 实际发现 2–14 笔；14 笔仅 3 个 bundle，平均 USD 350 |
+| 搜索上限 | 每个 bundle 16 笔交易 | 正净额样本长度为 2–14，长度为 14 的 3 个 bundle 总计 USD 1,050.01、平均约 USD 350 |
 
 要点：
 
 - “100,000×”是模拟吞吐口径，不是搜索耗时；搜索耗时约 10×。把两者混用会夸大 GPU 的端到端收益。
-- 99.71% 是汇总值比例，不能当作逐笔执行精度；GPU 误差是低估，只产生 false negative，不产生
-  false positive。这适合做筛选器，不适合直接作为签名依据。
-- 长路径确实存在，但经济上高度集中：一个 4 笔交易案例贡献了 85% 的利润；96.5% 的长 swap
-  bundle 连 gas 都覆盖不了。这更像“偶发的大偏离”，不是“稳定的长路径 alpha”。
+- 99.71% 是汇总 ETH 计价的输出比例。作者在已测试样本中观察到 GPU 低估，低估会漏掉正净额候选。
+  这些结果用于评估筛选器，完整报价仍需精确复算。
+- Q1 回放结果由唯一一个长度为 4 的 bundle 主导。回放按固定 ETH 美元价格和论文的 gas 模型估价，
+  假设单一搜索者，未扣竞争失败成本。
 - 原文表 IX 的 path length 是 bundle 内交易数；把它直接叫“四跳”会把交易数与池跳混为一谈。
   本文按“4 笔交易”表述，不把它等同于 4 个池的简单环。
 
@@ -136,17 +142,20 @@ RICH 把套利建模为 `k`-跳负环检测，用 color-coding 和动态规划�
 - 加入固定成本后，是混合整数凸问题，需要全局优化或启发式。
 - 套利识别是路由问题的特例。
 
-因此，谈“全局最优”前必须先说明：允许哪些池、几跳、能否拆单/合流、包含哪些成本。Oasis 当前
-的搜索是“简单环、池只用一次、不拆单、固定金额区间”的受限最优，不是所有策略的全局最优。
+最优性声明需要给出池集合、跳数、拆分和成本模型。Oasis 当前搜索域是每池只用一次、不拆分的
+简单环和固定金额区间。候选金额由启发式整数搜索提出，已有漏过净额门槛的
+[反例](../verification/MULTIHOP_RESEARCH_20261122.md#两座-v2-池即可观察到金额搜索漏解)。
 
 ### 2.6 Base 的块与费用
 
-- Denim 升级后，Base 原生 200 ms 块，每秒 5 个完整块，Flashblocks 退役；`block.number` 增长
-  速度是原来的 10 倍，`BaseTime` 提供毫秒时间。
-- 费用由 L2 执行费和 L1 数据费组成；L2 最低 base fee 为 0.005 gwei；主网 gas limit 40M、
-  target 8M；L1 fee 可通过 `GasPriceOracle.getL1Fee` 读取。
-- 含义：状态寿命更短；gas 很便宜；费用拖累、状态漂移和竞争才是长路径的主要敌人。测量
-  “状态到达 → 完整复核”的端到端时间，比只看块时间更有意义。
+- 2026-11-05 Mainnet Denim 上线后，Base 每 200 ms 产出一个原生区块，Flashblocks 退役。
+  `BaseTime` 提供毫秒时间。区块的可见性、safe 和 finalized 状态分别记录。
+  [Base Denim](https://www.base.org/blog/denim)
+- 基于同一块和交易载荷核算 L2 执行费、L1 数据费与适用的 operator fee。官方页面列出的
+  L2 最低 base fee 为 0.005 gwei，区块 gas limit 40M、target 8M。以固定块链上参数为准。
+  [Base 费用规范](https://docs.base.org/specifications/transactions/network-fees)
+- 200 ms 是出块节拍。实验分别量化状态到达年龄、接收后的完整复核耗时，以及候选在后续
+  可见状态上的有效时长。
 
 ### 2.7 跨链套利：库存 vs 桥（arXiv 2501.17335）
 
@@ -198,9 +207,9 @@ v1 为 *Pandora's Box*）研究的是**非原子**的跨链套利，不是单链
 
 ### 2.8 2026 年 BSC builder MEV：短跳为主，长尾 10–20 跳
 
-arXiv 2602.15395（2026-02）追踪 BSC 上两个主导 builder（48Club、Blockrazor）在 2025-04 至
-2026-02 的套利活动。数据集包含 963 万条 builder 执行的套利 cycle、250+ factories、
-23,000+ pools。
+arXiv 2602.15395 v2 的 §3.3 给出 2025-04-01 至 2026-02-10 的观察窗口；两家 builder 的
+实际交易数据分别始于 2025 年 5 月末与 6 月中旬。作者报告 963 万条标记为 builder 执行的
+套利 cycle，覆盖 250+ factories 与 23,000+ pools。 [论文 v2 §3.3](https://arxiv.org/html/2602.15395v2#S3.SS3)
 
 | 指标 | 数值 |
 | --- | ---: |
@@ -217,7 +226,9 @@ arXiv 2602.15395（2026-02）追踪 BSC 上两个主导 builder（48Club、Block
   小部分流量。
 - 路径长度与每 swap 利润的相关性接近零；更长路径没有系统性更高利润，Blockrazor 的长尾点
   大多贴近横轴。
-- 3 秒块时间下，简单的三角/两跳稳定币路线占优；长多跳在延迟和 gas 上处于劣势。
+- 论文按自身数据报告短路线占优。其 3 秒区块背景描述已过时，BSC 在观察期内经历多次缩短区块
+  间隔的升级，Fermi 在 2026-01 将目标间隔从 750 ms 降为 450 ms。区块间隔与路径表现的
+  因果关系需分升级窗口另行验证。 [BNB Chain Fermi 公告](https://www.bnbchain.org/en/blog/fermi-hard-fork-accelerates-bsc-to-0-45-second-block-times)
 
 这给了“几十跳”一个 2026 年的实测锚点：**10–20 跳的真实执行尾部存在，但利润集中在 2–3 swap；
 公开数据里没有单笔上百跳的统计**。它和 MeVisor 的 2–14 笔 bundle、RICH 的 5 跳默认值一致，
@@ -305,9 +316,9 @@ token-pair family、71 个 sibling pools 中抽取 13,768 笔 family-transaction
 
 注意：两者时间窗不同（38 min vs 100 s），不能直接比较频率；Base 需要更长窗口才能估计长跳尾部。
 
-**长样本与候选净额**（WETH 按 USD 1,650.89、USDG 按 USD 1 计；仅为时点估算）：
+**长样本的转账残差诊断**（WETH 按 USD 1,650.89、USDG 按 USD 1 估值）：
 
-| 交易 | 链 | Swap/池 | 同 token 正残差 | gas ETH | 候选净额（未含其它成本） |
+| 交易 | 链 | Swap 日志/不同池 | 同 token 正残差 | 回执 gas 乘积（ETH） | 估值残差减回执 gas |
 | --- | --- | ---: | --- | ---: | --- |
 | `0x57110d3c…` | Robinhood | 21/6 | WETH +0.000663、+0.000539；USDG +0.267966 | 0.00014449 | 约 +USD 2.01 |
 | `0x1f1ed9d0…` | Robinhood | 20/4 | WETH +0.000584、+0.000340、+0.000221 | 0.00011484 | 约 +USD 1.70 |
@@ -319,17 +330,69 @@ token-pair family、71 个 sibling pools 中抽取 13,768 笔 family-transaction
 
 要点：
 
-- **“几十跳”在 Robinhood 上是真实的执行现象**：38 分钟窗口里有 4 笔 ≥20 Swap、2 笔 22 Swap；
-  其中 21/20/19/15 Swap 的多笔在扣 gas 后仍有 +USD 1–2 的 WETH/USDG 残差。这是目前最强的
-  2026 年链上证据，强于公开论文的 10–20 跳尾部。
-- **但 20+ Swap 不等于 20+ 跳简单环**：最长样本里有股票代币（NVDA/GLD/SPCX）、长尾 token
-  （URANUS/SCHIFFY）和 PONS 燃烧；有的是多资产路由/做市，不是干净的循环套利。
+- **Robinhood 样本中观测到单笔 20–22 条 Swap 日志。** 识别出的最长交易之一有 22 条日志和
+  4 个不同池。部分样本涉及库存、股票代币（NVDA/GLD/SPCX）、长尾 token（URANUS/SCHIFFY）或
+  PONS 燃烧。交易分类和依赖链深度需逐笔用 trace 核实。
 - **Base 的 100 秒样本最大 4 Swap**：Base 的长跳尾部在这段窗口里没有出现；需要更长窗口，
   不能据此说 Base 没有长跳。之前看到的 Base 6-Swap 交易是 ERC-4337 用户操作，不是套利。
-- **候选净额很小**：+USD 1–2 的级别，符合竞争性 MEV 的薄边际；没有看到“几十上百跳带来
-  大额利润”的证据。本轮抽样中上百跳仍未出现，20–22 跳是可复核的上限。
-- **方法限制**：同一 token 正残差是启发式，未排除所有路由器/做市商；最终受益人、PONS 燃烧、
-  股票代币定价和 L1 数据费未完成 trace 级核算。WETH/USDG 价格是时点假设，不是未来假设。
+- **正残差是筛查指标。** 多笔交易的诊断值约 USD 1–2。逐笔利润仍需核对完整正负资产变化、
+  最终受益人、原生价值与内部转移、库存、PONS 燃烧、股票代币估值及适用的 L1 费用。
+- **覆盖边界。** 只统计匹配所选事件主题的日志。V4 等 singleton 的不同池数应按 manager
+  与 pool ID 联合认定，完整采集还要核对官方合约身份、日志覆盖、固定块哈希及缺口。
+
+### 2.12 行业样本：从环到 DAG（@aliez_ren, 2026-11）
+
+2026-11-17，MEV backrun searcher Aliez Ren（@aliez_ren，bio 为“MEV Backrun Searcher / 套利工具
+@taoli_tools”）发帖：
+
+> 算法从环状改为了 DAG，可以看到路径网络复杂了很多，这笔只有 62 跳，但赚了 23.5U。
+
+引用帖（2026-11-13）原文：
+
+> 舒服了，272 跳，10M gas，赚 4U。
+
+作者随后在同一线程更正：
+
+> 更正一下，是 109 跳，272 次转账。
+
+更正后的作者口径为 **109 跳、272 次转账**，10M gas 和 4U 沿用原帖的自述。配图呈现分支路径，
+但没有链名、交易哈希、完整 PnL，也未说明 10M 是 gasUsed 还是 gasLimit。62/109 跳均列为
+行业自述，待 trace 复核。
+
+要点：
+
+- **执行 DAG 按动作和状态版本建图。** 起点和终点即使是同一种代币，也是不同时间位置的节点。
+  代币图上的简单环在执行 DAG 中表现为一条线，分支交易则按资金依赖展开拆分和合流。
+- **可复核的基准。** 结构套利预印本附录 E 给出实际 Ethereum 拆分合流交易
+  `0x275f9642556a58802eafdd8289aa19a7275e9d40962056095bb9b5c51ac3d246` 和
+  `0xaa4b2aec9c7a571f96062576135632ece91bde142075963219b26232404dfc5c`。
+  可用它们测试整笔资金流归因；论文统计口径和链上 Swap 次数应分别记录。
+  见[结构套利预印本附录 E](https://arxiv.org/html/2608.20377v2#A5)。
+- **对 Oasis 的含义。** 时间展开表示可同时承载现有简单环和拆分合流。组合报价需处理流量守恒、
+  共享池状态、动作排序、融资偿还和整图模拟。Robinhood 样本含重复池，应在历史复核中
+  顺序更新池状态。原型的池使用限制应明确记录。
+
+### 2.13 发帖前后 Ethereum 主网费用示例与筛查结果
+
+作者没有给链名。我们用公开 RPC 查了帖子时间附近的 Ethereum 主网区块：
+
+| 帖子 | 区块 | 时间（UTC） | base fee | 假设使用 10M gas 的 base fee 部分 |
+| --- | ---: | --- | ---: | ---: |
+| 109 跳/272 转账 | 26,405,382 | 2026-11-13 10:15:47 | 0.1676 gwei | 0.001676 ETH ≈ USD 2.77 |
+| 62 跳 | 26,433,212 | 2026-11-17 07:16:52 | 0.1273 gwei | 0.001273 ETH ≈ USD 2.10 |
+
+（10M gas 成本按 ETH USD 1,650.89 估算；base fee 来自区块头，未含 priority fee。）
+
+这两个区块只提供费率示例。真实交易成本取决于其链、区块、回执 gasUsed、优先费及直接支付。
+4U 是否已经扣除各项成本也待核实。
+
+但我们在两个帖子时间前后各 1 小时（各 361 个区块）用 `eth_getBlockReceipts` 扫了所有
+回执 gas ≥ 3M 的交易，在所用 Swap 事件识别规则下未发现 ≥20 条匹配日志的交易。该结果
+仅约束这两个窗口与所用过滤条件。链、交易时间、gasUsed 和作者“跳”与日志数的关系均未确认。
+
+62 跳的 gas 可能低于 3M，未被这段过滤覆盖；需要单独按交易哈希或地址追。方法限制：只扫了
+两个 ±1 小时窗口，不是全量 census；`eth_getBlockReceipts` 来自 publicnode 归档范围
+（≥15.5M 块）；主网 base fee 是时点值。
 
 ## 3. 计算与定价
 
@@ -353,29 +416,29 @@ token-pair family、71 个 sibling pools 中抽取 13,768 笔 family-transaction
 | 5 | 6.3e2 | 3.9e5 | 2.4e8 | 1.5e11 | 9.5e13 |
 | 8 | 4.1e3 | 1.7e7 | 6.9e10 | 2.8e14 | 1.2e18 |
 
-- Bellman–Ford 是 O(VE)，能找到负环，但不保证简单环，也不能指定起点；对 36 万节点、73 万边的
-  图，一次运行就远离 200 ms 预算。
+- Bellman–Ford 是 O(VE)，可检测从给定源可达的负环。源可达只限制搜索范围，回收的环未必经过源；
+  这个算法也不枚举所有限跳简单环。对 36 万节点、73 万边的图，通用全图扫描难以满足 200 ms 预算。
 - 若把 k 也作为输入，检测长度至少 k 的负环（kLNCC）是 NP-完全的（Guo & Li, 2021）；固定小
   k 可用 color-coding 等 FPT 算法，但复杂度随 k 指数增长，k=5 实用，k=20 很贵。RICH 用位集
   编码和图约简把常数压低。
-- meet-in-the-middle 可把 O(b^k) 降到 O(b^(k/2))，但要处理简单性、池唯一性和内存；适合作为
-  长路径研究选项。
-- beam search / A* 用可采纳上界做实时筛选，复杂度 O(B·b·k)，但没有完备性，需要单独标定召回。
+- meet-in-the-middle 把两侧路径的生成规模降到约 O(b^(k/2))。连接、中间 token 倾斜、交集检查
+  和输出量仍影响总复杂度。
+- beam search 用固定宽度控制展开量，应实测截断造成的漏检。使用可采纳上界的完整树搜索可
+  做正确性对照，须单独计量延迟。
 - 通用 GPU 图库不是即插即用：cuGraph 的 `sssp` 明确不支持负权环；负环、简单路径约束和有限
   金额滑点需要自定义内核。
 
-Oasis 的 DFS 在 k≤4、简单环、池只用一次、给定金额区间和 48 步搜索精度内是精确的；这正是它
-53 µs / 2.37 ms 的原因。把同一个 DFS 直接推到 20 跳，不会得到可用的实时性。
+Oasis 的 DFS 在 k≤4 的限定图上枚举候选，再按边际界与 48 步整数三分筛查。整数舍入会影响
+搜索，存在三分低估并漏过阈值的最小样例，见[验证记录](../verification/MULTIHOP_RESEARCH_20261122.md)。
+53 µs / 2.37 ms 只对应给定合成基准；更长路径应测量枚举规模与时限内覆盖。
 
 ### 3.3 简单环与复合环
 
-- 任意闭合 walk 都可以分解为若干简单环；在对数权重模型下，如果所有简单环都非负，那么任何
-  复合 walk 也非负。因此，找“是否存在正套利”只需要看简单环。
-- 复合环的主要额外收益是节省固定成本：把多个环放进一笔交易，少付几次基础 gas。Base 上
-  3 跳交易的总 gas 约 0.0058 USD，16 跳约 0.027 USD；可节省的基础开销只有几美分。
-- 在非线性价格冲击下，分解不是严格等价；但顺序执行和原子执行都会改变池状态，差异是二阶的，
-  尤其在小金额下。
-- 因此，生产环境限制为简单环是合理的；长复合 walk 不是近期优先级。
+- 静态可加权重下，任何闭合 walk 可分解为简单环，存在负闭合 walk 就存在负简单环。结论适用
+  于该图的边际权重。
+- 将多个分支或环放进一笔交易可摊分固定执行开销，也可能共享资金和流动性。有限金额下，应按
+  实际顺序更新池状态、检查各资产的余额与流量约束，并按整笔交易计费。
+- 当前影子与离线基线以简单环为主。组合策略用单独的研究对照衡量。
 
 ### 3.4 金额优化
 
@@ -385,8 +448,8 @@ Oasis 的 DFS 在 k≤4、简单环、池只用一次、给定金额区间和 48
 F(x) = A x / (1 + B x)
 ```
 
-其中 `A` 是整圈边际兑换率（已扣费），`B` 描述深度带来的价格冲击。忽略比例融资费时，内部最优
-投入为：
+其中 `A` 是整圈边际兑换率（已扣费），`B` 描述深度带来的价格冲击。忽略比例融资费时，仅当
+`A > 1` 且 `B > 0` 才有如下正的连续驻点，随后按本金与价格冲击上限截断：
 
 ```text
 x* = (sqrt(A) - 1) / B
@@ -407,14 +470,15 @@ x* = (sqrt(A) - 1) / B
 USDC，扣 0.20 固定成本后为负；深池价差较窄，但能承受 181 USDC 的投入，扣费后为正。长路径会
 累积 `B`，把最优投入进一步压小，同时增加每跳固定成本，因此结构上更容易变成粉尘。
 
-对 CL 池，`F` 是分段函数，需要逐 tick 处理流动性变化和整数舍入；用 48 步整数三分搜索是稳健
-做法，但每次评估是 O(k)，路线数才是主项。浮点结果只能用于筛选，边界候选必须用整数模型复算。
+对 CL 池，`F` 需逐 tick 处理流动性变化和整数舍入。当前三分搜索用于提出金额候选。小范围
+可穷举真值，扩大区间时应报告金额误差与错过净额门槛的数量。每次评估的成本还取决于跨 tick
+步数。筛选须保留数值边界，终选用整数模型和完整模拟复核。
 
 ### 3.5 费用、gas、状态新鲜度
 
-下表按每跳 5 bps 和 30 bps 计算费用拖累 `1 - (1-f)^n`、盈亏平衡所需毛差、Base gas（按
-`100k + 200k/跳` 估算，0.005 gwei，ETH USD 1,650.89）以及路线在 q=0.99 / 0.95 下保持不变的
-概率。
+下表按每跳 5 bps 和 30 bps 计算名义费用拖累 `1 - (1-f)^n` 与覆盖池费所需毛差。Base gas
+列按 `100k + 200k/跳`、最低 base fee 0.005 gwei 和 ETH USD 1,650.89 估算 L2 base fee 项。
+末两列假设路线各不同池独立且具有相同不变概率 q。
 
 | 跳数 | 5 bps 拖累 | 30 bps 拖累 | 30 bps 所需毛差 | 估算 gas | gas USD | gas bps @USD 1k | q=0.99 | q=0.95 |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -427,29 +491,32 @@ USDC，扣 0.20 固定成本后为负；深池价差较窄，但能承受 181 US
 | 50 | 2.47% | 13.95% | 16.21% | 10.10M | 0.0834 | 0.83 | 60.5% | 7.7% |
 
 - 30 bps × 20 跳需要约 6.19% 的毛差才能覆盖费用；32 跳需要约 10.09%。
-- 在 USD 1,000 名义额上，gas 只占 0.04–0.83 bps；在 USD 100 名义额上会放大 10 倍，长路径的
-  薄边际更容易被 gas 吃掉。
-- 50 跳估算 gas 10.1M，超过 Base 8M 的 target；虽然低于 40M limit，但会显著增加包含和竞争
-  风险。
-- 状态新鲜度是乘积：每池 1% 的变更概率，20 跳后只有 81.8% 的路线仍完全不变；每池 5% 时只有
-  35.8%。长路径对状态漂移的敏感度是指数级的。
+- 在 USD 1,000 名义额上，表中 L2 base fee 项为 0.04–0.83 bps，在 USD 100 名义额上放大 10
+  倍。真实费用用适用区块的 L2 有效 gas 价、L1 数据费、适用的 operator fee 和直接支付核算。
+  [Base 费用规范](https://docs.base.org/specifications/transactions/network-fees)
+- 50 跳的占位估算为 10.1M gas，高于 Base 文档列出的 8M 区块目标且低于 40M 区块上限。
+  目标用于费率调节。实际可行性以交易级限制、精确估算、交易数据和候选状态下的模拟判定。
+- 在独立同分布假设下，20 个不同池每池变更概率为 1% 时，路线状态均未变更的概率为 81.8%。
+  每池变更概率为 5% 时，该概率为 35.8%。同一池复用或同一交易同时更新多个池均会改变这个模型。
 - 2.10 的实测进一步说明，access cost 会消掉 80.45% 的正毛差状态，真实 multi-pool activation
   只占 1.203%；这与本文的费用拖累模型方向一致，也说明“毛差排名”不能替代净额复核。
 
 期望净额可以写成：
 
 ```text
-E[net] ≈ q^n (gross - variable_cost) - (1 - q^n) revert_cost - gas
+E[net] = P(success) × E[net_success | success]
+       − P(included_revert) × E[cost_revert | included_revert]
+       − E[cost_search_and_submission]
 ```
 
-其中 `q` 是单池在“报价到包含”窗口内保持不变的概率。这个模型是本文的推导，不是实测；它说明
-为什么长路径需要 hop 相关的安全边际，而不是一个全局固定滑点。
+成功净额包含适用执行成本，回滚成本只归入回滚分支。搜索与提交的单独成本去重后入账。
+`q^n` 只提供合成状态寿命对照。真实成功概率需要结合接收延迟、成交竞争、路线重放和包含状态测量。
 
 ### 3.6 执行概率与竞争
 
-- Base 上的套利竞争有两类：定向搜索（链下发现、提交承诺路线）和概率搜索（反复提交、在链上
-  决定是否成立）。AFT 2026 的样本中，概率搜索只占 23% 的活动，却产生 95% 的 spam、消耗 20%
-  的 Base gas。
+- AFT 2026 将 Base 循环套利区分为定向搜索和概率搜索。在其 2025-06 至 2026-02 历史窗口中，
+  概率搜索占 23% 的套利活动、95% 的所识别 spam 和 20% 的 Base gas。该窗口早于 2026-11-05
+  Denim 上线，现行环境下应重新测量。
 - 长路径的边际更薄，对 priority fee、builder payment 和包含概率更敏感；即使毛差为正，扣掉
   竞争成本后也可能为负。
 - 因此，“搜到候选”不是终点；必须把失败/回滚成本、包含概率和 builder 支付计入期望净额。
@@ -483,8 +550,8 @@ CPMM 路径合成为 `F(x) = A x / (1 + B x)`。于是最优投入可以直接�
 `x* = (√A − 1) / B`，不需要对每条路径做几十步三分搜索。
 
 这对长路径很重要：每条路径的定价从 `O(k × iterations)` 降到 `O(k)`，瓶颈回到路径数量本身。
-但它只适用于固定费率、每池一次、CPMM 型路线；CL 池要逐 tick 处理，V4 hook 可能改变费率或
-结算量，不能直接用闭式公式。对 CL/V4，仍要用整数三分/二分 + 固定状态模拟。
+该模型适用于固定费率、每池一次的 CPMM 连续近似。CL 池要逐 tick 处理，V4 hook 可能改变费率
+或结算量。金额二分或三分依赖相应的单调性或形状假设，整笔固定状态模拟仍是最终核验。
 
 #### 3.7.3 路径数据库
 
@@ -541,36 +608,35 @@ CPMM 路径合成为 `F(x) = A x / (1 + B x)`。于是最优投入可以直接�
    过滤**，不是软排序；一条价格很好但状态过期的路径，净额期望可能为负。
 3. **路径条件**：跳数、池类型、hook、gas、allowlist、准备金/转账税。这些是约束，不是打分项。
 
-更稳的排序键是“净额上界”：
+如果需要证明剪枝安全，先定义固定状态与金额域，再计算净收益上界：
 
 ```text
-upper_net = gross_upper
-          - fee_cost
-          - gas_upper
-          - staleness_buffer
-          - revert_buffer
+upper_net = upper_bound(amount_out_after_pool_fees - amount_in)
+          - lower_bound(mandatory_execution_and_funding_cost)
 ```
 
-先按 `upper_net` 排序，再对 top-K 做精确整数复算和固定状态模拟。这样既保留价格信息，也
-不会把深度、gas 和状态风险漏掉。
+输入、输出与成本先统一计价。池费已含在输出里，费用项只减可证明的成本下界。若无法证明某项
+成本下界，剪枝可用零。仅当上界低于要求的最小净额才按证书淘汰，浮点误差边界继续保留。
+gas 上界、过期和回滚缓冲用于保守评分或准入，单独报告。按分数截取 top-K 是时限内的启发式，
+须用对照测量截断的漏检与损失。
 
 **凸优化适合哪一层？** CFMM 路由在忽略固定成本时是凸优化；加入固定成本后是混合整数凸问题
 （MICP）。它适合“给定 A→N、允许拆单/合流”的最优执行，也适合把多个池的流动性联合分配；
 它不直接解决“简单环 + 每池一次 + 固定成本”的离散枚举。对 Oasis 的原子环搜索，先用图枚举
 产生候选，再用闭式/三分做金额优化；如果未来支持拆单/合流，再把金额分配交给凸优化/MICP。
-2.9 的 k-shortest + 凸分配 + KKT 证书是这一层的具体实现；`k=20` 是候选路径数，不是 20 跳。
+2.9 的 `k=20` 表示候选路径数。其 KKT 证书只覆盖论文的路径可分离、连续凹优化模型。
+共享池会耦合各路径的输出，池的离散启用成本也需要另建模型。对这些情形应采用池级流量模型、
+明确的松弛上界或小图穷举参照。 [多路径路由预印本 §5–6、§11](https://arxiv.org/html/2607.22540v1#S5)
 
-2026 年的结构套利论文（arXiv 2608.20377）指出，多周期套利的收益可能来自“拆分-合并”：
-单条腿不赚钱，组合起来才赚钱；论文同时指出，这类多样拓扑在数百个池合约的规模上司空见惯。
-它提醒我们：**不要把“单环盈利”当作唯一形态**。但这类组合需要更复杂的模拟、排序和风险
-归因，不能直接塞进当前的简单环内核。
+结构套利预印本用真实交易展示了拆分合流。对 Oasis，可在按状态版本展开的执行 DAG 中对比
+单路径与分支路径，核对共享池状态、资产结算和整笔净额。历史拓扑识别与前瞻候选搜索分别验收。
 
 ## 4. Oasis 现状
 
 | 组件 | 当前实现 | 与长路径相关的缺口 | 优先级 |
 | --- | --- | --- | --- |
 | Rust 图搜索 | `MAX_SUPPORTED_HOPS = 4`；简单环；池只用一次；上界剪枝；48 步三分；**Wave 32 已合入 `ScanCyclesOptions`**（按跳/V2-CL 池类型累加 gas、canonical 基币+旋转去重、`changed_pools` 增量过滤） | 默认 `scan_cycles` 为向后兼容仍走全扫与固定 base gas；不能 `k>4`（研究模式待定） | **P0/P1 已在内核实现**（默认保持关闭） |
-| Python 快路径 | 默认 `max_hops = 3`；live runner 用 2；[pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py) 已透传 `per_hop_gas_cost_in_base` / `v2_hop_gas_cost_in_base` / `cl_hop_gas_cost_in_base` / `deduplicate_cycles` / `changed_pools` | 生产路径比研究内核更短，且上层 `live_shadow_runner.py` 需按需启用增量参数 | 现状 |
+| Python 快路径 | 默认 `max_hops = 3`；公开影子 runner 用 2；[pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py) 已透传 `per_hop_gas_cost_in_base` / `v2_hop_gas_cost_in_base` / `cl_hop_gas_cost_in_base` / `deduplicate_cycles` / `changed_pools` | 默认公开影子 runner 仍全扫，真实快照的增量接入与复核待做 | 现状 |
 | 影子增量 | `cycle_shadow.py` 用 changed pools 过滤受影响路径；Wave 32 起 Rust `scan_cycles_with_options` 原生支持 `changed_pools` 跳过未变环路 | gas/fee 变化、新池、无事件状态变化时仍需周期性全扫 (`changed_pools=None`) | **P1 已在内核实现** |
 | 实测样本 | Wave 25：600 块、57 池、1 个正净块、3 个三跳候选 | 归因日志没有完整逐块池状态，不能作为搜索召回真值 | P1 |
 | 延迟 | 两腿远程报价 489–1,082 ms；完整费用模型 0/4 在 750 ms 内 | 搜索内核 2.37 ms 不是瓶颈；状态和报价才是 | P0 |
@@ -588,7 +654,9 @@ upper_net = gross_upper
 Wave 32 针对长路径评估已补齐两项 P0 机制与一项 P1 机制（通过 `ScanCyclesOptions` 可选启用，默认与历史全扫逐位一致）：
 
 - **按跳数与池类型累加 gas（P0）**：`per_hop_gas_cost_in_base`、`v2_hop_gas_cost_in_base`（覆盖 `V2` / `AerodromeStable`）与 `cl_hop_gas_cost_in_base`（覆盖 `V3` / `Slipstream` / `V4`）可按每条环路的实际跳数和池类型累加执行 gas 并计入三分搜索净收益与输出的 `gas_cost_in_base`。
-- **多 base token 规范去重（P0）**：开启 `deduplicate_cycles=True` 后，DFS 按排好序的 `base_tokens` 序严格限制不穿行低序号中间 base token，并在输出端按 `(pool_id, token_in, token_out)` 字典序最小有向旋转去重（同环冲突保留高净额者）。
+- **多 base token 规范去重（P0）**：开启 `deduplicate_cycles=True` 后，DFS 用排序靠前的可用
+  基币代表同一有向环，输出再按 `(pool_id, token_in, token_out)` 的最小旋转去重。比较多个
+  融资起点时应分别估值，基币选择会改变本金、资金成本和最低净额，原始整数金额不能跨资产比较。
 - **热路径 `changed_pools` 增量过滤（P1）**：传入 `changed_pools` 列表后，DFS 沿栈跟踪命中标志并在闭合前跳过所有未触及变动池的环路与三分搜索。
 
 ### 4.2 Python 快路径与影子
@@ -614,15 +682,15 @@ gas           0.005782 USD
 净额          0.003910 USDC  -> 0.273388 bps
 ```
 
-这条候选的 gas 占 0.404 bps，已经超过净额的一半。若把同样的 gas 比例放到 20 跳（约 2.4 bps），
-0.27 bps 的边际会直接消失。这是“长路径在薄边际下不可行”的最直观例子。
+这条候选的费用减项约 0.404 bps，约占模型毛收益的 60%。这是本轮的三跳归因。其它路径应按
+实际载荷和状态重新估价。 [多轮历史归因对照](../verification/MULTIHOP_RESEARCH_20261122.md#base-历史归因)
 
 ### 4.4 延迟
 
 [EVENT_QUOTE_RESULTS_20261114.md](../verification/EVENT_QUOTE_RESULTS_20261114.md#L21-L31)
 记录两腿完成延迟 489.153、512.512、1,082.297、908.612 ms；两腿在 750 ms 内完成 2/4，但加上
-L1 费读取等完整费用模型后 0/4。这个实验只有两腿；按线性外推，20 跳逐跳远程报价会到秒级，
-远超 200 ms 块。长路径要实时，必须依赖本地状态和批量报价，而不是逐跳远程 Quoter。
+L1 费读取等完整费用模型后 0/4。这是两腿远程报价样本。较长路径的批量报价、本地状态和整笔
+模拟应在同一输入上分别计时。
 
 ## 5. 几十跳值得做吗
 
@@ -630,29 +698,25 @@ L1 费读取等完整费用模型后 0/4。这个实验只有两腿；按线性�
 | --- | ---: | --- | --- | --- |
 | 聚合器支付路由 A→N | 可达数十 | 是（单笔内） | 最优执行，可拆单；凸优化/固定成本 MICP | 低；不是无风险套利 |
 | 同链原子循环套利 | 2–4 | 是 | 短寿命、竞争强、净额薄 | 高；当前主战场 |
-| 多交易 bundle | 2–14 tx | bundle 内原子 | 排序与打包；长 bundle 多数不覆盖 gas | 中；研究 |
+| 多交易 bundle | 2–14 tx | 取决于构块服务的包含语义 | 排序、打包与交易级 gas | 中；研究 |
 | 静态图长环 | 7–11 | 不一定 | 大量 <USD 10 的潜在机会 | 低；研究/可视化 |
 | 路径库候选（2026 行业口径） | 几十到上百 | 不适用（候选） | 搜索/库存规模；执行时再筛短子路径 | 中；路径管理 |
+| DAG/多路径组合 | 单独计总 Swap、不同池及最长链 | 单笔内原子 | 拆分、合流与共享池状态 | 研究；需要流量分配 |
 | 跨链 N 跳 | 2–N | 否 | 桥和链风险；机会稀少 | 低；超出原子范围 |
 
 直接回答“几十跳”的问题：
 
 - **作为静态图对象，存在。** MMBF 在 Uniswap V2 上找到 7–11 跳的主模态，最长到 30。
 - **作为已执行原子套利，罕见。** MeVisor 的 82.21% 少于 3 个 DEX；RICH 引用超过 5 跳少于 2%。
-- **作为可覆盖成本的机会，更罕见。** MeVisor 的长 swap bundle 96.5% 不覆盖 gas；静态枚举的
-  大量路径低于 USD 10。
+- **费用会淘汰大量候选。** MeVisor 的 Q1 回放中，6,618 个正收入套利候选的 96.5% 未覆盖
+  其模型中的 gas，静态枚举结果也有大量低于 USD 10 的案例。
 - **作为聚合器支付路由，常见。** 但它的目标是把 A 换成 N，不是闭环套利；不应与套利混谈。
 - **2026 年 BSC 的实测**：9.63M 条 builder cycle，2–3 swap 为主；10–20 跳是尾部，且更长路径
   没有更高利润。这给“几十跳”提供了执行锚点，但仍未到“上百跳”。
-- **2026-11-22 Robinhood 实测**：20,000 块/38 min 内 4 笔 ≥20 Swap（2 笔 22），多笔扣 gas 后
-  +USD 1–2；最长样本混有股票代币和 PONS 燃烧，不全是简单环。Base 500 块/100 s 最大 4 Swap。
-  这把“几十跳”从论文尾部推进到了可复核的链上执行样本，但仍未看到“上百跳”。
-- **2026-11 的“几十上百跳”**：按你的行业观察，路径搜索/路径库已经到几十到上百跳。本文把它
-  记为“路径库存/路由规模”，不是“单笔原子简单环执行跳数”。2026 年的结构套利论文也提到，
-  多池/拆分-合并拓扑在数百个池合约的规模上常见；这支持“路径规模上百”，但不等于单环上百跳。
-  公开证据的利润主体仍集中在短路径：MeVisor 最大搜索 16 笔交易、实际 2–14 笔；BSC 的 10–20
-  跳只是尾部；RICH 默认 5 跳；MMBF 静态图最长 30 跳。若要把“上百跳执行”升级为事实，需要
-  trace 级池跳计数和净额证据。
+- **2026-11-22 Robinhood 抽样。** 20,000 块内有 4 笔 ≥20 条 Swap 日志（2 笔为 22 条），
+  部分样本的转账残差减回执 gas 约 USD 1–2。Base 500 块样本的最大值为 4 条。
+- **2026-11 的 62/109 跳。** 目前是缺少链名、哈希与统一计数口径的行业自述。路径库的
+  候选数量、执行 DAG 总 Swap、最长依赖链和简单环长度各有独立含义。
 - **跨链是另一条轴**：arXiv 2501.17335 的 242,535 笔、USD 868.64M、66.96% 库存、9 s vs 242 s
   说明跨链套利是库存/桥接问题，不是单链原子环；N-Hops 论文还显示，跨链可行性随跳数增加
   呈幂律下降。Oasis 当前不应把它纳入原子执行范围。
@@ -665,11 +729,11 @@ L1 费读取等完整费用模型后 0/4。这个实验只有两腿；按线性�
 
 对每个长候选，按顺序过滤：
 
-1. 是否是简单环、池只用一次？不是则分解为简单环或按 bundle 处理。
-2. 当前可观测毛差是否高于费用拖累后的所需毛差？不是则丢弃。
+1. 识别简单环、拆分合流交易或跨交易组合；为后两类记录资金和共享状态的依赖。
+2. 在已建模状态和金额区间内，用可证明的净额上界进行淘汰，依据见 3.8。
 3. 最优投入是否高于最小名义额，且净额覆盖 gas？不是则丢弃。
-4. 路线在报价到包含窗口内保持不变的 `q^n` 是否高于阈值？不是则丢弃或加安全边际。
-5. 能否在固定块状态下用整数模型和 `minOut > 0` 模拟整笔？不能则不可执行。
+4. 在后续可见状态上重放，记录可观测的路线寿命和残余净额。
+5. 固定状态整笔模拟验证逐腿数值型下限、最终余额增量、资金偿还及中间资产净结算。
 6. 扣掉失败/回滚、priority fee、builder 支付和竞争后的期望净额是否仍高于准入阈值？不是则丢弃。
 
 这六步比“搜到一条长环”更接近可执行性。
@@ -695,8 +759,9 @@ L1 费读取等完整费用模型后 0/4。这个实验只有两腿；按线性�
   标记为 unknown，不进入精确真值。
 - 报价必须绑定固定块；用该块的链上 Quoter 或本地精确模型交叉验证。非零 hook 池默认排除；
   储备/转账税 token 除非精确建模，否则拒绝。
-- 真值：小图（10–20 池）用穷举 DFS 到 k=6；大图用 RICH/缩减图 + 人工复核；k=8–12 用带已知
-  植入环的合成图测召回。所有原始字节和哈希留存，禁止 look-ahead。
+- 真值：小图（10–20 池）穷举路径和有限整数金额域。大图的 RICH/缩减图与人工复核提供有限
+  对照，适用范围外保留未知。k=8–12 用植入已知环的合成图测召回。所有原始字节和哈希留存，
+  仿实时决策只使用当时已可见的状态。
 
 ### 6.3 三个实验臂
 
@@ -704,7 +769,7 @@ L1 费读取等完整费用模型后 0/4。这个实验只有两腿；按线性�
 | --- | --- | --- |
 | A：CPU 全扫 | Rust 现有内核，k=2..4，全量枚举；k=5/6 另设研究臂 | 基线；测搜索内核占比 |
 | B：CPU 增量 | pool→route 倒排索引；只重算含变更池的路线；每 N 块全扫一次；gas/fee/新池触发全扫 | 测增量是否正确、能省多少 |
-| C：GPU 筛选 + CPU 复算 | 路线 × 金额档位常驻显存；浮点/上界筛选 top-K；CPU 整数复算 + 固定状态模拟 | 测 GPU 是否提高“复核后”的召回/延迟 |
+| C：GPU 筛选 + CPU 复算 | 路线 × 金额档位常驻显存，按 3.8 的上界筛选并保留边界，CPU 整数复算和固定状态模拟 | 测 GPU 是否提高时限内复核召回或缩短延迟，单列 top-K 截断损失 |
 
 C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 复算必须覆盖所有拟执行候选。不要
 用 GPU 的浮点结果直接决定签名。
@@ -726,16 +791,24 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
   记录为“GPU 不适合当前状态/管线”。
 - 任何阶段都不以“模拟 tx/s”作为通过标准。
 
-**Wave 33（假设 A 离线固定块快照 A/B 实测已通过）**：[incremental_scanner.py](../../src/oasis_agent/fastpath/incremental_scanner.py)（`IncrementalCycleScanner` + `run_multihop_ab_experiment`）与 [run_multihop_ab_experiment.py](../../scripts/run_multihop_ab_experiment.py) 已完成 Arm B 缓存 + 参数/拓扑/周期 checkpoint 全扫兜底，并通过 [test_incremental_cycle_scanner.py](../../tests/unit/test_incremental_cycle_scanner.py) 单元测试。在 34 池 6 代币 4 跳、120 个固定块快照（每块 1 变动池、`full_scan_every_n_blocks = 200`、`seed = 20261122`、`execution_eligible = false`、`release_permitted = false`）下运行 `--require-pass` 实测结果：
+**Wave 33（合成快照的扫描器 A/B 对拍通过）**。[incremental_scanner.py](../../src/oasis_agent/fastpath/incremental_scanner.py)
+和[离线命令](../../scripts/run_multihop_ab_experiment.py)实现缓存与参数、拓扑或周期触发的全扫，
+并通过[对应测试](../../tests/unit/test_incremental_cycle_scanner.py)。默认实验生成 34 池、6 代币、
+至多 4 跳的 120 个合成快照，每步变更 1 个池，周期阈值 200 步，种子 `20261122`。两臂
+共用 Rust 报价与金额搜索。计时覆盖输入在内存就绪之后的扫描与缓存处理。以下为当次结果：
 
-- **召回与零误报逐位一致**：`exact_bit_for_bit_blocks = 120 / 120`、`recall = 1.0`、`missed_candidates_count = 0`、`missed_net_profit_raw = 0`、`false_positive_count = 0`（双臂均产出 `2,693` 条候选）；
+- **相对于共同全扫参照逐位一致**：`exact_bit_for_bit_blocks = 120 / 120`、`recall = 1.0`、`missed_candidates_count = 0`、`missed_net_profit_raw = 0`、`false_positive_count = 0`（双臂均产出 `2,693` 条候选）；
 - **评估与延迟下降**：评估环路次数由 `224,160` 降至 `26,392`（**`-88.23%`**），块延迟由 Arm A（`mean = 62.59 ms`、`p50 = 61.25 ms`、`p95 = 82.48 ms`、`p99 = 85.56 ms`）降至 Arm B（`mean = 8.36 ms`、`p50 = 5.32 ms`、`p95 = 25.20 ms`、`p99 = 40.22 ms`），**`p99_reduction_ratio = 52.99% >= 50.0%`（`hypothesis_a_passed = true`）**。
+
+报告字段 `hypothesis_a_passed` 只评价这项扫描器对拍。6.1 的端到端假设仍需在可追溯的真实
+Base 序列上，从状态接收到完整报价、费用与 EVM 复核重新计时。共同实现的金额搜索遗漏需另用
+独立真值找出。
 
 ### 6.6 不要做什么
 
 - 不要把 GPU 的模拟吞吐和 CPU 的模拟吞吐直接比较；要比“单位时间内复核后的真实机会”。
-- 不要把 MeVisor 的 99.71% 汇总精度当作逐笔精度；逐笔只有 48.28%。
-- 不要忽略 gas、失败交易和回滚成本；MeVisor 自己就报告 96.5% 的长 bundle 不覆盖 gas。
+- 分栏报告 MeVisor 的 ETH 计价汇总输出比（99.71%）与逐笔完全一致比（48.28%）。
+- 报告 gas、失败交易和回滚成本。MeVisor 的 Q1 回放报告 96.5% 的正收入套利候选未覆盖其 gas 模型。
 - 不要把静态枚举的潜在利润叫“可执行利润”；MMBF 明确不计 gas。
 - 不要在未定义允许池、跳数、拆单和成本模型时宣称“全局最优”。
 
@@ -756,11 +829,25 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 - **候选集充分性**：如果引入 k-shortest/凸分配，记录 KKT/上界证书的覆盖率；证书未覆盖的遗漏
   路径要保留在日志里，不能当作“无机会”。
 
+### 6.8 DAG 研究分支（不进入生产）
+
+DAG 单列为小型离线研究，以同输入、同成本和时限对照简单环：
+
+- **候选生成。** 用 gas-aware、限宽的路径扩展提出分支。按动作版本建图，记录拆分、合流和池
+  的顺序状态依赖。原型可限制池的全图使用次数，历史回放应保留实际的重复池访问。
+- **分配。** 对路径可分离的受限模型试验凸分配和 KKT 证书。共享池版本串接，另按池级容量与
+  非线性约束建模；用小图穷举或注明适用域的松弛上界度量漏检。
+- **整图复核。** 固定 prestate 重放，核对逐腿数量下限、融资偿还、所有资产残差、最终净余额和
+  完整适用费用。未能闭合的组合记录为未知。
+- **对照。** 先用合成图和 2.12 的可识别交易检查拓扑与 PnL，再对 Robinhood 20–22 Swap 样本
+  核对历史拓扑。对同一可见状态做前瞻比较，报告净额、gas、最长链、总 Swap 与 p99。
+- **停止条件**：如果 DAG 在同等 gas/延迟下不能稳定超过简单环基线，就停在研究阶段。
+
 ## 7. 建议
 
 **P0：先把 2–4 跳做扎实（内核选项已于 Wave 32 合入，上层接入持续推进）。**
 
-- 保持生产 `k ≤ 4`；[graph_arb.rs](../../crates/oasis-core/src/graph_arb.rs) 与 [pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py) 已新增 `per_hop_gas_cost_in_base` / `v2_hop_gas_cost_in_base` / `cl_hop_gas_cost_in_base` 支持按跳数与池类型累加 gas。
+- 当前影子与离线内核维持 `k ≤ 4`。[graph_arb.rs](../../crates/oasis-core/src/graph_arb.rs) 与 [pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py) 已新增 `per_hop_gas_cost_in_base` / `v2_hop_gas_cost_in_base` / `cl_hop_gas_cost_in_base`，用于按跳数与池类型累加估算 gas。
 - 已新增 `deduplicate_cycles`（DFS 最小 base rank + 有向最小旋转去重），避免同一环因多个 base token 重复计价。
 - 对每个候选记录：跳数、池类型、毛差、费用、L1/L2 gas、净额、状态块、报价来源、复核状态。
 - 测量“状态到达 → 本地图更新 → 候选枚举 → 金额优化 → 精确报价 → 模拟”的分段 p50/p95/p99；
@@ -777,11 +864,12 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 
 - 增加 `k=5/6`（最多 8）的研究开关，默认关闭；用 RICH 式 color-coding 或 meet-in-the-middle，
   不用朴素 DFS 直接推高 k。
-- 候选集生成可参考 gas-aware k-shortest（Yen + Bellman–Ford）与 KKT 遗漏证书；`k` 是候选
-  路径数，不是跳数。
+- 候选生成可参考 gas-aware k-shortest，分别记录候选数与跳数上限。负环所在图需要明确的简单路径
+  约束与有限权重域。KKT 遗漏证书仅用于 3.8 所述的受限模型。
 - 长路径枚举加 `max_paths`、最小流动性、token allowlist 三个闸门；溢出时报错，不静默截断。
 - Robinhood 长跳 replay：对 20–22 Swap 候选做固定块 trace/PnL，核对最终受益人、PONS 燃烧、
   股票代币价格和 L1 费；只读，不执行。
+- DAG 研究分支按 6.8 做有已知答案的合成与历史回放对照。
 - 在小图上用穷举真值测召回；在合成图上测长环；所有结果标注“研究，不可执行”。
 - 只有当长路径在 untouched 窗口上呈现出可重复的正净额，才讨论生产化。
 
@@ -801,28 +889,31 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 
 | 级别 | 内容 | 用途 |
 | --- | --- | --- |
-| A：仓库实测 | 53 µs / 2.37 ms；Wave 25 的 143.020414 USDC → 0.003910 USDC；489–1,082 ms 报价；Wave 33 的 120/120 召回与 p99 −52.99% | 基线、回归、容量 |
-| A2：链上抽样（2026-11-22） | Robinhood 20,000 块/2,297 s：25,829 笔含 Swap，≥20 Swap 4 笔、22 Swap 2 笔；候选 +USD 1–2。Base 500 块/100 s：1,034 笔，最大 4 Swap | 长跳存在性、尾部频率 |
+| A：仓库实测 | 53 µs / 2.37 ms 合成内核基准；Wave 25 的 143.020414 USDC 投入和 0.003910 USDC 模型净额；489–1,082 ms 报价；Wave 33 合成扫描器 120/120 块逐位对拍与 p99 −52.99% | 基线、回归、容量 |
+| A2：链上抽样（2026-11-22） | Robinhood 20,000 块/2,297 s：25,829 笔匹配 Swap，其中 4 笔 ≥20 条、2 笔 22 条。Base 500 块/100 s：1,034 笔，最多 4 条 | 两个窗口的事件计数 |
 | B：同行评议/官方文档 | MeVisor、RICH、循环套利、CFMM 路由、Base Denim/费用、cuGraph、Hermes（2025） | 机制、量级、边界 |
-| C：预印本/工程参考 | MMBF、line-graph routing、跨链 N-hops、跨链套利（2501.17335）、BSC builder MEV（2602.15395）、多路径路由（2607.22540）、线图路由（2504.15809）、DEX 效率（2508.03217）、路由摩擦（2609.19013）、cakevm/swap-path（first draft）、ccyanxyz（教学实现）、degenbot-pathfinding 文档、2608.20377 | 长路径存在性、枚举与路径管理 |
-| D：本文推导 | 费用拖累、gas 估算、`q^n`、合成路线复算 | 设计取舍，不是实测 |
-| E：未知 | Base 上 >5 跳的执行频率；Base 上的 10–20 跳尾部；单笔 100+ 跳的执行证据；200 ms 下单池变更概率；Oasis 状态上的 GPU 对照；路径库规模/更新延迟；包含概率与 builder 支付 | 需要新实验 |
+| C：预印本/工程参考 | MMBF、line-graph routing、跨链 N-hops、跨链套利（2501.17335）、BSC builder MEV（2602.15395）、多路径路由（2607.22540）、线图路由（2504.15809）、DEX 效率（2508.03217）、路由摩擦（2609.19013）、cakevm/swap-path（first draft）、ccyanxyz（教学实现）、degenbot-pathfinding 文档、2608.20377 | 路径形态、枚举与路径管理 |
+| D：模型推导与诊断 | 费用拖累、gas 估算、`q^n`、合成路线复算、Robinhood 转账残差诊断 | 设计与候选筛查 |
+| 行业自述 | @aliez_ren 报告 62/109 跳、更正为 272 次转账，未提供链名与哈希 | 追踪线索 |
+| E：未知 | Base 上 >5 跳的执行频率；Base 上的 10–20 跳尾部；单笔 100+ 跳的执行证据；DAG 62/109 跳的 tx hash/链/PnL；DAG vs simple-cycle 的净额差异；200 ms 下单池变更概率；Oasis 状态上的 GPU 对照；路径库规模/更新延迟；包含概率与 builder 支付 | 需要新实验 |
 
 未决问题：
 
 - Base 上真正执行的 >5 跳原子套利有多少？需要 trace 级分类，而不是静态枚举。
 - 2026 年 BSC builder 的 10–20 跳尾部，在 Base 上是否存在？需要 Base trace 级统计。
 - Robinhood 20–22 Swap 候选的最终受益人、PONS 燃烧和股票代币定价，需要 trace 级 replay。
+- @aliez_ren 的 62/109 跳交易（272 次转账）没有 tx hash/链名；需要作者补充或链上 trace 验证。
+- DAG vs 简单环：在相同状态和成本下，DAG 能多捕获多少净额？需要小图原型对照。
 - Base 更长窗口（≥1 天）的 10+ Swap 尾部是否存在？当前 100 s 样本未见。
 - Base 上 multi-pool activation 的 1.203% 是否适用于 Oasis 的 57 池？需要本地 trace 级统计。
-- 单笔 100+ 跳是否有公开 trace？目前没有；需要具体交易哈希和路径计数。
 - 2026-11 的“几十上百跳”是路径库/路由规模，还是单笔执行的池跳数？需要 trace 级计数。
 - 路径库在 Base 57 池、k=6/8 时的路径数、更新延迟和内存是多少？需要固定块快照基准。
 - 200 ms 块下，单个活跃池在“报价到包含”窗口内的变更概率是多少？需要逐块事件和状态快照。
 - GPU 在 Oasis 的 57 池状态上，能否在候选失效前提高复核后的召回？需要 A/B/C。
 - 长 bundle（多交易）在 Base 上扣 gas 后是否还有净额？MeVisor 的结论偏负面，但需要本地证据。
 - 跨链库存/桥接是否应进入 Oasis 的研究范围？当前不进入单链原子执行。
-- builder/priority fee 对薄边际长路径的实际侵蚀是多少？需要影子提交和回执，不是估算。
+- builder 支付和优先费对已落链薄边际长路径的实际侵蚀是多少？先用历史回执、原生价值 trace
+  和受益人余额对账。
 
 ## 9. 参考文献
 
@@ -843,7 +934,10 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 - [degenbot-pathfinding](https://docs.rs/degenbot-pathfinding/latest/degenbot_pathfinding/)（CSR + 迭代 DFS + 深度/池类型过滤）
 - [Hermes: Scalable and Robust Structure-Aware Optimal Routing for Decentralized Exchanges](https://doi.org/10.1109/Blockchain67634.2025.00034)（IEEE Blockchain 2025；treewidth 路由）
 - [If It Walks Like an Arbitrage: Protocol-Agnostic Detection with Decidable Structural Equivalence](https://arxiv.org/abs/2608.20377)（2026；多周期拆分-合并拓扑）
-- [MEV in Binance Builder](https://arxiv.org/abs/2602.15395)（2026；v1 PDF 的 9.63M cycles、>87% 出块、10–20 跳尾部）
+- [Aliez Ren：算法从环状改为 DAG，62 跳赚 23.5U](https://x.com/aliez_ren/status/2122589603521835071)（2026-11-17；行业自述，未提供 tx hash）
+- [Aliez Ren：10M gas，赚 4U](https://x.com/aliez_ren/status/2121185236390400329) 与
+  [作者更正为 109 跳、272 次转账](https://x.com/aliez_ren/status/2121232963820270022)（2026-11-13；行业自述）
+- [MEV in Binance Builder](https://arxiv.org/abs/2602.15395)（2026；v2 的 9.63M cycles、两家 builder >87% 出块与历史路径分布）
 - [Multi-Path Routing in AMM Exchange Networks](https://arxiv.org/abs/2607.22540)（2026；k-shortest + 凸分配 + KKT 证书）
 - [A Line Graph-Based Framework for Identifying Optimal Routing Paths in Decentralized Exchanges](https://arxiv.org/abs/2504.15809)（2025；线图路由复杂度与实测）
 - [Measuring DEX Efficiency and The Effect of an Enhanced Routing Method](https://arxiv.org/abs/2508.03217)（2025；STAP 与凸优化）
@@ -851,15 +945,15 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 - [Uniswap v3-periphery Path.sol](https://github.com/Uniswap/v3-periphery/blob/main/contracts/libraries/Path.sol)（变长 path 编码）
 - 笔记提到的 `advock/CFMM-Convex-Optimization` 在当前 GitHub API 返回 404；本文按 CFMM 凸优化
   文献（arXiv 2204.05238）讨论同一方法，不把它作为已读仓库证据。
-- [Uniswap v3-core](https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol) · [Uniswap v4-core](https://github.com/Uniswap/v4-core/src/PoolManager.sol)（tick、hook、PoolManager 语义）
+- [Uniswap v3-core](https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Pool.sol) · [Uniswap v4-core](https://github.com/Uniswap/v4-core/blob/main/src/PoolManager.sol)（tick、hook、PoolManager 语义）
 - Oasis 内部：[LONG_TERM_PROFIT_ROADMAP.md](./LONG_TERM_PROFIT_ROADMAP.md#L64-L86)、[graph_arb.rs](../../crates/oasis-core/src/graph_arb.rs#L386)、[ffi.rs](../../crates/oasis-core/src/ffi.rs)、[pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py)、[cycle_shadow.py](../../src/oasis_agent/arbitrage/cycle_shadow.py#L196-L233)、[Wave 25 记录](../verification/WAVE23_REVIEW_FIXES_AND_ANTITOXICITY_20261121.md#L78-L85)、[事件报价实验](../verification/EVENT_QUOTE_RESULTS_20261114.md#L21-L31)
 
 ## 附录 A：费用与 gas 的口径
 
 - 费用拖累：`1 - (1 - f)^n`，表示 n 跳后输出相对输入的名义减少比例；盈亏平衡所需毛差为
   `1 / (1 - drag) - 1`。
-- gas 估算：`100k + 200k × n`，是本文的保守占位模型，不是 Oasis 实测；3 跳的 700k 与 Wave 25
-  的 3.5017e12 wei（约 700k gas）一致。实际值应按池类型、tick 跨度和执行器开销重新标定。
+- gas 估算：`100k + 200k × n` 是本文的占位模型。每条交易需按池类型、tick 跨度和执行器开销
+  重新标定，并与实际回执分栏呈现。
 - ETH 价格使用 Wave 25 归因记录的 1,650.8908 USD；Base 最低 base fee 使用 0.005 gwei。两者
   都是时点值，不构成未来假设。
 - `q^n` 是独立同分布假设下的路线不变概率；真实池的变更概率随时间、池和块变化，需用事件数据
@@ -890,29 +984,31 @@ net = F(x*) - x* - 0.20
 y = R_out * r * x / (R_in + r * x)
 ```
 
-两池复合后仍是 `A x / (1 + B x)` 的形式；逐跳迭代即可得到整条 CPMM 路径的 `A`、`B`。最优
-投入 `x* = (√A − 1) / B`。这把每条路径的金额优化从 `O(k × iterations)` 降到 `O(k)`，但路径
-数仍按 `O(b^k)` 增长；长路径的瓶颈是枚举，不是单条路径的定价。
+在固定费率、池不复用的连续模型中，复合输出仍为 `A x / (1 + B x)`。沿 k 跳合成参数需 `O(k)`，
+再按 3.4 节求连续驻点。有限金额的链上报价仍需逐跳取整。路径数量和每条路径需要复算的金额数
+共同决定搜索开销。
 
 有界 DFS 的伪代码（与 ccyanxyz 的实现同构）：
 
 ```text
-dfs(path, used_pools, max_hops):
-  if len(path) > max_hops: return
-  for pool in pools_connected_to(path.last):
-    if pool in used_pools: continue
-    if reserve_too_small(pool): continue
-    next = other_token(pool, path.last)
-    if next == path.start and len(path) >= 2:
-      record(path + [pool])
-    elif next not in path.tokens:
-      dfs(path + [pool], used_pools + [pool], max_hops)
+# 初始调用：tokens = [base_token]，pools = []。
+dfs(tokens, pools, max_hops):
+  if len(pools) >= max_hops: return
+  for pool in pools_connected_to(tokens[-1]):
+    if pool in pools or reserve_too_small(pool): continue
+    next_token = other_token(pool, tokens[-1])
+    if next_token == tokens[0]:
+      if len(pools) + 1 >= 2: record(pools + [pool])
+    elif next_token not in tokens:
+      dfs(tokens + [next_token], pools + [pool], max_hops)
 ```
 
 关键不变量：池只用一次；简单环不重复 token；金额优化与路径枚举分离；枚举上限、路径数上限和
 最小流动性是硬闸门。
 
 ## 附录 D：链上抽样复现
+
+**2026-11-22 收据复核。** 下列原始“Swap/池”计数的第二项按日志地址统计。V4 改按 manager 与 PoolId 区分后，两笔原标为 22/4、22/3 的交易分别涉及 7、6 个不同池标识。固定块身份、交易索引和 ERC-4337 分段见[四链数据研究](MULTICHAIN_MULTIHOP_DISCOVERY.md)。
 
 - Base：chain 8453；RPC `https://base.drpc.org`；区块 60,649,934–60,650,433（500 块，
   2026-11-22 04:06:02–04:07:42 UTC）；V2/V3/V4 Swap topics；5 块一组查询以避开公共 RPC
@@ -929,12 +1025,15 @@ dfs(path, used_pools, max_hops):
   - `0x1268e5aea8b9001209b45ca78d53bf173666be76d4a77396c838fca72fc37934`（Base 6/6）
 - Swap topics：V3/Slipstream `0xc42079f9…`；V2/Aerodrome `0xd78ad95f…`；V4 `0x40e9cecb…`；
   Transfer `0xddf252ad…`。
-- 候选净额：同一地址在 `Transfer` 中既发出又收到同一 token，且 `received - sent > 0`；排除
-  Swap 池地址、零地址和 `0xdead`；用 receipt `effectiveGasPrice × gasUsed` 扣 gas。未做 trace、
-  未扣 L1 数据费、未验证最终受益人。
+- 诊断口径：同一地址在 `Transfer` 中既发出又收到同一 token，且 `received - sent > 0`；排除
+  Swap 池地址、零地址和 `0xdead`，估值后扣回执 `effectiveGasPrice × gasUsed`。完整 trace、
+  适用的 L1 与 operator fee、其它资产残差和最终受益人待对账。
 - 该抽样只覆盖两个固定窗口，不是全量 census；不能外推到其他时段或其他链。
 
 ---
 
-本文不改变 `execution_eligible = false`、`release_permitted = false` 或任何资本/风险参数。
-Wave 32–33 已完成 P0/P1 内核增强与 Arm A vs Arm B 固定块快照 100% 召回 + `p99` 下降验证；后续研究重点转向在真实 Base 逐块事件与流动性快照上量化各池实测变更率，核查 Base 的 10–20 跳尾部与 100+ 跳 trace，并在 Robinhood 上对 20–22 Swap 候选做 trace 级 replay，评估路径库（pool→path 倒排索引）与 `k=5/6` 长路径研究模式，再决定是否进入 GPU 候选试点。
+研究、回放与公开影子工作保持 `execution_eligible = false` 和 `release_permitted = false`。
+Wave 32–33 提供了合成扫描器基线。真实 Base 的端到端复核、Robinhood 长交易的收益归因、链名
+未知的 109 跳自述、执行 DAG 原型和 GPU 对照的顺序见[多跳套利研究待办](MULTIHOP_ARBITRAGE_TODO.md)。
+
+本次实现状态及 Aleph RTX 4070 Ti 的实测对照见[第一批实现验证](../verification/MULTIHOP_IMPLEMENTATION_20261122.md)。

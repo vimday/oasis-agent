@@ -8,6 +8,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from collections.abc import Callable
+from dataclasses import asdict
 from email.message import Message
 from io import BytesIO
 from pathlib import Path
@@ -76,6 +77,11 @@ from oasis_agent.fastpath.multicall_universe import (
     fetch_pinned_universe_snapshot,
     verify_candidate_with_onchain_quoter,
 )
+from oasis_agent.fastpath.multihop_replay import (
+    MultihopReplayCapture,
+    ReplayAnchorInput,
+    load_multihop_replay,
+)
 from oasis_agent.live.dual_rpc_probe import (
     DualRpcQuorumError,
 )
@@ -85,7 +91,7 @@ from oasis_agent.live.dual_rpc_probe import (
 from oasis_agent.live.dual_rpc_probe import (
     _IPv4PreferredHTTPSHandler as _DualIPv4PreferredHTTPSHandler,
 )
-from oasis_agent.models.common import ZERO_ADDRESS, normalize_address, sha256_hex
+from oasis_agent.models.common import ZERO_ADDRESS, canonical_json, normalize_address, sha256_hex
 from oasis_agent.sniping.venues import (
     AERO_FACTORY,
     AERO_USDC_WETH,
@@ -99,6 +105,8 @@ from oasis_agent.uniswap_v4.liquidity_math import (
     amount1_delta,
     sqrt_price_at_tick,
 )
+from scripts import run_multicall_100tick_campaign as campaign
+from scripts import run_multihop_ab_experiment as ab_cli
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_RPC_URL = "https://rpc.example.invalid"
@@ -521,6 +529,7 @@ def _build_snapshot_mock_transport(
     v3_liq_override: int | None = None,
     v3_bal0_override: int | None = None,
     v3_bal1_override: int | None = None,
+    hash_pinned: bool = False,
 ) -> tuple[Callable[[str, bytes, float], bytes], list[dict[str, Any]]]:
     calls_seen: list[dict[str, Any]] = []
     v3_pool, ss_pool, aero_pool = pools
@@ -537,6 +546,7 @@ def _build_snapshot_mock_transport(
                 "number": hex(block_number),
                 "hash": p_hash if corrupt_mode == "self_parent" else b_hash,
                 "parentHash": p_hash,
+                "stateRoot": _synth_hash(b"snapshot-state"),
                 "timestamp": hex(ts_ms // 1000),
                 "baseFeePerGas": hex(base_fee_wei),
             }
@@ -546,8 +556,11 @@ def _build_snapshot_mock_transport(
                 "utf-8"
             )
 
-        call_obj, block_hex = req["params"]
-        assert block_hex == hex(block_number)
+        call_obj, block_param = req["params"]
+        if hash_pinned:
+            assert block_param == {"blockHash": b_hash, "requireCanonical": True}
+        else:
+            assert block_param == hex(block_number)
         assert normalize_address(call_obj["to"]) == MULTICALL3
         cd = bytes.fromhex(call_obj["data"][2:])
         (subcalls,) = decode(["(address,bool,bytes)[]"], cd[4:], strict=True)
@@ -567,6 +580,9 @@ def _build_snapshot_mock_transport(
                 mc_res.append((True, _u256_bytes(part)))
             elif target == normalize_address(ORACLE) and data_hex == GET_L1_FEE_CALLDATA:
                 mc_res.append((True, _u256_bytes(l1_fee_wei)))
+            elif target == MULTICALL3 and data_hex == "0x3408e470":
+                chain_id = 1 if corrupt_mode == "wrong_chain" else BASE_CHAIN_ID
+                mc_res.append((True, _u256_bytes(chain_id)))
             elif target == v3_pool.pool_id and data_hex == SLOT0_SELECTOR:
                 mc_res.append((True, _slot0_v3_bytes(-196_258)))
             elif target == v3_pool.pool_id and data_hex == LIQUIDITY_SELECTOR:
@@ -640,6 +656,179 @@ def test_fetch_pinned_universe_snapshot_uses_two_rpc_calls(bridge: FastpathBridg
         graph.upsert_pool(node)
     quote = graph.quote_pool(BASE_CHAIN_ID, pools[0].pool_id, pools[0].token0, 10**17)
     assert quote.amount_out > 0
+
+
+def test_optional_hash_pin_checks_chain_without_additional_rpc() -> None:
+    pools = _sample_discovered_pools()
+    transport, calls = _build_snapshot_mock_transport(pools, hash_pinned=True)
+    snapshot = fetch_pinned_universe_snapshot(
+        MOCK_RPC_URL, pools, transport=transport, pin_call_to_hash=True
+    )
+    assert len(calls) == 2
+    assert calls[1]["params"][1] == {
+        "blockHash": snapshot.block_hash,
+        "requireCanonical": True,
+    }
+    broken, _ = _build_snapshot_mock_transport(pools, hash_pinned=True, corrupt_mode="wrong_chain")
+    with pytest.raises(MulticallUniverseError, match="getChainId mismatch"):
+        fetch_pinned_universe_snapshot(MOCK_RPC_URL, pools, transport=broken, pin_call_to_hash=True)
+
+
+def test_reconstructs_discovered_pool_snapshot_from_original_bytes(tmp_path: Path) -> None:
+    specs = _sample_discovered_pools()
+    transport, _ = _build_snapshot_mock_transport(specs, hash_pinned=True)
+    capture = MultihopReplayCapture(
+        tmp_path / "replay", source=MOCK_RPC_URL, mode="injected", ticks_requested=1
+    )
+    snapshot = capture.record_attempt(
+        transport,
+        lambda send: fetch_pinned_universe_snapshot(
+            MOCK_RPC_URL, specs, transport=send, pin_call_to_hash=True
+        ),
+    )
+    price = campaign._compute_eth_price_micro_usdc(snapshot.pool_nodes)
+    gas = snapshot.base_fee_per_gas_wei
+    fee = snapshot.l1_fee_wei
+    capture.save_snapshot(
+        block_number=snapshot.block_number,
+        block_hash=snapshot.block_hash,
+        pools=snapshot.pool_nodes,
+        anchors=(
+            ReplayAnchorInput(campaign.WETH_ADDR, 100, 1_000, 1, gas, fee),
+            ReplayAnchorInput(
+                campaign.USDC_ADDR,
+                100,
+                1_000,
+                1,
+                (gas * price + 10**18 - 1) // 10**18,
+                (fee * price + 10**18 - 1) // 10**18,
+            ),
+        ),
+        gas_limit_units=1,
+        priority_fee_wei=0,
+        eth_price_micro_usdc=price,
+        headroom_blocked=False,
+    )
+    capture.finish(
+        pool_specs=[asdict(spec) for spec in specs],
+        snapshot_format="discovered_multicall",
+        stopped_early=False,
+        canonical_conflict=False,
+        campaign_summary_sha256="0" * 64,
+    )
+    replay = load_multihop_replay(
+        capture.directory / "manifest.json",
+        base_token=campaign.WETH_ADDR,
+        decode_snapshot=campaign.decode_retained_multihop_snapshot,
+    )
+    assert replay.snapshots[0].pools == snapshot.pool_nodes
+    assert replay.snapshots[0].l1_fee_in_base == fee
+    assert replay.metadata["source_quorum"] == "single_transport"
+
+
+def test_campaign_replay_round_trip_from_retained_rpc(
+    tmp_path: Path,
+    bridge: FastpathBridge,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("OASIS_CORE_LIB_PATH", str(bridge.lib_path))
+    out = tmp_path / "campaign"
+    assert (
+        campaign.main(
+            [
+                "--mode",
+                "fixture",
+                "--ticks",
+                "3",
+                "--interval-ms",
+                "0",
+                "--max-rpc-calls",
+                "6",
+                "--record-multihop-replay",
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    report_line = capsys.readouterr()
+    assert not report_line.err
+    assert json.loads(report_line.out)["rpc_calls_used"] == 6
+    replay_dir = out / "multihop_replay"
+    manifest = replay_dir / "manifest.json"
+    assert (
+        ab_cli.main(["--snapshot-manifest", str(manifest), "--base-token", campaign.USDC_ADDR]) == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["exact_bit_for_bit_blocks"] == 3
+    assert result["arm_b"]["full_scan_blocks"] == 3
+    assert result["replay"]["anchor"] == campaign.USDC_ADDR
+    assert result["replay"]["mode"] == "fixture"
+    assert result["replay"]["missing_heights_between_samples"] == 6
+    assert result["replay"]["exact_tick_coverage"] == "unavailable"
+    assert result["execution_eligible"] is False
+    assert result["release_permitted"] is False
+
+    request = replay_dir / "rpc-00000001-002.request.json"
+    assert json.loads(request.read_bytes())["params"][1]["requireCanonical"] is True
+    before = request.read_bytes()
+    request.write_bytes(before + b" ")
+    assert ab_cli.main(["--snapshot-manifest", str(manifest)]) == 2
+    assert "digest mismatch" in capsys.readouterr().err
+    request.write_bytes(before)
+
+    # A self-consistent manifest still cannot replace the fee derived from the wire evidence.
+    first = replay_dir / "snapshot-00000001.json"
+    frame = json.loads(first.read_bytes())
+    frame["anchors"][0]["l1_fee_in_base"] = "0"
+    first.write_bytes(canonical_json(frame) + b"\n")
+    capture = json.loads(manifest.read_bytes())
+    capture.pop("manifest_sha256")
+    capture["snapshots"][0]["sha256"] = sha256_hex(first.read_bytes())
+    capture["manifest_sha256"] = sha256_hex(canonical_json(capture))
+    manifest.write_bytes(canonical_json(capture) + b"\n")
+    assert ab_cli.main(["--snapshot-manifest", str(manifest)]) == 2
+    assert "captured anchor costs differ" in capsys.readouterr().err
+
+
+def test_campaign_replay_rejects_preserved_reorg_prefix(
+    tmp_path: Path, bridge: FastpathBridge, capsys: pytest.CaptureFixture[str]
+) -> None:
+    transport = campaign.build_synthetic_multicall_rpc_transport()
+    first_block_number = None
+
+    def conflicting_header(url: str, request: bytes, timeout_s: float) -> bytes:
+        nonlocal first_block_number
+        result = transport(url, request, timeout_s)
+        if json.loads(request)["method"] != "eth_getBlockByNumber":
+            return result
+        envelope = json.loads(result)
+        header = envelope["result"]
+        if first_block_number is None:
+            first_block_number = header["number"]
+        else:
+            header["number"] = first_block_number
+        return canonical_json(envelope)
+
+    out = tmp_path / "campaign"
+    campaign_result = campaign.run_multicall_campaign(
+        out_dir=out,
+        mode="fixture",
+        ticks=3,
+        interval_ms=0,
+        max_rpc_calls=6,
+        bridge=bridge,
+        rpc_transport=conflicting_header,
+        record_multihop_replay=True,
+        stop_gracefully_on_rpc_error=True,
+    )
+    assert campaign_result.summary["ticks_completed"] == 1
+    assert campaign_result.summary["stopped_early"] is True
+    manifest = out / "multihop_replay" / "manifest.json"
+    assert json.loads(manifest.read_bytes())["canonical_conflict"] is True
+    assert ab_cli.main(["--snapshot-manifest", str(manifest)]) == 2
+    assert "canonical conflict" in capsys.readouterr().err
 
 
 def test_anti_hallucination_cl_bracket_caps_virtual_deliverables_at_80_pct(

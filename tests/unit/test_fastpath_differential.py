@@ -250,6 +250,13 @@ def test_four_pool_base_cycle_scan_and_rejection(bridge: FastpathBridge) -> None
 
     assert report.cycles_evaluated == 6
     assert len(report.candidates) >= 1
+    assert report.sizing_residuals
+    for residual in report.sizing_residuals:
+        assert residual.chain_id == 8453
+        assert residual.base_token == weth
+        assert 10**16 <= residual.min_amount_in <= residual.max_amount_in <= 5 * 10**18
+        assert residual.net_profit_upper >= min_profit
+        assert set(residual.pool_ids) <= {pool.pool_id for pool in pools}
 
     best = report.candidates[0]
     assert best.chain_id == 8453

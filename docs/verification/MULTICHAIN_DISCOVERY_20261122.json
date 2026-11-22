@@ -1,0 +1,1114 @@
+{
+  "schema": "oasis.multichain-discovery-research.v1",
+  "purpose": "historical_labels_and_index_market_topology",
+  "execution_eligible": false,
+  "market_source": "https://docs.dexscreener.com/api/reference",
+  "screen": {
+    "each_pool_liquidity_usd_gte": "100000",
+    "each_pool_volume_h24_usd_gte": "10000",
+    "duplicate_rule": "latest observed row for same chain+normalized pairAddress; reject conflicting dexId or asset set",
+    "count": "unordered token triangles and one distinct pool identifier per edge; omit rotations and reverse direction"
+  },
+  "chains": {
+    "ethereum": {
+      "chain_id": 1,
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/ethereum/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "received_utc": "2026-11-22T15:41:06.572996+00:00",
+          "sha256": "eb6a589bfdace373352cbc36dae74a45e8cb5c5e7ada8662553df8d5ced52ccd",
+          "rows": 30
+        },
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/ethereum/0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "received_utc": "2026-11-22T15:45:05.130957+00:00",
+          "sha256": "db1606376fe508c0157c44e5a482d08e6ebae6fbfa4c3295deb708cb82a2f84c",
+          "rows": 30
+        }
+      ],
+      "indexed_pools": 60,
+      "token_edges": 6,
+      "screened_pools": 41,
+      "triangles": [
+        {
+          "assets": [
+            "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+          ],
+          "symbols": [
+            "DAI",
+            "USDC",
+            "WETH"
+          ],
+          "edge_pool_counts": [
+            1,
+            12,
+            6
+          ],
+          "edge_screened_counts": [
+            0,
+            10,
+            6
+          ],
+          "pool_combinations": 72,
+          "screened_combinations": 0,
+          "one_pool_id_per_edge": [
+            "0xef3a1cae64848f9eb25022de4dcb77b40affe419-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48-0x6b175474e89094c44da98b954eedeac495271d0f",
+            "0x1445f32d1a74872ba41f3d8cf4022e9996120b31",
+            "0x0b09dea16768f0799065c475be02919503cb2a35"
+          ]
+        },
+        {
+          "assets": [
+            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "0xdac17f958d2ee523a2206206994597c13d831ec7"
+          ],
+          "symbols": [
+            "USDC",
+            "WETH",
+            "USDT"
+          ],
+          "edge_pool_counts": [
+            12,
+            12,
+            28
+          ],
+          "edge_screened_counts": [
+            10,
+            10,
+            14
+          ],
+          "pool_combinations": 4032,
+          "screened_combinations": 1400,
+          "one_pool_id_per_edge": [
+            "0x1445f32d1a74872ba41f3d8cf4022e9996120b31",
+            "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
+            "0x04c8577958ccc170eb3d2cca76f9d51bc6e42d8f"
+          ]
+        }
+      ],
+      "edge_counts": [
+        [
+          "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          1,
+          0
+        ],
+        [
+          "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          6,
+          6
+        ],
+        [
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          12,
+          10
+        ],
+        [
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          28,
+          14
+        ],
+        [
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "0xe343167631d89b6ffc58b88d6b7fb0228795491d",
+          1,
+          1
+        ],
+        [
+          "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          12,
+          10
+        ]
+      ]
+    },
+    "bsc": {
+      "chain_id": 56,
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/bsc/0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+          "received_utc": "2026-11-22T15:41:06.687932+00:00",
+          "sha256": "6bf85cba92d093b034c44170ed5c0616a08244cca935083a4fa96b3953f126ab",
+          "rows": 30
+        },
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/bsc/0x55d398326f99059ff775485246999027b3197955",
+          "received_utc": "2026-11-22T15:45:05.245865+00:00",
+          "sha256": "6bbdd048f7add88daea61e71c8585b234969d850da4eec75c3da0e0ec0d95334",
+          "rows": 30
+        }
+      ],
+      "indexed_pools": 60,
+      "token_edges": 5,
+      "screened_pools": 19,
+      "triangles": [
+        {
+          "assets": [
+            "0x55d398326f99059ff775485246999027b3197955",
+            "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+          ],
+          "symbols": [
+            "USDT",
+            "USDC",
+            "WBNB"
+          ],
+          "edge_pool_counts": [
+            23,
+            7,
+            23
+          ],
+          "edge_screened_counts": [
+            7,
+            2,
+            9
+          ],
+          "pool_combinations": 3703,
+          "screened_combinations": 126,
+          "one_pool_id_per_edge": [
+            "0x038ebba96937d741391b5750bccbf18c2b673940",
+            "0x06cd679121ec37b0a2fd673d4976b09d81791856",
+            "0x04580ce6dee076354e96fed53cb839de9efb5f3f"
+          ]
+        }
+      ],
+      "edge_counts": [
+        [
+          "0x0000000000000000000000000000000000000000",
+          "0x55d398326f99059ff775485246999027b3197955",
+          6,
+          1
+        ],
+        [
+          "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          1,
+          0
+        ],
+        [
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          23,
+          7
+        ],
+        [
+          "0x55d398326f99059ff775485246999027b3197955",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          23,
+          9
+        ],
+        [
+          "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          7,
+          2
+        ]
+      ]
+    },
+    "robinhood": {
+      "chain_id": 4663,
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "received_utc": "2026-11-22T15:41:07.121806+00:00",
+          "sha256": "d0492195b1a09bfed270a43fcb21425acbdfd1bcbf7c93aea15355befaba859c",
+          "rows": 30
+        },
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/robinhood/0x39dbed3a2bd333467115de45665cc57f813c4571",
+          "received_utc": "2026-11-22T15:45:05.361878+00:00",
+          "sha256": "7cc3b2451b401d0d111a04535edfa8e8fc24a3bb89ee4d48bc67db58f7cf6db1",
+          "rows": 30
+        }
+      ],
+      "indexed_pools": 56,
+      "token_edges": 27,
+      "screened_pools": 19,
+      "triangles": [
+        {
+          "assets": [
+            "0x39dbed3a2bd333467115de45665cc57f813c4571",
+            "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+            "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3"
+          ],
+          "symbols": [
+            "PONS",
+            "USDG",
+            "ORBIO"
+          ],
+          "edge_pool_counts": [
+            10,
+            1,
+            1
+          ],
+          "edge_screened_counts": [
+            4,
+            1,
+            0
+          ],
+          "pool_combinations": 10,
+          "screened_combinations": 0,
+          "one_pool_id_per_edge": [
+            "0x13f9ab4e07b7f222cf49ff8ae9d7cdd2f749546eb3f83bdd84b884e27dd5e49d",
+            "0xea9f200e13055b82f175f44f592c4c13dd8c9d9320a66487d3c5cd90d68550ef",
+            "0x1e930fefa96551ca41059f778f2069ec01107c29a409272b9f4f48bae614e970"
+          ]
+        }
+      ],
+      "edge_counts": [
+        [
+          "0x0000000000000000000000000000000000000000",
+          "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          9,
+          2
+        ],
+        [
+          "0x020bfc650a365f8bb26819deaabf3e21291018b4",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          1
+        ],
+        [
+          "0x07ebb29a38fbcb41563817e5e19f2cec619c90d2",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          2,
+          0
+        ],
+        [
+          "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          9,
+          4
+        ],
+        [
+          "0x11b70d0243baf75e85ce03201a92b5b7c33beb59",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          0
+        ],
+        [
+          "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          2,
+          0
+        ],
+        [
+          "0x32003cc8357938bcf615c1222a349c58f2b30698",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          1
+        ],
+        [
+          "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          "0x56910d4409f3a0c78c64dd8d0545ff0705389870",
+          1,
+          0
+        ],
+        [
+          "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          10,
+          4
+        ],
+        [
+          "0x39dbed3a2bd333467115de45665cc57f813c4571",
+          "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3",
+          1,
+          0
+        ],
+        [
+          "0x451b42a15100c340ca12f7c66de06fac5ea2d751",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          0
+        ],
+        [
+          "0x5ab3d4c385b400f3abb49e80de2faf6a88a7b691",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          1
+        ],
+        [
+          "0x5baaec1b70864f01dbdb747358ff59f2e2ccf7d5",
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x72be1277e198d0c476869253cb4e62807e14533c",
+          2,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x775fd5a987bf3ff5e205deabde6634ddcee3a3fc",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x812486eaea648819853f8e372dc9f1516c7868bd",
+          2,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x85a574f2ff0795685f58d1d7b0d4b51f148ac489",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x8fd48edc40645a86ae73ce238f5cd840fd8e0087",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x94641b97010608c3827fb058074889f19868ff33",
+          1,
+          1
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0x98096d17e191b3da1d5f99a6d7b3584351b11e18",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3",
+          1,
+          1
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xab093def657f15df31b33922a95e047add645b29",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xb63d07cef74be747231d601bb2faa6b252c68106",
+          1,
+          1
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xc6911796042b15d7fa4f6cde69e245ddcd3d9c31",
+          1,
+          1
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xded852de9fe9ba9b6f27f39e8e81cf851a5c79cc",
+          1,
+          0
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5",
+          1,
+          1
+        ],
+        [
+          "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "0xfce34d21a92069100e3226638140706cf03a266e",
+          1,
+          1
+        ]
+      ]
+    },
+    "base": {
+      "chain_id": 8453,
+      "sources": [
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/base/0x4200000000000000000000000000000000000006",
+          "received_utc": "2026-11-22T15:41:07.233736+00:00",
+          "sha256": "325c83a78f6ba184a9fa7e3d0ed227dab00427bab0f65219e14b8d3b2cc9be61",
+          "rows": 30
+        },
+        {
+          "url": "https://api.dexscreener.com/token-pairs/v1/base/0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "received_utc": "2026-11-22T15:45:05.777619+00:00",
+          "sha256": "fb29d88ae798071231f66a05cf5bc4f5938a84ec7bad434f80987b6abcab074b",
+          "rows": 30
+        }
+      ],
+      "indexed_pools": 60,
+      "token_edges": 8,
+      "screened_pools": 16,
+      "triangles": [
+        {
+          "assets": [
+            "0x4200000000000000000000000000000000000006",
+            "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+            "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"
+          ],
+          "symbols": [
+            "WETH",
+            "USDC",
+            "USDbC"
+          ],
+          "edge_pool_counts": [
+            26,
+            26,
+            3
+          ],
+          "edge_screened_counts": [
+            14,
+            0,
+            0
+          ],
+          "pool_combinations": 2028,
+          "screened_combinations": 0,
+          "one_pool_id_per_edge": [
+            "0x0b1c2dcbbfa744ebd3fc17ff1a96a1e1eb4b2d69",
+            "0x0484ae96984bcadf6476811974eeb6c7975b483f",
+            "0x4c36388be6f416a29c8d8eee81c771ce6be14b18"
+          ]
+        }
+      ],
+      "edge_counts": [
+        [
+          "0x4200000000000000000000000000000000000006",
+          "0x54330d28ca3357f294334bdc454a032e7f353416",
+          1,
+          0
+        ],
+        [
+          "0x4200000000000000000000000000000000000006",
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          26,
+          14
+        ],
+        [
+          "0x4200000000000000000000000000000000000006",
+          "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca",
+          3,
+          0
+        ],
+        [
+          "0x44b63af715d5ef02cc3646a6ce96875e11d69e85",
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          1,
+          1
+        ],
+        [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xb20000000000000000000078ee7ce2fe4908108c",
+          1,
+          1
+        ],
+        [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca",
+          26,
+          0
+        ],
+        [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xeb466342c4d449bc9f53a865d5cb90586f405215",
+          1,
+          0
+        ],
+        [
+          "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+          1,
+          0
+        ]
+      ]
+    }
+  },
+  "bsc_state": {
+    "number": 135105061,
+    "hash": "0xb1e8564ba25cf26d38c495d1618c7368b89825a928433cd24e0d6fd4d8b45e60",
+    "parentHash": "0x3aa4bfba7e3796df4e6e19f486cf238a6c0b9382ef08d549f89f50261e063276",
+    "stateRoot": "0x267ea7cd44687357ce69405ffc955b47f3ab0661c057f0b9320e227797f59eb1",
+    "timestamp": 1795362189,
+    "p2": "0x16b9a82891338f9ba80e2d6970fdda79d1eb0dae",
+    "p3": "0x172fcd41e0913e95784454622d1c3724f546f849",
+    "token0": "0x55d398326f99059ff775485246999027b3197955",
+    "token1": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+    "reserve0": "10591386518770461916278702",
+    "reserve1": "18990861628225578050046",
+    "sqrtPriceX96": "3357536986534644139625072943",
+    "fee_pips": 100,
+    "liquidity": "1683597683182892705644077",
+    "gross_best_bps": 15.914107,
+    "v2_then_v3_fee_bound_bps": -41.845014,
+    "v3_then_v2_fee_bound_bps": -10.124766,
+    "both_upper_bounds_at_most_one": true
+  },
+  "bsc_requests": [
+    {
+      "scope": "public_bsc_two_pool_research_20261122",
+      "endpoint": "https://bsc-dataseed.bnbchain.org",
+      "max_requests": 2,
+      "prior_requests": 0,
+      "usd_ceiling": 0,
+      "credentials": false,
+      "methods": [
+        "eth_getBlockByNumber",
+        "eth_call"
+      ],
+      "source": "https://docs.bnbchain.org/bnb-smart-chain/developers/json_rpc/json-rpc-endpoint/"
+    },
+    {
+      "id": 1,
+      "method": "eth_getBlockByNumber",
+      "reserved_utc": "2026-11-22T15:43:10.305140+00:00",
+      "usd": "0",
+      "request_sha256": "b63919588b72d5384128905d70e0e05e5d51e2e68fea9b418a226849942af812"
+    },
+    {
+      "id": 1,
+      "received_utc": "2026-11-22T15:43:10.844536+00:00",
+      "http": 200,
+      "response_sha256": "28461793a1877815e667b59cb46ec95d028c2ac638b06982dd188ee42de05338"
+    },
+    {
+      "id": 2,
+      "method": "eth_call",
+      "reserved_utc": "2026-11-22T15:43:10.845332+00:00",
+      "usd": "0",
+      "request_sha256": "9ea013bc09ba153ca636d7fc08cc5400021208e796feba569a36e7364bf4cfd4"
+    },
+    {
+      "id": 2,
+      "received_utc": "2026-11-22T15:43:10.963808+00:00",
+      "http": 200,
+      "response_sha256": "64dbc2abd0500a8140bab641245b90bf0c6412f09b9ae7d01052fd4735c94919"
+    }
+  ],
+  "sqd_attempts": [
+    {
+      "url": "https://portal.sqd.dev/datasets/base-mainnet/timestamps/1795003200/block",
+      "method": "GET",
+      "status": 529,
+      "sha256": "501a64422362eaa0496ed0dd45286f8421a4ac60295c9b20732a42d13ca304d0",
+      "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "accessed_utc": "2026-11-22T15:39:48.184070+00:00"
+    },
+    {
+      "url": "https://portal.sqd.dev/datasets/binance-mainnet/timestamps/1795003200/block",
+      "method": "GET",
+      "status": 529,
+      "sha256": "1bc3f11af8d3c1fbb1c4dd943454a8cdfc87e27761f03778cfff75744ddcdb0f",
+      "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "accessed_utc": "2026-11-22T15:39:47.804235+00:00"
+    },
+    {
+      "url": "https://portal.sqd.dev/datasets/ethereum-mainnet/timestamps/1795003260/block",
+      "method": "GET",
+      "status": 529,
+      "sha256": "5b92cb58b7bfd8012fdf5b2819ac5bc14fd46a3540edb887c69622607e32e228",
+      "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "accessed_utc": "2026-11-22T15:39:47.410467+00:00"
+    },
+    {
+      "url": "https://portal.sqd.dev/datasets/ethereum-mainnet/timestamps/1795003200/block",
+      "method": "GET",
+      "status": 200,
+      "sha256": "b44bbb90cba8ce26767c174210a6d4078d5d2232ffa2bb2a28cddf4a8487884d",
+      "request_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "accessed_utc": "2026-11-22T15:39:46.924563+00:00"
+    }
+  ],
+  "ethereum_explorer_objects": {
+    "harvest-logs-page2.json": "8a087f1120c70618a26efde661b511ce1ce3c1145ee8555f2b9037beb3c838b9",
+    "harvest-logs.json": "11f30af1df41bc7d89a31a5807d32932245c7b413482f4f64ea8669ea3e33ee7",
+    "harvest.json": "89b0d27b8f3810fc6b26a0358008a30caba985aee678ea465edb854b558adce8",
+    "logs.json": "5fdd67922e073f70865181638f52c6f9004683ebc5893288fe620d764e418934",
+    "transaction.json": "5d28d48bf4eea7bd9df3234c25d67dc8d466055d91039cffc29f2706c397a80b"
+  },
+  "robinhood_receipts": {
+    "source": "https://rpc.mainnet.chain.robinhood.com",
+    "requests_sent": 8,
+    "cost_usd": 0,
+    "capture_sha256": "fce9439e84f32f592bb5f17617f7bb67ed8971cee5d2ab1798c23560d0ff5ff3",
+    "methods": {
+      "debug_traceTransaction": 1,
+      "eth_chainId": 1,
+      "eth_getBlockByNumber": 3,
+      "eth_getTransactionReceipt": 3
+    },
+    "trace_error_code": -32601,
+    "receipts": [
+      {
+        "transaction_hash": "0x57110d3c1a28867544969054504e0abb875060908a6780dd29534faf0895d7e2",
+        "block_hash": "0xce71d386454c88fcc1a9f1c2807493e243a8638e07742f09c78c0b4f63c29deb",
+        "block_number": 120369170,
+        "tx_index": 1,
+        "status": 1,
+        "swap_total": 21,
+        "distinct_emitter_addresses": 6,
+        "distinct_pool_keys": 6,
+        "swap_counts_by_topic": {
+          "v3": 18,
+          "v4": 3
+        },
+        "gas_used": 7224635,
+        "effective_gas_price_wei": 20000000,
+        "reported_gas_fee_wei": "144492700000000",
+        "gas_used_for_l1": 0,
+        "erc20_transfer_logs": 104,
+        "total_logs": 273
+      },
+      {
+        "transaction_hash": "0xa96d1eda66c013d77e2d89bcb623be3275fb38bfbba748ccac535ae6cb4b6a88",
+        "block_hash": "0xa7232c99a67d7d32b4c6206159681eb3c0bfde6155e8f0b466b133800f049ead",
+        "block_number": 120369109,
+        "tx_index": 1,
+        "status": 1,
+        "swap_total": 22,
+        "distinct_emitter_addresses": 3,
+        "distinct_pool_keys": 6,
+        "swap_counts_by_topic": {
+          "v3": 13,
+          "v4": 9
+        },
+        "gas_used": 7060131,
+        "effective_gas_price_wei": 20042000,
+        "reported_gas_fee_wei": "141499145502000",
+        "gas_used_for_l1": 0,
+        "erc20_transfer_logs": 104,
+        "total_logs": 255
+      },
+      {
+        "transaction_hash": "0x98a5143fcf86defcb660b9548f8eea52011856a24526fa2d2564864cc604362a",
+        "block_hash": "0xbab0deff3bc50b19b42455d2cd2d2c9d6c11cd416e69bcebf0986bfd7c7b3c65",
+        "block_number": 120354773,
+        "tx_index": 3,
+        "status": 1,
+        "swap_total": 22,
+        "distinct_emitter_addresses": 4,
+        "distinct_pool_keys": 7,
+        "swap_counts_by_topic": {
+          "v3": 3,
+          "v4": 19
+        },
+        "gas_used": 4035085,
+        "effective_gas_price_wei": 20028000,
+        "reported_gas_fee_wei": "80814682380000",
+        "gas_used_for_l1": 0,
+        "erc20_transfer_logs": 71,
+        "total_logs": 163
+      }
+    ],
+    "entrypoint": {
+      "basis": "canonical v0.7 EntryPoint address and matching receipt event topics; runtime not separately pinned",
+      "entrypoint": "0x0000000071727de22e5e9d8baf0edac6f37da032",
+      "execution_eligible": false,
+      "receipt_segments": {
+        "0x57110d3c1a28867544969054504e0abb875060908a6780dd29534faf0895d7e2": {
+          "before_execution_log_index": null,
+          "swap_logs_before_execution": null,
+          "unsegmented_swap_logs": 21,
+          "user_operations": []
+        },
+        "0x98a5143fcf86defcb660b9548f8eea52011856a24526fa2d2564864cc604362a": {
+          "before_execution_log_index": 14,
+          "swap_logs_before_execution": 0,
+          "unsegmented_swap_logs": 0,
+          "user_operations": [
+            {
+              "account": "0x0875d1e2513dd1cb8adae4435a9a70146a4cb656",
+              "actual_gas_cost_wei": "0",
+              "actual_gas_used": 4483317,
+              "log_index": 176,
+              "matched_swap_logs_in_segment": 22,
+              "nonce": "44021086092251451153489584887233973830444067993322348883981188988928",
+              "paymaster": "0x0000000000000000000000000000000000000000",
+              "success": true,
+              "user_op_hash": "0xeb30b25f07f24ab27796cb7fa89cb2443ef53e6305903f3b0be04bf016069e9e"
+            }
+          ]
+        },
+        "0xa96d1eda66c013d77e2d89bcb623be3275fb38bfbba748ccac535ae6cb4b6a88": {
+          "before_execution_log_index": null,
+          "swap_logs_before_execution": null,
+          "unsegmented_swap_logs": 22,
+          "user_operations": []
+        }
+      },
+      "schema": "oasis-robinhood-erc4337-receipt-segments-v1"
+    },
+    "wire": [
+      {
+        "id": 1,
+        "method": "eth_chainId",
+        "received_utc": "2026-11-22T15:46:06.182682+00:00",
+        "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+        "response_sha256": "75ea0f516604d743a7a785da0919b7b26debc20e260ff9d0a045c6cfa40f876f",
+        "http_status": 200
+      },
+      {
+        "id": 2,
+        "method": "eth_getTransactionReceipt",
+        "received_utc": "2026-11-22T15:46:07.514239+00:00",
+        "request_sha256": "40857974b44b68c5407ffaac264459c5cbe0b4a8a2245a12a719e0c421c4d0a5",
+        "response_sha256": "75f4dec591ea71447f0084055802c8194fb8dc59dbd73e0601e6e3923acab6ff",
+        "http_status": 200
+      },
+      {
+        "id": 3,
+        "method": "eth_getTransactionReceipt",
+        "received_utc": "2026-11-22T15:46:09.049502+00:00",
+        "request_sha256": "c6bb9a25ce5f3cd08d1db53d3aa5eb6b52822328555844dce06417828c81db09",
+        "response_sha256": "e295a67b2abe83ef49e740ada2ab80c898d6710adb65f99a8335f1e9f11e8a22",
+        "http_status": 200
+      },
+      {
+        "id": 4,
+        "method": "eth_getTransactionReceipt",
+        "received_utc": "2026-11-22T15:46:10.843362+00:00",
+        "request_sha256": "5699d440637c085f4594b776a1a360e7f5ea4a73b293f240770ea3b4a5eac4ae",
+        "response_sha256": "7a428208864e15403301f656b98fc39fcb248e2e3d13af6312b37ea34c6c5401",
+        "http_status": 200
+      },
+      {
+        "id": 5,
+        "method": "eth_getBlockByNumber",
+        "received_utc": "2026-11-22T15:46:12.304088+00:00",
+        "request_sha256": "1c9d43e78eeed9bd416df98a73c323cf899b7f64ee861bb95531b2b55d14edc5",
+        "response_sha256": "2c332f5f82f94b7b1154fdc7972054756b9b5eabba4af874aa1fccb166ea9248",
+        "http_status": 200
+      },
+      {
+        "id": 6,
+        "method": "eth_getBlockByNumber",
+        "received_utc": "2026-11-22T15:46:13.911404+00:00",
+        "request_sha256": "a8324a52ae109ec634c97b70e055500d44bd03adb497c3d1aa45b7f22508ea44",
+        "response_sha256": "a7009c06dee1b508c5f9f19ab993c0a87be752d6d594b8d05bc6f3d1dacb9d72",
+        "http_status": 200
+      },
+      {
+        "id": 7,
+        "method": "eth_getBlockByNumber",
+        "received_utc": "2026-11-22T15:46:15.432410+00:00",
+        "request_sha256": "be6e8f3a15037e624c7dbe5fe06ad326630e6374d01c986a7aafc302cc598312",
+        "response_sha256": "bf0eb4557f868164fc34acae1eb2e227f612cbfb3c181c6bdd117ec00eac0fbc",
+        "http_status": 200
+      },
+      {
+        "id": 8,
+        "method": "debug_traceTransaction",
+        "received_utc": "2026-11-22T15:46:17.138398+00:00",
+        "request_sha256": "8b830a55e14dedf2a44655d40744fab9efb06566cca937bc19372c6db8279cbe",
+        "response_sha256": "c5fe944e07f251cbbd1cd4a4cee3d86f183a7bf2eca96f15fe8cfee838fc5ac9",
+        "http_status": 200
+      }
+    ]
+  },
+  "ethereum_labels": {
+    "negative": {
+      "block": 24720714,
+      "block_hash": "0xc8df77821b80c7c84033eff57b5eeb81f6f8cb489ccf8c96b85968e4b0d472c5",
+      "fee_wei": 686006805911805,
+      "from": "0x80d53eb23e9579172cb32609cdef85042be345bd",
+      "hash": "0x5d44c672cce36070dae0419d4cd2852f05bac823637e2eb58e2c403847c080d9",
+      "logs": 70,
+      "position": 342,
+      "semantic_sha256": "d80457dbed4300150bc61c1b48034d5ac43a1f3cad3136a69fd420d5a6e58bfe",
+      "sender_usdc_raw_received": 19211992442,
+      "sender_usdc_raw_sent": 0,
+      "swap_topics": {
+        "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67": 2
+      },
+      "timestamp": "2026-03-23T14:08:35.000000Z",
+      "to": "0x79e4b64a72c7d2cc2b3437a2ff3ffae9f4cc1118",
+      "transfer_count": 24
+    },
+    "positive": {
+      "block": 20217499,
+      "block_hash": "0xcdf8760c8d1ffbe07f023175eee19bf7236d075a73a1ea6f4c168f9c90ce6f7c",
+      "branches": 3,
+      "fee_wei": 2251748552972490,
+      "from": "0xd32a30cfe87c0130225175ffef53cd04767c6eff",
+      "gas_only_residual_eth_wei": 55357831012529,
+      "gas_percent": "97.60",
+      "gross_weth_wei": 2307106383985019,
+      "hash": "0x275f9642556a58802eafdd8289aa19a7275e9d40962056095bb9b5c51ac3d246",
+      "logs": 19,
+      "longest_swap_dependency_chain": 3,
+      "position": 31,
+      "semantic_sha256": "572484580516bcb87273eeedce9b64d88b944220a358bc31feec2cd9e32740f8",
+      "swap_topics": {
+        "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67": 5,
+        "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822": 2
+      },
+      "timestamp": "2024-07-02T08:00:47.000000Z",
+      "to": "0x000000000c56e91f092023d942aee89b3cc089ff",
+      "transfer_count": 10,
+      "unique_pools": 7
+    }
+  },
+  "history_index_bytes": {
+    "binance-mainnet-trace.ndjson": "c9e6629e0240dce5fbef1e8a9bee866598190a5dbccd3e77e2c7225c1e6fac9d",
+    "binance-mainnet-trace.request.json": "53da0037ebd8d56551c96da6aa00e679f51f0b1f68d4cf2a1b39416e95251efa",
+    "binance-mainnet.ndjson": "c440207c135255242324c25427d95e2d1f32289dae5ceb3772af9aecd3f13b19",
+    "binance-mainnet.request.json": "1f5823f7bb3afd68b2fffdacd2a85e9c397d96501e0f5d9ac0b1c14c70bcbba2",
+    "ethereum-mainnet.ndjson": "0a601f0d099f829947d75fc8650fdad0148866b72543dd8c130cf794396152f8",
+    "ethereum-mainnet.request.json": "457cf9514b0415c7a7b23d749629b5cbef83478a2787efa8bcd18d5ff075c86e"
+  },
+  "raw_artifact_directory": "reports/research/multichain-discovery-20261122",
+  "historical_sqd_replay": {
+    "block": {
+      "hash": "0xb4609dfdb0d6b86b1e919f374de5d8aa9cd5ce6fe33ac0020129a25051546d89",
+      "number": 61000000,
+      "parentHash": "0xd3aaf2f10139aef01bbbbd09d456921e11d5997883c544ca9c49d0f75e3ce558",
+      "timestamp": 1757748682
+    },
+    "ethereum_two_index_parity": {
+      "matching_raw_logs": 19,
+      "transaction_hash": "0x275f9642556a58802eafdd8289aa19a7275e9d40962056095bb9b5c51ac3d246"
+    },
+    "log_rows": 832,
+    "positive_wbnb_residual_candidates": [
+      {
+        "canonical_wbnb_withdrawal_wei": 23888063753725,
+        "executor": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+        "gas_cost_wei": 49471800,
+        "gas_only_residual_wei": 23888014281925,
+        "legs": [
+          [
+            28,
+            "0xb8a3a3789b351ed3a8da1ba69f859a2905965d5b",
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            2454857017028969,
+            "0xdb6f1f098b55e36b036603c8e54663a8d907d6e1",
+            31217512405684068648
+          ],
+          [
+            32,
+            "0xc5e668771fc9a06f8bfb696c6a3e2246e0555a7c",
+            "0xdb6f1f098b55e36b036603c8e54663a8d907d6e1",
+            31217512405684068647,
+            "0x93ecd8e9156e6b217514bcfe59837b3807d8f53d",
+            1277436265924890
+          ],
+          [
+            36,
+            "0x13b2c6819b0b30ab6946ed809192d466f84c455b",
+            "0x93ecd8e9156e6b217514bcfe59837b3807d8f53d",
+            1277436265924889,
+            "0x37eff3ff1321fb9abc734761ca72fafdc044534a",
+            281310701148082252908
+          ],
+          [
+            39,
+            "0x5a5adda588dadd5b62c76d50ed4ef30343a6c6a5",
+            "0x37eff3ff1321fb9abc734761ca72fafdc044534a",
+            281310701148082252907,
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            2478745080782694
+          ]
+        ],
+        "swap_amounts_match_paired_transfer_amounts": [
+          true,
+          true,
+          true,
+          true
+        ],
+        "transaction": {
+          "from": "0x3acb054164db1bec80d3ca0721e55ef7d4015f9d",
+          "gasPrice": "0x64",
+          "gasUsed": "0x78c7e",
+          "hash": "0xc443a3242897a18e1293eed35987a52c3a8d5651166a53c8fd8a47d3658cb749",
+          "status": 1,
+          "to": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+          "transactionIndex": 4
+        },
+        "wbnb_gross_wei": 23888063753725
+      },
+      {
+        "canonical_wbnb_withdrawal_wei": 0,
+        "executor": "0x6e4141d33021b52c91c28608403db4a0ffb50ec6",
+        "gas_cost_wei": 564509000000000,
+        "gas_only_residual_wei": -564508999999999,
+        "legs": [
+          [
+            117,
+            "0xc2eed0f5a0dc28cfa895084bc0a9b8b8279ae492",
+            "0xe02df9e3e622debdd69fb838bb799e3f168902c5",
+            0,
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            233208882203959035
+          ],
+          [
+            121,
+            "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+            "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            233208882203959034,
+            "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            215846273436748302215
+          ],
+          [
+            125,
+            "0xbb7dcdf040346422341c7b844a18663932336606",
+            "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            215846273436748302214,
+            "0xa9616e5e23ec1582c2828b025becf3ef610e266f",
+            206956952796716800669
+          ]
+        ],
+        "swap_amounts_match_paired_transfer_amounts": [
+          false,
+          true,
+          true
+        ],
+        "transaction": {
+          "from": "0x605658f3bf26bceb2e82091a41b7229ccaf3dc37",
+          "gasPrice": "0x3b9aca00",
+          "gasUsed": "0x89d1d",
+          "hash": "0x2f7fe95e0ae0bc9a26cc08fdf6ce46da215e9f31a4d0615db182780e3be4d948",
+          "status": 1,
+          "to": "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae",
+          "transactionIndex": 29
+        },
+        "wbnb_gross_wei": 1
+      }
+    ],
+    "serial_closed_wbnb_cycle": {
+      "canonical_wbnb_withdrawal_wei": 23888063753725,
+      "executor": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+      "gas_cost_wei": 49471800,
+      "gas_only_residual_wei": 23888014281925,
+      "legs": [
+        [
+          28,
+          "0xb8a3a3789b351ed3a8da1ba69f859a2905965d5b",
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          2454857017028969,
+          "0xdb6f1f098b55e36b036603c8e54663a8d907d6e1",
+          31217512405684068648
+        ],
+        [
+          32,
+          "0xc5e668771fc9a06f8bfb696c6a3e2246e0555a7c",
+          "0xdb6f1f098b55e36b036603c8e54663a8d907d6e1",
+          31217512405684068647,
+          "0x93ecd8e9156e6b217514bcfe59837b3807d8f53d",
+          1277436265924890
+        ],
+        [
+          36,
+          "0x13b2c6819b0b30ab6946ed809192d466f84c455b",
+          "0x93ecd8e9156e6b217514bcfe59837b3807d8f53d",
+          1277436265924889,
+          "0x37eff3ff1321fb9abc734761ca72fafdc044534a",
+          281310701148082252908
+        ],
+        [
+          39,
+          "0x5a5adda588dadd5b62c76d50ed4ef30343a6c6a5",
+          "0x37eff3ff1321fb9abc734761ca72fafdc044534a",
+          281310701148082252907,
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          2478745080782694
+        ]
+      ],
+      "swap_amounts_match_paired_transfer_amounts": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "transaction": {
+        "from": "0x3acb054164db1bec80d3ca0721e55ef7d4015f9d",
+        "gasPrice": "0x64",
+        "gasUsed": "0x78c7e",
+        "hash": "0xc443a3242897a18e1293eed35987a52c3a8d5651166a53c8fd8a47d3658cb749",
+        "status": 1,
+        "to": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+        "transactionIndex": 4
+      },
+      "wbnb_gross_wei": 23888063753725
+    },
+    "swap_topics_excluding_pancake_v3_counts": {
+      "0": 96,
+      "1": 13,
+      "2": 5
+    },
+    "swap_topics_topology_counts": {
+      "0": 77,
+      "1": 27,
+      "2": 7,
+      "3": 2,
+      "4": 1
+    },
+    "transactions_with_logs": 114
+  },
+  "bsc_trace_attribution": {
+    "transaction": "0xc443a3242897a18e1293eed35987a52c3a8d5651166a53c8fd8a47d3658cb749",
+    "block_hash": "0xb4609dfdb0d6b86b1e919f374de5d8aa9cd5ce6fe33ac0020129a25051546d89",
+    "block_number": 61000000,
+    "transaction_index": 4,
+    "no_error_frames": 62,
+    "wire": {
+      "url": "https://portal.sqd.dev/datasets/binance-mainnet/finalized-stream",
+      "status": 200,
+      "received_utc": "2026-11-22T15:52:22.728725+00:00",
+      "request_sha256": "c2d424e289c2a18c782e73071f1288027ac5c3203a561906720817ec9e9be57c",
+      "response_sha256": "954b93136d78e8f5a5e0c948422154d889876f4d060dd4a4d715a7f2f590eb13"
+    },
+    "native_value_calls": [
+      {
+        "path": [
+          22,
+          0
+        ],
+        "from": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+        "to": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+        "wei": "23888063753725"
+      },
+      {
+        "path": [
+          23
+        ],
+        "from": "0x33f3184168de4a75a3f64a1dc86b73e4eb4c7a43",
+        "to": "0x74ce839c6adff544139f27c1257d34944b794605",
+        "wei": "23888063753725"
+      },
+      {
+        "path": [
+          23,
+          0
+        ],
+        "from": "0x74ce839c6adff544139f27c1257d34944b794605",
+        "to": "0x9f1adfeb76f67c529269c4205064791f94c23a9f",
+        "wei": "23888063753725"
+      },
+      {
+        "path": [
+          23,
+          0,
+          0
+        ],
+        "from": "0x9f1adfeb76f67c529269c4205064791f94c23a9f",
+        "to": "0x956e324dd26941c5626e560a74c71a9d856088f0",
+        "wei": "11944031876862"
+      },
+      {
+        "path": [
+          23,
+          0,
+          1
+        ],
+        "from": "0x9f1adfeb76f67c529269c4205064791f94c23a9f",
+        "to": "0xfffffffffffffffffffffffffffffffffffffffe",
+        "wei": "11944031876862"
+      }
+    ],
+    "recipient_ownership_verified": false
+  }
+}
