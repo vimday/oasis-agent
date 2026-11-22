@@ -389,13 +389,18 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 - 候选在 +1/+2/+5 个后续块的残余净额；回滚/失败成本。
 - 分布而非均值；包含失败、空块、RPC 降级和重组。
 
-### 6.5 判定
+### 6.5 判定与 Wave 33 A/B 实测结论
 
 - B vs A：p99 降低 ≥50%、召回不降、每块成本可接受 → 采用 B；若增量漏掉新池或 gas 变化，
   加全扫频率，不计入“B 的收益”。
 - C vs B：复核后召回 +10% 或 p99 −30%，成本 ≤1.5× → 进入下一阶段小规模 GPU 试点；否则
   记录为“GPU 不适合当前状态/管线”。
 - 任何阶段都不以“模拟 tx/s”作为通过标准。
+
+**Wave 33（假设 A 离线固定块快照 A/B 实测已通过）**：[incremental_scanner.py](../../src/oasis_agent/fastpath/incremental_scanner.py)（`IncrementalCycleScanner` + `run_multihop_ab_experiment`）与 [run_multihop_ab_experiment.py](../../scripts/run_multihop_ab_experiment.py) 已完成 Arm B 缓存 + 参数/拓扑/周期 checkpoint 全扫兜底，并通过 [test_incremental_cycle_scanner.py](../../tests/unit/test_incremental_cycle_scanner.py) 单元测试。在 34 池 6 代币 4 跳、120 个固定块快照（每块 1 变动池、`full_scan_every_n_blocks = 200`、`seed = 20261122`、`execution_eligible = false`、`release_permitted = false`）下运行 `--require-pass` 实测结果：
+
+- **召回与零误报逐位一致**：`exact_bit_for_bit_blocks = 120 / 120`、`recall = 1.0`、`missed_candidates_count = 0`、`missed_net_profit_raw = 0`、`false_positive_count = 0`（双臂均产出 `2,693` 条候选）；
+- **评估与延迟下降**：评估环路次数由 `224,160` 降至 `26,392`（**`-88.23%`**），块延迟由 Arm A（`mean = 62.59 ms`、`p50 = 61.25 ms`、`p95 = 82.48 ms`、`p99 = 85.56 ms`）降至 Arm B（`mean = 8.36 ms`、`p50 = 5.32 ms`、`p95 = 25.20 ms`、`p99 = 40.22 ms`），**`p99_reduction_ratio = 52.99% >= 50.0%`（`hypothesis_a_passed = true`）**。
 
 ### 6.6 不要做什么
 
@@ -415,10 +420,10 @@ C 的 GPU 只做筛选：用可证明的上界淘汰，边界候选保留；CPU 
 - 测量“状态到达 → 本地图更新 → 候选枚举 → 金额优化 → 精确报价 → 模拟”的分段 p50/p95/p99；
   以 200 ms、1 s、5 s 三个时限报告召回和残余净额。
 
-**P1：增量索引（热循环过滤已于 Wave 32 合入）。**
+**P1：增量索引（热循环过滤于 Wave 32 合入；状态扫描器与 A/B 夹具于 Wave 33 验收通过）。**
 
-- 已将 `changed_pools` 增量过滤下沉至 [graph_arb.rs](../../crates/oasis-core/src/graph_arb.rs) 的零分配 DFS 热循环并透传至 [ffi.rs](../../crates/oasis-core/src/ffi.rs) 与 [pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py)，只对触及变更池的环路执行上界预检与三分搜索；上层仍需结合“每 N 块全扫 + gas/fee/新池变动全扫 (`changed_pools=None`)”使用。
-- 用固定块快照做 A/B；先证明增量不漏候选，再谈性能。
+- 已将 `changed_pools` 增量过滤下沉至 [graph_arb.rs](../../crates/oasis-core/src/graph_arb.rs) 的零分配 DFS 热循环并透传至 [ffi.rs](../../crates/oasis-core/src/ffi.rs) 与 [pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py)，只对触及变更池的环路执行上界预检与三分搜索；
+- [incremental_scanner.py](../../src/oasis_agent/fastpath/incremental_scanner.py)（`IncrementalCycleScanner`）与 [run_multihop_ab_experiment.py](../../scripts/run_multihop_ab_experiment.py) 已实现未变候选缓存、每 N 块周期全扫及 gas/fee/参数/拓扑变动自动回退全扫，并在 34 池 120 块固定快照 A/B 测试中达到 `recall = 1.0`、`exact_bit_for_bit_blocks = 120 / 120`、`p99_reduction_ratio = 52.99% >= 50.0%`（`hypothesis_a_passed = true`）。
 
 **P2：长路径研究模式。**
 
@@ -504,4 +509,4 @@ net = F(x*) - x* - 0.20
 ---
 
 本文不改变 `execution_eligible = false`、`release_permitted = false` 或任何资本/风险参数。
-下一步的安全动作是：用固定块快照搭 A/B/C 夹具，先验证增量扫的正确性，再讨论 GPU。
+Wave 32–33 已完成 P0/P1 内核增强与 Arm A vs Arm B 固定块快照 100% 召回 + `p99` 下降验证；后续研究重点转向在真实 Base 逐块事件与流动性快照上量化各池实测变更率，再评估 `k=5/6` 研究模式或 GPU 候选试点。
