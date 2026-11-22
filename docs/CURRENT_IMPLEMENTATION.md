@@ -80,6 +80,7 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [多链长交易尾部与资金深度](verification/LONG_SWAP_TAIL_20261123.md)。Base 回执出现 35 条 Swap 和 2 个 V4 池，BSC 的 80 条样本由 20 个四次交换的调用组构成，另有 5 跳闭环及一跳利润兑换的资金证据。新增只读回放分别统计事件、池、调用分组与有凭证的资金路径。
 - [中小池闭环增量与整数金额认证](verification/MULTICHAIN_CLOSURE_SIZING_20261123.md)。在 retained Ethereum/BSC 快照中比较新池组成的回路，对最多 400 个不同池执行保守上界与精确整数寻优，明确未决区间。Robinhood 已有可持久化游标的离线影子提示回放，实时缺口回补和真值定价仍待在前瞻窗口完成。
 - [中小池扩样与百跳闭环](verification/MULTICHAIN_TAIL_DEPTH_20261123.md)。Ethereum 与 BSC 分别核验 798、568 个双边非零 V2 池，Robinhood 严格身份核验 214 池。BSC 在 100/101 个不同池上完成整数报价，手续费后毛差为负；Robinhood 找到 100/109 池的拓扑闭环，其长环有限金额和整笔价值仍待验证。100–400 跳的研究对照见核验记录。
 - [Ethereum、BSC 实时影子扫描与 Robinhood sequencer 接入](verification/MULTICHAIN_FORWARD_20261123.md)。Ethereum 的双 DEX 搜索发现四跳正毛差，十档资金均未覆盖基础 gas；BSC 20 个块的 12 池图均取得无正边际环证书，另有 3/30/102 串行跳的整笔余额复核。Robinhood 已解码 136 个连续有序消息并用官方 RPC 锚定两个块。目前是已结束的有界观测，稳定净利和持续运行可靠性待验证。
