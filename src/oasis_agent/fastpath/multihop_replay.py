@@ -252,8 +252,12 @@ class MultihopReplayCapture:
         digest = _write_new(self.directory / filename, canonical_json(snapshot) + b"\n")
         self.frames.append({"sha256": digest})
 
-    def validate_snapshot(self, block_number: int, block_hash: str) -> None:
-        self._validated_block(block_number, block_hash)
+    def validate_snapshot(
+        self, block_number: int, block_hash: str, *, parent_hash: str | None = None
+    ) -> None:
+        block = self._validated_block(block_number, block_hash)
+        if parent_hash is not None and block.parent_hash != parent_hash:
+            raise ValueError("used replay parent hash does not match the retained block")
 
     def _validated_block(self, block_number: int, block_hash: str) -> _ReplayBlock:
         block, _ = _snapshot_wire_header(self.last_calls)

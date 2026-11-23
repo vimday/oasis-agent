@@ -157,6 +157,8 @@ from oasis_agent.fastpath.pool_graph import (
     PoolNode,
     TickLiquidity,
 )
+from oasis_agent.fastpath.resident_graph import AnchorScan, GraphBlock
+from oasis_agent.fastpath.resident_shadow import ResidentShadowComparator
 from oasis_agent.models.common import (
     canonical_json,
     normalize_address,
@@ -2042,6 +2044,7 @@ def run_multicall_campaign(
     max_book_workers: int = 9,
     stop_gracefully_on_rpc_error: bool = False,
     record_multihop_replay: bool = False,
+    compare_resident_graph: bool = False,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -2062,6 +2065,8 @@ def run_multicall_campaign(
         raise ShadowRunnerError("stop_gracefully_on_rpc_error must be a boolean")
     if type(record_multihop_replay) is not bool:
         raise ShadowRunnerError("record_multihop_replay must be a boolean")
+    if type(compare_resident_graph) is not bool:
+        raise ShadowRunnerError("compare_resident_graph must be a boolean")
     normalized_allowed_products = _normalize_allowed_products(allowed_products)
     allowed_products_set = (
         frozenset(normalized_allowed_products) if normalized_allowed_products is not None else None
@@ -2119,7 +2124,7 @@ def run_multicall_campaign(
             mode="injected" if mode == "public-shadow" and rpc_transport is not None else mode,
             ticks_requested=ticks,
         )
-        if record_multihop_replay
+        if record_multihop_replay or compare_resident_graph
         else None
     )
 
@@ -2160,6 +2165,10 @@ def run_multicall_campaign(
     sleep_fn = time.sleep if sleeper is None else sleeper
     clock_fn = time.monotonic if clock is None else clock
     active_bridge = resolve_fastpath_bridge(bridge)
+    resident_comparator = (
+        ResidentShadowComparator(bridge=active_bridge) if compare_resident_graph else None
+    )
+    resident_failure: dict[str, Any] | None = None
 
     rpc_calls_used = 0
 
@@ -2396,7 +2405,13 @@ def run_multicall_campaign(
 
             if capture is not None:
                 snap = capture.record_attempt(active_rpc_transport, read)
-                capture.validate_snapshot(snap.block_number, snap.block_hash)
+                if compare_resident_graph and snap.parent_hash is None:
+                    raise ShadowRunnerError("resident comparison requires a pinned parent hash")
+                capture.validate_snapshot(
+                    snap.block_number,
+                    snap.block_hash,
+                    parent_hash=snap.parent_hash if compare_resident_graph else None,
+                )
                 return snap
             return read(active_rpc_transport)
 
@@ -2520,94 +2535,98 @@ def run_multicall_campaign(
                 scan_usdc_max = USDC_SCAN_MAX_RAW
 
             headroom_blocked = dynamic_sizing and not headroom.can_deploy
+            scan_inputs = (
+                ReplayAnchorInput(
+                    WETH_ADDR,
+                    WETH_SCAN_MIN_WEI if headroom_blocked else scan_weth_min,
+                    WETH_SCAN_MIN_WEI if headroom_blocked else scan_weth_max,
+                    1,
+                    l2_gas_cost_wei,
+                    snapshot.l1_data_fee_wei,
+                ),
+                ReplayAnchorInput(
+                    USDC_ADDR,
+                    USDC_SCAN_MIN_RAW if headroom_blocked else scan_usdc_min,
+                    USDC_SCAN_MIN_RAW if headroom_blocked else scan_usdc_max,
+                    1,
+                    l2_gas_usdc,
+                    l1_fee_usdc,
+                ),
+            )
+            legacy_scan_started_ns = time.monotonic_ns() if compare_resident_graph else None
+            weth_scan, usdc_scan = (
+                graph.scan_cycles(
+                    [anchor.base_token],
+                    max_hops=3,
+                    min_amount_in=anchor.min_amount_in,
+                    max_amount_in=anchor.max_amount_in,
+                    gas_cost_in_base=anchor.gas_cost_in_base,
+                    l1_fee_in_base=anchor.l1_fee_in_base,
+                    min_net_profit=anchor.min_net_profit,
+                    block_number=snapshot.block_number,
+                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+                )
+                for anchor in scan_inputs
+            )
+            resident_comparison = None
+            if resident_comparator is not None:
+                legacy_scan_finished_ns = time.monotonic_ns()
+                if capture is None or snapshot.parent_hash is None:
+                    raise ShadowRunnerError("resident comparison requires retained block identity")
+                block = GraphBlock(
+                    BASE_CHAIN_ID, snapshot.block_number, snapshot.block_hash, snapshot.parent_hash
+                )
+                try:
+                    comparison = resident_comparator.check(
+                        block,
+                        snapshot.nodes,
+                        tuple(AnchorScan(**asdict(anchor)) for anchor in scan_inputs),
+                        (weth_scan, usdc_scan),
+                    )
+                except FastpathCallError as exc:
+                    stop_reason = f"resident graph comparison failed: {exc}"
+                    failure = {
+                        "schema": "oasis.resident-shadow-failure.v1",
+                        "execution_eligible": False,
+                        "block": block.to_wire(),
+                        "rpc_origin": origin,
+                        "rpc_attempt": len(capture.attempts),
+                        "rpc_evidence": capture.attempts[-1],
+                        "legacy_scan_started_monotonic_ns": legacy_scan_started_ns,
+                        "legacy_scan_finished_monotonic_ns": legacy_scan_finished_ns,
+                        "comparison_failed_monotonic_ns": time.monotonic_ns(),
+                        "reason": stop_reason,
+                    }
+                    failure_bytes = canonical_json(failure) + b"\n"
+                    failure_path = "resident_graph_failure.json"
+                    _write_new_bytes(out_dir / failure_path, failure_bytes)
+                    resident_failure = {"path": failure_path, "sha256": sha256_hex(failure_bytes)}
+                    if not records:
+                        raise ShadowRunnerError(stop_reason) from exc
+                    stopped_early = True
+                    break
+                resident_comparison = {
+                    **asdict(comparison),
+                    "legacy_scan_started_monotonic_ns": legacy_scan_started_ns,
+                    "legacy_scan_finished_monotonic_ns": legacy_scan_finished_ns,
+                    "comparison_finished_monotonic_ns": time.monotonic_ns(),
+                }
             if capture is not None:
-                captured_weth_min, captured_weth_max = (
-                    (WETH_SCAN_MIN_WEI, WETH_SCAN_MIN_WEI)
-                    if headroom_blocked
-                    else (scan_weth_min, scan_weth_max)
-                )
-                captured_usdc_min, captured_usdc_max = (
-                    (USDC_SCAN_MIN_RAW, USDC_SCAN_MIN_RAW)
-                    if headroom_blocked
-                    else (scan_usdc_min, scan_usdc_max)
-                )
                 capture.save_snapshot(
                     block_number=snapshot.block_number,
                     block_hash=snapshot.block_hash,
                     pools=snapshot.nodes,
-                    anchors=(
-                        ReplayAnchorInput(
-                            WETH_ADDR,
-                            captured_weth_min,
-                            captured_weth_max,
-                            1,
-                            l2_gas_cost_wei,
-                            snapshot.l1_data_fee_wei,
-                        ),
-                        ReplayAnchorInput(
-                            USDC_ADDR,
-                            captured_usdc_min,
-                            captured_usdc_max,
-                            1,
-                            l2_gas_usdc,
-                            l1_fee_usdc,
-                        ),
-                    ),
+                    anchors=scan_inputs,
                     gas_limit_units=gas_limit_units,
                     priority_fee_wei=priority_fee_wei,
                     eth_price_micro_usdc=eth_price_micro_usdc,
                     headroom_blocked=headroom_blocked,
                 )
-            if headroom_blocked:
-                weth_scan = graph.scan_cycles(
-                    [WETH_ADDR],
-                    max_hops=3,
-                    min_amount_in=WETH_SCAN_MIN_WEI,
-                    max_amount_in=WETH_SCAN_MIN_WEI,
-                    gas_cost_in_base=l2_gas_cost_wei,
-                    l1_fee_in_base=snapshot.l1_data_fee_wei,
-                    min_net_profit=1,
-                    block_number=snapshot.block_number,
-                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
-                )
-                usdc_scan = graph.scan_cycles(
-                    [USDC_ADDR],
-                    max_hops=3,
-                    min_amount_in=USDC_SCAN_MIN_RAW,
-                    max_amount_in=USDC_SCAN_MIN_RAW,
-                    gas_cost_in_base=l2_gas_usdc,
-                    l1_fee_in_base=l1_fee_usdc,
-                    min_net_profit=1,
-                    block_number=snapshot.block_number,
-                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
-                )
-                rust_raw_candidates = []
-            else:
-                weth_scan = graph.scan_cycles(
-                    [WETH_ADDR],
-                    max_hops=3,
-                    min_amount_in=scan_weth_min,
-                    max_amount_in=scan_weth_max,
-                    gas_cost_in_base=l2_gas_cost_wei,
-                    l1_fee_in_base=snapshot.l1_data_fee_wei,
-                    min_net_profit=1,
-                    block_number=snapshot.block_number,
-                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
-                )
-                usdc_scan = graph.scan_cycles(
-                    [USDC_ADDR],
-                    max_hops=3,
-                    min_amount_in=scan_usdc_min,
-                    max_amount_in=scan_usdc_max,
-                    gas_cost_in_base=l2_gas_usdc,
-                    l1_fee_in_base=l1_fee_usdc,
-                    min_net_profit=1,
-                    block_number=snapshot.block_number,
-                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
-                )
-                rust_raw_candidates = [
-                    c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0
-                ]
+            rust_raw_candidates = (
+                []
+                if headroom_blocked
+                else [c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0]
+            )
             rust_raw_candidates.sort(
                 key=lambda candidate: Fraction(candidate.net_profit, candidate.optimal_amount_in),
                 reverse=True,
@@ -3254,6 +3273,8 @@ def run_multicall_campaign(
                     "discovery_finished_monotonic_ns": discovered_ns,
                     "previous_block_reprice": None,
                 }
+                if resident_comparison is not None:
+                    lifecycle["resident_graph_comparison"] = resident_comparison
                 if prior_cycle_frame is None or (
                     prior_cycle_frame.block_number != snapshot.block_number
                 ):
@@ -3345,6 +3366,9 @@ def run_multicall_campaign(
             prev_block_number = snapshot.block_number
             prev_block_hash = snapshot.block_hash
     finally:
+        if resident_comparator is not None:
+            with suppress(FastpathCallError):
+                resident_comparator.close()
         if jsonl_handle is not None:
             jsonl_handle.close()
         if book_executor is not None:
@@ -3512,6 +3536,18 @@ def run_multicall_campaign(
         "maker_hedge_summary": maker_summary,
         "oos_execution_summary": oos_execution_summary,
     }
+    if compare_resident_graph:
+        summary_body["resident_graph_comparison"] = {
+            "status": (
+                "comparison_failed"
+                if resident_failure is not None
+                else "incomplete"
+                if stopped_early
+                else "matched"
+            ),
+            "matched_ticks": ticks_completed,
+            "failure": resident_failure,
+        }
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
     _write_new_bytes(
@@ -3702,6 +3738,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Record hash-pinned pool inputs and raw RPC bytes for the offline multi-hop A/B CLI.",
     )
     parser.add_argument(
+        "--compare-resident-graph",
+        action="store_true",
+        help="Compare resident Rust reports on retained inputs before quoting candidates.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         required=True,
@@ -3742,6 +3783,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             max_book_workers=args.max_book_workers,
             stop_gracefully_on_rpc_error=args.stop_gracefully_on_rpc_error,
             record_multihop_replay=args.record_multihop_replay,
+            compare_resident_graph=args.compare_resident_graph,
         )
     except (
         OSError,
@@ -3786,12 +3828,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "coinbase_trade_flow_summary": result.summary["coinbase_trade_flow_summary"],
                 "maker_hedge_summary": result.summary["maker_hedge_summary"],
                 "oos_execution_summary": result.summary["oos_execution_summary"],
+                **(
+                    {"resident_graph_comparison": result.summary["resident_graph_comparison"]}
+                    if args.compare_resident_graph
+                    else {}
+                ),
                 "summary_sha256": result.summary["summary_sha256"],
             },
             sort_keys=True,
         )
     )
-    return 0
+    comparison = result.summary.get("resident_graph_comparison")
+    return 2 if comparison is not None and comparison["status"] == "comparison_failed" else 0
 
 
 __all__ = [

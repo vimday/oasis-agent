@@ -29,6 +29,7 @@ from oasis_agent.fastpath import (
     CycleCandidate,
     CycleHop,
     FastpathBridge,
+    FastpathCallError,
     FastpathPoolGraph,
     FastpathUnavailableError,
     PoolKind,
@@ -885,6 +886,83 @@ def test_campaign_replay_rejects_preserved_reorg_prefix(
     assert json.loads(manifest.read_bytes())["canonical_conflict"] is True
     assert ab_cli.main(["--snapshot-manifest", str(manifest)]) == 2
     assert "canonical conflict" in capsys.readouterr().err
+
+
+def test_campaign_resident_comparison_retains_stage_clocks_and_raw_state(
+    tmp_path: Path, bridge: FastpathBridge
+) -> None:
+    out = tmp_path / "resident"
+    result = campaign.run_multicall_campaign(
+        out_dir=out,
+        mode="fixture",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=12,
+        bridge=bridge,
+        compare_resident_graph=True,
+    )
+    assert result.summary["resident_graph_comparison"] == {
+        "status": "matched",
+        "matched_ticks": 2,
+        "failure": None,
+    }
+    for row, transition in zip(result.records, ("opened", "replaced_gap"), strict=True):
+        lifecycle = row["shadow_cycle_lifecycle"]
+        side = lifecycle["resident_graph_comparison"]
+        assert side["transition"] == transition
+        assert side["block"]["block_hash"] == row["block_hash"]
+        assert lifecycle["state_ready_monotonic_ns"] <= side["legacy_scan_started_monotonic_ns"]
+        assert side["legacy_scan_started_monotonic_ns"] <= side["legacy_scan_finished_monotonic_ns"]
+        assert (
+            side["comparison_finished_monotonic_ns"] <= lifecycle["discovery_finished_monotonic_ns"]
+        )
+    manifest = out / "multihop_replay" / "manifest.json"
+    replay = load_multihop_replay(
+        manifest,
+        base_token=campaign.WETH_ADDR,
+        decode_snapshot=campaign.decode_retained_multihop_snapshot,
+    )
+    assert len(replay.snapshots) == 2
+
+
+def test_campaign_resident_mismatch_stops_and_retains_verified_prefix(
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    check = campaign.ResidentShadowComparator.check
+    calls = 0
+
+    def fail_second(self, *args):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise FastpathCallError("injected anchor mismatch")
+        return check(self, *args)
+
+    monkeypatch.setattr(campaign.ResidentShadowComparator, "check", fail_second)
+    out = tmp_path / "resident-failure"
+    result = campaign.run_multicall_campaign(
+        out_dir=out,
+        mode="fixture",
+        ticks=2,
+        interval_ms=0,
+        max_rpc_calls=12,
+        bridge=bridge,
+        compare_resident_graph=True,
+    )
+    summary = result.summary["resident_graph_comparison"]
+    assert result.summary["stopped_early"]
+    assert summary["status"] == "comparison_failed"
+    assert summary["matched_ticks"] == len(result.records) == 1
+    failure = (out / summary["failure"]["path"]).read_bytes()
+    assert sha256_hex(failure) == summary["failure"]["sha256"]
+    evidence = json.loads(failure)
+    assert "anchor mismatch" in evidence["reason"]
+    manifest = out / "multihop_replay" / "manifest.json"
+    retained = json.loads(manifest.read_bytes())
+    assert retained["stopped_early"] is True
+    assert len(retained["snapshots"]) == 1
+    assert evidence["rpc_attempt"] == len(retained["attempts"])
+    assert evidence["rpc_evidence"] == retained["attempts"][-1]
 
 
 def test_anti_hallucination_cl_bracket_caps_virtual_deliverables_at_80_pct(
