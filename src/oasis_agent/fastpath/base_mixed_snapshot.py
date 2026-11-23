@@ -5,6 +5,7 @@ import os
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from threading import Event, Lock
@@ -54,7 +55,8 @@ OFFICIAL = "base_official"
 OFFICIAL_URL = "https://mainnet.base.org"
 SOURCES = {PUBLICNODE: DEFAULT_BASE_RPC_URL, OFFICIAL: OFFICIAL_URL}
 SCHEMA_V1 = "oasis.base-mixed-shadow.v1"
-SCHEMA = "oasis.base-mixed-shadow.v2"
+SCHEMA_V2 = "oasis.base-mixed-shadow.v2"
+SCHEMA = "oasis.base-mixed-shadow.v3"
 DIRECTORY = "mixed_base_state"
 CHAIN_ID = 8453
 ADDRESS_POOLS = 58
@@ -266,6 +268,8 @@ def _decode_v4(
     raw: bytes,
     calls: Sequence[Call],
     block: BlockBinding,
+    *,
+    bitmap_aware: bool,
 ) -> tuple[tuple[PoolNode, ...], dict[str, tuple[int, int]], int, int]:
     results = _decode_aggregate3_results(_decode_hex_bytes(_result(raw, 2), "V4"), len(calls))
     if any(not success and not call[1] for call, (success, _) in zip(calls, results, strict=True)):
@@ -366,6 +370,7 @@ def _decode_v4(
                 tick=tick,
                 liquidity=active,
                 ticks=(TickLiquidity(lower, active), TickLiquidity(upper, -active)),
+                v4_tick_spacing=spacing if bitmap_aware else None,
             )
         )
     return tuple(pools), bounds, cast(int, scalar), cast(int, constant)
@@ -376,37 +381,43 @@ def _acquire(
     specs: tuple[DiscoveredPool, ...],
     exchange: _Exchange,
     *,
+    bitmap_aware: bool,
     workers: ThreadPoolExecutor | None = None,
+    stop_on_failure: Event | None = None,
 ) -> MixedState:
     primary_request = _request("eth_getBlockByNumber", [tag, False])
     primary_raw = exchange("primary_header", primary_request)
     block = _header(primary_raw)
     if tag != "latest" and rpc_quantity(tag) != block.number:
         raise ValueError("mixed Base primary did not return the requested height")
-    official = _header(
-        exchange(
-            "secondary_header",
-            _request(
-                "eth_getBlockByNumber",
-                [hex(block.number), False],
-            ),
+
+    def official_state() -> tuple[tuple[PoolNode, ...], dict[str, tuple[int, int]], int, int]:
+        official = _header(
+            exchange(
+                "secondary_header",
+                _request(
+                    "eth_getBlockByNumber",
+                    [hex(block.number), False],
+                ),
+            )
         )
-    )
-    if official != block:
-        raise ValueError("mixed Base providers disagree on pinned header")
-    pin = {"blockHash": block.block_hash, "requireCanonical": True}
-    code = _decode_hex_bytes(
-        _result(exchange("manager_code", _request("eth_getCode", [MANAGER, pin]))),
-        "Base V4 PoolManager runtime",
-    )
-    if f"0x{keccak(code).hex()}" != MANAGER_RUNTIME:
-        raise ValueError("Base V4 PoolManager runtime changed")
-    calls = _v4_calls()
-    v4_request = _request(
-        "eth_call",
-        [{"to": MULTICALL3, "data": _encode_aggregate3_calldata(calls)}, pin],
-        req_id=2,
-    )
+        if official != block:
+            raise ValueError("mixed Base providers disagree on pinned header")
+        pin = {"blockHash": block.block_hash, "requireCanonical": True}
+        code = _decode_hex_bytes(
+            _result(exchange("manager_code", _request("eth_getCode", [MANAGER, pin]))),
+            "Base V4 PoolManager runtime",
+        )
+        if f"0x{keccak(code).hex()}" != MANAGER_RUNTIME:
+            raise ValueError("Base V4 PoolManager runtime changed")
+        calls = _v4_calls()
+        v4_request = _request(
+            "eth_call",
+            [{"to": MULTICALL3, "data": _encode_aggregate3_calldata(calls)}, pin],
+            req_id=2,
+        )
+
+        return _decode_v4(exchange("v4_state", v4_request), calls, block, bitmap_aware=bitmap_aware)
 
     def address_transport(_url: str, request: bytes, _timeout: float) -> bytes:
         if request == primary_request:
@@ -423,19 +434,24 @@ def _acquire(
         )
 
     if workers is None:
+        v4_pools, bounds, scalar, constant = official_state()
         address_state = address()
-        v4_raw = exchange("v4_state", v4_request)
     else:
         address_job = workers.submit(address)
-        v4_job = workers.submit(exchange, "v4_state", v4_request)
-        # Retain both outcomes. A later failure cannot replace the first observed one.
+        official_job = workers.submit(official_state)
+        # Both branches are retained and drained even if one has failed.
         failure: BaseException | None = None
-        for job in as_completed((address_job, v4_job)):
-            failure = failure or job.exception()
+        for job in as_completed((address_job, official_job)):
+            error = job.exception()
+            if error is not None:
+                if stop_on_failure is not None:
+                    stop_on_failure.set()
+                if failure is None or isinstance(failure, _ScopeStopped):
+                    failure = error
         if failure is not None:
             raise failure
-        address_state, v4_raw = address_job.result(), v4_job.result()
-    v4_pools, bounds, scalar, constant = _decode_v4(v4_raw, calls, block)
+        address_state = address_job.result()
+        v4_pools, bounds, scalar, constant = official_job.result()
     if (
         address_state.block_hash != block.block_hash
         or address_state.parent_hash != block.parent_hash
@@ -458,14 +474,32 @@ def _write(path: Path, raw: bytes) -> str:
     return sha256_hex(raw)
 
 
+class _ScopeStopped(RpcError):
+    """A pending read was refused after an independent lane stopped."""
+
+
 class _Poster:
-    def __init__(self, source: str, send: Send, timeout: float, stopped: Event) -> None:
+    def __init__(
+        self,
+        source: str,
+        send: Send,
+        timeout: float,
+        stopped: Event,
+        exchange: dict[str, object] | None,
+    ) -> None:
         self.source, self.send, self.timeout, self.stopped = source, send, timeout, stopped
+        self.exchange = exchange
 
     def post(self, req: bytes) -> bytes:
         if self.stopped.is_set():
-            raise RpcError("mixed Base scope stopped after a failed RPC")
-        return self.send(SOURCES[self.source], req, self.timeout)
+            raise _ScopeStopped("mixed Base scope stopped after a failed RPC")
+        if self.exchange is not None:
+            self.exchange["transport_started_monotonic_ns"] = time.monotonic_ns()
+        try:
+            return self.send(SOURCES[self.source], req, self.timeout)
+        finally:
+            if self.exchange is not None:
+                self.exchange["transport_finished_monotonic_ns"] = time.monotonic_ns()
 
 
 class MixedCanonicalConflict(RpcError):
@@ -506,6 +540,9 @@ class MixedBaseCapture:
         self.attempts = 0
         self.stopped = Event()
         self._stop_lock = Lock()
+        self._current_exchange: ContextVar[dict[str, object] | None] = ContextVar(
+            "mixed_base_exchange", default=None
+        )
         self.stop_reason: str | None = None
         self._last_state: tuple[BlockBinding, str] | None = None
 
@@ -546,11 +583,11 @@ class MixedBaseCapture:
             if url != SOURCES[source]:
                 raise ValueError("mixed Base RPC origin mismatch")
             if self.stopped.is_set():
-                raise RpcError("mixed Base scope stopped after a failed RPC")
+                raise _ScopeStopped("mixed Base scope stopped after a failed RPC")
             raw: bytes | None = None
             try:
                 raw = BudgetedPoster(
-                    _Poster(source, send, timeout, self.stopped),
+                    _Poster(source, send, timeout, self.stopped, self._current_exchange.get()),
                     self.ledger,
                     self.policies,
                     source,
@@ -576,6 +613,8 @@ class MixedBaseCapture:
                             source, request, raw, f"json_rpc_error_{code}", http_status=200
                         )
                 return raw
+            except _ScopeStopped:
+                raise
             except MixedRpcHttpError as exc:
                 self._stop_rpc(
                     source, request, exc.body, f"http_{exc.status}", http_status=exc.status
@@ -603,6 +642,7 @@ class MixedBaseCapture:
         scope = self.directory / f"attempt-{self.attempts:08d}"
         scope.mkdir()
         records: dict[str, dict[str, object]] = {}
+        started_ns = time.monotonic_ns()
         content: dict[str, object] = {
             "schema": SCHEMA,
             "execution_eligible": False,
@@ -612,7 +652,7 @@ class MixedBaseCapture:
             "block_tag": tag,
             "budget_policies": [asdict(policy) for policy in self.policies],
             "budget_before": self.counts(),
-            "start_monotonic_ns": time.monotonic_ns(),
+            "start_monotonic_ns": started_ns,
             "roles": records,
         }
 
@@ -626,6 +666,7 @@ class MixedBaseCapture:
             }
             records[role] = item
             send = primary if source == PUBLICNODE else official
+            current = self._current_exchange.set(item)
             try:
                 reply = send(SOURCES[source], request, timeout)
             except MixedRpcHttpError as exc:
@@ -638,6 +679,8 @@ class MixedBaseCapture:
             except (OasisError, OSError, KeyError, ValueError, TypeError) as exc:
                 item["error_type"] = type(exc).__name__
                 raise
+            finally:
+                self._current_exchange.reset(current)
             item["received_monotonic_ns"] = time.monotonic_ns()
             item["received_unix_ns"] = time.time_ns()
             item["response_sha256"] = _write(scope / f"{role}.response.json", reply)
@@ -645,7 +688,14 @@ class MixedBaseCapture:
 
         manifest_path = scope / "manifest.json"
         try:
-            state = _acquire(tag, self.specs, exchange, workers=workers)
+            state = _acquire(
+                tag,
+                self.specs,
+                exchange,
+                bitmap_aware=True,
+                workers=workers,
+                stop_on_failure=self.stopped,
+            )
             state_bytes = canonical_json(state.evidence())
             digest = sha256_hex(state_bytes)
             if self._last_state is not None:
@@ -666,6 +716,8 @@ class MixedBaseCapture:
                     raise ValueError(
                         "mixed Base repeated or regressed state disagrees with prior pin"
                     )
+            ready_ns = time.monotonic_ns()
+            overlap = _check_timing(records, started_ns, ready_ns, speculative=True)
         except (OSError, ValueError, OasisError, RuntimeError, TypeError) as exc:
             self.stopped.set()
             content.update(
@@ -678,9 +730,11 @@ class MixedBaseCapture:
                 }
             _write(manifest_path, canonical_json(content) + b"\n")
             raise
-        ready_ns = time.monotonic_ns()
         content.update(
-            status="complete", state_ready_monotonic_ns=ready_ns, budget_after=self.counts()
+            status="complete",
+            state_ready_monotonic_ns=ready_ns,
+            primary_address_official_transport_overlap_ns=overlap,
+            budget_after=self.counts(),
         )
         content["state_sha256"] = _write(scope / "state.json", state_bytes)
         self._last_state = state.block, digest
@@ -725,6 +779,47 @@ def _check_replay_budget(scope: Path, body: dict[str, object]) -> None:
             raise ValueError("mixed Base attempt disagrees with original source ledger")
 
 
+def _check_timing(
+    rows: dict[str, dict[str, object]],
+    start: int,
+    ready: int,
+    *,
+    speculative: bool,
+) -> dict[str, int]:
+    timings = {}
+    transport = {}
+    for role, row in rows.items():
+        release = strict_integer(row.get("release_monotonic_ns"), "request release")
+        received = strict_integer(row.get("received_monotonic_ns"), "response received")
+        utc = strict_integer(row.get("received_unix_ns"), "response Unix time")
+        if not 0 < start <= release <= received <= ready or utc <= 0:
+            raise ValueError("mixed Base request timing is inconsistent")
+        timings[role] = release, received
+        if speculative:
+            sent = strict_integer(row.get("transport_started_monotonic_ns"), "transport start")
+            done = strict_integer(row.get("transport_finished_monotonic_ns"), "transport finish")
+            if not release <= sent <= done <= received:
+                raise ValueError("mixed Base transport timing is inconsistent")
+            transport[role] = sent, done
+
+    address_gate = "primary_header" if speculative else "manager_code"
+    if (
+        timings["primary_header"][1] > timings["secondary_header"][0]
+        or timings["secondary_header"][1] > timings["manager_code"][0]
+        or timings["manager_code"][1] > timings["v4_state"][0]
+        or timings[address_gate][1] > timings["address_state"][0]
+    ):
+        raise ValueError("mixed Base state request precedes its required pin")
+
+    if not speculative:
+        return {}
+    address_start, address_end = transport["address_state"]
+    return {
+        role: max(0, min(address_end, transport[role][1]) - max(address_start, transport[role][0]))
+        for role in ("secondary_header", "manager_code", "v4_state")
+    }
+
+
 def replay_mixed_snapshot(manifest: Path) -> MixedState:
     if (
         manifest.is_symlink()
@@ -734,7 +829,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         raise ValueError("missing or unbounded mixed Base manifest")
     body = strict_json_object(manifest.read_bytes())
     if (
-        body.get("schema") not in (SCHEMA_V1, SCHEMA)
+        body.get("schema") not in (SCHEMA_V1, SCHEMA_V2, SCHEMA)
         or body.get("status") != "complete"
         or body.get("execution_eligible") is not False
         or body.get("capture_mode") not in ("injected", "public-shadow")
@@ -743,8 +838,8 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
     strict_digest(body.get("roster_parent_sha256"), "frozen address manifest digest")
     start = strict_integer(body.get("start_monotonic_ns"), "mixed capture start")
     ready = strict_integer(body.get("state_ready_monotonic_ns"), "mixed state ready")
-    rows = strict_object(body.get("roles"), "mixed Base exchanges")
-    if rows.keys() != _ROLES.keys():
+    roles = strict_object(body.get("roles"), "mixed Base exchanges")
+    if roles.keys() != _ROLES.keys():
         raise ValueError("mixed Base missing required exchange")
     specs_raw = body.get("address_roster")
     tag = body.get("block_tag")
@@ -752,33 +847,32 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         raise ValueError("invalid mixed Base roster or block tag")
     specs = address_roster(specs_raw)
     scope = manifest.parent
-    if body["schema"] == SCHEMA:
+    if body["schema"] != SCHEMA_V1:
         _check_replay_budget(scope, body)
-    timings = {}
+    rows = {role: strict_object(row, "mixed Base exchange") for role, row in roles.items()}
+    speculative = body["schema"] == SCHEMA
+    overlap = _check_timing(rows, start, ready, speculative=speculative)
+    if speculative:
+        recorded = strict_object(
+            body.get("primary_address_official_transport_overlap_ns"), "transport overlap"
+        )
+        if overlap.keys() != recorded.keys() or any(
+            amount != strict_integer(recorded[role], "transport overlap duration")
+            for role, amount in overlap.items()
+        ):
+            raise ValueError("mixed Base transport overlap differs on replay")
 
     def exchange(role: str, request: bytes) -> bytes:
-        row = strict_object(rows[role], "mixed Base exchange")
+        row = rows[role]
         if (
             row.get("source") != _ROLES[role]
             or row.get("url") != SOURCES[_ROLES[role]]
             or _read(scope / f"{role}.request.json", row.get("request_sha256")) != request
         ):
             raise ValueError("retained mixed Base request or source differs")
-        release = strict_integer(row.get("release_monotonic_ns"), "request release")
-        received = strict_integer(row.get("received_monotonic_ns"), "response received")
-        utc = strict_integer(row.get("received_unix_ns"), "response Unix time")
-        if not 0 < start <= release <= received <= ready or utc <= 0:
-            raise ValueError("mixed Base request timing is inconsistent")
-        timings[role] = (release, received)
         return _read(scope / f"{role}.response.json", row.get("response_sha256"))
 
-    state = _acquire(tag, specs, exchange)
-    if (
-        timings["primary_header"][1] > timings["secondary_header"][0]
-        or timings["secondary_header"][1] > timings["manager_code"][0]
-        or timings["manager_code"][1] > min(timings["address_state"][0], timings["v4_state"][0])
-    ):
-        raise ValueError("mixed Base state began before the agreed pin and manager identity")
+    state = _acquire(tag, specs, exchange, bitmap_aware=speculative)
     if _read(scope / "state.json", body.get("state_sha256")) != canonical_json(state.evidence()):
         raise ValueError("retained mixed Base decoded state differs")
     return state

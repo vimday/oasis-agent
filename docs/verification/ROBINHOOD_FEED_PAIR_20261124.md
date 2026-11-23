@@ -72,3 +72,40 @@ PYTHONPATH=. .venv/bin/python "$evidence/gap_control.py" | cmp - "$evidence/gap_
 
 `pair.json` SHA-256 为 `0a2a35177d39179336db0082de2d176cb19226fb0a15d2c0677ddb4ea999d190`，
 `anchors.json` 为 `4ab0ec1a42bf6aa9c25c80d6be877df2654e48a99bdda5b56c814ffe4a7103c8`。
+
+## 区块 121,533,644 的两腿结算复核
+
+后续独立范围在北京时间 00:44:45 发出一次匿名 Triport `callTracer` 查询，返回 HTTP 200。
+原账本 **1/1**，费用 USD 0。交易索引 **14**，承接前文两个区块、45 份收据的独立块头锚，
+该块的 22 份收据已重建收据根。追踪的 **28 帧**完整匹配目标收据的 **6 条日志**
+及外层发件人、目标和 gas 用量。[Triport 匿名入口](https://triport.io/docs/robinhood/public) ·
+[交易记录](https://robinhoodchain.blockscout.com/tx/0x444f619d4ca6d77064af82dde7d7bffa09e628e598835825506086e9bfd62bf1)
+
+两个 `PoolKey` 直接从调用原文解码，重算 `PoolId` 与 Swap 事件一致。表中 delta 按
+`currency0/currency1` 顺序列出，正数表示路由器收到的资产，负数表示其应付资产。两腿
+事件与 `swap()` 的 `BalanceDelta` 返回均逐整数相同，两个 key 的 hook 地址均为零。
+[Uniswap v4 PoolManager](https://github.com/Uniswap/v4-core/blob/main/src/PoolManager.sol)
+
+| Swap 日志与池 | 货币 0 / 货币 1 | Key 费率（pips）/ tick 间距 / 事件费率（pips） | 实际 delta |
+| --- | --- | --- | --- |
+| 23 / `0x84939824…c82d305` | `0x117cc213…3b4c0c` / `0xd5f38791…88de68` | 200 / 2 / 252 | +39,476,819,164,457,339 / −43,901,365,420,935,007 |
+| 24 / `0xe1ae6a4c…ce53288` | `0x117cc213…3b4c0c` / `0x5fc5360d…f1d168` | 100 / 1 / 125 | −39,476,819,164,457,339 / +28,606,416 |
+
+资金方向是 **`0xd5f3…de68` → `0x117cc2133c37b721f49de2a7a74833232b3b4c0c`
+→ `0x5fc5…d168`**。两腿在同一 `unlock` 内改变同一路由器的 PoolManager
+货币 delta。中间币的两笔等额 delta 抵消，只有首尾资产通过 ERC-20 转账。对首尾两个
+资产的临时存储读取、`sync`、`settle`、`take` 和实际付款、收款逐一吻合。
+这是一次两跳跨资产兑换，无闭环收益。实际 gas 为 **251,822 × 22,316,000 =
+5,619,659,752,000 ETH wei**，与 Nitro 费用扣款、退款和费用分配对账。可见调用树
+原生币另付为零。[Uniswap v4 货币 delta](https://github.com/Uniswap/v4-core/blob/main/src/libraries/CurrencyDelta.sol)
+
+原始结果保存在前文忽略目录的 `trace-121533644/`。先按前文重算两个收据根，再离线复跑追踪。
+
+```sh
+set -o pipefail
+trace=reports/research/robinhood-feed-pair-20261124/trace-121533644
+.venv/bin/python "$trace/replay.py" | cmp - "$trace/verified.json"
+```
+
+`response.json` SHA-256 为 `812e5225017d8c4ab2e783f966605df28af6f7f3e54f627ee111f0a538c2faeb`，
+`verified.json` 为 `556a08d5b096c358825dc1aa49fbbbbcec12e109c7638728f9edc383f26eef16`。

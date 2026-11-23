@@ -30,6 +30,7 @@ const GRAPH_SESSION_CAPABILITIES: &[&str] = &[
     "atomic_successor_updates",
     "batched_anchor_scan",
     "shadow_only",
+    "v4_bitmap_steps",
 ];
 
 static GRAPH_SESSION_BUILD_ID: LazyLock<String> = LazyLock::new(|| {

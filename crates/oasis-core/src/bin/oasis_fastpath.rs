@@ -50,6 +50,7 @@ fn build_benchmark_graph() -> anyhow::Result<(PoolGraph, String)> {
             },
         ],
         block_number: 20_000_000,
+        v4_tick_spacing: None,
         timestamp_ms: 1_760_000_000_000,
     })?;
 
@@ -70,6 +71,7 @@ fn build_benchmark_graph() -> anyhow::Result<(PoolGraph, String)> {
         liquidity: None,
         ticks: vec![],
         block_number: 20_000_000,
+        v4_tick_spacing: None,
         timestamp_ms: 1_760_000_000_000,
     })?;
 
@@ -91,6 +93,7 @@ fn build_benchmark_graph() -> anyhow::Result<(PoolGraph, String)> {
         liquidity: Some(20_000_000_000_000_000),
         ticks: vec![],
         block_number: 20_000_000,
+        v4_tick_spacing: None,
         timestamp_ms: 1_760_000_000_000,
     })?;
 
@@ -111,6 +114,7 @@ fn build_benchmark_graph() -> anyhow::Result<(PoolGraph, String)> {
         liquidity: None,
         ticks: vec![],
         block_number: 20_000_000,
+        v4_tick_spacing: None,
         timestamp_ms: 1_760_000_000_000,
     })?;
 

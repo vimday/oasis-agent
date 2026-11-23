@@ -80,6 +80,8 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [Base 盈利筛选和热路径](verification/MULTIHOP_PROFIT_PIPELINE_20261124.md)。官方头和运行码验证期间先发固定哈希地址池读，完整一致后发布。三个真实样本重叠 220–445 ms，状态就绪 0.94–2.04 秒。V4 跨 bitmap 字的同哈希双源真实报价与新模型逐整数一致，旧模型高报 3 个 USDbC 最小单位。本轮零模型正候选。
+- [Ethereum 十池与长路径分析](verification/ETH_LONG_SERIAL_EVIDENCE_20261124.md) · [BSC 有序批次边际成本](verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md) · [Robinhood 两腿结算](verification/ROBINHOOD_FEED_PAIR_20261124.md)。Ethereum 十池样本最长四跳，实际 gas 后仅余 3.22% 毛差。BSC 35 条闭环分别归因路径 gas 和整笔公共费用，新增一笔闭合资金 4+3 跳样本，原生币额外流出未知。Robinhood 两个无 hook V4 池的中间资产在同次 unlock 精确抵消，首尾为不同资产。
 - [Base 58+8 池常规影子](verification/BASE_MIXED_FORWARD_CLI_20261124.md) · [Robinhood 双 feed](verification/ROBINHOOD_FEED_PAIR_20261124.md)。Base 双源固定哈希入口完成三个完整混池状态，4/58/66 池扣模型成本后均无正候选。状态就绪 1.93–2.26 秒，采样间跳过 26 个高度。Robinhood 主、备用配对 132 个同哈希块，备用到达中位晚 505 ms，另有两个块的独立区块与收据根复核。
 - [BSC 60/80 条 Swap 批次完整对账](verification/BSC_BATCHED_CLOSURES_20261124.md) · [Ethereum 执行器两周跟进](verification/ETH_BATCH_COHORT_FOLLOWUP_20261124.md)。BSC 新核实 35 个四跳闭环，两笔扣 gas 和直接付款后保留约 5% 毛差。Ethereum 本轮新增 29 个两至三跳闭环，固定 11 笔已落块调用均已对账，计三笔失败及直接付款后剩约 0.000842 ETH 等值和单列的 DAI 余额。
 - [Base 并行状态 A/B](verification/BASE_STATE_DELIVERY_AB_20261123.md) · [含费截止时间](verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md) · [多链盈亏线与时点](verification/MULTIHOP_EXECUTABLE_EDGE_20261123.md)。固定哈希下的 66 池状态交付中位从 725.7 ms 降至 445.5 ms。Base 新事件影子的固定路线 4/4 在 750 ms 内完成含费模型，四例均负。Ethereum 两笔已落块批次付完可见成本后保留 9.77% 和 11.67% 毛差；BSC 精确交易前有毛差、同块末已转负。

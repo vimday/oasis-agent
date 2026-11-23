@@ -69,6 +69,30 @@ def test_bridge_missing_library_raises_unavailable(
         FastpathBridge()
 
 
+def test_bitmap_pool_requires_native_support(bridge: FastpathBridge, monkeypatch) -> None:
+    pool = PoolNode(
+        chain_id=8453,
+        pool_id="0x" + "12" * 32,
+        kind=PoolKind.V4,
+        token0=_addr("aa"),
+        token1=_addr("bb"),
+        decimals0=18,
+        decimals1=18,
+        fee_pips=3000,
+        sqrt_price_x96=liquidity_math.sqrt_price_at_tick(254),
+        tick=254,
+        liquidity=10_000,
+        ticks=(TickLiquidity(257, -10_000),),
+        v4_tick_spacing=1,
+    )
+    result = quote_pool(pool, pool.token1, 5, bridge=bridge)
+    assert (result.amount_out, result.fee_paid) == (0, 2)
+    monkeypatch.setattr(bridge, "_v4_bitmap_steps_confirmed", False)
+    monkeypatch.setattr(bridge, "eval_json", lambda _: {"capabilities": []})
+    with pytest.raises(FastpathCallError, match="lacks V4 bitmap-step support"):
+        quote_pool(pool, pool.token1, 5, bridge=bridge)
+
+
 def test_differential_tick_and_liquidity_math_bit_exact(bridge: FastpathBridge) -> None:
     ping = bridge.ping()
     assert ping["service"] == "oasis-core"

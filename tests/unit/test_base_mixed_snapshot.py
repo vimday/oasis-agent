@@ -30,7 +30,7 @@ from oasis_agent.fastpath.multicall_universe import (
     fetch_pinned_universe_snapshot,
 )
 from oasis_agent.fastpath.multihop_replay import MultihopReplayCapture, ReplayAnchorInput
-from oasis_agent.models.common import canonical_json
+from oasis_agent.models.common import canonical_json, sha256_hex
 from oasis_agent.uniswap_v4.liquidity_math import sqrt_price_at_tick
 from oasis_agent.uniswap_v4.pool_id import pool_id_from_key
 from scripts import run_multicall_100tick_campaign as campaign
@@ -223,7 +223,9 @@ def test_normal_campaign_mixed_parallel_replay(
 
     def transport(url: str, request: bytes, timeout: float) -> bytes:
         req = json.loads(request)
-        if req["method"] == "eth_call":
+        if (url == mixed.SOURCES[mixed.PUBLICNODE] and req["method"] == "eth_call") or (
+            url == mixed.OFFICIAL_URL and req["method"] == "eth_getBlockByNumber"
+        ):
             shared.wait()
         if url == mixed.SOURCES[mixed.PUBLICNODE]:
             return _address_mock(specs, req)
@@ -262,11 +264,57 @@ def test_normal_campaign_mixed_parallel_replay(
 
     manifest = path / details["manifest"]
     rebuilt = mixed.replay_mixed_snapshot(manifest)
-    assert {node.pool_id for node in rebuilt.v4_pools} == {
-        pool_id_from_key(key) for key, _ in mixed.V4_KEYS
+    assert {node.pool_id: node.v4_tick_spacing for node in rebuilt.v4_pools} == {
+        pool_id_from_key(key): key.tick_spacing for key, _ in mixed.V4_KEYS
     }
     assert campaign.main(["--replay-mixed-base", str(manifest)]) == 0
     assert json.loads(capsys.readouterr().out)["address_pools"] == 58
+
+    captured = manifest.read_bytes()
+    doc = json.loads(captured)
+    assert doc["schema"] == mixed.SCHEMA
+    overlap = doc["primary_address_official_transport_overlap_ns"]
+    assert overlap["secondary_header"] > 0
+    assert sum(overlap.values()) > 0
+    doc["primary_address_official_transport_overlap_ns"]["secondary_header"] += 1
+    manifest.write_bytes(canonical_json(doc))
+    with pytest.raises(ValueError, match="transport overlap differs"):
+        mixed.replay_mixed_snapshot(manifest)
+
+    # The original schemas have a different timing gate and omit per-role transport clocks.
+    state_path = manifest.parent / "state.json"
+    captured_state = state_path.read_bytes()
+    old_state = json.loads(captured_state)
+    for node in old_state["pools"]:
+        node.pop("v4_tick_spacing", None)
+    prior_state_bytes = canonical_json(old_state)
+    state_path.write_bytes(prior_state_bytes)
+    legacy = json.loads(captured)
+    legacy["state_sha256"] = sha256_hex(prior_state_bytes)
+    legacy.pop("primary_address_official_transport_overlap_ns")
+    legacy["start_monotonic_ns"] = 1
+    legacy["state_ready_monotonic_ns"] = 20
+    for index, role in enumerate(
+        ("primary_header", "secondary_header", "manager_code", "address_state", "v4_state"),
+        1,
+    ):
+        row = legacy["roles"][role]
+        row["release_monotonic_ns"] = index * 2
+        row["received_monotonic_ns"] = index * 2 + 1
+        row.pop("transport_started_monotonic_ns")
+        row.pop("transport_finished_monotonic_ns")
+    for schema in (mixed.SCHEMA_V2, mixed.SCHEMA_V1):
+        legacy["schema"] = schema
+        manifest.write_bytes(canonical_json(legacy))
+        replayed = mixed.replay_mixed_snapshot(manifest)
+        assert replayed.block == rebuilt.block
+        assert all(node.v4_tick_spacing is None for node in replayed.v4_pools)
+    legacy["roles"]["address_state"]["release_monotonic_ns"] = 5
+    manifest.write_bytes(canonical_json(legacy))
+    with pytest.raises(ValueError, match="precedes its required pin"):
+        mixed.replay_mixed_snapshot(manifest)
+    state_path.write_bytes(captured_state)
+    manifest.write_bytes(captured)
 
     response = manifest.parent / "v4_state.response.json"
     response.write_bytes(response.read_bytes() + b" ")
@@ -291,8 +339,15 @@ def test_mixed_never_publishes_failed_join(
         injected=True,
     )
 
+    shared = Barrier(2, timeout=2)
+
     def transport(url: str, request: bytes, timeout: float) -> bytes:
         req = json.loads(request)
+        if mismatch and (
+            (url == mixed.SOURCES[mixed.PUBLICNODE] and req["method"] == "eth_call")
+            or (url == mixed.OFFICIAL_URL and req["method"] == "eth_getBlockByNumber")
+        ):
+            shared.wait()
         if url == mixed.OFFICIAL_URL and req["method"] == "eth_getBlockByNumber" and mismatch:
             reply = json.loads(_address_mock(specs, req))
             reply["result"]["stateRoot"] = HASH
@@ -308,13 +363,18 @@ def test_mixed_never_publishes_failed_join(
     with ThreadPoolExecutor(max_workers=2) as workers, pytest.raises(ValueError):
         capture.capture("latest", primary, secondary, 5.0, workers)
     assert capture.counts() == (
-        {mixed.PUBLICNODE: 1, mixed.OFFICIAL: 1}
+        {mixed.PUBLICNODE: 2, mixed.OFFICIAL: 1}
         if mismatch
         else {mixed.PUBLICNODE: 2, mixed.OFFICIAL: 3}
     )
     directory = capture.directory / "attempt-00000001"
     manifest = directory / "manifest.json"
-    assert json.loads(manifest.read_bytes())["status"] == "failed"
+    outcome = json.loads(manifest.read_bytes())
+    assert outcome["status"] == "failed"
+    if mismatch:
+        assert set(outcome["roles"]) == {"primary_header", "address_state", "secondary_header"}
+        assert (directory / "address_state.response.json").is_file()
+        assert not (directory / "manager_code.request.json").exists()
     assert not (directory / "state.json").exists()
     with pytest.raises(ValueError, match="incomplete"):
         mixed.replay_mixed_snapshot(manifest)
@@ -367,3 +427,46 @@ def test_quoter_transport_preserves_first_refusal_and_stops_next_request(
     assert (capture.directory / "stop.response.json").read_bytes() == raw
     terminal = json.loads((capture.directory / "STOP.json").read_bytes())
     assert terminal["reason"] == reply_kind
+
+
+def test_speculative_address_refusal_stops_remaining_official_requests(tmp_path: Path) -> None:
+    specs = _specs()
+    capture = mixed.MixedBaseCapture(
+        tmp_path / "mixed",
+        specs,
+        "0" * 64,
+        primary_limit=2,
+        secondary_limit=3,
+        injected=True,
+    )
+    in_flight = Barrier(2, timeout=2)
+    requests = []
+
+    def transport(url: str, request: bytes, timeout: float) -> bytes:
+        req = json.loads(request)
+        method = req["method"]
+        requests.append((url, method))
+        if url == mixed.OFFICIAL_URL:
+            assert method == "eth_getBlockByNumber"
+            in_flight.wait()
+            assert capture.stopped.wait(2)
+        elif method == "eth_call":
+            in_flight.wait()
+            raise mixed.MixedRpcHttpError("limited", 429, b"address request rate limit")
+        return _address_mock(specs, req)
+
+    primary = capture.budgeted(mixed.PUBLICNODE, transport)
+    official = capture.budgeted(mixed.OFFICIAL, transport)
+    with (
+        ThreadPoolExecutor(max_workers=2) as workers,
+        pytest.raises(mixed.MixedRpcHttpError, match="limited"),
+    ):
+        capture.capture("latest", primary, official, 5.0, workers)
+    assert capture.counts() == {mixed.PUBLICNODE: 2, mixed.OFFICIAL: 1}
+    assert requests.count((mixed.OFFICIAL_URL, "eth_getBlockByNumber")) == 1
+    assert len(requests) == 3
+    terminal = json.loads((capture.directory / "STOP.json").read_bytes())
+    assert terminal["source"] == mixed.PUBLICNODE and terminal["http_status"] == 429
+    scope = capture.directory / "attempt-00000001"
+    assert (scope / "secondary_header.response.json").is_file()
+    assert not (scope / "state.json").exists()

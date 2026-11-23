@@ -208,6 +208,11 @@ def _model_pool(value: object) -> PoolNode:
         sqrt_price_x96=reserves["sqrt_price_x96"],
         liquidity=reserves["liquidity"],
         tick=None if raw["tick"] is None else strict_integer(raw["tick"], "active tick"),
+        v4_tick_spacing=(
+            strict_integer(raw["v4_tick_spacing"], "V4 tick spacing")
+            if "v4_tick_spacing" in raw
+            else None
+        ),
         ticks=tuple(
             TickLiquidity(
                 strict_integer(row["tick"], "initialized tick"),

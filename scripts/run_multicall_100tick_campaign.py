@@ -1984,6 +1984,19 @@ def _cycle_topology(candidate: CycleCandidate) -> tuple[list[list[str]], str]:
     return route, sha256_hex(canonical_json([candidate.chain_id, rotation]))
 
 
+def _cycle_verification_priority(
+    candidate: CycleCandidate, eth_price_micro_usdc: int
+) -> tuple[int, Fraction]:
+    # Common denominator is 10**18 USDC base units. Preserve sub-unit ordering.
+    if candidate.base_token == WETH_ADDR:
+        comparable_profit = candidate.net_profit * eth_price_micro_usdc
+    elif candidate.base_token == USDC_ADDR:
+        comparable_profit = candidate.net_profit * 10**18
+    else:
+        raise ShadowRunnerError("cannot compare model profit in an unpriced anchor asset")
+    return comparable_profit, Fraction(candidate.net_profit, candidate.optimal_amount_in)
+
+
 def _mark_previous_cycles(
     frame: ShadowCycleFrame,
     snapshot: PinnedTickSnapshot,
@@ -2771,7 +2784,7 @@ def run_multicall_campaign(
                     "scan_finished_monotonic_ns": mixed_scan_finished,
                     "pool_count": len(mixed_state.nodes),
                     "evidence_scope": "bounded_model",
-                    "v4_tick_model": "static_symmetric_fee_active_bracket",
+                    "v4_tick_model": "static_symmetric_fee_active_bracket_with_bitmap_word_steps",
                     "v4_tick_bitmap_words_per_pool": 5,
                     "v4_exact_quote_parity": "unavailable",
                     "cost_model": "fixed_l2_gas_limit_and_l1_fee_probe",
@@ -2819,7 +2832,7 @@ def run_multicall_campaign(
                 else [c for c in (*weth_scan.candidates, *usdc_scan.candidates) if c.net_profit > 0]
             )
             rust_raw_candidates.sort(
-                key=lambda candidate: Fraction(candidate.net_profit, candidate.optimal_amount_in),
+                key=lambda candidate: _cycle_verification_priority(candidate, eth_price_micro_usdc),
                 reverse=True,
             )
             total_rust_raw_candidates += len(rust_raw_candidates)
@@ -2831,6 +2844,9 @@ def run_multicall_campaign(
                 route, topology_hash = _cycle_topology(cand)
                 outcome = {
                     "rank": rank,
+                    "modeled_net_usdc_raw": str(
+                        _cycle_verification_priority(cand, eth_price_micro_usdc)[0] // 10**18
+                    ),
                     "topology_sha256": topology_hash,
                     "route": route,
                     "base_token": cand.base_token,

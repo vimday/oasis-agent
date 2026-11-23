@@ -46,6 +46,7 @@ class PoolNode:
     tick: int | None = None
     liquidity: int | None = None
     ticks: tuple[TickLiquidity, ...] = ()
+    v4_tick_spacing: int | None = None
 
     def __post_init__(self) -> None:
         require_int(self.chain_id, "chain_id", non_negative=True)
@@ -68,9 +69,13 @@ class PoolNode:
             require_int(self.tick, "tick")
         if self.liquidity is not None:
             require_int(self.liquidity, "liquidity", non_negative=True)
+        if self.v4_tick_spacing is not None:
+            spacing = require_int(self.v4_tick_spacing, "v4_tick_spacing")
+            if self.kind != PoolKind.V4 or not 1 <= spacing <= 32767:
+                raise ValueError("V4 tick spacing requires a V4 pool and a value in 1..32767")
 
     def to_wire(self) -> dict[str, object]:
-        return {
+        wire: dict[str, object] = {
             "chain_id": self.chain_id,
             "pool_id": self.pool_id,
             "kind": self.kind.value,
@@ -88,6 +93,9 @@ class PoolNode:
             "block_number": self.block_number,
             "timestamp_ms": self.timestamp_ms,
         }
+        if self.v4_tick_spacing is not None:
+            wire["v4_tick_spacing"] = self.v4_tick_spacing
+        return wire
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,6 +229,8 @@ def quote_pool(
     if checked_in <= 0:
         raise ValueError("amount_in must be positive")
     active_bridge = bridge if bridge is not None else FastpathBridge()
+    if pool.v4_tick_spacing is not None:
+        active_bridge.require_v4_bitmap_steps()
     result: dict[str, Any] = active_bridge.eval_json(
         {
             "cmd": "quote_pool",
@@ -297,6 +307,8 @@ def scan_cycles(
         require_int(timestamp_ns, "timestamp_ns", non_negative=True)
 
     active_bridge = bridge if bridge is not None else FastpathBridge()
+    if any(pool.v4_tick_spacing is not None for pool in pools):
+        active_bridge.require_v4_bitmap_steps()
     result = active_bridge.eval_json(
         {
             "cmd": "scan_cycles",

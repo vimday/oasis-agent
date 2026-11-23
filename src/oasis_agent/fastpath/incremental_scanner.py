@@ -187,6 +187,7 @@ def _pool_pricing_signature(pool: PoolNode) -> tuple[object, ...]:
         pool.sqrt_price_x96,
         pool.tick,
         pool.liquidity,
+        pool.v4_tick_spacing,
         sorted_ticks,
     )
 

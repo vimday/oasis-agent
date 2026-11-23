@@ -8,9 +8,9 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::pool_math::{
-    FEE_PIPS_DENOM, MAX_SQRT_PRICE, MAX_TICK, MIN_SQRT_PRICE, MIN_TICK, PoolMathError,
-    TickLiquidity, aerodrome_stable_swap_exact_in, cl_swap_exact_in_prevalidated, serde_u128_str,
-    sqrt_price_at_tick, v2_swap_exact_in, validate_sorted_ticks,
+    FEE_PIPS_DENOM, MAX_SQRT_PRICE, MAX_TICK, MAX_V4_TICK_SPACING, MIN_SQRT_PRICE, MIN_TICK,
+    PoolMathError, TickLiquidity, aerodrome_stable_swap_exact_in, cl_swap_exact_in_prevalidated,
+    serde_u128_str, sqrt_price_at_tick, v2_swap_exact_in, validate_sorted_ticks,
 };
 use crate::u256_math::{U256, U512, div_rem_u256, div_rem_u512, mul_u256_to_u512};
 
@@ -116,6 +116,8 @@ pub struct PoolState {
     pub liquidity: Option<u128>,
     #[serde(default)]
     pub ticks: Vec<TickLiquidity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub v4_tick_spacing: Option<i32>,
     #[serde(default)]
     pub block_number: u64,
     #[serde(default)]
@@ -148,6 +150,17 @@ impl PoolState {
         if self.fee_pips >= FEE_PIPS_DENOM {
             return Err(GraphArbError::InvalidPool(
                 "fee_pips must be < 1_000_000".into(),
+            ));
+        }
+        if self.v4_tick_spacing.is_some_and(|spacing| {
+            self.kind != PoolKind::V4
+                || !(1..=MAX_V4_TICK_SPACING).contains(&spacing)
+                || self.ticks.iter().any(|tick| {
+                    tick.tick != MIN_TICK && tick.tick != MAX_TICK && tick.tick % spacing != 0
+                })
+        }) {
+            return Err(GraphArbError::InvalidPool(
+                "V4 bitmap steps require a V4 pool and spacing-aligned ticks".into(),
             ));
         }
         match self.kind {
@@ -234,6 +247,7 @@ impl PoolState {
                     self.fee_pips,
                     zero_for_one,
                     amount_in,
+                    self.v4_tick_spacing,
                 )?;
                 Ok((res.amount_out, res.fee_paid))
             }
@@ -1626,6 +1640,49 @@ mod tests {
     }
 
     #[test]
+    fn v4_bitmap_quote_keeps_word_step_rounding_and_bounded_liquidity() {
+        for (start, end, zero_for_one, amount) in [(254, 257, false, 5), (-254, -258, true, 6)] {
+            let mut pool = PoolState {
+                chain_id: 8453,
+                pool_id: "bitmap-v4".into(),
+                kind: PoolKind::V4,
+                token0: "token0".into(),
+                token1: "token1".into(),
+                decimals0: 18,
+                decimals1: 18,
+                fee_pips: 3000,
+                reserve0: None,
+                reserve1: None,
+                sqrt_price_x96: Some(sqrt_price_at_tick(start).unwrap()),
+                tick: Some(start),
+                liquidity: Some(10_000),
+                ticks: vec![TickLiquidity {
+                    tick: end,
+                    liquidity_net: if zero_for_one { 10_000 } else { -10_000 },
+                }],
+                v4_tick_spacing: Some(1),
+                block_number: 100,
+                timestamp_ms: 1_000_000,
+            }
+            .normalized_and_validated()
+            .unwrap();
+            let token = if zero_for_one { "token0" } else { "token1" };
+            let exact = pool.quote_exact_in(token, U256::from_u64(amount)).unwrap();
+            assert_eq!(exact.amount_out, U256::ZERO);
+            assert_eq!(exact.fee_paid, U256::from_u64(2));
+            assert!(matches!(
+                pool.quote_exact_in(token, U256::from_u64(amount + 1)),
+                Err(GraphArbError::Math(PoolMathError::InsufficientLiquidity))
+            ));
+            pool.v4_tick_spacing = None;
+            let legacy = pool
+                .quote_exact_in(token, U256::from_u64(amount - 2))
+                .unwrap();
+            assert_eq!(legacy.amount_out, U256::ONE);
+        }
+    }
+
+    #[test]
     fn finds_profitable_cycle_and_rejects_negative_ev() {
         let mut graph = PoolGraph::new();
         let weth = token("11");
@@ -1650,6 +1707,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 100,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_000_000,
             })
             .unwrap();
@@ -1675,6 +1733,7 @@ mod tests {
                 liquidity: Some(1_000_000_000_000_000_000_000),
                 ticks: vec![],
                 block_number: 100,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_000_000,
             })
             .unwrap();
@@ -1699,6 +1758,7 @@ mod tests {
                 liquidity: Some(1_000_000_000_000_000_000_000),
                 ticks: vec![],
                 block_number: 100,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_000_000,
             })
             .unwrap();
@@ -1766,6 +1826,7 @@ mod tests {
                     liquidity: None,
                     ticks: vec![],
                     block_number: 1,
+                    v4_tick_spacing: None,
                     timestamp_ms: 1,
                 })
                 .unwrap();
@@ -1897,6 +1958,7 @@ mod tests {
                     liquidity: Some(10_000),
                     ticks,
                     block_number: 1,
+                    v4_tick_spacing: None,
                     timestamp_ms: 1,
                 })
                 .unwrap();
@@ -2268,6 +2330,7 @@ mod tests {
                     },
                 ],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2290,6 +2353,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2322,6 +2386,7 @@ mod tests {
                     },
                 ],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2344,6 +2409,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2367,6 +2433,7 @@ mod tests {
                 liquidity: Some(1_000_000_000_000_000_000_000),
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2389,6 +2456,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2449,6 +2517,7 @@ mod tests {
                     liquidity: None,
                     ticks: vec![],
                     block_number: 21_000_000,
+                    v4_tick_spacing: None,
                     timestamp_ms: 1_760_000_000_000,
                 })
                 .unwrap();
@@ -2480,6 +2549,7 @@ mod tests {
                     liquidity: Some(20_000_000_000_000_000),
                     ticks: vec![],
                     block_number: 21_000_000,
+                    v4_tick_spacing: None,
                     timestamp_ms: 1_760_000_000_000,
                 })
                 .unwrap();
@@ -2553,6 +2623,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2583,6 +2654,7 @@ mod tests {
                 liquidity: Some(1_000_000_000_000_000_000),
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2604,6 +2676,7 @@ mod tests {
                 liquidity: Some(1_000_000_000_000_000),
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2625,6 +2698,7 @@ mod tests {
                 liquidity: None,
                 ticks: vec![],
                 block_number: 21_000_000,
+                v4_tick_spacing: None,
                 timestamp_ms: 1_760_000_000_000,
             })
             .unwrap();
@@ -2715,6 +2789,7 @@ mod tests {
                         liquidity: None,
                         ticks: vec![],
                         block_number: 22_000_000,
+                        v4_tick_spacing: None,
                         timestamp_ms: 1_794_000_000_000,
                     })
                     .unwrap();
@@ -2742,6 +2817,7 @@ mod tests {
                         liquidity: Some(500_000_000_000_000_000_000),
                         ticks: vec![],
                         block_number: 22_000_000,
+                        v4_tick_spacing: None,
                         timestamp_ms: 1_794_000_000_000,
                     })
                     .unwrap();
@@ -2773,6 +2849,7 @@ mod tests {
                     liquidity: Some(5_000_000_000_000_000_000_000),
                     ticks: vec![],
                     block_number: 22_000_000,
+                    v4_tick_spacing: None,
                     timestamp_ms: 1_794_000_000_000,
                 })
                 .unwrap();
@@ -3099,6 +3176,7 @@ mod tests {
             liquidity: None,
             ticks: Vec::new(),
             block_number: 1,
+            v4_tick_spacing: None,
             timestamp_ms: 1,
         };
         let initial = make_pool("a1", 615, 1497);

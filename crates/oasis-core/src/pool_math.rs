@@ -13,6 +13,7 @@ pub const MAX_SQRT_PRICE: U256 = U256([
     0,
 ]);
 pub const FEE_PIPS_DENOM: u32 = 1_000_000;
+pub const MAX_V4_TICK_SPACING: i32 = 32767;
 pub const E18: U256 = U256([1_000_000_000_000_000_000, 0, 0, 0]);
 
 const TICK_RATIOS: [u128; 20] = [
@@ -391,13 +392,31 @@ fn next_sqrt_price_from_input(
     }
 }
 
-/// Exact Uniswap V3/Slipstream/V4 single-step swap (`exact_in`, ceiling fee rounding).
+/// Legacy V3/Slipstream single-step swap (`exact_in`, ceiling fee rounding).
 pub fn compute_swap_step(
     sqrt_ratio_current_x96: U256,
     sqrt_ratio_target_x96: U256,
     liquidity: u128,
     amount_remaining: U256,
     fee_pips: u32,
+) -> Result<SwapStepResult, PoolMathError> {
+    compute_swap_step_inner(
+        sqrt_ratio_current_x96,
+        sqrt_ratio_target_x96,
+        liquidity,
+        amount_remaining,
+        fee_pips,
+        false,
+    )
+}
+
+fn compute_swap_step_inner(
+    sqrt_ratio_current_x96: U256,
+    sqrt_ratio_target_x96: U256,
+    liquidity: u128,
+    amount_remaining: U256,
+    fee_pips: u32,
+    v4: bool,
 ) -> Result<SwapStepResult, PoolMathError> {
     if fee_pips >= FEE_PIPS_DENOM {
         return Err(PoolMathError::InvalidFeePips(fee_pips));
@@ -432,7 +451,8 @@ pub fn compute_swap_step(
         )?
     };
 
-    let sqrt_ratio_next_x96 = if amount_remaining_less_fee >= amount_in_to_target {
+    let funded_target = amount_remaining_less_fee >= amount_in_to_target;
+    let sqrt_ratio_next_x96 = if funded_target {
         sqrt_ratio_target_x96
     } else {
         next_sqrt_price_from_input(
@@ -443,33 +463,34 @@ pub fn compute_swap_step(
         )?
     };
 
-    let max = sqrt_ratio_target_x96 == sqrt_ratio_next_x96;
-    let (amount_in, amount_out) = if zero_for_one {
-        let amt_in = if max {
-            amount_in_to_target
-        } else {
-            amount0_delta(sqrt_ratio_next_x96, sqrt_ratio_current_x96, liquidity, true)?
-        };
-        let amt_out = amount1_delta(
-            sqrt_ratio_next_x96,
-            sqrt_ratio_current_x96,
-            liquidity,
-            false,
-        )?;
-        (amt_in, amt_out)
+    let max = if v4 {
+        funded_target
     } else {
-        let amt_in = if max {
-            amount_in_to_target
-        } else {
-            amount1_delta(sqrt_ratio_current_x96, sqrt_ratio_next_x96, liquidity, true)?
-        };
-        let amt_out = amount0_delta(
+        sqrt_ratio_target_x96 == sqrt_ratio_next_x96
+    };
+    let amount_in = if max {
+        amount_in_to_target
+    } else if v4 {
+        amount_remaining_less_fee
+    } else if zero_for_one {
+        amount0_delta(sqrt_ratio_next_x96, sqrt_ratio_current_x96, liquidity, true)?
+    } else {
+        amount1_delta(sqrt_ratio_current_x96, sqrt_ratio_next_x96, liquidity, true)?
+    };
+    let amount_out = if zero_for_one {
+        amount1_delta(
+            sqrt_ratio_next_x96,
+            sqrt_ratio_current_x96,
+            liquidity,
+            false,
+        )?
+    } else {
+        amount0_delta(
             sqrt_ratio_current_x96,
             sqrt_ratio_next_x96,
             liquidity,
             false,
-        )?;
-        (amt_in, amt_out)
+        )?
     };
 
     let fee_amount = if !max {
@@ -559,6 +580,7 @@ pub fn cl_swap_exact_in(
         zero_for_one,
         amount_in,
         true,
+        None,
     )
 }
 
@@ -571,6 +593,7 @@ pub(crate) fn cl_swap_exact_in_prevalidated(
     fee_pips: u32,
     zero_for_one: bool,
     amount_in: U256,
+    v4_tick_spacing: Option<i32>,
 ) -> Result<ClSwapResult, PoolMathError> {
     cl_swap_exact_in_inner(
         sqrt_price_x96,
@@ -581,7 +604,45 @@ pub(crate) fn cl_swap_exact_in_prevalidated(
         zero_for_one,
         amount_in,
         false,
+        v4_tick_spacing,
     )
+}
+
+fn next_cl_tick(
+    ticks: &[TickLiquidity],
+    state_tick: i32,
+    zero_for_one: bool,
+    spacing: Option<i32>,
+) -> Option<TickLiquidity> {
+    let idx = ticks.partition_point(|t| t.tick <= state_tick);
+    let initialized = if zero_for_one {
+        idx.checked_sub(1).map(|i| ticks[i])
+    } else {
+        ticks.get(idx).copied()
+    };
+    let Some(spacing) = spacing else {
+        return initialized;
+    };
+    // TickBitmap compresses toward negative infinity and searches one word per step.
+    let compressed = state_tick.div_euclid(spacing);
+    let word_edge = if zero_for_one {
+        (compressed & !255) * spacing
+    } else {
+        ((compressed + 1) | 255) * spacing
+    }
+    .clamp(MIN_TICK, MAX_TICK);
+    initialized
+        .filter(|tick| {
+            if zero_for_one {
+                tick.tick >= word_edge
+            } else {
+                tick.tick <= word_edge
+            }
+        })
+        .or(Some(TickLiquidity {
+            tick: word_edge,
+            liquidity_net: 0,
+        }))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -594,12 +655,16 @@ fn cl_swap_exact_in_inner(
     zero_for_one: bool,
     amount_in: U256,
     compute_final_tick: bool,
+    v4_tick_spacing: Option<i32>,
 ) -> Result<ClSwapResult, PoolMathError> {
     if amount_in.is_zero() {
         return Err(PoolMathError::ZeroAmount);
     }
     if fee_pips >= FEE_PIPS_DENOM {
         return Err(PoolMathError::InvalidFeePips(fee_pips));
+    }
+    if v4_tick_spacing.is_some() && amount_in > U256::from_u128(1 << 127) {
+        return Err(PoolMathError::MathOverflow);
     }
 
     if zero_for_one && sqrt_price_x96 <= MIN_SQRT_PRICE {
@@ -616,20 +681,32 @@ fn cl_swap_exact_in_inner(
     let mut amount_out_total = U256::ZERO;
     let mut fee_total = U256::ZERO;
 
-    while !amount_remaining.is_zero() {
-        let next_tick_opt = if zero_for_one {
-            let count = ticks.partition_point(|t| t.tick <= state_tick);
-            if count > 0 {
-                Some(ticks[count - 1])
-            } else {
-                None
-            }
+    let v4_limit = v4_tick_spacing.map(|_| {
+        if zero_for_one {
+            MIN_SQRT_PRICE
+                .checked_add(U256::ONE)
+                .expect("V4 minimum limit fits")
         } else {
-            let idx = ticks.partition_point(|t| t.tick <= state_tick);
-            ticks.get(idx).copied()
-        };
+            MAX_SQRT_PRICE
+                .checked_sub(U256::ONE)
+                .expect("V4 maximum limit fits")
+        }
+    });
+    if v4_limit.is_some_and(|limit| {
+        if zero_for_one {
+            state_sqrt <= limit
+        } else {
+            state_sqrt >= limit
+        }
+    }) {
+        return Err(PoolMathError::InsufficientLiquidity);
+    }
+    while !amount_remaining.is_zero() {
+        // Crossing an empty liquidity range has zero amounts and fees.
+        let spacing = v4_tick_spacing.filter(|_| state_liq != 0);
+        let next_tick_opt = next_cl_tick(ticks, state_tick, zero_for_one, spacing);
 
-        let target_sqrt = match next_tick_opt {
+        let next_tick_sqrt = match next_tick_opt {
             Some(next_tick) => sqrt_price_at_tick(next_tick.tick)?,
             None => {
                 if state_liq == 0 {
@@ -642,13 +719,21 @@ fn cl_swap_exact_in_inner(
                 }
             }
         };
+        let target_sqrt = v4_limit.map_or(next_tick_sqrt, |limit| {
+            if zero_for_one {
+                next_tick_sqrt.max(limit)
+            } else {
+                next_tick_sqrt.min(limit)
+            }
+        });
 
-        let step = compute_swap_step(
+        let step = compute_swap_step_inner(
             state_sqrt,
             target_sqrt,
             state_liq,
             amount_remaining,
             fee_pips,
+            v4_tick_spacing.is_some(),
         )
         .map_err(|err| match err {
             PoolMathError::SqrtPriceOutOfBounds => PoolMathError::InsufficientLiquidity,
@@ -665,12 +750,18 @@ fn cl_swap_exact_in_inner(
         amount_out_total = amount_out_total
             .checked_add(step.amount_out)
             .ok_or(PoolMathError::MathOverflow)?;
+        if v4_tick_spacing.is_some() && amount_out_total >= U256::from_u128(1 << 127) {
+            return Err(PoolMathError::MathOverflow);
+        }
         fee_total = fee_total
             .checked_add(step.fee_amount)
             .ok_or(PoolMathError::MathOverflow)?;
         state_sqrt = step.sqrt_ratio_next_x96;
 
-        if state_sqrt == target_sqrt {
+        if v4_limit == Some(state_sqrt) && !amount_remaining.is_zero() {
+            return Err(PoolMathError::InsufficientLiquidity);
+        }
+        if state_sqrt == next_tick_sqrt {
             match next_tick_opt {
                 Some(next_tick) => {
                     state_liq =
@@ -979,6 +1070,13 @@ mod tests {
             cl_swap_exact_in(U256::Q96, 0, liq, &drain_ticks, 3000, false, huge),
             Err(PoolMathError::InsufficientLiquidity)
         );
+    }
+
+    #[test]
+    fn v4_bitmap_compresses_negative_unaligned_tick_down() {
+        let edge = next_cl_tick(&[], -1, true, Some(3)).unwrap();
+        assert_eq!(edge.tick, -768);
+        assert_eq!(edge.liquidity_net, 0);
     }
 
     #[test]

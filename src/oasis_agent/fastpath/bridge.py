@@ -102,10 +102,18 @@ class FastpathBridge:
         self._cdll = cdll
         self._eval_fn = eval_fn
         self._free_fn = free_fn
+        self._v4_bitmap_steps_confirmed = False
 
     @property
     def lib_path(self) -> Path:
         return self._lib_path
+
+    def require_v4_bitmap_steps(self) -> None:
+        if not self._v4_bitmap_steps_confirmed:
+            caps = self.eval_json({"cmd": "graph_session_capabilities"}).get("capabilities")
+            if not isinstance(caps, list) or "v4_bitmap_steps" not in caps:
+                raise FastpathCallError("native graph lacks V4 bitmap-step support")
+            self._v4_bitmap_steps_confirmed = True
 
     def eval_json(self, command: Mapping[str, object]) -> dict[str, Any]:
         """Send one JSON command to `oasis_core_eval_json` and unwrap the response."""

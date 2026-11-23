@@ -159,6 +159,7 @@ class ResidentPoolGraph:
             raise FastpathCallError("native resident graph ABI or capabilities are incompatible")
         self._max_anchors: int = maximum
         self._build_id = build
+        self._v4_bitmap_steps = "v4_bitmap_steps" in capabilities
         self._chain_id = block.chain_id
         response = self._bridge.eval_json(
             {
@@ -184,8 +185,9 @@ class ResidentPoolGraph:
     def build_id(self) -> str:
         return self._build_id
 
-    @staticmethod
-    def _wire_pools(pools: Sequence[PoolNode]) -> list[dict[str, object]]:
+    def _wire_pools(self, pools: Sequence[PoolNode]) -> list[dict[str, object]]:
+        if not self._v4_bitmap_steps and any(pool.v4_tick_spacing is not None for pool in pools):
+            raise FastpathCallError("native resident graph lacks V4 bitmap-step support")
         return [pool.to_wire() for pool in pools]
 
     def _session_id(self) -> int:

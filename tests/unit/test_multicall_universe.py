@@ -114,6 +114,33 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 MOCK_RPC_URL = "https://rpc.example.invalid"
 
 
+def test_atomic_verification_priority_compares_net_value_in_one_asset() -> None:
+    usdc = CycleCandidate(
+        chain_id=8453,
+        base_token=campaign.USDC_ADDR,
+        hops=(),
+        optimal_amount_in=10_000_000,
+        amount_out=10_400_000,
+        gas_cost_in_base=0,
+        l1_fee_in_base=0,
+        net_profit=400_000,
+    )
+    weth = replace(
+        usdc,
+        base_token=campaign.WETH_ADDR,
+        optimal_amount_in=5 * 10**17,
+        amount_out=501 * 10**15,
+        net_profit=10**15,
+    )
+    assert campaign._cycle_verification_priority(weth, 2_000 * 10**6) == (
+        2_000_000 * 10**18,
+        campaign.Fraction(1, 500),
+    )
+    assert campaign._cycle_verification_priority(
+        weth, 2_000 * 10**6
+    ) > campaign._cycle_verification_priority(usdc, 2_000 * 10**6)
+
+
 def _synth_addr(idx: int) -> str:
     return f"0x{idx:040x}"
 
