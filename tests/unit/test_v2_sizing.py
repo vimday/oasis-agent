@@ -1,3 +1,4 @@
+from fractions import Fraction
 from itertools import pairwise
 from random import Random
 
@@ -143,6 +144,36 @@ def test_400_distinct_pool_cycle_and_repeated_asset() -> None:
     assert result.best is not None and len(result.best.amounts) == 401
     with pytest.raises(ValueError, match="2 to 400"):
         V2Route((*legs, legs[0]))
+
+
+def test_balanced_curve_preserves_order_and_exact_bound_with_odd_long_route() -> None:
+    rng = Random(301)
+    length = 301
+    legs = []
+    for index in range(length):
+        token_in, token_out = str(index), str((index + 1) % length)
+        tokens = (token_out, token_in) if index % 2 else (token_in, token_out)
+        reserve0, reserve1 = rng.randrange(10**20, 2 * 10**20), rng.randrange(10**20, 2 * 10**20)
+        fee, denominator = (997, 1000) if index % 2 else (9975, 10000)
+        legs.append(
+            V2Leg(V2Pool(str(index), *tokens, reserve0, reserve1, fee, denominator), token_in)
+        )
+
+    route = V2Route(tuple(legs))
+    for amount_in in (1, 10**18, (1 << 256) - 1):
+        continuous_output = Fraction(amount_in)
+        for leg in legs:
+            pool = leg.pool
+            reserves = (pool.reserve0, pool.reserve1)
+            reserve_in, reserve_out = reserves if leg.token_in == pool.token0 else reserves[::-1]
+            effective = continuous_output * pool.fee_multiplier
+            continuous_output = (
+                reserve_out * effective / (reserve_in * pool.fee_denominator + effective)
+            )
+        exact_integer_upper = continuous_output.numerator // continuous_output.denominator
+        expected_gross_upper = exact_integer_upper - amount_in
+        assert route._continuous_integer_upper(amount_in) == expected_gross_upper
+        assert route.quote(amount_in).amount_out <= exact_integer_upper
 
 
 def test_validates_anchor_direction_pool_identity_and_nontrade_sizes() -> None:

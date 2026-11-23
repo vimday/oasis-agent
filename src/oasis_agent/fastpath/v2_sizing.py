@@ -17,6 +17,7 @@ MAX_V2_LEGS = 400
 MAX_V2_SEARCH_WORK = 100_000
 _MAX_UINT112 = (1 << 112) - 1
 _MAX_UINT256 = (1 << 256) - 1
+type _Curve = tuple[int, int, int]
 
 
 def _uint(value: int, minimum: int, maximum: int, label: str) -> None:
@@ -30,6 +31,19 @@ def _identity(value: str) -> str:
     if fullmatch(r"0[xX][0-9A-Fa-f]{40}", value) is not None:
         return value.lower()
     return value
+
+
+def _compose_curve(coefficients: tuple[_Curve, ...], start: int, end: int) -> _Curve:
+    """Compose adjacent unrounded swaps, merging similarly sized integer products."""
+    if end - start == 1:
+        return coefficients[start]
+    mid = (start + end) // 2
+    a, b, c = _compose_curve(coefficients, start, mid)
+    d, e, f = _compose_curve(coefficients, mid, end)
+    # Applying d*x/(e+f*x) after a*x/(b+c*x) preserves route order.
+    numerator, constant, slope = d * a, e * b, e * c + f * a
+    divisor = gcd(numerator, constant, slope)
+    return numerator // divisor, constant // divisor, slope // divisor
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +87,7 @@ class V2Leg:
         return self.pool.token1 if self.token_in == self.pool.token0 else self.pool.token0
 
     @property
-    def _coefficients(self) -> tuple[int, int, int]:
+    def _coefficients(self) -> _Curve:
         pool = self.pool
         reserves = (pool.reserve0, pool.reserve1)
         reserve_in, reserve_out = reserves if self.token_in == pool.token0 else reserves[::-1]
@@ -135,8 +149,8 @@ class V2SizingResult:
 @dataclass(frozen=True, slots=True)
 class V2Route:
     legs: tuple[V2Leg, ...]
-    _coefficients: tuple[tuple[int, int, int], ...] = field(init=False, repr=False)
-    _curve: tuple[int, int, int] = field(init=False, repr=False)
+    _coefficients: tuple[_Curve, ...] = field(init=False, repr=False)
+    _curve: _Curve = field(init=False, repr=False)
     _peak_floor: int = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -150,11 +164,7 @@ class V2Route:
         if legs[-1].token_out != legs[0].token_in:
             raise ValueError("route does not return to its anchor")
         coefficients = tuple(leg._coefficients for leg in legs)
-        a, b, c = 1, 1, 0
-        for leg_a, leg_b, leg_c in coefficients:
-            a, b, c = leg_a * a, leg_b * b, leg_b * c + leg_c * a
-            divisor = gcd(a, b, c)
-            a, b, c = a // divisor, b // divisor, c // divisor
+        a, b, c = _compose_curve(coefficients, 0, len(coefficients))
         object.__setattr__(self, "legs", legs)
         object.__setattr__(self, "_coefficients", coefficients)
         object.__setattr__(self, "_curve", (a, b, c))
