@@ -98,9 +98,27 @@ from oasis_agent.evidence.base_denim import (
 )
 from oasis_agent.evidence.rpc_validation import (
     rpc_quantity,
+    strict_digest,
     strict_json_object,
     strict_object,
     strict_string,
+)
+from oasis_agent.fastpath.base_mixed_snapshot import (
+    DIRECTORY as MIXED_BASE_DIRECTORY,
+)
+from oasis_agent.fastpath.base_mixed_snapshot import (
+    OFFICIAL as MIXED_OFFICIAL,
+)
+from oasis_agent.fastpath.base_mixed_snapshot import (
+    PUBLICNODE as MIXED_PUBLICNODE,
+)
+from oasis_agent.fastpath.base_mixed_snapshot import (
+    MixedBaseCapture,
+    MixedCanonicalConflict,
+    MixedCaptureResult,
+    MixedRpcHttpError,
+    address_roster,
+    replay_mixed_snapshot,
 )
 from oasis_agent.fastpath.bridge import FastpathBridge, FastpathCallError, FastpathUnavailableError
 from oasis_agent.fastpath.live_shadow_runner import (
@@ -149,9 +167,11 @@ from oasis_agent.fastpath.multihop_replay import (
     MultihopReplayCapture,
     ReplayAnchorInput,
     ReplayDecodedState,
+    load_multihop_replay,
 )
 from oasis_agent.fastpath.pool_graph import (
     CycleCandidate,
+    CycleScanReport,
     FastpathPoolGraph,
     PoolKind,
     PoolNode,
@@ -1712,6 +1732,7 @@ class _KeepAliveHttpsPool:
             Callable[[str, int, float, ssl.SSLContext], http.client.HTTPSConnection] | None
         ) = None,
         max_requests_per_conn: int = 250,
+        one_shot_rpc: bool = False,
     ) -> None:
         if type(max_requests_per_conn) is not int or max_requests_per_conn <= 0:
             raise ValueError("max_requests_per_conn must be a positive integer")
@@ -1721,6 +1742,7 @@ class _KeepAliveHttpsPool:
         self._all_conns: list[http.client.HTTPSConnection] = []
         self._connection_factory = connection_factory
         self._max_requests_per_conn = max_requests_per_conn
+        self._one_shot_rpc = one_shot_rpc
 
     def _thread_conns(self) -> dict[tuple[str, int], http.client.HTTPSConnection]:
         conns = getattr(self._local, "conns", None)
@@ -1824,7 +1846,7 @@ class _KeepAliveHttpsPool:
                 raw = resp.read(max_bytes + 1)
             except http.client.HTTPException, OSError, TimeoutError, EOFError:
                 self._drop_conn(key)
-                if reused and attempt == 0:
+                if reused and attempt == 0 and (is_coinbase or not self._one_shot_rpc):
                     continue
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book transport failure") from None
@@ -1834,12 +1856,19 @@ class _KeepAliveHttpsPool:
                 self._drop_conn(key)
                 if is_coinbase:
                     raise LiveCexDexError("Coinbase book redirects are forbidden")
+                if self._one_shot_rpc:
+                    raise MixedRpcHttpError(
+                        "Base shadow RPC redirects are forbidden", resp.status, raw
+                    )
                 raise RpcError("Base shadow RPC redirects are forbidden")
             if resp.status != 200:
                 self._drop_conn(key)
                 if is_coinbase:
                     raise LiveCexDexError(f"Coinbase book HTTP failure: status {resp.status}")
-                raise RpcError(f"Base shadow RPC HTTP failure: status {resp.status}")
+                message = f"Base shadow RPC HTTP failure: status {resp.status}"
+                if self._one_shot_rpc:
+                    raise MixedRpcHttpError(message, resp.status, raw)
+                raise RpcError(message)
             if len(raw) > max_bytes:
                 self._drop_conn(key)
                 if is_coinbase:
@@ -2045,6 +2074,8 @@ def run_multicall_campaign(
     stop_gracefully_on_rpc_error: bool = False,
     record_multihop_replay: bool = False,
     compare_resident_graph: bool = False,
+    mixed_base_address_manifest: Path | None = None,
+    mixed_base_secondary_max_rpc_calls: int | None = None,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -2067,6 +2098,23 @@ def run_multicall_campaign(
         raise ShadowRunnerError("record_multihop_replay must be a boolean")
     if type(compare_resident_graph) is not bool:
         raise ShadowRunnerError("compare_resident_graph must be a boolean")
+    mixed_enabled = mixed_base_address_manifest is not None
+    if mixed_enabled:
+        if mode != "public-shadow" or rpc_url != DEFAULT_BASE_RPC_URL:
+            raise ShadowRunnerError(
+                "mixed Base requires public-shadow and the fixed PublicNode URL"
+            )
+        if include_ecosystem_tokens or include_aero_cl2:
+            raise ShadowRunnerError(
+                "mixed Base uses its verified frozen roster without discovery flags"
+            )
+        if (
+            type(mixed_base_secondary_max_rpc_calls) is not int
+            or not 3 <= mixed_base_secondary_max_rpc_calls <= 1_000_000
+        ):
+            raise ShadowRunnerError("mixed Base official RPC cap must be in 3..1000000")
+    elif mixed_base_secondary_max_rpc_calls is not None:
+        raise ShadowRunnerError("official RPC cap requires a mixed Base address manifest")
     normalized_allowed_products = _normalize_allowed_products(allowed_products)
     allowed_products_set = (
         frozenset(normalized_allowed_products) if normalized_allowed_products is not None else None
@@ -2124,7 +2172,7 @@ def run_multicall_campaign(
             mode="injected" if mode == "public-shadow" and rpc_transport is not None else mode,
             ticks_requested=ticks,
         )
-        if record_multihop_replay or compare_resident_graph
+        if record_multihop_replay or compare_resident_graph or mixed_enabled
         else None
     )
 
@@ -2146,7 +2194,7 @@ def run_multicall_campaign(
         multicall_mod: MulticallUniverseProtocol | None = None
     else:
         if rpc_transport is None:
-            http_pool = _KeepAliveHttpsPool()
+            http_pool = _KeepAliveHttpsPool(one_shot_rpc=mixed_enabled)
         active_rpc_transport = (
             http_pool.post
             if rpc_transport is None and http_pool is not None
@@ -2169,6 +2217,15 @@ def run_multicall_campaign(
         ResidentShadowComparator(bridge=active_bridge) if compare_resident_graph else None
     )
     resident_failure: dict[str, Any] | None = None
+    mixed_resident = (
+        ResidentShadowComparator(bridge=active_bridge)
+        if mixed_enabled and compare_resident_graph
+        else None
+    )
+    mixed_capture: MixedBaseCapture | None = None
+    mixed_workers: concurrent.futures.ThreadPoolExecutor | None = None
+    official_pool: _KeepAliveHttpsPool | None = None
+    latest_mixed: MixedCaptureResult | None = None
 
     rpc_calls_used = 0
 
@@ -2290,7 +2347,57 @@ def run_multicall_campaign(
     try:
         pool_specs_raw: Sequence[Any]
         discovered_pools_by_id: dict[str, Any] = {}
-        if multicall_mod is not None:
+        if mixed_base_address_manifest is not None:
+            if multicall_mod is None or mixed_base_secondary_max_rpc_calls is None:
+                raise ShadowRunnerError("mixed Base requires the normal universe decoder")
+            if (
+                mixed_base_address_manifest.is_symlink()
+                or not mixed_base_address_manifest.is_file()
+                or mixed_base_address_manifest.stat().st_size > MAX_RESPONSE_BYTES
+            ):
+                raise ShadowRunnerError("mixed Base requires a bounded prior replay manifest")
+            prior = strict_json_object(mixed_base_address_manifest.read_bytes())
+            if (
+                prior.get("mode") != "public-shadow"
+                or prior.get("snapshot_format") != "discovered_multicall"
+            ):
+                raise ShadowRunnerError("mixed Base requires a prior public-shadow address replay")
+            raw_specs = prior.get("pool_specs")
+            if not isinstance(raw_specs, list):
+                raise ShadowRunnerError("mixed Base prior manifest has no address pool roster")
+            frozen = address_roster(raw_specs)
+            verified_prior = load_multihop_replay(
+                mixed_base_address_manifest,
+                base_token=WETH_ADDR,
+                decode_snapshot=decode_retained_multihop_snapshot,
+            )
+            if verified_prior.metadata["manifest_sha256"] != prior.get("manifest_sha256"):
+                raise ShadowRunnerError(
+                    "mixed Base prior replay manifest changed during validation"
+                )
+            pool_specs_raw = frozen
+            discovered_pools_by_id = {pool.pool_id: pool for pool in frozen}
+            mixed_capture = MixedBaseCapture(
+                out_dir / MIXED_BASE_DIRECTORY,
+                frozen,
+                strict_digest(prior.get("manifest_sha256"), "address roster parent"),
+                primary_limit=max_rpc_calls,
+                secondary_limit=mixed_base_secondary_max_rpc_calls,
+                injected=rpc_transport is not None,
+            )
+            official_send: Callable[[str, bytes, float], bytes]
+            if rpc_transport is None:
+                official_pool = _KeepAliveHttpsPool(one_shot_rpc=True)
+                official_send = official_pool.post
+            else:
+                official_send = rpc_transport
+            mixed_official_transport = mixed_capture.budgeted(MIXED_OFFICIAL, official_send)
+            active_rpc_transport = mixed_capture.budgeted(MIXED_PUBLICNODE, active_rpc_transport)
+            mixed_workers = concurrent.futures.ThreadPoolExecutor(
+                max_workers=2,
+                thread_name_prefix="base-state",
+            )
+        elif multicall_mod is not None:
             is_native_universe = (
                 getattr(multicall_mod.discover_base_universe_pools, "__module__", "")
                 == "oasis_agent.fastpath.multicall_universe"
@@ -2369,6 +2476,27 @@ def run_multicall_campaign(
             )
 
         def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
+            nonlocal latest_mixed
+            latest_mixed = None
+            if mixed_capture is not None:
+                assert capture is not None and mixed_workers is not None
+                assert mixed_base_secondary_max_rpc_calls is not None
+                if mixed_capture.counts()[MIXED_OFFICIAL] + 3 > mixed_base_secondary_max_rpc_calls:
+                    raise ShadowBudgetError("mixed Base official budget cannot cover another pin")
+                _reserve_rpc(5)
+                latest_mixed = capture.record_attempt(
+                    active_rpc_transport,
+                    lambda send: mixed_capture.capture(
+                        tag, send, mixed_official_transport, float(timeout_s), mixed_workers
+                    ),
+                )
+                snapshot = _extract_snapshot_from_multicall_universe(
+                    latest_mixed.state.address_state
+                )
+                capture.validate_snapshot(
+                    snapshot.block_number, snapshot.block_hash, parent_hash=snapshot.parent_hash
+                )
+                return snapshot
             _reserve_rpc(2)
 
             def read(send: Callable[[str, bytes, float], bytes]) -> PinnedTickSnapshot:
@@ -2448,6 +2576,8 @@ def run_multicall_campaign(
                         f"reorg detected at block {snapshot.block_number}: parent_hash mismatch"
                     )
                 if prev_block_number is not None and snapshot.block_number < prev_block_number:
+                    if mixed_enabled:
+                        raise ShadowRunnerError("mixed Base head regressed")
                     seen_hashes_by_block.setdefault(snapshot.block_number, snapshot.block_hash)
                     refetched = _read_snapshot_at_tag(hex(prev_block_number))
                     if (
@@ -2465,7 +2595,11 @@ def run_multicall_campaign(
                         )
                     snapshot = refetched
             except (RpcError, ValueError) as exc:
-                if stop_gracefully_on_rpc_error and records:
+                if isinstance(exc, MixedCanonicalConflict):
+                    canonical_conflict = True
+                if records and (
+                    stop_gracefully_on_rpc_error or (mixed_enabled and canonical_conflict)
+                ):
                     stopped_early = True
                     stop_reason = (
                         str(exc)
@@ -2554,20 +2688,29 @@ def run_multicall_campaign(
                 ),
             )
             legacy_scan_started_ns = time.monotonic_ns() if compare_resident_graph else None
-            weth_scan, usdc_scan = (
-                graph.scan_cycles(
-                    [anchor.base_token],
-                    max_hops=3,
-                    min_amount_in=anchor.min_amount_in,
-                    max_amount_in=anchor.max_amount_in,
-                    gas_cost_in_base=anchor.gas_cost_in_base,
-                    l1_fee_in_base=anchor.l1_fee_in_base,
-                    min_net_profit=anchor.min_net_profit,
-                    block_number=snapshot.block_number,
-                    timestamp_ns=snapshot.base_time_ms * 1_000_000,
+
+            def scan_anchors(
+                target: FastpathPoolGraph,
+                pinned: PinnedTickSnapshot,
+                inputs: tuple[ReplayAnchorInput, ReplayAnchorInput],
+            ) -> tuple[CycleScanReport, CycleScanReport]:
+                weth_report, usdc_report = (
+                    target.scan_cycles(
+                        [anchor.base_token],
+                        max_hops=3,
+                        min_amount_in=anchor.min_amount_in,
+                        max_amount_in=anchor.max_amount_in,
+                        gas_cost_in_base=anchor.gas_cost_in_base,
+                        l1_fee_in_base=anchor.l1_fee_in_base,
+                        min_net_profit=anchor.min_net_profit,
+                        block_number=pinned.block_number,
+                        timestamp_ns=pinned.base_time_ms * 1_000_000,
+                    )
+                    for anchor in inputs
                 )
-                for anchor in scan_inputs
-            )
+                return weth_report, usdc_report
+
+            weth_scan, usdc_scan = scan_anchors(graph, snapshot, scan_inputs)
             resident_comparison = None
             if resident_comparator is not None:
                 legacy_scan_finished_ns = time.monotonic_ns()
@@ -2611,6 +2754,54 @@ def run_multicall_campaign(
                     "legacy_scan_finished_monotonic_ns": legacy_scan_finished_ns,
                     "comparison_finished_monotonic_ns": time.monotonic_ns(),
                 }
+            mixed_comparison = None
+            if latest_mixed is not None:
+                mixed_state = latest_mixed.state
+                mixed_graph = FastpathPoolGraph(active_bridge)
+                for node in mixed_state.nodes:
+                    mixed_graph.upsert_pool(node)
+                mixed_scan_start = time.monotonic_ns()
+                mixed_reports = scan_anchors(mixed_graph, snapshot, scan_inputs)
+                mixed_scan_finished = time.monotonic_ns()
+                mixed_comparison = {
+                    "manifest": str(latest_mixed.manifest_path.relative_to(out_dir)),
+                    "manifest_sha256": latest_mixed.manifest_sha256,
+                    "state_ready_monotonic_ns": latest_mixed.state_ready_monotonic_ns,
+                    "scan_started_monotonic_ns": mixed_scan_start,
+                    "scan_finished_monotonic_ns": mixed_scan_finished,
+                    "pool_count": len(mixed_state.nodes),
+                    "evidence_scope": "bounded_model",
+                    "v4_tick_model": "static_symmetric_fee_active_bracket",
+                    "v4_tick_bitmap_words_per_pool": 5,
+                    "v4_exact_quote_parity": "unavailable",
+                    "cost_model": "fixed_l2_gas_limit_and_l1_fee_probe",
+                    "whole_transaction_status": "not_simulated",
+                    "execution_eligible": False,
+                    "anchors": [
+                        {
+                            **anchor.to_wire(),
+                            "cycles_evaluated": report.cycles_evaluated,
+                            "candidates": [asdict(candidate) for candidate in report.candidates],
+                            "sizing_residuals": (
+                                [asdict(item) for item in report.sizing_residuals]
+                                if report.sizing_residuals is not None
+                                else None
+                            ),
+                        }
+                        for anchor, report in zip(scan_inputs, mixed_reports, strict=True)
+                    ],
+                }
+                if mixed_resident is not None:
+                    block = mixed_state.block
+                    comparison = mixed_resident.check(
+                        GraphBlock(
+                            BASE_CHAIN_ID, block.number, block.block_hash, block.parent_hash
+                        ),
+                        mixed_state.nodes,
+                        tuple(AnchorScan(**asdict(anchor)) for anchor in scan_inputs),
+                        mixed_reports,
+                    )
+                    mixed_comparison["resident_graph_comparison"] = asdict(comparison)
             if capture is not None:
                 capture.save_snapshot(
                     block_number=snapshot.block_number,
@@ -2732,6 +2923,11 @@ def run_multicall_campaign(
                     q_res = capture.record_attempt(active_rpc_transport, check_quote)
                     outcome["quote_replay_attempt"] = len(capture.attempts)
 
+                if mixed_capture is not None and mixed_capture.stopped.is_set():
+                    raise ShadowRunnerError(
+                        f"mixed Base Quoter RPC stopped: {mixed_capture.stop_reason}. "
+                        f"See {MIXED_BASE_DIRECTORY}/STOP.json."
+                    )
                 outcome["quote_rpc_calls"] = q_res.rpc_calls_used
                 if capture is not None:
                     outcome["quote_started_monotonic_ns"] = quote_started
@@ -3266,7 +3462,7 @@ def run_multicall_campaign(
                     shadow_daily_loss_usd_micros += loss_micros
                     shadow_cumulative_loss_usd_micros += loss_micros
 
-            lifecycle = None
+            lifecycle: dict[str, Any] | None = None
             if capture is not None:
                 lifecycle = {
                     "state_ready_monotonic_ns": state_ready_ns,
@@ -3275,6 +3471,8 @@ def run_multicall_campaign(
                 }
                 if resident_comparison is not None:
                     lifecycle["resident_graph_comparison"] = resident_comparison
+                if mixed_comparison is not None:
+                    lifecycle["mixed_base_state"] = mixed_comparison
                 if prior_cycle_frame is None or (
                     prior_cycle_frame.block_number != snapshot.block_number
                 ):
@@ -3376,6 +3574,13 @@ def run_multicall_campaign(
         if ws_feed is not None:
             with suppress(Exception):
                 ws_feed.close()
+        if mixed_resident is not None:
+            with suppress(FastpathCallError):
+                mixed_resident.close()
+        if mixed_workers is not None:
+            mixed_workers.shutdown(wait=True)
+        if official_pool is not None:
+            official_pool.close()
         if http_pool is not None:
             http_pool.close()
 
@@ -3547,6 +3752,13 @@ def run_multicall_campaign(
             ),
             "matched_ticks": ticks_completed,
             "failure": resident_failure,
+        }
+    if mixed_capture is not None:
+        summary_body["mixed_base_state"] = {
+            "status": "incomplete" if stopped_early else "complete",
+            "completed_ticks": ticks_completed,
+            "rpc_attempts_by_source": mixed_capture.counts(),
+            "execution_eligible": False,
         }
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
@@ -3743,9 +3955,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Compare resident Rust reports on retained inputs before quoting candidates.",
     )
     parser.add_argument(
+        "--mixed-base-address-manifest",
+        type=Path,
+        help=(
+            "Use the verified 58-address-pool replay roster plus 8 frozen V4 pools. "
+            "Fixed public PublicNode and Base official RPCs, 250 ms minimum per source, one shot."
+        ),
+    )
+    parser.add_argument(
+        "--mixed-base-secondary-max-rpc-calls",
+        type=int,
+        help=(
+            "Cumulative Base official RPC cap, with three requests per fixed-hash snapshot. "
+            "--max-rpc-calls caps all Base RPC attempts, including PublicNode and official."
+        ),
+    )
+    parser.add_argument(
+        "--replay-mixed-base",
+        type=Path,
+        help="Verify a captured mixed_base_state attempt manifest offline.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
-        required=True,
         help="Output directory for shadow_attribution.jsonl and shadow_summary.json.",
     )
     return parser
@@ -3756,6 +3988,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     try:
+        if args.replay_mixed_base is not None:
+            state = replay_mixed_snapshot(args.replay_mixed_base)
+            print(
+                json.dumps(
+                    {
+                        "execution_eligible": False,
+                        "block": asdict(state.block),
+                        "address_pools": len(state.address_state.pool_nodes),
+                        "v4_pools": len(state.v4_pools),
+                        "state_sha256": sha256_hex(canonical_json(state.evidence())),
+                    },
+                    sort_keys=True,
+                )
+            )
+            return 0
+        if args.out is None:
+            parser.error("--out is required for capture")
         parsed_allowed_products = _parse_allowed_products_cli(args.allowed_products)
         _ensure_clean_output_dir(args.out)
         result = run_multicall_campaign(
@@ -3784,6 +4033,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_gracefully_on_rpc_error=args.stop_gracefully_on_rpc_error,
             record_multihop_replay=args.record_multihop_replay,
             compare_resident_graph=args.compare_resident_graph,
+            mixed_base_address_manifest=args.mixed_base_address_manifest,
+            mixed_base_secondary_max_rpc_calls=args.mixed_base_secondary_max_rpc_calls,
         )
     except (
         OSError,
@@ -3833,13 +4084,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                     if args.compare_resident_graph
                     else {}
                 ),
+                **(
+                    {"mixed_base_state": result.summary["mixed_base_state"]}
+                    if args.mixed_base_address_manifest is not None
+                    else {}
+                ),
                 "summary_sha256": result.summary["summary_sha256"],
             },
             sort_keys=True,
         )
     )
     comparison = result.summary.get("resident_graph_comparison")
-    return 2 if comparison is not None and comparison["status"] == "comparison_failed" else 0
+    if comparison is not None and comparison["status"] == "comparison_failed":
+        return 2
+    mixed_status = result.summary.get("mixed_base_state")
+    return 2 if mixed_status is not None and mixed_status["status"] != "complete" else 0
 
 
 __all__ = [

@@ -11,6 +11,7 @@ import ssl
 import time
 import zlib
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from itertools import pairwise
 from pathlib import Path
@@ -21,11 +22,14 @@ import rlp
 from eth_hash.auto import keccak
 
 from oasis_agent.arbitrage.cycle_evidence import read_bounded
+from oasis_agent.evidence.robinhood_nitro import FeedMessage
 from oasis_agent.models.common import normalize_hash32
 from scripts.capture_public_rpc import durable_new
 
 HOST = "feed.mainnet.chain.robinhood.com"
 SOURCE = f"wss://{HOST}"
+FEED_HOSTS = {"primary": HOST, "delayed": "delayed-feed.mainnet.chain.robinhood.com"}
+PAIR_SCHEMA = "oasis-robinhood-nitro-feed-comparison-v1"
 CHAIN_ID = 4663
 START_SECONDS = 7
 READ_SECONDS = 25
@@ -180,10 +184,10 @@ class FeedReader:
         return first, content, bytes(self.partial)
 
 
-def handshake(root, reader, nonce, deadline):
+def handshake(root, reader, nonce, deadline, *, host=HOST):
     offer = "; server_no_context_takeover; client_no_context_takeover"
     request = (
-        f"GET / HTTP/1.1\r\nHost: {HOST}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+        f"GET / HTTP/1.1\r\nHost: {host}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
         f"Sec-WebSocket-Key: {nonce.decode()}\r\nSec-WebSocket-Version: 13\r\n"
         f"Sec-WebSocket-Extensions: {CUSTOM_EXTENSION}{offer}, {STANDARD_EXTENSION}{offer}\r\n"
         "Arbitrum-Feed-Client-Version: 2\r\n\r\n"
@@ -244,14 +248,16 @@ def send_pong(connection, content, deadline):
     connection.sendall(bytes((0x8A, 0x80 | len(content))) + mask + masked)
 
 
-def capture(root, sources):
+def capture(root, sources, *, host=HOST):
+    if host not in FEED_HOSTS.values():
+        raise ValueError("unknown Robinhood feed host")
     if any((root / name).exists() for name in ("scope.json", "STARTED", "STOP")):
         raise ValueError("original WebSocket scope already started")
     offset, _, config_sha = source_config(sources)
     scope = {
         "schema": "oasis-robinhood-nitro-forward-v1",
         "opened": stamp(),
-        "endpoint": SOURCE,
+        "endpoint": f"wss://{host}",
         "max_connections": 1,
         "max_start_seconds": START_SECONDS,
         "max_read_seconds": READ_SECONDS,
@@ -279,9 +285,9 @@ def capture(root, sources):
     handshake_complete, reader, connected = None, None, None
     deadline = time.monotonic() + START_SECONDS
     try:
-        with socket.create_connection((HOST, 443), timeout=START_SECONDS) as tcp:
+        with socket.create_connection((host, 443), timeout=START_SECONDS) as tcp:
             tcp.settimeout(max(0.01, deadline - time.monotonic()))
-            with context.wrap_socket(tcp, server_hostname=HOST) as connection:
+            with context.wrap_socket(tcp, server_hostname=host) as connection:
                 connected = stamp()
                 reader = FeedReader(connection)
                 transport = {
@@ -289,7 +295,7 @@ def capture(root, sources):
                     "tls_peer_cert_sha256": sha(connection.getpeercert(binary_form=True)),
                 }
                 transport.update(
-                    handshake(root, reader, base64.b64encode(os.urandom(16)), deadline)
+                    handshake(root, reader, base64.b64encode(os.urandom(16)), deadline, host=host)
                 )
                 handshake_complete = stamp()
                 deadline = time.monotonic() + READ_SECONDS
@@ -413,7 +419,9 @@ def decompress(payload, dictionary):
     return decoded
 
 
-def decode(root, sources):
+def decode(root, sources, *, host=HOST):
+    if host not in FEED_HOSTS.values():
+        raise ValueError("unknown Robinhood feed host")
     offset, dictionary, config_sha = source_config(sources)
     capture_manifest = read_bounded(root / "capture.json", MAX_SOURCE)
     capture_data = load_json(capture_manifest)
@@ -423,7 +431,7 @@ def decode(root, sources):
     scope = load_json(scope_raw)
     if (
         sha(scope_raw) != capture_data["scope_sha256"]
-        or scope["endpoint"] != SOURCE
+        or scope["endpoint"] != f"wss://{host}"
         or scope["chain_id"] != CHAIN_ID
         or scope["genesis_block_offset"] != offset
         or scope["chain_config_sha256"] != config_sha
@@ -435,7 +443,10 @@ def decode(root, sources):
     if sha(response) != capture_data["handshake_response_sha256"]:
         raise ValueError("handshake response hash mismatch")
     request = read_bounded(root / "handshake.request.bin", MAX_HEADERS)
-    if sha(request) != capture_data["handshake_request_sha256"]:
+    if (
+        sha(request) != capture_data["handshake_request_sha256"]
+        or f"\r\nHost: {host}\r\n".encode() not in request
+    ):
         raise ValueError("handshake request hash mismatch")
     nonce = re.search(rb"Sec-WebSocket-Key: ([^\r]+)\r\n", request).group(1)
     protocol = validate_handshake(response, nonce)["compression"]
@@ -605,6 +616,140 @@ def decode(root, sources):
     return data
 
 
+def capture_pair(root, sources):
+    source_config(sources)
+    root.mkdir(parents=True, exist_ok=False)
+    scope_path = root / "pair-scope.json"
+    json_new(
+        scope_path,
+        {
+            "schema": PAIR_SCHEMA,
+            "chain_id": CHAIN_ID,
+            "hosts": FEED_HOSTS,
+            "started_ns": time.monotonic_ns(),
+            "max_connections_per_host": 1,
+            "cost_usd": 0,
+        },
+    )
+    with ThreadPoolExecutor(max_workers=len(FEED_HOSTS)) as workers:
+        captures = {}
+        for source, host in FEED_HOSTS.items():
+            path = root / source
+            path.mkdir()
+            captures[source] = workers.submit(capture, path, sources, host=host)
+        stops = {source: future.result() for source, future in captures.items()}
+    json_new(
+        root / "pair-stop.json",
+        {
+            "scope_sha256": sha(scope_path.read_bytes()),
+            "stopped_ns": time.monotonic_ns(),
+            "reasons": stops,
+            "captures": {
+                source: sha(read_bounded(root / source / "capture.json", MAX_SOURCE))
+                for source in FEED_HOSTS
+            },
+        },
+    )
+
+
+def compare_messages(primary, delayed, *, started_ns, stopped_ns):
+    def indexed(raw):
+        observations = {}
+        for row in raw:
+            message = FeedMessage.from_row(row)
+            received = uint(row["received"]["monotonic_ns"])
+            if not started_ns <= received <= stopped_ns:
+                raise ValueError("feed observation outside paired capture clock")
+            previous = observations.get(message.sequence)
+            if previous is not None:
+                if previous[0] != message:
+                    raise ValueError(f"feed conflicts at sequence {message.sequence}")
+                received = min(received, previous[1])
+            observations[message.sequence] = message, received
+        return observations
+
+    main = indexed(primary)
+    backup = indexed(delayed)
+    if not main or not backup:
+        raise ValueError("both feeds need retained messages for comparison")
+    matched = []
+    unbound = 0
+    for sequence in sorted(main.keys() & backup.keys()):
+        first, primary_ns = main[sequence]
+        second, delayed_ns = backup[sequence]
+        if first.semantic_sha256 != second.semantic_sha256 or (
+            first.block_hash is not None
+            and second.block_hash is not None
+            and first.block_hash != second.block_hash
+        ):
+            raise ValueError(f"feeds disagree at sequence {sequence}")
+        if first.block_hash is None or second.block_hash is None:
+            unbound += 1
+            continue
+        matched.append(
+            {
+                "sequence": sequence,
+                "block_hash": first.block_hash,
+                "primary_receive_ns": primary_ns,
+                "delayed_receive_ns": delayed_ns,
+                "delayed_minus_primary_ns": delayed_ns - primary_ns,
+            }
+        )
+    first_main, last_main = min(main), max(main)
+    return {
+        "primary_sequences": len(main),
+        "delayed_sequences": len(backup),
+        "matched_same_hash": len(matched),
+        "matched_without_two_hashes": unbound,
+        "primary_internal_missing": last_main - first_main + 1 - len(main),
+        "primary_missing_seen_on_delayed": sorted(
+            sequence
+            for sequence, (message, _) in backup.items()
+            if first_main < sequence < last_main and sequence not in main and message.block_hash
+        ),
+        "pairs": matched,
+    }
+
+
+def compare_pair(root, sources):
+    raw_scope = read_bounded(root / "pair-scope.json", MAX_HEADERS)
+    scope = load_json(raw_scope)
+    stop = load_json(read_bounded(root / "pair-stop.json", MAX_HEADERS))
+    if (
+        scope["schema"] != PAIR_SCHEMA
+        or scope["chain_id"] != CHAIN_ID
+        or scope["hosts"] != FEED_HOSTS
+        or stop["scope_sha256"] != sha(raw_scope)
+        or set(stop["captures"]) != FEED_HOSTS.keys()
+        or set(stop["reasons"]) != FEED_HOSTS.keys()
+    ):
+        raise ValueError("paired feed scope and capture identities disagree")
+    feeds = {}
+    for source, host in FEED_HOSTS.items():
+        path = root / source
+        manifest = read_bounded(path / "capture.json", MAX_SOURCE)
+        if sha(manifest) != stop["captures"][source] or (
+            load_json(manifest)["reason"] != stop["reasons"][source]
+        ):
+            raise ValueError("paired feed capture manifest changed")
+        feeds[source] = decode(path, sources, host=host)["messages"]
+    return {
+        "schema": PAIR_SCHEMA,
+        "chain_id": CHAIN_ID,
+        "scope_sha256": stop["scope_sha256"],
+        "capture_sha256": stop["captures"],
+        "reasons": stop["reasons"],
+        **compare_messages(
+            feeds["primary"],
+            feeds["delayed"],
+            started_ns=uint(scope["started_ns"]),
+            stopped_ns=uint(stop["stopped_ns"]),
+        ),
+        "rpc_verified": False,
+        "execution_eligible": False,
+    }
+
+
 def prepare(source_dir):
     """Fetch only the public static inputs. No WebSocket or chain RPC is opened."""
     source_dir.mkdir(parents=True, exist_ok=True)
@@ -641,7 +786,9 @@ def prepare(source_dir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "capture", "decode"))
+    parser.add_argument(
+        "action", choices=("prepare", "capture", "decode", "capture-pair", "compare-pair")
+    )
     parser.add_argument("evidence_dir", type=Path)
     parser.add_argument("--sources-dir", type=Path, help="defaults to EVIDENCE_DIR/sources")
     args = parser.parse_args()
@@ -650,11 +797,16 @@ def main():
     if args.action == "prepare":
         print(json.dumps(prepare(sources), sort_keys=True))
         return 0
-    if args.action == "capture":
+    if args.action in {"capture", "capture-pair"}:
         if root.is_relative_to(REPO_ROOT) and not root.is_relative_to(REPO_ROOT / "reports"):
             raise ValueError(
                 "store raw feed frames under ignored reports/ or outside the repository"
             )
+        if args.action == "capture-pair":
+            capture_pair(root, sources)
+            stops = load_json(read_bounded(root / "pair-stop.json", MAX_HEADERS))["reasons"]
+            print(json.dumps(stops, sort_keys=True))
+            return int(any(reason not in {"time_cap", "frame_cap"} for reason in stops.values()))
         root.mkdir(parents=True, exist_ok=True)
         capture(root, sources)
         recorded = load_json((root / "capture.json").read_bytes())
@@ -677,6 +829,10 @@ def main():
             not recorded["handshake_complete"]
             or recorded["reason"] not in {"time_cap", "frame_cap"}
         )
+    if args.action == "compare-pair":
+        report = compare_pair(root, sources)
+        print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+        return int(not report["matched_same_hash"])
     data = decode(root, sources)
     artifact = root / "decode.json"
     print(json.dumps(data["summary"], sort_keys=True))
