@@ -96,7 +96,9 @@ class NitroHeader(BlockSnapshot):
     gas_used: int
 
 
-def nitro_header(value: object, number: int, expected_hash: str) -> NitroHeader:
+def nitro_header(
+    value: object, number: int, expected_hash: str, *, chain_id: int = ELYSIUM_CHAIN_ID
+) -> NitroHeader:
     obj = strict_object(value, "Nitro header")
     if any(k in obj for k, _ in PRAGUE_FIELDS[16:]):
         raise ValueError("unsupported_nitro_optional_header")
@@ -106,7 +108,7 @@ def nitro_header(value: object, number: int, expected_hash: str) -> NitroHeader:
         else hex_bytes(obj.get(name), width or 32, exact=width > 0)
         for name, width in PRAGUE_FIELDS[:16]
     ]
-    base = header(value, ELYSIUM_CHAIN_ID, number)
+    base = header(value, chain_id, number)
     if "0x" + keccak(rlp_encode(fields)).hex() != base.ref.block_hash or (
         base.ref.block_hash != expected_hash
     ):

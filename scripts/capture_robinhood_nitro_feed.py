@@ -711,7 +711,7 @@ def compare_messages(primary, delayed, *, started_ns, stopped_ns):
     }
 
 
-def compare_pair(root, sources):
+def decode_pair_capture(root, sources):
     raw_scope = read_bounded(root / "pair-scope.json", MAX_HEADERS)
     scope = load_json(raw_scope)
     stop = load_json(read_bounded(root / "pair-stop.json", MAX_HEADERS))
@@ -732,7 +732,11 @@ def compare_pair(root, sources):
             load_json(manifest)["reason"] != stop["reasons"][source]
         ):
             raise ValueError("paired feed capture manifest changed")
-        feeds[source] = decode(path, sources, host=host)["messages"]
+        feeds[source] = decode(path, sources, host=host)
+    return scope, stop, feeds
+
+
+def summarize_pair_capture(scope, stop, feeds):
     return {
         "schema": PAIR_SCHEMA,
         "chain_id": CHAIN_ID,
@@ -740,14 +744,18 @@ def compare_pair(root, sources):
         "capture_sha256": stop["captures"],
         "reasons": stop["reasons"],
         **compare_messages(
-            feeds["primary"],
-            feeds["delayed"],
+            feeds["primary"]["messages"],
+            feeds["delayed"]["messages"],
             started_ns=uint(scope["started_ns"]),
             stopped_ns=uint(stop["stopped_ns"]),
         ),
         "rpc_verified": False,
         "execution_eligible": False,
     }
+
+
+def compare_pair(root, sources):
+    return summarize_pair_capture(*decode_pair_capture(root, sources))
 
 
 def prepare(source_dir):

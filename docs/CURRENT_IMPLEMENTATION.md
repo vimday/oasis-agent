@@ -80,6 +80,10 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [同本金有序批次与 100 跳整笔对照](verification/V2_ORDERED_ROUTE_ANVIL_20261124.md)。回环 EVM 逐笔核对付款、余额和退款后的收据 gas。共享池重置高估最佳批次毛差 44.2%。直接子块同包络全回滚，百跳成本 4,877,917 gas。公链机会频率尚无对应证据。
+- [Base 新头与轮询](verification/BASE_HEAD_DELIVERY_20261124.md) · [Robinhood 双流到达顺序](verification/ROBINHOOD_NITRO_ARRIVAL_REPLAY_20261124.md) · [BSC 80 Swap 多资产长尾](verification/BSC_ALTERNATE_LONG_TAIL_20261124.md)。Base 同源免费样本新头覆盖 12/12 个直接子块，轮询为 0/12。Robinhood 离线注入缺口后 411.928 ms 回补，两个已释放区块绑定 45 份收据。另一次主动关闭本地主连接后，真实备用流在 515.102 ms 后补上首个连续高度，累计 102 个。BSC 的 80 条事件拆成 20 条四跳，扣 gas 和直接付款后为负 BNB 余额与正 USDT 余额，实际变现待核。
+- [Base 已推送块的 4/58/66 池复核](verification/BASE_HEAD_DELIVERY_20261124.md) · [BSC 48 块定向长尾](verification/BSC_ALTERNATE_LONG_TAIL_20261124.md)。Base 的一次免费前瞻采集从新头接收到固定哈希 66 池状态就绪耗时 1,188.130 ms，完成三组双图对照耗时 1,199.246 ms，零模型正候选。BSC 用三次免费读固定池地址并核对目标块收据和调用树，52 条 Swap 样本的可证最长资金分支为五跳，结算包含 LP NFT。
+- [Ethereum 同块四跳费用余量](verification/ETH_ORDERED_FOUR_HOP_MARGIN_20261124.md)。两笔新核实的 WETH 闭环各走四个独立池。复算区块哈希及 210 份收据根，独立调用树与收据一致。扣实际 gas 后分别剩 7,145,491,293,251 和 1,288,115,539,886 wei。较薄样本的原始调用在成交块末和直接子块均回滚。
 - [Base 盈利筛选和热路径](verification/MULTIHOP_PROFIT_PIPELINE_20261124.md)。官方头和运行码验证期间先发固定哈希地址池读，完整一致后发布。三个真实样本重叠 220–445 ms，状态就绪 0.94–2.04 秒。V4 跨 bitmap 字的同哈希双源真实报价与新模型逐整数一致，旧模型高报 3 个 USDbC 最小单位。本轮零模型正候选。
 - [Ethereum 十池与长路径分析](verification/ETH_LONG_SERIAL_EVIDENCE_20261124.md) · [BSC 有序批次边际成本](verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md) · [Robinhood 两腿结算](verification/ROBINHOOD_FEED_PAIR_20261124.md)。Ethereum 十池样本最长四跳，实际 gas 后仅余 3.22% 毛差。BSC 35 条闭环分别归因路径 gas 和整笔公共费用，新增一笔闭合资金 4+3 跳样本，原生币额外流出未知。Robinhood 两个无 hook V4 池的中间资产在同次 unlock 精确抵消，首尾为不同资产。
 - [Base 58+8 池常规影子](verification/BASE_MIXED_FORWARD_CLI_20261124.md) · [Robinhood 双 feed](verification/ROBINHOOD_FEED_PAIR_20261124.md)。Base 双源固定哈希入口完成三个完整混池状态，4/58/66 池扣模型成本后均无正候选。状态就绪 1.93–2.26 秒，采样间跳过 26 个高度。Robinhood 主、备用配对 132 个同哈希块，备用到达中位晚 505 ms，另有两个块的独立区块与收据根复核。

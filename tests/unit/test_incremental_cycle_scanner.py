@@ -310,21 +310,23 @@ def test_incremental_scanner_fallback_triggers_and_checkpoint(bridge: FastpathBr
 
 
 def test_multihop_ab_experiment_parity_and_cli_execution(
-    tmp_path: Path, bridge: FastpathBridge
+    tmp_path: Path, bridge: FastpathBridge, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pools, bases = build_benchmark_34pool_universe(bridge)
     assert len(pools) == 34
 
-    # Deterministic 25-block offline parity & evaluation-reduction verification.
-    report = run_multihop_ab_experiment(
-        num_blocks=25,
-        changed_pools_per_block=1,
-        max_hops=4,
-        full_scan_every_n_blocks=50,
-        min_p99_reduction_ratio=0.0,
-        seed=20261122,
-        bridge=bridge,
-    )
+    # Execute both scans, with fixed timings so a shared runner cannot change the gate result.
+    with monkeypatch.context() as timing:
+        timing.setattr(scanner_mod, "_time_scan", lambda scan: (scan(), 1_000_000))
+        report = run_multihop_ab_experiment(
+            num_blocks=25,
+            changed_pools_per_block=1,
+            max_hops=4,
+            full_scan_every_n_blocks=50,
+            min_p99_reduction_ratio=0.0,
+            seed=20261122,
+            bridge=bridge,
+        )
     assert report.schema == AB_EXPERIMENT_SCHEMA
     assert report.execution_eligible is False
     assert report.release_permitted is False
@@ -337,6 +339,7 @@ def test_multihop_ab_experiment_parity_and_cli_execution(
     assert report.arm_b.full_scan_blocks == 1
     assert report.arm_b.incremental_blocks == 24
     assert report.cycles_evaluated_reduction_ratio >= 0.75
+    assert report.p99_reduction_ratio == 0.0
     assert report.hypothesis_a_passed is True
 
     # Verify CLI --out output & --require-pass exit code 2 on impossible reduction threshold.

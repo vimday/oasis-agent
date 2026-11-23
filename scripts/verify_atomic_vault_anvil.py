@@ -205,14 +205,14 @@ class _AnvilRpc:
             raise RuntimeError(f"Anvil RPC {method} missing result")
         return payload["result"]
 
-    def verify_local_anvil(self) -> str:
+    def verify_local_anvil(self, *, expected_chain_id: int = BASE_CHAIN_ID) -> str:
         client_version = str(self.call("web3_clientVersion", []))
         _require(
             self.url.startswith("http://127.0.0.1:") and "anvil" in client_version.lower(),
             f"unexpected non-Anvil or non-loopback endpoint: {client_version!r}",
         )
         chain_id = int(str(self.call("eth_chainId", [])), 16)
-        _require(chain_id == BASE_CHAIN_ID, f"unexpected Anvil chainId {chain_id} != 8453")
+        _require(chain_id == expected_chain_id, f"unexpected Anvil chainId {chain_id}")
         return client_version
 
     def latest_block(self) -> dict[str, Any]:
@@ -354,13 +354,15 @@ class _AnvilRpc:
         return normalize_address(str(contract_addr)), receipt
 
 
-def _wait_for_anvil_ready(url: str, *, timeout_s: float) -> _AnvilRpc:
+def _wait_for_anvil_ready(
+    url: str, *, timeout_s: float, expected_chain_id: int = BASE_CHAIN_ID
+) -> _AnvilRpc:
     deadline = time.monotonic() + timeout_s
     last_exc: Exception | None = None
     while time.monotonic() < deadline:
         rpc = _AnvilRpc(url, timeout_s=5.0)
         try:
-            rpc.verify_local_anvil()
+            rpc.verify_local_anvil(expected_chain_id=expected_chain_id)
             rpc.close()
             return _AnvilRpc(url, timeout_s=20.0)
         except (httpx.HTTPError, OSError, RuntimeError, ValueError) as exc:

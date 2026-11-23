@@ -377,6 +377,7 @@ def test_websocket_rfc6455_handshake_fragments_ping_pong_close_and_dedup() -> No
     client_received_subscribe: list[dict[str, Any]] = []
     client_pong_payloads: list[bytes] = []
     client_close_received: list[bool] = []
+    ready_for_close = threading.Event()
 
     def _server_worker() -> None:
         try:
@@ -456,6 +457,7 @@ def test_websocket_rfc6455_handshake_fragments_ping_pong_close_and_dedup() -> No
             assert p_op == 0xA
             client_pong_payloads.append(p_pay)
 
+            assert ready_for_close.wait(timeout=5.0)
             # Send match (trade_id=102) followed by server Close frame (0x8)
             match_102 = json.dumps(
                 {
@@ -509,6 +511,7 @@ def test_websocket_rfc6455_handshake_fragments_ping_pong_close_and_dedup() -> No
         assert feed.last_trade_id_by_product == {"ETH-USD": 101}
 
         # Drain final match (202) + Close frame (0x8)
+        ready_for_close.set()
         final_prints: list[CoinbaseTradePrint] = []
         saw_gap = False
         for _ in range(40):

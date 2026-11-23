@@ -2,6 +2,17 @@
 
 **优先验证整数金额、整笔交易及完整成本。** 最初查到正常 Rust 入口会漏报的两池反例，本轮已修复。现有变池缓存能在同一模型上加速；还缺少衡量“收到可用状态，到整笔交易复核完成”所需的输入和基准。以下顺序以解决这两个问题为起点，研究范围是同链、离线及只读影子。[本次复核和最小反例](../verification/MULTIHOP_RESEARCH_20261122.md) · [调研原文](MULTIHOP_ARBITRAGE_RESEARCH.md) · [项目路线图](LONG_TERM_PROFIT_ROADMAP.md)
 
+### 2026-11-24 · 回滚成本、直接父子覆盖与长尾资金
+
+- [x] 同本金的回环 EVM 控制完成单环、两种有序批次、逐笔和 100 个不同池的串行对照。重置共享池把最佳批次毛差高估 44.2%。同封装在直接子块全部失败，百跳回滚约 488 万 gas，数据用于校验整笔净额和负控制。[整笔对照](../verification/V2_ORDERED_ROUTE_ANVIL_20261124.md)
+- [x] Base 同源实测 `newHeads` 和 500 ms 轮询，独立核对 13 个共同窗口区块和 12 个直接子块。两臂分别覆盖 12/12 和 0/12 个直接子块。Robinhood 留存双流注入主源缺口，411.928 ms 回补，重启无重复释放，绑定两个区块的状态根及 45 份收据。[Base 头部实测](../verification/BASE_HEAD_DELIVERY_20261124.md) · [Robinhood 到达顺序回放](../verification/ROBINHOOD_NITRO_ARRIVAL_REPLAY_20261124.md)
+- [x] Robinhood 主动关闭本地主 WebSocket，备用流在 515.102 ms 后提供首个可连续释放的高度，累计推进 102 个高度。保留原始接收时钟并离线复验。[Robinhood 主连接断开试验](../verification/ROBINHOOD_NITRO_ARRIVAL_REPLAY_20261124.md)
+- [x] BSC 把另一笔 80 条 Swap、43 池归入 19 条 WBNB 和 1 条 USDT 四跳闭环，核对 100 条 ERC-20 转账和原生币付款，单列两币余额及变现门槛。保留七个旧收据的长尾分母和新窗口的查询拒绝。[BSC 长尾对账](../verification/BSC_ALTERNATE_LONG_TAIL_20261124.md)
+- [x] Ethereum 的两个额外四跳样本复核完整资金链、全块收据与独立交易调用树。实收较薄的一笔只剩 1,288,115,539,886 wei，原始调用在成交块末和直接子块均回滚。[同块四跳成本边界](../verification/ETH_ORDERED_FOUR_HOP_MARGIN_20261124.md)
+- [x] Base 事后复现已推送哈希的 4/58/66 池状态，并实测一次 `newHeads` 到可用 66 池状态和双图扫描的完整影子链路，分别耗时 1,188.130 和 1,199.246 ms。两组零模型正候选。BSC 定向 48 块的最高重复池样本核对 52 条 Swap、最长五跳资金分支及 LP NFT 结算。[Base 状态复核](../verification/BASE_HEAD_DELIVERY_20261124.md) · [BSC 定向取证](../verification/BSC_ALTERNATE_LONG_TAIL_20261124.md)
+- [ ] 将 Base `newHeads` 接到正常连续影子入口，保留 4/58/66 池对照，从首次接收到整笔完成使用同一单调时钟。Robinhood 验证自然故障窗口的回填，以及 feed 到精确可报价状态的延迟。
+- [ ] 把回环整笔对照接到四链真实持出窗口。每个正模型候选保存原包络、独立余额差、费率、直接子块和未覆盖区间。按固定时间、资金和变现成本比较单环、有序批次、长串行及持有。地址过滤允许的范围单列覆盖，继续搜集满足 20/50/100/200 深度的盈利资金链。
+
 ### 2026-11-24 · 模型净额与边际成本
 
 - [x] Base 常规影子将地址池读取重叠到官方检查期间，三组免费实际读重叠 220–445 ms。V4 逐 bitmap 字取整有双向原库回归。低本金高百分比与较高绝对净额按同块估值排序。现场两种 V4 模型的固定块比较均未产生正候选。[热路径验证](../verification/MULTIHOP_PROFIT_PIPELINE_20261124.md)
