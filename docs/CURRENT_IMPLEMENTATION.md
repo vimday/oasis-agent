@@ -80,6 +80,7 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [BSC 和 Base 多跳交易前状态回放](verification/MULTIHOP_PRETRADE_REPLAY_20261123.md)。BSC 已完整复现 5+1 跳所在交易，五跳毛差从精确前置报价的 0.01580 USDT 降至支路实得的 0.01339 USDT，下一块复报价转负。Base 的 35 条 V4 交换与回执一致，后续同一 UserOperation 因 nonce 拒绝，四池有限金额对照亏损。扩扫仍未证实几十跳的纯串行资金路径。
 - [多链长交易尾部与资金深度](verification/LONG_SWAP_TAIL_20261123.md)。Base 回执出现 35 条 Swap 和 2 个 V4 池，BSC 的 80 条样本由 20 个四次交换的调用组构成，另有 5 跳闭环及一跳利润兑换的资金证据。新增只读回放分别统计事件、池、调用分组与有凭证的资金路径。
 - [中小池闭环增量与整数金额认证](verification/MULTICHAIN_CLOSURE_SIZING_20261123.md)。在 retained Ethereum/BSC 快照中比较新池组成的回路，对最多 400 个不同池执行保守上界与精确整数寻优，明确未决区间。Robinhood 已有可持久化游标的离线影子提示回放，实时缺口回补和真值定价仍待在前瞻窗口完成。
 - [中小池扩样与百跳闭环](verification/MULTICHAIN_TAIL_DEPTH_20261123.md)。Ethereum 与 BSC 分别核验 798、568 个双边非零 V2 池，Robinhood 严格身份核验 214 池。BSC 在 100/101 个不同池上完成整数报价，手续费后毛差为负；Robinhood 找到 100/109 池的拓扑闭环，其长环有限金额和整笔价值仍待验证。100–400 跳的研究对照见核验记录。
