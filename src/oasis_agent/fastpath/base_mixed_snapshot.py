@@ -18,6 +18,11 @@ from eth_hash.auto import keccak
 from ..arbitrage.event_quote import V4
 from ..errors import FeeEncodingError, OasisError, RpcError
 from ..evidence.base_denim import BASE_TIME, validate_header_timestamp_ms
+from ..evidence.base_head_compare import BaseHead
+from ..evidence.base_newheads import (
+    DIRECTORY as HEAD_DIRECTORY,
+)
+from ..evidence.base_newheads import HeadObservation, NewHeadsError, replay_head_observation
 from ..evidence.rpc_validation import (
     rpc_quantity,
     strict_digest,
@@ -57,6 +62,7 @@ SOURCES = {PUBLICNODE: DEFAULT_BASE_RPC_URL, OFFICIAL: OFFICIAL_URL}
 SCHEMA_V1 = "oasis.base-mixed-shadow.v1"
 SCHEMA_V2 = "oasis.base-mixed-shadow.v2"
 SCHEMA = "oasis.base-mixed-shadow.v3"
+HEAD_SCHEMA = "oasis.base-mixed-shadow.v4"
 DIRECTORY = "mixed_base_state"
 CHAIN_ID = 8453
 ADDRESS_POOLS = 58
@@ -382,6 +388,7 @@ def _acquire(
     exchange: _Exchange,
     *,
     bitmap_aware: bool,
+    expected_head: BaseHead | None = None,
     workers: ThreadPoolExecutor | None = None,
     stop_on_failure: Event | None = None,
 ) -> MixedState:
@@ -390,6 +397,20 @@ def _acquire(
     block = _header(primary_raw)
     if tag != "latest" and rpc_quantity(tag) != block.number:
         raise ValueError("mixed Base primary did not return the requested height")
+    if expected_head is not None and (
+        tag != hex(expected_head.height)
+        or not expected_head.agrees(
+            BaseHead(
+                block.number,
+                block.block_hash,
+                block.parent_hash,
+                block.state_root,
+                block.timestamp_ms // 1000,
+                block.timestamp_ms,
+            )
+        )
+    ):
+        raise NewHeadsError("Base newHeads conflicts with primary header", canonical_conflict=True)
 
     def official_state() -> tuple[tuple[PoolNode, ...], dict[str, tuple[int, int]], int, int]:
         official = _header(
@@ -402,6 +423,10 @@ def _acquire(
             )
         )
         if official != block:
+            if expected_head is not None:
+                raise NewHeadsError(
+                    "Base newHeads conflicts with official header", canonical_conflict=True
+                )
             raise ValueError("mixed Base providers disagree on pinned header")
         pin = {"blockHash": block.block_hash, "requireCanonical": True}
         code = _decode_hex_bytes(
@@ -637,6 +662,8 @@ class MixedBaseCapture:
         official: Send,
         timeout: float,
         workers: ThreadPoolExecutor,
+        *,
+        head: HeadObservation | None = None,
     ) -> MixedCaptureResult:
         self.attempts += 1
         scope = self.directory / f"attempt-{self.attempts:08d}"
@@ -644,7 +671,7 @@ class MixedBaseCapture:
         records: dict[str, dict[str, object]] = {}
         started_ns = time.monotonic_ns()
         content: dict[str, object] = {
-            "schema": SCHEMA,
+            "schema": HEAD_SCHEMA if head is not None else SCHEMA,
             "execution_eligible": False,
             "capture_mode": "injected" if self.injected else "public-shadow",
             "roster_parent_sha256": self.prior_sha256,
@@ -655,6 +682,8 @@ class MixedBaseCapture:
             "start_monotonic_ns": started_ns,
             "roles": records,
         }
+        if head is not None:
+            content["newheads_observation"] = head.to_wire()
 
         def exchange(role: str, request: bytes) -> bytes:
             source = _ROLES[role]
@@ -688,11 +717,14 @@ class MixedBaseCapture:
 
         manifest_path = scope / "manifest.json"
         try:
+            if head is not None and not 0 < head.received_monotonic_ns <= started_ns:
+                raise ValueError("Base newHeads receive clock exceeds capture start")
             state = _acquire(
                 tag,
                 self.specs,
                 exchange,
                 bitmap_aware=True,
+                expected_head=head.head if head is not None else None,
                 workers=workers,
                 stop_on_failure=self.stopped,
             )
@@ -716,6 +748,8 @@ class MixedBaseCapture:
                     raise ValueError(
                         "mixed Base repeated or regressed state disagrees with prior pin"
                     )
+            if head is not None and self.stopped.is_set():
+                raise NewHeadsError("Base newHeads scope stopped before state publication")
             ready_ns = time.monotonic_ns()
             overlap = _check_timing(records, started_ns, ready_ns, speculative=True)
         except (OSError, ValueError, OasisError, RuntimeError, TypeError) as exc:
@@ -723,6 +757,8 @@ class MixedBaseCapture:
             content.update(
                 status="failed", error_type=type(exc).__name__, budget_after=self.counts()
             )
+            if isinstance(exc, NewHeadsError) and exc.canonical_conflict:
+                content["canonical_conflict"] = True
             if isinstance(exc, MixedCanonicalConflict):
                 content["canonical_conflict"] = {
                     "previous": asdict(exc.before),
@@ -829,7 +865,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         raise ValueError("missing or unbounded mixed Base manifest")
     body = strict_json_object(manifest.read_bytes())
     if (
-        body.get("schema") not in (SCHEMA_V1, SCHEMA_V2, SCHEMA)
+        body.get("schema") not in (SCHEMA_V1, SCHEMA_V2, SCHEMA, HEAD_SCHEMA)
         or body.get("status") != "complete"
         or body.get("execution_eligible") is not False
         or body.get("capture_mode") not in ("injected", "public-shadow")
@@ -850,7 +886,16 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
     if body["schema"] != SCHEMA_V1:
         _check_replay_budget(scope, body)
     rows = {role: strict_object(row, "mixed Base exchange") for role, row in roles.items()}
-    speculative = body["schema"] == SCHEMA
+    speculative = body["schema"] in (SCHEMA, HEAD_SCHEMA)
+    head = None
+    if body["schema"] == HEAD_SCHEMA:
+        head = replay_head_observation(
+            scope.parent.parent / HEAD_DIRECTORY, body.get("newheads_observation")
+        )
+        if head.received_monotonic_ns > start:
+            raise ValueError("Base newHeads arrived after state capture start")
+    elif "newheads_observation" in body:
+        raise ValueError("unexpected Base newHeads reference in legacy manifest")
     overlap = _check_timing(rows, start, ready, speculative=speculative)
     if speculative:
         recorded = strict_object(
@@ -872,7 +917,13 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
             raise ValueError("retained mixed Base request or source differs")
         return _read(scope / f"{role}.response.json", row.get("response_sha256"))
 
-    state = _acquire(tag, specs, exchange, bitmap_aware=speculative)
+    state = _acquire(
+        tag,
+        specs,
+        exchange,
+        bitmap_aware=speculative,
+        expected_head=head.head if head is not None else None,
+    )
     if _read(scope / "state.json", body.get("state_sha256")) != canonical_json(state.evidence()):
         raise ValueError("retained mixed Base decoded state differs")
     return state

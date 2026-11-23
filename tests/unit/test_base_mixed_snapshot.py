@@ -2,9 +2,10 @@
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from dataclasses import asdict, replace
 from pathlib import Path
-from threading import Barrier
+from threading import Barrier, Event
 from typing import Any
 
 import pytest
@@ -12,6 +13,7 @@ from eth_abi.abi import decode, encode
 from eth_hash.auto import keccak
 
 from oasis_agent.cross_venue.live_cex_dex_shadow import build_synthetic_coinbase_transport
+from oasis_agent.evidence import base_newheads as newheads
 from oasis_agent.fastpath import base_mixed_snapshot as mixed
 from oasis_agent.fastpath.bridge import FastpathBridge
 from oasis_agent.fastpath.live_shadow_runner import (
@@ -470,3 +472,121 @@ def test_speculative_address_refusal_stops_remaining_official_requests(tmp_path:
     scope = capture.directory / "attempt-00000001"
     assert (scope / "secondary_header.response.json").is_file()
     assert not (scope / "state.json").exists()
+
+
+class _HeadSocket:
+    def __init__(self, headers: tuple[dict[str, object], ...]):
+        self.headers = iter(headers)
+        self.responses: list[bytes] = []
+
+    def send(self, message: bytes, *, text: bool) -> None:
+        assert text
+        data = json.loads(message)
+        self.responses.append(_result(data, "0x2105" if data["id"] == 1 else "test-id"))
+
+    def recv(self, *, timeout: float, decode: bool) -> bytes:
+        assert not decode and timeout > 0
+        if self.responses:
+            return self.responses.pop()
+        return canonical_json(
+            {
+                "jsonrpc": "2.0",
+                "method": "eth_subscription",
+                "params": {"subscription": "test-id", "result": next(self.headers)},
+            }
+        )
+
+
+@pytest.mark.parametrize("mismatch", [False, True])
+def test_newheads_campaign_binds_before_state_and_replays(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mismatch: bool,
+) -> None:
+    monkeypatch.setattr(mixed, "MANAGER_RUNTIME", "0x" + keccak(RUNTIME).hex())
+    specs = _specs()
+    header = json.loads(_address_mock(specs, {"method": "eth_getBlockByNumber", "id": 1}))["result"]
+    hint = header | {"stateRoot": HASH} if mismatch else header
+    prior = _prior(tmp_path / "prior", specs)
+    out = tmp_path / "campaign"
+    calls = []
+
+    def transport(url: str, request: bytes, timeout: float) -> bytes:
+        req = json.loads(request)
+        calls.append((url, req["method"]))
+        if req["method"] == "eth_getBlockByNumber":
+            assert req["params"] == [hex(BLOCK), False]
+            return _address_mock(specs, req)
+        if req["method"] == "eth_getCode":
+            assert url == mixed.OFFICIAL_URL
+            return _result(req, "0x" + RUNTIME.hex())
+        return _address_mock(specs, req) if url != mixed.OFFICIAL_URL else _v4_answer(req)
+
+    def run():
+        return campaign.run_multicall_campaign(
+            out_dir=out,
+            mode="public-shadow",
+            ticks=1,
+            interval_ms=0,
+            max_rpc_calls=8,
+            rpc_transport=transport,
+            coinbase_transport=build_synthetic_coinbase_transport(),
+            bridge=FastpathBridge(),
+            compare_resident_graph=True,
+            mixed_base_address_manifest=prior,
+            mixed_base_secondary_max_rpc_calls=3,
+            base_newheads=True,
+            base_newheads_socket_factory=lambda: nullcontext(_HeadSocket((hint,))),
+        )
+
+    if mismatch:
+        with pytest.raises(newheads.NewHeadsError, match="primary header"):
+            run()
+        assert calls == [(mixed.SOURCES[mixed.PUBLICNODE], "eth_getBlockByNumber")]
+        assert (out / newheads.DIRECTORY / "STOP.json").is_file()
+        assert not (out / mixed.DIRECTORY / "attempt-00000001" / "state.json").exists()
+        return
+
+    result = run()
+    assert result.summary["rpc_calls_used"] == 8
+    assert result.summary["base_newheads"]["rpc_attempts_by_source"] == {
+        newheads.POLICIES[0].source: 3,
+    }
+    record = result.records[0]["shadow_cycle_lifecycle"]["mixed_base_state"]
+    assert record["head_to_cohorts_ready_ns"] >= record["head_to_state_ready_ns"] > 0
+    assert {k: v["pools"] for k, v in record["cohorts"].items()} == {
+        "four_pool": 4,
+        "address_58": 58,
+        "mixed_66": 66,
+    }
+    manifest = out / record["manifest"]
+    assert json.loads(manifest.read_bytes())["schema"] == mixed.HEAD_SCHEMA
+    assert len(mixed.replay_mixed_snapshot(manifest).nodes) == 66
+    raw = out / newheads.DIRECTORY / "frame-00000001.raw"
+    raw.write_bytes(raw.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="frame digest"):
+        mixed.replay_mixed_snapshot(manifest)
+
+
+def test_newheads_gap_stops_without_retry(tmp_path: Path) -> None:
+    specs = _specs()
+    header = json.loads(_address_mock(specs, {"method": "eth_getBlockByNumber", "id": 1}))["result"]
+    future = header | {"number": hex(BLOCK + 2)}
+    stopped = Event()
+    folder = tmp_path / "stream"
+    session = newheads.NewHeadsSession(
+        folder,
+        2,
+        stopped,
+        socket_factory=lambda: nullcontext(_HeadSocket((header, future))),
+    )
+    session.start()
+    try:
+        assert stopped.wait(2)
+        with pytest.raises(newheads.NewHeadsError, match="newHeads gap"):
+            session.next_head()
+        assert session.counts() == {newheads.POLICIES[0].source: 3}
+        assert (folder / "frame-00000002.raw").is_file()
+        assert json.loads((folder / "STOP.json").read_bytes())["canonical_conflict"] is False
+    finally:
+        session.close()

@@ -96,6 +96,14 @@ from oasis_agent.evidence.base_denim import (
     parse_base_time,
     validate_header_timestamp_ms,
 )
+from oasis_agent.evidence.base_newheads import DIRECTORY as BASE_NEWHEADS_DIRECTORY
+from oasis_agent.evidence.base_newheads import (
+    MAX_HEADS,
+    HeadObservation,
+    NewHeadsError,
+    NewHeadsSession,
+    SocketFactory,
+)
 from oasis_agent.evidence.rpc_validation import (
     rpc_quantity,
     strict_digest,
@@ -2089,6 +2097,8 @@ def run_multicall_campaign(
     compare_resident_graph: bool = False,
     mixed_base_address_manifest: Path | None = None,
     mixed_base_secondary_max_rpc_calls: int | None = None,
+    base_newheads: bool = False,
+    base_newheads_socket_factory: SocketFactory | None = None,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
     if mode not in {"public-shadow", "fixture"}:
@@ -2112,6 +2122,19 @@ def run_multicall_campaign(
     if type(compare_resident_graph) is not bool:
         raise ShadowRunnerError("compare_resident_graph must be a boolean")
     mixed_enabled = mixed_base_address_manifest is not None
+    if type(base_newheads) is not bool:
+        raise ShadowRunnerError("base_newheads must be a boolean")
+    if base_newheads:
+        if not mixed_enabled:
+            raise ShadowRunnerError("Base newHeads requires a mixed Base address manifest")
+        if type(ticks) is not int or not 1 <= ticks <= MAX_HEADS:
+            raise ShadowRunnerError(f"Base newHeads requires 1..{MAX_HEADS} ticks")
+        if type(max_rpc_calls) is not int or max_rpc_calls < 8:
+            raise ShadowRunnerError("Base newHeads requires at least eight total RPC reservations")
+        if (rpc_transport is None) != (base_newheads_socket_factory is None):
+            raise ShadowRunnerError("Base newHeads test injection requires both RPC transports")
+    elif base_newheads_socket_factory is not None:
+        raise ShadowRunnerError("Base newHeads socket factory requires the newHeads opt-in")
     if mixed_enabled:
         if mode != "public-shadow" or rpc_url != DEFAULT_BASE_RPC_URL:
             raise ShadowRunnerError(
@@ -2239,6 +2262,12 @@ def run_multicall_campaign(
     mixed_workers: concurrent.futures.ThreadPoolExecutor | None = None
     official_pool: _KeepAliveHttpsPool | None = None
     latest_mixed: MixedCaptureResult | None = None
+    head_session: NewHeadsSession | None = None
+    control_resident = (
+        ResidentShadowComparator(bridge=active_bridge)
+        if base_newheads and compare_resident_graph
+        else None
+    )
 
     rpc_calls_used = 0
 
@@ -2488,7 +2517,11 @@ def run_multicall_campaign(
                 thread_name_prefix="cb-book",
             )
 
-        def _read_snapshot_at_tag(tag: str) -> PinnedTickSnapshot:
+        def _read_snapshot_at_tag(
+            tag: str,
+            *,
+            head: HeadObservation | None = None,
+        ) -> PinnedTickSnapshot:
             nonlocal latest_mixed
             latest_mixed = None
             if mixed_capture is not None:
@@ -2500,7 +2533,12 @@ def run_multicall_campaign(
                 latest_mixed = capture.record_attempt(
                     active_rpc_transport,
                     lambda send: mixed_capture.capture(
-                        tag, send, mixed_official_transport, float(timeout_s), mixed_workers
+                        tag,
+                        send,
+                        mixed_official_transport,
+                        float(timeout_s),
+                        mixed_workers,
+                        head=head,
                     ),
                 )
                 snapshot = _extract_snapshot_from_multicall_universe(
@@ -2556,12 +2594,28 @@ def run_multicall_campaign(
                 return snap
             return read(active_rpc_transport)
 
+        if base_newheads:
+            assert mixed_capture is not None
+            _reserve_rpc(3)
+            head_session = NewHeadsSession(
+                out_dir / BASE_NEWHEADS_DIRECTORY,
+                ticks,
+                mixed_capture.stopped,
+                socket_factory=base_newheads_socket_factory,
+            )
+            head_session.start()
+
         stopped_early = False
         canonical_conflict = False
         stop_reason: str | None = None
         last_tick_started: float | None = None
         for tick_idx in range(ticks):
-            if tick_idx > 0 and interval_ms > 0 and last_tick_started is not None:
+            if (
+                head_session is None
+                and tick_idx > 0
+                and interval_ms > 0
+                and last_tick_started is not None
+            ):
                 elapsed = max(0.0, clock_fn() - last_tick_started)
                 remaining = (interval_ms / 1000.0) - elapsed
                 if remaining > 0:
@@ -2569,8 +2623,16 @@ def run_multicall_campaign(
             last_tick_started = clock_fn()
 
             calls_before_tick = rpc_calls_used
+            selected_head = None
             try:
-                snapshot = _read_snapshot_at_tag("latest")
+                if head_session is None:
+                    snapshot = _read_snapshot_at_tag("latest")
+                else:
+                    selected_head = head_session.next_head()
+                    snapshot = _read_snapshot_at_tag(
+                        hex(selected_head.head.height), head=selected_head
+                    )
+                    head_session.check()
 
                 seen_hash = seen_hashes_by_block.get(snapshot.block_number)
                 if seen_hash is not None and seen_hash != snapshot.block_hash:
@@ -2608,10 +2670,19 @@ def run_multicall_campaign(
                         )
                     snapshot = refetched
             except (RpcError, ValueError) as exc:
-                if isinstance(exc, MixedCanonicalConflict):
+                if head_session is not None:
+                    if isinstance(exc, NewHeadsError) and exc.canonical_conflict:
+                        head_session.invalidate(exc)
+                    if head_session.failure is not None and head_session.failure is not exc:
+                        exc = head_session.failure
+                if isinstance(exc, MixedCanonicalConflict) or (
+                    isinstance(exc, NewHeadsError) and exc.canonical_conflict
+                ):
                     canonical_conflict = True
                 if records and (
-                    stop_gracefully_on_rpc_error or (mixed_enabled and canonical_conflict)
+                    base_newheads
+                    or stop_gracefully_on_rpc_error
+                    or (mixed_enabled and canonical_conflict)
                 ):
                     stopped_early = True
                     stop_reason = (
@@ -2620,7 +2691,7 @@ def run_multicall_campaign(
                         else f"Base shadow RPC payload failure: {exc}"
                     )
                     break
-                raise
+                raise exc
             seen_hashes_by_block[snapshot.block_number] = snapshot.block_hash
             state_ready_ns = time.monotonic_ns() if capture is not None else None
 
@@ -2804,6 +2875,56 @@ def run_multicall_campaign(
                         for anchor, report in zip(scan_inputs, mixed_reports, strict=True)
                     ],
                 }
+                if selected_head is not None:
+                    control_ids = {pool.address for pool in canonical_base_weth_usdc_pools()}
+                    control_pools = tuple(
+                        node for node in snapshot.nodes if node.pool_id in control_ids
+                    )
+                    if len(control_pools) != 4:
+                        raise ShadowRunnerError(
+                            "Base newHeads canonical four-pool control is incomplete"
+                        )
+                    control_graph = FastpathPoolGraph(active_bridge)
+                    for node in control_pools:
+                        control_graph.upsert_pool(node)
+                    control_reports = scan_anchors(control_graph, snapshot, scan_inputs)
+                    cohorts = {
+                        label: {
+                            "pools": count,
+                            "anchors": [
+                                {
+                                    "base_token": anchor.base_token,
+                                    "cycles_evaluated": report.cycles_evaluated,
+                                    "model_candidates": len(report.candidates),
+                                    "sizing_residuals": (
+                                        len(report.sizing_residuals)
+                                        if report.sizing_residuals is not None
+                                        else None
+                                    ),
+                                }
+                                for anchor, report in zip(scan_inputs, reports, strict=True)
+                            ],
+                        }
+                        for label, count, reports in (
+                            ("four_pool", len(control_pools), control_reports),
+                            ("address_58", len(snapshot.nodes), (weth_scan, usdc_scan)),
+                            ("mixed_66", len(mixed_state.nodes), mixed_reports),
+                        )
+                    }
+                    mixed_comparison["cohorts"] = cohorts
+                    mixed_comparison["newheads_observation"] = selected_head.to_wire()
+                    mixed_comparison["head_to_state_ready_ns"] = (
+                        latest_mixed.state_ready_monotonic_ns - selected_head.received_monotonic_ns
+                    )
+                    if control_resident is not None:
+                        b = mixed_state.block
+                        control = control_resident.check(
+                            GraphBlock(BASE_CHAIN_ID, b.number, b.block_hash, b.parent_hash),
+                            control_pools,
+                            tuple(AnchorScan(**asdict(a)) for a in scan_inputs),
+                            control_reports,
+                        )
+                        mixed_comparison["four_pool_resident_comparison"] = asdict(control)
                 if mixed_resident is not None:
                     block = mixed_state.block
                     comparison = mixed_resident.check(
@@ -2815,6 +2936,12 @@ def run_multicall_campaign(
                         mixed_reports,
                     )
                     mixed_comparison["resident_graph_comparison"] = asdict(comparison)
+                if selected_head is not None:
+                    mixed_comparison["head_to_cohorts_ready_ns"] = (
+                        time.monotonic_ns() - selected_head.received_monotonic_ns
+                    )
+            if head_session is not None:
+                head_session.check()
             if capture is not None:
                 capture.save_snapshot(
                     block_number=snapshot.block_number,
@@ -2861,7 +2988,8 @@ def run_multicall_campaign(
                     outcome["status"] = "not_checked_rank_limit"
                     continue
                 hop_cost = len(cand.hops)
-                if rpc_calls_used + hop_cost > max_rpc_calls:
+                state_reservation = 5 * (ticks - tick_idx - 1) if base_newheads else 0
+                if rpc_calls_used + hop_cost + state_reservation > max_rpc_calls:
                     outcome["status"] = "not_checked_rpc_budget"
                     quoter_rejected_count += 1  # legacy counter includes budget skips
                     continue
@@ -2908,13 +3036,13 @@ def run_multicall_campaign(
                                 first_positional_fallback=cand,
                             )
                             q_res = _interpret_quoter_verification_result(raw_q, cand)
-                        except (RpcError, ShadowRunnerError, ValueError) as exc:
+                        except (RpcError, ShadowRunnerError, ValueError) as quote_exc:
                             q_res = QuoterCheckResult(
                                 verified=False,
                                 quoter_amount_out=0,
                                 quoter_net_profit=-(cand.gas_cost_in_base + cand.l1_fee_in_base),
                                 rpc_calls_used=hop_cost,
-                                reason=f"quoter_bridge_failed:{exc}",
+                                reason=f"quoter_bridge_failed:{quote_exc}",
                             )
                         if q_res.rpc_calls_used > hop_cost:
                             _reserve_rpc(q_res.rpc_calls_used - hop_cost)
@@ -2940,6 +3068,8 @@ def run_multicall_campaign(
                     outcome["quote_replay_attempt"] = len(capture.attempts)
 
                 if mixed_capture is not None and mixed_capture.stopped.is_set():
+                    if head_session is not None:
+                        head_session.check()
                     raise ShadowRunnerError(
                         f"mixed Base Quoter RPC stopped: {mixed_capture.stop_reason}. "
                         f"See {MIXED_BASE_DIRECTORY}/STOP.json."
@@ -3564,6 +3694,8 @@ def run_multicall_campaign(
             }
             if lifecycle is not None:
                 record_body["shadow_cycle_lifecycle"] = lifecycle
+            if head_session is not None:
+                head_session.check()
             record_sha256 = sha256_hex(canonical_json(record_body))
             record = {**record_body, "record_sha256": record_sha256}
             records.append(record)
@@ -3580,6 +3712,12 @@ def run_multicall_campaign(
             prev_block_number = snapshot.block_number
             prev_block_hash = snapshot.block_hash
     finally:
+        if head_session is not None:
+            with suppress(RpcError):
+                head_session.close()
+        if control_resident is not None:
+            with suppress(FastpathCallError):
+                control_resident.close()
         if resident_comparator is not None:
             with suppress(FastpathCallError):
                 resident_comparator.close()
@@ -3775,6 +3913,13 @@ def run_multicall_campaign(
             "completed_ticks": ticks_completed,
             "rpc_attempts_by_source": mixed_capture.counts(),
             "execution_eligible": False,
+        }
+    if head_session is not None:
+        summary_body["base_newheads"] = {
+            "status": "incomplete" if stopped_early else "complete",
+            "directory": BASE_NEWHEADS_DIRECTORY,
+            "rpc_attempts_by_source": head_session.counts(),
+            "stop_reason": str(head_session.failure) if head_session.failure else None,
         }
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
@@ -3987,6 +4132,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--base-newheads",
+        action="store_true",
+        help=(
+            "Trigger mixed Base ticks from one free PublicNode newHeads stream. "
+            "Stops on a gap or refusal. Use 1..64 ticks and allow 3 extra RPC reservations."
+        ),
+    )
+    parser.add_argument(
         "--replay-mixed-base",
         type=Path,
         help="Verify a captured mixed_base_state attempt manifest offline.",
@@ -4051,6 +4204,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             compare_resident_graph=args.compare_resident_graph,
             mixed_base_address_manifest=args.mixed_base_address_manifest,
             mixed_base_secondary_max_rpc_calls=args.mixed_base_secondary_max_rpc_calls,
+            base_newheads=args.base_newheads,
         )
     except (
         OSError,
@@ -4104,6 +4258,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                     {"mixed_base_state": result.summary["mixed_base_state"]}
                     if args.mixed_base_address_manifest is not None
                     else {}
+                ),
+                **(
+                    {"base_newheads": result.summary["base_newheads"]} if args.base_newheads else {}
                 ),
                 "summary_sha256": result.summary["summary_sha256"],
             },

@@ -120,3 +120,42 @@ PYTHONPATH=. .venv/bin/python \
 .venv/bin/python scripts/run_multicall_100tick_campaign.py --replay-mixed-base \
   reports/research/base-live-head-state-20261124/run/mixed/attempt-00000001/manifest.json
 ```
+
+## 常规混合影子入口的两个连续新头
+
+常规入口新增 `--base-newheads`，随 `--mixed-base-address-manifest` 使用。后台收帧后记录
+同进程单调时间，把高度、哈希、父哈希、状态根和时间绑定到混合状态清单。只在两源固定块
+核验和完整合并后提交。每次连接最多接收 1–64 个指定的新头，原样保留重复帧。遇到缺块、
+分叉、超时或拒绝即停止该范围。[常规入口](../../scripts/run_multicall_100tick_campaign.py)
+
+北京时间 01:36:57.831 起，在独立冻结范围实测 **61,325,211 → 61,325,212**，第二个头的
+父哈希与首块相同。使用全部 **13/13** 个免费预留，分别为 3 个 WebSocket 连接与控制预留、
+4 次 PublicNode HTTPS 和 6 次 Base 官方 HTTPS。CEX 采用离线夹具。
+
+| 从应用收帧起，ms | 61,325,211 | 61,325,212 |
+| --- | ---: | ---: |
+| 到开始该块状态采集 | 3.903 | 1,446.530 |
+| 到 66 池状态就绪 | 1,558.690 | 2,427.308 |
+| 到三组 Rust 搜索和对照完成 | 1,650.261 | 2,507.873 |
+
+第二个头在前一轮完成前已入队。两块的 4、58、66 池均通过双图对照，resident 从
+`opened` 过渡至 `advanced`。每块、每组的 WETH/USDC 路线数都分别为 **12/12、
+1,774/1,596、1,940/1,776**，固定 L1/L2 模型正候选均为零。三组的定量未闭合区间
+分别为 **2/2、20/19、20/20**，整笔模拟数为零。
+
+证据保存在忽略目录 `reports/research/base-normal-newheads-20261124/`。预注册 SHA-256 为
+`fb2b1100c1ecbdd58654afd4483da531848cd04743566a5b90a447ccd4e4a0e1`，
+两份状态清单 SHA-256 为 `21dde084be265ce8e2572ca8ff22d88591e8255c4030aac6f955fce92e3a6b2a`
+与 `908cbda7743a56607fe69bcfe45539733335ec47740e3d48d26c6acdc9d820e4`。
+`--replay-mixed-base` 两次返回 0，逐份重新核对原始 WebSocket 帧与固定哈希状态。
+既有地址池回放也重建了两个 58 池快照。离线回归覆盖分叉先于状态查询拦截、显式缺块终止
+及原始 WebSocket 帧篡改。
+
+```sh
+set -o pipefail
+archive=reports/research/base-normal-newheads-20261124/run/mixed_base_state
+.venv/bin/python scripts/run_multicall_100tick_campaign.py --replay-mixed-base \
+  "$archive/attempt-00000001/manifest.json"
+.venv/bin/python scripts/run_multicall_100tick_campaign.py --replay-mixed-base \
+  "$archive/attempt-00000002/manifest.json"
+```

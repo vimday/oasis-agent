@@ -92,3 +92,44 @@ evidence=reports/research/bsc-ordered-marginals-20261124
 | `replayed.json` | `a8d1e02c5aa8be7a321b77f88c14c4219f323684d910b525ae1b05e62ddb6e22` |
 | `reviewed-seven-swap.json` | `839ee0ea3ea8db4e02d9681f7162d04af808ddc16219b88fdad92c86a488c965` |
 | `recent-STOP.json` | `06358b96b6d375304968da17aa840e50ba125703b986f8970f806355eeb0b1b9` |
+
+## 4+3 跳样本补齐直接付款
+
+北京时间 01:36:44 在独立范围内发出一次 Triport 匿名 `callTracer` 请求，HTTP 200，
+原账本 **1/1**，费用 USD 0。调用树有 **64 帧**，与此前重建收据根覆盖的 132 份收据
+中的目标收据对齐，完整复核 **21 条有序日志**。四跳和三跳分别位于根调用的子树
+`[1]`、`[2]`，各自返回的 WBNB 毛差与转账核对相同。两次 `balanceOf` 返回的
+执行器 WBNB 余额差也相同。此前静态浏览器查证失败的留存照旧。
+[Triport 匿名入口](https://triport.io/bsc-rpc) ·
+[目标交易](https://bscscan.com/tx/0xc6b2f79a126f66f3db0d5599be1b2c3090e153c5be0498f542ebcb7ba2d3c4d7)
+
+| 费用归因 | 原整数 |
+| --- | ---: |
+| 四跳子树 gas / 毛差扣其 gas，WBNB wei | 289,927 / 3,097,595,223,054 |
+| 三跳子树 gas / 毛差扣其 gas，WBNB wei | 180,520 / 3,720,029,412,982 |
+| 收据减两子树，未分配 gas | 7,000 |
+| 整笔 WBNB 毛差，wei | +30,339,974,636,036 |
+| 整笔收据 gas，477,447 × 50,000,000，BNB wei | −23,872,350,000,000 |
+| 直接付款，BNB wei | −502,801,424,107 |
+| 外层付款人和执行器合并的交易可见净额，BNB 等值 wei | **+5,964,823,211,929** |
+
+唯一原生币正值调用在子树 `[4]`，由执行器付给
+`0x4848489f0b2bedd788c696e2d79b6b69d7484848`，与块头费用接收方不同。
+两条闭环和该笔付款覆盖了可见价值转移。未见包装、解包或合并范围内的其他 ERC-20
+余额变化。链下费用、返还、账户控制关系和资金机会成本仍未知。
+
+固定本次实收毛差和直接付款，按实际单价保持严格正净额的 gas 上限为 **596,743**，
+比实际多 **119,296**。固定实际 gas 用量，对应上限为 **62,493,163 wei/gas**。
+这里的调用数据来自实际历史执行。留存范围没有改变金额、顺序或调用者的同状态整笔执行，
+也缺少下一块重报价。
+
+新请求与回放保留在 `candidate-triport-trace/` 下。先按前文复跑两个收据根，再运行：
+
+```sh
+set -o pipefail
+capture=reports/research/bsc-ordered-marginals-20261124/candidate-triport-trace
+.venv/bin/python "$capture/replay.py" | cmp - "$capture/verified.json"
+```
+
+`response.json` SHA-256 为 `90f37f90857b858f25630e97ca958937216c136a10c622511435e1ca7520d436`，
+`verified.json` 为 `0383ad9e9283718687352043b074d508f130105206930cf8d5cb072dbcf09e80`。

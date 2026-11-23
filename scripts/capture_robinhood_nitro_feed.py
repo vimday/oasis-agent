@@ -248,9 +248,11 @@ def send_pong(connection, content, deadline):
     connection.sendall(bytes((0x8A, 0x80 | len(content))) + mask + masked)
 
 
-def capture(root, sources, *, host=HOST):
+def capture(root, sources, *, host=HOST, max_frames=MAX_FRAMES):
     if host not in FEED_HOSTS.values():
         raise ValueError("unknown Robinhood feed host")
+    if type(max_frames) is not int or not 1 <= max_frames <= MAX_FRAMES:
+        raise ValueError("invalid Robinhood feed frame cap")
     if any((root / name).exists() for name in ("scope.json", "STARTED", "STOP")):
         raise ValueError("original WebSocket scope already started")
     offset, _, config_sha = source_config(sources)
@@ -261,7 +263,7 @@ def capture(root, sources, *, host=HOST):
         "max_connections": 1,
         "max_start_seconds": START_SECONDS,
         "max_read_seconds": READ_SECONDS,
-        "max_frames": MAX_FRAMES,
+        "max_frames": max_frames,
         "max_frame_payload_bytes": MAX_PAYLOAD,
         "max_total_bytes": MAX_TOTAL,
         "requested_sequence": None,
@@ -299,7 +301,7 @@ def capture(root, sources, *, host=HOST):
                 )
                 handshake_complete = stamp()
                 deadline = time.monotonic() + READ_SECONDS
-                for frame_index in range(1, MAX_FRAMES + 1):
+                for frame_index in range(1, max_frames + 1):
                     if time.monotonic() >= deadline:
                         break
                     flags, content, wire = reader.frame(deadline, MAX_TOTAL - received_bytes)
@@ -325,7 +327,7 @@ def capture(root, sources, *, host=HOST):
                         raise EOFError("server sent WebSocket close")
                     if row["opcode"] == 9:
                         send_pong(connection, content, deadline)
-                stop = "frame_cap" if len(frames) == MAX_FRAMES else "time_cap"
+                stop = "frame_cap" if len(frames) == max_frames else "time_cap"
     except TimeoutError as exc:
         stop = "time_cap" if handshake_complete else f"TimeoutError: {exc}"
         if reader and (reader.partial or reader.pending):
@@ -453,7 +455,12 @@ def decode(root, sources, *, host=HOST):
     envelopes, ordered, confirmations, partial = [], [], [], None
     signed_kinds, header_kinds = Counter(), Counter()
     rows = capture_data["frames"]
-    if len(rows) != capture_data["frames_used"] or len(rows) > MAX_FRAMES:
+    frame_cap = uint(scope["max_frames"])
+    if (
+        not 1 <= frame_cap <= MAX_FRAMES
+        or len(rows) != capture_data["frames_used"]
+        or len(rows) > frame_cap
+    ):
         raise ValueError("frame count disagrees with capture budget")
     if sum(uint(row["wire_bytes"]) for row in rows) != capture_data["bytes_received"]:
         raise ValueError("wire bytes disagree with capture")
