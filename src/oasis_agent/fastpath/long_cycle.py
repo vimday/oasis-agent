@@ -197,24 +197,45 @@ def _bounded_dfs(
     minimum: int,
     maximum: int,
     budget: int,
+    required_pools: frozenset[str] | None,
 ) -> tuple[PositiveMarginalCycle | None, int, bool]:
     adjacency: dict[str, list[MarginalEdge]] = defaultdict(list)
     for graph_edge in edges:
         adjacency[graph_edge.token_in].append(graph_edge)
     visits = 0
-    # A simple cycle has exactly one smallest token. Fixing it as the origin
-    # preserves directions and distinct pool choices without duplicate rotations.
-    for origin in sorted(adjacency):
-        stack = [iter(adjacency[origin])]
+    # Each oriented cycle has one smallest token, or one smallest changed pool
+    # when searching only cycles that touch changed state.
+    starts: Iterable[tuple[str, MarginalEdge | None]]
+    if required_pools is None:
+        starts = ((token, None) for token in sorted(adjacency))
+    else:
+        seeds = sorted(
+            (edge for edge in edges if edge.pool in required_pools),
+            key=lambda edge: (edge.pool, edge.token_in, edge.token_out),
+        )
+        starts = ((edge.token_in, edge) for edge in seeds)
+    for origin, seed in starts:
         seen = {origin}
         pools: set[str] = set()
         path: list[MarginalEdge] = []
         products = [Fraction(1)]
+        if seed is None:
+            stack = [iter(adjacency[origin])]
+        else:
+            if visits == budget:
+                return None, visits, True
+            visits += 1
+            seen.add(seed.token_out)
+            pools.add(seed.pool)
+            path.append(seed)
+            products.append(seed.rate)
+            stack = [iter(adjacency.get(seed.token_out, ()))]
+        seed_depth = len(path)
         while stack:
             edge = next(stack[-1], None)
             if edge is None:
                 stack.pop()
-                if path:
+                if len(path) > seed_depth:
                     previous = path.pop()
                     seen.remove(previous.token_out)
                     pools.remove(previous.pool)
@@ -225,10 +246,21 @@ def _bounded_dfs(
             visits += 1
             if edge.pool in pools:
                 continue
+            if (
+                seed is not None
+                and required_pools is not None
+                and edge.pool in required_pools
+                and edge.pool < seed.pool
+            ):
+                continue
             if edge.token_out == origin:
                 if minimum <= len(path) + 1 and products[-1] * edge.rate > 1:
                     return PositiveMarginalCycle((*path, edge)), visits, False
-            elif len(path) + 1 < maximum and edge.token_out > origin and edge.token_out not in seen:
+            elif (
+                len(path) + 1 < maximum
+                and (seed is not None or edge.token_out > origin)
+                and edge.token_out not in seen
+            ):
                 seen.add(edge.token_out)
                 pools.add(edge.pool)
                 path.append(edge)
@@ -243,6 +275,7 @@ def search_long_marginal_cycle(
     min_hops: int,
     max_hops: int,
     max_edge_visits: int,
+    required_pools: frozenset[str] | None = None,
 ) -> LongCycleSearch:
     """Find the first positive simple cycle of the requested length, or report coverage.
 
@@ -250,6 +283,8 @@ def search_long_marginal_cycle(
     missing witness with budget_exhausted set leaves the result unresolved.
     With a missing witness and no exhaustion, every eligible path in the
     depth band was excluded or checked. Work may be exponential in depth.
+    If required_pools is provided, eligible cycles touch at least one of those
+    pools. A full scan is needed after invalidation or missing observations.
     """
     if (
         any(type(value) is not int for value in (min_hops, max_hops, max_edge_visits))
@@ -257,13 +292,22 @@ def search_long_marginal_cycle(
         or max_edge_visits < 1
     ):
         raise ValueError("require integer hop bounds 2 <= min <= max and a positive edge budget")
+    if required_pools is not None and (
+        not isinstance(required_pools, frozenset)
+        or any(not isinstance(pool, str) or not pool for pool in required_pools)
+    ):
+        raise ValueError("required pools must be a frozenset of pool identities")
     topology, blocks = _decompose(edges)
     visits = 0
     for block, block_edges in blocks:
         if block.max_hops_upper < min_hops:
             continue
         witness, spent, exhausted = _bounded_dfs(
-            block_edges, min_hops, min(max_hops, block.max_hops_upper), max_edge_visits - visits
+            block_edges,
+            min_hops,
+            min(max_hops, block.max_hops_upper),
+            max_edge_visits - visits,
+            required_pools,
         )
         visits += spent
         if witness is not None or exhausted:

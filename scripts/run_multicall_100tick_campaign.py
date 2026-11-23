@@ -1914,7 +1914,7 @@ def _interpret_quoter_verification_result(
         - candidate.gas_cost_in_base
         - candidate.l1_fee_in_base
     )
-    if verified and net_profit != expected_net:
+    if (verified or amount_out > 0) and net_profit != expected_net:
         raise ShadowRunnerError("per-leg output and modeled costs do not reconcile")
     effective_verified = verified and net_profit > 0
     reason = str(
@@ -1938,6 +1938,68 @@ def _interpret_quoter_verification_result(
         rpc_calls_used=calls_used,
         reason=reason,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ShadowCycleFrame:
+    block_number: int
+    block_hash: str
+    candidates: tuple[CycleCandidate, ...]
+
+
+def _cycle_topology(candidate: CycleCandidate) -> tuple[list[list[str]], str]:
+    route = [[hop.pool_id, hop.token_in, hop.token_out] for hop in candidate.hops]
+    rotation = min(route[i:] + route[:i] for i in range(len(route)))
+    return route, sha256_hex(canonical_json([candidate.chain_id, rotation]))
+
+
+def _mark_previous_cycles(
+    frame: ShadowCycleFrame,
+    snapshot: PinnedTickSnapshot,
+    graph: FastpathPoolGraph,
+    costs: Mapping[str, int],
+) -> dict[str, object]:
+    """Reprice the previous block's fixed routes on the first directly observed child."""
+    if snapshot.block_number != frame.block_number + 1:
+        reason = "block_gap"
+    elif snapshot.parent_hash != frame.block_hash:
+        reason = "missing_parent_binding"
+    else:
+        reason = None
+    outcomes: list[dict[str, object]] = []
+    if reason is None:
+        for route in frame.candidates:
+            _, topology_hash = _cycle_topology(route)
+            amount = route.optimal_amount_in
+            if len({hop.pool_id for hop in route.hops}) != len(route.hops):
+                status, modeled_net = "repeated_pool_requires_stateful_quote", None
+            else:
+                try:
+                    for hop in route.hops:
+                        amount = graph.quote_pool(
+                            route.chain_id, hop.pool_id, hop.token_in, amount
+                        ).amount_out
+                    modeled_net = str(amount - route.optimal_amount_in - costs[route.base_token])
+                    status = "modeled"
+                except FastpathCallError, ValueError:
+                    status, modeled_net = "model_unavailable", None
+            outcomes.append(
+                {
+                    "topology_sha256": topology_hash,
+                    "base_token": route.base_token,
+                    "input_raw": str(route.optimal_amount_in),
+                    "prior_model_net_raw": str(route.net_profit),
+                    "next_model_net_raw": modeled_net,
+                    "status": status,
+                }
+            )
+    return {
+        "prior_block_number": frame.block_number,
+        "prior_block_hash": frame.block_hash,
+        "status": reason or "direct_child",
+        "prior_candidates": len(frame.candidates),
+        "marks": outcomes,
+    }
 
 
 def run_multicall_campaign(
@@ -2114,6 +2176,7 @@ def run_multicall_campaign(
     prev_record_sha256 = _GENESIS_PREV_SHA256
     prev_block_number: int | None = None
     prev_block_hash: str | None = None
+    prior_cycle_frame: ShadowCycleFrame | None = None
     seen_hashes_by_block: dict[int, str] = {}
     total_rust_raw_candidates = 0
     total_quoter_verified_candidates = 0
@@ -2397,6 +2460,7 @@ def run_multicall_campaign(
                     break
                 raise
             seen_hashes_by_block[snapshot.block_number] = snapshot.block_hash
+            state_ready_ns = time.monotonic_ns() if capture is not None else None
 
             graph = FastpathPoolGraph(bridge=active_bridge)
             nodes_by_id: dict[str, PoolNode] = {}
@@ -2549,16 +2613,15 @@ def run_multicall_campaign(
                 reverse=True,
             )
             total_rust_raw_candidates += len(rust_raw_candidates)
-
+            discovered_ns = time.monotonic_ns() if capture is not None else None
             quoter_verified_list: list[dict[str, Any]] = []
             dispositions: list[dict[str, Any]] = []
             quoter_rejected_count = 0
             for rank, cand in enumerate(rust_raw_candidates, start=1):
-                route = [[hop.pool_id, hop.token_in, hop.token_out] for hop in cand.hops]
-                rotation = min(route[i:] + route[:i] for i in range(len(route)))
+                route, topology_hash = _cycle_topology(cand)
                 outcome = {
                     "rank": rank,
-                    "topology_sha256": sha256_hex(canonical_json([cand.chain_id, rotation])),
+                    "topology_sha256": topology_hash,
                     "route": route,
                     "base_token": cand.base_token,
                     "input_raw": str(cand.optimal_amount_in),
@@ -2577,66 +2640,89 @@ def run_multicall_campaign(
                     quoter_rejected_count += 1  # legacy counter includes budget skips
                     continue
                 _reserve_rpc(hop_cost)
-                if multicall_mod is not None:
-                    try:
-                        raw_q = _call_with_supported_kwargs(
-                            multicall_mod.verify_candidate_with_onchain_quoter,
-                            {
-                                "candidate": cand,
-                                "hops": cand.hops,
-                                "amount_in": cand.optimal_amount_in,
-                                "gas_cost_in_base": cand.gas_cost_in_base,
-                                "l1_fee_in_base": cand.l1_fee_in_base,
-                                "pools": pool_specs_raw,
-                                "pool_specs": pool_specs_raw,
-                                "specs": pool_specs_raw,
-                                "nodes": snapshot.nodes,
-                                "nodes_by_id": nodes_by_id,
-                                "pools_by_id": nodes_by_id,
-                                "rpc_url": rpc_url,
-                                "block_number": snapshot.block_number,
-                                "pinned_block": snapshot.block_number,
-                                "block_tag": hex(snapshot.block_number),
-                                "block_number_hex": hex(snapshot.block_number),
-                                "block_hash": snapshot.block_hash if capture is not None else None,
-                                "balances_by_pool": snapshot.balances_by_pool,
-                                "discovered_pools_by_id": discovered_pools_by_id or None,
-                                "bridge": active_bridge,
-                                "transport": active_rpc_transport,
-                                "timeout_s": float(timeout_s),
-                            },
-                            first_positional_fallback=cand,
+                quote_started = time.monotonic_ns() if capture is not None else None
+
+                def check_quote(
+                    transport: Callable[[str, bytes, float], bytes],
+                    cand: CycleCandidate = cand,
+                    snapshot: PinnedTickSnapshot = snapshot,
+                    nodes_by_id: Mapping[str, PoolNode] = nodes_by_id,
+                    hop_cost: int = hop_cost,
+                ) -> QuoterCheckResult:
+                    if multicall_mod is not None:
+                        try:
+                            raw_q = _call_with_supported_kwargs(
+                                multicall_mod.verify_candidate_with_onchain_quoter,
+                                {
+                                    "candidate": cand,
+                                    "hops": cand.hops,
+                                    "amount_in": cand.optimal_amount_in,
+                                    "gas_cost_in_base": cand.gas_cost_in_base,
+                                    "l1_fee_in_base": cand.l1_fee_in_base,
+                                    "pools": pool_specs_raw,
+                                    "pool_specs": pool_specs_raw,
+                                    "specs": pool_specs_raw,
+                                    "nodes": snapshot.nodes,
+                                    "nodes_by_id": nodes_by_id,
+                                    "pools_by_id": nodes_by_id,
+                                    "rpc_url": rpc_url,
+                                    "block_number": snapshot.block_number,
+                                    "pinned_block": snapshot.block_number,
+                                    "block_tag": hex(snapshot.block_number),
+                                    "block_number_hex": hex(snapshot.block_number),
+                                    "block_hash": snapshot.block_hash
+                                    if capture is not None
+                                    else None,
+                                    "balances_by_pool": snapshot.balances_by_pool,
+                                    "discovered_pools_by_id": discovered_pools_by_id or None,
+                                    "bridge": active_bridge,
+                                    "transport": transport,
+                                    "timeout_s": float(timeout_s),
+                                },
+                                first_positional_fallback=cand,
+                            )
+                            q_res = _interpret_quoter_verification_result(raw_q, cand)
+                        except (RpcError, ShadowRunnerError, ValueError) as exc:
+                            q_res = QuoterCheckResult(
+                                verified=False,
+                                quoter_amount_out=0,
+                                quoter_net_profit=-(cand.gas_cost_in_base + cand.l1_fee_in_base),
+                                rpc_calls_used=hop_cost,
+                                reason=f"quoter_bridge_failed:{exc}",
+                            )
+                        if q_res.rpc_calls_used > hop_cost:
+                            _reserve_rpc(q_res.rpc_calls_used - hop_cost)
+                    else:
+                        q_res = _verify_candidate_fallback(
+                            transport,
+                            rpc_url,
+                            candidate=cand,
+                            nodes_by_id=nodes_by_id,
+                            pinned_block_number=snapshot.block_number,
+                            pinned_block_hash=snapshot.block_hash if capture is not None else None,
+                            timeout_s=float(timeout_s),
+                            tick_spacings=tick_spacings,
+                            factories=factories,
                         )
-                        q_res = _interpret_quoter_verification_result(raw_q, cand)
-                    except (RpcError, ShadowRunnerError, ValueError) as exc:
-                        q_res = QuoterCheckResult(
-                            verified=False,
-                            quoter_amount_out=0,
-                            quoter_net_profit=-(cand.gas_cost_in_base + cand.l1_fee_in_base),
-                            rpc_calls_used=hop_cost,
-                            reason=f"quoter_bridge_failed:{exc}",
-                        )
-                    if q_res.rpc_calls_used > hop_cost:
-                        _reserve_rpc(q_res.rpc_calls_used - hop_cost)
+
+                    return q_res
+
+                if capture is None:
+                    q_res = check_quote(active_rpc_transport)
                 else:
-                    q_res = _verify_candidate_fallback(
-                        active_rpc_transport,
-                        rpc_url,
-                        candidate=cand,
-                        nodes_by_id=nodes_by_id,
-                        pinned_block_number=snapshot.block_number,
-                        pinned_block_hash=snapshot.block_hash if capture is not None else None,
-                        timeout_s=float(timeout_s),
-                        tick_spacings=tick_spacings,
-                        factories=factories,
-                    )
+                    q_res = capture.record_attempt(active_rpc_transport, check_quote)
+                    outcome["quote_replay_attempt"] = len(capture.attempts)
 
                 outcome["quote_rpc_calls"] = q_res.rpc_calls_used
+                if capture is not None:
+                    outcome["quote_started_monotonic_ns"] = quote_started
+                    outcome["quote_finished_monotonic_ns"] = time.monotonic_ns()
                 outcome["hop_quote_sources"] = list(q_res.hop_quote_sources) or None
-                if q_res.verified and q_res.quoter_net_profit > 0:
-                    outcome["status"] = "per_leg_positive"
+                if q_res.quoter_amount_out > 0:
                     outcome["quoted_output_raw"] = str(q_res.quoter_amount_out)
                     outcome["quoted_net_raw"] = str(q_res.quoter_net_profit)
+                if q_res.verified and q_res.quoter_net_profit > 0:
+                    outcome["status"] = "per_leg_positive"
                     verified_net_bps = round(
                         float(
                             (Decimal(q_res.quoter_net_profit) * Decimal(10_000))
@@ -3161,6 +3247,29 @@ def run_multicall_campaign(
                     shadow_daily_loss_usd_micros += loss_micros
                     shadow_cumulative_loss_usd_micros += loss_micros
 
+            lifecycle = None
+            if capture is not None:
+                lifecycle = {
+                    "state_ready_monotonic_ns": state_ready_ns,
+                    "discovery_finished_monotonic_ns": discovered_ns,
+                    "previous_block_reprice": None,
+                }
+                if prior_cycle_frame is None or (
+                    prior_cycle_frame.block_number != snapshot.block_number
+                ):
+                    if prior_cycle_frame is not None:
+                        lifecycle["previous_block_reprice"] = _mark_previous_cycles(
+                            prior_cycle_frame,
+                            snapshot,
+                            graph,
+                            {WETH_ADDR: total_gas_cost_wei, USDC_ADDR: l2_gas_usdc + l1_fee_usdc},
+                        )
+                    prior_cycle_frame = ShadowCycleFrame(
+                        snapshot.block_number,
+                        snapshot.block_hash,
+                        tuple(rust_raw_candidates[:MAX_CANDIDATES_TO_QUOTE_PER_TICK]),
+                    )
+
             record_body: dict[str, Any] = {
                 "schema_version": RECORD_SCHEMA_VERSION,
                 "seq": seq,
@@ -3218,6 +3327,8 @@ def run_multicall_campaign(
                 "tick_best_raw_spread_bps": tick_best_raw_spread_bps,
                 "tick_positive": tick_positive,
             }
+            if lifecycle is not None:
+                record_body["shadow_cycle_lifecycle"] = lifecycle
             record_sha256 = sha256_hex(canonical_json(record_body))
             record = {**record_body, "record_sha256": record_sha256}
             records.append(record)

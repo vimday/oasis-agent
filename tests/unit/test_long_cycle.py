@@ -149,3 +149,30 @@ def test_blocks_bound_shared_pool_count_and_conflicting_input() -> None:
     assert result.witness is None and not result.budget_exhausted
     with pytest.raises(ValueError, match="conflicting"):
         bound_simple_cycles([*edges, MarginalEdge("a", "b", "shared", Fraction(1))])
+
+
+def test_changed_pool_search_finds_300_hops_under_one_ring_budget() -> None:
+    pools = _ring(300, 10_010)
+    edges = [edge for pool in pools for edge in pool.rates()]
+    changed = frozenset({"pool-250", "pool-290"})
+    result = search_long_marginal_cycle(
+        edges, min_hops=300, max_hops=300, max_edge_visits=600, required_pools=changed
+    )
+    assert result.witness is not None
+    assert len(result.witness.edges) == 300
+    assert result.witness.edges[0].pool == "pool-250"
+    assert result.witness.gain == Fraction(10_010, 10_000)
+    assert not result.budget_exhausted
+
+    result = search_long_marginal_cycle(
+        edges, min_hops=300, max_hops=300, max_edge_visits=50, required_pools=changed
+    )
+    assert result.witness is None and result.budget_exhausted
+    result = search_long_marginal_cycle(
+        edges,
+        min_hops=300,
+        max_hops=300,
+        max_edge_visits=1,
+        required_pools=frozenset({"outside-snapshot"}),
+    )
+    assert result.witness is None and not result.budget_exhausted and result.edge_visits == 0

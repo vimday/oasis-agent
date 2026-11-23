@@ -8,7 +8,7 @@ import subprocess
 import urllib.error
 import urllib.request
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from email.message import Message
 from io import BytesIO
 from pathlib import Path
@@ -26,6 +26,7 @@ from oasis_agent.evidence.base_denim import (
     TIMESTAMP_MS_SELECTOR,
 )
 from oasis_agent.fastpath import (
+    CycleCandidate,
     CycleHop,
     FastpathBridge,
     FastpathPoolGraph,
@@ -755,6 +756,18 @@ def test_campaign_replay_round_trip_from_retained_rpc(
     report_line = capsys.readouterr()
     assert not report_line.err
     assert json.loads(report_line.out)["rpc_calls_used"] == 6
+    records = [
+        json.loads(line) for line in (out / "shadow_attribution.jsonl").read_text().splitlines()
+    ]
+    for row in records:
+        lifecycle = row["shadow_cycle_lifecycle"]
+        assert (
+            0
+            < lifecycle["state_ready_monotonic_ns"]
+            <= lifecycle["discovery_finished_monotonic_ns"]
+        )
+    assert records[0]["shadow_cycle_lifecycle"]["previous_block_reprice"] is None
+    assert records[1]["shadow_cycle_lifecycle"]["previous_block_reprice"]["status"] == "block_gap"
     replay_dir = out / "multihop_replay"
     manifest = replay_dir / "manifest.json"
     assert (
@@ -790,6 +803,49 @@ def test_campaign_replay_round_trip_from_retained_rpc(
     manifest.write_bytes(canonical_json(capture) + b"\n")
     assert ab_cli.main(["--snapshot-manifest", str(manifest)]) == 2
     assert "captured anchor costs differ" in capsys.readouterr().err
+
+
+def test_next_block_reprice_uses_frozen_route_and_current_cost(bridge: FastpathBridge) -> None:
+    transport = campaign.build_synthetic_multicall_rpc_transport()
+    snapshot = campaign._fetch_pinned_multicall3_fallback(
+        transport,
+        campaign.DEFAULT_BASE_RPC_URL,
+        campaign.canonical_base_weth_usdc_pools(),
+        timeout_s=1,
+        pin_call_to_hash=True,
+    )
+    graph = FastpathPoolGraph(bridge=bridge)
+    for node in snapshot.nodes:
+        graph.upsert_pool(node)
+    first, second = snapshot.nodes[0], snapshot.nodes[1]
+    amount = 10**16
+    first_fill = graph.quote_pool(BASE_CHAIN_ID, first.pool_id, WETH, amount)
+    final = graph.quote_pool(BASE_CHAIN_ID, second.pool_id, USDC, first_fill.amount_out)
+    route = CycleCandidate(
+        BASE_CHAIN_ID,
+        WETH,
+        (
+            CycleHop(first.pool_id, first.kind, WETH, USDC, amount, first_fill.amount_out),
+            CycleHop(
+                second.pool_id, second.kind, USDC, WETH, first_fill.amount_out, final.amount_out
+            ),
+        ),
+        amount,
+        amount + 11,
+        3,
+        2,
+        6,
+    )
+    assert snapshot.parent_hash is not None
+    frame = campaign.ShadowCycleFrame(snapshot.block_number - 1, snapshot.parent_hash, (route,))
+    costs = {WETH: 10**15}
+    direct = campaign._mark_previous_cycles(frame, snapshot, graph, costs)
+    assert direct["status"] == "direct_child"
+    assert direct["marks"][0]["input_raw"] == str(amount)
+    assert direct["marks"][0]["next_model_net_raw"] == str(final.amount_out - amount - costs[WETH])
+    different_parent = replace(snapshot, parent_hash="0x" + "ff" * 32)
+    gap = campaign._mark_previous_cycles(frame, different_parent, graph, costs)
+    assert gap["status"] == "missing_parent_binding" and gap["marks"] == []
 
 
 def test_campaign_replay_rejects_preserved_reorg_prefix(
