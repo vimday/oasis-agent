@@ -10,6 +10,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.fastpath.pool_closures import PoolClosure, PoolLink, rank_pool_closures
 from oasis_agent.fastpath.v2_sizing import V2Leg, V2Pool, V2Route
 
@@ -55,7 +56,7 @@ def _hex(value: object, size: int) -> str:
 def _read_snapshot(
     raw: bytes, chain: int, eth_scope: bytes | None, eth_baseline: bytes | None
 ) -> _Snapshot:
-    obj = json.loads(raw)
+    obj = strict_json_object(raw)
     pools: dict[str, V2Pool] = {}
     identities = set()
     baseline: set[str] = set()
@@ -63,10 +64,11 @@ def _read_snapshot(
     if chain == 1:
         if obj["stop_reason"] is not None or eth_scope is None or eth_baseline is None:
             raise ValueError("Ethereum needs a complete snapshot, capture scope and baseline")
-        prior = json.loads(eth_baseline)
+        prior = strict_json_object(eth_baseline)
+        scope = strict_json_object(eth_scope)
         if (
             sha256(eth_scope).hexdigest() != obj["scope_sha256"]
-            or sha256(eth_baseline).hexdigest() != json.loads(eth_scope)["wide_anchor_sha256"]
+            or sha256(eth_baseline).hexdigest() != scope["wide_anchor_sha256"]
             or prior["stop_reason"] is not None
         ):
             raise ValueError("Ethereum baseline or capture scope did not match retained capture")
