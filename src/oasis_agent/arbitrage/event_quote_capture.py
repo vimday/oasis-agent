@@ -49,6 +49,7 @@ from .event_quote import (
 )
 
 CAPS = {"stream": 4, "event": 16, "poll": 16, "primary": 32, "witness": 24}
+PLAN_SCHEMA = "oasis-event-quote-plan-v2"
 BODY_BYTES = 512 * 1024
 WS_BYTES = 128 * 1024
 MAX_FRAMES = 1600
@@ -234,71 +235,76 @@ class Capture:
             "on_time": False,
         }
         if log is not None:
-            row.update(block=log.block_number, block_hash=log.block_hash, tx=log.transaction_hash)
+            row.update(
+                block=log.block_number,
+                block_hash=log.block_hash,
+                tx=log.transaction_hash,
+                log_index=log.log_index,
+            )
         self.rows[lane].append(row)
+        anchor_task: asyncio.Task[object] | None = None
+        fee_task: asyncio.Task[bytes] | None = None
         try:
             if log is None:
                 block = await self.latest(lane)
                 h = snap(block, self.chain)
                 row.update(block=h.ref.number, block_hash=h.ref.block_hash)
-                anchor_task = None
             else:
-                # The first quote can be dispatched using the log's own block hash.
-                # The auxiliary block read runs concurrently with it.
-                h = None
                 anchor_task = asyncio.create_task(
                     self.rpc(lane, "eth_getBlockByHash", [row["block_hash"], False])
                 )
             block_hash: str = row["block_hash"]
+            if self.chain.chain_id == 8453:
+                fee_data = calldata("getL1FeeUpperBound(uint256)", ("uint256",), (BYTES_MODEL,))
+                fee_task = asyncio.create_task(self.call(lane, block_hash, ORACLE, fee_data))
             amount = BASE_AMOUNT
             row["legs"] = []
-            try:
-                for leg in range(2 if self.chain.chain_id == 8453 else 3):
-                    target, data = route_request(self.chain, leg, amount)
-                    raw = (
-                        await self.call(lane, block_hash, target, data)
-                        if self.chain.chain_id == 8453
-                        else data_bytes(
-                            await self.rpc(
-                                lane, "eth_call", [{"to": target, "data": data}, hex(row["block"])]
-                            )
+            for leg in range(2 if self.chain.chain_id == 8453 else 3):
+                target, data = route_request(self.chain, leg, amount)
+                raw = (
+                    await self.call(lane, block_hash, target, data)
+                    if self.chain.chain_id == 8453
+                    else data_bytes(
+                        await self.rpc(
+                            lane, "eth_call", [{"to": target, "data": data}, hex(row["block"])]
                         )
                     )
-                    output, gas = route_result(self.chain, leg, raw)
-                    row["legs"].append(
-                        {"input_raw": amount, "output_raw": output, "quoter_gas": gas}
-                    )
-                    amount = output
-                row["quote_done_ns"] = time.monotonic_ns()
-                row["on_time"] = row["quote_done_ns"] - start <= DEADLINE_NS
-                row["gross_raw"] = amount - BASE_AMOUNT
-            finally:
-                if anchor_task is not None:
-                    block = await anchor_task
+                )
+                output, gas = route_result(self.chain, leg, raw)
+                row["legs"].append({"input_raw": amount, "output_raw": output, "quoter_gas": gas})
+                amount = output
+            row["quote_done_ns"] = time.monotonic_ns()
+            row["on_time"] = row["quote_done_ns"] - start <= DEADLINE_NS
+            row["gross_raw"] = amount - BASE_AMOUNT
             if anchor_task is not None:
+                block = await anchor_task
                 h = snap(block, self.chain)
                 if (h.ref.number, h.ref.block_hash) != (row["block"], block_hash):
                     raise ValueError("trigger_block_mismatch")
-            assert h is not None
-            if self.chain.chain_id == 99901:
-                row["base_fee_raw"] = quantity(
-                    strict_object(block, "quote block").get("baseFeePerGas")
-                )
-                return
-            # Fee accounting uses the actual block response for both experiment arms.
             base_fee = quantity(strict_object(block, "quote block").get("baseFeePerGas"))
-            fee_data = calldata("getL1FeeUpperBound(uint256)", ("uint256",), (BYTES_MODEL,))
-            l1_fee = abi(("uint256",), await self.call(lane, block_hash, ORACLE, fee_data))[0]
+            if fee_task is None:
+                row["base_fee_raw"] = base_fee
+                return
+            l1_fee = abi(("uint256",), await fee_task)[0]
+            net_model = signaled_net(amount, base_fee, l1_fee)
+            fee_done = time.monotonic_ns()
             row.update(
                 base_fee_raw=base_fee,
                 l1_fee_raw=l1_fee,
-                net_model_raw=signaled_net(amount, base_fee, l1_fee),
-                fee_done_ns=time.monotonic_ns(),
+                net_model_raw=net_model,
+                fee_done_ns=fee_done,
+                net_on_time=fee_done - start <= DEADLINE_NS,
             )
         except (ValueError, TypeError) as exc:
             self.stopped = True
             row["error"] = str(exc) if isinstance(exc, Refused) else type(exc).__name__
         finally:
+            auxiliaries = [task for task in (anchor_task, fee_task) if task is not None]
+            for task in auxiliaries:
+                if not task.done():
+                    task.cancel()
+            if auxiliaries:
+                await asyncio.gather(*auxiliaries, return_exceptions=True)
             row["finish_ns"] = time.monotonic_ns()
 
     async def poll(self, start: int) -> None:
@@ -466,7 +472,12 @@ class Capture:
             receipt = await self.rpc("witness", "eth_getTransactionReceipt", [log.transaction_hash])
             receipt_match(self.chain, log, block, receipt)
             for row in self.rows["event"]:
-                if row["block"] == log.block_number:
+                if (row["block"], row["block_hash"], row["tx"], row["log_index"]) == (
+                    log.block_number,
+                    log.block_hash,
+                    log.transaction_hash,
+                    log.log_index,
+                ):
                     row["receipt_verified"] = True
         for row in self.rows["poll"]:
             if "block" in row:
@@ -566,38 +577,16 @@ def summarize(
         joined.append(
             {"block": event["block"], "poll_within_deadline": matching, "next_poll": next_poll}
         )
-    positive = [
-        row
-        for row in events
-        if row["on_time"]
-        and row["receipt_verified"]
-        and row["net_model_raw"] is not None
-        and row["net_model_raw"] > 0
-    ]
     complete = (
         failure is None
         and capture.stream_error is None
         and reconciliation is not None
         and reconciliation["internal_missing"] == 0
     )
-    if not capture.chain.quote_enabled:
-        decision = "coverage_only" if complete else "incomplete"
-    elif not complete:
-        decision = "incomplete"
-    elif positive:
-        decision = "model_positive_observed"
-    elif len(events) == len(POLL_SECONDS) and all(
-        row["receipt_verified"]
-        and (row["net_model_raw"] is not None or row.get("gross_raw", 1) <= 0)
-        for row in events
-    ):
-        decision = "reject_frozen_route"
-    else:
-        decision = "incomplete"
     return {
         "schema": "oasis-event-quote-result-v1",
         "chain_id": capture.chain.chain_id,
-        "decision": decision,
+        "decision": quote_decision(capture.chain, events, complete),
         "start_ns": start,
         "end_ns": end,
         "failure": failure,
@@ -611,3 +600,28 @@ def summarize(
         "pairs": joined,
         "quote_v3_runtime_hash": capture.quoter_hash,
     }
+
+
+def quote_decision(chain: Chain, events: list[dict[str, Any]], complete: bool) -> str:
+    if not complete:
+        return "incomplete"
+    if not chain.quote_enabled:
+        return "coverage_only"
+    positive = [
+        row
+        for row in events
+        if row["receipt_verified"] and row["net_model_raw"] is not None and row["net_model_raw"] > 0
+    ]
+    if any(row.get("net_on_time") is True for row in positive):
+        return "model_positive_observed"
+    if any(row.get("net_on_time") is False for row in positive):
+        return "model_positive_after_deadline"
+    if positive:
+        return "incomplete"
+    if len(events) == len(POLL_SECONDS) and all(
+        row["receipt_verified"]
+        and (row["net_model_raw"] is not None or row.get("gross_raw", 1) <= 0)
+        for row in events
+    ):
+        return "reject_frozen_route"
+    return "incomplete"

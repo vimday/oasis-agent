@@ -14,6 +14,7 @@ from oasis_agent.arbitrage.event_quote import (
     AERO,
     AERO_CL,
     BASE_AMOUNT,
+    BYTES_MODEL,
     CHAINS,
     DEADLINE_NS,
     ORACLE,
@@ -26,7 +27,14 @@ from oasis_agent.arbitrage.event_quote import (
     snap,
     swap,
 )
-from oasis_agent.arbitrage.event_quote_capture import CAPS, Capture, Journal, pin, summarize
+from oasis_agent.arbitrage.event_quote_capture import (
+    CAPS,
+    PLAN_SCHEMA,
+    Capture,
+    Journal,
+    pin,
+    summarize,
+)
 from oasis_agent.arbitrage.event_quote_replay import replay
 from oasis_agent.arbitrage.event_quote_replay import replay_quote as verify_retained_quote
 from oasis_agent.models.common import ZERO_ADDRESS, canonical_json
@@ -65,7 +73,8 @@ def block(height=10, block_hash=HASH):
     }
 
 
-def test_event_quote_and_poll_pin_equal_four_reads_and_replay(tmp_path):
+@pytest.mark.parametrize("false_receipt_claim", [False, True])
+def test_event_quote_and_poll_pin_equal_four_reads_and_replay(tmp_path, false_receipt_claim):
     async def scenario():
         rpc_calls = []
         v4 = "0x" + encode(("uint256", "uint256"), (2_000_000, 80_000)).hex()
@@ -114,18 +123,35 @@ def test_event_quote_and_poll_pin_equal_four_reads_and_replay(tmp_path):
                         ],
                     )
                     assert len(rpc_calls) == 4
-                    assert rpc_calls[3][1][0]["data"] == calldata(
-                        "getL1FeeUpperBound(uint256)", ("uint256",), (600,)
+                    assert (
+                        rpc_calls.count(
+                            (
+                                "eth_call",
+                                [
+                                    {
+                                        "to": ORACLE,
+                                        "data": calldata(
+                                            "getL1FeeUpperBound(uint256)",
+                                            ("uint256",),
+                                            (BYTES_MODEL,),
+                                        ),
+                                    },
+                                    pin(HASH),
+                                ],
+                            )
+                        )
+                        == 1
                     )
                     await capture.quote("poll", time.monotonic_ns())
                     assert budget.counts()["event"] == budget.counts()["poll"] == 4
                     assert capture.rows["poll"][0]["net_model_raw"] == first["net_model_raw"]
+                    first["receipt_verified"] = false_receipt_claim
                     result = summarize(capture, budget.counts(), now, now, None, "interrupted")
                     assert result["decision"] == "incomplete"
                     (tmp_path / "plan.json").write_bytes(
                         canonical_json(
                             {
-                                "schema": "oasis-event-quote-plan-v1",
+                                "schema": PLAN_SCHEMA,
                                 "budget": CAPS,
                                 "chain": asdict(CHAIN),
                             }
@@ -133,8 +159,104 @@ def test_event_quote_and_poll_pin_equal_four_reads_and_replay(tmp_path):
                     )
                     (tmp_path / "summary.json").write_bytes(canonical_json(result))
                     raw.put("local", "summary", canonical_json(result))
-            with pytest.raises(ValueError, match="start_not_bound_to_swap"):
+            reason = (
+                "receipt_proof_does_not_match" if false_receipt_claim else "start_not_bound_to_swap"
+            )
+            with pytest.raises(ValueError, match=reason):
                 replay(tmp_path)
+        finally:
+            raw.db.close()
+
+    asyncio.run(scenario())
+
+
+def test_base_quote_overlaps_fee_read_and_waits_for_bound_header(tmp_path, monkeypatch):
+    async def scenario():
+        now = 10**9
+        started = now
+        monkeypatch.setattr(time, "monotonic_ns", lambda: now)
+        fee_ready = asyncio.Event()
+        legs_ready = asyncio.Event()
+        calls = []
+        anchor_received = None
+
+        async def handler(request):
+            nonlocal now, anchor_received
+            sent = now
+            msg = json.loads(request.content)
+            if msg["method"] == "eth_getBlockByHash":
+                await legs_ready.wait()
+                now = started + DEADLINE_NS + 1
+                anchor_received = now
+                value = block()
+            else:
+                params = msg["params"]
+                target = params[0]["to"]
+                assert params[1] == pin(HASH)
+                if target == ORACLE:
+                    value = encode(("uint256",), (1,))
+                    fee_ready.set()
+                elif target == V4.quoter:
+                    await fee_ready.wait()
+                    now += 1
+                    value = encode(("uint256", "uint256"), (2_000_000, 80_000))
+                else:
+                    assert target == V3.quoter
+                    value = encode(
+                        ("uint256", "uint160", "uint32", "uint256"),
+                        (BASE_AMOUNT * 2, 2**96, 0, 90_000),
+                    )
+                    legs_ready.set()
+                value = "0x" + value.hex()
+                calls.append((sent, now, params, value))
+            return httpx.Response(200, json={"jsonrpc": "2.0", "id": msg["id"], "result": value})
+
+        raw = Journal(tmp_path / "wire.sqlite3")
+        policies = tuple(BudgetPolicy(lane, cap, 0) for lane, cap in CAPS.items())
+        log = swap(event(), CHAIN, stream=True)
+        try:
+            with RpcBudget(tmp_path / "original-budget.sqlite3", policies) as budget:
+                async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
+                    capture = Capture(CHAIN, budget, raw, http)
+                    await asyncio.wait_for(capture.quote("event", started, log), timeout=2)
+                    row = capture.rows["event"][0]
+                    assert budget.counts()["event"] == 4
+                    assert row["net_model_raw"] > 0
+                    assert row["on_time"] is True
+                    assert row["net_on_time"] is False
+                    result = verify_retained_quote(
+                        row, calls, {log: started}, "event", {}, anchor_received=anchor_received
+                    )
+                    assert result["fee_done_ns"] == started + DEADLINE_NS + 1
+                    assert result["net_on_time"] is False
+                    for changed in ({"net_on_time": True}, {"fee_done_ns": started + 1}):
+                        with pytest.raises(ValueError, match="fee_inclusive_quote_timing"):
+                            verify_retained_quote(
+                                row | changed,
+                                calls,
+                                {log: started},
+                                "event",
+                                {},
+                                anchor_received=anchor_received,
+                            )
+                    early_second_leg = [
+                        (started if params[0]["to"] == V3.quoter else sent, received, params, val)
+                        for sent, received, params, val in calls
+                    ]
+                    with pytest.raises(ValueError, match="quote_call_missing_or_ambiguous"):
+                        verify_retained_quote(
+                            row,
+                            early_second_leg,
+                            {log: started},
+                            "event",
+                            {},
+                            anchor_received=anchor_received,
+                        )
+                    row["receipt_verified"] = True
+                    result = summarize(
+                        capture, budget.counts(), started, now, {"internal_missing": 0}, None
+                    )
+                    assert result["decision"] == "model_positive_after_deadline"
         finally:
             raw.db.close()
 
@@ -220,7 +342,7 @@ def test_bad_second_leg_replay_cannot_make_result():
     with pytest.raises(ValueError, match="missing_or_ambiguous"):
         verify_retained_quote(
             {"start_ns": 1, "block_hash": HASH, "dispatch_ns": 2, "finish_ns": 8, "tx": TX},
-            [(4, [{"to": first_target, "data": first_data}, pin(HASH)], first_result)],
+            [(2, 4, [{"to": first_target, "data": first_data}, pin(HASH)], first_result)],
             {log: 1},
             "event",
             {},

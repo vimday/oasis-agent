@@ -80,6 +80,8 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [Base 并行状态 A/B](verification/BASE_STATE_DELIVERY_AB_20261123.md) · [含费截止时间](verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md) · [多链盈亏线与时点](verification/MULTIHOP_EXECUTABLE_EDGE_20261123.md)。固定哈希下的 66 池状态交付中位从 725.7 ms 降至 445.5 ms。Base 新事件影子的固定路线 4/4 在 750 ms 内完成含费模型，四例均负。Ethereum 两笔已落块批次付完可见成本后保留 9.77% 和 11.67% 毛差；BSC 精确交易前有毛差、同块末已转负。
+- [Robinhood 和 BSC 长交易的资金路径](verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md)。Robinhood 的三个收据根重建一致，一笔 22 条 Swap 分出 5 条用户路径和 8 次 hook 交换。BSC 的 56 条 Swap 分出 14 条资金路径，最长 5 跳。两个完整对账的样本均为跨资产兑换。
 - [Base 常驻图前瞻对照](verification/BASE_RESIDENT_FORWARD_20261123.md) · [BSC 568 池长环筛选](verification/BSC_LONG_FORWARD_20261123.md) · [Ethereum 批次费用异常值](verification/ETH_BATCH_GAS_OUTLIER_20261123.md)。常规影子支持可选常驻对照。Base 八块 48 个扣费报告一致。BSC 两块的 5/11/13 跳样本全金额净额上界均为负。Ethereum 最高 gas 样本的 16 个闭环付完可见费用后仍为正。
 - [Rust 常驻池图与多锚离线对照](verification/MULTIHOP_RESIDENT_GRAPH_20261123.md)。块绑定会话支持原子增量与显式完整替换，Base 58 池双锚后续本地扫描 p99 从 0.722 ms 降到 0.200 ms。实池候选和未决报告一致，合成正例的逐腿整数一致。前瞻整笔经济召回待测。
 - [多跳 Rust/Python 决策与分段测量](verification/MULTIHOP_RUST_BOUNDARY_20261123.md) · [Base 四池/58 池/66 池 V4 混图](verification/BASE_V4_MIXED_GRAPH_20261123.md)。现有 Rust 短图与 Python 批次、长路定量继续各作参考，长 V2 整数上界的分段合成已接入。Base 新增 8 个无 hook V4 池，同块模型正例为 0，保留未决区间和负报价。

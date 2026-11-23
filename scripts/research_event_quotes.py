@@ -27,7 +27,7 @@ def main() -> int:
         else PROTOCOL
     )
     plan = {
-        "schema": "oasis-event-quote-plan-v1",
+        "schema": event_quote_capture.PLAN_SCHEMA,
         "chain": asdict(chain),
         "protocol_sha256": sha256_hex(Path(protocol).read_bytes()),
         "source_sha256": {

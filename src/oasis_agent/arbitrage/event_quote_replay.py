@@ -31,7 +31,7 @@ from .event_quote import (
     snap,
     swap,
 )
-from .event_quote_capture import CAPS, MAX_BYTES, MAX_FRAMES, pin
+from .event_quote_capture import CAPS, MAX_BYTES, MAX_FRAMES, PLAN_SCHEMA, pin, quote_decision
 
 
 def replay(root: Path) -> dict[str, Any]:
@@ -48,9 +48,10 @@ def replay(root: Path) -> dict[str, Any]:
         ),
         None,
     )
+    schema = plan.get("schema")
     if (
         chain is None
-        or plan.get("schema") != "oasis-event-quote-plan-v1"
+        or schema not in ("oasis-event-quote-plan-v1", PLAN_SCHEMA)
         or plan.get("budget") != CAPS
         or chain.chain_id != result["chain_id"]
     ):
@@ -118,15 +119,15 @@ def replay(root: Path) -> dict[str, Any]:
         for name in ("event", "poll")
     }
 
-    def included_reads(lane: str, method: str) -> list[tuple[int, list[object], object]]:
+    def included_reads(lane: str, method: str) -> list[tuple[int, int, list[object], object]]:
         return [
-            (responses[req_id][0], strict_list(req["params"], "params"), responses[req_id][1])
-            for req_id, (channel, _, req) in requests.items()
+            (sent, responses[req_id][0], strict_list(req["params"], "params"), responses[req_id][1])
+            for req_id, (channel, sent, req) in requests.items()
             if channel == lane and req.get("method") == method and req_id in responses
         ]
 
     canon: dict[tuple[int, int], LogRecord] = {}
-    for _, params, body in included_reads("primary", "eth_getLogs"):
+    for _, _, params, body in included_reads("primary", "eth_getLogs"):
         filt = strict_object(params[0], "filter")
         if {key: filt.get(key) for key in chain.log_filter} != chain.log_filter:
             raise ValueError("archive_backfill_filter_changed")
@@ -138,10 +139,10 @@ def replay(root: Path) -> dict[str, Any]:
 
     receipts = {
         params[0]: body
-        for _, params, body in included_reads("witness", "eth_getTransactionReceipt")
+        for _, _, params, body in included_reads("witness", "eth_getTransactionReceipt")
     }
     blocks = {
-        params[0]: body for _, params, body in included_reads("witness", "eth_getBlockByNumber")
+        params[0]: body for _, _, params, body in included_reads("witness", "eth_getBlockByNumber")
     }
     verified_logs = []
     for log in events:
@@ -151,6 +152,7 @@ def replay(root: Path) -> dict[str, Any]:
                 raise ValueError("archive_receipt_missing_from_backfill")
             verified_logs.append(log)
     covered_backfill = [log for log in canon.values() if log not in events]
+    evidence = None
     if result["evidence"] is not None:
         evidence = strict_object(result["evidence"], "coverage summary")
         if (
@@ -160,6 +162,10 @@ def replay(root: Path) -> dict[str, Any]:
         ):
             raise ValueError("archive_coverage_changed")
 
+    verified_positions = {
+        (log.block_number, log.block_hash, log.transaction_hash, log.log_index)
+        for log in verified_logs
+    }
     replayed: dict[str, list[dict[str, Any]]] = {"event": [], "poll": []}
     for lane, summary_rows in result_rows.items():
         calls = included_reads(lane, "eth_call")
@@ -169,20 +175,28 @@ def replay(root: Path) -> dict[str, Any]:
         if len(summary_rows) > len(POLL_SECONDS):
             raise ValueError("frozen_quote_count_exceeded")
         for row in summary_rows:
+            if schema == PLAN_SCHEMA and lane == "event":
+                log_index = strict_integer(row.get("log_index"), "quote trigger log index")
+                position = (row["block"], row["block_hash"], row["tx"], log_index)
+                if row["receipt_verified"] is not (position in verified_positions):
+                    raise ValueError("event_quote_receipt_proof_does_not_match")
             if "gross_raw" not in row or (chain.chain_id == 8453 and row["net_model_raw"] is None):
                 continue
+            if schema == PLAN_SCHEMA and chain.chain_id == 8453 and "net_on_time" not in row:
+                raise ValueError("fee_inclusive_quote_timing_missing")
             dispatch = strict_integer(row.get("dispatch_ns"), "dispatch time")
             finish = strict_integer(row.get("finish_ns"), "finish time")
             matching_anchor = [
-                block
-                for ns, params, block in anchors
-                if dispatch <= ns <= finish
+                (ns, block)
+                for sent, ns, params, block in anchors
+                if dispatch <= sent <= ns <= finish
                 and params == ([row["block_hash"], False] if lane == "event" else ["latest", False])
                 and snap(block, chain).ref.block_hash == row["block_hash"]
             ]
             if len(matching_anchor) != 1:
                 raise ValueError("quote_anchor_missing_or_ambiguous")
-            anchor = strict_object(matching_anchor[0], "quote anchor")
+            anchor_received, anchor_body = matching_anchor[0]
+            anchor = strict_object(anchor_body, "quote anchor")
             if (
                 quantity(anchor.get("number"), 64) != row["block"]
                 or quantity(anchor.get("baseFeePerGas")) != row["base_fee_raw"]
@@ -192,8 +206,21 @@ def replay(root: Path) -> dict[str, Any]:
                 witness = snap(blocks[hex(row["block"])], chain)
                 if witness != snap(anchor, chain):
                     raise ValueError("quote_anchor_witness_changed")
-            replayed[lane].append(replay_quote(row, calls, events, lane, result, chain))
+            replayed[lane].append(
+                replay_quote(
+                    row, calls, events, lane, result, chain, anchor_received=anchor_received
+                )
+            )
     event, poll = replayed["event"], replayed["poll"]
+    if schema == PLAN_SCHEMA:
+        complete = (
+            result["failure"] is None
+            and result["stream_error"] is None
+            and evidence is not None
+            and evidence["internal_missing"] == 0
+        )
+        if result["decision"] != quote_decision(chain, result_rows["event"], complete):
+            raise ValueError("event_quote_decision_does_not_match")
     return {
         "schema": "oasis-event-quote-replay-v1",
         "chain_id": chain.chain_id,
@@ -213,11 +240,13 @@ def replay(root: Path) -> dict[str, Any]:
 
 def replay_quote(
     row: dict[str, Any],
-    calls: list[tuple[int, list[object], object]],
+    calls: list[tuple[int, int, list[object], object]],
     events: dict[LogRecord, int],
     lane: str,
     campaign: dict[str, Any],
     chain: Chain = CHAINS["base"],
+    *,
+    anchor_received: int | None = None,
 ) -> dict[str, Any]:
     start = row["start_ns"]
     block_hash = row["block_hash"]
@@ -227,7 +256,12 @@ def replay_quote(
         matched = [
             ns
             for log, ns in events.items()
-            if log.block_hash == block_hash and log.transaction_hash == row["tx"]
+            if log.block_hash == block_hash
+            and log.transaction_hash == row["tx"]
+            and (
+                "log_index" not in row
+                or (log.block_number, log.log_index) == (row["block"], row["log_index"])
+            )
         ]
         if not matched or min(matched) != start:
             raise ValueError("quote_start_not_bound_to_swap_receipt_time")
@@ -235,9 +269,9 @@ def replay_quote(
         raise ValueError("quote_start_not_on_poll_schedule")
     pin_arg = pin(block_hash) if chain.chain_id == 8453 else hex(row["block"])
     matched_calls = [
-        (ns, params, val)
-        for ns, params, val in calls
-        if after <= ns <= finalized and params[1] == pin_arg
+        (sent, ns, params, val)
+        for sent, ns, params, val in calls
+        if after <= sent <= ns <= finalized and params[1] == pin_arg
     ]
     amount = BASE_AMOUNT
     legs = []
@@ -245,8 +279,8 @@ def replay_quote(
         target, data = route_request(chain, leg, amount)
         found = [
             (ns, val)
-            for ns, params, val in matched_calls
-            if params[0] == {"to": target, "data": data} and ns >= after
+            for sent, ns, params, val in matched_calls
+            if params[0] == {"to": target, "data": data} and sent >= after
         ]
         if len(found) != 1:
             raise ValueError("quote_call_missing_or_ambiguous")
@@ -254,12 +288,6 @@ def replay_quote(
         output, gas = route_result(chain, leg, data_bytes(raw))
         legs.append({"input_raw": amount, "output_raw": output, "quoter_gas": gas})
         amount = output
-    fee_data = calldata("getL1FeeUpperBound(uint256)", ("uint256",), (BYTES_MODEL,))
-    fee = [
-        abi(("uint256",), data_bytes(val))[0]
-        for ns, params, val in matched_calls
-        if after <= ns and params[0] == {"to": ORACLE, "data": fee_data}
-    ]
     quote_done = row["quote_done_ns"]
     if (
         legs != row["legs"]
@@ -268,10 +296,28 @@ def replay_quote(
     ):
         raise ValueError("quote_bytes_or_timing_do_not_match")
     net = None
+    net_timing = {}
     if chain.chain_id == 8453:
-        if fee != [row["l1_fee_raw"]]:
+        fee_data = calldata("getL1FeeUpperBound(uint256)", ("uint256",), (BYTES_MODEL,))
+        has_net_timing = "net_on_time" in row
+        fees = [
+            (ns, abi(("uint256",), data_bytes(val))[0])
+            for _, ns, params, val in matched_calls
+            if (has_net_timing or after <= ns) and params[0] == {"to": ORACLE, "data": fee_data}
+        ]
+        if len(fees) != 1 or fees[0][1] != row["l1_fee_raw"]:
             raise ValueError("quote_l1_fee_changed")
-        net = signaled_net(amount, row["base_fee_raw"], fee[0])
+        fee_received, fee = fees[0]
+        net = signaled_net(amount, row["base_fee_raw"], fee)
+        if has_net_timing:
+            fee_done = strict_integer(row.get("fee_done_ns"), "fee-inclusive quote completion")
+            if (
+                anchor_received is None
+                or not max(anchor_received, fee_received, quote_done) <= fee_done <= finalized
+                or row["net_on_time"] is not (fee_done - start <= DEADLINE_NS)
+            ):
+                raise ValueError("fee_inclusive_quote_timing_does_not_match")
+            net_timing = {"fee_done_ns": fee_done, "net_on_time": row["net_on_time"]}
     if net != row["net_model_raw"] or amount - BASE_AMOUNT != row["gross_raw"]:
         raise ValueError("quote_net_model_does_not_match")
     return {
@@ -286,4 +332,4 @@ def replay_quote(
             "gross_raw",
             "net_model_raw",
         )
-    }
+    } | net_timing
