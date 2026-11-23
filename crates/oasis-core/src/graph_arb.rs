@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::OnceLock;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -483,50 +484,66 @@ struct EvaluatedIndexedPoint {
     net_profit: SignedU512,
 }
 
+#[derive(Debug, Default)]
+struct IndexedTopology {
+    tokens: Vec<String>,
+    token_ids: HashMap<String, usize>,
+    adj: Vec<Vec<IndexedEdge>>,
+    pool_edges: Vec<(String, [(usize, usize); 2])>,
+}
+
+impl IndexedTopology {
+    // Keep pool and adjacency order identical to the ascending pool map used by the scanner.
+    fn add_pool(&mut self, pool: &PoolState) {
+        let pool_idx = self.pool_edges.len();
+        let t0 = self.intern_token(&pool.token0);
+        let t1 = self.intern_token(&pool.token1);
+        let positions = [(t0, self.adj[t0].len()), (t1, self.adj[t1].len())];
+        self.adj[t0].push(IndexedEdge {
+            to_token: t1,
+            pool_idx,
+            zero_for_one: true,
+            max_rate_upper: edge_max_rate_upper(pool, true),
+        });
+        self.adj[t1].push(IndexedEdge {
+            to_token: t0,
+            pool_idx,
+            zero_for_one: false,
+            max_rate_upper: edge_max_rate_upper(pool, false),
+        });
+        self.pool_edges.push((pool.pool_id.clone(), positions));
+    }
+
+    fn intern_token(&mut self, token: &str) -> usize {
+        if let Some(&id) = self.token_ids.get(token) {
+            return id;
+        }
+        let id = self.tokens.len();
+        self.tokens.push(token.to_owned());
+        self.token_ids.insert(token.to_owned(), id);
+        self.adj.push(Vec::new());
+        id
+    }
+
+    fn refresh_rates(&mut self, pool: &PoolState) {
+        let pool_index = self
+            .pool_edges
+            .binary_search_by(|(pool_id, _)| pool_id.cmp(&pool.pool_id))
+            .expect("existing pool belongs to indexed topology");
+        for (token_index, edge_index) in self.pool_edges[pool_index].1 {
+            let edge = &mut self.adj[token_index][edge_index];
+            edge.max_rate_upper = edge_max_rate_upper(pool, edge.zero_for_one);
+        }
+    }
+}
+
 struct IndexedGraph<'a> {
     chain_id: u64,
     pools: Vec<&'a PoolState>,
-    tokens: Vec<&'a str>,
-    token_ids: HashMap<&'a str, usize>,
-    adj: Vec<Vec<IndexedEdge>>,
+    topology: &'a IndexedTopology,
 }
 
-impl<'a> IndexedGraph<'a> {
-    fn from_chain_pools(chain_id: u64, chain_pools: Vec<&'a PoolState>) -> Self {
-        let mut tokens = Vec::with_capacity(chain_pools.len() * 2);
-        let mut token_ids = HashMap::with_capacity(chain_pools.len() * 2);
-        let mut adj = Vec::with_capacity(chain_pools.len() * 2);
-
-        for (pool_idx, pool) in chain_pools.iter().enumerate() {
-            let t0 = intern_token(&pool.token0, &mut tokens, &mut token_ids, &mut adj);
-            let t1 = intern_token(&pool.token1, &mut tokens, &mut token_ids, &mut adj);
-            adj[t0].push(IndexedEdge {
-                to_token: t1,
-                pool_idx,
-                zero_for_one: true,
-                max_rate_upper: edge_max_rate_upper(pool, true),
-            });
-            adj[t1].push(IndexedEdge {
-                to_token: t0,
-                pool_idx,
-                zero_for_one: false,
-                max_rate_upper: edge_max_rate_upper(pool, false),
-            });
-        }
-
-        Self {
-            chain_id,
-            pools: chain_pools,
-            tokens,
-            token_ids,
-            adj,
-        }
-    }
-
-    fn token_id(&self, normalized_token: &str) -> Option<usize> {
-        self.token_ids.get(normalized_token).copied()
-    }
-
+impl IndexedGraph<'_> {
     fn materialize_candidate(
         &self,
         base_id: usize,
@@ -562,7 +579,7 @@ impl<'a> IndexedGraph<'a> {
             .expect("positive net_profit <= amount_out fits U256");
         Ok(CycleCandidate {
             chain_id: self.chain_id,
-            base_token: self.tokens[base_id].to_string(),
+            base_token: self.topology.tokens[base_id].clone(),
             hops,
             optimal_amount_in: best.amount_in,
             amount_out: best.amount_out,
@@ -573,25 +590,10 @@ impl<'a> IndexedGraph<'a> {
     }
 }
 
-fn intern_token<'a>(
-    token: &'a str,
-    tokens: &mut Vec<&'a str>,
-    token_ids: &mut HashMap<&'a str, usize>,
-    adj: &mut Vec<Vec<IndexedEdge>>,
-) -> usize {
-    if let Some(&id) = token_ids.get(token) {
-        return id;
-    }
-    let id = tokens.len();
-    tokens.push(token);
-    token_ids.insert(token, id);
-    adj.push(Vec::new());
-    id
-}
-
 #[derive(Default, Debug)]
 pub struct PoolGraph {
     pools: BTreeMap<(u64, String), PoolState>,
+    topology: OnceLock<BTreeMap<u64, IndexedTopology>>,
 }
 
 impl PoolGraph {
@@ -603,11 +605,38 @@ impl PoolGraph {
     pub fn upsert_pool(&mut self, pool: PoolState) -> Result<(), GraphArbError> {
         let normalized = pool.normalized_and_validated()?;
         let key = (normalized.chain_id, normalized.pool_id.clone());
-        if let Some(existing) = self.pools.get(&key) {
-            if existing.block_number == normalized.block_number && existing != &normalized {
+        Self::validate_pool_update(self.pools.get(&key), &normalized)?;
+        self.install_pool(key, normalized);
+        Ok(())
+    }
+
+    /// Validate a sequence of observations before applying any of them.
+    pub fn upsert_pools(&mut self, pools: Vec<PoolState>) -> Result<(), GraphArbError> {
+        let mut pending = BTreeMap::new();
+        for pool in pools {
+            let normalized = pool.normalized_and_validated()?;
+            let key = (normalized.chain_id, normalized.pool_id.clone());
+            Self::validate_pool_update(
+                pending.get(&key).or_else(|| self.pools.get(&key)),
+                &normalized,
+            )?;
+            pending.insert(key, normalized);
+        }
+        for (key, pool) in pending {
+            self.install_pool(key, pool);
+        }
+        Ok(())
+    }
+
+    fn validate_pool_update(
+        existing: Option<&PoolState>,
+        normalized: &PoolState,
+    ) -> Result<(), GraphArbError> {
+        if let Some(existing) = existing {
+            if existing.block_number == normalized.block_number && existing != normalized {
                 return Err(GraphArbError::ConflictingPoolSnapshot {
                     chain_id: normalized.chain_id,
-                    pool_id: normalized.pool_id,
+                    pool_id: normalized.pool_id.clone(),
                     block_number: normalized.block_number,
                 });
             }
@@ -621,8 +650,52 @@ impl PoolGraph {
                 )));
             }
         }
-        self.pools.insert(key, normalized);
         Ok(())
+    }
+
+    fn install_pool(&mut self, key: (u64, String), pool: PoolState) {
+        let same_endpoints = self.pools.get(&key).is_some_and(|previous| {
+            previous.token0 == pool.token0 && previous.token1 == pool.token1
+        });
+        if same_endpoints {
+            if let Some(topologies) = self.topology.get_mut() {
+                topologies
+                    .get_mut(&pool.chain_id)
+                    .expect("existing chain belongs to indexed topology")
+                    .refresh_rates(&pool);
+            }
+        } else {
+            self.topology.take();
+        }
+        self.pools.insert(key, pool);
+    }
+
+    fn indexed_topologies(&self) -> &BTreeMap<u64, IndexedTopology> {
+        self.topology.get_or_init(|| {
+            let mut indexes = BTreeMap::<u64, IndexedTopology>::new();
+            for pool in self.pools.values() {
+                indexes.entry(pool.chain_id).or_default().add_pool(pool);
+            }
+            indexes
+        })
+    }
+
+    fn indexed_chain<'a>(
+        &'a self,
+        chain_id: u64,
+        topology: &'a IndexedTopology,
+    ) -> IndexedGraph<'a> {
+        let pools = self
+            .pools
+            .range((chain_id, String::new())..)
+            .map(|(_, pool)| pool)
+            .take_while(|pool| pool.chain_id == chain_id)
+            .collect();
+        IndexedGraph {
+            chain_id,
+            pools,
+            topology,
+        }
     }
 
     #[must_use]
@@ -737,6 +810,107 @@ impl PoolGraph {
         options: &ScanCyclesOptions,
     ) -> Result<CycleScanReport, GraphArbError> {
         let start = Instant::now();
+        let scan = ValidatedScan::new(
+            base_tokens,
+            max_hops,
+            min_amount_in,
+            max_amount_in,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            min_net_profit,
+            options,
+        )?;
+        let mut outcome = IndexedScanOutcome::default();
+        for (&chain_id, topology) in self.indexed_topologies() {
+            let graph = self.indexed_chain(chain_id, topology);
+            scan_indexed_chain(&graph, &scan, &mut outcome)?;
+        }
+        let mut report = outcome.into_report(options.deduplicate_cycles);
+        report.elapsed_ns = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        Ok(report)
+    }
+
+    /// Scan multiple independent requests over one pool snapshot.
+    ///
+    /// Reports follow request order. Each `elapsed_ns` covers the same batch
+    /// wall time, including shared graph preparation. Costs and candidate
+    /// deduplication apply within each request.
+    pub fn scan_cycles_batch(
+        &self,
+        requests: &[CycleScanRequest],
+    ) -> Result<Vec<CycleScanReport>, GraphArbError> {
+        let start = Instant::now();
+        let mut scans = Vec::with_capacity(requests.len());
+        for request in requests {
+            let scan = ValidatedScan::new(
+                &request.base_tokens,
+                request.max_hops,
+                request.min_amount_in,
+                request.max_amount_in,
+                request.gas_cost_in_base,
+                request.l1_fee_in_base,
+                request.min_net_profit,
+                &request.options,
+            )?;
+            scans.push((scan, IndexedScanOutcome::default()));
+        }
+        if scans.is_empty() {
+            return Ok(Vec::new());
+        }
+        for (&chain_id, topology) in self.indexed_topologies() {
+            let graph = self.indexed_chain(chain_id, topology);
+            for (scan, outcome) in &mut scans {
+                scan_indexed_chain(&graph, scan, outcome)?;
+            }
+        }
+        let mut reports: Vec<_> = scans
+            .into_iter()
+            .map(|(scan, outcome)| outcome.into_report(scan.options.deduplicate_cycles))
+            .collect();
+        let elapsed_ns = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        for report in &mut reports {
+            report.elapsed_ns = elapsed_ns;
+        }
+        Ok(reports)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CycleScanRequest {
+    pub base_tokens: Vec<String>,
+    pub max_hops: usize,
+    pub min_amount_in: U256,
+    pub max_amount_in: U256,
+    pub gas_cost_in_base: U256,
+    pub l1_fee_in_base: U256,
+    pub min_net_profit: U256,
+    pub options: ScanCyclesOptions,
+}
+
+struct ValidatedScan<'a> {
+    normalized_bases: BTreeSet<String>,
+    changed_pool_set: Option<BTreeSet<String>>,
+    max_hops: usize,
+    min_amount_in: U256,
+    max_amount_in: U256,
+    gas_cost_in_base: U256,
+    l1_fee_in_base: U256,
+    min_profit_u512: U512,
+    options: &'a ScanCyclesOptions,
+}
+
+impl<'a> ValidatedScan<'a> {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        base_tokens: &[String],
+        max_hops: usize,
+        min_amount_in: U256,
+        max_amount_in: U256,
+        gas_cost_in_base: U256,
+        l1_fee_in_base: U256,
+        min_net_profit: U256,
+        options: &'a ScanCyclesOptions,
+    ) -> Result<Self, GraphArbError> {
         if base_tokens.is_empty() {
             return Err(GraphArbError::EmptyBaseTokens);
         }
@@ -759,77 +933,16 @@ impl PoolGraph {
                 .filter(|p| !p.is_empty())
                 .collect()
         });
-        let min_profit_u512 = min_net_profit.to_u512();
-
-        let mut outcome = IndexedScanOutcome::default();
-
-        // `self.pools` is a `BTreeMap<(chain_id, pool_id), PoolState>`, so chains appear in
-        // contiguous ascending `(chain_id, pool_id)` order.
-        let mut cur_chain: Option<u64> = None;
-        let mut chain_pools: Vec<&PoolState> = Vec::new();
-
-        for ((chain_id, _), pool) in &self.pools {
-            match cur_chain {
-                Some(active_chain) if active_chain != *chain_id => {
-                    let indexed = IndexedGraph::from_chain_pools(
-                        active_chain,
-                        std::mem::take(&mut chain_pools),
-                    );
-                    scan_indexed_chain(
-                        &indexed,
-                        &normalized_bases,
-                        max_hops,
-                        min_amount_in,
-                        max_amount_in,
-                        gas_cost_in_base,
-                        l1_fee_in_base,
-                        min_profit_u512,
-                        options,
-                        changed_pool_set.as_ref(),
-                        &mut outcome,
-                    )?;
-                    cur_chain = Some(*chain_id);
-                }
-                None => cur_chain = Some(*chain_id),
-                Some(_) => {}
-            }
-            chain_pools.push(pool);
-        }
-        if let Some(active_chain) = cur_chain {
-            let indexed = IndexedGraph::from_chain_pools(active_chain, chain_pools);
-            scan_indexed_chain(
-                &indexed,
-                &normalized_bases,
-                max_hops,
-                min_amount_in,
-                max_amount_in,
-                gas_cost_in_base,
-                l1_fee_in_base,
-                min_profit_u512,
-                options,
-                changed_pool_set.as_ref(),
-                &mut outcome,
-            )?;
-        }
-
-        if options.deduplicate_cycles && outcome.candidates.len() > 1 {
-            outcome.candidates = deduplicate_cycle_candidates(outcome.candidates);
-        }
-
-        outcome.candidates.sort_by(|a, b| {
-            b.net_profit
-                .cmp(&a.net_profit)
-                .then_with(|| a.chain_id.cmp(&b.chain_id))
-                .then_with(|| a.base_token.cmp(&b.base_token))
-                .then_with(|| a.hops.len().cmp(&b.hops.len()))
-        });
-
-        let elapsed_ns = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
-        Ok(CycleScanReport {
-            candidates: outcome.candidates,
-            cycles_evaluated: outcome.cycles_evaluated,
-            elapsed_ns,
-            sizing_residuals: outcome.sizing_residuals,
+        Ok(Self {
+            normalized_bases,
+            changed_pool_set,
+            max_hops,
+            min_amount_in,
+            max_amount_in,
+            gas_cost_in_base,
+            l1_fee_in_base,
+            min_profit_u512: min_net_profit.to_u512(),
+            options,
         })
     }
 }
@@ -952,24 +1065,37 @@ struct IndexedScanOutcome {
     sizing_residuals: Vec<CycleSizingResidual>,
 }
 
-#[allow(clippy::too_many_arguments)]
+impl IndexedScanOutcome {
+    fn into_report(mut self, deduplicate_cycles: bool) -> CycleScanReport {
+        if deduplicate_cycles && self.candidates.len() > 1 {
+            self.candidates = deduplicate_cycle_candidates(self.candidates);
+        }
+        self.candidates.sort_by(|a, b| {
+            b.net_profit
+                .cmp(&a.net_profit)
+                .then_with(|| a.chain_id.cmp(&b.chain_id))
+                .then_with(|| a.base_token.cmp(&b.base_token))
+                .then_with(|| a.hops.len().cmp(&b.hops.len()))
+        });
+        CycleScanReport {
+            candidates: self.candidates,
+            cycles_evaluated: self.cycles_evaluated,
+            elapsed_ns: 0,
+            sizing_residuals: self.sizing_residuals,
+        }
+    }
+}
+
 fn scan_indexed_chain(
     graph: &IndexedGraph<'_>,
-    normalized_bases: &BTreeSet<String>,
-    max_hops: usize,
-    min_amount_in: U256,
-    max_amount_in: U256,
-    gas_cost_in_base: U256,
-    l1_fee_in_base: U256,
-    min_profit_u512: U512,
-    options: &ScanCyclesOptions,
-    changed_pool_set: Option<&BTreeSet<String>>,
+    scan: &ValidatedScan<'_>,
     outcome: &mut IndexedScanOutcome,
 ) -> Result<(), GraphArbError> {
-    let base_rank_vec: Option<Vec<Option<usize>>> = if options.deduplicate_cycles {
-        let mut ranks = vec![None; graph.tokens.len()];
-        for (rank, base) in normalized_bases.iter().enumerate() {
-            if let Some(id) = graph.token_id(base) {
+    let token_ids = &graph.topology.token_ids;
+    let base_rank_vec: Option<Vec<Option<usize>>> = if scan.options.deduplicate_cycles {
+        let mut ranks = vec![None; graph.topology.tokens.len()];
+        for (rank, base) in scan.normalized_bases.iter().enumerate() {
+            if let Some(&id) = token_ids.get(base) {
                 ranks[id] = Some(rank);
             }
         }
@@ -978,7 +1104,7 @@ fn scan_indexed_chain(
         None
     };
 
-    let pool_changed_vec: Option<Vec<bool>> = changed_pool_set.map(|set| {
+    let pool_changed_vec: Option<Vec<bool>> = scan.changed_pool_set.as_ref().map(|set| {
         graph
             .pools
             .iter()
@@ -987,19 +1113,19 @@ fn scan_indexed_chain(
     });
 
     let params = IndexedScanParams {
-        max_hops,
-        min_amount_in,
-        max_amount_in,
-        base_gas_cost_in_base: gas_cost_in_base,
-        l1_fee_in_base,
-        min_profit_u512,
-        options,
+        max_hops: scan.max_hops,
+        min_amount_in: scan.min_amount_in,
+        max_amount_in: scan.max_amount_in,
+        base_gas_cost_in_base: scan.gas_cost_in_base,
+        l1_fee_in_base: scan.l1_fee_in_base,
+        min_profit_u512: scan.min_profit_u512,
+        options: scan.options,
         base_rank_by_token: base_rank_vec.as_deref(),
         pool_changed: pool_changed_vec.as_deref(),
     };
 
-    for (base_rank, base) in normalized_bases.iter().enumerate() {
-        let Some(base_id) = graph.token_id(base) else {
+    for (base_rank, base) in scan.normalized_bases.iter().enumerate() {
+        let Some(&base_id) = token_ids.get(base) else {
             continue;
         };
         let mut visited_tokens = [0usize; MAX_SUPPORTED_HOPS];
@@ -1042,7 +1168,7 @@ fn enumerate_indexed_cycles(
     params: &IndexedScanParams<'_>,
     outcome: &mut IndexedScanOutcome,
 ) -> Result<(), GraphArbError> {
-    let edges = &graph.adj[current_token];
+    let edges = &graph.topology.adj[current_token];
     let next_depth = depth + 1;
     for &edge in edges {
         if used_pools[..depth].contains(&edge.pool_idx) {
@@ -1094,7 +1220,7 @@ fn enumerate_indexed_cycles(
                 if let Some((min_amount_in, max_amount_in, net_profit_upper)) = sizing.residual {
                     outcome.sizing_residuals.push(CycleSizingResidual {
                         chain_id: graph.chain_id,
-                        base_token: graph.tokens[base_id].to_owned(),
+                        base_token: graph.topology.tokens[base_id].clone(),
                         pool_ids: cycle_steps
                             .iter()
                             .map(|step| graph.pools[step.pool_idx].pool_id.clone())
@@ -1701,7 +1827,7 @@ mod tests {
             }
         }
 
-        let indexed = IndexedGraph::from_chain_pools(8453, graph.pools.values().collect());
+        let indexed = graph.indexed_chain(8453, &graph.indexed_topologies()[&8453]);
         let curve = ContinuousV2Cycle::from_steps(
             &indexed,
             &[
@@ -2901,5 +3027,137 @@ mod tests {
             .unwrap();
         assert_eq!(empty_inc.cycles_evaluated, 0);
         assert!(empty_inc.candidates.is_empty());
+    }
+
+    #[test]
+    fn batch_matches_independent_scans_with_distinct_anchors_and_costs() {
+        let (graph, weth, usdt) = build_six_pool_multidex_graph();
+        let first = CycleScanRequest {
+            base_tokens: vec![weth],
+            max_hops: 4,
+            min_amount_in: U256::from_u128(10_000_000_000_000_000),
+            max_amount_in: U256::from_u128(5_000_000_000_000_000_000),
+            gas_cost_in_base: U256::from_u128(200_000_000_000_000),
+            l1_fee_in_base: U256::from_u128(50_000_000_000_000),
+            min_net_profit: U256::ONE,
+            options: ScanCyclesOptions::default(),
+        };
+        let second = CycleScanRequest {
+            base_tokens: vec![usdt],
+            min_amount_in: U256::from_u64(5_000),
+            max_amount_in: U256::from_u64(5_015),
+            gas_cost_in_base: U256::from_u64(3),
+            l1_fee_in_base: U256::ONE,
+            options: ScanCyclesOptions {
+                changed_pools: Some(vec![token("a1").to_ascii_uppercase()]),
+                v2_hop_gas_cost_in_base: Some(U256::from_u64(2)),
+                ..Default::default()
+            },
+            ..first.clone()
+        };
+        let scans = [first, second];
+        let reports = graph.scan_cycles_batch(&scans).unwrap();
+        assert_eq!(reports.len(), 2);
+        assert_eq!(reports[0].elapsed_ns, reports[1].elapsed_ns);
+        assert!(!reports[0].candidates.is_empty());
+        assert!(!reports[0].sizing_residuals.is_empty());
+
+        for (mut actual, request) in reports.into_iter().zip(scans) {
+            let expected = graph
+                .scan_cycles_with_options(
+                    &request.base_tokens,
+                    request.max_hops,
+                    request.min_amount_in,
+                    request.max_amount_in,
+                    request.gas_cost_in_base,
+                    request.l1_fee_in_base,
+                    request.min_net_profit,
+                    &request.options,
+                )
+                .unwrap();
+            actual.elapsed_ns = expected.elapsed_ns;
+            assert_eq!(actual, expected);
+        }
+    }
+
+    #[test]
+    fn resident_graph_refreshes_rates_and_rejects_partial_updates() {
+        let anchor = token("11");
+        let make_pool = |id, r0, r1| PoolState {
+            chain_id: 8453,
+            pool_id: token(id),
+            kind: PoolKind::V2,
+            token0: anchor.clone(),
+            token1: token("22"),
+            decimals0: 18,
+            decimals1: 18,
+            fee_pips: 3000,
+            reserve0: Some(U256::from_u64(r0)),
+            reserve1: Some(U256::from_u64(r1)),
+            sqrt_price_x96: None,
+            tick: None,
+            liquidity: None,
+            ticks: Vec::new(),
+            block_number: 1,
+            timestamp_ms: 1,
+        };
+        let initial = make_pool("a1", 615, 1497);
+        let other = make_pool("a2", 615, 1497);
+        let mut graph = PoolGraph::new();
+        graph
+            .upsert_pools(vec![initial.clone(), other.clone()])
+            .unwrap();
+        let scan = |graph: &PoolGraph| {
+            graph
+                .scan_cycles(
+                    std::slice::from_ref(&anchor),
+                    2,
+                    U256::ONE,
+                    U256::from_u64(250),
+                    U256::ZERO,
+                    U256::ZERO,
+                    U256::ONE,
+                )
+                .unwrap()
+        };
+        assert!(scan(&graph).candidates.is_empty());
+        assert!(graph.topology.get().is_some());
+
+        let mut repriced = make_pool("a2", 1730, 1521);
+        repriced.block_number = 2;
+        let conflict = make_pool("a1", 616, 1497);
+        assert!(matches!(
+            graph.upsert_pools(vec![repriced.clone(), conflict]),
+            Err(GraphArbError::ConflictingPoolSnapshot { .. })
+        ));
+        assert_eq!(graph.get_pool(8453, &other.pool_id), Some(&other));
+        assert!(scan(&graph).candidates.is_empty());
+
+        graph.upsert_pools(vec![repriced.clone()]).unwrap();
+        assert!(graph.topology.get().is_some());
+        let mut warm = scan(&graph);
+        assert_eq!(warm.candidates[0].net_profit, U256::from_u64(135));
+        let mut rebuilt = PoolGraph::new();
+        rebuilt
+            .upsert_pools(vec![repriced.clone(), initial])
+            .unwrap();
+        let cold = scan(&rebuilt);
+        warm.elapsed_ns = cold.elapsed_ns;
+        assert_eq!(warm, cold);
+
+        let mut high_fee = repriced.clone();
+        high_fee.block_number = 3;
+        high_fee.fee_pips = 900_000;
+        graph.upsert_pool(high_fee).unwrap();
+        assert!(graph.topology.get().is_some());
+        assert!(scan(&graph).candidates.is_empty());
+        repriced.block_number = 4;
+        graph.upsert_pool(repriced).unwrap();
+        assert!(graph.topology.get().is_some());
+        assert_eq!(scan(&graph).candidates, cold.candidates);
+
+        graph.upsert_pool(make_pool("a0", 615, 1497)).unwrap();
+        assert!(graph.topology.get().is_none());
+        assert_eq!(scan(&graph).cycles_evaluated, 6);
     }
 }

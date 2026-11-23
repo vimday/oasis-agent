@@ -80,6 +80,7 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- [Rust 常驻池图与多锚离线对照](verification/MULTIHOP_RESIDENT_GRAPH_20261123.md)。块绑定会话支持原子增量与显式完整替换，Base 58 池双锚后续本地扫描 p99 从 0.722 ms 降到 0.200 ms。实池候选和未决报告一致，合成正例的逐腿整数一致。前瞻整笔经济召回待测。
 - [多跳 Rust/Python 决策与分段测量](verification/MULTIHOP_RUST_BOUNDARY_20261123.md) · [Base 四池/58 池/66 池 V4 混图](verification/BASE_V4_MIXED_GRAPH_20261123.md)。现有 Rust 短图与 Python 批次、长路定量继续各作参考，长 V2 整数上界的分段合成已接入。Base 新增 8 个无 hook V4 池，同块模型正例为 0，保留未决区间和负报价。
 - [BSC 同本金批次回放](verification/BSC_V2_BATCH_COMPARISON_20261123.md) · [Ethereum 执行器两周成本](verification/ETH_BATCH_SELECTOR_COHORT_20261123.md) · [Base V4 池双源核验](verification/BASE_V4_FORWARD_DISCOVERY_20261123.md)。BSC 顺序更新排除了重置储备产生的正净额；Ethereum 三笔回滚经独立收据根确认；Base 12 个 V4 PoolKey 重算一致，六个无 hook 池有双源有限金额报价。
 - [前瞻机会筛选与 119 条经济腿批次](verification/MULTIHOP_FORWARD_OPPORTUNITY_20261123.md)。支持按改变的池搜索长环，Base 常规 Multicall 影子保留阶段时钟与原报价。Base 六块和 BSC 一块均无已证实的可执行正净额。Ethereum 历史批次中，117 条 DEX Swap 与两次直接兑换来自 40 个短闭环，共用一笔贷款，计直接付款和 gas 后有可见正净额。

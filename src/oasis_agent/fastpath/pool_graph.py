@@ -318,7 +318,10 @@ def scan_cycles(
             "timestamp_ns": timestamp_ns,
         }
     )
+    return _parse_scan_report(result)
 
+
+def _parse_scan_report(result: Mapping[str, Any]) -> CycleScanReport:
     raw_candidates = result.get("candidates")
     if not isinstance(raw_candidates, list):
         raise FastpathCallError("scan_cycles candidates must be a list")
