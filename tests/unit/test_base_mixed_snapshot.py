@@ -497,11 +497,13 @@ class _HeadSocket:
         )
 
 
+@pytest.mark.parametrize("parallel", [False, True])
 @pytest.mark.parametrize("mismatch", [False, True])
 def test_newheads_campaign_binds_before_state_and_replays(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     mismatch: bool,
+    parallel: bool,
 ) -> None:
     monkeypatch.setattr(mixed, "MANAGER_RUNTIME", "0x" + keccak(RUNTIME).hex())
     specs = _specs()
@@ -510,12 +512,15 @@ def test_newheads_campaign_binds_before_state_and_replays(
     prior = _prior(tmp_path / "prior", specs)
     out = tmp_path / "campaign"
     calls = []
+    header_barrier = Barrier(2, timeout=3)
 
     def transport(url: str, request: bytes, timeout: float) -> bytes:
         req = json.loads(request)
         calls.append((url, req["method"]))
         if req["method"] == "eth_getBlockByNumber":
             assert req["params"] == [hex(BLOCK), False]
+            if parallel:
+                header_barrier.wait()
             return _address_mock(specs, req)
         if req["method"] == "eth_getCode":
             assert url == mixed.OFFICIAL_URL
@@ -536,13 +541,17 @@ def test_newheads_campaign_binds_before_state_and_replays(
             mixed_base_address_manifest=prior,
             mixed_base_secondary_max_rpc_calls=3,
             base_newheads=True,
+            base_newheads_overlap_headers=parallel,
             base_newheads_socket_factory=lambda: nullcontext(_HeadSocket((hint,))),
         )
 
     if mismatch:
-        with pytest.raises(newheads.NewHeadsError, match="primary header"):
+        with pytest.raises(newheads.NewHeadsError, match="conflicts with"):
             run()
-        assert calls == [(mixed.SOURCES[mixed.PUBLICNODE], "eth_getBlockByNumber")]
+        expected = [(mixed.SOURCES[mixed.PUBLICNODE], "eth_getBlockByNumber")]
+        if parallel:
+            expected.append((mixed.OFFICIAL_URL, "eth_getBlockByNumber"))
+        assert sorted(calls) == sorted(expected)
         assert (out / newheads.DIRECTORY / "STOP.json").is_file()
         assert not (out / mixed.DIRECTORY / "attempt-00000001" / "state.json").exists()
         return
@@ -560,8 +569,18 @@ def test_newheads_campaign_binds_before_state_and_replays(
         "mixed_66": 66,
     }
     manifest = out / record["manifest"]
-    assert json.loads(manifest.read_bytes())["schema"] == mixed.HEAD_SCHEMA
+    retained = json.loads(manifest.read_bytes())
+    assert retained["schema"] == (mixed.PARALLEL_HEAD_SCHEMA if parallel else mixed.HEAD_SCHEMA)
     assert len(mixed.replay_mixed_snapshot(manifest).nodes) == 66
+    if parallel:
+        assert record["parallel_header_transport_overlap_ns"] > 0
+        assert record["head_to_official_header_ns"] < record["head_to_state_ready_ns"]
+        retained["parallel_header_transport_overlap_ns"] += 1
+        original = manifest.read_bytes()
+        manifest.write_bytes(canonical_json(retained))
+        with pytest.raises(ValueError, match="header transport overlap differs"):
+            mixed.replay_mixed_snapshot(manifest)
+        manifest.write_bytes(original)
     raw = out / newheads.DIRECTORY / "frame-00000001.raw"
     raw.write_bytes(raw.read_bytes() + b" ")
     with pytest.raises(ValueError, match="frame digest"):

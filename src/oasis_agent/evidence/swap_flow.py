@@ -8,7 +8,9 @@ from ..arbitrage.cycle_plan import address, hash32
 from ..arbitrage.cycle_protocols import data_bytes, topic
 from .public_receipts import ObservedReceipt
 
-# These describe event shapes. Pool or protocol identity still requires an independent registry.
+BANCOR_CONVERSION_TOPIC = topic("Conversion(address,address,address,uint256,uint256,int256)")
+
+# These describe event shapes. Pool or protocol identity still requires independent evidence.
 _LAYOUT = {
     topic("Swap(address,uint256,uint256,uint256,uint256,address)"): ("v2", 4, False),
     topic("Swap(address,address,uint256,uint256,uint256,uint256)"): ("aero", 4, False),
@@ -24,6 +26,7 @@ _LAYOUT = {
         7,
         True,
     ),
+    BANCOR_CONVERSION_TOPIC: ("bancor_conversion", 3, False),
 }
 TRANSFER = topic("Transfer(address,address,uint256)")
 MAX_SWAP_EVENTS = 4096
@@ -57,10 +60,11 @@ def profile_swap_receipt(receipt: ObservedReceipt) -> SwapReceiptProfile:
         if not log.topics or log.topics[0] not in _LAYOUT:
             continue
         shape, words, singleton = _LAYOUT[log.topics[0]]
-        if len(log.topics) != 3 or len(data_bytes(log.data)) != 32 * words:
+        topics = 4 if shape == "bancor_conversion" else 3
+        if len(log.topics) != topics or len(data_bytes(log.data)) != 32 * words:
             raise ValueError("malformed recognized swap event")
-        hash32(log.topics[1])
-        hash32(log.topics[2])
+        for item in log.topics[1:]:
+            hash32(item)
         events.append(
             ObservedSwap(log.log_index, (log.address, log.topics[1] if singleton else None), shape)
         )
@@ -264,6 +268,7 @@ _ADDRESS_SWAP_SELECTOR = {
     "aero": topic("swap(uint256,uint256,address,bytes)")[:10],
     "v3": topic("swap(address,bool,int256,uint160,bytes)")[:10],
     "pancake_v3": topic("swap(address,bool,int256,uint160,bytes)")[:10],
+    "bancor_conversion": topic("convert(address,address,uint256,address,address)")[:10],
 }
 
 

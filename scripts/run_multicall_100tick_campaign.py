@@ -2098,6 +2098,7 @@ def run_multicall_campaign(
     mixed_base_address_manifest: Path | None = None,
     mixed_base_secondary_max_rpc_calls: int | None = None,
     base_newheads: bool = False,
+    base_newheads_overlap_headers: bool = False,
     base_newheads_socket_factory: SocketFactory | None = None,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
@@ -2124,6 +2125,10 @@ def run_multicall_campaign(
     mixed_enabled = mixed_base_address_manifest is not None
     if type(base_newheads) is not bool:
         raise ShadowRunnerError("base_newheads must be a boolean")
+    if type(base_newheads_overlap_headers) is not bool or (
+        base_newheads_overlap_headers and not base_newheads
+    ):
+        raise ShadowRunnerError("overlapping headers require the Base newHeads opt-in")
     if base_newheads:
         if not mixed_enabled:
             raise ShadowRunnerError("Base newHeads requires a mixed Base address manifest")
@@ -2539,6 +2544,7 @@ def run_multicall_campaign(
                         float(timeout_s),
                         mixed_workers,
                         head=head,
+                        parallel_headers=base_newheads_overlap_headers,
                     ),
                 )
                 snapshot = _extract_snapshot_from_multicall_universe(
@@ -2913,6 +2919,23 @@ def run_multicall_campaign(
                     }
                     mixed_comparison["cohorts"] = cohorts
                     mixed_comparison["newheads_observation"] = selected_head.to_wire()
+                    mixed_comparison["state_capture_started_monotonic_ns"] = (
+                        latest_mixed.state_started_monotonic_ns
+                    )
+                    mixed_comparison["official_header_received_monotonic_ns"] = (
+                        latest_mixed.official_header_received_monotonic_ns
+                    )
+                    mixed_comparison["head_to_state_start_ns"] = (
+                        latest_mixed.state_started_monotonic_ns
+                        - selected_head.received_monotonic_ns
+                    )
+                    mixed_comparison["head_to_official_header_ns"] = (
+                        latest_mixed.official_header_received_monotonic_ns
+                        - selected_head.received_monotonic_ns
+                    )
+                    mixed_comparison["parallel_header_transport_overlap_ns"] = (
+                        latest_mixed.parallel_header_transport_overlap_ns
+                    )
                     mixed_comparison["head_to_state_ready_ns"] = (
                         latest_mixed.state_ready_monotonic_ns - selected_head.received_monotonic_ns
                     )
@@ -3918,6 +3941,7 @@ def run_multicall_campaign(
         summary_body["base_newheads"] = {
             "status": "incomplete" if stopped_early else "complete",
             "directory": BASE_NEWHEADS_DIRECTORY,
+            "parallel_headers": base_newheads_overlap_headers,
             "rpc_attempts_by_source": head_session.counts(),
             "stop_reason": str(head_session.failure) if head_session.failure else None,
         }
@@ -4140,6 +4164,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--base-newheads-overlap-headers",
+        action="store_true",
+        help="Start overlapping fixed-height headers from an accepted Base newHeads hint.",
+    )
+    parser.add_argument(
         "--replay-mixed-base",
         type=Path,
         help="Verify a captured mixed_base_state attempt manifest offline.",
@@ -4205,6 +4234,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             mixed_base_address_manifest=args.mixed_base_address_manifest,
             mixed_base_secondary_max_rpc_calls=args.mixed_base_secondary_max_rpc_calls,
             base_newheads=args.base_newheads,
+            base_newheads_overlap_headers=args.base_newheads_overlap_headers,
         )
     except (
         OSError,

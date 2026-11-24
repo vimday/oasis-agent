@@ -80,6 +80,8 @@
 ## 证据导航
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
+- Base 常规入口可并发读取两源块头。两个固定块状态逐字节一致，交付分别快 715 和 130 ms。四块连续发现零模型正候选，最后一块取数前等待 2.475 秒。固定三跳负控在一个已核父子状态各完成一次同包络整笔模拟，两次扣费均亏。[并行取数](verification/BASE_DUAL_HEADER_OVERLAP_20261124.md) · [三阶段净额](verification/BASE_WHOLE_SURVIVAL_20261124.md)
+- Ethereum 可按调用树复算包含 Bancor 的资金链，新增七池串行实际交易扣可见成本余 3,650,823,715,852 wei。BSC 89 条经济腿样本确认为 23 个独立循环。Robinhood 512 块筛选的最高交易完成收据根校验，调用树超时，整笔净额未知。[Ethereum](verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md) · [BSC](verification/BSC_PAGED_LONG_TAIL_20261124.md) · [Robinhood](verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md)
 - [Base 常规新头入口](verification/BASE_HEAD_DELIVERY_20261124.md) · [Robinhood 整路径报价](verification/ROBINHOOD_QUOTE_DELIVERY_20261124.md)。Base `--base-newheads` 已用两个直接父子块验证常规 4/58/66 池入口与固定哈希回放，第二块状态就绪耗时 2,427 ms，其中约 1,447 ms 在取数前等待。Robinhood 两个独立父子块范围用双源验证状态和 Quoter，20 跳有限金额毛差为负，24/37 跳均因第 4 腿流动性不足回滚。
 - [Ethereum 九池留出样本](verification/ETH_FUNDED_HOLDOUT_20261124.md) · [BSC 192 块四池样本](verification/BSC_FOUR_POOL_TAIL_20261124.md)。Ethereum 九池闭环扣实际 gas 后可见净额 76,553,183,579,326 wei，原 calldata 在成交块末和直接子块均回滚。BSC 33 个逻辑池的借款批次扣费后有四种代币残留与两个实际原生币付款，整体可兑现净额待核。
 - [同本金有序批次与 100 跳整笔对照](verification/V2_ORDERED_ROUTE_ANVIL_20261124.md)。回环 EVM 逐笔核对付款、余额和退款后的收据 gas。共享池重置高估最佳批次毛差 44.2%。直接子块同包络全回滚，百跳成本 4,877,917 gas。公链机会频率尚无对应证据。

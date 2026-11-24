@@ -63,6 +63,7 @@ SCHEMA_V1 = "oasis.base-mixed-shadow.v1"
 SCHEMA_V2 = "oasis.base-mixed-shadow.v2"
 SCHEMA = "oasis.base-mixed-shadow.v3"
 HEAD_SCHEMA = "oasis.base-mixed-shadow.v4"
+PARALLEL_HEAD_SCHEMA = "oasis.base-mixed-shadow.v5"
 DIRECTORY = "mixed_base_state"
 CHAIN_ID = 8453
 ADDRESS_POOLS = 58
@@ -140,6 +141,9 @@ class MixedCaptureResult:
     manifest_sha256: str
     manifest_path: Path
     state_ready_monotonic_ns: int
+    state_started_monotonic_ns: int
+    official_header_received_monotonic_ns: int
+    parallel_header_transport_overlap_ns: int
 
 
 class _Exchange(Protocol):
@@ -389,17 +393,18 @@ def _acquire(
     *,
     bitmap_aware: bool,
     expected_head: BaseHead | None = None,
+    parallel_headers: bool = False,
     workers: ThreadPoolExecutor | None = None,
     stop_on_failure: Event | None = None,
 ) -> MixedState:
+    if parallel_headers and expected_head is None:
+        raise ValueError("overlapping Base headers require a pinned newHeads observation")
+    if expected_head is not None and tag != hex(expected_head.height):
+        raise ValueError("Base state height differs from newHeads")
     primary_request = _request("eth_getBlockByNumber", [tag, False])
-    primary_raw = exchange("primary_header", primary_request)
-    block = _header(primary_raw)
-    if tag != "latest" and rpc_quantity(tag) != block.number:
-        raise ValueError("mixed Base primary did not return the requested height")
-    if expected_head is not None and (
-        tag != hex(expected_head.height)
-        or not expected_head.agrees(
+
+    def bind_hint(block: BlockBinding, source: str) -> None:
+        if expected_head is not None and not expected_head.agrees(
             BaseHead(
                 block.number,
                 block.block_hash,
@@ -408,27 +413,34 @@ def _acquire(
                 block.timestamp_ms // 1000,
                 block.timestamp_ms,
             )
-        )
-    ):
-        raise NewHeadsError("Base newHeads conflicts with primary header", canonical_conflict=True)
-
-    def official_state() -> tuple[tuple[PoolNode, ...], dict[str, tuple[int, int]], int, int]:
-        official = _header(
-            exchange(
-                "secondary_header",
-                _request(
-                    "eth_getBlockByNumber",
-                    [hex(block.number), False],
-                ),
+        ):
+            raise NewHeadsError(
+                f"Base newHeads conflicts with {source} header", canonical_conflict=True
             )
+
+    def primary_header() -> tuple[bytes, BlockBinding]:
+        raw = exchange("primary_header", primary_request)
+        block = _header(raw)
+        if tag != "latest" and rpc_quantity(tag) != block.number:
+            raise ValueError("mixed Base primary did not return the requested height")
+        bind_hint(block, "primary")
+        return raw, block
+
+    primary = None if parallel_headers else primary_header()
+
+    def official_state() -> tuple[
+        BlockBinding, tuple[tuple[PoolNode, ...], dict[str, tuple[int, int]], int, int]
+    ]:
+        height = primary[1].number if primary is not None else rpc_quantity(tag)
+        official = _header(
+            exchange("secondary_header", _request("eth_getBlockByNumber", [hex(height), False]))
         )
-        if official != block:
+        bind_hint(official, "official")
+        if primary is not None and official != primary[1]:
             if expected_head is not None:
-                raise NewHeadsError(
-                    "Base newHeads conflicts with official header", canonical_conflict=True
-                )
+                raise NewHeadsError("mixed Base provider headers disagree", canonical_conflict=True)
             raise ValueError("mixed Base providers disagree on pinned header")
-        pin = {"blockHash": block.block_hash, "requireCanonical": True}
+        pin = {"blockHash": official.block_hash, "requireCanonical": True}
         code = _decode_hex_bytes(
             _result(exchange("manager_code", _request("eth_getCode", [MANAGER, pin]))),
             "Base V4 PoolManager runtime",
@@ -442,15 +454,19 @@ def _acquire(
             req_id=2,
         )
 
-        return _decode_v4(exchange("v4_state", v4_request), calls, block, bitmap_aware=bitmap_aware)
+        return official, _decode_v4(
+            exchange("v4_state", v4_request), calls, official, bitmap_aware=bitmap_aware
+        )
 
-    def address_transport(_url: str, request: bytes, _timeout: float) -> bytes:
-        if request == primary_request:
-            return primary_raw
-        return exchange("address_state", request)
+    def address() -> tuple[BlockBinding, PinnedUniverseSnapshot]:
+        primary_raw, primary_block = primary if primary is not None else primary_header()
 
-    def address() -> PinnedUniverseSnapshot:
-        return fetch_pinned_universe_snapshot(
+        def address_transport(_url: str, request: bytes, _timeout: float) -> bytes:
+            if request == primary_request:
+                return primary_raw
+            return exchange("address_state", request)
+
+        return primary_block, fetch_pinned_universe_snapshot(
             DEFAULT_BASE_RPC_URL,
             specs,
             transport=address_transport,
@@ -458,25 +474,33 @@ def _acquire(
             pin_call_to_hash=True,
         )
 
+    def guarded[T](lane: Callable[[], T]) -> T:
+        try:
+            return lane()
+        except OasisError, ValueError, OSError, TypeError, RuntimeError:
+            if stop_on_failure is not None:
+                stop_on_failure.set()
+            raise
+
     if workers is None:
-        v4_pools, bounds, scalar, constant = official_state()
-        address_state = address()
+        witnessed, official_result = official_state()
+        block, address_state = address()
     else:
-        address_job = workers.submit(address)
-        official_job = workers.submit(official_state)
-        # Both branches are retained and drained even if one has failed.
+        address_job = workers.submit(guarded, address)
+        official_job = workers.submit(guarded, official_state)
+        # Drain any already-started peer while blocking its later reservations.
         failure: BaseException | None = None
         for job in as_completed((address_job, official_job)):
             error = job.exception()
-            if error is not None:
-                if stop_on_failure is not None:
-                    stop_on_failure.set()
-                if failure is None or isinstance(failure, _ScopeStopped):
-                    failure = error
+            if error is not None and (failure is None or isinstance(failure, _ScopeStopped)):
+                failure = error
         if failure is not None:
             raise failure
-        address_state = address_job.result()
-        v4_pools, bounds, scalar, constant = official_job.result()
+        block, address_state = address_job.result()
+        witnessed, official_result = official_job.result()
+    if witnessed != block:
+        raise NewHeadsError("mixed Base provider headers disagree", canonical_conflict=True)
+    v4_pools, bounds, scalar, constant = official_result
     if (
         address_state.block_hash != block.block_hash
         or address_state.parent_hash != block.parent_hash
@@ -664,6 +688,7 @@ class MixedBaseCapture:
         workers: ThreadPoolExecutor,
         *,
         head: HeadObservation | None = None,
+        parallel_headers: bool = False,
     ) -> MixedCaptureResult:
         self.attempts += 1
         scope = self.directory / f"attempt-{self.attempts:08d}"
@@ -671,7 +696,13 @@ class MixedBaseCapture:
         records: dict[str, dict[str, object]] = {}
         started_ns = time.monotonic_ns()
         content: dict[str, object] = {
-            "schema": HEAD_SCHEMA if head is not None else SCHEMA,
+            "schema": (
+                PARALLEL_HEAD_SCHEMA
+                if parallel_headers
+                else HEAD_SCHEMA
+                if head is not None
+                else SCHEMA
+            ),
             "execution_eligible": False,
             "capture_mode": "injected" if self.injected else "public-shadow",
             "roster_parent_sha256": self.prior_sha256,
@@ -725,6 +756,7 @@ class MixedBaseCapture:
                 exchange,
                 bitmap_aware=True,
                 expected_head=head.head if head is not None else None,
+                parallel_headers=parallel_headers,
                 workers=workers,
                 stop_on_failure=self.stopped,
             )
@@ -751,7 +783,13 @@ class MixedBaseCapture:
             if head is not None and self.stopped.is_set():
                 raise NewHeadsError("Base newHeads scope stopped before state publication")
             ready_ns = time.monotonic_ns()
-            overlap = _check_timing(records, started_ns, ready_ns, speculative=True)
+            overlap = _check_timing(
+                records,
+                started_ns,
+                ready_ns,
+                speculative=True,
+                parallel_headers=parallel_headers,
+            )
         except (OSError, ValueError, OasisError, RuntimeError, TypeError) as exc:
             self.stopped.set()
             content.update(
@@ -772,10 +810,24 @@ class MixedBaseCapture:
             primary_address_official_transport_overlap_ns=overlap,
             budget_after=self.counts(),
         )
+        header_overlap = 0
+        if parallel_headers:
+            header_overlap = _header_transport_overlap(records)
+            content["parallel_header_transport_overlap_ns"] = header_overlap
         content["state_sha256"] = _write(scope / "state.json", state_bytes)
         self._last_state = state.block, digest
         digest = _write(manifest_path, canonical_json(content) + b"\n")
-        return MixedCaptureResult(state, digest, manifest_path, ready_ns)
+        return MixedCaptureResult(
+            state,
+            digest,
+            manifest_path,
+            ready_ns,
+            started_ns,
+            strict_integer(
+                records["secondary_header"]["received_monotonic_ns"], "official header time"
+            ),
+            header_overlap,
+        )
 
 
 def _read(path: Path, digest: object) -> bytes:
@@ -821,6 +873,7 @@ def _check_timing(
     ready: int,
     *,
     speculative: bool,
+    parallel_headers: bool = False,
 ) -> dict[str, int]:
     timings = {}
     transport = {}
@@ -840,7 +893,7 @@ def _check_timing(
 
     address_gate = "primary_header" if speculative else "manager_code"
     if (
-        timings["primary_header"][1] > timings["secondary_header"][0]
+        (not parallel_headers and timings["primary_header"][1] > timings["secondary_header"][0])
         or timings["secondary_header"][1] > timings["manager_code"][0]
         or timings["manager_code"][1] > timings["v4_state"][0]
         or timings[address_gate][1] > timings["address_state"][0]
@@ -856,6 +909,18 @@ def _check_timing(
     }
 
 
+def _header_transport_overlap(rows: dict[str, dict[str, object]]) -> int:
+    primary, official = (rows[role] for role in ("primary_header", "secondary_header"))
+    left, right = (
+        (
+            strict_integer(row.get("transport_started_monotonic_ns"), "header transport start"),
+            strict_integer(row.get("transport_finished_monotonic_ns"), "header transport finish"),
+        )
+        for row in (primary, official)
+    )
+    return max(0, min(left[1], right[1]) - max(left[0], right[0]))
+
+
 def replay_mixed_snapshot(manifest: Path) -> MixedState:
     if (
         manifest.is_symlink()
@@ -865,7 +930,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         raise ValueError("missing or unbounded mixed Base manifest")
     body = strict_json_object(manifest.read_bytes())
     if (
-        body.get("schema") not in (SCHEMA_V1, SCHEMA_V2, SCHEMA, HEAD_SCHEMA)
+        body.get("schema") not in (SCHEMA_V1, SCHEMA_V2, SCHEMA, HEAD_SCHEMA, PARALLEL_HEAD_SCHEMA)
         or body.get("status") != "complete"
         or body.get("execution_eligible") is not False
         or body.get("capture_mode") not in ("injected", "public-shadow")
@@ -886,9 +951,10 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
     if body["schema"] != SCHEMA_V1:
         _check_replay_budget(scope, body)
     rows = {role: strict_object(row, "mixed Base exchange") for role, row in roles.items()}
-    speculative = body["schema"] in (SCHEMA, HEAD_SCHEMA)
+    parallel_headers = body["schema"] == PARALLEL_HEAD_SCHEMA
+    speculative = body["schema"] in (SCHEMA, HEAD_SCHEMA, PARALLEL_HEAD_SCHEMA)
     head = None
-    if body["schema"] == HEAD_SCHEMA:
+    if body["schema"] in (HEAD_SCHEMA, PARALLEL_HEAD_SCHEMA):
         head = replay_head_observation(
             scope.parent.parent / HEAD_DIRECTORY, body.get("newheads_observation")
         )
@@ -896,7 +962,17 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
             raise ValueError("Base newHeads arrived after state capture start")
     elif "newheads_observation" in body:
         raise ValueError("unexpected Base newHeads reference in legacy manifest")
-    overlap = _check_timing(rows, start, ready, speculative=speculative)
+    overlap = _check_timing(
+        rows,
+        start,
+        ready,
+        speculative=speculative,
+        parallel_headers=parallel_headers,
+    )
+    if parallel_headers and _header_transport_overlap(rows) != strict_integer(
+        body.get("parallel_header_transport_overlap_ns"), "header transport overlap"
+    ):
+        raise ValueError("mixed Base header transport overlap differs on replay")
     if speculative:
         recorded = strict_object(
             body.get("primary_address_official_transport_overlap_ns"), "transport overlap"
@@ -923,6 +999,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         exchange,
         bitmap_aware=speculative,
         expected_head=head.head if head is not None else None,
+        parallel_headers=parallel_headers,
     )
     if _read(scope / "state.json", body.get("state_sha256")) != canonical_json(state.evidence()):
         raise ValueError("retained mixed Base decoded state differs")

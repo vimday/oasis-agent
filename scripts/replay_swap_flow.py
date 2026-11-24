@@ -24,6 +24,8 @@ from oasis_agent.evidence.swap_flow import (
     profile_swap_call_bundles,
     profile_swap_receipt,
 )
+from oasis_agent.evidence.swap_flow_trace import replay_trace_funding
+from oasis_agent.rpc.protocol import response_envelope
 
 MAX_BYTES = 16_000_000
 
@@ -43,6 +45,8 @@ def analyze(
     receipt_raw: bytes,
     funding_raw: bytes | None,
     trace_raw: bytes | None = None,
+    call_trace_request: bytes | None = None,
+    call_trace_raw: bytes | None = None,
 ) -> dict[str, object]:
     if chain_id <= 0:
         raise ValueError("invalid chain ID")
@@ -121,6 +125,33 @@ def analyze(
             )
         result["call_bundles"] = asdict(profile_swap_call_bundles(receipt, frames))
         result["trace_sha256"] = sha256(trace_raw).hexdigest()
+    if (call_trace_request is None) != (call_trace_raw is None):
+        raise ValueError("callTracer replay needs both request and response")
+    if call_trace_request is not None and call_trace_raw is not None:
+        request = strict_json_object(call_trace_request)
+        params = strict_list(request.get("params"), "callTracer request params")
+        request_id = strict_integer(request.get("id"), "callTracer request ID")
+        if (
+            request.get("jsonrpc") != "2.0"
+            or request.get("method") != "debug_traceTransaction"
+            or request_id < 1
+            or len(params) != 2
+            or hash32(params[0]) != tx_hash
+        ):
+            raise ValueError("callTracer request does not identify the retained receipt")
+        config = strict_object(params[1], "callTracer request config")
+        if (
+            config.get("tracer") != "callTracer"
+            or strict_object(config.get("tracerConfig"), "callTracer tracer config").get("withLog")
+            is not True
+        ):
+            raise ValueError("callTracer request must include logs")
+        envelope = response_envelope(call_trace_raw, request_id)
+        if "result" not in envelope:
+            raise ValueError("callTracer request failed")
+        result["trace_funding"] = asdict(replay_trace_funding(receipt, envelope["result"]))
+        result["call_trace_request_sha256"] = sha256(call_trace_request).hexdigest()
+        result["call_trace_response_sha256"] = sha256(call_trace_raw).hexdigest()
     if funding_raw is None:
         return result
     resolved = strict_json_object(funding_raw)
@@ -167,6 +198,8 @@ def main() -> None:
     parser.add_argument("--receipt", type=Path, required=True)
     parser.add_argument("--funding", type=Path)
     parser.add_argument("--trace", type=Path)
+    parser.add_argument("--call-trace-request", type=Path)
+    parser.add_argument("--call-trace", type=Path, help="retained callTracer JSON-RPC response")
     args = parser.parse_args()
     try:
         result = analyze(
@@ -175,6 +208,8 @@ def main() -> None:
             receipt_raw=read(args.receipt),
             funding_raw=read(args.funding) if args.funding is not None else None,
             trace_raw=read(args.trace) if args.trace is not None else None,
+            call_trace_request=read(args.call_trace_request) if args.call_trace_request else None,
+            call_trace_raw=read(args.call_trace) if args.call_trace else None,
         )
     except (ValueError, KeyError, OSError) as exc:
         parser.error(str(exc))

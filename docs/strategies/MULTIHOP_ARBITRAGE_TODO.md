@@ -2,13 +2,19 @@
 
 **优先验证整数金额、整笔交易及完整成本。** 最初查到正常 Rust 入口会漏报的两池反例，本轮已修复。现有变池缓存能在同一模型上加速；还缺少衡量“收到可用状态，到整笔交易复核完成”所需的输入和基准。以下顺序以解决这两个问题为起点，研究范围是同链、离线及只读影子。[本次复核和最小反例](../verification/MULTIHOP_RESEARCH_20261122.md) · [调研原文](MULTIHOP_ARBITRAGE_RESEARCH.md) · [项目路线图](LONG_TERM_PROFIT_ROADMAP.md)
 
+### 2026-11-24 · 整笔净额、并行取数与转换归因
+
+- [x] Base 保留当前串行头部基线，新增有界双源并行认头。同头两组状态逐字节相同，取数分别缩短 715 和 130 ms。四个连续区块、三个直接子块通过正常 4/58/66 池及原始证据离线验收。固定三跳负控的同包络整笔模拟在两个状态成功，扣费情景分别为 −28,064,165,846,931 和 −28,063,299,175,047 wei。[取数 A/B](../verification/BASE_DUAL_HEADER_OVERLAP_20261124.md) · [整笔三阶段](../verification/BASE_WHOLE_SURVIVAL_20261124.md)
+- [x] 用规范调用、资产与收据为 Bancor 转换和无 hook v4 内部抵销建立等额资金边。Ethereum 旧九池闭环自动复算；新 80 块留出窗口核对七池实际闭环，扣可见成本余 3,650,823,715,852 wei。[转换归因和新窗口](../verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md)
+- [x] BSC 扩采 384 块并复核长事件对照，把留存样本扩到 89 条经济腿，确认 23 个独立三至四跳循环。Robinhood 独立采 512 块，最高的入选交易重建收据根，调用树超时后的归因缺口保留。[BSC 查询覆盖和逐笔对账](../verification/BSC_PAGED_LONG_TAIL_20261124.md) · [Robinhood 查询覆盖和停止记录](../verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md)
+- [ ] 对照跨块有界预取与当前块内并行，测接收到状态、首次完整发现和直接子块覆盖。Base 扩大产生未决区间的池的同哈希 tick 范围，复核原 4,752 个固定金额。首次出现模型正候选时固定原包络，在同一实时窗口记录发现值、整笔余额和直接子块净额。当前正候选存续率无样本分母。[四块队列及流动性缺口](../verification/BASE_WHOLE_SURVIVAL_20261124.md)
+- [ ] 继续冻结 Base、Ethereum、BSC、Robinhood 各自多协议窗口，按 20/50/100/200 跳确证资金深度，保留事件数和分组分母。优先补曲线池未解事件、混币残余的实际可变现金额和 Robinhood 独立调用树，再记录整笔可见成本与未知项。[Ethereum](../verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md) · [BSC](../verification/BSC_PAGED_LONG_TAIL_20261124.md) · [Robinhood](../verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md)
+
 ### 2026-11-24 · 常规新头、九池串行与更深状态报价
 
 - [x] Base 常规混合影子新增 `--base-newheads`，严格双源锚定后取 4/58/66 池，记录同进程队列时钟，原始 WebSocket 和 V4 状态可离线复算。两个直接父子块状态耗时 1,559/2,427 ms，第二块排队 1,447 ms。两块均无模型正净额。[连续取证](../verification/BASE_HEAD_DELIVERY_20261124.md)
 - [x] Ethereum 64 块盲采核实 9 池同资产串行与两个独立五跳闭环，保留 938 份收据的三块根。九池落块净额为 76,553,183,579,326 wei，块末和直接子块原调用回滚。BSC 四池定向 192 块，33 Swap 样本核对四币资金与原生币付款，另完成 4+3 跳原生币结算。[Ethereum](../verification/ETH_FUNDED_HOLDOUT_20261124.md) · [BSC 新窗口](../verification/BSC_FOUR_POOL_TAIL_20261124.md) · [BSC 4+3](../verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md)
 - [x] Robinhood 两段前瞻各锚定一对父子块。双源 20 跳整路径有限金额报价完成，基础费用筛选已负。24/37 跳在同一第 4 腿因输入未完整消耗回滚。双源报价及运行码证据均可复算。[报价链路](../verification/ROBINHOOD_QUOTE_DELIVERY_20261124.md)
-- [ ] 用同一连续窗口测有界并行状态取数。基线保留当前串行，候选臂提前并发读取独立证据，完整一致再发布。分别统计明确跳过的高度、直接子块覆盖、正净额整笔复核和回滚成本，计金额和费率不同的结果。
-- [ ] 扩充 Bancor 类转换和资金切分的覆盖，用交易根/收据根与独立调用树验证，区分无法配对、分组与确证深度。长尾按 10/20/50/100/200 桶积累，支持按固定金额与可兑现净额回放，同时按同一窗口继续扩各链池集。
 
 ### 2026-11-24 · 回滚成本、直接父子覆盖与长尾资金
 
