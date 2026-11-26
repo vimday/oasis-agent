@@ -1,0 +1,1772 @@
+{
+  "archive_objects": [
+    {
+      "bytes": 1270207741,
+      "file": "2026-11-24_0.parquet",
+      "sha256": "c5c500a98b544b058aca018f4821f0cca90344e75cd175ce90b2ab68638a7b87",
+      "url": "https://aws-public-blockchain.s3.us-east-2.amazonaws.com/v1.0/eth/logs/date=2026-11-24/part-00000-fb437acc-43af-42bf-b452-b17c99ecb975-c000.snappy.parquet"
+    }
+  ],
+  "coverage": [
+    {
+      "day": "2026-11-13",
+      "emitting_blocks": "7183",
+      "emitting_txs": "1341195",
+      "logs": "6328493",
+      "max_height": "26409492",
+      "min_height": "26402310"
+    },
+    {
+      "day": "2026-11-24",
+      "emitting_blocks": "7187",
+      "emitting_txs": "1227636",
+      "logs": "7095161",
+      "max_height": "26488468",
+      "min_height": "26481282"
+    },
+    {
+      "day": "2026-11-25",
+      "emitting_blocks": "7174",
+      "emitting_txs": "1301626",
+      "logs": "6584421",
+      "max_height": "26495642",
+      "min_height": "26488469"
+    }
+  ],
+  "exact_target": {
+    "bin": 50,
+    "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+    "block_number": 26405358,
+    "day": "2026-11-13",
+    "funding": {
+      "ambiguous_groups": [
+        {
+          "matching_returns": [],
+          "start_log": 474
+        },
+        {
+          "matching_returns": [],
+          "start_log": 566
+        }
+      ],
+      "beneficiary_weth_wei": "5434028906205338",
+      "erc20_transfer_events": 272,
+      "log_count": 473,
+      "manager_to_executor_weth_receipts": 5,
+      "paid_group_count": 3,
+      "paired_group_count": 3,
+      "paired_groups": [
+        {
+          "other_weth_repayments": 0,
+          "payout_logs": [
+            709
+          ],
+          "payout_weth_wei": "2465647606643522",
+          "principal_weth_wei": "3225536614437827752",
+          "repaid_log": 708,
+          "take_log": 569
+        },
+        {
+          "other_weth_repayments": 0,
+          "payout_logs": [
+            848
+          ],
+          "payout_weth_wei": "1952279017095705",
+          "principal_weth_wei": "1945333917862349312",
+          "repaid_log": 847,
+          "take_log": 710
+        },
+        {
+          "other_weth_repayments": 0,
+          "payout_logs": [
+            946
+          ],
+          "payout_weth_wei": "1016102282466111",
+          "principal_weth_wei": "1262678576234012672",
+          "repaid_log": 945,
+          "take_log": 849
+        }
+      ],
+      "shape_events": 97
+    },
+    "logs": 473,
+    "observed_executor": true,
+    "shapes": 97,
+    "transaction_hash": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8",
+    "transaction_index": 44,
+    "transfers": 272
+  },
+  "executor_transactions": 412,
+  "executor_transactions_by_day": {
+    "2026-11-13": 412
+  },
+  "local_input_sha256": {
+    "coverage.csv": "adb899c7ef2d42ec46bcb706a45c21ecbf06e93ad33da5b72d8b03014dcedcae",
+    "executor-logs.csv": "6aa218ff6953de228a343e0dca5a8d7748c441e1f1665f06863df1ebc0745d14",
+    "listing.xml": "79efb2bbc11b46c124b999a8c40c3a0fbf895cef12d749d3e2348ed904489870",
+    "objects.json": "743a384c4d60496bcd6796200df90460235bb3019bf564333a1af0c9bc284f2e",
+    "original-object-ledger.jsonl": "df7cdd25c8f7e2f4abfe0238cc73d3dad89730b50ac82b8fdcfb6dc328194608",
+    "plan.json": "7f73cb08271bf860e2e705d6d019305e35ccc5954ed3b261f44118e332f95cac",
+    "rankable.csv": "566aab02416da20cdb2b177d753c9454b3009d40238d51639548c6ce75794481",
+    "scan.sql": "faf3a2faf65463d652217f582966dfd9f9c08f547ba9bef879981f14c0e7a73f",
+    "thresholds.csv": "a6ecedb9445c391e547318b39b21650df1a6419ab20a50a9418c7880e62545ac"
+  },
+  "recurring_samples": [
+    {
+      "bin": 50,
+      "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+      "block_number": 26405358,
+      "day": "2026-11-13",
+      "funding": {
+        "ambiguous_groups": [
+          {
+            "matching_returns": [],
+            "start_log": 474
+          },
+          {
+            "matching_returns": [],
+            "start_log": 566
+          }
+        ],
+        "beneficiary_weth_wei": "5434028906205338",
+        "erc20_transfer_events": 272,
+        "log_count": 473,
+        "manager_to_executor_weth_receipts": 5,
+        "paid_group_count": 3,
+        "paired_group_count": 3,
+        "paired_groups": [
+          {
+            "other_weth_repayments": 0,
+            "payout_logs": [
+              709
+            ],
+            "payout_weth_wei": "2465647606643522",
+            "principal_weth_wei": "3225536614437827752",
+            "repaid_log": 708,
+            "take_log": 569
+          },
+          {
+            "other_weth_repayments": 0,
+            "payout_logs": [
+              848
+            ],
+            "payout_weth_wei": "1952279017095705",
+            "principal_weth_wei": "1945333917862349312",
+            "repaid_log": 847,
+            "take_log": 710
+          },
+          {
+            "other_weth_repayments": 0,
+            "payout_logs": [
+              946
+            ],
+            "payout_weth_wei": "1016102282466111",
+            "principal_weth_wei": "1262678576234012672",
+            "repaid_log": 945,
+            "take_log": 849
+          }
+        ],
+        "shape_events": 97
+      },
+      "logs": 473,
+      "observed_executor": true,
+      "shapes": 97,
+      "transaction_hash": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8",
+      "transaction_index": 44,
+      "transfers": 272
+    }
+  ],
+  "rooted_samples": [
+    {
+      "block_fee_recipient": "0xfb74767c1ce1aada0a0e114441173b57f8c1571b",
+      "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+      "case_role": "new_utc_100_199",
+      "effective_gas_price": "145683099",
+      "gas_paid_wei": "1457277071649138",
+      "gas_used": 10003062,
+      "height": 26482213,
+      "raw_evidence_sha256": {
+        "header": {
+          "request": "c528be3d45a828c68b78bcb22ddb0a612fe5d7bfa8432bde647206e2b30c7a3e",
+          "response": "55de93a45f4e24a275279c1a17210b7d6715373f9beadc97ea7c0c0e1ba97c42"
+        },
+        "receipts": {
+          "request": "8dae5692b43cc28857a91199bea5ed318c77f769f398e42c115635d142455a2f",
+          "response": "bb7df09697255ee0e3446340acdb664720af57e8e38f9091969e39705babfd2c"
+        },
+        "trace": {
+          "request": "f49a6b801434155f5b7389406f8706bc750ccebc71f1f0755d357cb59a6c9f7f",
+          "response": "b2097608a857dc2e151057afbf4c4e067064c63689e100dd3fb79a67b97596d7"
+        }
+      },
+      "receipt_funding": {
+        "ambiguous_groups": [],
+        "beneficiary_weth_wei": "0",
+        "erc20_transfer_events": 212,
+        "log_count": 430,
+        "manager_to_executor_weth_receipts": 0,
+        "paid_group_count": 0,
+        "paired_group_count": 0,
+        "paired_groups": [],
+        "shape_events": 169
+      },
+      "receipt_root": "0xfb946d45cc3aec8ed3333325974e026dfafe3f1e9102e6fa144bff0230a81aa0",
+      "recipient": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+      "rooted_receipts": 141,
+      "sender": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+      "status": 1,
+      "timestamp_utc": "2026-11-24T03:06:35+00:00",
+      "trace": {
+        "confirmed_take_settle_groups": [],
+        "explicit_native_payments_to_block_fee_recipient_wei": "1075889091018101",
+        "failed_frames": 0,
+        "frames": 1529,
+        "funding_links": 112,
+        "generic_funded_path": [
+          433,
+          434,
+          435,
+          436,
+          437
+        ],
+        "manager_unlock_count": 18,
+        "native_moves_touched_actors": [
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              246
+            ],
+            "to": "0xfb74767c1ce1aada0a0e114441173b57f8c1571b",
+            "value_wei": "1075889091018101"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              210,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              3
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "9607806768518707"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              210,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              2,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "9607806768518707"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              167,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              4
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "10078862124796965"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              167,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              3,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "10078862124796965"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              151,
+              1,
+              2,
+              0,
+              0,
+              4
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "12481003459606427"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              151,
+              1,
+              2,
+              0,
+              0,
+              3,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "12481003459606427"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              104,
+              1,
+              2,
+              0,
+              0,
+              4
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "18652629580294381"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              104,
+              1,
+              2,
+              0,
+              0,
+              3,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "18652629580294381"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              96,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              3
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "53454858841773998"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              96,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              2,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "53454858841773998"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              83,
+              1,
+              2,
+              0,
+              0,
+              4
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "190348553484036103"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              83,
+              1,
+              2,
+              0,
+              0,
+              3,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "190348553484036103"
+          },
+          {
+            "from": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "path": [
+              79,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              3
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "49178789516506386"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              79,
+              1,
+              2,
+              0,
+              2,
+              0,
+              0,
+              2,
+              0
+            ],
+            "to": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+            "value_wei": "49178789516506386"
+          }
+        ],
+        "status": "rooted_logs_match",
+        "supported_swap_legs": 169,
+        "supported_swaps_by_unlock": [
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              52,
+              2,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              68,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 1,
+            "unlock_path": [
+              79,
+              1,
+              2,
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              83,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              92,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 1,
+            "unlock_path": [
+              96,
+              1,
+              2,
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              104,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              151,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 4,
+            "unlock_path": [
+              157,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 3,
+            "unlock_path": [
+              162,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              167,
+              1,
+              2,
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              175,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              183,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              206,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 1,
+            "unlock_path": [
+              210,
+              1,
+              2,
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              219,
+              1,
+              2,
+              0,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              223,
+              1,
+              2,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              237,
+              1,
+              2,
+              0
+            ]
+          }
+        ]
+      },
+      "transaction_hash": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5",
+      "transaction_index": 2
+    },
+    {
+      "block_fee_recipient": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+      "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+      "case_role": "new_utc_50_99",
+      "effective_gas_price": "118081238",
+      "gas_paid_wei": "1294641394538382",
+      "gas_used": 10963989,
+      "height": 26482210,
+      "raw_evidence_sha256": {
+        "header": {
+          "request": "f823c1d9b27e1f88dc9ff79a63fb1c7860e60b50eba0d9c7067fe6af9117d297",
+          "response": "bf9c2626bac72eb285b6a2124b2e6b0c080a8c7578ffe790dcf3699ab6146810"
+        },
+        "receipts": {
+          "request": "de20b574d129383fd9922574e7da1ffc63f0b60d2595c0a5b150016697e600fc",
+          "response": "2d9f4881e0687bdf4d2c14e50bfc60740470bd52066d4c52ce3ec46ced49c961"
+        },
+        "trace": {
+          "request": "5ee1ee0e50a014c0d1e99d16b2656d5b16b4d13ae66a1528072fbb76d2dd2da7",
+          "response": "b0d58202e625ad838197a07fd0c1043e3bcafab087991448e19380c5c165c559"
+        }
+      },
+      "receipt_funding": {
+        "ambiguous_groups": [],
+        "beneficiary_weth_wei": "0",
+        "erc20_transfer_events": 252,
+        "log_count": 439,
+        "manager_to_executor_weth_receipts": 0,
+        "paid_group_count": 0,
+        "paired_group_count": 0,
+        "paired_groups": [],
+        "shape_events": 89
+      },
+      "receipt_root": "0x480e1c8b94699b64210d6c6034b7b5c814d0aaa74ad3bae48427b643344ba400",
+      "recipient": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+      "rooted_receipts": 42,
+      "sender": "0x1a3a5086f7bb99721d89400ec1645bb9f8df6297",
+      "status": 1,
+      "timestamp_utc": "2026-11-24T03:05:59+00:00",
+      "trace": {
+        "confirmed_take_settle_groups": [],
+        "explicit_native_payments_to_block_fee_recipient_wei": "27491000384457911",
+        "failed_frames": 1,
+        "frames": 1696,
+        "funding_links": 0,
+        "generic_funded_path": [
+          536
+        ],
+        "manager_unlock_count": 8,
+        "native_moves_touched_actors": [
+          {
+            "from": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+            "path": [
+              21
+            ],
+            "to": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+            "value_wei": "27491000384457911"
+          }
+        ],
+        "status": "rooted_logs_match",
+        "supported_swap_legs": 78,
+        "supported_swaps_by_unlock": [
+          {
+            "supported_swaps_beneath": 4,
+            "unlock_path": [
+              0,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 3,
+            "unlock_path": [
+              5,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 6,
+            "unlock_path": [
+              7,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              9,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              14,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              15,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 4,
+            "unlock_path": [
+              16,
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              17,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      "transaction_hash": "0xe69b1f2091a222ff92ed6f2b5956e0e8adbabda13fe235dfb0c8430e4e057f03",
+      "transaction_index": 4
+    },
+    {
+      "block_fee_recipient": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+      "block_hash": "0xcdf620bae6569b3c843f1e1d994584b7055f553524115aa073af0b850d8cb24f",
+      "case_role": "new_utc_20_49",
+      "effective_gas_price": "414880861",
+      "gas_paid_wei": "3096185335896630",
+      "gas_used": 7462830,
+      "height": 26481902,
+      "raw_evidence_sha256": {
+        "header": {
+          "request": "0710168c9f972da6e9732ccedd5ad6fa5d48ccb8a3fe622a04b815dcc4e546d5",
+          "response": "a11fe8b9b0b76d3698799374789982a89f824a2234e4295b4800a72cc9a4f3ca"
+        },
+        "receipts": {
+          "request": "f9bf588c3d71614759bcf335937952ad885bde9128de9867ba58c775ba7c59f4",
+          "response": "4dc399ca6f9c4f867d653626c72b60c8ff7a59662074a02829a89c7295077747"
+        },
+        "trace": {
+          "request": "395b21ea93e70da183ab0e98bd305170cac74c67824b4b3442c2b1f44912679b",
+          "response": "868976e8d875335c6b2cface7f9f75c45e5f22069c1c94c19fde147093509ceb"
+        }
+      },
+      "receipt_funding": {
+        "ambiguous_groups": [],
+        "beneficiary_weth_wei": "0",
+        "erc20_transfer_events": 155,
+        "log_count": 271,
+        "manager_to_executor_weth_receipts": 1,
+        "paid_group_count": 0,
+        "paired_group_count": 1,
+        "paired_groups": [
+          {
+            "other_weth_repayments": 1,
+            "payout_logs": [],
+            "payout_weth_wei": "0",
+            "principal_weth_wei": "1096264630061727488",
+            "repaid_log": 285,
+            "take_log": 63
+          }
+        ],
+        "shape_events": 49
+      },
+      "receipt_root": "0x23f58034a719b54c2a06ec05e744d0fdc348a0fe669ca097156e37025f79d632",
+      "recipient": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+      "rooted_receipts": 371,
+      "sender": "0x1d042c727d3f0b228a7438378e531773d1d8e353",
+      "status": 1,
+      "timestamp_utc": "2026-11-24T02:04:23+00:00",
+      "trace": {
+        "confirmed_take_settle_groups": [
+          {
+            "repaid_log": 285,
+            "settle_path": [
+              0,
+              0,
+              0,
+              4
+            ],
+            "take_log": 63,
+            "take_path": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "unlock_path": [
+              0,
+              0
+            ]
+          }
+        ],
+        "explicit_native_payments_to_block_fee_recipient_wei": "10749260580290587",
+        "failed_frames": 1,
+        "frames": 948,
+        "funding_links": 9,
+        "generic_funded_path": [
+          120,
+          147
+        ],
+        "manager_unlock_count": 3,
+        "native_moves_touched_actors": [
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              5
+            ],
+            "to": "0x1d042c727d3f0b228a7438378e531773d1d8e353",
+            "value_wei": "4274035365563714"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              4
+            ],
+            "to": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+            "value_wei": "10749260580290587"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              3,
+              2,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "1779583543113145"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              3,
+              0,
+              0,
+              4,
+              1
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "212725057307961173"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              3,
+              0,
+              0,
+              3,
+              0,
+              2
+            ],
+            "to": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+            "value_wei": "92594158612066919"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              3,
+              0,
+              0,
+              2,
+              1
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "92594009685083972"
+          },
+          {
+            "from": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "path": [
+              3,
+              0,
+              0,
+              1,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "397913225605112064"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              2,
+              2,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "141729826739865"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              1,
+              2,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "8148706628430011"
+          },
+          {
+            "from": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "path": [
+              0,
+              2,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "4953275947571280"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              136,
+              1
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "56306536725994250"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              134
+            ],
+            "to": "0xbeabef3fc02667d8bd3f702ae0bb2c4edb3640cc",
+            "value_wei": "23099883484040611"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              131
+            ],
+            "to": "0x61bb2fda13600c497272a8dd029313afdb125fd3",
+            "value_wei": "19201532126728602"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              128
+            ],
+            "to": "0xb4db55a20e0624edd82a0cf356e3488b4669bd27",
+            "value_wei": "27789812598714095"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              126,
+              0,
+              2
+            ],
+            "to": "0x00000000000014aa86c5d3c41765bb24e11bd701",
+            "value_wei": "45048082089094372"
+          },
+          {
+            "from": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              125,
+              1
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "13267398269755668"
+          },
+          {
+            "from": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "path": [
+              0,
+              0,
+              0,
+              1,
+              1,
+              109,
+              4,
+              0
+            ],
+            "to": "0x3ffe25727429bb7fd91cab16ab003f7013b25a43",
+            "value_wei": "184713245294327598"
+          }
+        ],
+        "status": "rooted_logs_match",
+        "supported_swap_legs": 43,
+        "supported_swaps_by_unlock": [
+          {
+            "supported_swaps_beneath": 37,
+            "unlock_path": [
+              0,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 2,
+            "unlock_path": [
+              1,
+              0
+            ]
+          },
+          {
+            "supported_swaps_beneath": 3,
+            "unlock_path": [
+              3,
+              0
+            ]
+          }
+        ]
+      },
+      "transaction_hash": "0xd4a84bb966a4fe89329979633da13d44513ec447a04a1178ff00064e6ba67a7b",
+      "transaction_index": 17
+    },
+    {
+      "block_fee_recipient": "0x396343362be2a4da1ce0c1c210945346fb82aa49",
+      "block_hash": "0x09e94ac2afd40c6b4b577d8ad5c1761bba0d192114b1ecb2917fe0ea8a02a952",
+      "case_role": "same_executor_short",
+      "conditional_weth_equivalent_after_visible_fees_wei": "128321953770893",
+      "effective_gas_price": "638414209",
+      "gas_paid_wei": "901764539111963",
+      "gas_used": 1412507,
+      "height": 26406447,
+      "raw_evidence_sha256": {
+        "header": {
+          "request": "8f7ee090a1122550f125070436609cb15d29b8261eed6bef94c4bb3c6437aa2b",
+          "response": "52674980aa521e4ae11a58bffcf9642ad438f82ed673498652bc8b0810d4c2a7"
+        },
+        "receipts": {
+          "request": "7499b774781467c747b5307de749807893103380932731479545de68bd26263e",
+          "response": "103d876ede890832e50089f74f4adc63b8131d0dd3bb3ca4a0d0389ebf2774c1"
+        },
+        "trace": {
+          "request": "a8f1d7f427f9b6f79b15ba30c34742b88a2a6b4f0cd19c2e3c8f99303600951e",
+          "response": "9124c35437b1db7490236b2ae794ecfe2e085d006c962ad7ab51f44dac53f3d6"
+        }
+      },
+      "receipt_funding": {
+        "ambiguous_groups": [],
+        "beneficiary_weth_wei": "1544487621844621",
+        "erc20_transfer_events": 31,
+        "log_count": 53,
+        "manager_to_executor_weth_receipts": 1,
+        "paid_group_count": 1,
+        "paired_group_count": 1,
+        "paired_groups": [
+          {
+            "other_weth_repayments": 1,
+            "payout_logs": [
+              56
+            ],
+            "payout_weth_wei": "1544487621844621",
+            "principal_weth_wei": "14902510626322879634",
+            "repaid_log": 55,
+            "take_log": 4
+          }
+        ],
+        "shape_events": 8
+      },
+      "receipt_root": "0x1c92bd776e7dc46684746357576e6a3d69780c21888100739430de52ba40d7aa",
+      "recipient": "0x96cb0b6dd66cbd3201681b9f9588b7107084f9ea",
+      "rooted_receipts": 317,
+      "sender": "0x1d042c727d3f0b228a7438378e531773d1d8e353",
+      "status": 1,
+      "timestamp_utc": "2026-11-13T13:49:47+00:00",
+      "trace": {
+        "confirmed_take_settle_groups": [
+          {
+            "repaid_log": 55,
+            "settle_path": [
+              1,
+              1,
+              0,
+              0,
+              30
+            ],
+            "take_log": 4,
+            "take_path": [
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            "unlock_path": [
+              1,
+              1,
+              0
+            ]
+          }
+        ],
+        "explicit_native_payments_to_block_fee_recipient_wei": "514401128961765",
+        "failed_frames": 0,
+        "frames": 200,
+        "funding_links": 0,
+        "generic_funded_path": [
+          7
+        ],
+        "manager_unlock_count": 1,
+        "native_moves_touched_actors": [
+          {
+            "from": "0x1d042c727d3f0b228a7438378e531773d1d8e353",
+            "path": [],
+            "to": "0x96cb0b6dd66cbd3201681b9f9588b7107084f9ea",
+            "value_wei": "514401128961765"
+          },
+          {
+            "from": "0x96cb0b6dd66cbd3201681b9f9588b7107084f9ea",
+            "path": [
+              1,
+              1,
+              0,
+              0,
+              22,
+              1
+            ],
+            "to": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "value_wei": "2362510860710319606"
+          },
+          {
+            "from": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "path": [
+              1,
+              1,
+              0,
+              0,
+              3,
+              4,
+              0
+            ],
+            "to": "0x96cb0b6dd66cbd3201681b9f9588b7107084f9ea",
+            "value_wei": "2362510860710319606"
+          },
+          {
+            "from": "0x96cb0b6dd66cbd3201681b9f9588b7107084f9ea",
+            "path": [
+              0
+            ],
+            "to": "0x396343362be2a4da1ce0c1c210945346fb82aa49",
+            "value_wei": "514401128961765"
+          }
+        ],
+        "status": "rooted_logs_match",
+        "supported_swap_legs": 5,
+        "supported_swaps_by_unlock": [
+          {
+            "supported_swaps_beneath": 5,
+            "unlock_path": [
+              1,
+              1,
+              0
+            ]
+          }
+        ]
+      },
+      "transaction_hash": "0x60dbcb1ba3dce2621d98150d176b453e91f6d1c7b59e987ba0d3a309aded324a",
+      "transaction_index": 2
+    }
+  ],
+  "rows": [
+    {
+      "best_executor": {
+        "bin": 0,
+        "block_hash": "0x246e08af1fa96ea8b4f31765abb419e9746a2227b305a54c1f69bf956eb48135",
+        "block_number": 26402362,
+        "day": "2026-11-13",
+        "funding": {
+          "ambiguous_groups": [],
+          "beneficiary_weth_wei": "0",
+          "erc20_transfer_events": 7,
+          "log_count": 17,
+          "manager_to_executor_weth_receipts": 0,
+          "paid_group_count": 0,
+          "paired_group_count": 0,
+          "paired_groups": [],
+          "shape_events": 0
+        },
+        "logs": 17,
+        "observed_executor": true,
+        "shapes": 0,
+        "transaction_hash": "0xaecf3c016e56d4b295fdaaa54469c43d99eca9882f35fd1ec6508910538301f1",
+        "transaction_index": 61,
+        "transfers": 7
+      },
+      "bin": 0,
+      "day": "2026-11-13",
+      "executor_count": 45,
+      "non_executor_comparator": null,
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": {
+        "bin": 1,
+        "block_hash": "0x09e94ac2afd40c6b4b577d8ad5c1761bba0d192114b1ecb2917fe0ea8a02a952",
+        "block_number": 26406447,
+        "day": "2026-11-13",
+        "funding": {
+          "ambiguous_groups": [],
+          "beneficiary_weth_wei": "1544487621844621",
+          "erc20_transfer_events": 31,
+          "log_count": 53,
+          "manager_to_executor_weth_receipts": 1,
+          "paid_group_count": 1,
+          "paired_group_count": 1,
+          "paired_groups": [
+            {
+              "other_weth_repayments": 1,
+              "payout_logs": [
+                56
+              ],
+              "payout_weth_wei": "1544487621844621",
+              "principal_weth_wei": "14902510626322879634",
+              "repaid_log": 55,
+              "take_log": 4
+            }
+          ],
+          "shape_events": 8
+        },
+        "logs": 53,
+        "observed_executor": true,
+        "shapes": 8,
+        "transaction_hash": "0x60dbcb1ba3dce2621d98150d176b453e91f6d1c7b59e987ba0d3a309aded324a",
+        "transaction_index": 2,
+        "transfers": 31
+      },
+      "bin": 1,
+      "day": "2026-11-13",
+      "executor_count": 365,
+      "non_executor_comparator": null,
+      "paired_transactions": 5,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": {
+        "bin": 20,
+        "block_hash": "0x1468a4327d5e3aa6e388ea45f1057266c47727f57b46d2020589f80dbb89e0ea",
+        "block_number": 26406291,
+        "day": "2026-11-13",
+        "funding": {
+          "ambiguous_groups": [],
+          "beneficiary_weth_wei": "0",
+          "erc20_transfer_events": 65,
+          "log_count": 124,
+          "manager_to_executor_weth_receipts": 0,
+          "paid_group_count": 0,
+          "paired_group_count": 0,
+          "paired_groups": [],
+          "shape_events": 25
+        },
+        "logs": 124,
+        "observed_executor": true,
+        "shapes": 25,
+        "transaction_hash": "0x0c6f2b21440533b3286573e65f9897011a9f361c23b820666ae9013e37c06f82",
+        "transaction_index": 3,
+        "transfers": 65
+      },
+      "bin": 20,
+      "day": "2026-11-13",
+      "executor_count": 1,
+      "non_executor_comparator": null,
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": {
+        "bin": 50,
+        "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+        "block_number": 26405358,
+        "day": "2026-11-13",
+        "funding": {
+          "ambiguous_groups": [
+            {
+              "matching_returns": [],
+              "start_log": 474
+            },
+            {
+              "matching_returns": [],
+              "start_log": 566
+            }
+          ],
+          "beneficiary_weth_wei": "5434028906205338",
+          "erc20_transfer_events": 272,
+          "log_count": 473,
+          "manager_to_executor_weth_receipts": 5,
+          "paid_group_count": 3,
+          "paired_group_count": 3,
+          "paired_groups": [
+            {
+              "other_weth_repayments": 0,
+              "payout_logs": [
+                709
+              ],
+              "payout_weth_wei": "2465647606643522",
+              "principal_weth_wei": "3225536614437827752",
+              "repaid_log": 708,
+              "take_log": 569
+            },
+            {
+              "other_weth_repayments": 0,
+              "payout_logs": [
+                848
+              ],
+              "payout_weth_wei": "1952279017095705",
+              "principal_weth_wei": "1945333917862349312",
+              "repaid_log": 847,
+              "take_log": 710
+            },
+            {
+              "other_weth_repayments": 0,
+              "payout_logs": [
+                946
+              ],
+              "payout_weth_wei": "1016102282466111",
+              "principal_weth_wei": "1262678576234012672",
+              "repaid_log": 945,
+              "take_log": 849
+            }
+          ],
+          "shape_events": 97
+        },
+        "logs": 473,
+        "observed_executor": true,
+        "shapes": 97,
+        "transaction_hash": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8",
+        "transaction_index": 44,
+        "transfers": 272
+      },
+      "bin": 50,
+      "day": "2026-11-13",
+      "executor_count": 1,
+      "non_executor_comparator": null,
+      "paired_transactions": 1,
+      "recurring_transactions": 1
+    },
+    {
+      "best_executor": null,
+      "bin": 100,
+      "day": "2026-11-13",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 100,
+        "block_hash": "0x6e0bdcfcd061412e6a441481eb5258fb2520789b25ee89b35827b48777e2ea55",
+        "block_number": 26409444,
+        "day": "2026-11-13",
+        "logs": 413,
+        "observed_executor": false,
+        "shapes": 137,
+        "transaction_hash": "0x9eb7e32eed72c7c9f0a44ef5cfd539659a0f0c6a9016044f9098d9d29c2bf66c",
+        "transaction_index": 162,
+        "transfers": 274
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 200,
+      "day": "2026-11-13",
+      "executor_count": 0,
+      "non_executor_comparator": null,
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 0,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 0,
+        "block_hash": "0x4c16aac574c66dd66676254b8885ce0db66878ca386be210c9a7efcd24b7d5c2",
+        "block_number": 26482798,
+        "day": "2026-11-24",
+        "logs": 1503,
+        "observed_executor": false,
+        "shapes": 0,
+        "transaction_hash": "0x2f2e93c8cb8da6ade8325103ec38664174c1906bbcc57a6567b96faf7680ba8b",
+        "transaction_index": 70,
+        "transfers": 1503
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 1,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 1,
+        "block_hash": "0xfdb4b9042c889403ca98b56a24321e837be4e78c18d395c90b9de6efe4dc5e87",
+        "block_number": 26483297,
+        "day": "2026-11-24",
+        "logs": 115,
+        "observed_executor": false,
+        "shapes": 19,
+        "transaction_hash": "0xe695ae9cd65b7c098ac4a49ede5d6f9a7cf37e278a5ee1abb9c6a65be25cb5b5",
+        "transaction_index": 21,
+        "transfers": 86
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 20,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 20,
+        "block_hash": "0xcdf620bae6569b3c843f1e1d994584b7055f553524115aa073af0b850d8cb24f",
+        "block_number": 26481902,
+        "day": "2026-11-24",
+        "logs": 271,
+        "observed_executor": false,
+        "shapes": 49,
+        "transaction_hash": "0xd4a84bb966a4fe89329979633da13d44513ec447a04a1178ff00064e6ba67a7b",
+        "transaction_index": 17,
+        "transfers": 155
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 50,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 50,
+        "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+        "block_number": 26482210,
+        "day": "2026-11-24",
+        "logs": 439,
+        "observed_executor": false,
+        "shapes": 89,
+        "transaction_hash": "0xe69b1f2091a222ff92ed6f2b5956e0e8adbabda13fe235dfb0c8430e4e057f03",
+        "transaction_index": 4,
+        "transfers": 252
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 100,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 100,
+        "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+        "block_number": 26482213,
+        "day": "2026-11-24",
+        "logs": 430,
+        "observed_executor": false,
+        "shapes": 169,
+        "transaction_hash": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5",
+        "transaction_index": 2,
+        "transfers": 212
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 200,
+      "day": "2026-11-24",
+      "executor_count": 0,
+      "non_executor_comparator": null,
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 0,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 0,
+        "block_hash": "0xbc0b6b98cafc33a5d280c647051369e17661234a897e23516ed92dfd019c9ed7",
+        "block_number": 26488957,
+        "day": "2026-11-25",
+        "logs": 2505,
+        "observed_executor": false,
+        "shapes": 0,
+        "transaction_hash": "0x5369ed80e9fc6222c1a832ebba61f48edcfbe34fba5ef16c8d0d210f75c33997",
+        "transaction_index": 187,
+        "transfers": 2505
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 1,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 1,
+        "block_hash": "0x4cbf13ed23621165be86dc6db5a08c1f3c7e1f31ab984f1dded602763b74b0df",
+        "block_number": 26490005,
+        "day": "2026-11-25",
+        "logs": 195,
+        "observed_executor": false,
+        "shapes": 19,
+        "transaction_hash": "0x35dd6f76e5fb0a48c8fbf6788623d376822f492f2ec840127aec7ac85cd889d8",
+        "transaction_index": 51,
+        "transfers": 108
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 20,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 20,
+        "block_hash": "0x7ad74df99a9faf44451333d506975cd28dfd8c6932bf35a1a6e24db45c4dc7a2",
+        "block_number": 26495619,
+        "day": "2026-11-25",
+        "logs": 274,
+        "observed_executor": false,
+        "shapes": 49,
+        "transaction_hash": "0x1080e50cd5dde085e80fe25288633d61935a2ad49fcf2c01a9b1ee46e78fc6da",
+        "transaction_index": 149,
+        "transfers": 175
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 50,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 50,
+        "block_hash": "0x5ec95ad2fe94b7b43b695d9a9627540649412a548e70a9987c5320eb9d539d11",
+        "block_number": 26490749,
+        "day": "2026-11-25",
+        "logs": 375,
+        "observed_executor": false,
+        "shapes": 99,
+        "transaction_hash": "0x2219de82d4b4b4019e1baaf4049446de226ab322334ff5671806af643083540e",
+        "transaction_index": 21,
+        "transfers": 196
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 100,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": {
+        "bin": 100,
+        "block_hash": "0x59f0847dd67907b838b4287f042bfcec02c718f21412662b7a6b6cf967e95c55",
+        "block_number": 26493761,
+        "day": "2026-11-25",
+        "logs": 663,
+        "observed_executor": false,
+        "shapes": 180,
+        "transaction_hash": "0xf6be79db72f8dda6fa6bac6bcd9fa0d2ec6b56a04bd461d448e206a367b54683",
+        "transaction_index": 18,
+        "transfers": 386
+      },
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    },
+    {
+      "best_executor": null,
+      "bin": 200,
+      "day": "2026-11-25",
+      "executor_count": 0,
+      "non_executor_comparator": null,
+      "paired_transactions": 0,
+      "recurring_transactions": 0
+    }
+  ],
+  "rpc_plan": {
+    "calls_in_case_order": [
+      "eth_getBlockByNumber",
+      "eth_getBlockReceipts",
+      "debug_traceTransaction(withLog)"
+    ],
+    "frozen_utc": "2026-11-26T18:02:26.027835+00:00",
+    "limit_by_source": {
+      "header": 4,
+      "receipts": 4,
+      "trace": 4
+    },
+    "retry": false,
+    "samples": [
+      {
+        "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+        "block_number": 26482213,
+        "case_role": "new_utc_100_199",
+        "day": "2026-11-24",
+        "logs": 430,
+        "shapes": 169,
+        "transaction_hash": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5",
+        "transaction_index": 2,
+        "transfers": 212
+      },
+      {
+        "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+        "block_number": 26482210,
+        "case_role": "new_utc_50_99",
+        "day": "2026-11-24",
+        "logs": 439,
+        "shapes": 89,
+        "transaction_hash": "0xe69b1f2091a222ff92ed6f2b5956e0e8adbabda13fe235dfb0c8430e4e057f03",
+        "transaction_index": 4,
+        "transfers": 252
+      },
+      {
+        "block_hash": "0xcdf620bae6569b3c843f1e1d994584b7055f553524115aa073af0b850d8cb24f",
+        "block_number": 26481902,
+        "case_role": "new_utc_20_49",
+        "day": "2026-11-24",
+        "logs": 271,
+        "shapes": 49,
+        "transaction_hash": "0xd4a84bb966a4fe89329979633da13d44513ec447a04a1178ff00064e6ba67a7b",
+        "transaction_index": 17,
+        "transfers": 155
+      },
+      {
+        "block_hash": "0x09e94ac2afd40c6b4b577d8ad5c1761bba0d192114b1ecb2917fe0ea8a02a952",
+        "block_number": 26406447,
+        "case_role": "same_executor_short",
+        "day": "2026-11-13",
+        "logs": 53,
+        "shapes": 8,
+        "transaction_hash": "0x60dbcb1ba3dce2621d98150d176b453e91f6d1c7b59e987ba0d3a309aded324a",
+        "transaction_index": 2,
+        "transfers": 31
+      }
+    ],
+    "schema": "oasis-eth-batch-cohort-rpc-v1",
+    "screen_sha256": "6c568c728ab8336a1319c56cb58297844b50616769f985113c5db4758e30263f",
+    "sources": {
+      "header": "https://ethereum.publicnode.com",
+      "receipts": "https://eth.nodely.dev",
+      "trace": "https://eth.drpc.org"
+    },
+    "stop_first_refusal": true,
+    "supersedes_sha256_before_any_io": "7270b3fe7545f82a2e9653f6587f9e77298487fee1994edf89f5570fe5e010c4",
+    "supersession_reason": "Original 109 case rerun avoided because a separate independent study already has rooted receipt and trace. Fill the existing 20\u201349 candidate stratum on the new date.",
+    "usd": 0
+  },
+  "rpc_stop": {
+    "counts": {
+      "header": 4,
+      "receipts": 4,
+      "trace": 4
+    },
+    "failure": null,
+    "plan_sha256": "b9e3c7c39fd9e9a6f93c4f7edb6b5f453f4f4a7795b807b9b1cb64f61c88d397"
+  },
+  "schema": "oasis.eth-batch-cohort-verification.v1",
+  "thresholds": [
+    {
+      "day": "2026-11-13",
+      "emitting_txs": "1341195",
+      "max_shapes": "137",
+      "max_transfers": "2004",
+      "shape_0": "1104262",
+      "shape_100": "7",
+      "shape_20": "794",
+      "shape_200": "0",
+      "shape_50": "119",
+      "shape_short": "236139",
+      "transfer_100": "3228",
+      "transfer_20": "16350",
+      "transfer_200": "2039",
+      "transfer_50": "6871"
+    },
+    {
+      "day": "2026-11-24",
+      "emitting_txs": "1227636",
+      "max_shapes": "169",
+      "max_transfers": "1503",
+      "shape_0": "1023305",
+      "shape_100": "9",
+      "shape_20": "791",
+      "shape_200": "0",
+      "shape_50": "122",
+      "shape_short": "203540",
+      "transfer_100": "6289",
+      "transfer_20": "21931",
+      "transfer_200": "3807",
+      "transfer_50": "13599"
+    },
+    {
+      "day": "2026-11-25",
+      "emitting_txs": "1301626",
+      "max_shapes": "180",
+      "max_transfers": "2505",
+      "shape_0": "1081276",
+      "shape_100": "9",
+      "shape_20": "1125",
+      "shape_200": "0",
+      "shape_50": "184",
+      "shape_short": "219225",
+      "transfer_100": "4365",
+      "transfer_20": "20405",
+      "transfer_200": "2535",
+      "transfer_50": "9733"
+    }
+  ]
+}

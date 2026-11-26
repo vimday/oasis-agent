@@ -1,0 +1,731 @@
+{
+  "base": [
+    {
+      "block": 60887559,
+      "block_hash": "0xda8a0e036b5b0748c1891cc43d5a1e416061580b2f51a35e4dc3c03c0e917c32",
+      "chain_id": 8453,
+      "failed_frames": 18,
+      "gas_used": 10934219,
+      "generic_funded_path": [],
+      "header_receipts_root": "0xca29e4169d58f2ed25f6a57cbfb8bf1bc92b12e50d6cdc0d8e2a5ab2680913e0",
+      "l1_data_fee_wei": "4268501257",
+      "l2_execution_fee_wei": "65605314000000",
+      "observable_l2_plus_l1_wei": "65609582501257",
+      "operator_fee_wei": null,
+      "party_erc20_deltas_including_weth_wraps": {
+        "0x1111111111166b7fe7bd91427724b487980afc69": "-343830869372207988481",
+        "0x66fcc35a00f91f8fea9f25dd4535727315468af9": "394093059149796713607852"
+      },
+      "party_native_delta_before_costs_wei": "0",
+      "pool_count": 2,
+      "raw_sha256": {
+        "header": "65b927b997e3462a3725f761e74de0c2cd9b6999e51a6e0dd1df80f6923f9273",
+        "receipt": "6d9f0770477f8629385405997e05016fc4e418486e4e0829aaf1256feb6abe9b",
+        "trace": "1e37cca58e0f9a366a4bb02bfc564873dadeacc2b45837069f772d4e350edc0f"
+      },
+      "receipt_trace_logs_matched": 402,
+      "swap_shape_count": 50,
+      "top_level_swap_branches": {
+        "2": 5,
+        "4": 45
+      },
+      "trace_frames": 2822,
+      "transaction_index": 9,
+      "two_cross_unlock_funding_legs": [],
+      "tx": "0xbc860b989bc68c8f449e3a6d4a59bdc28a0cd898c6d652fd74db80393c961246",
+      "tx_receipt_root_rebuilt": false,
+      "v4_return_differs_from_core_logs": [],
+      "v4_unlocks": [
+        {
+          "path": [
+            2
+          ],
+          "v4_logs": [
+            46,
+            59,
+            68,
+            71,
+            72
+          ]
+        },
+        {
+          "path": [
+            4,
+            2
+          ],
+          "v4_logs": [
+            114,
+            117,
+            118,
+            126,
+            138,
+            151,
+            154,
+            155,
+            163,
+            175,
+            188,
+            191,
+            192,
+            200,
+            212,
+            225,
+            228,
+            229,
+            237,
+            249,
+            262,
+            265,
+            266,
+            274,
+            286,
+            299,
+            302,
+            303,
+            311,
+            323,
+            336,
+            339,
+            340,
+            348,
+            360,
+            373,
+            376,
+            377,
+            385,
+            397,
+            410,
+            413,
+            414,
+            422,
+            434
+          ]
+        }
+      ],
+      "v4_zero_core_delta_logs": [],
+      "wraps_by_event_topic": {}
+    },
+    {
+      "block": 60886174,
+      "block_hash": "0x85ddd77a6ecc5bec2fcb8c0c4d902114bf660223b7cffa27f75468322f2925a6",
+      "chain_id": 8453,
+      "failed_frames": 0,
+      "gas_used": 1934693,
+      "generic_funded_path": [
+        89,
+        100
+      ],
+      "header_receipts_root": "0x75ca948229aac4aa0e637c83af4fe690642d5efb1d99a830162a27b53ae99090",
+      "l1_data_fee_wei": "15038833890",
+      "l2_execution_fee_wei": "21610778124169",
+      "observable_l2_plus_l1_wei": "21625816958059",
+      "operator_fee_wei": null,
+      "party_erc20_deltas_including_weth_wraps": {
+        "0x2d4bcc58fd1b101ae71c4b15c02178e1fbe777df": "285326652451297540799497578",
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "-167990000"
+      },
+      "party_native_delta_before_costs_wei": "0",
+      "pool_count": 20,
+      "raw_sha256": {
+        "header": "f5842a917fe450d790758a7d2af124917fe7a50a81ce8d0fb21519159ae4220d",
+        "receipt": "7e106d7e7c62a18946c91ee7bddc8d01db5f55aaa39c9b890333af960c36cde4",
+        "trace": "4ab73b2b3ec6331a4dea1f462f11df992a6d1512825638b142ecf5974bf4773e"
+      },
+      "receipt_trace_logs_matched": 64,
+      "swap_shape_count": 20,
+      "top_level_swap_branches": {
+        "0": 1,
+        "1": 1,
+        "2": 6,
+        "4": 1,
+        "6": 1,
+        "7": 5,
+        "8": 1,
+        "10": 1,
+        "11": 2,
+        "13": 1
+      },
+      "trace_frames": 236,
+      "transaction_index": 7,
+      "two_cross_unlock_funding_legs": [
+        {
+          "asset": "0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b",
+          "dst_v4_event": 95,
+          "fee_recipient": "0x9bd25e67bf390437c8faf480ac735a27bcf6168c",
+          "fee_transfer_raw": "1862845046137208",
+          "funded_v4_input_raw": "6207620642077888360",
+          "gross_pool_output_raw": "6209483487124025568",
+          "settle_transfer_trace_path": [
+            11,
+            0,
+            2
+          ],
+          "src_v3_event": 72,
+          "take_trace_path": [
+            7,
+            0,
+            14,
+            0
+          ],
+          "transfer_logs": [
+            70,
+            74,
+            85,
+            93
+          ]
+        },
+        {
+          "asset": "0x22af33fe49fd1fa80c7149773dde5890d3c76f3b",
+          "dst_v4_event": 96,
+          "fee_recipient": "0x9bd25e67bf390437c8faf480ac735a27bcf6168c",
+          "fee_transfer_raw": "1657696312372353470",
+          "funded_v4_input_raw": "5523996678262139211222",
+          "gross_pool_output_raw": "5525654374574511564692",
+          "settle_transfer_trace_path": [
+            11,
+            0,
+            6
+          ],
+          "src_v3_event": 79,
+          "take_trace_path": [
+            7,
+            0,
+            16,
+            0
+          ],
+          "transfer_logs": [
+            77,
+            81,
+            86,
+            94
+          ]
+        }
+      ],
+      "tx": "0x4f05bfa344adcf8b3cd6707f2a74fcc632a7b2299d4b2284717cc7db4136d456",
+      "tx_receipt_root_rebuilt": false,
+      "v4_return_differs_from_core_logs": [
+        53,
+        76,
+        83
+      ],
+      "v4_unlocks": [
+        {
+          "path": [
+            2
+          ],
+          "v4_logs": [
+            44,
+            45,
+            53,
+            54,
+            55
+          ]
+        },
+        {
+          "path": [
+            7
+          ],
+          "v4_logs": [
+            69,
+            76,
+            83
+          ]
+        },
+        {
+          "path": [
+            11
+          ],
+          "v4_logs": [
+            95,
+            96
+          ]
+        }
+      ],
+      "v4_zero_core_delta_logs": [
+        53,
+        76,
+        83
+      ],
+      "wraps_by_event_topic": {
+        "0xe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c": "47019154042609331"
+      }
+    }
+  ],
+  "bsc": [
+    {
+      "block": 135377965,
+      "block_hash": "0x4d5a78ccab70016295404213a7995a57229d6c530d8c207a16991ddb9fd46292",
+      "chain_id": 56,
+      "exact_funding_principal_repayments": [],
+      "executor": "0xb585639ff3d61de1187d960cc18924d033f2768f",
+      "frames": 533,
+      "funding_path_sizes": {
+        "2": 12,
+        "3": 2,
+        "4": 3,
+        "5": 2
+      },
+      "gas_paid_wei": "0",
+      "gas_used": 3641073,
+      "logical_pools": 19,
+      "other_asset_deltas": {},
+      "receipt_root": "0x7aeedd834593191da2337e4bc90eac64706813226ef1d323cff2e5c5a71f8771",
+      "rooted_receipts": 173,
+      "source_verification_sha256": "aa8bf8e1d6b201c37c7df5ee1465a60102e920cfda3f8b3848aa6c1cb813edab",
+      "swap_count": 52,
+      "third_party_native_payments_wei": [
+        "126535837465296",
+        "6659780919227"
+      ],
+      "top_level_swap_branch_sizes": [
+        5,
+        5,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        5,
+        4
+      ],
+      "trace_matched_receipt_logs": 154,
+      "transaction_index": 8,
+      "tx": "0x893c277db68c59936028fad1fe033b202d3fc17375eefc1e5889bfd4bd44a2b1",
+      "visible_anchor_net_after_exec_costs_wei": "0"
+    },
+    {
+      "block": 135377766,
+      "block_hash": "0xc86f6a0b4e50ebbbb93330b21fed7a5d31cd4599824baebe516d4f6b842e09a5",
+      "chain_id": 56,
+      "exact_funding_principal_repayments": [
+        {
+          "asset": "0x55d398326f99059ff775485246999027b3197955",
+          "payout": [
+            65,
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "raw": 13130967027909942,
+          "repay": [
+            291,
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              2
+            ]
+          ]
+        },
+        {
+          "asset": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "payout": [
+            63,
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "raw": 12031610100509702626,
+          "repay": [
+            295,
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              2,
+              0
+            ]
+          ]
+        },
+        {
+          "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "payout": [
+            61,
+            [
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "raw": 58089044908616758,
+          "repay": [
+            299,
+            [
+              0,
+              0,
+              0,
+              2
+            ]
+          ]
+        }
+      ],
+      "executor": "0x632edb55dd877fb470c58456486d2788a06d7c46",
+      "frames": 794,
+      "funding_path_sizes": {
+        "1": 59,
+        "2": 2
+      },
+      "gas_paid_wei": "0",
+      "gas_used": 7255314,
+      "logical_pools": 63,
+      "other_asset_deltas": {
+        "0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db": "561917093580084",
+        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": "243419934642",
+        "0xe9e7cea3dedca5984780bafc599bd69add087d56": "153912512859"
+      },
+      "receipt_root": "0xc5f1b987ef67c72807eea0a77106345c891ea1cf42ee0c0623b0833195d09d5d",
+      "rooted_receipts": 57,
+      "source_verification_sha256": "aa8bf8e1d6b201c37c7df5ee1465a60102e920cfda3f8b3848aa6c1cb813edab",
+      "swap_count": 63,
+      "third_party_native_payments_wei": [
+        "26225038192354",
+        "1380265168019"
+      ],
+      "top_level_swap_branch_sizes": [
+        63
+      ],
+      "trace_matched_receipt_logs": 245,
+      "transaction_index": 7,
+      "tx": "0x14f92cdcf0741c85ae1f23987cc6d5ada61e552fc41f7ee61eb398aadd8971a7",
+      "visible_anchor_net_after_exec_costs_wei": "0"
+    },
+    {
+      "block": 135110349,
+      "block_hash": "0x5a348919687c873020e64206b1b22e3d89a559dbd0327055185f0963a173e953",
+      "chain_id": 56,
+      "exact_funding_principal_repayments": [],
+      "executor": "0xed6ab85d9f53b1627ed1fccafe1e61044d1ae3ba",
+      "frames": 508,
+      "funding_path_sizes": {
+        "3": 3,
+        "4": 20
+      },
+      "gas_paid_wei": "219073250000000",
+      "gas_used": 4381465,
+      "logical_pools": 45,
+      "other_asset_deltas": {},
+      "receipt_root": "0x4d3c907af0cf7c0dce82cefbfe0c225a524348cfbde62fca1dd7b14fb8be1e11",
+      "rooted_receipts": 106,
+      "source_verification_sha256": "3cf61b6227294d9c87655f46647ce77d4be738859c074569d38d7f9d43168c14",
+      "swap_count": 89,
+      "third_party_native_payments_wei": [
+        "63961502208545"
+      ],
+      "top_level_swap_branch_sizes": [
+        3,
+        4,
+        4,
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "trace_matched_receipt_logs": 357,
+      "transaction_index": 1,
+      "tx": "0x3a24f27219de6df7d4bea255c41939345efe5f5d80a3e08e674bb5ea9d99a717",
+      "visible_anchor_net_after_exec_costs_wei": "12777337568834"
+    },
+    {
+      "block": 135377965,
+      "block_hash": "0x4d5a78ccab70016295404213a7995a57229d6c530d8c207a16991ddb9fd46292",
+      "chain_id": 56,
+      "exact_funding_principal_repayments": [],
+      "executor": "0x9af0fb60af553be5aeb7a81372f30a462b24b04d",
+      "frames": 181,
+      "funding_path_sizes": {
+        "1": 6,
+        "3": 5,
+        "4": 1
+      },
+      "gas_paid_wei": "86068150000000",
+      "gas_used": 1721363,
+      "logical_pools": 18,
+      "other_asset_deltas": {
+        "0x55d398326f99059ff775485246999027b3197955": "35871740132323228"
+      },
+      "receipt_root": "0x7aeedd834593191da2337e4bc90eac64706813226ef1d323cff2e5c5a71f8771",
+      "rooted_receipts": 173,
+      "source_verification_sha256": "6a24caf6a61c20c6e74cf6ba37a613c96abfb13040123b1e6e74f5d3240d1a15",
+      "swap_count": 25,
+      "third_party_native_payments_wei": [
+        "349849511770"
+      ],
+      "top_level_swap_branch_sizes": [
+        5,
+        4,
+        1,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "trace_matched_receipt_logs": 66,
+      "transaction_index": 14,
+      "tx": "0xa578d37f34bf73830b3464884ad72c07a4d22e806f55a0dd9156b2b24c5c9792",
+      "visible_anchor_net_after_exec_costs_wei": "-47435492252789"
+    }
+  ],
+  "bsc_archived_screen": {
+    "accepted_log_count": 4000,
+    "matching_blocks": 365,
+    "matching_transactions": 2900,
+    "threshold_counts": {
+      "10": 16,
+      "100": 0,
+      "20": 2,
+      "200": 0,
+      "50": 0
+    }
+  },
+  "bsc_new_case": {
+    "break_even_min_bnb_wei_before_extra_liquidation_cost": "47435492252789",
+    "break_even_output_denominator_usdt_raw": "35871740132323228",
+    "proven_closed_routes": [
+      {
+        "after": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          8371377176490757983
+        ],
+        "before": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          8361908875793517960
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              235
+            ]
+          },
+          {
+            "transfers": [
+              234
+            ]
+          },
+          {
+            "transfers": [
+              233
+            ]
+          }
+        ],
+        "swaps": [
+          237,
+          238,
+          239,
+          240
+        ]
+      },
+      {
+        "after": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          3161647073024273758
+        ],
+        "before": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          3156537274129266744
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              248
+            ]
+          },
+          {
+            "transfers": [
+              247
+            ]
+          }
+        ],
+        "swaps": [
+          250,
+          251,
+          253
+        ]
+      },
+      {
+        "after": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          5483943365334718258
+        ],
+        "before": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          5478853707632145451
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              255
+            ]
+          },
+          {
+            "transfers": [
+              258
+            ]
+          }
+        ],
+        "swaps": [
+          257,
+          260,
+          261
+        ]
+      },
+      {
+        "after": [
+          "0x0000000000000000000000000000000000000000",
+          16473397495181892
+        ],
+        "before": [
+          "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          16464309764969069
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              266
+            ]
+          },
+          {
+            "transfers": [
+              263
+            ]
+          }
+        ],
+        "swaps": [
+          268,
+          269,
+          262
+        ]
+      },
+      {
+        "after": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          1760824864352322196
+        ],
+        "before": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          1755836067047808660
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              272
+            ]
+          },
+          {
+            "transfers": [
+              271
+            ]
+          }
+        ],
+        "swaps": [
+          274,
+          275,
+          277
+        ]
+      },
+      {
+        "after": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          9071748069655041653
+        ],
+        "before": [
+          "0x55d398326f99059ff775485246999027b3197955",
+          9066815150168747356
+        ],
+        "proofs": [
+          {
+            "transfers": [
+              280
+            ]
+          },
+          {
+            "transfers": [
+              279
+            ]
+          }
+        ],
+        "swaps": [
+          282,
+          283,
+          284
+        ]
+      }
+    ],
+    "proven_closure_principal_sums_raw": {
+      "0x55d398326f99059ff775485246999027b3197955": "27819951074771486171",
+      "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "16464309764969069"
+    },
+    "raw_source_sha256": {
+      "scope": "4dae42c7bc6dba0b2892d146ed62b8ad0b27e55fe6d8b578840e3455ec6d3009",
+      "stop": "6eb66d02a8d79f1e7e15d9ac0a865624d85cd430262dac56dbab89002210ae6f",
+      "trace_request": "9768bed9e20cf3b822f26d871179898d8c40e5dca5aaa5a20966e03606f14dce",
+      "trace_response": "9cc5141166e13ae99e70d2114d338aa81eea3ff4d97d647787cdeb20c98cc5ff"
+    }
+  },
+  "failed_first_bsc_scope": {
+    "archived_matched_logs": 20,
+    "empty_result": true,
+    "response_sha256": "d1710c251ad1c8154d7c7739d389acba173558b9c63054bb0ba9ea03cd387c59",
+    "selection": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+    "stop": {
+      "counts": {
+        "publicnode": 1,
+        "triport": 0
+      },
+      "failure": "list index out of range",
+      "scope_sha256": "7712ef3fc9027b1f398d8fa28409ad1c7da761942da4c10b294159cf85076407"
+    }
+  },
+  "schema": "oasis.multichain-batch-control.v1"
+}

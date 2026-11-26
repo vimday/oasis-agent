@@ -1,0 +1,178 @@
+{
+  "chain_id": 1,
+  "envelope_sha256": "a50e81438d0fc630bb92d6145c129f2b20c86c7d48690584934d5cf3029db6cf",
+  "original_first_repayment": {
+    "available_before_transfer_wei": "5412573523084057147",
+    "observed_balance_path": [
+      1,
+      1,
+      0,
+      0,
+      61
+    ],
+    "observed_executor_balance_wei": "407396186553178301",
+    "repayment_path": [
+      1,
+      1,
+      0,
+      0,
+      67
+    ],
+    "repayment_wei": "5408843843337289531",
+    "subsequent_executor_credits": [
+      {
+        "from": "0x58ea2b8bf48e049646d9eaf8182fd649ab967cf4",
+        "path": [
+          1,
+          1,
+          0,
+          0,
+          64,
+          3
+        ],
+        "weth_wei": "992241316319665269"
+      },
+      {
+        "from": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "path": [
+          1,
+          1,
+          0,
+          0,
+          65,
+          3,
+          0
+        ],
+        "weth_wei": "4012936020211213577"
+      }
+    ],
+    "surplus_or_shortfall_wei": "3729679746767616"
+  },
+  "original_nonce": 1598,
+  "schema": "oasis-109-post-settlement-v1",
+  "scope_sha256": "3e32295cdf2a910e50779fa376684e5f2550ed7f6ba2cd8982bf46b49331ef5a",
+  "states": {
+    "child-end": {
+      "attempted_direct_payment_wei": "5592974875679391",
+      "attempted_payee": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+      "block_hash": "0x2651990b38ff91f19261f11feba196d5f7b8fa9c25b1dafabfaee0676d6334fe",
+      "block_timestamp": 1794564671,
+      "committed_direct_payment_wei": "0",
+      "committed_payout_weth_wei": "0",
+      "conditional_loss_if_simulated_gas_charged_wei": "60002424215280",
+      "effective_fee_scenario_wei_per_gas": "129824796",
+      "frames": 31,
+      "gas_used": 462180,
+      "height": 26405359,
+      "root_status": "reverted",
+      "terminal_failure": {
+        "method_selector": "0x16c83adc",
+        "path": [
+          1,
+          1,
+          0,
+          0,
+          7,
+          0,
+          0
+        ],
+        "recipient": "0xda7afeed021eafc1c1af9c362de477dad0396b81",
+        "return": "0x666a2814"
+      }
+    },
+    "landed-end": {
+      "attempted_direct_payment_wei": "5592974875679391",
+      "attempted_payee": "0xdadb0d80178819f2319190d340ce9a924f783711",
+      "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+      "block_timestamp": 1794564659,
+      "committed_direct_payment_wei": "0",
+      "committed_payout_weth_wei": "0",
+      "conditional_loss_if_simulated_gas_charged_wei": "442619958559520",
+      "effective_fee_scenario_wei_per_gas": "132233990",
+      "first_repayment": {
+        "available_before_transfer_wei": "5406578095341539793",
+        "observed_balance_path": [
+          1,
+          1,
+          0,
+          0,
+          61
+        ],
+        "observed_executor_balance_wei": "406980658641050138",
+        "repayment_path": [
+          1,
+          1,
+          0,
+          0,
+          67
+        ],
+        "repayment_wei": "5408843843337289531",
+        "subsequent_executor_credits": [
+          {
+            "from": "0x58ea2b8bf48e049646d9eaf8182fd649ab967cf4",
+            "path": [
+              1,
+              1,
+              0,
+              0,
+              64,
+              3
+            ],
+            "weth_wei": "989746296412008154"
+          },
+          {
+            "from": "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "path": [
+              1,
+              1,
+              0,
+              0,
+              65,
+              3,
+              0
+            ],
+            "weth_wei": "4009851140288481501"
+          }
+        ],
+        "surplus_or_shortfall_wei": "-2265747995749738"
+      },
+      "frames": 454,
+      "gas_used": 3347248,
+      "height": 26405358,
+      "root_status": "reverted",
+      "terminal_failure": {
+        "method_selector": "0xa9059cbb",
+        "path": [
+          1,
+          1,
+          0,
+          0,
+          67
+        ],
+        "recipient": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "return": "0x"
+      }
+    }
+  },
+  "tx": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8",
+  "wires": {
+    "child-end-trace": {
+      "completed_utc": "2026-11-26T18:23:09.940971+00:00",
+      "request_sha256": "874b19505596e4151be114f0790e632801d9a349529485cca1f16c6e898f71fe",
+      "response_sha256": "754d33487823fd3c284bd2ceae5a2f727813be61ca78616c3186cafb9146d18f",
+      "source": "https://eth.drpc.org"
+    },
+    "child-header": {
+      "completed_utc": "2026-11-26T18:23:08.911314+00:00",
+      "request_sha256": "23a4868d2221bc7c8251167cbe86df09e58e131ea3909908d0f0cdc2d461ad89",
+      "response_sha256": "d6faf11650548bd0cec53cf79ff2685b0a79302c6d5c286807e6c4f9b6c52413",
+      "source": "https://ethereum.publicnode.com"
+    },
+    "landed-end-trace": {
+      "completed_utc": "2026-11-26T18:23:09.457946+00:00",
+      "request_sha256": "06a1e8770363fea7b2a553d4fd9a1ce74998eda5a76937a83c23c8e9b30a6283",
+      "response_sha256": "d0132c01acdfb29339dba5641fb303d9d5104913eb700dc588869664213604a8",
+      "source": "https://eth.drpc.org"
+    }
+  }
+}

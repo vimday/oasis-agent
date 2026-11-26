@@ -1,0 +1,1699 @@
+{
+  "audit_queue": {
+    "already_reviewed": 4,
+    "blocks_to_check": 40,
+    "chain_id": 1,
+    "max_reads_before_cache": 120,
+    "reviewed_sha256": "c03f21164efbfb886a3596c9ff567a784b6b2a99591542b56380067d86afd754",
+    "selected_unique": 44,
+    "traces_to_check": 40,
+    "transactions": [
+      {
+        "block": 26408288,
+        "block_hash": "0xf5a7b4d77f602857147d4fb2219d5d275045cadf39354dde38304aa28e434840",
+        "index": 1,
+        "selected_by": [
+          "reference_overlap"
+        ],
+        "tx": "0xb98a59826e78b96954f35bcc40c92e71c09775b2f33778e11bff078b63436fc7"
+      },
+      {
+        "block": 26406390,
+        "block_hash": "0xd35bf7621123ca65494a142cd4959c89faf3b7a2c4dd56dcda40dd471454b33b",
+        "index": 189,
+        "selected_by": [
+          "reference_overlap"
+        ],
+        "tx": "0x814ba6d64b47515bdaaaaa2407ba133961cb0cdd09423c0f5f5215a7ff959e76"
+      },
+      {
+        "block": 26404301,
+        "block_hash": "0x7739ec17361151a22d20a8eacd2fc2fc829b1bed2659f31b8c7054cdbd568916",
+        "index": 35,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x0001d1d229ee64f3531cd14e6e853c5594c7a4683e8303edd0b808b4cf828a46"
+      },
+      {
+        "block": 26405664,
+        "block_hash": "0x113dc04e623afd6ad3b317fe552f072b082999093ed859b502d6b1294c26f3ba",
+        "index": 78,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x0003e4f0e6c2049b112a840d9e071ae5dd386e178654b02e5e01a3465337e44a"
+      },
+      {
+        "block": 26402379,
+        "block_hash": "0xe4b6b1e987d277b685eda89a95b888ce709400a842f2c749f48797ff06809ba8",
+        "index": 13,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x00092c5cc110e1e997dcd300f56ed8fc435b1b24e35a7e39938e6d8db50c810b"
+      },
+      {
+        "block": 26404506,
+        "block_hash": "0x861540d9f79bdf95fbae8cb3c56f3ad927f7123c8524e547a7b5ee3ddd4c5081",
+        "index": 13,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x002fb1e1a8bdaec7aa7d2a7421648b58fcbcc830b6550e6e026fb6c0e3a26414"
+      },
+      {
+        "block": 26403552,
+        "block_hash": "0xb35633b68433b3207f950e0cc51c29ca2b50464059dd19a3f6d30451378649ed",
+        "index": 18,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x008c52ce3e85acc30449be9fdd9bef917388dbfd39f67bf61690607220812524"
+      },
+      {
+        "block": 26402727,
+        "block_hash": "0x06957bf8688311c60a985180ee72556c8be78c99693b1276cc517269e269d5f9",
+        "index": 133,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x00fc8dbcdb3ea380b8e2e94bf447a83562dfd1767668730ac1f4c2c2c80a8843"
+      },
+      {
+        "block": 26403003,
+        "block_hash": "0x2638626c55531f91f6b1053a63b7635d4ff21237b0c39a5ba4013910802c0de0",
+        "index": 44,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x02f526b85d0da73e0d020003328d6d2315de2e8ba7d825b943eeeb0cd9d1433a"
+      },
+      {
+        "block": 26403319,
+        "block_hash": "0x536b768c5401f12d2b58c8e66c258d3235d0aa4a427e5e97d895d99c89d7d86a",
+        "index": 59,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x032909fce0999ca258926db8bf7bf58edec0afb1fbfcd5dc70b8eae261636d51"
+      },
+      {
+        "block": 26404088,
+        "block_hash": "0xf842c1c3f371a36398fed9bbe46e4c3cab4623594575741d1cb314fad3c66f73",
+        "index": 2,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x063a32673ae124067d08e8cfd208f7b6451da36498978125fdb3cac8a2f54dcb"
+      },
+      {
+        "block": 26404098,
+        "block_hash": "0x691f14a2c270c3b552902938733a4212b9a375014e23d16f8f854b0d82d5939a",
+        "index": 300,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x1fec675076acc188cda8e5eba94ce68d681c58fd3de359e0f250f292645c64db"
+      },
+      {
+        "block": 26403170,
+        "block_hash": "0xe7c00ab137871c6495eba01496dca17ae1012be8785715d3450a735c91876ec8",
+        "index": 2,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x20db77b62eb7db87bac2c0d0d3c8ed9625e4eb73dc9e9cf566c83a70e15d96b1"
+      },
+      {
+        "block": 26409445,
+        "block_hash": "0xfa61c8c744b791ab534f316aba0bdf6fe0e4417f05603f7f23d571ecd004cb7e",
+        "index": 189,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x79682ad36334b3973f8bcbd69ab1a38cdcfa55e631de5d9dd5a4580e2ab0a3ee"
+      },
+      {
+        "block": 26482209,
+        "block_hash": "0x2589e307cdfebbae8197db020a189b8569158610f7ee882510aee6f86b0a31b7",
+        "index": 18,
+        "selected_by": [
+          "reference_overlap"
+        ],
+        "tx": "0x44810b351b56c28425a2dffa6785cd2d47bf35792ffd1712dca176ae366b4bce"
+      },
+      {
+        "block": 26482897,
+        "block_hash": "0x52305959d1a410bab2bb20d64cc2350ad82a3482ee15c25d0ace6a32cc02f9f6",
+        "index": 35,
+        "selected_by": [
+          "reference_overlap"
+        ],
+        "tx": "0x877f1bb74a0e2306553f96c98c1526585809010fd50da97c31833e700e4a49fd"
+      },
+      {
+        "block": 26485102,
+        "block_hash": "0x98115af8b2259782817c37d0597899ae9110f45ffcf254d4694ea6a915c4d8e2",
+        "index": 19,
+        "selected_by": [
+          "reference_overlap"
+        ],
+        "tx": "0x88dd8f2e8ddc43a400987dd752cd0566f06fa36999c09224cb0a3fdc0fbaee76"
+      },
+      {
+        "block": 26486195,
+        "block_hash": "0xa6d36c3d7bcdace7fbbfa374ad4480cbb425de20226edd138e20cb190c909bf6",
+        "index": 33,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x001045fcfaa558d0961eeb8e29d0ee43cd8d939768f718f0d2b1631fef423968"
+      },
+      {
+        "block": 26486704,
+        "block_hash": "0x6624ca04c752ce9666ffe3f7ebd68b7c23e45a3a93bd3e061be3c2c42afa1912",
+        "index": 4,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x003171e8f06f9a27b95c339b9d0bd7fd0bce4067f44d1fe7121b3db03ec16d8c"
+      },
+      {
+        "block": 26485226,
+        "block_hash": "0xe060f1dd4e294ebe0b7a38c35eca271f4a00f7b5c38097b3ed1ecfb4f02fba85",
+        "index": 70,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x0040d6f225d4e46c41e053964c3f834d0630a6287bb8d348bfe1b5441e633057"
+      },
+      {
+        "block": 26484224,
+        "block_hash": "0x2994783793e348c7f97aa1f8eb79fb8c23887fb04bbb81be25c19548e205d0ba",
+        "index": 131,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x0138f8ca06e977c0448d9401939350c1534cf8f3099b05783df86baf7d01c8c5"
+      },
+      {
+        "block": 26484180,
+        "block_hash": "0x70341310c90c5a2ee4291286ed936dcc9702e05e539fd634099deab6b3f21c56",
+        "index": 3,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x019a645da609aadd49edf314244848014f8c750a152f5d8eef5ca613ccce1e6b"
+      },
+      {
+        "block": 26486993,
+        "block_hash": "0x269dcb4882fdda21dfaf3b4af14da35500bfb22fb3431cc657b1bfee8c6bab1d",
+        "index": 16,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x01cf34a4ea4dd3724665236283ccaafd6dd57398b22f061d6afd113b929cbeb2"
+      },
+      {
+        "block": 26484019,
+        "block_hash": "0xe46a97818c61fc1c7fb5e0c48415bf2ffc0a5bbb1037e3a508629eafc7fb7005",
+        "index": 52,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x01b357bd4744fb0f755cf6cee5dcd9e79fbe4ba8d14b177dc341a7f65503db5a"
+      },
+      {
+        "block": 26487893,
+        "block_hash": "0x4a6e87afe6a45efc84497aea204eab5b056dc3661005bbaa099dea70fab1250a",
+        "index": 40,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x0365f2c2c22ff8f47bec0b3f53ffa63542f889990c46d152959b4ddc423a4eef"
+      },
+      {
+        "block": 26487528,
+        "block_hash": "0xe93c16b58a5dd54a14473fb38f54ca93a5e75f22e4851418a69d899eca120486",
+        "index": 13,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x05bd6bca028d2a9c9bf2f61036e24c69d12344dc02e6cb864717fd4d1ae2a6bd"
+      },
+      {
+        "block": 26483156,
+        "block_hash": "0x227a854f8038a35a6e170829fcc58bf329ad24f3edcb22da39160218bba5b353",
+        "index": 157,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x025cf8ad053048bd1181fb5637e1b36e29cfe25bb891cecd721c8dd91c0998f4"
+      },
+      {
+        "block": 26481344,
+        "block_hash": "0xd9dceeea5de8858c33db45a5ad9c0ac8f86634bc03803109356a3bf8efdf8dff",
+        "index": 230,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x2f2ad491b65c2431394a3cd34c3701e8f68006560ff808fe7f29d97c250269d9"
+      },
+      {
+        "block": 26490746,
+        "block_hash": "0xcc40d23d4fd3508eb99149a2b4b5bcebcaed46da31bd6772067f4699ef8eebe0",
+        "index": 14,
+        "selected_by": [
+          "reference_overlap",
+          "100-199"
+        ],
+        "tx": "0x09642b4710dd80b5cd243054fe03e1510921f2327ce3b9b1db47e8b90ba5cd29"
+      },
+      {
+        "block": 26491577,
+        "block_hash": "0x201e4bf9e2ee949a3a9dc59f8c4b60b8a7df976c40ad252ed63828a82c57bd89",
+        "index": 61,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x00141089312cb60830ff640fc4a8294f1e6463d344d2caf1c9f412dc2a75c781"
+      },
+      {
+        "block": 26493144,
+        "block_hash": "0x60278216e542ea381bc9d26863afc6bfc20cc32e4fa1261234ac34441bad4965",
+        "index": 27,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x00175bebfb6fe40b4895e4da5f081fc7434428bdd458246c245d86a67330eb46"
+      },
+      {
+        "block": 26495270,
+        "block_hash": "0xb2a97278b360c6da20d8b07dcc7c5bd66416fd0ae8cc333f9264755467ca5fcf",
+        "index": 366,
+        "selected_by": [
+          "5-19"
+        ],
+        "tx": "0x0018d24a037495114dd3f39c2eaa416f6ef98f6e56aceb045573113ba6a96910"
+      },
+      {
+        "block": 26490944,
+        "block_hash": "0xe9b7d6a556aaa10d57fd49ba2e28ab48d5ada3158e931ebd08fb65167bb75c11",
+        "index": 18,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x005a56b448b00bfee9be8e6219000fde8b6ea1f320034f51b89cdfd3e1488a6e"
+      },
+      {
+        "block": 26490851,
+        "block_hash": "0x1b0ab0f78c9a9b7b3b0f6c08eff31bbfefb8a7f51a4f0f23c5ad3f0e863a0358",
+        "index": 30,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x00b6766b2be8563cf25d4e0151a5451cc8e1d23037b2fbb0257788ee9724a5c5"
+      },
+      {
+        "block": 26491391,
+        "block_hash": "0x1eff0751fb0f67ad2dd50722d37c16e355a92fcde0de073fec2874cac12ac006",
+        "index": 119,
+        "selected_by": [
+          "20-49"
+        ],
+        "tx": "0x00e4cf3ee279cc4c87e8c915dccad8e1f40e498386676e02f0cc72bcef1fd20e"
+      },
+      {
+        "block": 26493590,
+        "block_hash": "0x74b673aef041ecfd32efe630cb9cdd25423cc3f5a422dbfdc6037b5cb261c173",
+        "index": 18,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x018c2d4684ede401baedd9c5fe180a7ef4af79c59cee1547696f29438ad4ea05"
+      },
+      {
+        "block": 26490754,
+        "block_hash": "0x451dcd64715288c3ba400152a7b8f410bf0a07afe2e6cfeea5a7f07377100f0c",
+        "index": 37,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x030b848a515c81f911e5582317590fd4b9396229318c3115da9c757cf3430c70"
+      },
+      {
+        "block": 26491017,
+        "block_hash": "0x4b771b79eb0e4d58df913f5eaed44032d26f9a71c9848039ebe903b12b58a4bd",
+        "index": 26,
+        "selected_by": [
+          "50-99"
+        ],
+        "tx": "0x03ec92905b81c641ee06175b4f728102112420f251298fda63daed591e392a0c"
+      },
+      {
+        "block": 26488831,
+        "block_hash": "0x776be2ad2a456818cf323c4eedf8e01c8716e81fcaceace2c30e54ab3604be8e",
+        "index": 151,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x32b74921a04989079595aa4d734175b18f34e0e9f604278d47bf656f3ff76f73"
+      },
+      {
+        "block": 26488808,
+        "block_hash": "0xf65428c732466bc643f11ee5015cf24860b26f494bf4398c832264b5cfe7120a",
+        "index": 126,
+        "selected_by": [
+          "100-199"
+        ],
+        "tx": "0x46802c197856a4aeec0f73e6c5f9655f771aad8aee472b334fd78558bec49dc7"
+      }
+    ]
+  },
+  "chain_id": 1,
+  "days": {
+    "2026-11-13": {
+      "bands": {
+        "100-199": {
+          "distinct_ordered_families": 7,
+          "selected": [
+            {
+              "block": 26404098,
+              "block_hash": "0x691f14a2c270c3b552902938733a4212b9a375014e23d16f8f854b0d82d5939a",
+              "day": "2026-11-13",
+              "distinct_venues": 100,
+              "events": 100,
+              "index": 300,
+              "ordered_family": "7b9368110ad6ab304ee51d8c0226732bf37ad5b304ffa37518bd5e4c7472707e",
+              "tx": "0x1fec675076acc188cda8e5eba94ce68d681c58fd3de359e0f250f292645c64db"
+            },
+            {
+              "block": 26403170,
+              "block_hash": "0xe7c00ab137871c6495eba01496dca17ae1012be8785715d3450a735c91876ec8",
+              "day": "2026-11-13",
+              "distinct_venues": 100,
+              "events": 100,
+              "index": 2,
+              "ordered_family": "1de9fa5d406e0b21ca275c9d691913054253e08926ac856765ee4ff6a245a91a",
+              "tx": "0x20db77b62eb7db87bac2c0d0d3c8ed9625e4eb73dc9e9cf566c83a70e15d96b1"
+            },
+            {
+              "block": 26409445,
+              "block_hash": "0xfa61c8c744b791ab534f316aba0bdf6fe0e4417f05603f7f23d571ecd004cb7e",
+              "day": "2026-11-13",
+              "distinct_venues": 132,
+              "events": 132,
+              "index": 189,
+              "ordered_family": "665ed8152406473177fcef3b4628d1b80f16f3ae0ad18d9c2576d4113aa5b55b",
+              "tx": "0x79682ad36334b3973f8bcbd69ab1a38cdcfa55e631de5d9dd5a4580e2ab0a3ee"
+            }
+          ],
+          "transactions": 7
+        },
+        "20-49": {
+          "distinct_ordered_families": 675,
+          "selected": [
+            {
+              "block": 26404506,
+              "block_hash": "0x861540d9f79bdf95fbae8cb3c56f3ad927f7123c8524e547a7b5ee3ddd4c5081",
+              "day": "2026-11-13",
+              "distinct_venues": 26,
+              "events": 26,
+              "index": 13,
+              "ordered_family": "96e446a39820ff377887295aa9aa8a3d837b81f1a17f2821feef71b8c89bdcc2",
+              "tx": "0x002fb1e1a8bdaec7aa7d2a7421648b58fcbcc830b6550e6e026fb6c0e3a26414"
+            },
+            {
+              "block": 26403552,
+              "block_hash": "0xb35633b68433b3207f950e0cc51c29ca2b50464059dd19a3f6d30451378649ed",
+              "day": "2026-11-13",
+              "distinct_venues": 20,
+              "events": 20,
+              "index": 18,
+              "ordered_family": "74f1ee0164c381d9dd1874d630e1d577d40b0d9c5364a88f229fe147b68b2053",
+              "tx": "0x008c52ce3e85acc30449be9fdd9bef917388dbfd39f67bf61690607220812524"
+            },
+            {
+              "block": 26402727,
+              "block_hash": "0x06957bf8688311c60a985180ee72556c8be78c99693b1276cc517269e269d5f9",
+              "day": "2026-11-13",
+              "distinct_venues": 23,
+              "events": 23,
+              "index": 133,
+              "ordered_family": "58ddfe71115c5d3cc293aa65580e2fde97ec6f6f99048ac4f4fbad78beda09b6",
+              "tx": "0x00fc8dbcdb3ea380b8e2e94bf447a83562dfd1767668730ac1f4c2c2c80a8843"
+            }
+          ],
+          "transactions": 675
+        },
+        "200+": {
+          "distinct_ordered_families": 0,
+          "selected": [],
+          "transactions": 0
+        },
+        "5-19": {
+          "distinct_ordered_families": 7222,
+          "selected": [
+            {
+              "block": 26404301,
+              "block_hash": "0x7739ec17361151a22d20a8eacd2fc2fc829b1bed2659f31b8c7054cdbd568916",
+              "day": "2026-11-13",
+              "distinct_venues": 17,
+              "events": 17,
+              "index": 35,
+              "ordered_family": "f3a74de73c37c2d3cbf19540bfdc66bf3d07e265977a3b98e8a37c145da986b9",
+              "tx": "0x0001d1d229ee64f3531cd14e6e853c5594c7a4683e8303edd0b808b4cf828a46"
+            },
+            {
+              "block": 26405664,
+              "block_hash": "0x113dc04e623afd6ad3b317fe552f072b082999093ed859b502d6b1294c26f3ba",
+              "day": "2026-11-13",
+              "distinct_venues": 4,
+              "events": 6,
+              "index": 78,
+              "ordered_family": "c6da2056dca24bdbcc22cc0a7462c1b5422b6657022eacb1eddcffbf6f3f4fdc",
+              "tx": "0x0003e4f0e6c2049b112a840d9e071ae5dd386e178654b02e5e01a3465337e44a"
+            },
+            {
+              "block": 26402379,
+              "block_hash": "0xe4b6b1e987d277b685eda89a95b888ce709400a842f2c749f48797ff06809ba8",
+              "day": "2026-11-13",
+              "distinct_venues": 7,
+              "events": 7,
+              "index": 13,
+              "ordered_family": "34c7bb10fd2ce24cfe825426599cbeb5617b489e7dbd0beb240a4ed709bd5a0f",
+              "tx": "0x00092c5cc110e1e997dcd300f56ed8fc435b1b24e35a7e39938e6d8db50c810b"
+            }
+          ],
+          "transactions": 7477
+        },
+        "50-99": {
+          "distinct_ordered_families": 112,
+          "selected": [
+            {
+              "block": 26403003,
+              "block_hash": "0x2638626c55531f91f6b1053a63b7635d4ff21237b0c39a5ba4013910802c0de0",
+              "day": "2026-11-13",
+              "distinct_venues": 93,
+              "events": 93,
+              "index": 44,
+              "ordered_family": "7d5a94c936dce74936264be9efa310decc70526b5fc767a852e2e4b42efec432",
+              "tx": "0x02f526b85d0da73e0d020003328d6d2315de2e8ba7d825b943eeeb0cd9d1433a"
+            },
+            {
+              "block": 26403319,
+              "block_hash": "0x536b768c5401f12d2b58c8e66c258d3235d0aa4a427e5e97d895d99c89d7d86a",
+              "day": "2026-11-13",
+              "distinct_venues": 99,
+              "events": 99,
+              "index": 59,
+              "ordered_family": "53609dfff61980a0ef3a65f520b011449cbb7be03eba4976f7a22b4fca400208",
+              "tx": "0x032909fce0999ca258926db8bf7bf58edec0afb1fbfcd5dc70b8eae261636d51"
+            },
+            {
+              "block": 26404088,
+              "block_hash": "0xf842c1c3f371a36398fed9bbe46e4c3cab4623594575741d1cb314fad3c66f73",
+              "day": "2026-11-13",
+              "distinct_venues": 98,
+              "events": 98,
+              "index": 2,
+              "ordered_family": "10b093e6548163e9760e7d1c8efa6ba32d83db475d6f4b583f78d7512396516e",
+              "tx": "0x063a32673ae124067d08e8cfd208f7b6451da36498978125fdb3cac8a2f54dcb"
+            }
+          ],
+          "transactions": 112
+        }
+      },
+      "closest": [
+        {
+          "block": 26408809,
+          "block_hash": "0x94b1ee0c6f34bf555689361709ec1013e6106815bec78e9439c4b9c2c0601274",
+          "day": "2026-11-13",
+          "distinct_venues": 83,
+          "events": 83,
+          "index": 118,
+          "ordered_family": "8e2507eeb43ad2c77fde0f95ed2e82ec02a06b69351779fef8f89d489c5b3f8d",
+          "shared_observations": 23,
+          "tx": "0x2d56c6c5e3791e369f05f55ab03cb26bc90f12338304c8fa8e173ecc14298998",
+          "union_observations": 157
+        },
+        {
+          "block": 26408288,
+          "block_hash": "0xf5a7b4d77f602857147d4fb2219d5d275045cadf39354dde38304aa28e434840",
+          "day": "2026-11-13",
+          "distinct_venues": 50,
+          "events": 50,
+          "index": 1,
+          "ordered_family": "4eeeeb15cb9fb45cf5c7b6ea56b324ec6182e5a26768f00b6cbfe764540011d9",
+          "shared_observations": 18,
+          "tx": "0xb98a59826e78b96954f35bcc40c92e71c09775b2f33778e11bff078b63436fc7",
+          "union_observations": 129
+        },
+        {
+          "block": 26406390,
+          "block_hash": "0xd35bf7621123ca65494a142cd4959c89faf3b7a2c4dd56dcda40dd471454b33b",
+          "day": "2026-11-13",
+          "distinct_venues": 65,
+          "events": 66,
+          "index": 189,
+          "ordered_family": "be9ba45c69cc03bb2b410277d46f5529e570a9387e1f5d29299585990c2bad68",
+          "shared_observations": 19,
+          "tx": "0x814ba6d64b47515bdaaaaa2407ba133961cb0cdd09423c0f5f5215a7ff959e76",
+          "union_observations": 144
+        }
+      ],
+      "highest_event_baseline": [
+        {
+          "block": 26409444,
+          "block_hash": "0x6e0bdcfcd061412e6a441481eb5258fb2520789b25ee89b35827b48777e2ea55",
+          "day": "2026-11-13",
+          "distinct_venues": 137,
+          "events": 137,
+          "index": 162,
+          "ordered_family": "e0a72df5e76dc851db53fa0ea0bd9ce5174511722572bad81db50a84f39983b9",
+          "tx": "0x9eb7e32eed72c7c9f0a44ef5cfd539659a0f0c6a9016044f9098d9d29c2bf66c"
+        },
+        {
+          "block": 26409445,
+          "block_hash": "0xfa61c8c744b791ab534f316aba0bdf6fe0e4417f05603f7f23d571ecd004cb7e",
+          "day": "2026-11-13",
+          "distinct_venues": 132,
+          "events": 132,
+          "index": 189,
+          "ordered_family": "665ed8152406473177fcef3b4628d1b80f16f3ae0ad18d9c2576d4113aa5b55b",
+          "tx": "0x79682ad36334b3973f8bcbd69ab1a38cdcfa55e631de5d9dd5a4580e2ab0a3ee"
+        },
+        {
+          "block": 26409446,
+          "block_hash": "0xd3c3a674c48f6e123b7ea388a89550e2a11e20022250a006546b4ec783ed662a",
+          "day": "2026-11-13",
+          "distinct_venues": 132,
+          "events": 132,
+          "index": 157,
+          "ordered_family": "8f8304caea2a2f7c01cda8927218b18f297d9437ed4573e48ba0c4b71ab8999b",
+          "tx": "0xc1ccc3687aa03794a6d45e8a2fb4731ba3fcd2496e1a7fb97d90a811ae0f6034"
+        },
+        {
+          "block": 26403321,
+          "block_hash": "0xb76555cf8d5bc97b26dbc2b450781b02a43337e9cdcfc7ffd6d6266961fb91b0",
+          "day": "2026-11-13",
+          "distinct_venues": 104,
+          "events": 104,
+          "index": 10,
+          "ordered_family": "3705eb7f1d958d9c16b4b1ca9919aaf484daa3adb24491679457d9b12274c977",
+          "tx": "0xc3ac5f20643277aba3c9f7ab1a2b4c3dbd07c4fa4ff136ee13253b0add36dbe7"
+        },
+        {
+          "block": 26404098,
+          "block_hash": "0x691f14a2c270c3b552902938733a4212b9a375014e23d16f8f854b0d82d5939a",
+          "day": "2026-11-13",
+          "distinct_venues": 100,
+          "events": 100,
+          "index": 300,
+          "ordered_family": "7b9368110ad6ab304ee51d8c0226732bf37ad5b304ffa37518bd5e4c7472707e",
+          "tx": "0x1fec675076acc188cda8e5eba94ce68d681c58fd3de359e0f250f292645c64db"
+        },
+        {
+          "block": 26403170,
+          "block_hash": "0xe7c00ab137871c6495eba01496dca17ae1012be8785715d3450a735c91876ec8",
+          "day": "2026-11-13",
+          "distinct_venues": 100,
+          "events": 100,
+          "index": 2,
+          "ordered_family": "1de9fa5d406e0b21ca275c9d691913054253e08926ac856765ee4ff6a245a91a",
+          "tx": "0x20db77b62eb7db87bac2c0d0d3c8ed9625e4eb73dc9e9cf566c83a70e15d96b1"
+        },
+        {
+          "block": 26406363,
+          "block_hash": "0xcc1e59ea11e7bbb1243983e95e59b1c91564b847d9b4509d9ebbb45e9d2764e1",
+          "day": "2026-11-13",
+          "distinct_venues": 100,
+          "events": 100,
+          "index": 85,
+          "ordered_family": "b9657f7956f684b6743189fb9913751c301bc3f6ff9e00f943365cef5f9b53a0",
+          "tx": "0x91fe4ee320977a602558a5600e01def89fb082240cd817e1a8e114e743342fad"
+        },
+        {
+          "block": 26403319,
+          "block_hash": "0x536b768c5401f12d2b58c8e66c258d3235d0aa4a427e5e97d895d99c89d7d86a",
+          "day": "2026-11-13",
+          "distinct_venues": 99,
+          "events": 99,
+          "index": 59,
+          "ordered_family": "53609dfff61980a0ef3a65f520b011449cbb7be03eba4976f7a22b4fca400208",
+          "tx": "0x032909fce0999ca258926db8bf7bf58edec0afb1fbfcd5dc70b8eae261636d51"
+        },
+        {
+          "block": 26403002,
+          "block_hash": "0x610f667111899c220d20481d41587243c0c7f4160e2bc88a3efe8bf946d39b17",
+          "day": "2026-11-13",
+          "distinct_venues": 99,
+          "events": 99,
+          "index": 1,
+          "ordered_family": "16dc73480104306ae05a38661dfb779fb243068448310baf3f1701d2ab18d166",
+          "tx": "0x0be1215cde1804e8346760e6d39a8dee96e03e830a4a87930504f141867c1e0b"
+        },
+        {
+          "block": 26406360,
+          "block_hash": "0xf67a559b0cdd53a977a5a42daf656dab67871d7449c601d41000028d90ed5278",
+          "day": "2026-11-13",
+          "distinct_venues": 99,
+          "events": 99,
+          "index": 72,
+          "ordered_family": "cc71145e74524f75f4536c612361393758940eb0111809cba50fa71ac8b001d6",
+          "tx": "0x14f7614e6e65eb15681a70e2392e51c9e037f45ae04725fd4594e772005e740a"
+        },
+        {
+          "block": 26406952,
+          "block_hash": "0x89d1660c20b08a93303806968a908ab673893659c575ff62dc61e86524b6e4ef",
+          "day": "2026-11-13",
+          "distinct_venues": 99,
+          "events": 99,
+          "index": 205,
+          "ordered_family": "b1544fc9fed672fb69ac797be05758266ebbd255c836545b410d5c8a8d9dc4c0",
+          "tx": "0x61493a139e93a10452f80caa1bfbffcfa238eb4151fd5a40df87fcddf1e965ff"
+        },
+        {
+          "block": 26403467,
+          "block_hash": "0x7fc0b9afccb5fdf6104213b93a6dd4feb8b7144e118c34d4f09d9b9f7e21e2b8",
+          "day": "2026-11-13",
+          "distinct_venues": 99,
+          "events": 99,
+          "index": 2,
+          "ordered_family": "7c7c02b83b867355ef3f714334bb8a201dcd843f61b676d73407e88e9cf549e2",
+          "tx": "0x7109221aa370c086d43dfddca8dec299c92d0700f694c195e2e618d2e4ec7f47"
+        }
+      ],
+      "reference_comparisons": {
+        "at_least_half": 0,
+        "compared": 8270,
+        "nonzero": 5762,
+        "same_ordered_family": 0
+      },
+      "transactions": 8271,
+      "unique_families_at_equal_budget": {
+        "highest_event": 12,
+        "stratified": 12
+      }
+    },
+    "2026-11-24": {
+      "bands": {
+        "100-199": {
+          "distinct_ordered_families": 5,
+          "selected": [
+            {
+              "block": 26483156,
+              "block_hash": "0x227a854f8038a35a6e170829fcc58bf329ad24f3edcb22da39160218bba5b353",
+              "day": "2026-11-24",
+              "distinct_venues": 3,
+              "events": 109,
+              "index": 157,
+              "ordered_family": "e9763e86aa26edec41a9d3e1819506c6a7b21784881668c4c52d57edc0ad9d4a",
+              "tx": "0x025cf8ad053048bd1181fb5637e1b36e29cfe25bb891cecd721c8dd91c0998f4"
+            },
+            {
+              "block": 26482213,
+              "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+              "day": "2026-11-24",
+              "distinct_venues": 112,
+              "events": 169,
+              "index": 2,
+              "ordered_family": "6e35e687f8f9fd32aae073afd4720821f9b75780385e98d570c66648e7decc04",
+              "tx": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5"
+            },
+            {
+              "block": 26481344,
+              "block_hash": "0xd9dceeea5de8858c33db45a5ad9c0ac8f86634bc03803109356a3bf8efdf8dff",
+              "day": "2026-11-24",
+              "distinct_venues": 1,
+              "events": 130,
+              "index": 230,
+              "ordered_family": "1188625a88e6e3f1df405949d12f22b65ea7075de2e3599d2d6181430573fe29",
+              "tx": "0x2f2ad491b65c2431394a3cd34c3701e8f68006560ff808fe7f29d97c250269d9"
+            }
+          ],
+          "transactions": 9
+        },
+        "20-49": {
+          "distinct_ordered_families": 654,
+          "selected": [
+            {
+              "block": 26484224,
+              "block_hash": "0x2994783793e348c7f97aa1f8eb79fb8c23887fb04bbb81be25c19548e205d0ba",
+              "day": "2026-11-24",
+              "distinct_venues": 23,
+              "events": 23,
+              "index": 131,
+              "ordered_family": "a2732622c9232feda8bf02484f3ea2edc2069edbfaa3cb5ce6c39b22ffb7ec30",
+              "tx": "0x0138f8ca06e977c0448d9401939350c1534cf8f3099b05783df86baf7d01c8c5"
+            },
+            {
+              "block": 26484180,
+              "block_hash": "0x70341310c90c5a2ee4291286ed936dcc9702e05e539fd634099deab6b3f21c56",
+              "day": "2026-11-24",
+              "distinct_venues": 15,
+              "events": 20,
+              "index": 3,
+              "ordered_family": "f73855c626722066fc53c200799f5ad25d7d2169a0cea16ac8fcaae933e7711c",
+              "tx": "0x019a645da609aadd49edf314244848014f8c750a152f5d8eef5ca613ccce1e6b"
+            },
+            {
+              "block": 26486993,
+              "block_hash": "0x269dcb4882fdda21dfaf3b4af14da35500bfb22fb3431cc657b1bfee8c6bab1d",
+              "day": "2026-11-24",
+              "distinct_venues": 45,
+              "events": 45,
+              "index": 16,
+              "ordered_family": "ea49753aff4b92b85f27a73a7dc2a7308fd4cf78f8df24cd6bd6dd11fe7b9a2b",
+              "tx": "0x01cf34a4ea4dd3724665236283ccaafd6dd57398b22f061d6afd113b929cbeb2"
+            }
+          ],
+          "transactions": 669
+        },
+        "200+": {
+          "distinct_ordered_families": 0,
+          "selected": [],
+          "transactions": 0
+        },
+        "5-19": {
+          "distinct_ordered_families": 5702,
+          "selected": [
+            {
+              "block": 26486195,
+              "block_hash": "0xa6d36c3d7bcdace7fbbfa374ad4480cbb425de20226edd138e20cb190c909bf6",
+              "day": "2026-11-24",
+              "distinct_venues": 8,
+              "events": 8,
+              "index": 33,
+              "ordered_family": "e0842273999a89edbb9992cde78532ecc868314de160165b6df76311addb53d1",
+              "tx": "0x001045fcfaa558d0961eeb8e29d0ee43cd8d939768f718f0d2b1631fef423968"
+            },
+            {
+              "block": 26486704,
+              "block_hash": "0x6624ca04c752ce9666ffe3f7ebd68b7c23e45a3a93bd3e061be3c2c42afa1912",
+              "day": "2026-11-24",
+              "distinct_venues": 7,
+              "events": 7,
+              "index": 4,
+              "ordered_family": "75b882eee1312db6420359f44160720c981f7bfe5e913f3b7b52240a9ba0af65",
+              "tx": "0x003171e8f06f9a27b95c339b9d0bd7fd0bce4067f44d1fe7121b3db03ec16d8c"
+            },
+            {
+              "block": 26485226,
+              "block_hash": "0xe060f1dd4e294ebe0b7a38c35eca271f4a00f7b5c38097b3ed1ecfb4f02fba85",
+              "day": "2026-11-24",
+              "distinct_venues": 5,
+              "events": 6,
+              "index": 70,
+              "ordered_family": "a4c2b1f9f4153841f9feb229fd07d182c3d88add031fa434ee140ae6180a1957",
+              "tx": "0x0040d6f225d4e46c41e053964c3f834d0630a6287bb8d348bfe1b5441e633057"
+            }
+          ],
+          "transactions": 5909
+        },
+        "50-99": {
+          "distinct_ordered_families": 113,
+          "selected": [
+            {
+              "block": 26484019,
+              "block_hash": "0xe46a97818c61fc1c7fb5e0c48415bf2ffc0a5bbb1037e3a508629eafc7fb7005",
+              "day": "2026-11-24",
+              "distinct_venues": 41,
+              "events": 50,
+              "index": 52,
+              "ordered_family": "a4c8d6a16345a28bbee74c37aab243062c91d878ac539e6bc814c8c3a3085633",
+              "tx": "0x01b357bd4744fb0f755cf6cee5dcd9e79fbe4ba8d14b177dc341a7f65503db5a"
+            },
+            {
+              "block": 26487893,
+              "block_hash": "0x4a6e87afe6a45efc84497aea204eab5b056dc3661005bbaa099dea70fab1250a",
+              "day": "2026-11-24",
+              "distinct_venues": 56,
+              "events": 56,
+              "index": 40,
+              "ordered_family": "07ecc379e2206e8d95e75285957dbeef1e95b9365e4eb031a9b45d6aae362e61",
+              "tx": "0x0365f2c2c22ff8f47bec0b3f53ffa63542f889990c46d152959b4ddc423a4eef"
+            },
+            {
+              "block": 26487528,
+              "block_hash": "0xe93c16b58a5dd54a14473fb38f54ca93a5e75f22e4851418a69d899eca120486",
+              "day": "2026-11-24",
+              "distinct_venues": 56,
+              "events": 56,
+              "index": 13,
+              "ordered_family": "14bc76e51cf8d33fe4e3063e4a02167203c0a1a7794a6ce6c0b90b80b927a431",
+              "tx": "0x05bd6bca028d2a9c9bf2f61036e24c69d12344dc02e6cb864717fd4d1ae2a6bd"
+            }
+          ],
+          "transactions": 113
+        }
+      },
+      "closest": [
+        {
+          "block": 26482209,
+          "block_hash": "0x2589e307cdfebbae8197db020a189b8569158610f7ee882510aee6f86b0a31b7",
+          "day": "2026-11-24",
+          "distinct_venues": 40,
+          "events": 56,
+          "index": 18,
+          "ordered_family": "217c8599e8faec4cd3e7927ff01d4525740852cf12900968a621d4c1de6c27e2",
+          "shared_observations": 18,
+          "tx": "0x44810b351b56c28425a2dffa6785cd2d47bf35792ffd1712dca176ae366b4bce",
+          "union_observations": 135
+        },
+        {
+          "block": 26482897,
+          "block_hash": "0x52305959d1a410bab2bb20d64cc2350ad82a3482ee15c25d0ace6a32cc02f9f6",
+          "day": "2026-11-24",
+          "distinct_venues": 64,
+          "events": 69,
+          "index": 35,
+          "ordered_family": "1d9e88feb5e7bd80c43601786a068d8533b71c65282bf7e3ac4209cb774acfcb",
+          "shared_observations": 19,
+          "tx": "0x877f1bb74a0e2306553f96c98c1526585809010fd50da97c31833e700e4a49fd",
+          "union_observations": 147
+        },
+        {
+          "block": 26485102,
+          "block_hash": "0x98115af8b2259782817c37d0597899ae9110f45ffcf254d4694ea6a915c4d8e2",
+          "day": "2026-11-24",
+          "distinct_venues": 41,
+          "events": 46,
+          "index": 19,
+          "ordered_family": "b6f579adcd608eec80794e580e95bcad259b0f289fdb9c3390bcdcf70b6fbaf6",
+          "shared_observations": 16,
+          "tx": "0x88dd8f2e8ddc43a400987dd752cd0566f06fa36999c09224cb0a3fdc0fbaee76",
+          "union_observations": 127
+        }
+      ],
+      "highest_event_baseline": [
+        {
+          "block": 26482213,
+          "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+          "day": "2026-11-24",
+          "distinct_venues": 112,
+          "events": 169,
+          "index": 2,
+          "ordered_family": "6e35e687f8f9fd32aae073afd4720821f9b75780385e98d570c66648e7decc04",
+          "tx": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5"
+        },
+        {
+          "block": 26482212,
+          "block_hash": "0x4fb6d25923ff321d49789e6bd403922e2d0b9146cc07ccf98cff2f3eef631e53",
+          "day": "2026-11-24",
+          "distinct_venues": 105,
+          "events": 165,
+          "index": 43,
+          "ordered_family": "456fd9f3d6d134da1b105d2cce55a137b86a75c1409ecf35920304759ce65683",
+          "tx": "0x9e87a5da67583e079e38de4557abacee83026f2422088c6056a697074aa9bdf1"
+        },
+        {
+          "block": 26481344,
+          "block_hash": "0xd9dceeea5de8858c33db45a5ad9c0ac8f86634bc03803109356a3bf8efdf8dff",
+          "day": "2026-11-24",
+          "distinct_venues": 1,
+          "events": 130,
+          "index": 230,
+          "ordered_family": "1188625a88e6e3f1df405949d12f22b65ea7075de2e3599d2d6181430573fe29",
+          "tx": "0x2f2ad491b65c2431394a3cd34c3701e8f68006560ff808fe7f29d97c250269d9"
+        },
+        {
+          "block": 26481335,
+          "block_hash": "0xb128b26440ac97541833645bf399f4ee45664d2e7e5323e868077d347d16b197",
+          "day": "2026-11-24",
+          "distinct_venues": 1,
+          "events": 130,
+          "index": 218,
+          "ordered_family": "1188625a88e6e3f1df405949d12f22b65ea7075de2e3599d2d6181430573fe29",
+          "tx": "0x47268433ed86542f5d274d4e8e9bc9ec3127d3236a7f6a85029a0a9a6d86923d"
+        },
+        {
+          "block": 26481325,
+          "block_hash": "0x1bb108c19964a25924a18df748d37fdfa27b1bd3516af54a484d5f238027e895",
+          "day": "2026-11-24",
+          "distinct_venues": 1,
+          "events": 130,
+          "index": 109,
+          "ordered_family": "1188625a88e6e3f1df405949d12f22b65ea7075de2e3599d2d6181430573fe29",
+          "tx": "0xab45f61007a49055f052905fea1dd28fe80b2b462fbe145bb7573deb9efca964"
+        },
+        {
+          "block": 26481325,
+          "block_hash": "0x1bb108c19964a25924a18df748d37fdfa27b1bd3516af54a484d5f238027e895",
+          "day": "2026-11-24",
+          "distinct_venues": 1,
+          "events": 130,
+          "index": 75,
+          "ordered_family": "1188625a88e6e3f1df405949d12f22b65ea7075de2e3599d2d6181430573fe29",
+          "tx": "0xec6dd4834092c8cf155cbb8beaec91f8d177cd659204d649aa1fb348b1e79542"
+        },
+        {
+          "block": 26482210,
+          "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+          "day": "2026-11-24",
+          "distinct_venues": 89,
+          "events": 119,
+          "index": 8,
+          "ordered_family": "40c1af60da5ff1f263f0ed46787a5fbc344c0f38cae842c740b6a701571c7a28",
+          "tx": "0xd05074c1b7830e7966f1b2c16195bfe9d31abdcb4a188594cecb91852496aa98"
+        },
+        {
+          "block": 26483156,
+          "block_hash": "0x227a854f8038a35a6e170829fcc58bf329ad24f3edcb22da39160218bba5b353",
+          "day": "2026-11-24",
+          "distinct_venues": 3,
+          "events": 109,
+          "index": 157,
+          "ordered_family": "e9763e86aa26edec41a9d3e1819506c6a7b21784881668c4c52d57edc0ad9d4a",
+          "tx": "0x025cf8ad053048bd1181fb5637e1b36e29cfe25bb891cecd721c8dd91c0998f4"
+        },
+        {
+          "block": 26483157,
+          "block_hash": "0x5b778c4876d28be0ab1460cd6ec9fbb69a8a6ca19c4dcaa6299e2dabd5966c6c",
+          "day": "2026-11-24",
+          "distinct_venues": 3,
+          "events": 109,
+          "index": 178,
+          "ordered_family": "e9763e86aa26edec41a9d3e1819506c6a7b21784881668c4c52d57edc0ad9d4a",
+          "tx": "0xc98ebf5973717a59f78108eb28c9dcb1e842d6687971843f1e38f9b26371df84"
+        },
+        {
+          "block": 26482210,
+          "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+          "day": "2026-11-24",
+          "distinct_venues": 65,
+          "events": 89,
+          "index": 4,
+          "ordered_family": "b1719678959145d8feffd2e3859c203a25b0f0860ccd1ecbf1dea40d83ef5d6a",
+          "tx": "0xe69b1f2091a222ff92ed6f2b5956e0e8adbabda13fe235dfb0c8430e4e057f03"
+        },
+        {
+          "block": 26481901,
+          "block_hash": "0xe638bc1a3b86db516d8090454222c637e255856f0e33c0326ba0ca15601a3cc3",
+          "day": "2026-11-24",
+          "distinct_venues": 57,
+          "events": 83,
+          "index": 40,
+          "ordered_family": "4378716d188a487ccf5c004bb77be95f8dbb6a9d5c23a7a4f877282aca006498",
+          "tx": "0x426e69c7b7f9894d5b749ee4a4650153cc3e3e8866751ffdbe41961cf81ea9c0"
+        },
+        {
+          "block": 26482213,
+          "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+          "day": "2026-11-24",
+          "distinct_venues": 62,
+          "events": 71,
+          "index": 0,
+          "ordered_family": "972763f300441f35a95ebf519c131e05fc48305ac2d13a3f21e2286905263205",
+          "tx": "0x6a955c438048eee87302dd0861ad9833a483f7e0cf30212bcb9709bc172f13b4"
+        }
+      ],
+      "reference_comparisons": {
+        "at_least_half": 0,
+        "compared": 6700,
+        "nonzero": 4696,
+        "same_ordered_family": 0
+      },
+      "transactions": 6700,
+      "unique_families_at_equal_budget": {
+        "highest_event": 8,
+        "stratified": 12
+      }
+    },
+    "2026-11-25": {
+      "bands": {
+        "100-199": {
+          "distinct_ordered_families": 9,
+          "selected": [
+            {
+              "block": 26490746,
+              "block_hash": "0xcc40d23d4fd3508eb99149a2b4b5bcebcaed46da31bd6772067f4699ef8eebe0",
+              "day": "2026-11-25",
+              "distinct_venues": 85,
+              "events": 121,
+              "index": 14,
+              "ordered_family": "c6fb0ba04d9c93088522253a11d3c442c9ab09edb361ac12bd88e0c92505df6f",
+              "tx": "0x09642b4710dd80b5cd243054fe03e1510921f2327ce3b9b1db47e8b90ba5cd29"
+            },
+            {
+              "block": 26488831,
+              "block_hash": "0x776be2ad2a456818cf323c4eedf8e01c8716e81fcaceace2c30e54ab3604be8e",
+              "day": "2026-11-25",
+              "distinct_venues": 147,
+              "events": 147,
+              "index": 151,
+              "ordered_family": "b90602715a7fe0497357953c59edaecb3e2540a1815b8fb1a26bcbadf051117e",
+              "tx": "0x32b74921a04989079595aa4d734175b18f34e0e9f604278d47bf656f3ff76f73"
+            },
+            {
+              "block": 26488808,
+              "block_hash": "0xf65428c732466bc643f11ee5015cf24860b26f494bf4398c832264b5cfe7120a",
+              "day": "2026-11-25",
+              "distinct_venues": 120,
+              "events": 120,
+              "index": 126,
+              "ordered_family": "6f46c1fdb02f571a1cf0c6440b6af1438eb871f98d998c754239efeb0b12bf42",
+              "tx": "0x46802c197856a4aeec0f73e6c5f9655f771aad8aee472b334fd78558bec49dc7"
+            }
+          ],
+          "transactions": 9
+        },
+        "20-49": {
+          "distinct_ordered_families": 919,
+          "selected": [
+            {
+              "block": 26490944,
+              "block_hash": "0xe9b7d6a556aaa10d57fd49ba2e28ab48d5ada3158e931ebd08fb65167bb75c11",
+              "day": "2026-11-25",
+              "distinct_venues": 30,
+              "events": 30,
+              "index": 18,
+              "ordered_family": "97711fe2a390c5ea3de492874bdb872af96d1f5ca1953b9d5bdbba7536e3b5c6",
+              "tx": "0x005a56b448b00bfee9be8e6219000fde8b6ea1f320034f51b89cdfd3e1488a6e"
+            },
+            {
+              "block": 26490851,
+              "block_hash": "0x1b0ab0f78c9a9b7b3b0f6c08eff31bbfefb8a7f51a4f0f23c5ad3f0e863a0358",
+              "day": "2026-11-25",
+              "distinct_venues": 21,
+              "events": 21,
+              "index": 30,
+              "ordered_family": "4b87df5180efca2ef087ee22d40a14c05861c31ec47e8f937e7575b606141e12",
+              "tx": "0x00b6766b2be8563cf25d4e0151a5451cc8e1d23037b2fbb0257788ee9724a5c5"
+            },
+            {
+              "block": 26491391,
+              "block_hash": "0x1eff0751fb0f67ad2dd50722d37c16e355a92fcde0de073fec2874cac12ac006",
+              "day": "2026-11-25",
+              "distinct_venues": 30,
+              "events": 30,
+              "index": 119,
+              "ordered_family": "eceb5e37c11b3b0ca98c8c16c1d5070098ba4012340edbfea7a53030b7885327",
+              "tx": "0x00e4cf3ee279cc4c87e8c915dccad8e1f40e498386676e02f0cc72bcef1fd20e"
+            }
+          ],
+          "transactions": 941
+        },
+        "200+": {
+          "distinct_ordered_families": 0,
+          "selected": [],
+          "transactions": 0
+        },
+        "5-19": {
+          "distinct_ordered_families": 6943,
+          "selected": [
+            {
+              "block": 26491577,
+              "block_hash": "0x201e4bf9e2ee949a3a9dc59f8c4b60b8a7df976c40ad252ed63828a82c57bd89",
+              "day": "2026-11-25",
+              "distinct_venues": 8,
+              "events": 8,
+              "index": 61,
+              "ordered_family": "cbe74ef9bdda835a5ff4537199d96e81e61f660becd08d1263acfcdd62a4afcb",
+              "tx": "0x00141089312cb60830ff640fc4a8294f1e6463d344d2caf1c9f412dc2a75c781"
+            },
+            {
+              "block": 26493144,
+              "block_hash": "0x60278216e542ea381bc9d26863afc6bfc20cc32e4fa1261234ac34441bad4965",
+              "day": "2026-11-25",
+              "distinct_venues": 10,
+              "events": 10,
+              "index": 27,
+              "ordered_family": "dd618d4104a3b09749ede1f3afe26eac2d3fea45a48ecad570c45f329d36f3ae",
+              "tx": "0x00175bebfb6fe40b4895e4da5f081fc7434428bdd458246c245d86a67330eb46"
+            },
+            {
+              "block": 26495270,
+              "block_hash": "0xb2a97278b360c6da20d8b07dcc7c5bd66416fd0ae8cc333f9264755467ca5fcf",
+              "day": "2026-11-25",
+              "distinct_venues": 5,
+              "events": 5,
+              "index": 366,
+              "ordered_family": "152398100b4608d1a152585f693c3c24f754b32cd6cc5f8f87e7dd7447b32f87",
+              "tx": "0x0018d24a037495114dd3f39c2eaa416f6ef98f6e56aceb045573113ba6a96910"
+            }
+          ],
+          "transactions": 7189
+        },
+        "50-99": {
+          "distinct_ordered_families": 175,
+          "selected": [
+            {
+              "block": 26493590,
+              "block_hash": "0x74b673aef041ecfd32efe630cb9cdd25423cc3f5a422dbfdc6037b5cb261c173",
+              "day": "2026-11-25",
+              "distinct_venues": 55,
+              "events": 55,
+              "index": 18,
+              "ordered_family": "3a6c076f5a88ded5da6b1b31894f176838061f5427785dfbbc950a8d43fdf0c8",
+              "tx": "0x018c2d4684ede401baedd9c5fe180a7ef4af79c59cee1547696f29438ad4ea05"
+            },
+            {
+              "block": 26490754,
+              "block_hash": "0x451dcd64715288c3ba400152a7b8f410bf0a07afe2e6cfeea5a7f07377100f0c",
+              "day": "2026-11-25",
+              "distinct_venues": 56,
+              "events": 63,
+              "index": 37,
+              "ordered_family": "9f0c981a37d4c7dc7a5564cdcb32be5dba055dc3b7a770631ac6b51200a625fe",
+              "tx": "0x030b848a515c81f911e5582317590fd4b9396229318c3115da9c757cf3430c70"
+            },
+            {
+              "block": 26491017,
+              "block_hash": "0x4b771b79eb0e4d58df913f5eaed44032d26f9a71c9848039ebe903b12b58a4bd",
+              "day": "2026-11-25",
+              "distinct_venues": 52,
+              "events": 52,
+              "index": 26,
+              "ordered_family": "43175c6a9aa618d68d8ff8475cb776d1ae64cbd0b225e7dbb77157eab9bd44e6",
+              "tx": "0x03ec92905b81c641ee06175b4f728102112420f251298fda63daed591e392a0c"
+            }
+          ],
+          "transactions": 175
+        }
+      },
+      "closest": [
+        {
+          "block": 26493641,
+          "block_hash": "0xd1dc7c02be59f01414140af273b1dcc0a91691214ca2ea0ae65ec3c85007b2f9",
+          "day": "2026-11-25",
+          "distinct_venues": 48,
+          "events": 51,
+          "index": 22,
+          "ordered_family": "7b4cac6ce1951a0d438499c34e0fdd3ac30c4b9c1b6168b76be79ca9575949d1",
+          "shared_observations": 18,
+          "tx": "0xe1b67a6541594480db0423b2b09300d5bef7115f109ba29cce2e4ba693738101",
+          "union_observations": 130
+        },
+        {
+          "block": 26490746,
+          "block_hash": "0xcc40d23d4fd3508eb99149a2b4b5bcebcaed46da31bd6772067f4699ef8eebe0",
+          "day": "2026-11-25",
+          "distinct_venues": 85,
+          "events": 121,
+          "index": 14,
+          "ordered_family": "c6fb0ba04d9c93088522253a11d3c442c9ab09edb361ac12bd88e0c92505df6f",
+          "shared_observations": 26,
+          "tx": "0x09642b4710dd80b5cd243054fe03e1510921f2327ce3b9b1db47e8b90ba5cd29",
+          "union_observations": 192
+        },
+        {
+          "block": 26493761,
+          "block_hash": "0x59f0847dd67907b838b4287f042bfcec02c718f21412662b7a6b6cf967e95c55",
+          "day": "2026-11-25",
+          "distinct_venues": 127,
+          "events": 180,
+          "index": 18,
+          "ordered_family": "1f0a6d13ab831cea3d95e0050eb09352519065b339a8e9cfb84e22062b5d1c58",
+          "shared_observations": 32,
+          "tx": "0xf6be79db72f8dda6fa6bac6bcd9fa0d2ec6b56a04bd461d448e206a367b54683",
+          "union_observations": 245
+        }
+      ],
+      "highest_event_baseline": [
+        {
+          "block": 26493761,
+          "block_hash": "0x59f0847dd67907b838b4287f042bfcec02c718f21412662b7a6b6cf967e95c55",
+          "day": "2026-11-25",
+          "distinct_venues": 127,
+          "events": 180,
+          "index": 18,
+          "ordered_family": "1f0a6d13ab831cea3d95e0050eb09352519065b339a8e9cfb84e22062b5d1c58",
+          "tx": "0xf6be79db72f8dda6fa6bac6bcd9fa0d2ec6b56a04bd461d448e206a367b54683"
+        },
+        {
+          "block": 26488831,
+          "block_hash": "0x776be2ad2a456818cf323c4eedf8e01c8716e81fcaceace2c30e54ab3604be8e",
+          "day": "2026-11-25",
+          "distinct_venues": 147,
+          "events": 147,
+          "index": 151,
+          "ordered_family": "b90602715a7fe0497357953c59edaecb3e2540a1815b8fb1a26bcbadf051117e",
+          "tx": "0x32b74921a04989079595aa4d734175b18f34e0e9f604278d47bf656f3ff76f73"
+        },
+        {
+          "block": 26488793,
+          "block_hash": "0x31bb3df68935d210894b7148202006dec277c327ed90d7389f7b56117662a25e",
+          "day": "2026-11-25",
+          "distinct_venues": 143,
+          "events": 143,
+          "index": 108,
+          "ordered_family": "6896180f9cda617cc97463ec6086b2c016a645bd65ede01318d411f8027a82cd",
+          "tx": "0xca47bdc2f7a118a028be6612b2ac2ff42df907a5e145d1f66328ae7c2cdab767"
+        },
+        {
+          "block": 26488790,
+          "block_hash": "0xa1de69864ad8e0f654f09c3218c9668ac2d4bc86d7ec8e48b525ad869972b4d4",
+          "day": "2026-11-25",
+          "distinct_venues": 142,
+          "events": 142,
+          "index": 213,
+          "ordered_family": "77d91434766933e354e39b790ecf59a119b5494d34f717ecdf0db47e253ab2c4",
+          "tx": "0x7b7607099b0e870b08a985007891056bc58988ad3cbb537e502cead0071c1f82"
+        },
+        {
+          "block": 26488808,
+          "block_hash": "0xf65428c732466bc643f11ee5015cf24860b26f494bf4398c832264b5cfe7120a",
+          "day": "2026-11-25",
+          "distinct_venues": 131,
+          "events": 131,
+          "index": 125,
+          "ordered_family": "a3de040927ed068a72d7fdc72b10e3201ee55e04e9a571b78c4af0cf6ca61377",
+          "tx": "0x578d7f0caf2fd40d9d137dce9b728abbebfbb6418ae8ba5996f83c533f06c5b0"
+        },
+        {
+          "block": 26488833,
+          "block_hash": "0x2195baa5a073f42d400b389ac9810e2b2eb1dc83ceaa144a447af135171c8e4f",
+          "day": "2026-11-25",
+          "distinct_venues": 127,
+          "events": 127,
+          "index": 196,
+          "ordered_family": "a84b7ce8f5cc3b4d5bea9425bbb2bd85001b0226291ee8626b988fa4c64fa4aa",
+          "tx": "0xc5a9faf75cb1e7070475b93368715dbf0d402855e08006c093a4ea4eeedb92ac"
+        },
+        {
+          "block": 26493935,
+          "block_hash": "0x8b314c2b7af52dae704a8d1455e643469319335d619420d17170efea1beb5c8a",
+          "day": "2026-11-25",
+          "distinct_venues": 82,
+          "events": 123,
+          "index": 288,
+          "ordered_family": "29ca3b808ddfa881b959e3668fb6266cfc3819a8f56e7b334954ca131a2b36cb",
+          "tx": "0x4cac70415521077e5e5c8aa98b2811dc262c2d031ea4f304ea5fcc063babbacf"
+        },
+        {
+          "block": 26490746,
+          "block_hash": "0xcc40d23d4fd3508eb99149a2b4b5bcebcaed46da31bd6772067f4699ef8eebe0",
+          "day": "2026-11-25",
+          "distinct_venues": 85,
+          "events": 121,
+          "index": 14,
+          "ordered_family": "c6fb0ba04d9c93088522253a11d3c442c9ab09edb361ac12bd88e0c92505df6f",
+          "tx": "0x09642b4710dd80b5cd243054fe03e1510921f2327ce3b9b1db47e8b90ba5cd29"
+        },
+        {
+          "block": 26488808,
+          "block_hash": "0xf65428c732466bc643f11ee5015cf24860b26f494bf4398c832264b5cfe7120a",
+          "day": "2026-11-25",
+          "distinct_venues": 120,
+          "events": 120,
+          "index": 126,
+          "ordered_family": "6f46c1fdb02f571a1cf0c6440b6af1438eb871f98d998c754239efeb0b12bf42",
+          "tx": "0x46802c197856a4aeec0f73e6c5f9655f771aad8aee472b334fd78558bec49dc7"
+        },
+        {
+          "block": 26490749,
+          "block_hash": "0x5ec95ad2fe94b7b43b695d9a9627540649412a548e70a9987c5320eb9d539d11",
+          "day": "2026-11-25",
+          "distinct_venues": 95,
+          "events": 99,
+          "index": 21,
+          "ordered_family": "e1a833e8a273201e26e886bd3169a16c564189b1455acde89d7185524ca14788",
+          "tx": "0x2219de82d4b4b4019e1baaf4049446de226ab322334ff5671806af643083540e"
+        },
+        {
+          "block": 26495441,
+          "block_hash": "0xd7d21cc38ae0406697831d451066008e4e570f3aee44308e85183b8bbbd0858c",
+          "day": "2026-11-25",
+          "distinct_venues": 81,
+          "events": 88,
+          "index": 8,
+          "ordered_family": "abb7ed763cea4d2035f378a7b511645504b356f6b7aab0079bca6c30636b0f6e",
+          "tx": "0xcfc4c4b88ca1e89f466fa49606685e1be01cc2457db94f5fbcbe7014f25c794b"
+        },
+        {
+          "block": 26494959,
+          "block_hash": "0x1752b4ae4a08555ee4d430cf46140af0f30c3213a19e2291739ce58796d5cbbc",
+          "day": "2026-11-25",
+          "distinct_venues": 82,
+          "events": 82,
+          "index": 84,
+          "ordered_family": "e9d029f4ed575042abcd4fbb39cc0839f98d1f6478296910feb92fc919255b17",
+          "tx": "0xd8d9d7737195b09acf21e05d46d51c05388b775ca233c27098d06ef4036d5f12"
+        }
+      ],
+      "reference_comparisons": {
+        "at_least_half": 0,
+        "compared": 8314,
+        "nonzero": 5750,
+        "same_ordered_family": 0
+      },
+      "transactions": 8314,
+      "unique_families_at_equal_budget": {
+        "highest_event": 12,
+        "stratified": 12
+      }
+    }
+  },
+  "matched_rows": 253548,
+  "peer_audits": [
+    {
+      "archive_events": 83,
+      "chain_id": 1,
+      "combined_visible_eth_weth_after_gas_wei": "985570222891432",
+      "direct_fee_recipient_wei": "728615389319967",
+      "executor": "0x204ef2d2fa9efcd840ff11b3ec03afd12f9fbda4",
+      "frames": 1072,
+      "gas_paid_wei": "1470154890778379",
+      "gas_price_wei": "181261093",
+      "gas_used": 8110703,
+      "hash": "0x94b1ee0c6f34bf555689361709ec1013e6106815bec78e9439c4b9c2c0601274",
+      "height": 26408809,
+      "index": 118,
+      "logs": 310,
+      "other_erc20_visible_deltas": {},
+      "path": [
+        {
+          "frame": [
+            0,
+            1,
+            1,
+            0,
+            1,
+            2,
+            37
+          ],
+          "input": "146752653082254972",
+          "input_asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "input_transfer": 543,
+          "log": 546,
+          "output": "90204312259207449056",
+          "output_asset": "0xeef9f339514298c6a857efcfc1a762af84438dee",
+          "output_transfer": 544,
+          "previous_funding": null,
+          "shape": "v2",
+          "venue": [
+            "0x23d15edceb5b5b3a23347fa425846de80a2e8e5c",
+            null
+          ]
+        },
+        {
+          "frame": [
+            0,
+            1,
+            1,
+            0,
+            1,
+            2,
+            40
+          ],
+          "input": "90204312259207449056",
+          "input_asset": "0xeef9f339514298c6a857efcfc1a762af84438dee",
+          "input_transfer": 544,
+          "log": 549,
+          "output": "281938521810486972432",
+          "output_asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+          "output_transfer": 547,
+          "previous_funding": "logs:544",
+          "shape": "v2",
+          "venue": [
+            "0x9bd82673c50acb4a3b883d61e070a3c8d9b08e10",
+            null
+          ]
+        }
+      ],
+      "receipt_count": 351,
+      "receipt_root": "0xe99d5226b0ea80bbfcc6821f15e39e2e42a9d4f7855da9f8d3c18ba9cd6eda7c",
+      "resolved": 82,
+      "sender": "0x29dcdfc482cd0c6f70e3bc51e30bd036422cc561",
+      "settlement": {
+        "checked_calls": "WETH flashLoan, callback, transfer and transferFrom",
+        "financing_contract": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb",
+        "native_to_sender_wei": "2455725113669811",
+        "principal_weth_wei": "6335001995062811648",
+        "weth_unwrapped_wei": "3184340502989778"
+      },
+      "similarity_intersection_union": [
+        23,
+        157
+      ],
+      "tx": "0x2d56c6c5e3791e369f05f55ab03cb26bc90f12338304c8fa8e173ecc14298998",
+      "unresolved": [
+        [
+          670,
+          "V4 returned delta differs from event"
+        ]
+      ],
+      "wires": {
+        "26408809-header": {
+          "completed_utc": "2026-11-26T18:00:48.414704+00:00",
+          "request_sha256": "806a1151cb21beab10eec104221494ccee26f5a5bce484c7666a93bd09d2ef7b",
+          "response_sha256": "c19f752dc447f9a9a9f2be8ab9192708c8eb7d0d98d646038aed68a44645dd68",
+          "source": "https://ethereum.publicnode.com"
+        },
+        "26408809-receipts": {
+          "completed_utc": "2026-11-26T18:00:50.407684+00:00",
+          "request_sha256": "d6ad8ed471ec06476362840d084d1dc2d13a189dade54e1f8c9dabeac683fcd4",
+          "response_sha256": "289f39c71735ce4b822025676e72ac2b62e6040e1125fd63faaeb2b34e21d393",
+          "source": "https://eth.nodely.dev"
+        },
+        "2d56c6c5e379-trace": {
+          "completed_utc": "2026-11-26T18:00:51.279303+00:00",
+          "request_sha256": "4f24e6241047b8e1a22eb2493956375003f70852c88d27b00c824e60d04f77f5",
+          "response_sha256": "585f0a6da1b5b92cbe7532b5144e9b303fb2d29aa8a8b6499ef35f98b5be8144",
+          "source": "https://eth.drpc.org"
+        }
+      }
+    },
+    {
+      "archive_events": 51,
+      "chain_id": 1,
+      "combined_visible_eth_weth_after_gas_wei": "1939158085717040",
+      "direct_fee_recipient_wei": "4857150804732687",
+      "executor": "0x05725ebaa621fe4b53286dec78758edc749030d9",
+      "frames": 800,
+      "gas_paid_wei": "3867740460421647",
+      "gas_price_wei": "685541193",
+      "gas_used": 5641879,
+      "hash": "0xd1dc7c02be59f01414140af273b1dcc0a91691214ca2ea0ae65ec3c85007b2f9",
+      "height": 26493641,
+      "index": 22,
+      "logs": 249,
+      "other_erc20_visible_deltas": {},
+      "path": [
+        {
+          "frame": [
+            0,
+            0,
+            192
+          ],
+          "input": "54327648",
+          "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "input_transfer": 693,
+          "log": 694,
+          "output": "26193730397058700",
+          "output_asset": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+          "output_transfer": 692,
+          "previous_funding": null,
+          "shape": "v3",
+          "venue": [
+            "0x4622df6fb2d9bee0dcdacf545acdb6a2b2f4f863",
+            null
+          ]
+        },
+        {
+          "frame": [
+            0,
+            0,
+            196
+          ],
+          "input": "26193730397058700",
+          "input_asset": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+          "input_transfer": 695,
+          "log": 696,
+          "output": "91597",
+          "output_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+          "output_transfer": 697,
+          "previous_funding": "logs:692,695",
+          "shape": "v4",
+          "venue": [
+            "0x000000000004444c5dc75cb358380d2e3de08a90",
+            "0xef3a1d51982c20ee2f125e6d6d1f9d3a10c1e94391b828040943005a1ea27e14"
+          ]
+        },
+        {
+          "frame": [
+            0,
+            0,
+            198
+          ],
+          "input": "91597",
+          "input_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+          "input_transfer": 699,
+          "log": 700,
+          "output": "54735950",
+          "output_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          "output_transfer": 698,
+          "previous_funding": "logs:697,699",
+          "shape": "v3",
+          "venue": [
+            "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+            null
+          ]
+        },
+        {
+          "frame": [
+            0,
+            0,
+            199
+          ],
+          "input": "54735950",
+          "input_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          "input_transfer": 702,
+          "log": 703,
+          "output": "4861463007168419832166851806",
+          "output_asset": "0xa9d54f37ebb99f83b603cc95fc1a5f3907aaccfd",
+          "output_transfer": 701,
+          "previous_funding": "logs:698,702",
+          "shape": "v3",
+          "venue": [
+            "0xe545e099b4a71f7181965a385709bc0d97d2d0fc",
+            null
+          ]
+        },
+        {
+          "frame": [
+            0,
+            0,
+            201
+          ],
+          "input": "4861463007168419832166851806",
+          "input_asset": "0xa9d54f37ebb99f83b603cc95fc1a5f3907aaccfd",
+          "input_transfer": 701,
+          "log": 706,
+          "output": "32965702645187454",
+          "output_asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "output_transfer": 704,
+          "previous_funding": "logs:701",
+          "shape": "v2",
+          "venue": [
+            "0x132bc4ea9e5282889fdcfe7bc7a91ea901a686d6",
+            null
+          ]
+        }
+      ],
+      "receipt_count": 392,
+      "receipt_root": "0x87ccd84da7e808434684be01c62c283479e9c6255c44f091b20957a2d9df2ffa",
+      "resolved": 48,
+      "sender": "0xd1fd2347ca441ceeca9f47808c4706bbba1a6939",
+      "settlement": {
+        "checked_calls": "PoolManager unlock and matching callback",
+        "financing_contract": null,
+        "native_to_sender_wei": "5806898546138687",
+        "principal_weth_wei": null,
+        "weth_unwrapped_wei": "10664049350871374"
+      },
+      "similarity_intersection_union": [
+        18,
+        130
+      ],
+      "tx": "0xe1b67a6541594480db0423b2b09300d5bef7115f109ba29cce2e4ba693738101",
+      "unresolved": [
+        [
+          561,
+          "missing or ambiguous exact transfer"
+        ]
+      ],
+      "wires": {
+        "26493641-header": {
+          "completed_utc": "2026-11-26T18:00:51.647638+00:00",
+          "request_sha256": "e6a74eea8ebd7dea181168503ce3fb75c815f12c97239782a04f7c7e95c252bb",
+          "response_sha256": "e4c205a94c270597d701916ca2796004a4252fc4c22c67e004144cc3a1c8bddb",
+          "source": "https://ethereum.publicnode.com"
+        },
+        "26493641-receipts": {
+          "completed_utc": "2026-11-26T18:00:52.366808+00:00",
+          "request_sha256": "05044ae94100c5ef4d8452b09a96e4fb8f64013cec409ec64b9a5fd6bf583122",
+          "response_sha256": "6fe912d70dc29e9298360c9dd0e009397c04b2a976c0a2146f43368c80de1a93",
+          "source": "https://eth.nodely.dev"
+        },
+        "e1b67a654159-trace": {
+          "completed_utc": "2026-11-26T18:00:53.234115+00:00",
+          "request_sha256": "dc46fd0d0da1b40f4d037fee34cfa00600a3b6e49df0e11e2ebf8ad7e56dd728",
+          "response_sha256": "af39147ace88b1c47fe5e5359e4604a92d77ac32edaa4d577281127cd6bf2fea",
+          "source": "https://eth.drpc.org"
+        }
+      }
+    }
+  ],
+  "reference": {
+    "block": 26405358,
+    "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+    "day": "2026-11-13",
+    "distinct_venues": 88,
+    "events": 97,
+    "index": 44,
+    "ordered_family": "00b56fac0ac7707906399a3a324ff75b968073229dad55e743245ebb8c2ec276",
+    "tx": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8"
+  },
+  "reviewed_identities": [
+    {
+      "block_hash": "0x09e94ac2afd40c6b4b577d8ad5c1761bba0d192114b1ecb2917fe0ea8a02a952",
+      "chain_id": 1,
+      "tx": "0x60dbcb1ba3dce2621d98150d176b453e91f6d1c7b59e987ba0d3a309aded324a"
+    },
+    {
+      "block_hash": "0x1686a1a6e0f52f8eaabe7922a980e913c816177dcdb5cf4a23200fff342b6977",
+      "chain_id": 1,
+      "tx": "0x252b5fd176f05fdc4e9dad9cb0621041f3aa5227268c913312c8fafff0121723"
+    },
+    {
+      "block_hash": "0x1686a1a6e0f52f8eaabe7922a980e913c816177dcdb5cf4a23200fff342b6977",
+      "chain_id": 1,
+      "tx": "0x7e1b1a0393b59a114f4cb6bb223059c7b6fc377c94eb0a9525ae3af847b497ab"
+    },
+    {
+      "block_hash": "0x2bdccf71ab2637d9c8dd3b57c44dab6c304972841d2ac7fb56963e73af934835",
+      "chain_id": 1,
+      "tx": "0x24ed1106097e509a23fb2fff82dcbe93b22106c0c211b4995f1be16fd3b9cac5"
+    },
+    {
+      "block_hash": "0x59f0847dd67907b838b4287f042bfcec02c718f21412662b7a6b6cf967e95c55",
+      "chain_id": 1,
+      "tx": "0xf6be79db72f8dda6fa6bac6bcd9fa0d2ec6b56a04bd461d448e206a367b54683"
+    },
+    {
+      "block_hash": "0x6472289275c577bc265a14d97f76075d470ce253408e859e80f9782193812a5e",
+      "chain_id": 1,
+      "tx": "0xe69b1f2091a222ff92ed6f2b5956e0e8adbabda13fe235dfb0c8430e4e057f03"
+    },
+    {
+      "block_hash": "0x6b0eafb1cbdebd8ee31bc35d02b0a0e3adf12ebd06edf704af8e1d1417c390f8",
+      "chain_id": 1,
+      "tx": "0x765cf607fdea388a9da9c65965c18521a4182c1ea3e27979c60ab939f9d8b701"
+    },
+    {
+      "block_hash": "0x94b1ee0c6f34bf555689361709ec1013e6106815bec78e9439c4b9c2c0601274",
+      "chain_id": 1,
+      "tx": "0x2d56c6c5e3791e369f05f55ab03cb26bc90f12338304c8fa8e173ecc14298998"
+    },
+    {
+      "block_hash": "0xcdf620bae6569b3c843f1e1d994584b7055f553524115aa073af0b850d8cb24f",
+      "chain_id": 1,
+      "tx": "0xd4a84bb966a4fe89329979633da13d44513ec447a04a1178ff00064e6ba67a7b"
+    },
+    {
+      "block_hash": "0xd1dc7c02be59f01414140af273b1dcc0a91691214ca2ea0ae65ec3c85007b2f9",
+      "chain_id": 1,
+      "tx": "0xe1b67a6541594480db0423b2b09300d5bef7115f109ba29cce2e4ba693738101"
+    },
+    {
+      "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+      "chain_id": 1,
+      "tx": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8"
+    },
+    {
+      "block_hash": "0xfa491c993de11545d6b611df12658159534db904b4003620ec692a2c2e682118",
+      "chain_id": 1,
+      "tx": "0xe8fe407861f22fcfc39e2914de3ead6e0a8c28e87c7ce26236ce3f7b5e369b6e"
+    }
+  ],
+  "schema": "oasis-multihop-family-evidence-v1",
+  "source_hashes": {
+    "earlier_csv": "629285306b7e86f0f1fe168c4c22022deda620fc24e444de8b095445d4e6e7c9",
+    "new_csv": "799807e2a6445968f17b5dfc47015b62323a4e766486c528ea13a22716612455",
+    "reference_logs": "6728d75514fae32bc14e7359f978ad7c60a5c635ecfd6a3300a4597456aa788b",
+    "scope": "1bd59d6fceb467513da6d590ca1c5921404837a85de03c9fab31ce0f60f56996"
+  }
+}

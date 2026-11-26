@@ -1,0 +1,67 @@
+{
+  "after_update": {
+    "conditional_residual_wei": "2116416817936133",
+    "direct_fee_wei": "5592974875679391",
+    "frames": 1743,
+    "gas_charge_scenario_wei": "1454316959357430",
+    "gas_used": 10998057,
+    "gross_weth_wei": "9163708652972954",
+    "oracle_return": [
+      100065998,
+      6,
+      6,
+      1794564659
+    ],
+    "payout_by_batch_weth_wei": [
+      "3729679746767616",
+      "2465647606643522",
+      "1952279017095705",
+      "1016102282466111"
+    ],
+    "swap_usdc_out_raw": "5445636410",
+    "swap_usdt_in_raw": "5449284693"
+  },
+  "after_update_matches_landed_tree": true,
+  "before_update": {
+    "conditional_residual_wei": "2088763796647292",
+    "direct_fee_wei": "5592974875679391",
+    "frames": 1743,
+    "gas_charge_scenario_wei": "1453946704185430",
+    "gas_used": 10995257,
+    "gross_weth_wei": "9135685376512113",
+    "oracle_return": [
+      100067003,
+      6,
+      6,
+      1794564635
+    ],
+    "payout_by_batch_weth_wei": [
+      "3701656470306775",
+      "2465647606643522",
+      "1952279017095705",
+      "1016102282466111"
+    ],
+    "swap_usdc_out_raw": "5445581718",
+    "swap_usdt_in_raw": "5449284693"
+  },
+  "block_hash": "0xf278ef51e04af84e397e8cc5bd6f2de0fe0d8487ab0ac175a8fe9094b261fb21",
+  "chain_id": 1,
+  "envelope_sha256": "a50e81438d0fc630bb92d6145c129f2b20c86c7d48690584934d5cf3029db6cf",
+  "net_change_wei": "27653021288841",
+  "scope_sha256": "778f32364cbbe9236383853229398a57b6673664a3d569b4ed770cd0ce439ab7",
+  "tx": "0x1a52ee375bcdbe79ec67824cbb2a4d2cea35fd095fe5a93c79626fe02f5874f8",
+  "wires": {
+    "43": {
+      "completed_utc": "2026-11-26T18:11:39.374589+00:00",
+      "request_sha256": "d95b3d1b78876a932e70a57d9080c4c7fb6f48ab4d5d19789e6f7ec0bd1ae320",
+      "response_sha256": "0dd72a167cabf2ed454086018789e72e4bf5261dbb4923757a0b304f8bdc9fee",
+      "source": "https://eth.drpc.org"
+    },
+    "44": {
+      "completed_utc": "2026-11-26T18:11:38.506130+00:00",
+      "request_sha256": "1d0a5e7f0a109bb75ca59e3c0dd42a2e445a95d42d3e453968a456516c3dc242",
+      "response_sha256": "fc605656c8b3c44dc3ba68cb6fd2673bfbf52bb95ad7d67ff2bb4aefb4e20b91",
+      "source": "https://eth.drpc.org"
+    }
+  }
+}
