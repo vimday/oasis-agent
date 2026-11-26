@@ -97,6 +97,16 @@ class V2Leg:
             pool.fee_multiplier,
         )
 
+    def quote_exact_input(self, amount_in: int) -> int:
+        """One hop of the same standard integer model used for fixed V2 routes."""
+        _uint(amount_in, 0, _MAX_UINT256, "amount in")
+        return _quote_step(self._coefficients, amount_in)
+
+
+def _quote_step(coefficients: _Curve, amount_in: int) -> int:
+    a, b, c = coefficients
+    return a * amount_in // (b + c * amount_in)
+
 
 @dataclass(frozen=True, slots=True)
 class V2RouteQuote:
@@ -178,8 +188,8 @@ class V2Route:
         """Quote each leg with the protocol's integer floor, including a zero-output diagnostic."""
         _uint(amount_in, 0, _MAX_UINT256, "amount in")
         amounts = [amount_in]
-        for a, b, c in self._coefficients:
-            amount_in = a * amount_in // (b + c * amount_in)
+        for coefficients in self._coefficients:
+            amount_in = _quote_step(coefficients, amount_in)
             amounts.append(amount_in)
         return V2RouteQuote(tuple(amounts))
 

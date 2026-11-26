@@ -10,6 +10,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from oasis_agent.fastpath.funded_walk import WalkEdge, search_funded_walks
 from oasis_agent.fastpath.long_cycle import (
     LongCycleWitness,
     bound_simple_cycles,
@@ -17,6 +18,7 @@ from oasis_agent.fastpath.long_cycle import (
     search_long_marginal_frontier,
 )
 from oasis_agent.fastpath.marginal_graph import MarginalEdge, PositiveMarginalCycle
+from oasis_agent.fastpath.v2_sizing import V2Leg
 
 if __package__:
     from .replay_v2_pool_expansion import _build_route, _read_snapshot, _Snapshot
@@ -286,10 +288,69 @@ def compare_frontier(raw: bytes) -> dict[str, Any]:
     }
 
 
+def compare_funded_walks(raw: bytes) -> dict[str, Any]:
+    snapshot = _read_snapshot(raw, 56, None, None)
+    legs = {}
+    for pool in snapshot.pools.values():
+        for token in (pool.token0, pool.token1):
+            leg = V2Leg(pool, token)
+            legs[WalkEdge(pool.pool_id, token, leg.token_out)] = leg
+    minimum, maximum, budget, top_k = 4, 16, 50_000, 5
+    costs = tuple(_standalone_std_v2_gas_floor(n) * snapshot.gas_price for n in range(maximum + 1))
+    arms = []
+    for amount in (10**12, 10**15):
+        for revisit in (False, True):
+            start = time.perf_counter_ns()
+            result = search_funded_walks(
+                legs,
+                anchor=snapshot.anchor,
+                amount_in=amount,
+                quote=lambda e, q: legs[e].quote_exact_input(q),
+                cost_by_hops=costs,
+                min_hops=minimum,
+                max_edge_visits=budget,
+                top_k=top_k,
+                revisit_assets=revisit,
+            )
+            elapsed = time.perf_counter_ns() - start
+            for closed in result.top:
+                route = _build_route(snapshot, tuple(e.venue for e in closed.edges))
+                if route.quote(amount).amounts != closed.amounts:
+                    raise ValueError("path traversal and fixed-route V2 sizing disagree")
+            arms.append(
+                {
+                    "amount_in": amount,
+                    "revisit_assets": revisit,
+                    "elapsed_ns": elapsed,
+                    **asdict(result),
+                }
+            )
+    return {
+        "schema": "oasis-bsc-fixed-input-walks-v1",
+        "input_sha256": snapshot.digest,
+        "chain": snapshot.chain,
+        "block": snapshot.block,
+        "block_hash": snapshot.block_hash,
+        "anchor": snapshot.anchor,
+        "pools": len(snapshot.pools),
+        "gas_price_wei": snapshot.gas_price,
+        "min_hops": minimum,
+        "max_hops": maximum,
+        "edge_budget_per_arm": budget,
+        "retained_per_arm": top_k,
+        "arms": arms,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--deeper", action="store_true")
+    parser.add_argument(
+        "--funded-walks",
+        action="store_true",
+        help="Compare fixed-input anchored walks with and without asset revisits",
+    )
     parser.add_argument(
         "--frontier", action="store_true", help="Compare first and continued BSC witnesses"
     )
@@ -304,6 +365,13 @@ def main() -> None:
         help="Apply an all-input WBNB profit bound and scenario gas floor to each found witness",
     )
     args = parser.parse_args()
+    if args.funded_walks:
+        if args.frontier or args.deeper or args.changed_pool or args.standalone_economics:
+            parser.error("--funded-walks has its own fixed amount and search scope")
+        print(
+            json.dumps(compare_funded_walks(args.snapshot.read_bytes()), indent=2, sort_keys=True)
+        )
+        return
     if args.frontier:
         if args.deeper or args.changed_pool or args.standalone_economics:
             parser.error("--frontier has its own fixed scope and standalone pricing assumptions")

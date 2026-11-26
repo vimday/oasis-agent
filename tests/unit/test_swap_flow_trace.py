@@ -278,3 +278,166 @@ def test_exact_v4_unlocked_net_links_require_matching_hookless_callback(fault):
         assert proof.links[0].evidence_id == "unlock:0,1"
     else:
         assert not proof.links
+
+
+@pytest.mark.parametrize(
+    "fault", ["none", "wrong_owner", "wrong_middle", "missing_payment", "extra_converter"]
+)
+def test_bancor_two_converter_route_binds_both_anchors_and_intermediate_payment(fault):
+    one = network(A, B, Y, X, POOL1, ANCHOR1, POOL2)
+    two = network(B, C, Z, Y if fault != "wrong_middle" else Y + 1, POOL2, ANCHOR2, FINAL_POOL)
+    ingress, first = one["calls"]
+    second = two["calls"][1]
+    if fault == "missing_payment":
+        first["calls"][0]["logs"] = []
+    lookups = [
+        call(BANCOR, a, topic("owner()")[:10], out=word(int(p, 16)))
+        for a, p in ((ANCHOR1, POOL1), (ANCHOR2, POOL1 if fault == "wrong_owner" else POOL2))
+    ]
+    parent = call(
+        ACTOR,
+        BANCOR,
+        calldata(
+            "convertByPath(address[],uint256,uint256,address,address,uint256)",
+            ("address[]", "uint256", "uint256", "address", "address", "uint256"),
+            ((A, ANCHOR1, B, ANCHOR2, C), X, Z, FINAL_POOL, "0x" + "00" * 20, 0),
+        ),
+        out=word(Z),
+        children=[*lookups, ingress, first, second],
+    )
+    if fault == "extra_converter":
+        parent["calls"].append(dict(second, logs=[], calls=[]))
+    root = call(SEND, ACTOR, "0x", children=[parent])
+    logs = [
+        *ingress["logs"],
+        *first["calls"][0]["logs"],
+        *first["logs"],
+        *second["calls"][0]["logs"],
+        *second["logs"],
+    ]
+    result = replay_trace_funding(replay_receipt(root, logs), root)
+    if fault == "none":
+        assert len(result.resolved_swaps) == 2 and not result.unresolved_events
+        assert [(link.amount, link.token, link.evidence_id) for link in result.links] == [
+            (Y, B, "logs:1")
+        ]
+    else:
+        assert not result.resolved_swaps and len(result.unresolved_events) == 2
+
+
+@pytest.mark.parametrize(
+    ("suffix", "resolved"),
+    [
+        (b"", True),
+        (bytes(32), True),
+        (bytes(31), False),
+        (bytes(31) + b"\x01", False),
+        (bytes(64), False),
+    ],
+)
+def test_v2_empty_callback_single_zero_word_is_replay_only(suffix, resolved):
+    types = ("uint256", "uint256", "address", "bytes")
+    data = calldata("swap(uint256,uint256,address,bytes)", types, (0, 700, ACTOR, b""))
+    inc = movement(A, ACTOR, ACTOR, POOL1, 500)
+    out = movement(B, POOL1, POOL1, ACTOR, 700)
+    swap = event(
+        POOL1,
+        topic("Swap(address,uint256,uint256,uint256,uint256,address)"),
+        (ACTOR, ACTOR),
+        ("uint256",) * 4,
+        (500, 0, 0, 700),
+        1,
+    )
+    root = call(
+        SEND,
+        ACTOR,
+        "0x",
+        children=[inc, call(ACTOR, POOL1, data + suffix.hex(), children=[out], logs=[swap])],
+    )
+    result = replay_trace_funding(replay_receipt(root, [*inc["logs"], *out["logs"], swap]), root)
+    assert bool(result.resolved_swaps) is resolved
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "legacy",
+        "explicit",
+        "wrong_receiver",
+        "wrong_return",
+        "missing_return",
+        "minimum",
+        "ambiguous",
+    ],
+)
+def test_curve_exchange_binds_signed_ids_minimum_transfers_and_optional_return(mode):
+    explicit = mode != "legacy"
+    args = ("int128", "int128", "uint256", "uint256") + (("address",) if explicit else ())
+    recipient = FINAL_POOL if explicit else ACTOR
+    signature = "exchange(" + ",".join(args) + ")"
+    data = calldata(
+        signature, args, (0, 1, X, Z + int(mode == "minimum")) + ((recipient,) if explicit else ())
+    )
+    paid = movement(A, POOL1, ACTOR, POOL1, X)
+    sent = movement(B, POOL1, POOL1, ACTOR if mode == "wrong_receiver" else recipient, Z)
+    if mode == "ambiguous":
+        paid["logs"] *= 2
+    swap = event(
+        POOL1,
+        topic("TokenExchange(address,int128,uint256,int128,uint256)"),
+        (ACTOR,),
+        ("int128", "uint256", "int128", "uint256"),
+        (0, X, 1, Z),
+        2,
+    )
+    frame = call(
+        ACTOR,
+        POOL1,
+        data,
+        out=word(Z + int(mode == "wrong_return"))
+        if explicit and mode != "missing_return"
+        else "0x",
+        children=[paid, sent],
+        logs=[swap],
+    )
+    root = call(SEND, ACTOR, "0x", children=[frame])
+    result = replay_trace_funding(replay_receipt(root, [*paid["logs"], *sent["logs"], swap]), root)
+    assert bool(result.resolved_swaps) == (mode in {"legacy", "explicit"})
+    if result.resolved_swaps:
+        assert result.resolved_swaps[0].leg.amount_out == Z
+
+
+@pytest.mark.parametrize("fault", ["none", "extra_movement", "wrong_payer", "delta_hook"])
+def test_three_transfer_v4_funding_stops_at_intervening_route_inventory(fault):
+    previous = network(A, B, Y, X, POOL1, ANCHOR1, ACTOR)
+    previous_payment, conversion = previous["calls"]
+    prepay = movement(B, ACTOR, ACTOR, POOL2, Y)
+    extra = [movement(B, ACTOR, POOL2, FINAL_POOL, 1)] if fault == "extra_movement" else []
+    deposit = movement(B, POOL2, FINAL_POOL if fault == "wrong_payer" else POOL2, MANAGER, Y)
+    swap, ev = v4_swap(B, C, Y, Z, ACTOR if fault == "delta_hook" else "0x" + "00" * 20)
+    swap["from"] = POOL2
+    ev["topics"][2] = word(int(POOL2, 16))
+    cb = call(
+        MANAGER,
+        POOL2,
+        calldata("unlockCallback(bytes)", ("bytes",), (b"x",)),
+        children=[deposit, swap],
+    )
+    unlock = call(POOL2, MANAGER, calldata("unlock(bytes)", ("bytes",), (b"x",)), children=[cb])
+    # The router is called by the executor before it opens the manager callback.
+    router = call(ACTOR, POOL2, "0x", children=[unlock])
+    root = call(SEND, ACTOR, "0x", children=[previous, prepay, *extra, router])
+    logs = [
+        *previous_payment["logs"],
+        *conversion["calls"][0]["logs"],
+        *conversion["logs"],
+        *prepay["logs"],
+        *(log for frame in extra for log in frame["logs"]),
+        *deposit["logs"],
+        ev,
+    ]
+    result = replay_trace_funding(replay_receipt(root, logs), root)
+    assert len(result.resolved_swaps) == 2
+    assert [link.evidence_id for link in result.links] == (
+        ["logs:1,3,4"] if fault == "none" else []
+    )

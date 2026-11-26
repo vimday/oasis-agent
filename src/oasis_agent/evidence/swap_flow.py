@@ -27,6 +27,7 @@ _LAYOUT = {
         True,
     ),
     BANCOR_CONVERSION_TOPIC: ("bancor_conversion", 3, False),
+    topic("TokenExchange(address,int128,uint256,int128,uint256)"): ("curve_int128", 4, False),
 }
 TRANSFER = topic("Transfer(address,address,uint256)")
 MAX_SWAP_EVENTS = 4096
@@ -60,7 +61,7 @@ def profile_swap_receipt(receipt: ObservedReceipt) -> SwapReceiptProfile:
         if not log.topics or log.topics[0] not in _LAYOUT:
             continue
         shape, words, singleton = _LAYOUT[log.topics[0]]
-        topics = 4 if shape == "bancor_conversion" else 3
+        topics = {"bancor_conversion": 4, "curve_int128": 2}.get(shape, 3)
         if len(log.topics) != topics or len(data_bytes(log.data)) != 32 * words:
             raise ValueError("malformed recognized swap event")
         for item in log.topics[1:]:
@@ -269,6 +270,7 @@ _ADDRESS_SWAP_SELECTOR = {
     "v3": topic("swap(address,bool,int256,uint160,bytes)")[:10],
     "pancake_v3": topic("swap(address,bool,int256,uint160,bytes)")[:10],
     "bancor_conversion": topic("convert(address,address,uint256,address,address)")[:10],
+    "curve_int128": topic("exchange(int128,int128,uint256,uint256)")[:10],
 }
 
 
@@ -304,8 +306,11 @@ def profile_swap_call_bundles(
     committed: dict[tuple[int, ...], bool] = {}
     matching: Counter[tuple[str, str]] = Counter()
     branches: Counter[int] = Counter()
+    curve_with_receiver = topic("exchange(int128,int128,uint256,uint256,address)")[:10]
     for path in sorted(rows):
         recipient, selector, failed = rows[path]
+        if selector == curve_with_receiver:
+            selector = _ADDRESS_SWAP_SELECTOR["curve_int128"]
         committed[path] = not failed and (not path or committed[path[:-1]])
         if path and committed[path] and (recipient, selector) in expected:
             matching[recipient, selector] += 1

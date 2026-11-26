@@ -79,6 +79,7 @@
 
 ## 证据导航
 
+- 11 月 27 日，离线搜索可带着新的整数余额重访资产，恢复 54 腿历史路径。新核实一个 12 跳 WETH 闭环和一个涉及回调垫资的 12 腿依赖。前者成交毛差 +0.001116873773588330 WETH，同包络块末毛差 −0.001006174381000672 WETH 后整笔回滚，直接子块费率拒绝。BSC 568 池等预算模型净正为零；Base 4/58/66 池四块模型毛正为零。[样本、资金归因及三链对照](verification/FUNDED_WALK_STRATEGY_20261127.md)
 - 11 月 27 日在 Aleph 扫描 Ethereum 两日全部 12,912,914 条归档日志，逐腿确认一次 54 项连续资产变换的 USDC 闭环，后接 ETH 结算，[同包络块末回滚、直接子块因费用被拒](verification/ETH_SERIAL_LIFETIME_20261127.md)；另定位与业界 109/272 描述相符的四批次候选。BSC 长环离线搜索支持输出多个见证并逐条核算。Base 首个 Slipstream 池真实跨 tick 回放将原网格完整报价从 236 提升至 2,436，模型净正仍为零。[Ethereum 搜索与费用](verification/ETH_ARCHIVE_SERIAL_SEARCH_20261127.md) · [指纹候选](verification/ETH_TRANSFER_FINGERPRINT_20261127.md) · [Base](verification/BASE_SLIPSTREAM_DEPTH_20261127.md) · [BSC 搜索](verification/LONG_SEARCH_FRONTIER_20261127.md) · [BSC／Robinhood 收据](verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md)
 - 11 月 27 日重放 Base 4,752 个金额，三个 Slipstream 池占 97.17% 首失败。同块两源对首池的一个原始第三腿输入均成功报价，跨五个初始化 tick。已更新真实 tick 覆盖、每头读取预算、扩大池组的整笔验证及四链长尾取样顺序。[归因与实查](verification/MULTIHOP_PRIORITY_DIAGNOSIS_20261127.md) · [实验顺序](strategies/MULTIHOP_ARBITRAGE_TODO.md)
 

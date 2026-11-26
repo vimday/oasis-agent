@@ -170,6 +170,106 @@ def _unique(rows: list[_Transfer]) -> _Transfer:
     return rows[0]
 
 
+def _bancor_pair_input(
+    path: TracePath,
+    frames: dict[TracePath, Frame],
+    transfers: tuple[_Transfer, ...],
+    route: tuple[str, ...],
+    supplied: int,
+    minimum: int,
+    destination: str,
+    trader: str,
+) -> _Transfer:
+    """Bind both adjacent converter calls, anchor owner lookups and all three payments."""
+    prefix = path[:-1]
+    children: list[Frame] = []
+    while (*prefix, len(children)) in frames:
+        children.append(frames[(*prefix, len(children))])
+    selector = keccak(b"convert(address,address,uint256,address,address)")[:4]
+    steps = [(i, f) for i, f in enumerate(children) if f.data[:4] == selector]
+    if len(steps) != 2 or path[-1] not in {i for i, _ in steps} or ZERO_ADDRESS in route:
+        raise ValueError("ambiguous Bancor converter sequence")
+    (i, first), (j, second) = steps
+    payer, middle, final = route[::2]
+    if first.recipient == second.recipient or len({payer, middle, final}) != 3:
+        raise ValueError("ambiguous Bancor intermediate asset or pool")
+    results = []
+    for pos, frame, anchor in ((i, first, route[1]), (j, second, route[3])):
+        owners = {
+            abi(("address",), c.output)[0]
+            for c in children[:pos]
+            if c.recipient == anchor
+            and c.kind in {"CALL", "STATICCALL"}
+            and c.data == keccak(b"owner()")[:4]
+            and c.error is None
+            and c.output is not None
+        }
+        if (
+            frame.sender != _BANCOR_NETWORK
+            or frame.value
+            or frame.error is not None
+            or frame.output is None
+            or owners != {frame.recipient}
+        ):
+            raise ValueError("Bancor anchor or conversion result disagrees")
+        results.append(abi(("uint256",), frame.output)[0])
+    inter, out = results
+    parent = frames[prefix]
+    if (
+        abi(_BANCOR_CONVERT, _calldata(first, "convert", _BANCOR_CONVERT))
+        != (payer, middle, supplied, trader, second.recipient)
+        or abi(_BANCOR_CONVERT, _calldata(second, "convert", _BANCOR_CONVERT))
+        != (middle, final, inter, trader, destination)
+        or not min(supplied, inter, out)
+        or out < minimum
+        or parent.output is None
+        or abi(("uint256",), parent.output) != (out,)
+    ):
+        raise ValueError("Bancor amounts, beneficiary or path disagree")
+    source = _unique(
+        [
+            t
+            for t in transfers
+            if t.path[: len(prefix)] == prefix
+            and len(t.path) >= len(path)
+            and t.path[len(prefix)] < i
+            and (t.token, t.sender, t.recipient, t.amount)
+            == (payer, trader, first.recipient, supplied)
+            and all(
+                frames[t.path[:depth]].kind == "DELEGATECALL"
+                for depth in range(len(path) + 1, len(t.path) + 1)
+            )
+        ]
+    )
+    ingress = children[source.path[len(prefix)]]
+    transfer_types = ("address", "address", "uint256")
+    if ingress.recipient != payer or abi(
+        transfer_types, _calldata(ingress, "transferFrom", transfer_types)
+    ) != (trader, first.recipient, supplied):
+        raise ValueError("Bancor ingress differs from observed token transfer")
+    between = _unique(
+        [
+            t
+            for t in transfers
+            if t.path[: len(path)] == (*prefix, i)
+            and (t.token, t.sender, t.recipient, t.amount)
+            == (middle, first.recipient, second.recipient, inter)
+        ]
+    )
+    end = _unique(
+        [
+            t
+            for t in transfers
+            if t.path[: len(path)] == (*prefix, j)
+            and (t.token, t.sender, t.recipient, t.amount)
+            == (final, second.recipient, destination, out)
+        ]
+    )
+    if not source.index < between.index < end.index:
+        raise ValueError("unordered Bancor payments")
+    return source if path[-1] == i else between
+
+
 def _bancor(
     receipt: ObservedReceipt,
     event: ObservedSwap,
@@ -196,27 +296,36 @@ def _bancor(
     ):
         raise ValueError("Bancor call and event roles differ")
     amount_in, amount_out, _ = abi(("uint256", "uint256", "int256"), data_bytes(log.data))
-    route, supplied, minimum, destination, _, _ = abi(
+    route, supplied, minimum, destination, affiliate, fee = abi(
         _BANCOR_PATH, _calldata(parent, "convertByPath", _BANCOR_PATH)
     )
-    if (
-        len(route) != 3
-        or (route[0], route[-1]) != (token_in, token_out)
-        or supplied != quantity_in
-        or amount_in != quantity_in
-        or (trader if destination == ZERO_ADDRESS else destination) != beneficiary
-        or amount_out < minimum
-        or abi(("uint256",), frame.output) != (amount_out,)
-        or abi(("uint256",), parent.output) != (amount_out,)
-    ):
-        raise ValueError("Bancor path, event and return values disagree")
-    inputs = [
-        t
-        for t in transfers
-        if t.path[:-1] == path[:-1]
-        and t.path[-1] < path[-1]
-        and (t.token, t.sender, t.recipient, t.amount) == (token_in, trader, log.address, amount_in)
-    ]
+    destination = trader if destination == ZERO_ADDRESS else destination
+    if amount_in != quantity_in or abi(("uint256",), frame.output) != (amount_out,):
+        raise ValueError("Bancor converter and event amounts disagree")
+    if len(route) == 5 and affiliate == ZERO_ADDRESS and fee == 0:
+        source = _bancor_pair_input(
+            path, frames, transfers, route, supplied, minimum, destination, trader
+        )
+    else:
+        if (
+            len(route) != 3
+            or (route[0], route[-1]) != (token_in, token_out)
+            or supplied != quantity_in
+            or destination != beneficiary
+            or amount_out < minimum
+            or abi(("uint256",), parent.output) != (amount_out,)
+        ):
+            raise ValueError("Bancor path, event and return values disagree")
+        source = _unique(
+            [
+                t
+                for t in transfers
+                if t.path[:-1] == path[:-1]
+                and t.path[-1] < path[-1]
+                and (t.token, t.sender, t.recipient, t.amount)
+                == (token_in, trader, log.address, amount_in)
+            ]
+        )
     outputs = [
         t
         for t in transfers
@@ -227,8 +336,50 @@ def _bancor(
     return TraceSwapProof(
         SwapLeg(event, token_in, token_out, amount_in, amount_out),
         path,
-        _unique(inputs).index,
+        source.index,
         _unique(outputs).index,
+    )
+
+
+def _curve_exchange(
+    event: ObservedSwap,
+    log: LogRecord,
+    path: TracePath,
+    frame: Frame,
+    transfers: tuple[_Transfer, ...],
+) -> TraceSwapProof:
+    # Decode standard four-argument exchange, or the explicit ERC-20 beneficiary variant.
+    # Legacy pools can return no data. Both cases require exact in-frame transfers.
+    types = ("int128", "int128", "uint256", "uint256")
+    explicit = frame.data[:4] == keccak(b"exchange(int128,int128,uint256,uint256,address)")[:4]
+    args = (*types, "address") if explicit else types
+    values = abi(args, _calldata(frame, "exchange", args))
+    i, j, amount, minimum = values[:4]
+    recipient = values[4] if explicit else frame.sender
+    sold_id, sold, bought_id, bought = abi(
+        ("int128", "uint256", "int128", "uint256"), data_bytes(log.data)
+    )
+    if (
+        frame.value
+        or min(i, j) < 0
+        or i == j
+        or (sold_id, bought_id, sold) != (i, j, amount)
+        or bought < minimum
+        or _indexed_address(log.topics[1]) != frame.sender
+        or frame.output is None
+        or (explicit and not frame.output)
+        or (frame.output and abi(("uint256",), frame.output) != (bought,))
+    ):
+        raise ValueError("Curve exchange arguments, event or return disagree")
+    local = [t for t in transfers if t.path[: len(path)] == path and t.index < log.log_index]
+    paid = _unique(
+        [t for t in local if (t.sender, t.recipient, t.amount) == (frame.sender, log.address, sold)]
+    )
+    delivered = _unique(
+        [t for t in local if (t.sender, t.recipient, t.amount) == (log.address, recipient, bought)]
+    )
+    return TraceSwapProof(
+        SwapLeg(event, paid.token, delivered.token, sold, bought), path, paid.index, delivered.index
     )
 
 
@@ -240,7 +391,12 @@ def _v2(
     transfers: tuple[_Transfer, ...],
 ) -> TraceSwapProof:
     i0, i1, o0, o1 = abi(("uint256",) * 4, data_bytes(log.data))
-    out0, out1, beneficiary, _ = abi(_V2_SWAP, _calldata(frame, "swap", _V2_SWAP))
+    raw = _calldata(frame, "swap", _V2_SWAP)
+    # Observed encoders append one all-zero word to canonical empty callback data.
+    # Keep this concession local to retained V2 evidence; signed calldata stays exact.
+    if len(raw) == 6 * 32 and raw[-64:] == bytes(64):
+        raw = raw[:-32]
+    out0, out1, beneficiary, _ = abi(_V2_SWAP, raw)
     if (
         bool(i0) == bool(i1)
         or bool(o0) == bool(o1)
@@ -419,16 +575,19 @@ def _links(
 ) -> tuple[FundingLink, ...]:
     observed = {t.index: t for t in transfers}
     by_log: dict[int, list[TraceSwapProof]] = defaultdict(list)
-    movements: dict[str, list[_Transfer]] = defaultdict(list)
+    intermediaries = {p.hookless_v4_caller for p in proofs if p.hookless_v4_caller is not None}
+    if receiver is not None:
+        intermediaries.add(receiver)
+    movements: dict[tuple[str, str], list[_Transfer]] = defaultdict(list)
     for proof in proofs:
         if proof.input_transfer_log is not None:
             by_log[proof.input_transfer_log].append(proof)
     for t in transfers:
-        if receiver in (t.sender, t.recipient):
-            movements[t.token].append(t)
+        for holder in {t.sender, t.recipient} & intermediaries:
+            movements[holder, t.token].append(t)
     next_touch = {
-        previous.index: following
-        for history in movements.values()
+        (holder, previous.index): following
+        for (holder, _), history in movements.items()
         for previous, following in pairwise(history)
     }
     candidates: list[tuple[FundingLink, tuple[int, ...]]] = [(link, ()) for link in internal]
@@ -439,7 +598,7 @@ def _links(
         paths: list[tuple[TraceSwapProof, tuple[int, ...]]] = [
             (candidate, (paid.index,)) for candidate in by_log.get(paid.index, [])
         ]
-        transfer = next_touch.get(paid.index)
+        transfer = next_touch.get((receiver, paid.index)) if receiver else None
         if (
             paid.recipient == receiver
             and transfer is not None
@@ -451,6 +610,21 @@ def _links(
                 (candidate, (paid.index, transfer.index))
                 for candidate in by_log.get(transfer.index, [])
             )
+            # Require consecutive movements at both holders and the exact payment
+            # already bound to the destination's hookless PoolManager swap.
+            relay = transfer.recipient
+            deposit = next_touch.get((relay, transfer.index))
+            if (
+                relay not in (receiver, _ETHEREUM_V4)
+                and deposit is not None
+                and (deposit.sender, deposit.recipient, deposit.amount)
+                == (relay, _ETHEREUM_V4, paid.amount)
+            ):
+                paths.extend(
+                    (candidate, (paid.index, transfer.index, deposit.index))
+                    for candidate in by_log.get(deposit.index, ())
+                    if candidate.hookless_v4_caller == relay
+                )
         for target, path in paths:
             a, b = swap.leg, target.leg
             if a.event.pool != b.event.pool and (a.token_out, a.amount_out) == (
@@ -507,6 +681,8 @@ def replay_trace_funding(receipt: ObservedReceipt, trace: object) -> TraceSwapFu
                 path, frame = path[:-1], parent
             if event.shape == "bancor_conversion":
                 proof = _bancor(receipt, event, log, path, frames, transfers)
+            elif event.shape == "curve_int128":
+                proof = _curve_exchange(event, log, path, frame, transfers)
             elif event.shape == "v2":
                 proof = _v2(event, log, path, frame, transfers)
             elif event.shape in {"v3", "pancake_v3"}:

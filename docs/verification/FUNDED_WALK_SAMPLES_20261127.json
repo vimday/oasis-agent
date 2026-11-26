@@ -1,0 +1,748 @@
+[
+  {
+    "chain_id": 1,
+    "combined_visible_eth_weth_after_gas_wei": "7061180038190",
+    "direct_fee_recipient_wei": "58153296993457",
+    "executor": "0x50d3865a63d52c0a54e4679949647ea752107390",
+    "frames": 198,
+    "gas_paid_wei": "188934829857237",
+    "gas_price_wei": "138205929",
+    "gas_used": 1367053,
+    "hash": "0x6b0eafb1cbdebd8ee31bc35d02b0a0e3adf12ebd06edf704af8e1d1417c390f8",
+    "height": 26403845,
+    "index": 184,
+    "logs": 65,
+    "other_erc20_visible_deltas": {},
+    "path": [
+      {
+        "frame": [
+          0,
+          2,
+          19,
+          3
+        ],
+        "input": "608474237294095412875870",
+        "input_asset": "0x168e209d7b2f58f1f24b8ae7b7d35e662bbf11cc",
+        "input_transfer": 576,
+        "log": 580,
+        "output": "10988724",
+        "output_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "output_transfer": 578,
+        "previous_funding": null,
+        "shape": "v2",
+        "venue": [
+          "0x928cb82fdac02f722368d83ce35856be0bc64516",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          21,
+          2,
+          1
+        ],
+        "input": "10988724",
+        "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "input_transfer": 582,
+        "log": 585,
+        "output": "525114522876826871",
+        "output_asset": "0x0a1ab877f71cdd54180aea4290f55086a280d949",
+        "output_transfer": 583,
+        "previous_funding": "logs:578,582",
+        "shape": "v2",
+        "venue": [
+          "0x52b53816ebb3d48be3aaa561a409d11fa0fcea2d",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          21
+        ],
+        "input": "525114522876826871",
+        "input_asset": "0x0a1ab877f71cdd54180aea4290f55086a280d949",
+        "input_transfer": 583,
+        "log": 586,
+        "output": "11024054",
+        "output_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "output_transfer": 581,
+        "previous_funding": "logs:583",
+        "shape": "v3",
+        "venue": [
+          "0x7d983963c437a44a3fd16bc52335dd5199b30c5e",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0
+        ],
+        "input": "11024054",
+        "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "input_transfer": 581,
+        "log": 587,
+        "output": "16133",
+        "output_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "output_transfer": 523,
+        "previous_funding": "logs:581",
+        "shape": "v3",
+        "venue": [
+          "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          1
+        ],
+        "input": "16133",
+        "input_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "input_transfer": 524,
+        "log": 526,
+        "output": "104278",
+        "output_asset": "0xeb4c2781e4eba804ce9a9803c67d0893436bb27d",
+        "output_transfer": 525,
+        "previous_funding": "logs:523,524",
+        "shape": "curve_int128",
+        "venue": [
+          "0x93054188d876f558f4a66b2ef1d97d16edf0895b",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          3,
+          8
+        ],
+        "input": "104278",
+        "input_asset": "0xeb4c2781e4eba804ce9a9803c67d0893436bb27d",
+        "input_transfer": 527,
+        "log": 530,
+        "output": "45239118515693480832",
+        "output_asset": "0x1f573d6fb3f13d689ff844b4ce37794d79a7ff1c",
+        "output_transfer": 529,
+        "previous_funding": "logs:525,527",
+        "shape": "bancor_conversion",
+        "venue": [
+          "0xe807f9ead3408b3770d3110097cd78b94160f86c",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          3,
+          9
+        ],
+        "input": "45239118515693480832",
+        "input_asset": "0x1f573d6fb3f13d689ff844b4ce37794d79a7ff1c",
+        "input_transfer": 529,
+        "log": 536,
+        "output": "246255478105731050655",
+        "output_asset": "0x8f8221afbb33998d8584a2b05749ba73c37a938a",
+        "output_transfer": 535,
+        "previous_funding": "logs:529",
+        "shape": "bancor_conversion",
+        "venue": [
+          "0x483f65300b6cb6f211aab39229d494e59fe24e66",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          4
+        ],
+        "input": "246255478105731050655",
+        "input_asset": "0x8f8221afbb33998d8584a2b05749ba73c37a938a",
+        "input_transfer": 535,
+        "log": 543,
+        "output": "11146781225621532137",
+        "output_asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "output_transfer": 541,
+        "previous_funding": "logs:535",
+        "shape": "v2",
+        "venue": [
+          "0x5522c339d35a6c3e5f328c8746bdf88f599dab83",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          5
+        ],
+        "input": "11146781225621532137",
+        "input_asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "input_transfer": 541,
+        "log": 546,
+        "output": "4635325711546789",
+        "output_asset": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "output_transfer": 544,
+        "previous_funding": "logs:541",
+        "shape": "v2",
+        "venue": [
+          "0xc5578194d457dcce3f272538d1ad52c68d1ce849",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          8,
+          0,
+          0,
+          4
+        ],
+        "input": "4635325711546789",
+        "input_asset": "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "input_transfer": 548,
+        "log": 549,
+        "output": "10051039427248232258",
+        "output_asset": "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd",
+        "output_transfer": 550,
+        "previous_funding": "logs:544,547,548",
+        "shape": "v4",
+        "venue": [
+          "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "0x4d9cc597ec7d8848af463fca5f4c750279f0d02d2745844c1e9f52a7930cc4d7"
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          10,
+          2,
+          0
+        ],
+        "input": "10051039427248232258",
+        "input_asset": "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd",
+        "input_transfer": 552,
+        "log": 554,
+        "output": "11225432",
+        "output_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "output_transfer": 553,
+        "previous_funding": "logs:550,552",
+        "shape": "curve_int128",
+        "venue": [
+          "0x00836fe54625be242bcfa286207795405ca4fd10",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          2,
+          10
+        ],
+        "input": "11225432",
+        "input_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "input_transfer": 553,
+        "log": 555,
+        "output": "1974636792541131311",
+        "output_asset": "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+        "output_transfer": 551,
+        "previous_funding": "logs:553",
+        "shape": "v3",
+        "venue": [
+          "0x3470447f3cecffac709d3e783a307790b0208d60",
+          null
+        ]
+      }
+    ],
+    "receipt_count": 527,
+    "receipt_root": "0xd19e003fa8168d006e93851035c3343e7bd5bd5e0d93d7127d717c097cb8b725",
+    "resolved": 13,
+    "sender": "0x5e3d1448a0365c3b1cd08908d410bfccca449c45",
+    "tx": "0x765cf607fdea388a9da9c65965c18521a4182c1ea3e27979c60ab939f9d8b701",
+    "unresolved": [
+      [
+        571,
+        "V4 returned delta differs from event"
+      ]
+    ],
+    "wires": {
+      "26403845-header": {
+        "completed_utc": "2026-11-26T17:33:20.636045+00:00",
+        "request_sha256": "a22f9d1bea1f0744a1c1b6c632d525515e441bf4ea6fb8976446539e5ed9c7c8",
+        "response_sha256": "679ae6e381183896bad233c9d4fcfee5c249874d244c6c09181fa4dadc0115bb",
+        "source": "https://ethereum.publicnode.com"
+      },
+      "26403845-receipts": {
+        "completed_utc": "2026-11-26T17:33:22.716505+00:00",
+        "request_sha256": "2e0dae58c2d8ff6ad2abbbbb1a052d83a68708438be53c0d7ee76bd07aa270ae",
+        "response_sha256": "7a63d17fe2d0edc5819414ef7347228e1dededc58d8efeeebad49d7cb04522c1",
+        "source": "https://eth.nodely.dev"
+      },
+      "765cf607fdea-trace": {
+        "completed_utc": "2026-11-26T17:33:23.820430+00:00",
+        "request_sha256": "cb5d7397047b7aa757aaf5e3902d52be24cf19cf9e420f179f3ad03141054dac",
+        "response_sha256": "f50c5955a1abbec255c51345e1cf2db2a006ced4877a711330ae03f607461a34",
+        "source": "https://eth.drpc.org"
+      }
+    }
+  },
+  {
+    "chain_id": 1,
+    "combined_visible_eth_weth_after_gas_wei": "218769793848226",
+    "direct_fee_recipient_wei": "847750103572504",
+    "executor": "0x50d3865a63d52c0a54e4679949647ea752107390",
+    "frames": 368,
+    "gas_paid_wei": "2201485335745500",
+    "gas_price_wei": "720855450",
+    "gas_used": 3053990,
+    "hash": "0x1686a1a6e0f52f8eaabe7922a980e913c816177dcdb5cf4a23200fff342b6977",
+    "height": 26406955,
+    "index": 105,
+    "logs": 129,
+    "other_erc20_visible_deltas": {
+      "0x6b175474e89094c44da98b954eedeac495271d0f": "935710459369"
+    },
+    "path": [
+      {
+        "frame": [
+          0,
+          1,
+          41
+        ],
+        "input": "73284466295483936",
+        "input_asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "input_transfer": 337,
+        "log": 339,
+        "output": "73415178106403030",
+        "output_asset": "0x5e8422345238f34275888049021821e8e08caa1f",
+        "output_transfer": 338,
+        "previous_funding": null,
+        "shape": "curve_int128",
+        "venue": [
+          "0x9c3b46c0ceb5b9e304fcd6d88fc50f7dd24b31bc",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          43,
+          3
+        ],
+        "input": "73415178106403030",
+        "input_asset": "0x5e8422345238f34275888049021821e8e08caa1f",
+        "input_transfer": 341,
+        "log": 346,
+        "output": "651754945116670176466",
+        "output_asset": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+        "output_transfer": 344,
+        "previous_funding": "logs:338,341",
+        "shape": "v2",
+        "venue": [
+          "0x49fd21c5c8813b1bae4e5507c556391d6dd9e9f1",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          46,
+          3
+        ],
+        "input": "651754945116670176466",
+        "input_asset": "0x3432b6a60d23ca0dfca7761b7ab56459d9c964d0",
+        "input_transfer": 350,
+        "log": 354,
+        "output": "143346749856491358956",
+        "output_asset": "0x853d955acef822db058eb8505911ed77f175b99e",
+        "output_transfer": 352,
+        "previous_funding": "logs:344,350",
+        "shape": "v2",
+        "venue": [
+          "0x03b59bd1c8b9f6c265ba0c3421923b93f15036fa",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          48
+        ],
+        "input": "143346749856491358956",
+        "input_asset": "0x853d955acef822db058eb8505911ed77f175b99e",
+        "input_transfer": 356,
+        "log": 357,
+        "output": "141984723",
+        "output_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "output_transfer": 355,
+        "previous_funding": "logs:352,356",
+        "shape": "v3",
+        "venue": [
+          "0xc63b0708e2f7e69cb8a1df0e1389a98c35a76d52",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          49
+        ],
+        "input": "141984723",
+        "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "input_transfer": 359,
+        "log": 360,
+        "output": "207635",
+        "output_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "output_transfer": 358,
+        "previous_funding": "logs:355,359",
+        "shape": "v3",
+        "venue": [
+          "0x9a772018fbd77fcd2d25657e5c547baff3fd7d16",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          52,
+          0,
+          0,
+          4
+        ],
+        "input": "207635",
+        "input_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "input_transfer": 362,
+        "log": 363,
+        "output": "142285128195398476222",
+        "output_asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "output_transfer": 364,
+        "previous_funding": "logs:358,361,362",
+        "shape": "v4",
+        "venue": [
+          "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "0xf4b08ee4f0938dbb8b916a20aa0cd7cda60ac5aef833ad60e1f49f20c17242ad"
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          54
+        ],
+        "input": "142285128195398476222",
+        "input_asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+        "input_transfer": 366,
+        "log": 367,
+        "output": "142378032",
+        "output_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "output_transfer": 365,
+        "previous_funding": "logs:364,366",
+        "shape": "v3",
+        "venue": [
+          "0x48da0965ab2d2cbf1c17c09cfb5cbe67ad5b1406",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          55
+        ],
+        "input": "142378032",
+        "input_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "input_transfer": 369,
+        "log": 370,
+        "output": "208143",
+        "output_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "output_transfer": 368,
+        "previous_funding": "logs:365,369",
+        "shape": "v3",
+        "venue": [
+          "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          56
+        ],
+        "input": "208143",
+        "input_asset": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "input_transfer": 372,
+        "log": 373,
+        "output": "208080",
+        "output_asset": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+        "output_transfer": 371,
+        "previous_funding": "logs:368,372",
+        "shape": "v3",
+        "venue": [
+          "0xe8f7c89c5efa061e340f2d2f206ec78fd8f7e124",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          57
+        ],
+        "input": "208080",
+        "input_asset": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+        "input_transfer": 375,
+        "log": 376,
+        "output": "2638878454622782579075",
+        "output_asset": "0x28d4e499c4cde621e1cea7c9cbf9d43bf75a9525",
+        "output_transfer": 374,
+        "previous_funding": "logs:371,375",
+        "shape": "v3",
+        "venue": [
+          "0x8eaa445fecfe052c2749728c4367cdab21d8c974",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          58
+        ],
+        "input": "2638878454622782579075",
+        "input_asset": "0x28d4e499c4cde621e1cea7c9cbf9d43bf75a9525",
+        "input_transfer": 378,
+        "log": 379,
+        "output": "142946772",
+        "output_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "output_transfer": 377,
+        "previous_funding": "logs:374,378",
+        "shape": "v3",
+        "venue": [
+          "0x2c2226a6381e68a86c1a8dcb8d9fdab050959dd5",
+          null
+        ]
+      },
+      {
+        "frame": [
+          0,
+          1,
+          59
+        ],
+        "input": "142946772",
+        "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "input_transfer": 381,
+        "log": 382,
+        "output": "74401340069072266",
+        "output_asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "output_transfer": 380,
+        "previous_funding": "logs:377,381",
+        "shape": "v3",
+        "venue": [
+          "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+          null
+        ]
+      }
+    ],
+    "receipt_count": 457,
+    "receipt_root": "0x153e9b3baeab985383003b175ec33aae3078844aa9e66c18675ee5cf31de4758",
+    "resolved": 25,
+    "same_envelope_lifetime": {
+      "base_fee_wei": [
+        "720855450",
+        "789516324"
+      ],
+      "child_error": {
+        "code": -32000,
+        "message": "max fee per gas less than block base fee"
+      },
+      "direct_child_hash": "0x01ec4cdb1c1a4402d7e766efe27479e44886b2d9c4f864785e29156a3d3e3a9a",
+      "end_deepest_error": "0xd174508b",
+      "end_gas_used": 3064783,
+      "end_if_included_revert_fee_wei": "2209265528617350",
+      "end_root_revert": "CDE",
+      "end_tentative_gross_weth_wei": "-1006174381000672",
+      "end_tentative_path_amounts_raw": [
+        "73284466295483936",
+        "73415153010660093",
+        "642869027658410287032",
+        "140882435102456709850",
+        "139529072",
+        "203883",
+        "138881230462916613618",
+        "138971889",
+        "203162",
+        "203100",
+        "2564212160628940504347",
+        "138869261",
+        "72278291914483264"
+      ],
+      "envelope_sha256": "ccd7a5a24fcd52859ffe867894d1bc16ca9b606b4bccc90f8d1c250af2c5775e",
+      "fee_cap_wei": "720855450",
+      "gap_seconds": 12,
+      "indexed_counterfactual": "unattempted after RPC rejection",
+      "nonce": 82564,
+      "tip_cap_wei": "0",
+      "wires": {
+        "child-end-trace": {
+          "completed_utc": "2026-11-26T17:49:48.957244+00:00",
+          "failure": "json_rpc_-32000",
+          "request_sha256": "9f2100486a0a7b0a8e288cde3b6dd90fe917f999aa2309ce30d70ac3d31647a3",
+          "response_sha256": "e22e55647dda37af4bde0136782ec4db6d85e026f40df5740915c3188041cfbd",
+          "source": "https://eth.drpc.org"
+        },
+        "child-header": {
+          "completed_utc": "2026-11-26T17:49:47.650234+00:00",
+          "failure": null,
+          "request_sha256": "a97bc03aae8ef2c24dd9f4173a066aca123d5d9ab09eed7204cf97959c453d08",
+          "response_sha256": "a7310cd117140f2badd660cf5d19136c6bbc59e9023bb71fefe5522cee5211bf",
+          "source": "https://ethereum.publicnode.com"
+        },
+        "envelope-header": {
+          "completed_utc": "2026-11-26T17:49:47.352464+00:00",
+          "failure": null,
+          "request_sha256": "04e83f7e6b190835534deb62700e05fcb31ed3615fc148a1f8ad1409cb371fc1",
+          "response_sha256": "6e59725001f2f77e0b2501315d263450e72a358af81701a9efb2a5bd39c01a1e",
+          "source": "https://ethereum.publicnode.com"
+        },
+        "included-end-trace": {
+          "completed_utc": "2026-11-26T17:49:48.281114+00:00",
+          "failure": null,
+          "request_sha256": "ab74deebf7c02285d60a0d45a4d17c548ba87ba74e36c81631935d71671cc7e9",
+          "response_sha256": "2a64b6da71e4343e3abe29bbb2a8c8c2ba6a69d218ed6eb8edf91af6ebf626bf",
+          "source": "https://eth.drpc.org"
+        }
+      }
+    },
+    "sender": "0x2ee36e41387f87b7e6f678a86d1e575b23b996f5",
+    "tx": "0x252b5fd176f05fdc4e9dad9cb0621041f3aa5227268c913312c8fafff0121723",
+    "unresolved": [
+      [
+        387,
+        "V4 returned delta differs from event"
+      ]
+    ],
+    "wires": {
+      "252b5fd176f0-trace": {
+        "completed_utc": "2026-11-26T17:33:27.710229+00:00",
+        "request_sha256": "9c17a459fa2c930240e7c750830a2bbe915e45675371ba8763f23479c7a9bc3c",
+        "response_sha256": "c61a1422a4eec95f64770a847dfd9c020b9f212e3bb7517230396a0d98440c1a",
+        "source": "https://eth.drpc.org"
+      },
+      "26406955-header": {
+        "completed_utc": "2026-11-26T17:33:24.144110+00:00",
+        "request_sha256": "dc011073ec43d82c6bb40ef9fef86287f6e79938aaab5088494d380ff7a8f0b6",
+        "response_sha256": "fa19b171a00324946e9f6a8b13486cb0f08aa0c8b3593b2c727149b03f6af258",
+        "source": "https://ethereum.publicnode.com"
+      },
+      "26406955-receipts": {
+        "completed_utc": "2026-11-26T17:33:26.670704+00:00",
+        "request_sha256": "95bc6f296a86e1f3812b05fd8e607de86ac41c72f285f765060cdb6236d67439",
+        "response_sha256": "c473a1c7d1554c6d90ee27c0e5045814f0a0a56f825f9044dd0e59e77d129778",
+        "source": "https://eth.nodely.dev"
+      }
+    }
+  },
+  {
+    "chain_id": 1,
+    "combined_visible_eth_weth_after_gas_wei": "-1759179974619300",
+    "direct_fee_recipient_wei": "0",
+    "executor": "0x7e738774a248935ab82876ccad51023c3e0a7bbb",
+    "frames": 81,
+    "gas_paid_wei": "1759179974619300",
+    "gas_price_wei": "2720855450",
+    "gas_used": 646554,
+    "hash": "0x1686a1a6e0f52f8eaabe7922a980e913c816177dcdb5cf4a23200fff342b6977",
+    "height": 26406955,
+    "index": 99,
+    "logs": 18,
+    "other_erc20_visible_deltas": {
+      "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c": "-10000000000",
+      "0xdac17f958d2ee523a2206206994597c13d831ec7": "11045025964"
+    },
+    "path": [
+      {
+        "frame": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "input": "2000000000",
+        "input_asset": "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c",
+        "input_transfer": 178,
+        "log": 176,
+        "output": "2207434517",
+        "output_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "output_transfer": null,
+        "previous_funding": null,
+        "shape": "v4",
+        "venue": [
+          "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "0x206179acda5868a4efef7c2f33712163c4937763c1188c0beb179925a2afed45"
+        ]
+      },
+      {
+        "frame": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "input": "2207434517",
+        "input_asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "input_transfer": null,
+        "log": 177,
+        "output": "2209034353",
+        "output_asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "output_transfer": 179,
+        "previous_funding": "unlock:176,177",
+        "shape": "v4",
+        "venue": [
+          "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "0x8aa4e11cbdf30eedc92100f4c8a31ff748e201d44712cc8c90d189edaa8e4e47"
+        ]
+      }
+    ],
+    "receipt_count": 457,
+    "receipt_root": "0x153e9b3baeab985383003b175ec33aae3078844aa9e66c18675ee5cf31de4758",
+    "resolved": 7,
+    "sender": "0x7e738774a248935ab82876ccad51023c3e0a7bbb",
+    "tx": "0x7e1b1a0393b59a114f4cb6bb223059c7b6fc377c94eb0a9525ae3af847b497ab",
+    "unresolved": [],
+    "wires": {
+      "26406955-header": {
+        "completed_utc": "2026-11-26T17:33:24.144110+00:00",
+        "request_sha256": "dc011073ec43d82c6bb40ef9fef86287f6e79938aaab5088494d380ff7a8f0b6",
+        "response_sha256": "fa19b171a00324946e9f6a8b13486cb0f08aa0c8b3593b2c727149b03f6af258",
+        "source": "https://ethereum.publicnode.com"
+      },
+      "26406955-receipts": {
+        "completed_utc": "2026-11-26T17:33:26.670704+00:00",
+        "request_sha256": "95bc6f296a86e1f3812b05fd8e607de86ac41c72f285f765060cdb6236d67439",
+        "response_sha256": "c473a1c7d1554c6d90ee27c0e5045814f0a0a56f825f9044dd0e59e77d129778",
+        "source": "https://eth.nodely.dev"
+      },
+      "7e1b1a0393b5-trace": {
+        "completed_utc": "2026-11-26T17:42:58.156045+00:00",
+        "request_sha256": "8e0a042bce66c1ebff7be2d646215ee814e9dcdb0b1ae14364205022cb8e6825",
+        "response_sha256": "5ef008ae13708570e7d1c309bbb5774f1ce593189040e63715c632edfdabf97a",
+        "source": "https://eth.drpc.org"
+      }
+    }
+  }
+]
