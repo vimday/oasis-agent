@@ -1,10 +1,49 @@
 # 链上多跳套利技术调研
 
-Updated 2026-11-24. 研究记录，不构成交易授权或收益承诺。本文中的 Oasis 数字均为只读、影子或
+Updated 2026-11-27. 研究记录，不构成交易授权或收益承诺。本文中的 Oasis 数字均为只读、影子或
 合成证据；`execution_eligible = false`、`release_permitted = false`。外部数字以论文原文为准，
 推导数字在文中标注为“本文计算”。
 
 后续实验、证据要求和停止条件见[多跳套利研究待办](MULTIHOP_ARBITRAGE_TODO.md)。 Ethereum、BSC 的实时净利筛选、102 跳整笔对照和 Robinhood feed 接入结果见[11 月 23 日验证](../verification/MULTICHAIN_FORWARD_20261123.md)。
+
+## 11 月 27 日研究方向与实验顺序
+
+研究目标是估计每个可观察小时、在同等本金与数据预算下，有多少净额能在交易仍然有效时完成整笔复核。候选来自一次真实价格或流动性变动后的池间差异。对手随后成交、跨 tick 滑点、固定费用和数据迟到都能消耗这份毛差。这个机制可以用正、负候选和失效轨迹检验。20–200 跳单条串行、共享短环和持有均保留独立对照。当前仍缺正候选在生产形态影子入口的连续观测。[项目目标](../PROJECT_CHARTER.md) · [四头实测与完整负控](../verification/BASE_WHOLE_SURVIVAL_20261124.md)
+
+### 第一优先级 · 在机会消失前取得可报价状态
+
+1. **Base 先减少每头必须串行完成的工作。** 这四块的任一发现完成前，凡可观察到的直接子块都已到达。按现配置官方三读/头、最短间隔 250 ms，读取能力最多约 1.33 个全量头/秒，链每秒产生五个规范块。先试每源合并固定哈希的独立读、头到达即开始有界预取，再对照“留存全部头、按池变化更新状态、抽样做 66 池完整校验”。收帧、归档和有序发布各计时。状态缺父块、日志不完整、费用或代码身份未核验时，记录缺口并用同哈希全量状态重建。共用累计账本，批次内的方法数、传输字节和每源间隔都要可见。两次连续状态相同也须先证明期间影响状态的输入完整。Base 已于 11 月 5 日用 Denim 原生 200 ms 块替代 Flashblocks，用标准 `newHeads`、`logs` 与块哈希做本轮对照。[Base 官方迁移说明](https://www.base.org/blog/denim) · [四块吞吐诊断](../verification/MULTIHOP_PRIORITY_DIAGNOSIS_20261127.md) · [增量状态和回滚](../../src/oasis_agent/fastpath/state_sync.py)
+2. **Base 按第一个失败池补真实深度。** 97.17% 的首次失败集中在三个 Slipstream 池，其中同一个 WETH/USDC 池占 81.93%。本轮在留存块对该池做六次免费读，首次失败的第三腿可由两源报出相同的 0.030378959162042405 WETH，跨过五个初始化 tick。原路线拼接毛差仍为负。下一步在同一哈希绑定 factory、pool、报价合约与方向，取当前位置和待跨 bitmap 字，再取初始化 tick 的 liquidityNet，校验原合约在跨字、跨 tick 和恰好耗尽时的整数结果。缓存按链、池、块哈希及状态版本分键。保留当前模型、四池基线及两个同交易对不同厂的对照。先复跑原 4,752 个点，报告新增完整路线数、转移到下一腿的失败数、发现新增净额及每解决一个区间的 RPC 代价。再用独立未来窗口检验覆盖改进。[首失败归因](../verification/MULTIHOP_PRIORITY_DIAGNOSIS_20261127.md) · [Slipstream 实现](https://github.com/aerodrome-finance/slipstream/blob/main/contracts/core/CLPool.sol) · [现有地址池读法](../../src/oasis_agent/fastpath/multicall_universe.py)
+3. **接通扩大池组的候选和实际整笔复核。** 当前常规的两锚扫描配置为三跳。66 池结果写入 `mixed_comparison`，待逐腿验证的列表从主图的 `weth_scan/usdc_scan` 产生；生存率汇总器当前仅接受 `not_simulated`。先为同哈希、同方向、同金额的候选去重并保留来源池组，再把可编码的固定路线接入只读整笔模拟。未知执行器、未支持的池类型、限额和超时各保留计数。用“仅扩大池组产生候选”的夹具检查路由，使用已有三跳负控检查费用，再复演真实历史成功与回滚。离线正例与前瞻自然正例各有分母。[常规候选入口](../../scripts/run_multicall_100tick_campaign.py) · [生存率审计](../../src/oasis_agent/arbitrage/base_survival.py) · [Base 整笔模拟接口](https://docs.base.org/base-chain/api-reference/ethereum-json-rpc-api/eth_simulateV1)
+
+**三阶段落表。** 保存初次可见哈希 H、区块内位置（若有）、状态就绪和发现时刻、冻结包络指纹、输入、预期输出与费用界。整笔模拟完成时同时记下实际模拟的状态及当时已收到的最新头。固定 H 上迟到的成功仍是历史状态结果；若当时最新状态为 H+n，单独记同包络在该状态的净额。H+1 则校验实际 parentHash 后，在直接子块状态再跑原包络。三个阶段分别记录缺测、模拟回滚、成功负额和成功正额。旧三跳负控两次使用相同 RPC 调用参数，但省略显式 nonce。下一版冻结 chain ID、类型、nonce、from/to、value、calldata、gas、费率、access list、最低输出和 deadline，按两源验证的父状态重放。单列 nonce 改变、调用失败和经济失效。报价或模拟时钟无法证明上链排序。对状态相同但成本模型不同的差额，按 gas 上限到实际模拟用量、费率变化、路线输出变化分别解释。[负控费用与时钟](../verification/BASE_WHOLE_SURVIVAL_20261124.md)
+
+### 四链同时检验的经济假设
+
+| 链 | 固定对照与主要混淆 | 下一轮判据 |
+| --- | --- | --- |
+| Ethereum | 新样本七池，431,535 gas，扣链上可见付款只余 3,650,823,715,852 wei。在输出和 gas 固定时，额外约 0.00846 gwei/gas 即抹平这份净差。另一个九池赢家在块尾和直接子块均回滚。Flashbots 的构建目标是整块收益，优先费及直接付款都影响竞争。 | 对样本按真实交易索引恢复块内前态，验证毛差由哪次公开状态变动产生，再逐个相关状态寻找失效区间。记录实际支付人与收款人、可承受增量付款及观测时间。只有能从当时已公开的输入重建才计前瞻可发现。区块无法揭示未落块的私有竞争报价。[Ethereum 样本](../verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md) · [构建者定价](https://docs.flashbots.net/flashbots-auction/advanced/bundle-pricing) |
+| BSC | 89 次经济交换形成 23 个短循环。两笔新长事件样本最长可证 5／2 跳，零有效 gas 单价的样本仍有原生币付出。48Club 单独列出直接支付给其控制地址的费用。 | 对真实成功顺序比较最大单环、原顺序批次、独立分笔和同本金持有。按执行次序更新共享池、借款和归还，量每加一段的增量收益与 gas。区分合约余额、外层付款人及外部收益归属，混币尘额按同期可成交报价估退出，否则保留逐币残余。[BSC 收据与资金](../verification/BSC_PAGED_LONG_TAIL_20261124.md) · [48Club 费用口径](https://docs.48.club/puissant-builder/send-bundle) |
+| Robinhood | 官方排序按到达 sequencer 的先后。两路 feed 来自同一排序来源；已观测的 512 块高事件样本缺独立调用树。20 跳整路报价已可运行，历史 24／37 跳在第 4 腿流动性受限。 | 量本机主备 feed 到同哈希到账、状态可报价和整笔完成的分段时间。对第 4 腿固定金额找容量边界，用同资本重算；补钉住 manager 与 hook 的逐币结算和独立 trace。AA 逐项区分 bundler、paymaster 和实际受益人，核对收据是否已含 L1 成本。[链上排序](https://docs.robinhood.com/chain/) · [主备 feed](https://docs.robinhood.com/chain/run-a-full-node/) · [整路径对照](../verification/ROBINHOOD_QUOTE_DELIVERY_20261124.md) |
+| Base | 核心假设是可验证状态及时就绪后，实际成交深度能使部分整数金额扣完整费用仍为正。吞吐、覆盖、价格和费用分别有对照。 | 同窗比较 4／58／66 池；对扩大池组独有的、通过整笔的候选报告在 H、回复时最新头和直接 H+1 的净额，计 L2、L1 data 及适用的 operator fee。按 H+1 到达前和 200／750／2,000 ms 截止分别报告。超时仍保留在分母。[Base 全成本对照](../verification/BASE_WHOLE_SURVIVAL_20261124.md) |
+
+### 长串行和批次怎样竞逐同一笔本金
+
+**让历史发现可被反驳。** 每链提前冻结两个不重叠窗口，一个用于调参数，一个封存到最终评估。以固定哈希种子从全块抽取收据作盲审，并行运行事件地址筛选。后者分层取 5／10／20／50／100／200 个事件、不同池数和疑似资金深度的样本，另保留随机普通交易及失败交易。每层记录被抽中概率、支持的协议及 trace 有效率。事后按事件数挑中的两笔只描述个案，跨层汇总须有抽样权重。输出最长已证资金边、重复池与资产、单链／分流／汇总、未归属资产及已核净额。历史 Ethereum 大样本研究在其单环样本里只观察到约 1.6% 含至少五个交易场所；四链今天的 20–200 跳频率要用新分母估计。[USENIX 原论文，表 1](https://www.usenix.org/system/files/usenixsecurity23-mclaughlin.pdf) · [现有资金边解码](../../src/oasis_agent/evidence/swap_flow_trace.py)
+
+**按实付资产建立资金边。** 先补已有样本中尚未解析的 Curve TwoCrypto，再按已验证 manager 和运行时代码将 v4 的 `unlock` 归因扩展到各链。现实现限 Ethereum 指定 manager；无 hook、同调用者、等额内部抵销才自动关联。对原生币包装、动态 hook、贷款和 AA 增加相应账本，验证实际输入、输出、还款和所有剩余负债。重复相同金额、有期初库存、分流与汇总均要有对照样本。当多种资金分配都符合证据时报告可证下界，保持未解部分。[Bancor 与 v4 的已支持范围](../verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md) · [Geth 交易追踪器](https://geth.ethereum.org/docs/developers/evm-tracing/built-in-tracers)
+
+**优化有限金额的净额。** 保留 2–4 跳整数参考、变池约束与长环拓扑分解。长环 DFS 目前发现第一条边际正环就返回。下一步允许它在预算内继续，优先检验从剩余跳数可回锚点、且有限金额仍可能过线的路线。先用反向最少跳数剪枝；只在边的费后倍率确为全金额上界时，才用倍率乘积和可证明的最低成本剪去无解分支。保留平行池、预算耗尽时的未检查空间，以及目标是简单环还是允许重复资产的路径。小图穷举校验零错剪，20–200 跳植入验证可检出性，链上留出窗口衡量每个计算毫秒新找到的可复核净额。[现有长环实现](../../src/oasis_agent/fastpath/long_cycle.py) · [PathEnum 的反向索引实验](https://arxiv.org/abs/2103.11137)
+
+**把长链与有序短环放到同一模型验证。** Uniswap Guidestar 公开的路由流程会分段分配、重估已用池、比较拆分后的收益与 gas 并模拟最终路线。Oasis 可借用此顺序，加入首尾同资产、原子归还、每币守恒与失败成本。先把现有 V2 固定顺序和固定金额回放作为真值，比较最佳单环、有限宽度的顺序与金额搜索、相同资本下的长串行。对每个共享池保留执行后状态。已有控制中重置储备使毛差高估 44.2%。支持语义内可用忽略固定费用的池级连续松弛给收益上界，整笔最终值仍须按整数结算和实际 gas 打分。[Guidestar 公开流程](https://github.com/Uniswap/guidestar-public) · [CFMM 路由与固定成本](https://web.stanford.edu/~boyd/papers/cfmm_routing.html) · [Oasis 有序 EVM 对照](../verification/V2_ORDERED_ROUTE_ANVIL_20261124.md)
+
+### 何时值得为节点、GPU 或迁移付成本
+
+每个预先确定的窗口保留每小时可见机会数、各阶段分母、可定价资本与可共用本金。主要指标为**同本金、同状态下，相对最佳可行基线的时限内整笔情景净额**。候选竞争同一机会或同一笔库存时只计可共同执行的组合。同币计算、逐项披露费用；已含于余额或报价的成本只扣一次。对上链成功、上链回滚、未发出分别建账。无法观测本方落块概率时报告盈亏平衡曲线：若成功情景净得 G、上链失败损失 L、每次尝试固定开销 C，在所有尝试均落块的简化模型中，成功占比须超过 (L+C)/(G+L)。实际未落块占比另作敏感性分析，影子收益不能记入 NAV。报告按不重叠时段分组的不确定区间、最差窗口、尾部损失、不同本金容量及未定价余额。零个自然正候选只报告覆盖与成本，存续率记为空。[实验模板](../templates/STRATEGY_EXPERIMENT.md)
+
+免费 RPC 足以筛样本、复算固定哈希和检验部分整笔。先比较同窗免费全量与增量，再对可用的自建节点做同窗影子；只有证明瓶颈属于来源，才估付费方案的最高可承受月费。以**新增且去重的及时净额**乘保守落块情景，扣订阅、机器与运维成本，比较下界。不同供应商的归档深度、trace 支持、拒绝与缺测单列。当前免付费实验的吞吐结果无法定价付费源的边际收益。
+
+沿用 Rust 驻留图负责热循环，Python 保留编排和独立整数参考。Aleph 4070 Ti 在五万条预给定的 2–8 跳路线、八线程 CPU 对照中 p99 仅改善 9.43%，且计时从内存夹具就绪开始。待真实窗口证明计算占用挤压经济候选，才用相同池、金额、时限比较常驻显存与最佳 CPU。计上传、下载、冷启动、精算、排队及整笔查询，继续沿用同覆盖端到端 p99 提升 30% 或同期限经济召回提升 10% 的研究门槛。没有自然正例时只评价耗时和正确性。现有证据支持分段优化。[4070 Ti 原始基准](../verification/MULTIHOP_CUDA_20261122.md) · [Rust/Python 分工实测](../verification/MULTIHOP_RUST_BOUNDARY_20261123.md)
 
 ## 11 月 24 日实证与工程取舍
 
@@ -473,8 +512,8 @@ token-pair family、71 个 sibling pools 中抽取 13,768 笔 family-transaction
 - 通用 GPU 图库不是即插即用：cuGraph 的 `sssp` 明确不支持负权环；负环、简单路径约束和有限
   金额滑点需要自定义内核。
 
-Oasis 的 DFS 在 k≤4 的限定图上枚举候选，再按边际界与 48 步整数三分筛查。整数舍入会影响
-搜索，存在三分低估并漏过阈值的最小样例，见[验证记录](../verification/MULTIHOP_RESEARCH_20261122.md)。
+Oasis 的 Rust DFS 在 k≤4 的限定图上枚举候选。短金额区间逐整数检查，大区间用三分提出金额，
+再用可用上界细化并保留未决区间。单靠三分曾漏过阈值，修复与最小样例见[验证记录](../verification/MULTIHOP_RESEARCH_20261122.md)。
 53 µs / 2.37 ms 只对应给定合成基准；更长路径应测量枚举规模与时限内覆盖。
 
 ### 3.3 简单环与复合环
@@ -680,7 +719,7 @@ gas 上界、过期和回滚缓冲用于保守评分或准入，单独报告。�
 
 | 组件 | 当前实现 | 与长路径相关的缺口 | 优先级 |
 | --- | --- | --- | --- |
-| Rust 图搜索 | `MAX_SUPPORTED_HOPS = 4`；简单环；池只用一次；上界剪枝；48 步三分；**Wave 32 已合入 `ScanCyclesOptions`**（按跳/V2-CL 池类型累加 gas、canonical 基币+旋转去重、`changed_pools` 增量过滤） | 默认 `scan_cycles` 为向后兼容仍走全扫与固定 base gas；不能 `k>4`（研究模式待定） | **P0/P1 已在内核实现**（默认保持关闭） |
+| Rust 图搜索 | `MAX_SUPPORTED_HOPS = 4`；简单环；池只用一次；上界剪枝、整数小区间穷举、大区间候选与未决上界；**Wave 32 已合入 `ScanCyclesOptions`**（按跳/V2-CL 池类型累加 gas、canonical 基币+旋转去重、`changed_pools` 增量过滤） | 默认 `scan_cycles` 为向后兼容仍走全扫与固定 base gas；该 Rust 入口上限为四跳，长环另有 Python 研究入口 | **P0/P1 已在内核实现**（默认保持关闭） |
 | Python 快路径 | 默认 `max_hops = 3`；公开影子 runner 用 2；[pool_graph.py](../../src/oasis_agent/fastpath/pool_graph.py) 已透传 `per_hop_gas_cost_in_base` / `v2_hop_gas_cost_in_base` / `cl_hop_gas_cost_in_base` / `deduplicate_cycles` / `changed_pools` | 默认公开影子 runner 仍全扫，真实快照的增量接入与复核待做 | 现状 |
 | 影子增量 | `cycle_shadow.py` 用 changed pools 过滤受影响路径；Wave 32 起 Rust `scan_cycles_with_options` 原生支持 `changed_pools` 跳过未变环路 | gas/fee 变化、新池、无事件状态变化时仍需周期性全扫 (`changed_pools=None`) | **P1 已在内核实现** |
 | 实测样本 | Wave 25：600 块、57 池、1 个正净块、3 个三跳候选 | 归因日志没有完整逐块池状态，不能作为搜索召回真值 | P1 |
@@ -693,7 +732,7 @@ gas 上界、过期和回滚缓冲用于保守评分或准入，单独报告。�
 把上限固定为 4；[scan_cycles](../../crates/oasis-core/src/graph_arb.rs)
 对每个 base token 做 DFS，[enumerate_indexed_cycles](../../crates/oasis-core/src/graph_arb.rs)
 在闭合前用 `max_rate_upper` 的乘积做剪枝；[ternary_search_indexed](../../crates/oasis-core/src/graph_arb.rs)
-做 48 步整数三分。合成基准：6 池两跳 53 µs，34 池、1,868 条四跳闭环 2.37 ms
+曾用 48 步整数三分定量，现用小区间穷举和大区间细化并记录未决区间。合成基准：6 池两跳 53 µs，34 池、1,868 条四跳闭环 2.37 ms
 （[BASE_100TICK_MULTICALL_CAMPAIGN_20261118.md](../verification/BASE_100TICK_MULTICALL_CAMPAIGN_20261118.md#L7-L8)）。
 
 Wave 32 针对长路径评估已补齐两项 P0 机制与一项 P1 机制（通过 `ScanCyclesOptions` 可选启用，默认与历史全扫逐位一致）：

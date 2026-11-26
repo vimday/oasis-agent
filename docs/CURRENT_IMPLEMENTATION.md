@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 27 日重放 Base 4,752 个金额，三个 Slipstream 池占 97.17% 首失败。同块两源对首池的一个原始第三腿输入均成功报价，跨五个初始化 tick。已更新真实 tick 覆盖、每头读取预算、扩大池组的整笔验证及四链长尾取样顺序。[归因与实查](verification/MULTIHOP_PRIORITY_DIAGNOSIS_20261127.md) · [实验顺序](strategies/MULTIHOP_ARBITRAGE_TODO.md)
+
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
 - Base 常规入口可并发读取两源块头。两个固定块状态逐字节一致，交付分别快 715 和 130 ms。四块连续发现零模型正候选，最后一块取数前等待 2.475 秒。固定三跳负控在一个已核父子状态各完成一次同包络整笔模拟，两次扣费均亏。[并行取数](verification/BASE_DUAL_HEADER_OVERLAP_20261124.md) · [三阶段净额](verification/BASE_WHOLE_SURVIVAL_20261124.md)
 - Ethereum 可按调用树复算包含 Bancor 的资金链，新增七池串行实际交易扣可见成本余 3,650,823,715,852 wei。BSC 89 条经济腿样本确认为 23 个独立循环。Robinhood 512 块筛选的最高交易完成收据根校验，调用树超时，整笔净额未知。[Ethereum](verification/ETH_BANCOR_CONVERSION_REPLAY_20261124.md) · [BSC](verification/BSC_PAGED_LONG_TAIL_20261124.md) · [Robinhood](verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md)
