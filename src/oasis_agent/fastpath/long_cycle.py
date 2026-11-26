@@ -7,7 +7,8 @@ marginal result still needs finite-size integer pricing and execution costs.
 
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import StrEnum
 from fractions import Fraction
 
 from .marginal_graph import MarginalEdge, PositiveMarginalCycle
@@ -44,6 +45,34 @@ class LongCycleSearch:
     witness: PositiveMarginalCycle | None
     edge_visits: int
     budget_exhausted: bool
+
+
+class LongCycleStop(StrEnum):
+    COMPLETE = "complete"
+    EDGE_BUDGET = "edge_budget"
+    WITNESS_BUDGET = "witness_budget"
+
+
+@dataclass(frozen=True, slots=True)
+class LongCycleWitness:
+    cycle: PositiveMarginalCycle
+    edge_visits: int
+
+
+@dataclass(frozen=True, slots=True)
+class LongCycleFrontier:
+    topology: SimpleCycleTopology
+    witnesses: tuple[LongCycleWitness, ...]
+    edge_visits: int
+    stop: LongCycleStop
+
+
+@dataclass(slots=True)
+class _SearchProgress:
+    max_edge_visits: int
+    max_witnesses: int
+    edge_visits: int = 0
+    witnesses: list[LongCycleWitness] = field(default_factory=list)
 
 
 type _Link = tuple[str, str, str]
@@ -196,13 +225,12 @@ def _bounded_dfs(
     edges: tuple[MarginalEdge, ...],
     minimum: int,
     maximum: int,
-    budget: int,
     required_pools: frozenset[str] | None,
-) -> tuple[PositiveMarginalCycle | None, int, bool]:
+    progress: _SearchProgress,
+) -> LongCycleStop | None:
     adjacency: dict[str, list[MarginalEdge]] = defaultdict(list)
     for graph_edge in edges:
         adjacency[graph_edge.token_in].append(graph_edge)
-    visits = 0
     # Each oriented cycle has one smallest token, or one smallest changed pool
     # when searching only cycles that touch changed state.
     starts: Iterable[tuple[str, MarginalEdge | None]]
@@ -222,9 +250,9 @@ def _bounded_dfs(
         if seed is None:
             stack = [iter(adjacency[origin])]
         else:
-            if visits == budget:
-                return None, visits, True
-            visits += 1
+            if progress.edge_visits == progress.max_edge_visits:
+                return LongCycleStop.EDGE_BUDGET
+            progress.edge_visits += 1
             seen.add(seed.token_out)
             pools.add(seed.pool)
             path.append(seed)
@@ -241,9 +269,9 @@ def _bounded_dfs(
                     pools.remove(previous.pool)
                     products.pop()
                 continue
-            if visits == budget:
-                return None, visits, True
-            visits += 1
+            if progress.edge_visits == progress.max_edge_visits:
+                return LongCycleStop.EDGE_BUDGET
+            progress.edge_visits += 1
             if edge.pool in pools:
                 continue
             if (
@@ -255,7 +283,11 @@ def _bounded_dfs(
                 continue
             if edge.token_out == origin:
                 if minimum <= len(path) + 1 and products[-1] * edge.rate > 1:
-                    return PositiveMarginalCycle((*path, edge)), visits, False
+                    progress.witnesses.append(
+                        LongCycleWitness(PositiveMarginalCycle((*path, edge)), progress.edge_visits)
+                    )
+                    if len(progress.witnesses) == progress.max_witnesses:
+                        return LongCycleStop.WITNESS_BUDGET
             elif (
                 len(path) + 1 < maximum
                 and (seed is not None or edge.token_out > origin)
@@ -266,7 +298,56 @@ def _bounded_dfs(
                 path.append(edge)
                 products.append(products[-1] * edge.rate)
                 stack.append(iter(adjacency[edge.token_out]))
-    return None, visits, False
+    return None
+
+
+def search_long_marginal_frontier(
+    edges: Iterable[MarginalEdge],
+    *,
+    min_hops: int,
+    max_hops: int,
+    max_edge_visits: int,
+    max_witnesses: int,
+    required_pools: frozenset[str] | None = None,
+) -> LongCycleFrontier:
+    """Collect positive simple cycles in traversal order up to either research budget.
+
+    Edge visits count DFS work after topology decomposition. Reaching the
+    witness cap stops immediately, even if it happened to be the last cycle.
+    Only COMPLETE certifies enumeration of this marginal scope. The order
+    is structural and gives no economic ranking or bound on unvisited paths.
+    If required_pools is provided, each witness touches at least one of them.
+    """
+    if (
+        any(type(value) is not int for value in (min_hops, max_hops, max_edge_visits))
+        or not 2 <= min_hops <= max_hops
+        or max_edge_visits < 1
+    ):
+        raise ValueError("require integer hop bounds 2 <= min <= max and a positive edge budget")
+    if type(max_witnesses) is not int or max_witnesses < 1:
+        raise ValueError("require a positive integer witness budget")
+    if required_pools is not None and (
+        not isinstance(required_pools, frozenset)
+        or any(not isinstance(pool, str) or not pool for pool in required_pools)
+    ):
+        raise ValueError("required pools must be a frozenset of pool identities")
+    topology, blocks = _decompose(edges)
+    progress = _SearchProgress(max_edge_visits, max_witnesses)
+    stop = LongCycleStop.COMPLETE
+    for block, block_edges in blocks:
+        if block.max_hops_upper < min_hops:
+            continue
+        reason = _bounded_dfs(
+            block_edges,
+            min_hops,
+            min(max_hops, block.max_hops_upper),
+            required_pools,
+            progress,
+        )
+        if reason is not None:
+            stop = reason
+            break
+    return LongCycleFrontier(topology, tuple(progress.witnesses), progress.edge_visits, stop)
 
 
 def search_long_marginal_cycle(
@@ -279,37 +360,23 @@ def search_long_marginal_cycle(
 ) -> LongCycleSearch:
     """Find the first positive simple cycle of the requested length, or report coverage.
 
-    The edge budget applies to exact DFS after topology decomposition. A
-    missing witness with budget_exhausted set leaves the result unresolved.
-    With a missing witness and no exhaustion, every eligible path in the
-    depth band was excluded or checked. Work may be exponential in depth.
-    If required_pools is provided, eligible cycles touch at least one of those
-    pools. A full scan is needed after invalidation or missing observations.
+    The edge budget applies after topology decomposition. If there is no
+    witness and the edge budget was not exhausted, all eligible paths were
+    excluded or checked. Work may be exponential in depth. If required_pools
+    is provided, eligible cycles touch at least one of those pools. A full
+    scan is needed after invalidation or missing observations.
     """
-    if (
-        any(type(value) is not int for value in (min_hops, max_hops, max_edge_visits))
-        or not 2 <= min_hops <= max_hops
-        or max_edge_visits < 1
-    ):
-        raise ValueError("require integer hop bounds 2 <= min <= max and a positive edge budget")
-    if required_pools is not None and (
-        not isinstance(required_pools, frozenset)
-        or any(not isinstance(pool, str) or not pool for pool in required_pools)
-    ):
-        raise ValueError("required pools must be a frozenset of pool identities")
-    topology, blocks = _decompose(edges)
-    visits = 0
-    for block, block_edges in blocks:
-        if block.max_hops_upper < min_hops:
-            continue
-        witness, spent, exhausted = _bounded_dfs(
-            block_edges,
-            min_hops,
-            min(max_hops, block.max_hops_upper),
-            max_edge_visits - visits,
-            required_pools,
-        )
-        visits += spent
-        if witness is not None or exhausted:
-            return LongCycleSearch(topology, witness, visits, exhausted)
-    return LongCycleSearch(topology, None, visits, False)
+    frontier = search_long_marginal_frontier(
+        edges,
+        min_hops=min_hops,
+        max_hops=max_hops,
+        max_edge_visits=max_edge_visits,
+        max_witnesses=1,
+        required_pools=required_pools,
+    )
+    return LongCycleSearch(
+        frontier.topology,
+        frontier.witnesses[0].cycle if frontier.witnesses else None,
+        frontier.edge_visits,
+        frontier.stop is LongCycleStop.EDGE_BUDGET,
+    )

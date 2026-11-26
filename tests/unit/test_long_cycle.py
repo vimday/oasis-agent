@@ -3,12 +3,18 @@ from fractions import Fraction
 
 import pytest
 
-from oasis_agent.fastpath.long_cycle import bound_simple_cycles, search_long_marginal_cycle
+from oasis_agent.fastpath.long_cycle import (
+    LongCycleStop,
+    bound_simple_cycles,
+    search_long_marginal_cycle,
+    search_long_marginal_frontier,
+)
 from oasis_agent.fastpath.marginal_graph import (
     MarginalEdge,
     PositiveMarginalCycle,
     certify_marginal_graph,
 )
+from oasis_agent.fastpath.v2_sizing import V2Leg, V2Pool, V2Route
 
 
 @dataclass(frozen=True)
@@ -176,3 +182,77 @@ def test_changed_pool_search_finds_300_hops_under_one_ring_budget() -> None:
         required_pools=frozenset({"outside-snapshot"}),
     )
     assert result.witness is None and not result.budget_exhausted and result.edge_visits == 0
+
+
+def test_frontier_finds_thick_route_after_thin_positive_witness() -> None:
+    pools = [
+        _SyntheticPool("a", "b", "a-thin", 100, 200, 9_975),
+        _SyntheticPool("a", "b", "z-thick", 10**9, 1_200_000_000, 9_970),
+        _SyntheticPool("b", "c", "middle", 10**9, 10**9, 9_975),
+        _SyntheticPool("c", "a", "close", 10**9, 10**9, 9_970),
+    ]
+    edges = [edge for pool in pools for edge in pool.rates()]
+    known_pools = {
+        pool.key: V2Pool(
+            pool.key,
+            pool.left,
+            pool.right,
+            pool.reserve_left,
+            pool.reserve_right,
+            pool.fee_multiplier,
+            10_000,
+        )
+        for pool in pools
+    }
+    changed = frozenset({"a-thin", "z-thick"})
+    first = search_long_marginal_cycle(
+        edges, min_hops=3, max_hops=3, max_edge_visits=100, required_pools=changed
+    )
+    continued = search_long_marginal_frontier(
+        edges,
+        min_hops=3,
+        max_hops=3,
+        max_edge_visits=100,
+        max_witnesses=3,
+        required_pools=changed,
+    )
+    thin, thick = continued.witnesses
+    assert continued.stop is LongCycleStop.COMPLETE
+    assert (thin.cycle, thin.edge_visits) == (first.witness, first.edge_visits)
+    assert [thin.cycle.edges[0].pool, thick.cycle.edges[0].pool] == ["a-thin", "z-thick"]
+    assert thin.cycle.gain > thick.cycle.gain > 1
+    assert 0 < thin.edge_visits < thick.edge_visits <= continued.edge_visits < 100
+
+    thin_route, thick_route = (
+        V2Route(tuple(V2Leg(known_pools[edge.pool], edge.token_in) for edge in found.cycle.edges))
+        for found in (thin, thick)
+    )
+    cost = 10_000
+    assert thin_route.all_input_bounds(total_cost_in_anchor=cost).net_upper < 0
+    sized = thick_route.size(1, 100_000, total_cost_in_anchor=cost)
+    assert sized.complete and sized.best_net == 8_941
+    assert sized.best is not None and sized.best.amount_out == 118_941
+    assert sized.best.amount_in == 100_000
+
+    cut_by_edges = search_long_marginal_frontier(
+        edges,
+        min_hops=3,
+        max_hops=3,
+        max_edge_visits=thin.edge_visits,
+        max_witnesses=3,
+        required_pools=changed,
+    )
+    assert cut_by_edges.witnesses == (thin,)
+    assert cut_by_edges.edge_visits == thin.edge_visits
+    assert cut_by_edges.stop is LongCycleStop.EDGE_BUDGET
+    cut_by_witnesses = search_long_marginal_frontier(
+        edges,
+        min_hops=3,
+        max_hops=3,
+        max_edge_visits=100,
+        max_witnesses=2,
+        required_pools=changed,
+    )
+    assert cut_by_witnesses.witnesses == (thin, thick)
+    assert cut_by_witnesses.edge_visits == thick.edge_visits
+    assert cut_by_witnesses.stop is LongCycleStop.WITNESS_BUDGET

@@ -10,17 +10,27 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
-from oasis_agent.fastpath.long_cycle import bound_simple_cycles, search_long_marginal_cycle
-from oasis_agent.fastpath.marginal_graph import MarginalEdge
+from oasis_agent.fastpath.long_cycle import (
+    LongCycleWitness,
+    bound_simple_cycles,
+    search_long_marginal_cycle,
+    search_long_marginal_frontier,
+)
+from oasis_agent.fastpath.marginal_graph import MarginalEdge, PositiveMarginalCycle
 
 if __package__:
-    from .replay_v2_pool_expansion import _build_route, _read_snapshot
+    from .replay_v2_pool_expansion import _build_route, _read_snapshot, _Snapshot
 else:
-    from replay_v2_pool_expansion import _build_route, _read_snapshot
+    from replay_v2_pool_expansion import _build_route, _read_snapshot, _Snapshot
 
 BANDS = ((12, 24), (25, 100), (101, 300))
 MAX_EDGE_VISITS = 250_000
 DEEPER_BANDS = ((20, 20), (19, 19), (18, 18), (17, 17), (16, 16), (15, 15))
+FRONTIER_BAND = (12, 20)
+FRONTIER_WITNESSES = 128
+FRONTIER_MAX_AMOUNT_IN = 10**17
+FRONTIER_MAX_QUOTES = 64
+FRONTIER_MAX_STEPS = 128
 
 
 def _standalone_std_v2_gas_floor(hops: int) -> int:
@@ -47,17 +57,9 @@ def _best_rate_per_direction(edges: list[MarginalEdge]) -> list[MarginalEdge]:
     return list(best.values())
 
 
-def analyze(
-    raw: bytes,
-    *,
-    deeper: bool = False,
-    changed_pools: frozenset[str] | None = None,
-    standalone_economics: bool = False,
-) -> dict[str, Any]:
-    snapshot = json.loads(raw)
+def _marginal_edges(snapshot: dict[str, Any]) -> tuple[list[MarginalEdge], Counter[str]]:
     if snapshot["status"] != "complete" or snapshot["pin_rechecked"] is not True:
         raise ValueError("complete retained block-pinned snapshot required")
-    pricing = _read_snapshot(raw, 56, None, None) if standalone_economics else None
     edges = []
     active: Counter[str] = Counter()
     for pool in snapshot["pools"]:
@@ -84,6 +86,38 @@ def analyze(
                 ),
             ]
         )
+    return edges, active
+
+
+def _witness_row(witness: PositiveMarginalCycle) -> dict[str, Any]:
+    gain = witness.gain
+    return {
+        "length": len(witness.edges),
+        "gain_numerator": str(gain.numerator),
+        "gain_denominator": str(gain.denominator),
+        "gain_bps": float((gain - 1) * 10_000),
+        "edges": [
+            {
+                "token_in": edge.token_in,
+                "token_out": edge.token_out,
+                "pool": edge.pool,
+                "rate": [str(edge.rate.numerator), str(edge.rate.denominator)],
+            }
+            for edge in witness.edges
+        ],
+    }
+
+
+def analyze(
+    raw: bytes,
+    *,
+    deeper: bool = False,
+    changed_pools: frozenset[str] | None = None,
+    standalone_economics: bool = False,
+) -> dict[str, Any]:
+    snapshot = json.loads(raw)
+    edges, active = _marginal_edges(snapshot)
+    pricing = _read_snapshot(raw, 56, None, None) if standalone_economics else None
     topology = bound_simple_cycles(edges)
     # A pool discarded by marginal dominance may be the required changed pool.
     projection = deeper and changed_pools is None
@@ -111,23 +145,8 @@ def analyze(
         if result.budget_exhausted:
             band["status"] = "budget_exhausted"
         if witness is not None:
-            gain = witness.gain
             band["status"] = "positive_marginal_witness"
-            band["witness"] = {
-                "length": len(witness.edges),
-                "gain_numerator": str(gain.numerator),
-                "gain_denominator": str(gain.denominator),
-                "gain_bps": float((gain - 1) * 10_000),
-                "edges": [
-                    {
-                        "token_in": edge.token_in,
-                        "token_out": edge.token_out,
-                        "pool": edge.pool,
-                        "rate": [str(edge.rate.numerator), str(edge.rate.denominator)],
-                    }
-                    for edge in witness.edges
-                ],
-            }
+            band["witness"] = _witness_row(witness)
             if pricing is not None:
                 anchor = next(
                     (
@@ -182,10 +201,98 @@ def analyze(
     }
 
 
+def _price_frontier_witness(witness: LongCycleWitness, snapshot: _Snapshot) -> dict[str, Any]:
+    row = _witness_row(witness.cycle)
+    row["edge_visits"] = witness.edge_visits
+    edges = witness.cycle.edges
+    anchor = next(
+        (index for index, edge in enumerate(edges) if edge.token_in == snapshot.anchor), None
+    )
+    if anchor is None:
+        row["status"] = "outside_anchor"
+        return row
+
+    ordered = edges[anchor:] + edges[:anchor]
+    route = _build_route(snapshot, tuple(edge.pool for edge in ordered))
+    gas_units = _standalone_std_v2_gas_floor(len(edges))
+    cost = gas_units * snapshot.gas_price
+    all_inputs = route.all_input_bounds(total_cost_in_anchor=cost)
+    sized = route.size(
+        1,
+        FRONTIER_MAX_AMOUNT_IN,
+        total_cost_in_anchor=cost,
+        max_quotes=FRONTIER_MAX_QUOTES,
+        max_steps=FRONTIER_MAX_STEPS,
+    )
+    return {
+        **row,
+        "status": "priced",
+        "cost_assumption_wei": cost,
+        "gross_upper_all_inputs_wei": all_inputs.gross_upper,
+        "net_upper_after_cost_all_inputs_wei": all_inputs.net_upper,
+        "quoted_amounts": sized.best.amounts if sized.best is not None else None,
+        "best_verified_model_net_after_cost_wei": sized.best_net,
+        "net_upper_in_range_wei": sized.net_upper,
+        "sizing_quotes": sized.quotes_evaluated,
+        "sizing_steps": sized.steps,
+        "sizing_residuals": [asdict(residual) for residual in sized.residuals],
+    }
+
+
+def compare_frontier(raw: bytes) -> dict[str, Any]:
+    snapshot = _read_snapshot(raw, 56, None, None)
+    edges, active = _marginal_edges(json.loads(raw))
+    minimum, maximum = FRONTIER_BAND
+    arms = {}
+    timings = {}
+    for max_witnesses in (1, FRONTIER_WITNESSES):
+        scan_start = time.perf_counter_ns()
+        result = search_long_marginal_frontier(
+            edges,
+            min_hops=minimum,
+            max_hops=maximum,
+            max_edge_visits=MAX_EDGE_VISITS,
+            max_witnesses=max_witnesses,
+        )
+        scan_end = time.perf_counter_ns()
+        rows = [_price_frontier_witness(witness, snapshot) for witness in result.witnesses]
+        pricing_end = time.perf_counter_ns()
+        name = "first" if max_witnesses == 1 else "continued"
+        arms[name] = {
+            "edge_visits": result.edge_visits,
+            "stop": result.stop,
+            "witnesses": rows,
+        }
+        timings[name] = {"search": scan_end - scan_start, "pricing": pricing_end - scan_end}
+    if arms["first"]["witnesses"] != arms["continued"]["witnesses"][:1]:
+        raise RuntimeError("first witness changed search or pricing details")
+    return {
+        "schema": "oasis-bsc-long-marginal-frontier-v1",
+        "input_sha256": snapshot.digest,
+        "chain": snapshot.chain,
+        "block": snapshot.block,
+        "block_hash": snapshot.block_hash,
+        "anchor": snapshot.anchor,
+        "gas_price_wei": snapshot.gas_price,
+        "positive_reserve_pools_by_venue": dict(active),
+        "requested_band": FRONTIER_BAND,
+        "max_edge_visits_per_arm": MAX_EDGE_VISITS,
+        "max_witnesses_by_arm": {"first": 1, "continued": FRONTIER_WITNESSES},
+        "sizing_amount_in_range": (1, FRONTIER_MAX_AMOUNT_IN),
+        "sizing_max_quotes_per_witness": FRONTIER_MAX_QUOTES,
+        "sizing_max_steps_per_witness": FRONTIER_MAX_STEPS,
+        "arms": arms,
+        "timings_ns": timings,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--deeper", action="store_true")
+    parser.add_argument(
+        "--frontier", action="store_true", help="Compare first and continued BSC witnesses"
+    )
     parser.add_argument(
         "--changed-pool",
         action="append",
@@ -197,6 +304,11 @@ def main() -> None:
         help="Apply an all-input WBNB profit bound and scenario gas floor to each found witness",
     )
     args = parser.parse_args()
+    if args.frontier:
+        if args.deeper or args.changed_pool or args.standalone_economics:
+            parser.error("--frontier has its own fixed scope and standalone pricing assumptions")
+        print(json.dumps(compare_frontier(args.snapshot.read_bytes()), indent=2, sort_keys=True))
+        return
     result = analyze(
         args.snapshot.read_bytes(),
         deeper=args.deeper,

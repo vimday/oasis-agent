@@ -1,6 +1,6 @@
 # 当前实现与验证边界
 
-更新：2026-11-22。这里记录已实现能力、已验证结果和待解决问题。发布资格以具体代码、
+更新：2026-11-27。这里记录已实现能力、已验证结果和待解决问题。发布资格以具体代码、
 配置、当前证据和授权为准。历史验收记录适用于其原始范围。
 
 ## 当前工作
@@ -79,6 +79,7 @@
 
 ## 证据导航
 
+- 11 月 27 日在 Aleph 扫描 Ethereum 两日全部 12,912,914 条归档日志，逐腿确认一次 54 项连续资产变换的 USDC 闭环，后接 ETH 结算，[同包络块末回滚、直接子块因费用被拒](verification/ETH_SERIAL_LIFETIME_20261127.md)；另定位与业界 109/272 描述相符的四批次候选。BSC 长环离线搜索支持输出多个见证并逐条核算。Base 首个 Slipstream 池真实跨 tick 回放将原网格完整报价从 236 提升至 2,436，模型净正仍为零。[Ethereum 搜索与费用](verification/ETH_ARCHIVE_SERIAL_SEARCH_20261127.md) · [指纹候选](verification/ETH_TRANSFER_FINGERPRINT_20261127.md) · [Base](verification/BASE_SLIPSTREAM_DEPTH_20261127.md) · [BSC 搜索](verification/LONG_SEARCH_FRONTIER_20261127.md) · [BSC／Robinhood 收据](verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md)
 - 11 月 27 日重放 Base 4,752 个金额，三个 Slipstream 池占 97.17% 首失败。同块两源对首池的一个原始第三腿输入均成功报价，跨五个初始化 tick。已更新真实 tick 覆盖、每头读取预算、扩大池组的整笔验证及四链长尾取样顺序。[归因与实查](verification/MULTIHOP_PRIORITY_DIAGNOSIS_20261127.md) · [实验顺序](strategies/MULTIHOP_ARBITRAGE_TODO.md)
 
 - [链上多跳套利技术调研与 P0/P1 内核升级规范](strategies/MULTIHOP_ARBITRAGE_RESEARCH.md)
