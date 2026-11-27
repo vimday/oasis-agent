@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sqlite3
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, replace
@@ -11,6 +12,7 @@ from threading import Event
 import httpx
 
 from oasis_agent.arbitrage.cycle_protocols import data_bytes
+from oasis_agent.evidence import eth_child_witness as head_witness
 from oasis_agent.evidence.rpc_validation import (
     rpc_quantity,
     strict_digest,
@@ -70,8 +72,10 @@ WALL_SECONDS = 75
 DEADLINE_NS = 4_000_000_000
 BODY_CAP = 768 << 10
 LEGACY_SCOPE_SCHEMA = "oasis.eth-v2-batch-shadow-window.v1"
-SCOPE_SCHEMA = "oasis.eth-v2-batch-shadow-window.v2"
+HTTP_SCOPE_SCHEMA = "oasis.eth-v2-batch-shadow-window.v2"
+SCOPE_SCHEMA = "oasis.eth-v2-batch-shadow-window.v3"
 CHILD_CLOCK_BASIS = "post_quorum_publicnode_http_without_independent_child_witness"
+INDEPENDENT_CLOCK_BASIS = "continuous_drpc_newheads_local_monotonic_receive"
 CONTROL_SYMBOLS = ("WETH", "USDT", "LINK", "WETH")
 CONTROL_POOLS = (
     "0x06da0fd433c1a5d7a4faa01111c044910a184553",
@@ -565,7 +569,13 @@ def trace_fee(reads: ShadowReads, head: Head, payload: dict, result: dict) -> di
     }
 
 
-def reduce_outcomes(report: dict, discovered: Head, first_return: Head, child: Head) -> None:
+def reduce_outcomes(
+    report: dict,
+    discovered: Head,
+    first_return: Head,
+    child: Head,
+    witness: head_witness.ChildWitness | None = None,
+) -> None:
     scope = BatchShadowScope(
         chain_id=1,
         plan_sha256=report["scope_sha256"],
@@ -620,16 +630,19 @@ def reduce_outcomes(report: dict, discovered: Head, first_return: Head, child: H
             head=observed, results=batch, witness_started_ns=head.sent_ns if label == "K" else None
         )
 
+    child_clock = witness.child_monotonic_ns if witness and witness.status == "verified" else None
     outcome = reduce_batch_shadow(
         scope,
         kind=report["candidate_kind"],
         discovery=phase("H", discovered),
         first_return=phase("K", first_return),
         child=phase("C", child),
-        independent_child_clock=False,
+        independent_child_observed_ns=child_clock,
     )
     report["fee_basis"] = "dual_whole_output_with_frozen_gas_limit_upper_bound"
-    report["child_clock_basis"] = CHILD_CLOCK_BASIS
+    report["child_clock_basis"] = (
+        INDEPENDENT_CLOCK_BASIS if child_clock is not None else CHILD_CLOCK_BASIS
+    )
     quorum = outcome.discovery.quorum_return_ns
     report["publicnode_post_quorum_latest_was_discovery"] = (
         first_return.block_hash == discovered.block_hash
@@ -727,7 +740,7 @@ def require_nonce(reads: ShadowReads, head: Head, expected: int) -> None:
         raise ShadowStop("frozen_research_nonce_changed")
 
 
-def freeze(root: Path, roster_path: Path, artifact: Path) -> None:
+def freeze(root: Path, roster_path: Path, artifact: Path, *, independent_newheads: bool) -> None:
     from_roster = roster_path.read_bytes()
     if sha256_hex(from_roster) != ROSTER_SOURCE_SHA256:
         raise ShadowStop("roster_source_commitment_mismatch")
@@ -743,13 +756,44 @@ def freeze(root: Path, roster_path: Path, artifact: Path) -> None:
     root.mkdir(exist_ok=False)
     durable_new(root / "runtime.bin", runtime)
     durable_new(root / "roster.json", canonical_json(roster))
-    plan = plan_for(root, locked_ms=time.time_ns() // 1_000_000)
+    plan = plan_for(
+        root,
+        locked_ms=time.time_ns() // 1_000_000,
+        independent_newheads=independent_newheads,
+    )
+    retained = root / "frozen-sources"
+    retained.mkdir()
+    for path, expected in frozen_sources(plan):
+        raw = path.read_bytes()
+        if sha256_hex(raw) != expected:
+            raise ShadowStop("source_changed_during_freeze")
+        durable_new(retained / path.name, raw)
     durable_new(root / "scope.json", canonical_json(plan))
 
 
-def plan_for(root: Path, *, locked_ms: int, legacy_strategy_sha256: str | None = None) -> dict:
+def frozen_sources(plan: dict) -> list[tuple[Path, str]]:
+    sources = [
+        (Path(__file__), plan["strategy_sha256"]),
+        (Path(wide.__file__), plan["wide_grid_sha256"]),
+        (ROOT / "src/oasis_agent/fastpath/v2_batch.py", plan["kernel_sha256"]),
+        (ROOT / "src/oasis_agent/fastpath/batch_shadow.py", plan["batch_shadow_reducer_sha256"]),
+    ]
+    if plan["ethereum_newheads"] is not None:
+        sources.append((Path(head_witness.__file__), plan["ethereum_newheads"]["capture_sha256"]))
+    return sources
+
+
+def plan_for(
+    root: Path,
+    *,
+    locked_ms: int,
+    independent_newheads: bool = False,
+    retained_plan: dict | None = None,
+) -> dict:
+    schema = retained_plan["schema"] if retained_plan is not None else SCOPE_SCHEMA
+    kernel = ROOT / "src/oasis_agent/fastpath/v2_batch.py"
     plan = {
-        "schema": LEGACY_SCOPE_SCHEMA if legacy_strategy_sha256 is not None else SCOPE_SCHEMA,
+        "schema": schema,
         "locked_ms": locked_ms,
         "chain_id": 1,
         "sources": SOURCES,
@@ -778,15 +822,47 @@ def plan_for(root: Path, *, locked_ms: int, legacy_strategy_sha256: str | None =
         "roster_source_sha256": ROSTER_SOURCE_SHA256,
         "runtime_sha256": sha256_hex((root / "runtime.bin").read_bytes()),
         "roster_sha256": sha256_hex((root / "roster.json").read_bytes()),
-        "strategy_sha256": legacy_strategy_sha256 or sha256_hex(Path(__file__).read_bytes()),
-        "wide_grid_sha256": sha256_hex(Path(wide.__file__).read_bytes()),
-        "kernel_sha256": sha256_hex((ROOT / "src/oasis_agent/fastpath/v2_batch.py").read_bytes()),
+        "strategy_sha256": (
+            strict_digest(retained_plan["strategy_sha256"], "retained strategy SHA-256")
+            if retained_plan is not None
+            else sha256_hex(Path(__file__).read_bytes())
+        ),
+        "wide_grid_sha256": (
+            strict_digest(retained_plan["wide_grid_sha256"], "retained grid SHA-256")
+            if retained_plan is not None
+            else sha256_hex(Path(wide.__file__).read_bytes())
+        ),
+        "kernel_sha256": (
+            strict_digest(retained_plan["kernel_sha256"], "retained kernel SHA-256")
+            if retained_plan is not None
+            else sha256_hex(kernel.read_bytes())
+        ),
         "execution_eligible": False,
     }
-    if legacy_strategy_sha256 is None:
+    if schema != LEGACY_SCOPE_SCHEMA:
         reducer = ROOT / "src/oasis_agent/fastpath/batch_shadow.py"
-        plan["batch_shadow_reducer_sha256"] = sha256_hex(reducer.read_bytes())
+        plan["batch_shadow_reducer_sha256"] = (
+            strict_digest(retained_plan["batch_shadow_reducer_sha256"], "retained reducer SHA-256")
+            if retained_plan is not None
+            else sha256_hex(reducer.read_bytes())
+        )
         plan["child_clock_basis"] = CHILD_CLOCK_BASIS
+    if schema == SCOPE_SCHEMA:
+        plan["ethereum_newheads"] = (
+            {
+                **head_witness.witness_plan(),
+                "capture_sha256": (
+                    strict_digest(
+                        retained_plan["ethereum_newheads"]["capture_sha256"],
+                        "retained witness SHA-256",
+                    )
+                    if retained_plan is not None
+                    else sha256_hex(Path(head_witness.__file__).read_bytes())
+                ),
+            }
+            if independent_newheads
+            else None
+        )
     return plan
 
 
@@ -816,6 +892,37 @@ def legacy_control_replay(report: dict) -> dict:
     return legacy
 
 
+def bind_independent_feed(
+    report: dict, directory: Path, session: head_witness.EthereumChildSession | None
+) -> None:
+    h, c = report.get("discovery_head"), report.get("direct_child_head")
+
+    def binding(head: dict | None) -> head_witness.WitnessHead | None:
+        if head is None:
+            return None
+        return head_witness.WitnessHead(head["height"], head["block_hash"], head["parent_hash"])
+
+    if session is not None:
+        session.close(binding(c))
+    try:
+        witness, wire = head_witness.inspect_witness(
+            directory,
+            report["scope_sha256"],
+            discovery=binding(h),
+            discovery_request_ns=h["sent_ns"] if h is not None else None,
+            child=binding(c),
+        )
+    except (OSError, ValueError, TypeError, sqlite3.Error) as exc:
+        witness, wire = head_witness.ChildWitness(f"unverified_witness:{type(exc).__name__}"), {}
+    report["ethereum_newheads"] = {"witness": asdict(witness), "transport": wire}
+    if "normalized_outcome" in report:
+        reduce_outcomes(report, Head(**h), Head(**report["first_return_head"]), Head(**c), witness)
+    if witness.status != "verified" and (
+        report["stop_reason"] in (None, "scope_stopped_or_expired", "FileNotFoundError")
+    ):
+        report["stop_reason"] = f"independent_newheads:{witness.status}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("freeze", "capture", "replay"))
@@ -823,34 +930,52 @@ def main() -> int:
     parser.add_argument("--roster-source", type=Path)
     parser.add_argument("--artifact", type=Path)
     parser.add_argument("--scope-sha256")
+    parser.add_argument("--independent-newheads", action="store_true", help="opt in during freeze")
     args = parser.parse_args()
     root = args.root
     if args.mode == "freeze":
         if not args.roster_source or not args.artifact:
             parser.error("freeze requires --roster-source and --artifact")
-        freeze(root, args.roster_source, args.artifact)
+        freeze(
+            root, args.roster_source, args.artifact, independent_newheads=args.independent_newheads
+        )
         print(sha256_hex((root / "scope.json").read_bytes()))
         return 0
+    if args.independent_newheads:
+        parser.error("the independent newHeads choice is fixed in the frozen scope")
     live = args.mode == "capture"
     plan_raw = (root / "scope.json").read_bytes()
     plan = strict_json_object(plan_raw)
     legacy = plan["schema"] == LEGACY_SCOPE_SCHEMA
-    if legacy and live:
+    retained = plan["schema"] in (LEGACY_SCOPE_SCHEMA, HTTP_SCOPE_SCHEMA)
+    if retained and live:
         raise ShadowStop("legacy_scope_is_replay_only")
-    if (live or legacy or args.scope_sha256 is not None) and args.scope_sha256 != sha256_hex(
+    if (live or retained or args.scope_sha256 is not None) and args.scope_sha256 != sha256_hex(
         plan_raw
     ):
         parser.error("capture and legacy replay require the precommitted --scope-sha256")
-    legacy_hash = (
-        strict_digest(plan["strategy_sha256"], "legacy strategy SHA-256") if legacy else None
+    independent = plan.get("ethereum_newheads") is not None
+    expected = plan_for(
+        root,
+        locked_ms=plan["locked_ms"],
+        independent_newheads=independent,
+        retained_plan=plan if retained else None,
     )
-    if (
-        canonical_json(
-            plan_for(root, locked_ms=plan["locked_ms"], legacy_strategy_sha256=legacy_hash)
+    if canonical_json(expected) != plan_raw:
+        if live or plan["schema"] != SCOPE_SCHEMA or args.scope_sha256 is None:
+            raise ShadowStop("preregistration_or_inputs_changed")
+        for path, digest in frozen_sources(plan):
+            raw = (root / "frozen-sources" / path.name).read_bytes()
+            if sha256_hex(raw) != digest:
+                raise ShadowStop("retained_source_bytes_changed")
+        structural = plan_for(
+            root,
+            locked_ms=plan["locked_ms"],
+            independent_newheads=independent,
+            retained_plan=plan,
         )
-        != plan_raw
-    ):
-        raise ShadowStop("preregistration_or_inputs_changed")
+        if canonical_json(structural) != plan_raw:
+            raise ShadowStop("preregistration_or_inputs_changed")
     if live:
         now = time.time_ns() // 1_000_000
         if not 0 < now - plan["locked_ms"] <= 300_000:
@@ -870,10 +995,19 @@ def main() -> int:
         "stop_reason": None,
     }
     previous = None if live else strict_json_object((root / "result.json").read_bytes())
+    session = None
+    witness_directory = root / head_witness.DIRECTORY
+    if independent and live:
+        session = head_witness.EthereumChildSession(
+            witness_directory, report["scope_sha256"], reads.stop
+        )
+        session.start()
     try:
         run_window(reads, roster, runtime, report)
     except (OSError, ValueError, TypeError, KeyError, RuntimeError) as exc:
         report["stop_reason"] = str(exc) if isinstance(exc, ShadowStop) else type(exc).__name__
+    if independent:
+        bind_independent_feed(report, witness_directory, session)
     with RpcBudget(reads.ledger, POLICIES, read_only=True) as budget:
         report["rpc_counts"] = budget.counts()
     if report["rpc_counts"] != reads.counts:

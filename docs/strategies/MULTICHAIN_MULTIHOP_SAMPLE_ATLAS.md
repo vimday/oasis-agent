@@ -1,5 +1,7 @@
 # 八链多跳套利样本总览
 
+后续已将此批次与第二分片、BSC 新区块合并，累计 118,083 个可定位交易、705 笔入册。后续又从原始收据确认了 Optimism 四笔 100 至 136 次市场兑换的跨轮复投，包含轮间解包与包装。下表保留首批冻结分母，以便复算。[最新黄金样本册](MULTIHOP_GOLDEN_CASEBOOK.md) · [完整逐笔登记](../verification/MULTIHOP_GOLD_CASE_INDEX_20261127.md)
+
 截至 2026-11-27，按链 ID 和交易哈希去重，能够从本项目留存或本次核对的公开数据中逐笔定位 **100,572 笔已入块交易**。其中 **655 笔**进入案例表，涵盖历史个案、按规则入选的待核交易、失败交易和对照。**最强的长串行证据来自 Ethereum，一笔交易连续完成 54 个有资金依赖的动作，其中连续池交易最长 31 跳。** 另两笔公开极值分别使用固定本金做了 71 个两跳环和 24 个三跳环。三类结构给搜索器提出了不同要求。[655 笔案例表](../verification/MULTICHAIN_MULTIHOP_CASES_20261127.tsv) · [全部可定位交易，gzip TSV](../verification/MULTICHAIN_MULTIHOP_ALL_HASHES_20261127.tsv.gz) · [范围、费用、原件与复算](../verification/MULTICHAIN_SAMPLE_CATALOG_20261127.md)
 
 ## 各链到底找到了多少

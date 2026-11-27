@@ -1,7 +1,8 @@
-"""Export the ten receipt-backed two-shape candidates from one frozen BSC block."""
+"""Export all two-shape candidates from a frozen BSC discovery head's verified receipts."""
 
 from __future__ import annotations
 
+import argparse
 import json
 from hashlib import sha256
 from pathlib import Path
@@ -13,9 +14,6 @@ from oasis_agent.evidence.public_receipts import quantity
 ROOT = Path(__file__).resolve().parents[3]
 RESEARCH = "reports/research/"
 WINDOW = f"{RESEARCH}bsc-next-window-20261127/"
-HEADER = f"{WINDOW}wire/03.response"
-RECEIPTS = f"{WINDOW}wire/16.response"
-FROZEN_RESULT = f"{WINDOW}result.json"
 EXPANSION = "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
 BASELINE = f"{RESEARCH}bsc-wide-forward-20261123/universe.json"
 TOPICS = f"{RESEARCH}bsc-window-audits-20261127/cohort/scope.json"
@@ -30,10 +28,39 @@ def read(path: str) -> Any:
 
 
 def main() -> None:
-    receipt_bytes = raw(RECEIPTS)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--window", type=Path, default=Path(WINDOW))
+    window = (ROOT / parser.parse_args().window).resolve().relative_to(ROOT)
+    summary_path = str(window / "result.json")
+    summary = read(summary_path)
+    if (
+        summary["stop"]
+        or read(str(window / "STOP.json"))["result_sha256"] != sha256(raw(summary_path)).hexdigest()
+    ):
+        raise ValueError("incomplete run or mismatched stop record")
+    header_name = str(window / "wire" / f"{summary['H']['rpc_seq']:02}.response")
+    header = read(header_name)["result"]
+    request_paths = [
+        path
+        for path in sorted((ROOT / window / "wire").glob("*.request"))
+        if (request := json.loads(path.read_bytes()))["method"] == "eth_getBlockReceipts"
+        and request["params"] == [header["hash"]]
+    ]
+    if len(request_paths) != 1:
+        raise ValueError("expected one receipt request bound to the discovery block")
+    receipt_name = str(request_paths[0].with_suffix(".response").relative_to(ROOT))
+    for name in (header_name, receipt_name):
+        meta = read(str(Path(name).with_suffix(".meta.json")))
+        req = raw(str(Path(name).with_suffix(".request")))
+        if (
+            meta["http"] != 200
+            or meta["sha256"] != sha256(raw(name)).hexdigest()
+            or meta["request_sha256"] != sha256(req).hexdigest()
+            or read(name)["id"] != json.loads(req)["id"]
+        ):
+            raise ValueError("unverified header or receipts response")
+    receipt_bytes = raw(receipt_name)
     receipts = json.loads(receipt_bytes)["result"]
-    header = read(HEADER)["result"]
-    summary = read(FROZEN_RESULT)
     if summary["H"]["hash"] != header["hash"] or summary["H"]["number"] != header["number"]:
         raise ValueError("receipt block header differs from the frozen discovery head")
     topics = set(read(TOPICS)["signatures"])
@@ -82,9 +109,14 @@ def main() -> None:
                 "roster_overlap": overlaps,
             }
         )
-    observed = {row["tx"] for row in checked["overlap_transactions"]}
+    observed = {row["tx"] for row in checked["overlap_transactions"] if row["event_shapes"] >= 2}
+    expected = sum(
+        count
+        for n, count in checked["transaction_counts_by_matching_events"].items()
+        if int(n) >= 2
+    )
     if (
-        len(samples) != 10
+        len(samples) != expected
         or {row["tx_hash"] for row in samples if row["roster_overlap"]} != observed
     ):
         raise ValueError("frozen candidate or roster overlap denominator differs")
@@ -95,10 +127,10 @@ def main() -> None:
         "block_number": quantity(header["number"]),
         "block_hash": header["hash"],
         "receipts_root": checked["receipts_root"],
-        "raw_response": RECEIPTS,
+        "raw_response": receipt_name,
         "raw_response_sha256": sha256(receipt_bytes).hexdigest(),
-        "raw_header": HEADER,
-        "raw_header_sha256": sha256(raw(HEADER)).hexdigest(),
+        "raw_header": header_name,
+        "raw_header_sha256": sha256(raw(header_name)).hexdigest(),
         "all_receipts": len(receipts),
         "matched_log_topic0": sorted(topics),
         "pool_roster_overlap_transactions": len(observed),

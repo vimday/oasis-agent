@@ -1,0 +1,1201 @@
+{
+  "cases": [
+    {
+      "agreeing_receipt_sources": 2,
+      "block_hash": "0x4de11bb06c3e71e5792c95aa659b2d51e28e2dcc240580ee01bc074e8ee943b8",
+      "block_number": 11169933,
+      "cash": {
+        "closing_recipient": "0xb5833db3379abba68c591645e5df1423d56460b4",
+        "currency": "0x4200000000000000000000000000000000000006",
+        "executor": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+        "executor_delta_raw": 0,
+        "gross_raw": 5654794866077543,
+        "group_transfers": [
+          {
+            "funding_transfer": 2,
+            "group": 1,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525960994229294268096,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 1,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 4
+              },
+              {
+                "amount_raw": 42555847,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 6,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 11
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25285725073472475,
+            "return_transfer": 0
+          },
+          {
+            "funding_transfer": 18,
+            "group": 2,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525933007578663847486,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 17,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 20
+              },
+              {
+                "amount_raw": 42537904,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 22,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 27
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25274185243813544,
+            "return_transfer": 16
+          },
+          {
+            "funding_transfer": 34,
+            "group": 3,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154939273451847292407,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 33,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 36
+              },
+              {
+                "amount_raw": 42525448,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 38,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 43
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25265906539871341,
+            "return_transfer": 32
+          },
+          {
+            "funding_transfer": 50,
+            "group": 4,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525905023161749759521,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 49,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 52
+              },
+              {
+                "amount_raw": 42519973,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 54,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 59
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25261776101421220,
+            "return_transfer": 48
+          },
+          {
+            "funding_transfer": 66,
+            "group": 5,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525877040978314302498,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 65,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 68
+              },
+              {
+                "amount_raw": 42502052,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 70,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 75
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25250252070982046,
+            "return_transfer": 64
+          },
+          {
+            "funding_transfer": 82,
+            "group": 6,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154905755677378326836,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 81,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 84
+              },
+              {
+                "amount_raw": 42488399,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 86,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 91
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25241264660153022,
+            "return_transfer": 80
+          },
+          {
+            "funding_transfer": 98,
+            "group": 7,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525849061028119806330,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 97,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 100
+              },
+              {
+                "amount_raw": 42484143,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 102,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 107
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25237860364806290,
+            "return_transfer": 96
+          },
+          {
+            "funding_transfer": 114,
+            "group": 8,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525821083310928632544,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 113,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 116
+              },
+              {
+                "amount_raw": 42466246,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 118,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 123
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25226353314130207,
+            "return_transfer": 112
+          },
+          {
+            "funding_transfer": 130,
+            "group": 9,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154872248778005881167,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 129,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 132
+              },
+              {
+                "amount_raw": 42451398,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 134,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 139
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25216658527888405,
+            "return_transfer": 128
+          },
+          {
+            "funding_transfer": 146,
+            "group": 10,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525793107826503174274,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 145,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 148
+              },
+              {
+                "amount_raw": 42448359,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 150,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 155
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25213979032752995,
+            "return_transfer": 144
+          },
+          {
+            "funding_transfer": 162,
+            "group": 11,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525765134574605856258,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 161,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 164
+              },
+              {
+                "amount_raw": 42430484,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 166,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 171
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25202487766088918,
+            "return_transfer": 160
+          },
+          {
+            "funding_transfer": 178,
+            "group": 12,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 42428962,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 177,
+                "holder": null,
+                "to_market_log": 177
+              }
+            ],
+            "principal_raw": 24999999524615988,
+            "return_raw": 25200710355789592,
+            "return_transfer": 176
+          },
+          {
+            "funding_transfer": 186,
+            "group": 13,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154838752749025787275,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 185,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 188
+              },
+              {
+                "amount_raw": 42414445,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 190,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 195
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25191215097090759,
+            "return_transfer": 184
+          },
+          {
+            "funding_transfer": 202,
+            "group": 14,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525737163554999134832,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 201,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 204
+              },
+              {
+                "amount_raw": 42412621,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 206,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 211
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25189259142766648,
+            "return_transfer": 200
+          },
+          {
+            "funding_transfer": 218,
+            "group": 15,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525709194767445497923,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 217,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 220
+              },
+              {
+                "amount_raw": 42394768,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 222,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 227
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25177784065328743,
+            "return_transfer": 216
+          },
+          {
+            "funding_transfer": 234,
+            "group": 16,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154805267585736420321,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 233,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 236
+              },
+              {
+                "amount_raw": 42377541,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 238,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 243
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25166681889729016,
+            "return_transfer": 232
+          },
+          {
+            "funding_transfer": 250,
+            "group": 17,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525681228211707465048,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 249,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 252
+              },
+              {
+                "amount_raw": 42376927,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 254,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 259
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25165446245019571,
+            "return_transfer": 248
+          },
+          {
+            "funding_transfer": 266,
+            "group": 18,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525653263887547587305,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 265,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 268
+              },
+              {
+                "amount_raw": 42359097,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 270,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 275
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25153987529772423,
+            "return_transfer": 264
+          },
+          {
+            "funding_transfer": 282,
+            "group": 19,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525625301794728447371,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 281,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 284
+              },
+              {
+                "amount_raw": 42341278,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 286,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 291
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25142536490309096,
+            "return_transfer": 280
+          },
+          {
+            "funding_transfer": 298,
+            "group": 20,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154771793283438697105,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 297,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 300
+              },
+              {
+                "amount_raw": 42340685,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 302,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 307
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25141314978144939,
+            "return_transfer": 296
+          },
+          {
+            "funding_transfer": 314,
+            "group": 21,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525597341933012659496,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 313,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 316
+              },
+              {
+                "amount_raw": 42323471,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 318,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 323
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25130224738776893,
+            "return_transfer": 312
+          },
+          {
+            "funding_transfer": 330,
+            "group": 22,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525569384302162869495,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 329,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 332
+              },
+              {
+                "amount_raw": 42305674,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 334,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 339
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25118789456832959,
+            "return_transfer": 328
+          },
+          {
+            "funding_transfer": 346,
+            "group": 23,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154738329837436074417,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 345,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 348
+              },
+              {
+                "amount_raw": 42303876,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 350,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 355
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25116854151820602,
+            "return_transfer": 344
+          },
+          {
+            "funding_transfer": 362,
+            "group": 24,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525541428901941754748,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 361,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 364
+              },
+              {
+                "amount_raw": 42287889,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 366,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 371
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25106495079761976,
+            "return_transfer": 360
+          },
+          {
+            "funding_transfer": 378,
+            "group": 25,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525513475732112024193,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 377,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 380
+              },
+              {
+                "amount_raw": 42270116,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 382,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 387
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25095076735241921,
+            "return_transfer": 376
+          },
+          {
+            "funding_transfer": 394,
+            "group": 26,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 154704877243034547390,
+                "currency": "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+                "from_market_log": 393,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 396
+              },
+              {
+                "amount_raw": 42267116,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 398,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 403
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25092429562773278,
+            "return_transfer": 392
+          },
+          {
+            "funding_transfer": 410,
+            "group": 27,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525485524792436418318,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 409,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 412
+              },
+              {
+                "amount_raw": 42252353,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 414,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 419
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25082799721303243,
+            "return_transfer": 408
+          },
+          {
+            "funding_transfer": 426,
+            "group": 28,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48221945245049125305,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 425,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 428
+              },
+              {
+                "amount_raw": 42249960,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 429,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 434
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25080513811623585,
+            "return_transfer": 424
+          },
+          {
+            "funding_transfer": 441,
+            "group": 29,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48221348413456490208,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 440,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 443
+              },
+              {
+                "amount_raw": 42247182,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 444,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 449
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25077999561024692,
+            "return_transfer": 439
+          },
+          {
+            "funding_transfer": 456,
+            "group": 30,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48220751592944051393,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 455,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 458
+              },
+              {
+                "amount_raw": 42244404,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 459,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 464
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25075485525857112,
+            "return_transfer": 454
+          },
+          {
+            "funding_transfer": 471,
+            "group": 31,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 42242876,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 470,
+                "holder": null,
+                "to_market_log": 470
+              }
+            ],
+            "principal_raw": 24999999830172804,
+            "return_raw": 25073713644235114,
+            "return_transfer": 469
+          },
+          {
+            "funding_transfer": 479,
+            "group": 32,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48220154783511534591,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 478,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 481
+              },
+              {
+                "amount_raw": 42241627,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 482,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 487
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25072107496096916,
+            "return_transfer": 477
+          },
+          {
+            "funding_transfer": 494,
+            "group": 33,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48219557985158665539,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 493,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 496
+              },
+              {
+                "amount_raw": 42238850,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 497,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 502
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25069594586763843,
+            "return_transfer": 492
+          },
+          {
+            "funding_transfer": 509,
+            "group": 34,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48218961197885169983,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 508,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 511
+              },
+              {
+                "amount_raw": 42236073,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 512,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 517
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25067081892682644,
+            "return_transfer": 507
+          },
+          {
+            "funding_transfer": 524,
+            "group": 35,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 525457576082677709160,
+                "currency": "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+                "from_market_log": 523,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 526
+              },
+              {
+                "amount_raw": 42234602,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 528,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 533
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25065344483891667,
+            "return_transfer": 522
+          },
+          {
+            "funding_transfer": 540,
+            "group": 36,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48218364421690773679,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 539,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 542
+              },
+              {
+                "amount_raw": 42233297,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 543,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 548
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25063705722512652,
+            "return_transfer": 538
+          },
+          {
+            "funding_transfer": 555,
+            "group": 37,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 48217767656575202390,
+                "currency": "0x4200000000000000000000000000000000000042",
+                "from_market_log": 554,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 557
+              },
+              {
+                "amount_raw": 42230520,
+                "currency": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+                "from_market_log": 558,
+                "holder": "0x2d7e1f1ee8c352fe4101f3711494129c8dc41531",
+                "to_market_log": 563
+              }
+            ],
+            "principal_raw": 25000000000000000,
+            "return_raw": 25061193560335988,
+            "return_transfer": 553
+          }
+        ],
+        "payer": "0xb881380f6b65f2625aa05ee0ddfb14ce53cbd164",
+        "payer_common_control": null,
+        "payout_log": 568
+      },
+      "chain": "optimism",
+      "chain_id": 10,
+      "conditional_combined_eth_weth_after_network_fee_wei": 5418207950950023,
+      "effective_gas_price_wei": 1000000,
+      "funding": {
+        "distinct_events_amounts_matched": 109,
+        "group_output_minus_input_raw_by_anchor": {
+          "0x4200000000000000000000000000000000000006": 5654794866077543
+        },
+        "intermediate_evidence": {
+          "closed_amount_groups": 37,
+          "closed_amount_groups_with_all_intermediate_transfers": 37,
+          "direct_unique_transfer": 2,
+          "unique_transfer_pair_through_holder": 70
+        },
+        "top_level_recipient_transfer_log_net_raw": {}
+      },
+      "network_cost_wei": 236586915127520,
+      "receipt_gas_units": 11377986,
+      "receipt_logs": 569,
+      "receipts_root": "0xf9a6cee059013be45e8e8d33500c4b04293ce3a40cef453a62b6ebe799ee7bab",
+      "separately_added_l1_fee_wei": 225208929127520,
+      "transaction_index": 0,
+      "transactions_root": "0xb1e5425ff59ad34ff35eab6bdc7cf0071cbbfa33950840af09a9c6b51a3a120a",
+      "tx_hash": "0xb85f0867de699f8e71ff611aa40eefe79cdbf68f1bfe9015ce0f518fbb5733e5",
+      "unknown": [
+        "direct native transfers",
+        "financing and outside fees",
+        "full economic net"
+      ],
+      "verified_block_receipt_count": 1
+    },
+    {
+      "agreeing_receipt_sources": 1,
+      "block_hash": "0x2ff9de69d4390c8d12f3c6d4af072ded5cba66f1202a285ada5fdee1f3328986",
+      "block_number": 54354197,
+      "cash": {
+        "closing_recipient": "0x8319f7c6fb356ae8fe41dde40690d1833218bb9e",
+        "currency": "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+        "executor": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+        "executor_delta_raw": 0,
+        "gross_raw": 1633774,
+        "group_transfers": [
+          {
+            "funding_transfer": 26,
+            "group": 1,
+            "intermediate_transfers": [
+              {
+                "amount_raw": 28126763660622778578,
+                "currency": "0xd74f5255d557944cf7dd0e45ff521520002d5748",
+                "from_market_log": 25,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 31
+              },
+              {
+                "amount_raw": 28224503474427288571,
+                "currency": "0x8616e8ea83f048ab9a5ec513c9412dd2993bce3f",
+                "from_market_log": 30,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 35
+              },
+              {
+                "amount_raw": 2199472281340967600293,
+                "currency": "0xdb298285fe4c5410b05390ca80e8fbe9de1f259b",
+                "from_market_log": 37,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 40
+              },
+              {
+                "amount_raw": 18063736032372515,
+                "currency": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+                "from_market_log": 39,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 45
+              },
+              {
+                "amount_raw": 29273472,
+                "currency": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+                "from_market_log": 44,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 51
+              },
+              {
+                "amount_raw": 18366756248743241,
+                "currency": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+                "from_market_log": 50,
+                "holder": "0xb44b29ee1bdc6bc1b17fa1980ad802e3fdb1adde",
+                "to_market_log": 56
+              }
+            ],
+            "principal_raw": 28125000,
+            "return_raw": 29758774,
+            "return_transfer": 55
+          }
+        ],
+        "payer": "0x8319f7c6fb356ae8fe41dde40690d1833218bb9e",
+        "payout_log": 59,
+        "sender_principal_log": 21
+      },
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "conditional_combined_eth_weth_after_network_fee_wei": null,
+      "effective_gas_price_wei": 100000000,
+      "funding": {
+        "distinct_events_amounts_matched": 7,
+        "group_output_minus_input_raw_by_anchor": {
+          "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8": 1633774
+        },
+        "intermediate_evidence": {
+          "closed_amount_groups": 1,
+          "closed_amount_groups_with_all_intermediate_transfers": 1,
+          "unique_transfer_pair_through_holder": 6
+        },
+        "top_level_recipient_transfer_log_net_raw": {}
+      },
+      "network_cost_wei": 617529200000000,
+      "receipt_gas_units": 6175292,
+      "receipt_logs": 41,
+      "receipts_root": "0xb77185da246c8b20d2089c06fbb9a1699bc0650ae70273304cca72415e5ce23f",
+      "separately_added_l1_fee_wei": null,
+      "transaction_index": 4,
+      "transactions_root": "0xfeab0ac2e7b7887a3b86f7016e8d7c84bcdc8b64d68008a21141adf2126a07ff",
+      "tx_hash": "0x1ff0c2dd4f302a5d278261be2924131f3c0f18cb3ea6d8da95becfa0252bddb1",
+      "unknown": [
+        "direct native transfers",
+        "financing and outside fees",
+        "full economic net"
+      ],
+      "verified_block_receipt_count": 5
+    }
+  ],
+  "compiled_sha256": "409dd2e4ad7e194c11f3c6b894e6f626aa2d57082727dc7b41677a8d9ae56a55",
+  "lanes": {
+    "arbitrum-0": {
+      "endpoint": "https://arb1.arbitrum.io/rpc",
+      "first_refusal": null,
+      "requests": [
+        {
+          "bytes": 43,
+          "end_utc": "2026-11-27T14:24:50.504675+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "chain",
+          "method": "eth_chainId",
+          "nonnull": true,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "937de275b7fc223f33af3b5fdcef1c024e5cf8b2665ad8161096c7e6f9e1733d",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:49.550043+00:00"
+        },
+        {
+          "bytes": 28716,
+          "end_utc": "2026-11-27T14:24:51.283330+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "receipt",
+          "method": "eth_getTransactionReceipt",
+          "nonnull": true,
+          "request_sha256": "604d1de20d0dba75548b32afaf38b8d12683a592c916b32996b23262461d809e",
+          "response_sha256": "a5a95d4f4bddd5b02cd9541c6b029605f51f2978d4515cd2ea19fa60e162b75b",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:50.508059+00:00"
+        },
+        {
+          "bytes": 23423,
+          "end_utc": "2026-11-27T14:24:51.649161+00:00",
+          "http": 200,
+          "id": 3,
+          "label": "header",
+          "method": "eth_getBlockByNumber",
+          "nonnull": true,
+          "request_sha256": "1c505356e2f62325d696738589134901c3cbcfe58b8e41c030b298a620e7811f",
+          "response_sha256": "5800109aebccf75bb29248e10710b98f243a7ccfd1c4bec3842124a40180a13a",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:51.284721+00:00"
+        },
+        {
+          "bytes": 47384,
+          "end_utc": "2026-11-27T14:24:52.026452+00:00",
+          "http": 200,
+          "id": 4,
+          "label": "full_receipts",
+          "method": "eth_getBlockReceipts",
+          "nonnull": true,
+          "request_sha256": "40217e4ba770f318a4b77a0271c7299e248ce881d18dec1d5660d4b241835a5c",
+          "response_sha256": "8a08b6ab732b3d12724967a71d552936f2970165362b7c2fb775f7e204fb5bc0",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:51.650204+00:00"
+        }
+      ],
+      "reservations": 4,
+      "source": "arbitrum-0",
+      "utc": "2026-11-27T14:24:52.027583+00:00"
+    },
+    "arbitrum-1": {
+      "endpoint": "https://arbitrum.drpc.org",
+      "first_refusal": "ValueError: null RPC result",
+      "requests": [
+        {
+          "bytes": 42,
+          "end_utc": "2026-11-27T14:24:50.504384+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "chain",
+          "method": "eth_chainId",
+          "nonnull": true,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "ec494f8de954cc9864080bb069a791f49ae9256fbce4951d968044bfd8c26f57",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:49.550360+00:00"
+        },
+        {
+          "bytes": 38,
+          "end_utc": "2026-11-27T14:24:51.235232+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "receipt",
+          "method": "eth_getTransactionReceipt",
+          "nonnull": false,
+          "request_sha256": "604d1de20d0dba75548b32afaf38b8d12683a592c916b32996b23262461d809e",
+          "response_sha256": "fb57a3f837217f979acad82686d553d61185a659a86bd56c6113908b4f4deed0",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:50.507836+00:00"
+        }
+      ],
+      "reservations": 2,
+      "source": "arbitrum-1",
+      "utc": "2026-11-27T14:24:51.235803+00:00"
+    },
+    "optimism-0": {
+      "endpoint": "https://mainnet.optimism.io",
+      "first_refusal": "HTTPStatusError: Client error '403 Forbidden' for url 'https://mainnet.optimism.io'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+      "requests": [
+        {
+          "bytes": 40,
+          "end_utc": "2026-11-27T14:24:50.212730+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "chain",
+          "method": "eth_chainId",
+          "nonnull": true,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "30f888a61faf6834b77b24f6c2a6fed186db37b394aabc2fa88cf350a705913b",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:49.550593+00:00"
+        },
+        {
+          "bytes": 362086,
+          "end_utc": "2026-11-27T14:24:51.838661+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "receipt",
+          "method": "eth_getTransactionReceipt",
+          "nonnull": true,
+          "request_sha256": "8d8b0daf696470fff1b48980d26af9a0e274b3c461320b2377abb543b6551cb8",
+          "response_sha256": "f52211512047861241f4d35e1aa5f2d1cc10521a3e768c50737d4a2974589fec",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:50.215008+00:00"
+        },
+        {
+          "bytes": 2524,
+          "end_utc": "2026-11-27T14:24:52.272814+00:00",
+          "http": 200,
+          "id": 3,
+          "label": "header",
+          "method": "eth_getBlockByNumber",
+          "nonnull": true,
+          "request_sha256": "c1e998627a31b95417bb51f80c6ca7861c70a213b3f981091defdf1c7f7d9e9a",
+          "response_sha256": "a26e563e61aa7646ab79bc92368990a25524f5005404f0993a2010013888c484",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:51.839796+00:00"
+        },
+        {
+          "bytes": 91,
+          "end_utc": "2026-11-27T14:24:52.698767+00:00",
+          "http": 403,
+          "id": 4,
+          "label": "full_receipts",
+          "method": "eth_getBlockReceipts",
+          "nonnull": false,
+          "request_sha256": "6dbfc8ba21b239ec55eb13943ec2d5995f4064e4dd18761b3bfdb81c7f501f52",
+          "response_sha256": "22c59bd406952e2688b1a2cf6796fbdccbbc79cca786772712e1c5f784ecde4a",
+          "rpc_error": {
+            "code": -32601,
+            "message": "rpc method is not whitelisted"
+          },
+          "start_utc": "2026-11-27T14:24:52.273839+00:00"
+        }
+      ],
+      "reservations": 4,
+      "source": "optimism-0",
+      "utc": "2026-11-27T14:24:52.699442+00:00"
+    },
+    "optimism-1": {
+      "endpoint": "https://optimism.drpc.org",
+      "first_refusal": null,
+      "requests": [
+        {
+          "bytes": 39,
+          "end_utc": "2026-11-27T14:24:50.504619+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "chain",
+          "method": "eth_chainId",
+          "nonnull": true,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "e239b5418c696242a0eaa7ca19f116dd64b0508f117ee85f044ca6c5074878aa",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:49.550492+00:00"
+        },
+        {
+          "bytes": 362085,
+          "end_utc": "2026-11-27T14:24:51.760457+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "receipt",
+          "method": "eth_getTransactionReceipt",
+          "nonnull": true,
+          "request_sha256": "8d8b0daf696470fff1b48980d26af9a0e274b3c461320b2377abb543b6551cb8",
+          "response_sha256": "0acd4e0ef6dae2aa5cb2eebf5ae12b96342ab9ebcb120302eb46bce90adb9304",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:50.506956+00:00"
+        },
+        {
+          "bytes": 2523,
+          "end_utc": "2026-11-27T14:24:52.172032+00:00",
+          "http": 200,
+          "id": 3,
+          "label": "header",
+          "method": "eth_getBlockByNumber",
+          "nonnull": true,
+          "request_sha256": "c1e998627a31b95417bb51f80c6ca7861c70a213b3f981091defdf1c7f7d9e9a",
+          "response_sha256": "4493310f67402e8ac932a0f7b643cdc33c5bd8b838991c4d76bb769c43d5315a",
+          "rpc_error": null,
+          "start_utc": "2026-11-27T14:24:51.761950+00:00"
+        }
+      ],
+      "reservations": 3,
+      "source": "optimism-1",
+      "utc": "2026-11-27T14:24:52.172442+00:00"
+    }
+  },
+  "paid_rpc_usd": 0,
+  "receipt_scope_sha256": "6558f219a75712c0d98f7886c45f1b60c649745b80671d66258acd9faa2ae602",
+  "schema": "oasis.ccs24-second-shard-receipts.v1"
+}

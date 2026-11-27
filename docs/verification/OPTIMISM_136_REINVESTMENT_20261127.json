@@ -1,0 +1,2342 @@
+{
+  "cases": [
+    {
+      "balance_claim_rejection": "sole transaction's signed native value exceeds the reported pre-sender balance; no account proof",
+      "balance_claim_usable": false,
+      "block_hash": "0x60d01cd6a213799dec9a2e343346c7e7b2af40f2cce3d018c081857c92e7c56a",
+      "block_number": 11326027,
+      "case_kind": "reinvested_two_swap_cycles",
+      "chain": "optimism",
+      "chain_id": 10,
+      "cross_group_edges": [
+        {
+          "amount_wei": 30051771553360590,
+          "from_round": 1,
+          "pay_weth": 13,
+          "receive_weth": 7,
+          "rewrap": 12,
+          "to_round": 2,
+          "unwrap": 11
+        },
+        {
+          "amount_wei": 30102261658525714,
+          "from_round": 2,
+          "pay_weth": 25,
+          "receive_weth": 19,
+          "rewrap": 24,
+          "to_round": 3,
+          "unwrap": 23
+        },
+        {
+          "amount_wei": 30151461629702140,
+          "from_round": 3,
+          "pay_weth": 37,
+          "receive_weth": 31,
+          "rewrap": 36,
+          "to_round": 4,
+          "unwrap": 35
+        },
+        {
+          "amount_wei": 30199361312039958,
+          "from_round": 4,
+          "pay_weth": 49,
+          "receive_weth": 43,
+          "rewrap": 48,
+          "to_round": 5,
+          "unwrap": 47
+        },
+        {
+          "amount_wei": 30245953266713408,
+          "from_round": 5,
+          "pay_weth": 61,
+          "receive_weth": 55,
+          "rewrap": 60,
+          "to_round": 6,
+          "unwrap": 59
+        },
+        {
+          "amount_wei": 30291227923342858,
+          "from_round": 6,
+          "pay_weth": 73,
+          "receive_weth": 67,
+          "rewrap": 72,
+          "to_round": 7,
+          "unwrap": 71
+        },
+        {
+          "amount_wei": 30335181503405277,
+          "from_round": 7,
+          "pay_weth": 85,
+          "receive_weth": 79,
+          "rewrap": 84,
+          "to_round": 8,
+          "unwrap": 83
+        },
+        {
+          "amount_wei": 30377805534540491,
+          "from_round": 8,
+          "pay_weth": 97,
+          "receive_weth": 91,
+          "rewrap": 96,
+          "to_round": 9,
+          "unwrap": 95
+        },
+        {
+          "amount_wei": 30419092778313083,
+          "from_round": 9,
+          "pay_weth": 109,
+          "receive_weth": 103,
+          "rewrap": 108,
+          "to_round": 10,
+          "unwrap": 107
+        },
+        {
+          "amount_wei": 30459035118103919,
+          "from_round": 10,
+          "pay_weth": 121,
+          "receive_weth": 115,
+          "rewrap": 120,
+          "to_round": 11,
+          "unwrap": 119
+        },
+        {
+          "amount_wei": 30497625795388404,
+          "from_round": 11,
+          "pay_weth": 133,
+          "receive_weth": 127,
+          "rewrap": 132,
+          "to_round": 12,
+          "unwrap": 131
+        },
+        {
+          "amount_wei": 30534856694192547,
+          "from_round": 12,
+          "pay_weth": 145,
+          "receive_weth": 139,
+          "rewrap": 144,
+          "to_round": 13,
+          "unwrap": 143
+        },
+        {
+          "amount_wei": 30570721735485419,
+          "from_round": 13,
+          "pay_weth": 157,
+          "receive_weth": 151,
+          "rewrap": 156,
+          "to_round": 14,
+          "unwrap": 155
+        },
+        {
+          "amount_wei": 30605214161642857,
+          "from_round": 14,
+          "pay_weth": 169,
+          "receive_weth": 163,
+          "rewrap": 168,
+          "to_round": 15,
+          "unwrap": 167
+        },
+        {
+          "amount_wei": 30638327894191572,
+          "from_round": 15,
+          "pay_weth": 181,
+          "receive_weth": 175,
+          "rewrap": 180,
+          "to_round": 16,
+          "unwrap": 179
+        },
+        {
+          "amount_wei": 30670056854924741,
+          "from_round": 16,
+          "pay_weth": 193,
+          "receive_weth": 187,
+          "rewrap": 192,
+          "to_round": 17,
+          "unwrap": 191
+        },
+        {
+          "amount_wei": 30700394965898946,
+          "from_round": 17,
+          "pay_weth": 205,
+          "receive_weth": 199,
+          "rewrap": 204,
+          "to_round": 18,
+          "unwrap": 203
+        },
+        {
+          "amount_wei": 30729336828280806,
+          "from_round": 18,
+          "pay_weth": 217,
+          "receive_weth": 211,
+          "rewrap": 216,
+          "to_round": 19,
+          "unwrap": 215
+        },
+        {
+          "amount_wei": 30756876364628414,
+          "from_round": 19,
+          "pay_weth": 229,
+          "receive_weth": 223,
+          "rewrap": 228,
+          "to_round": 20,
+          "unwrap": 227
+        },
+        {
+          "amount_wei": 30783009534279089,
+          "from_round": 20,
+          "pay_weth": 241,
+          "receive_weth": 235,
+          "rewrap": 240,
+          "to_round": 21,
+          "unwrap": 239
+        },
+        {
+          "amount_wei": 30807731617923190,
+          "from_round": 21,
+          "pay_weth": 253,
+          "receive_weth": 247,
+          "rewrap": 252,
+          "to_round": 22,
+          "unwrap": 251
+        },
+        {
+          "amount_wei": 30831036538790728,
+          "from_round": 22,
+          "pay_weth": 265,
+          "receive_weth": 259,
+          "rewrap": 264,
+          "to_round": 23,
+          "unwrap": 263
+        },
+        {
+          "amount_wei": 30852920935674760,
+          "from_round": 23,
+          "pay_weth": 277,
+          "receive_weth": 271,
+          "rewrap": 276,
+          "to_round": 24,
+          "unwrap": 275
+        },
+        {
+          "amount_wei": 30873380768702962,
+          "from_round": 24,
+          "pay_weth": 289,
+          "receive_weth": 283,
+          "rewrap": 288,
+          "to_round": 25,
+          "unwrap": 287
+        },
+        {
+          "amount_wei": 30892412677001651,
+          "from_round": 25,
+          "pay_weth": 301,
+          "receive_weth": 295,
+          "rewrap": 300,
+          "to_round": 26,
+          "unwrap": 299
+        },
+        {
+          "amount_wei": 30910012621032459,
+          "from_round": 26,
+          "pay_weth": 313,
+          "receive_weth": 307,
+          "rewrap": 312,
+          "to_round": 27,
+          "unwrap": 311
+        },
+        {
+          "amount_wei": 30926177240240333,
+          "from_round": 27,
+          "pay_weth": 325,
+          "receive_weth": 319,
+          "rewrap": 324,
+          "to_round": 28,
+          "unwrap": 323
+        },
+        {
+          "amount_wei": 30940903174215962,
+          "from_round": 28,
+          "pay_weth": 337,
+          "receive_weth": 331,
+          "rewrap": 336,
+          "to_round": 29,
+          "unwrap": 335
+        },
+        {
+          "amount_wei": 30954188420303733,
+          "from_round": 29,
+          "pay_weth": 349,
+          "receive_weth": 343,
+          "rewrap": 348,
+          "to_round": 30,
+          "unwrap": 347
+        },
+        {
+          "amount_wei": 30966029618342449,
+          "from_round": 30,
+          "pay_weth": 361,
+          "receive_weth": 355,
+          "rewrap": 360,
+          "to_round": 31,
+          "unwrap": 359
+        },
+        {
+          "amount_wei": 30976425444698780,
+          "from_round": 31,
+          "pay_weth": 373,
+          "receive_weth": 367,
+          "rewrap": 372,
+          "to_round": 32,
+          "unwrap": 371
+        },
+        {
+          "amount_wei": 30985373218222052,
+          "from_round": 32,
+          "pay_weth": 385,
+          "receive_weth": 379,
+          "rewrap": 384,
+          "to_round": 33,
+          "unwrap": 383
+        },
+        {
+          "amount_wei": 30992872294237605,
+          "from_round": 33,
+          "pay_weth": 397,
+          "receive_weth": 391,
+          "rewrap": 396,
+          "to_round": 34,
+          "unwrap": 395
+        },
+        {
+          "amount_wei": 30998919991755703,
+          "from_round": 34,
+          "pay_weth": 409,
+          "receive_weth": 403,
+          "rewrap": 408,
+          "to_round": 35,
+          "unwrap": 407
+        },
+        {
+          "amount_wei": 31074088073785135,
+          "from_round": 35,
+          "pay_weth": 421,
+          "receive_weth": 415,
+          "rewrap": 420,
+          "to_round": 36,
+          "unwrap": 419
+        },
+        {
+          "amount_wei": 31145979277618492,
+          "from_round": 36,
+          "pay_weth": 433,
+          "receive_weth": 427,
+          "rewrap": 432,
+          "to_round": 37,
+          "unwrap": 431
+        },
+        {
+          "amount_wei": 31214562163474359,
+          "from_round": 37,
+          "pay_weth": 445,
+          "receive_weth": 439,
+          "rewrap": 444,
+          "to_round": 38,
+          "unwrap": 443
+        },
+        {
+          "amount_wei": 31279806941173286,
+          "from_round": 38,
+          "pay_weth": 457,
+          "receive_weth": 451,
+          "rewrap": 456,
+          "to_round": 39,
+          "unwrap": 455
+        },
+        {
+          "amount_wei": 31341683836257186,
+          "from_round": 39,
+          "pay_weth": 469,
+          "receive_weth": 463,
+          "rewrap": 468,
+          "to_round": 40,
+          "unwrap": 467
+        },
+        {
+          "amount_wei": 31400165816885507,
+          "from_round": 40,
+          "pay_weth": 481,
+          "receive_weth": 475,
+          "rewrap": 480,
+          "to_round": 41,
+          "unwrap": 479
+        },
+        {
+          "amount_wei": 31455227910758196,
+          "from_round": 41,
+          "pay_weth": 493,
+          "receive_weth": 487,
+          "rewrap": 492,
+          "to_round": 42,
+          "unwrap": 491
+        },
+        {
+          "amount_wei": 31506844477339683,
+          "from_round": 42,
+          "pay_weth": 505,
+          "receive_weth": 499,
+          "rewrap": 504,
+          "to_round": 43,
+          "unwrap": 503
+        },
+        {
+          "amount_wei": 31554991934434059,
+          "from_round": 43,
+          "pay_weth": 517,
+          "receive_weth": 511,
+          "rewrap": 516,
+          "to_round": 44,
+          "unwrap": 515
+        },
+        {
+          "amount_wei": 31599649438664722,
+          "from_round": 44,
+          "pay_weth": 529,
+          "receive_weth": 523,
+          "rewrap": 528,
+          "to_round": 45,
+          "unwrap": 527
+        },
+        {
+          "amount_wei": 31640797521016686,
+          "from_round": 45,
+          "pay_weth": 541,
+          "receive_weth": 535,
+          "rewrap": 540,
+          "to_round": 46,
+          "unwrap": 539
+        },
+        {
+          "amount_wei": 31678417404528428,
+          "from_round": 46,
+          "pay_weth": 553,
+          "receive_weth": 547,
+          "rewrap": 552,
+          "to_round": 47,
+          "unwrap": 551
+        },
+        {
+          "amount_wei": 31712491003747984,
+          "from_round": 47,
+          "pay_weth": 565,
+          "receive_weth": 559,
+          "rewrap": 564,
+          "to_round": 48,
+          "unwrap": 563
+        },
+        {
+          "amount_wei": 31743004331096777,
+          "from_round": 48,
+          "pay_weth": 577,
+          "receive_weth": 571,
+          "rewrap": 576,
+          "to_round": 49,
+          "unwrap": 575
+        },
+        {
+          "amount_wei": 31769942725512024,
+          "from_round": 49,
+          "pay_weth": 589,
+          "receive_weth": 583,
+          "rewrap": 588,
+          "to_round": 50,
+          "unwrap": 587
+        },
+        {
+          "amount_wei": 31793293577608430,
+          "from_round": 50,
+          "pay_weth": 601,
+          "receive_weth": 595,
+          "rewrap": 600,
+          "to_round": 51,
+          "unwrap": 599
+        },
+        {
+          "amount_wei": 31813047009760237,
+          "from_round": 51,
+          "pay_weth": 613,
+          "receive_weth": 607,
+          "rewrap": 612,
+          "to_round": 52,
+          "unwrap": 611
+        },
+        {
+          "amount_wei": 31829194512272807,
+          "from_round": 52,
+          "pay_weth": 625,
+          "receive_weth": 619,
+          "rewrap": 624,
+          "to_round": 53,
+          "unwrap": 623
+        },
+        {
+          "amount_wei": 31841727580233029,
+          "from_round": 53,
+          "pay_weth": 637,
+          "receive_weth": 631,
+          "rewrap": 636,
+          "to_round": 54,
+          "unwrap": 635
+        },
+        {
+          "amount_wei": 31850641799759916,
+          "from_round": 54,
+          "pay_weth": 649,
+          "receive_weth": 643,
+          "rewrap": 648,
+          "to_round": 55,
+          "unwrap": 647
+        },
+        {
+          "amount_wei": 31855932078666308,
+          "from_round": 55,
+          "pay_weth": 662,
+          "receive_weth": 655,
+          "rewrap": 660,
+          "to_round": 56,
+          "unwrap": 659
+        },
+        {
+          "amount_wei": 31918950921701062,
+          "from_round": 56,
+          "pay_weth": 672,
+          "receive_weth": 666,
+          "rewrap": 670,
+          "to_round": 57,
+          "unwrap": 669
+        },
+        {
+          "amount_wei": 31977550426707743,
+          "from_round": 57,
+          "pay_weth": 682,
+          "receive_weth": 676,
+          "rewrap": 680,
+          "to_round": 58,
+          "unwrap": 679
+        },
+        {
+          "amount_wei": 32031696753297525,
+          "from_round": 58,
+          "pay_weth": 692,
+          "receive_weth": 686,
+          "rewrap": 690,
+          "to_round": 59,
+          "unwrap": 689
+        },
+        {
+          "amount_wei": 32081359634460152,
+          "from_round": 59,
+          "pay_weth": 702,
+          "receive_weth": 696,
+          "rewrap": 700,
+          "to_round": 60,
+          "unwrap": 699
+        },
+        {
+          "amount_wei": 32126510875094570,
+          "from_round": 60,
+          "pay_weth": 712,
+          "receive_weth": 706,
+          "rewrap": 710,
+          "to_round": 61,
+          "unwrap": 709
+        },
+        {
+          "amount_wei": 32167125029525587,
+          "from_round": 61,
+          "pay_weth": 722,
+          "receive_weth": 716,
+          "rewrap": 720,
+          "to_round": 62,
+          "unwrap": 719
+        },
+        {
+          "amount_wei": 32203178718606831,
+          "from_round": 62,
+          "pay_weth": 732,
+          "receive_weth": 726,
+          "rewrap": 730,
+          "to_round": 63,
+          "unwrap": 729
+        },
+        {
+          "amount_wei": 32234651306997712,
+          "from_round": 63,
+          "pay_weth": 742,
+          "receive_weth": 736,
+          "rewrap": 740,
+          "to_round": 64,
+          "unwrap": 739
+        },
+        {
+          "amount_wei": 32261524220403835,
+          "from_round": 64,
+          "pay_weth": 752,
+          "receive_weth": 746,
+          "rewrap": 750,
+          "to_round": 65,
+          "unwrap": 749
+        },
+        {
+          "amount_wei": 32283782981797317,
+          "from_round": 65,
+          "pay_weth": 762,
+          "receive_weth": 756,
+          "rewrap": 760,
+          "to_round": 66,
+          "unwrap": 759
+        },
+        {
+          "amount_wei": 32301414489203435,
+          "from_round": 66,
+          "pay_weth": 772,
+          "receive_weth": 766,
+          "rewrap": 770,
+          "to_round": 67,
+          "unwrap": 769
+        },
+        {
+          "amount_wei": 32314408372487404,
+          "from_round": 67,
+          "pay_weth": 782,
+          "receive_weth": 776,
+          "rewrap": 780,
+          "to_round": 68,
+          "unwrap": 779
+        }
+      ],
+      "cross_group_equal_reinvestment_edges": 67,
+      "entity_net_wei": null,
+      "executor": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+      "final_native_unwrap_wei": 32322756990207871,
+      "gross_wei": 2322756990207871,
+      "initial_tx_value_wei": 30000000000000000,
+      "known_cash_less_network_fee_wei": 2117879246511239,
+      "l1_network_fee_wei": 194879267296632,
+      "l2_gas_units": 9089524,
+      "l2_network_fee_wei": 9998476400000,
+      "l2_price_wei": 1100000,
+      "last_receipt_visible_recipient": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+      "market_phases": [
+        {
+          "all_marginals_fell": true,
+          "first_gain_wei": 51771553360590,
+          "first_round": 1,
+          "gross_wei": 998919991755703,
+          "last_gain_wei": 6047697518098,
+          "last_round": 34,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ]
+        },
+        {
+          "all_marginals_fell": true,
+          "first_gain_wei": 75168082029432,
+          "first_round": 35,
+          "gross_wei": 857012086910605,
+          "last_gain_wei": 5290278906392,
+          "last_round": 55,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ]
+        },
+        {
+          "all_marginals_fell": true,
+          "first_gain_wei": 63018843034754,
+          "first_round": 56,
+          "gross_wei": 466824911541563,
+          "last_gain_wei": 8348617720467,
+          "last_round": 68,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ]
+        }
+      ],
+      "market_swaps": 136,
+      "network_fee_wei": 204877743696632,
+      "pool_side_weth_transfers": {
+        "amount_wei": 340654703000778,
+        "count": 55,
+        "from_market": "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+        "to": "0x8f3c65cfb9c22bb4590318849a881faaba10fa40"
+      },
+      "round_evidence": [
+        {
+          "deposit_log": 0,
+          "gain_wei": 51771553360590,
+          "intermediate_usdc_raw": 44286297,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30000000000000000,
+          "returned_wei": 30051771553360590,
+          "round": 1,
+          "swap_logs": [
+            6,
+            10
+          ],
+          "usdc_transfers": [
+            2,
+            8
+          ],
+          "weth_from_second_pool_log": 7,
+          "weth_to_first_pool_log": 1,
+          "withdrawal_log": 11
+        },
+        {
+          "deposit_log": 12,
+          "gain_wei": 50490105165124,
+          "intermediate_usdc_raw": 44360961,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30051771553360590,
+          "returned_wei": 30102261658525714,
+          "round": 2,
+          "swap_logs": [
+            18,
+            22
+          ],
+          "usdc_transfers": [
+            14,
+            20
+          ],
+          "weth_from_second_pool_log": 19,
+          "weth_to_first_pool_log": 13,
+          "withdrawal_log": 23
+        },
+        {
+          "deposit_log": 24,
+          "gain_wei": 49199971176426,
+          "intermediate_usdc_raw": 44433725,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30102261658525714,
+          "returned_wei": 30151461629702140,
+          "round": 3,
+          "swap_logs": [
+            30,
+            34
+          ],
+          "usdc_transfers": [
+            26,
+            32
+          ],
+          "weth_from_second_pool_log": 31,
+          "weth_to_first_pool_log": 25,
+          "withdrawal_log": 35
+        },
+        {
+          "deposit_log": 36,
+          "gain_wei": 47899682337818,
+          "intermediate_usdc_raw": 44504575,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30151461629702140,
+          "returned_wei": 30199361312039958,
+          "round": 4,
+          "swap_logs": [
+            42,
+            46
+          ],
+          "usdc_transfers": [
+            38,
+            44
+          ],
+          "weth_from_second_pool_log": 43,
+          "weth_to_first_pool_log": 37,
+          "withdrawal_log": 47
+        },
+        {
+          "deposit_log": 48,
+          "gain_wei": 46591954673450,
+          "intermediate_usdc_raw": 44573498,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30199361312039958,
+          "returned_wei": 30245953266713408,
+          "round": 5,
+          "swap_logs": [
+            54,
+            58
+          ],
+          "usdc_transfers": [
+            50,
+            56
+          ],
+          "weth_from_second_pool_log": 55,
+          "weth_to_first_pool_log": 49,
+          "withdrawal_log": 59
+        },
+        {
+          "deposit_log": 60,
+          "gain_wei": 45274656629450,
+          "intermediate_usdc_raw": 44640482,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30245953266713408,
+          "returned_wei": 30291227923342858,
+          "round": 6,
+          "swap_logs": [
+            66,
+            70
+          ],
+          "usdc_transfers": [
+            62,
+            68
+          ],
+          "weth_from_second_pool_log": 67,
+          "weth_to_first_pool_log": 61,
+          "withdrawal_log": 71
+        },
+        {
+          "deposit_log": 72,
+          "gain_wei": 43953580062419,
+          "intermediate_usdc_raw": 44705514,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30291227923342858,
+          "returned_wei": 30335181503405277,
+          "round": 7,
+          "swap_logs": [
+            78,
+            82
+          ],
+          "usdc_transfers": [
+            74,
+            80
+          ],
+          "weth_from_second_pool_log": 79,
+          "weth_to_first_pool_log": 73,
+          "withdrawal_log": 83
+        },
+        {
+          "deposit_log": 84,
+          "gain_wei": 42624031135214,
+          "intermediate_usdc_raw": 44768589,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30335181503405277,
+          "returned_wei": 30377805534540491,
+          "round": 8,
+          "swap_logs": [
+            90,
+            94
+          ],
+          "usdc_transfers": [
+            86,
+            92
+          ],
+          "weth_from_second_pool_log": 91,
+          "weth_to_first_pool_log": 85,
+          "withdrawal_log": 95
+        },
+        {
+          "deposit_log": 96,
+          "gain_wei": 41287243772592,
+          "intermediate_usdc_raw": 44829694,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30377805534540491,
+          "returned_wei": 30419092778313083,
+          "round": 9,
+          "swap_logs": [
+            102,
+            106
+          ],
+          "usdc_transfers": [
+            98,
+            104
+          ],
+          "weth_from_second_pool_log": 103,
+          "weth_to_first_pool_log": 97,
+          "withdrawal_log": 107
+        },
+        {
+          "deposit_log": 108,
+          "gain_wei": 39942339790836,
+          "intermediate_usdc_raw": 44888819,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30419092778313083,
+          "returned_wei": 30459035118103919,
+          "round": 10,
+          "swap_logs": [
+            114,
+            118
+          ],
+          "usdc_transfers": [
+            110,
+            116
+          ],
+          "weth_from_second_pool_log": 115,
+          "weth_to_first_pool_log": 109,
+          "withdrawal_log": 119
+        },
+        {
+          "deposit_log": 120,
+          "gain_wei": 38590677284485,
+          "intermediate_usdc_raw": 44945952,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30459035118103919,
+          "returned_wei": 30497625795388404,
+          "round": 11,
+          "swap_logs": [
+            126,
+            130
+          ],
+          "usdc_transfers": [
+            122,
+            128
+          ],
+          "weth_from_second_pool_log": 127,
+          "weth_to_first_pool_log": 121,
+          "withdrawal_log": 131
+        },
+        {
+          "deposit_log": 132,
+          "gain_wei": 37230898804143,
+          "intermediate_usdc_raw": 45001083,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30497625795388404,
+          "returned_wei": 30534856694192547,
+          "round": 12,
+          "swap_logs": [
+            138,
+            142
+          ],
+          "usdc_transfers": [
+            134,
+            140
+          ],
+          "weth_from_second_pool_log": 139,
+          "weth_to_first_pool_log": 133,
+          "withdrawal_log": 143
+        },
+        {
+          "deposit_log": 144,
+          "gain_wei": 35865041292872,
+          "intermediate_usdc_raw": 45054202,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30534856694192547,
+          "returned_wei": 30570721735485419,
+          "round": 13,
+          "swap_logs": [
+            150,
+            154
+          ],
+          "usdc_transfers": [
+            146,
+            152
+          ],
+          "weth_from_second_pool_log": 151,
+          "weth_to_first_pool_log": 145,
+          "withdrawal_log": 155
+        },
+        {
+          "deposit_log": 156,
+          "gain_wei": 34492426157438,
+          "intermediate_usdc_raw": 45105298,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30570721735485419,
+          "returned_wei": 30605214161642857,
+          "round": 14,
+          "swap_logs": [
+            162,
+            166
+          ],
+          "usdc_transfers": [
+            158,
+            164
+          ],
+          "weth_from_second_pool_log": 163,
+          "weth_to_first_pool_log": 157,
+          "withdrawal_log": 167
+        },
+        {
+          "deposit_log": 168,
+          "gain_wei": 33113732548715,
+          "intermediate_usdc_raw": 45154364,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30605214161642857,
+          "returned_wei": 30638327894191572,
+          "round": 15,
+          "swap_logs": [
+            174,
+            178
+          ],
+          "usdc_transfers": [
+            170,
+            176
+          ],
+          "weth_from_second_pool_log": 175,
+          "weth_to_first_pool_log": 169,
+          "withdrawal_log": 179
+        },
+        {
+          "deposit_log": 180,
+          "gain_wei": 31728960733169,
+          "intermediate_usdc_raw": 45201389,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30638327894191572,
+          "returned_wei": 30670056854924741,
+          "round": 16,
+          "swap_logs": [
+            186,
+            190
+          ],
+          "usdc_transfers": [
+            182,
+            188
+          ],
+          "weth_from_second_pool_log": 187,
+          "weth_to_first_pool_log": 181,
+          "withdrawal_log": 191
+        },
+        {
+          "deposit_log": 192,
+          "gain_wei": 30338110974205,
+          "intermediate_usdc_raw": 45246366,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30670056854924741,
+          "returned_wei": 30700394965898946,
+          "round": 17,
+          "swap_logs": [
+            198,
+            202
+          ],
+          "usdc_transfers": [
+            194,
+            200
+          ],
+          "weth_from_second_pool_log": 199,
+          "weth_to_first_pool_log": 193,
+          "withdrawal_log": 203
+        },
+        {
+          "deposit_log": 204,
+          "gain_wei": 28941862381860,
+          "intermediate_usdc_raw": 45289285,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30700394965898946,
+          "returned_wei": 30729336828280806,
+          "round": 18,
+          "swap_logs": [
+            210,
+            214
+          ],
+          "usdc_transfers": [
+            206,
+            212
+          ],
+          "weth_from_second_pool_log": 211,
+          "weth_to_first_pool_log": 205,
+          "withdrawal_log": 215
+        },
+        {
+          "deposit_log": 216,
+          "gain_wei": 27539536347608,
+          "intermediate_usdc_raw": 45330139,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30729336828280806,
+          "returned_wei": 30756876364628414,
+          "round": 19,
+          "swap_logs": [
+            222,
+            226
+          ],
+          "usdc_transfers": [
+            218,
+            224
+          ],
+          "weth_from_second_pool_log": 223,
+          "weth_to_first_pool_log": 217,
+          "withdrawal_log": 227
+        },
+        {
+          "deposit_log": 228,
+          "gain_wei": 26133169650675,
+          "intermediate_usdc_raw": 45368920,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30756876364628414,
+          "returned_wei": 30783009534279089,
+          "round": 20,
+          "swap_logs": [
+            234,
+            238
+          ],
+          "usdc_transfers": [
+            230,
+            236
+          ],
+          "weth_from_second_pool_log": 235,
+          "weth_to_first_pool_log": 229,
+          "withdrawal_log": 239
+        },
+        {
+          "deposit_log": 240,
+          "gain_wei": 24722083644101,
+          "intermediate_usdc_raw": 45405622,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30783009534279089,
+          "returned_wei": 30807731617923190,
+          "round": 21,
+          "swap_logs": [
+            246,
+            250
+          ],
+          "usdc_transfers": [
+            242,
+            248
+          ],
+          "weth_from_second_pool_log": 247,
+          "weth_to_first_pool_log": 241,
+          "withdrawal_log": 251
+        },
+        {
+          "deposit_log": 252,
+          "gain_wei": 23304920867538,
+          "intermediate_usdc_raw": 45440237,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30807731617923190,
+          "returned_wei": 30831036538790728,
+          "round": 22,
+          "swap_logs": [
+            258,
+            262
+          ],
+          "usdc_transfers": [
+            254,
+            260
+          ],
+          "weth_from_second_pool_log": 259,
+          "weth_to_first_pool_log": 253,
+          "withdrawal_log": 263
+        },
+        {
+          "deposit_log": 264,
+          "gain_wei": 21884396884032,
+          "intermediate_usdc_raw": 45472758,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30831036538790728,
+          "returned_wei": 30852920935674760,
+          "round": 23,
+          "swap_logs": [
+            270,
+            274
+          ],
+          "usdc_transfers": [
+            266,
+            272
+          ],
+          "weth_from_second_pool_log": 271,
+          "weth_to_first_pool_log": 265,
+          "withdrawal_log": 275
+        },
+        {
+          "deposit_log": 276,
+          "gain_wei": 20459833028202,
+          "intermediate_usdc_raw": 45503180,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30852920935674760,
+          "returned_wei": 30873380768702962,
+          "round": 24,
+          "swap_logs": [
+            282,
+            286
+          ],
+          "usdc_transfers": [
+            278,
+            284
+          ],
+          "weth_from_second_pool_log": 283,
+          "weth_to_first_pool_log": 277,
+          "withdrawal_log": 287
+        },
+        {
+          "deposit_log": 288,
+          "gain_wei": 19031908298689,
+          "intermediate_usdc_raw": 45531498,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30873380768702962,
+          "returned_wei": 30892412677001651,
+          "round": 25,
+          "swap_logs": [
+            294,
+            298
+          ],
+          "usdc_transfers": [
+            290,
+            296
+          ],
+          "weth_from_second_pool_log": 295,
+          "weth_to_first_pool_log": 289,
+          "withdrawal_log": 299
+        },
+        {
+          "deposit_log": 300,
+          "gain_wei": 17599944030808,
+          "intermediate_usdc_raw": 45557706,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30892412677001651,
+          "returned_wei": 30910012621032459,
+          "round": 26,
+          "swap_logs": [
+            306,
+            310
+          ],
+          "usdc_transfers": [
+            302,
+            308
+          ],
+          "weth_from_second_pool_log": 307,
+          "weth_to_first_pool_log": 301,
+          "withdrawal_log": 311
+        },
+        {
+          "deposit_log": 312,
+          "gain_wei": 16164619207874,
+          "intermediate_usdc_raw": 45581799,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30910012621032459,
+          "returned_wei": 30926177240240333,
+          "round": 27,
+          "swap_logs": [
+            318,
+            322
+          ],
+          "usdc_transfers": [
+            314,
+            320
+          ],
+          "weth_from_second_pool_log": 319,
+          "weth_to_first_pool_log": 313,
+          "withdrawal_log": 323
+        },
+        {
+          "deposit_log": 324,
+          "gain_wei": 14725933975629,
+          "intermediate_usdc_raw": 45603772,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30926177240240333,
+          "returned_wei": 30940903174215962,
+          "round": 28,
+          "swap_logs": [
+            330,
+            334
+          ],
+          "usdc_transfers": [
+            326,
+            332
+          ],
+          "weth_from_second_pool_log": 331,
+          "weth_to_first_pool_log": 325,
+          "withdrawal_log": 335
+        },
+        {
+          "deposit_log": 336,
+          "gain_wei": 13285246087771,
+          "intermediate_usdc_raw": 45623622,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30940903174215962,
+          "returned_wei": 30954188420303733,
+          "round": 29,
+          "swap_logs": [
+            342,
+            346
+          ],
+          "usdc_transfers": [
+            338,
+            344
+          ],
+          "weth_from_second_pool_log": 343,
+          "weth_to_first_pool_log": 337,
+          "withdrawal_log": 347
+        },
+        {
+          "deposit_log": 348,
+          "gain_wei": 11841198038716,
+          "intermediate_usdc_raw": 45641344,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30954188420303733,
+          "returned_wei": 30966029618342449,
+          "round": 30,
+          "swap_logs": [
+            354,
+            358
+          ],
+          "usdc_transfers": [
+            350,
+            356
+          ],
+          "weth_from_second_pool_log": 355,
+          "weth_to_first_pool_log": 349,
+          "withdrawal_log": 359
+        },
+        {
+          "deposit_log": 360,
+          "gain_wei": 10395826356331,
+          "intermediate_usdc_raw": 45656936,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30966029618342449,
+          "returned_wei": 30976425444698780,
+          "round": 31,
+          "swap_logs": [
+            366,
+            370
+          ],
+          "usdc_transfers": [
+            362,
+            368
+          ],
+          "weth_from_second_pool_log": 367,
+          "weth_to_first_pool_log": 361,
+          "withdrawal_log": 371
+        },
+        {
+          "deposit_log": 372,
+          "gain_wei": 8947773523272,
+          "intermediate_usdc_raw": 45670394,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30976425444698780,
+          "returned_wei": 30985373218222052,
+          "round": 32,
+          "swap_logs": [
+            378,
+            382
+          ],
+          "usdc_transfers": [
+            374,
+            380
+          ],
+          "weth_from_second_pool_log": 379,
+          "weth_to_first_pool_log": 373,
+          "withdrawal_log": 383
+        },
+        {
+          "deposit_log": 384,
+          "gain_wei": 7499076015553,
+          "intermediate_usdc_raw": 45681716,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30985373218222052,
+          "returned_wei": 30992872294237605,
+          "round": 33,
+          "swap_logs": [
+            390,
+            394
+          ],
+          "usdc_transfers": [
+            386,
+            392
+          ],
+          "weth_from_second_pool_log": 391,
+          "weth_to_first_pool_log": 385,
+          "withdrawal_log": 395
+        },
+        {
+          "deposit_log": 396,
+          "gain_wei": 6047697518098,
+          "intermediate_usdc_raw": 45690900,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "principal_wei": 30992872294237605,
+          "returned_wei": 30998919991755703,
+          "round": 34,
+          "swap_logs": [
+            402,
+            406
+          ],
+          "usdc_transfers": [
+            398,
+            404
+          ],
+          "weth_from_second_pool_log": 403,
+          "weth_to_first_pool_log": 397,
+          "withdrawal_log": 407
+        },
+        {
+          "deposit_log": 408,
+          "gain_wei": 75168082029432,
+          "intermediate_usdc_raw": 45697944,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 30998919991755703,
+          "returned_wei": 31074088073785135,
+          "round": 35,
+          "swap_logs": [
+            414,
+            418
+          ],
+          "usdc_transfers": [
+            410,
+            416
+          ],
+          "weth_from_second_pool_log": 415,
+          "weth_to_first_pool_log": 409,
+          "withdrawal_log": 419
+        },
+        {
+          "deposit_log": 420,
+          "gain_wei": 71891203833357,
+          "intermediate_usdc_raw": 45806876,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31074088073785135,
+          "returned_wei": 31145979277618492,
+          "round": 36,
+          "swap_logs": [
+            426,
+            430
+          ],
+          "usdc_transfers": [
+            422,
+            428
+          ],
+          "weth_from_second_pool_log": 427,
+          "weth_to_first_pool_log": 421,
+          "withdrawal_log": 431
+        },
+        {
+          "deposit_log": 432,
+          "gain_wei": 68582885855867,
+          "intermediate_usdc_raw": 45910964,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31145979277618492,
+          "returned_wei": 31214562163474359,
+          "round": 37,
+          "swap_logs": [
+            438,
+            442
+          ],
+          "usdc_transfers": [
+            434,
+            440
+          ],
+          "weth_from_second_pool_log": 439,
+          "weth_to_first_pool_log": 433,
+          "withdrawal_log": 443
+        },
+        {
+          "deposit_log": 444,
+          "gain_wei": 65244777698927,
+          "intermediate_usdc_raw": 46010164,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31214562163474359,
+          "returned_wei": 31279806941173286,
+          "round": 38,
+          "swap_logs": [
+            450,
+            454
+          ],
+          "usdc_transfers": [
+            446,
+            452
+          ],
+          "weth_from_second_pool_log": 451,
+          "weth_to_first_pool_log": 445,
+          "withdrawal_log": 455
+        },
+        {
+          "deposit_log": 456,
+          "gain_wei": 61876895083900,
+          "intermediate_usdc_raw": 46104430,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31279806941173286,
+          "returned_wei": 31341683836257186,
+          "round": 39,
+          "swap_logs": [
+            462,
+            466
+          ],
+          "usdc_transfers": [
+            458,
+            464
+          ],
+          "weth_from_second_pool_log": 463,
+          "weth_to_first_pool_log": 457,
+          "withdrawal_log": 467
+        },
+        {
+          "deposit_log": 468,
+          "gain_wei": 58481980628321,
+          "intermediate_usdc_raw": 46193721,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31341683836257186,
+          "returned_wei": 31400165816885507,
+          "round": 40,
+          "swap_logs": [
+            474,
+            478
+          ],
+          "usdc_transfers": [
+            470,
+            476
+          ],
+          "weth_from_second_pool_log": 475,
+          "weth_to_first_pool_log": 469,
+          "withdrawal_log": 479
+        },
+        {
+          "deposit_log": 480,
+          "gain_wei": 55062093872689,
+          "intermediate_usdc_raw": 46277998,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31400165816885507,
+          "returned_wei": 31455227910758196,
+          "round": 41,
+          "swap_logs": [
+            486,
+            490
+          ],
+          "usdc_transfers": [
+            482,
+            488
+          ],
+          "weth_from_second_pool_log": 487,
+          "weth_to_first_pool_log": 481,
+          "withdrawal_log": 491
+        },
+        {
+          "deposit_log": 492,
+          "gain_wei": 51616566581487,
+          "intermediate_usdc_raw": 46357224,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31455227910758196,
+          "returned_wei": 31506844477339683,
+          "round": 42,
+          "swap_logs": [
+            498,
+            502
+          ],
+          "usdc_transfers": [
+            494,
+            500
+          ],
+          "weth_from_second_pool_log": 499,
+          "weth_to_first_pool_log": 493,
+          "withdrawal_log": 503
+        },
+        {
+          "deposit_log": 504,
+          "gain_wei": 48147457094376,
+          "intermediate_usdc_raw": 46431362,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31506844477339683,
+          "returned_wei": 31554991934434059,
+          "round": 43,
+          "swap_logs": [
+            510,
+            514
+          ],
+          "usdc_transfers": [
+            506,
+            512
+          ],
+          "weth_from_second_pool_log": 511,
+          "weth_to_first_pool_log": 505,
+          "withdrawal_log": 515
+        },
+        {
+          "deposit_log": 516,
+          "gain_wei": 44657504230663,
+          "intermediate_usdc_raw": 46500379,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31554991934434059,
+          "returned_wei": 31599649438664722,
+          "round": 44,
+          "swap_logs": [
+            522,
+            526
+          ],
+          "usdc_transfers": [
+            518,
+            524
+          ],
+          "weth_from_second_pool_log": 523,
+          "weth_to_first_pool_log": 517,
+          "withdrawal_log": 527
+        },
+        {
+          "deposit_log": 528,
+          "gain_wei": 41148082351964,
+          "intermediate_usdc_raw": 46564245,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31599649438664722,
+          "returned_wei": 31640797521016686,
+          "round": 45,
+          "swap_logs": [
+            534,
+            538
+          ],
+          "usdc_transfers": [
+            530,
+            536
+          ],
+          "weth_from_second_pool_log": 535,
+          "weth_to_first_pool_log": 529,
+          "withdrawal_log": 539
+        },
+        {
+          "deposit_log": 540,
+          "gain_wei": 37619883511742,
+          "intermediate_usdc_raw": 46622932,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31640797521016686,
+          "returned_wei": 31678417404528428,
+          "round": 46,
+          "swap_logs": [
+            546,
+            550
+          ],
+          "usdc_transfers": [
+            542,
+            548
+          ],
+          "weth_from_second_pool_log": 547,
+          "weth_to_first_pool_log": 541,
+          "withdrawal_log": 551
+        },
+        {
+          "deposit_log": 552,
+          "gain_wei": 34073599219556,
+          "intermediate_usdc_raw": 46676412,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31678417404528428,
+          "returned_wei": 31712491003747984,
+          "round": 47,
+          "swap_logs": [
+            558,
+            562
+          ],
+          "usdc_transfers": [
+            554,
+            560
+          ],
+          "weth_from_second_pool_log": 559,
+          "weth_to_first_pool_log": 553,
+          "withdrawal_log": 563
+        },
+        {
+          "deposit_log": 564,
+          "gain_wei": 30513327348793,
+          "intermediate_usdc_raw": 46724661,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31712491003747984,
+          "returned_wei": 31743004331096777,
+          "round": 48,
+          "swap_logs": [
+            570,
+            574
+          ],
+          "usdc_transfers": [
+            566,
+            572
+          ],
+          "weth_from_second_pool_log": 571,
+          "weth_to_first_pool_log": 565,
+          "withdrawal_log": 575
+        },
+        {
+          "deposit_log": 576,
+          "gain_wei": 26938394415247,
+          "intermediate_usdc_raw": 46767658,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31743004331096777,
+          "returned_wei": 31769942725512024,
+          "round": 49,
+          "swap_logs": [
+            582,
+            586
+          ],
+          "usdc_transfers": [
+            578,
+            584
+          ],
+          "weth_from_second_pool_log": 583,
+          "weth_to_first_pool_log": 577,
+          "withdrawal_log": 587
+        },
+        {
+          "deposit_log": 588,
+          "gain_wei": 23350852096406,
+          "intermediate_usdc_raw": 46805383,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31769942725512024,
+          "returned_wei": 31793293577608430,
+          "round": 50,
+          "swap_logs": [
+            594,
+            598
+          ],
+          "usdc_transfers": [
+            590,
+            596
+          ],
+          "weth_from_second_pool_log": 595,
+          "weth_to_first_pool_log": 589,
+          "withdrawal_log": 599
+        },
+        {
+          "deposit_log": 600,
+          "gain_wei": 19753432151807,
+          "intermediate_usdc_raw": 46837818,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31793293577608430,
+          "returned_wei": 31813047009760237,
+          "round": 51,
+          "swap_logs": [
+            606,
+            610
+          ],
+          "usdc_transfers": [
+            602,
+            608
+          ],
+          "weth_from_second_pool_log": 607,
+          "weth_to_first_pool_log": 601,
+          "withdrawal_log": 611
+        },
+        {
+          "deposit_log": 612,
+          "gain_wei": 16147502512570,
+          "intermediate_usdc_raw": 46864950,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31813047009760237,
+          "returned_wei": 31829194512272807,
+          "round": 52,
+          "swap_logs": [
+            618,
+            622
+          ],
+          "usdc_transfers": [
+            614,
+            620
+          ],
+          "weth_from_second_pool_log": 619,
+          "weth_to_first_pool_log": 613,
+          "withdrawal_log": 623
+        },
+        {
+          "deposit_log": 624,
+          "gain_wei": 12533067960222,
+          "intermediate_usdc_raw": 46886766,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31829194512272807,
+          "returned_wei": 31841727580233029,
+          "round": 53,
+          "swap_logs": [
+            630,
+            634
+          ],
+          "usdc_transfers": [
+            626,
+            632
+          ],
+          "weth_from_second_pool_log": 631,
+          "weth_to_first_pool_log": 625,
+          "withdrawal_log": 635
+        },
+        {
+          "deposit_log": 636,
+          "gain_wei": 8914219526887,
+          "intermediate_usdc_raw": 46903256,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31841727580233029,
+          "returned_wei": 31850641799759916,
+          "round": 54,
+          "swap_logs": [
+            642,
+            646
+          ],
+          "usdc_transfers": [
+            638,
+            644
+          ],
+          "weth_from_second_pool_log": 643,
+          "weth_to_first_pool_log": 637,
+          "withdrawal_log": 647
+        },
+        {
+          "deposit_log": 648,
+          "gain_wei": 5290278906392,
+          "intermediate_usdc_raw": 46914413,
+          "markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "principal_wei": 31850641799759916,
+          "returned_wei": 31855932078666308,
+          "round": 55,
+          "swap_logs": [
+            654,
+            658
+          ],
+          "usdc_transfers": [
+            650,
+            656
+          ],
+          "weth_from_second_pool_log": 655,
+          "weth_to_first_pool_log": 649,
+          "withdrawal_log": 659
+        },
+        {
+          "deposit_log": 660,
+          "gain_wei": 63018843034754,
+          "intermediate_usdc_raw": 46907147,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 31855932078666308,
+          "returned_wei": 31918950921701062,
+          "round": 56,
+          "swap_logs": [
+            663,
+            668
+          ],
+          "usdc_transfers": [
+            661,
+            664
+          ],
+          "weth_from_second_pool_log": 666,
+          "weth_to_first_pool_log": 662,
+          "withdrawal_log": 669
+        },
+        {
+          "deposit_log": 670,
+          "gain_wei": 58599505006681,
+          "intermediate_usdc_raw": 46999656,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 31918950921701062,
+          "returned_wei": 31977550426707743,
+          "round": 57,
+          "swap_logs": [
+            673,
+            678
+          ],
+          "usdc_transfers": [
+            671,
+            674
+          ],
+          "weth_from_second_pool_log": 676,
+          "weth_to_first_pool_log": 672,
+          "withdrawal_log": 679
+        },
+        {
+          "deposit_log": 680,
+          "gain_wei": 54146326589782,
+          "intermediate_usdc_raw": 47085655,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 31977550426707743,
+          "returned_wei": 32031696753297525,
+          "round": 58,
+          "swap_logs": [
+            683,
+            688
+          ],
+          "usdc_transfers": [
+            681,
+            684
+          ],
+          "weth_from_second_pool_log": 686,
+          "weth_to_first_pool_log": 682,
+          "withdrawal_log": 689
+        },
+        {
+          "deposit_log": 690,
+          "gain_wei": 49662881162627,
+          "intermediate_usdc_raw": 47165096,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32031696753297525,
+          "returned_wei": 32081359634460152,
+          "round": 59,
+          "swap_logs": [
+            693,
+            698
+          ],
+          "usdc_transfers": [
+            691,
+            694
+          ],
+          "weth_from_second_pool_log": 696,
+          "weth_to_first_pool_log": 692,
+          "withdrawal_log": 699
+        },
+        {
+          "deposit_log": 700,
+          "gain_wei": 45151240634418,
+          "intermediate_usdc_raw": 47237934,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32081359634460152,
+          "returned_wei": 32126510875094570,
+          "round": 60,
+          "swap_logs": [
+            703,
+            708
+          ],
+          "usdc_transfers": [
+            701,
+            704
+          ],
+          "weth_from_second_pool_log": 706,
+          "weth_to_first_pool_log": 702,
+          "withdrawal_log": 709
+        },
+        {
+          "deposit_log": 710,
+          "gain_wei": 40614154431017,
+          "intermediate_usdc_raw": 47304128,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32126510875094570,
+          "returned_wei": 32167125029525587,
+          "round": 61,
+          "swap_logs": [
+            713,
+            718
+          ],
+          "usdc_transfers": [
+            711,
+            714
+          ],
+          "weth_from_second_pool_log": 716,
+          "weth_to_first_pool_log": 712,
+          "withdrawal_log": 719
+        },
+        {
+          "deposit_log": 720,
+          "gain_wei": 36053689081244,
+          "intermediate_usdc_raw": 47363640,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32167125029525587,
+          "returned_wei": 32203178718606831,
+          "round": 62,
+          "swap_logs": [
+            723,
+            728
+          ],
+          "usdc_transfers": [
+            721,
+            724
+          ],
+          "weth_from_second_pool_log": 726,
+          "weth_to_first_pool_log": 722,
+          "withdrawal_log": 729
+        },
+        {
+          "deposit_log": 730,
+          "gain_wei": 31472588390881,
+          "intermediate_usdc_raw": 47416436,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32203178718606831,
+          "returned_wei": 32234651306997712,
+          "round": 63,
+          "swap_logs": [
+            733,
+            738
+          ],
+          "usdc_transfers": [
+            731,
+            734
+          ],
+          "weth_from_second_pool_log": 736,
+          "weth_to_first_pool_log": 732,
+          "withdrawal_log": 739
+        },
+        {
+          "deposit_log": 740,
+          "gain_wei": 26872913406123,
+          "intermediate_usdc_raw": 47462485,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32234651306997712,
+          "returned_wei": 32261524220403835,
+          "round": 64,
+          "swap_logs": [
+            743,
+            748
+          ],
+          "usdc_transfers": [
+            741,
+            744
+          ],
+          "weth_from_second_pool_log": 746,
+          "weth_to_first_pool_log": 742,
+          "withdrawal_log": 749
+        },
+        {
+          "deposit_log": 750,
+          "gain_wei": 22258761393482,
+          "intermediate_usdc_raw": 47501762,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32261524220403835,
+          "returned_wei": 32283782981797317,
+          "round": 65,
+          "swap_logs": [
+            753,
+            758
+          ],
+          "usdc_transfers": [
+            751,
+            754
+          ],
+          "weth_from_second_pool_log": 756,
+          "weth_to_first_pool_log": 752,
+          "withdrawal_log": 759
+        },
+        {
+          "deposit_log": 760,
+          "gain_wei": 17631507406118,
+          "intermediate_usdc_raw": 47534244,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32283782981797317,
+          "returned_wei": 32301414489203435,
+          "round": 66,
+          "swap_logs": [
+            763,
+            768
+          ],
+          "usdc_transfers": [
+            761,
+            764
+          ],
+          "weth_from_second_pool_log": 766,
+          "weth_to_first_pool_log": 762,
+          "withdrawal_log": 769
+        },
+        {
+          "deposit_log": 770,
+          "gain_wei": 12993883283969,
+          "intermediate_usdc_raw": 47559912,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32301414489203435,
+          "returned_wei": 32314408372487404,
+          "round": 67,
+          "swap_logs": [
+            773,
+            778
+          ],
+          "usdc_transfers": [
+            771,
+            774
+          ],
+          "weth_from_second_pool_log": 776,
+          "weth_to_first_pool_log": 772,
+          "withdrawal_log": 779
+        },
+        {
+          "deposit_log": 780,
+          "gain_wei": 8348617720467,
+          "intermediate_usdc_raw": 47578751,
+          "markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9"
+          ],
+          "principal_wei": 32314408372487404,
+          "returned_wei": 32322756990207871,
+          "round": 68,
+          "swap_logs": [
+            783,
+            788
+          ],
+          "usdc_transfers": [
+            781,
+            784
+          ],
+          "weth_from_second_pool_log": 786,
+          "weth_to_first_pool_log": 782,
+          "withdrawal_log": 789
+        }
+      ],
+      "rounds": 68,
+      "rpc_native_balance_claim_wei": {
+        "executor": {
+          "post": 0,
+          "pre": 0
+        },
+        "sender": {
+          "post": 0,
+          "pre": 0
+        }
+      },
+      "selector": "0xe652c7e6",
+      "shape": "serial",
+      "signer": "0x7656a6df8cb25ca8082f961fae077f2ec082e6bc",
+      "source_row": 2069,
+      "timestamp": 1655000888,
+      "transaction_index": 0,
+      "tx_hash": "0x2f51f92b44dd05476c03dfc16b35e9f88d2bdf6c36db313af035d48912af1d30",
+      "ultimate_native_recipient": null,
+      "unique_markets": 4,
+      "verified_market_legs": 136,
+      "weth_trade_turnover_wei": 2121031600812979024,
+      "within_group_transfer_edges": 68
+    }
+  ],
+  "commitments": {
+    "full_block_receipts": 1,
+    "header_hash": "0x60d01cd6a213799dec9a2e343346c7e7b2af40f2cce3d018c081857c92e7c56a",
+    "independent_live_sources": 1,
+    "receipt_logs": 790,
+    "receipt_root": "0x75d7d8303c21f084164e32fa619315d9374d06007d6f74d8b5690020dc1fb4ea",
+    "transaction_root": "0x454be6f258553e19307aacd67f20bf4188a6c4c9cf99ee27777ada1aec5c9c37"
+  },
+  "rpc": {
+    "endpoint": "https://optimism.drpc.org",
+    "max_usd": 0,
+    "reservations": 7,
+    "scope_sha256": "b2b78e3240740e31be95f254b50d6b09bc80f507ee38f7baf53b2198f16ba412",
+    "wires": {
+      "block": {
+        "bytes": 2694,
+        "end_utc": "2026-11-27T14:44:12.795963+00:00",
+        "http": 200,
+        "request_sha256": "920a1074ffc9f61b6f8167b01d4347e2babe74eda3a510cef1263860d1def15e",
+        "response_sha256": "0663975f6386e0dfc94c37dffcc7be30e50c57b8ca0d72f17d9cd767b5fd4ee9",
+        "started_utc": "2026-11-27T14:44:12.487178+00:00"
+      },
+      "chain": {
+        "bytes": 39,
+        "end_utc": "2026-11-27T14:44:12.076943+00:00",
+        "http": 200,
+        "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+        "response_sha256": "e239b5418c696242a0eaa7ca19f116dd64b0508f117ee85f044ca6c5074878aa",
+        "started_utc": "2026-11-27T14:44:11.675541+00:00"
+      },
+      "post-executor": {
+        "bytes": 39,
+        "end_utc": "2026-11-27T14:44:14.012101+00:00",
+        "http": 200,
+        "request_sha256": "77740a975f4f14f427b993db4b0e4325ccc7af4cb3879fe9106d96ad87aa99b2",
+        "response_sha256": "de2e086bf68d59c68ca0abf6c3db7dc134dbb08a417c8907f5fe1bed670fbb5a",
+        "started_utc": "2026-11-27T14:44:13.721322+00:00"
+      },
+      "post-sender": {
+        "bytes": 39,
+        "end_utc": "2026-11-27T14:44:13.414910+00:00",
+        "http": 200,
+        "request_sha256": "efe77418867db7914990bcbd04d92086254765be9c379199af434a618579a27a",
+        "response_sha256": "bc5ef5eb4b32bedc3ead7c5f56477d1b8296a9643d9d303e09faf0e0a530e626",
+        "started_utc": "2026-11-27T14:44:13.101403+00:00"
+      },
+      "pre-executor": {
+        "bytes": 39,
+        "end_utc": "2026-11-27T14:44:13.719986+00:00",
+        "http": 200,
+        "request_sha256": "6ae5a6ececb5e4e7c3eb06a3ecb8d987cfa3ed22148c94d64868a9223dcd0ffb",
+        "response_sha256": "c8f1f4370046efe5746c1c37b6b018a9bfbb1e5fba0852b5092c67769b4746b1",
+        "started_utc": "2026-11-27T14:44:13.418310+00:00"
+      },
+      "pre-sender": {
+        "bytes": 39,
+        "end_utc": "2026-11-27T14:44:13.099271+00:00",
+        "http": 200,
+        "request_sha256": "f9685cf72896e92d8ea52fc87d19c8b00d9d6744605af84d77596212cd0163a5",
+        "response_sha256": "41be90b6042e0392076efa850ffbf470a3346b4a061c2e948bad479fe1758ff1",
+        "started_utc": "2026-11-27T14:44:12.798805+00:00"
+      },
+      "receipt": {
+        "bytes": 493735,
+        "end_utc": "2026-11-27T14:44:12.484124+00:00",
+        "http": 200,
+        "request_sha256": "1e840a1671d9ee7229bd0f711847688e213c61141c8a496dc22afb405ad250ad",
+        "response_sha256": "fd00b1c6caac99bbb6a00c0350593cf016b872b45b833f798dc2534ca4a64c83",
+        "started_utc": "2026-11-27T14:44:12.079204+00:00"
+      }
+    }
+  },
+  "source": {
+    "git_blob": "188a3498ee1b13be8c9ce34f4fd94829ef74cf59",
+    "git_revision": "79d31e0a07b702b5eabb849ac5d513863cad8bb3",
+    "sha256_paper_bytes": "94cbd2cf78b9ba6218d4f8c8ff47c116d8498d07a05a3934382ce2bbe47b22fa"
+  }
+}

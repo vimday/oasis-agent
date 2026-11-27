@@ -1,0 +1,463 @@
+{
+  "all_receipts": 143,
+  "block_hash": "0xff29d85173282356a9b9a633dc4a5f5f6844834b3be467f3b8d1a26168ca8d68",
+  "block_number": 136053891,
+  "cases": [
+    {
+      "case_kind": "native_to_wbnb_native_settlement_unseen",
+      "closed_same_asset_market_legs": 0,
+      "effective_gas_price_wei": 0,
+      "entity_net_bnb_wei": null,
+      "executor": "0xdc0e98fd40ccd1c1d7084de9f254d7853846cc6e",
+      "executor_token_deltas_including_withdrawals": {},
+      "external_wbnb_received_wei": 2148158388045,
+      "external_wbnb_recipient": "0xfc61b25fc3f65c4be1382ffbf99f6eae78879420",
+      "external_wbnb_transfer_log": 138,
+      "gas_used": 490451,
+      "gross_anchor_spread_wei": 2551256992927,
+      "intermediate_links": [
+        {
+          "amount_raw": 23065130531945720183,
+          "swaps": [
+            125,
+            127
+          ],
+          "token": "0x61a10e8556bed032ea176330e7f17d6a12a10000",
+          "transfer_logs": [
+            126,
+            129
+          ]
+        },
+        {
+          "amount_raw": 23063060111045738708,
+          "swaps": [
+            127,
+            130
+          ],
+          "token": "0x55d398326f99059ff775485246999027b3197955",
+          "transfer_logs": [
+            128,
+            132
+          ]
+        },
+        {
+          "amount_raw": 23040608927754559455,
+          "swaps": [
+            130,
+            135
+          ],
+          "token": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "transfer_logs": [
+            131,
+            134
+          ]
+        }
+      ],
+      "legs": [
+        {
+          "custodian": "0x238a358808379702088667322f80ac48bad5e6c4",
+          "input_raw": 40988229892223200,
+          "input_transfer_log": null,
+          "market": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "output_raw": 23065130531945720183,
+          "output_transfer_logs": [
+            126
+          ],
+          "pool_key": {
+            "currency0": "0x0000000000000000000000000000000000000000",
+            "currency1": "0x61a10e8556bed032ea176330e7f17d6a12a10000",
+            "fee_pips_in_key": 34,
+            "hooks": "0x0000000000000000000000000000000000000000",
+            "pool_id": "0x28f1894205984da3eb8e6b59ace532b2dc6b2c71fc8d3d20733613824ba96baa",
+            "tick_spacing": 1
+          },
+          "swap_log": 125,
+          "token_in": "0x0000000000000000000000000000000000000000",
+          "token_out": "0x61a10e8556bed032ea176330e7f17d6a12a10000"
+        },
+        {
+          "custodian": "0x238a358808379702088667322f80ac48bad5e6c4",
+          "input_raw": 23065130531945720183,
+          "input_transfer_log": 129,
+          "market": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "output_raw": 23063060111045738708,
+          "output_transfer_logs": [
+            128
+          ],
+          "pool_key": {
+            "currency0": "0x55d398326f99059ff775485246999027b3197955",
+            "currency1": "0x61a10e8556bed032ea176330e7f17d6a12a10000",
+            "fee_pips_in_key": 7,
+            "hooks": "0x0000000000000000000000000000000000000000",
+            "pool_id": "0x31be7d72def113b64e974e202405da7b96758d3909c5dda261222b7cbb12ee19",
+            "tick_spacing": 1
+          },
+          "swap_log": 127,
+          "token_in": "0x61a10e8556bed032ea176330e7f17d6a12a10000",
+          "token_out": "0x55d398326f99059ff775485246999027b3197955"
+        },
+        {
+          "custodian": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "input_raw": 23063060111045738708,
+          "input_transfer_log": 132,
+          "market": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "output_raw": 23040608927754559455,
+          "output_transfer_logs": [
+            131
+          ],
+          "pool_key": {
+            "currency0": "0x55d398326f99059ff775485246999027b3197955",
+            "currency1": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            "fee_pips_in_key": 2,
+            "hooks": "0x0000000000000000000000000000000000000000",
+            "pool_id": "0x628ea54a6450645d2bb7b2911c8c6f3d7f3944c2f4703c259a1b85bf5569870b",
+            "tick_spacing": 1
+          },
+          "swap_log": 130,
+          "token_in": "0x55d398326f99059ff775485246999027b3197955",
+          "token_out": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        },
+        {
+          "custodian": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "input_raw": 23040608927754559455,
+          "input_transfer_log": 134,
+          "market": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "output_raw": 40990781149216127,
+          "output_transfer_logs": [
+            133
+          ],
+          "pool_key": null,
+          "swap_log": 135,
+          "token_in": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "token_out": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        }
+      ],
+      "max_funded_market_legs": 4,
+      "native_payment_to_first_pool_or_vault_wei": null,
+      "native_settlement_required": true,
+      "network_fee_bnb_wei": 0,
+      "residual_unwrapped_by_executor_wei": 403098604882,
+      "sender": "0x9feb0c038376d5a8c86f959d5caec803dad2af90",
+      "sender_erc20_transfer_deltas": {},
+      "shape": "unresolved",
+      "transaction_index": 33,
+      "tx_hash": "0x54814af5cfae539f374b9f331e0aa6dfa6ca82b8614baf695537ebbe55a1362e",
+      "withdrawals_by_log": {
+        "136": 40988229892223200,
+        "137": 403098604882
+      }
+    },
+    {
+      "case_kind": "four_pool_wbnb_cycle",
+      "closed_same_asset_market_legs": 4,
+      "effective_gas_price_wei": 0,
+      "entity_net_bnb_wei": null,
+      "executor": "0xdc0e98fd40ccd1c1d7084de9f254d7853846cc6e",
+      "executor_token_deltas_including_withdrawals": {},
+      "external_wbnb_received_wei": 2029837573505,
+      "external_wbnb_recipient": "0xfc61b25fc3f65c4be1382ffbf99f6eae78879420",
+      "external_wbnb_transfer_log": 152,
+      "gas_used": 469345,
+      "gross_anchor_spread_wei": 2410444042457,
+      "intermediate_links": [
+        {
+          "amount_raw": 412460841518213554771,
+          "swaps": [
+            150,
+            142
+          ],
+          "token": "0x4d2d32d8652058bf98c772953e1df5c5c85d9f45",
+          "transfer_logs": [
+            139,
+            141
+          ]
+        },
+        {
+          "amount_raw": 7090737203112053206,
+          "swaps": [
+            142,
+            143
+          ],
+          "token": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "transfer_logs": [
+            140,
+            145
+          ]
+        },
+        {
+          "amount_raw": 7097604259379279487,
+          "swaps": [
+            143,
+            148
+          ],
+          "token": "0x55d398326f99059ff775485246999027b3197955",
+          "transfer_logs": [
+            144,
+            147
+          ]
+        }
+      ],
+      "legs": [
+        {
+          "custodian": "0x8ba9ec5737fdcb0e472c207befe775ca94386e91",
+          "input_raw": 12612557246757472,
+          "input_transfer_log": 149,
+          "market": "0x8ba9ec5737fdcb0e472c207befe775ca94386e91",
+          "output_raw": 412460841518213554771,
+          "output_transfer_logs": [
+            139
+          ],
+          "pool_key": null,
+          "swap_log": 150,
+          "token_in": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "token_out": "0x4d2d32d8652058bf98c772953e1df5c5c85d9f45"
+        },
+        {
+          "custodian": "0x1fa2cbbbb823a702a3622629bf297b75edbbf10f",
+          "input_raw": 412460841518213554771,
+          "input_transfer_log": 141,
+          "market": "0x1fa2cbbbb823a702a3622629bf297b75edbbf10f",
+          "output_raw": 7090737203112053206,
+          "output_transfer_logs": [
+            140
+          ],
+          "pool_key": null,
+          "swap_log": 142,
+          "token_in": "0x4d2d32d8652058bf98c772953e1df5c5c85d9f45",
+          "token_out": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        },
+        {
+          "custodian": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "input_raw": 7090737203112053206,
+          "input_transfer_log": 145,
+          "market": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "output_raw": 7097604259379279487,
+          "output_transfer_logs": [
+            144
+          ],
+          "pool_key": {
+            "currency0": "0x55d398326f99059ff775485246999027b3197955",
+            "currency1": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            "fee_pips_in_key": 2,
+            "hooks": "0x0000000000000000000000000000000000000000",
+            "pool_id": "0x628ea54a6450645d2bb7b2911c8c6f3d7f3944c2f4703c259a1b85bf5569870b",
+            "tick_spacing": 1
+          },
+          "swap_log": 143,
+          "token_in": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "token_out": "0x55d398326f99059ff775485246999027b3197955"
+        },
+        {
+          "custodian": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "input_raw": 7097604259379279487,
+          "input_transfer_log": 147,
+          "market": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "output_raw": 12614967690799929,
+          "output_transfer_logs": [
+            146
+          ],
+          "pool_key": null,
+          "swap_log": 148,
+          "token_in": "0x55d398326f99059ff775485246999027b3197955",
+          "token_out": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        }
+      ],
+      "max_funded_market_legs": 4,
+      "native_payment_to_first_pool_or_vault_wei": null,
+      "native_settlement_required": false,
+      "network_fee_bnb_wei": 0,
+      "residual_unwrapped_by_executor_wei": 380606468952,
+      "sender": "0xc528858cb21bccc3d6141a8a76b7099e148297d3",
+      "sender_erc20_transfer_deltas": {},
+      "shape": "serial",
+      "transaction_index": 34,
+      "tx_hash": "0x15114c462481f4c5d5266dcb2fc20c195d9f77ec944d06227c7f4c033c55b7fe",
+      "withdrawals_by_log": {
+        "151": 380606468952
+      }
+    },
+    {
+      "case_kind": "serial_open_taxed_endpoints",
+      "closed_same_asset_market_legs": 0,
+      "effective_gas_price_wei": 105835412,
+      "entity_net_bnb_wei": null,
+      "executor": "0x5994814f2c4040b863a0125a45de152a8c2a4dec",
+      "executor_token_deltas_including_withdrawals": {},
+      "gas_used": 2090960,
+      "input_split_logs": [
+        179,
+        183
+      ],
+      "input_token_contract_share_raw": 300000000000000009921,
+      "intermediate_links": [
+        {
+          "amount_raw": 255074724991877874,
+          "swaps": [
+            190,
+            198
+          ],
+          "token": "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+          "transfer_logs": [
+            187,
+            191,
+            193,
+            196
+          ]
+        },
+        {
+          "amount_raw": 33510354893742745932,
+          "swaps": [
+            198,
+            202
+          ],
+          "token": "0x55d398326f99059ff775485246999027b3197955",
+          "transfer_logs": [
+            195,
+            200,
+            201
+          ]
+        },
+        {
+          "amount_raw": 33477626903462777217,
+          "swaps": [
+            202,
+            208
+          ],
+          "token": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "transfer_logs": [
+            203,
+            204,
+            205,
+            207
+          ]
+        },
+        {
+          "amount_raw": 59558240271935652,
+          "swaps": [
+            208,
+            217
+          ],
+          "token": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "transfer_logs": [
+            206,
+            210
+          ]
+        }
+      ],
+      "legs": [
+        {
+          "custodian": "0x88011d9107c6a8118afb0a1e7ff4f376f988b846",
+          "input_raw": 29700000000000000982227,
+          "input_transfer_log": 183,
+          "market": "0x88011d9107c6a8118afb0a1e7ff4f376f988b846",
+          "output_raw": 255074724991877874,
+          "output_transfer_logs": [
+            187
+          ],
+          "pool_key": null,
+          "swap_log": 190,
+          "token_in": "0xdde27483de8c958e4d2657d64eb7551717457777",
+          "token_out": "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1"
+        },
+        {
+          "custodian": "0x51a45a72cc96ca3ba615e25e80a6af2740ae2e2d",
+          "input_raw": 255074724991877874,
+          "input_transfer_log": 196,
+          "market": "0x51a45a72cc96ca3ba615e25e80a6af2740ae2e2d",
+          "output_raw": 33510354893742745932,
+          "output_transfer_logs": [
+            195
+          ],
+          "pool_key": null,
+          "swap_log": 198,
+          "token_in": "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+          "token_out": "0x55d398326f99059ff775485246999027b3197955"
+        },
+        {
+          "custodian": "0x238a358808379702088667322f80ac48bad5e6c4",
+          "input_raw": 33510354893742745932,
+          "input_transfer_log": 201,
+          "market": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "output_raw": 33477626903462777217,
+          "output_transfer_logs": [
+            203
+          ],
+          "pool_key": {
+            "currency0": "0x55d398326f99059ff775485246999027b3197955",
+            "currency1": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+            "fee_pips_in_key": 2,
+            "hooks": "0x0000000000000000000000000000000000000000",
+            "pool_id": "0x258907d03806aad208f23147bf05d4e5f69eaba5c6ded94f02d98445add62c31",
+            "tick_spacing": 9
+          },
+          "swap_log": 202,
+          "token_in": "0x55d398326f99059ff775485246999027b3197955",
+          "token_out": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d"
+        },
+        {
+          "custodian": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "input_raw": 33477626903462777217,
+          "input_transfer_log": 207,
+          "market": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "output_raw": 59558240271935652,
+          "output_transfer_logs": [
+            206
+          ],
+          "pool_key": null,
+          "swap_log": 208,
+          "token_in": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+          "token_out": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        },
+        {
+          "custodian": "0xe42f8eced84de2bd46f98bb6bfc5914b58db0580",
+          "input_raw": 59558240271935652,
+          "input_transfer_log": 210,
+          "market": "0xe42f8eced84de2bd46f98bb6bfc5914b58db0580",
+          "output_raw": 426235779855507859149925,
+          "output_transfer_logs": [
+            211,
+            213
+          ],
+          "pool_key": null,
+          "swap_log": 217,
+          "token_in": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+          "token_out": "0x68c7a3bc173e53ed56f7807b4ad39b1b2a33ffff"
+        }
+      ],
+      "max_funded_market_legs": 5,
+      "network_fee_bnb_wei": 221297613075520,
+      "output_split_logs": [
+        211,
+        213
+      ],
+      "output_token_contract_share_raw": 4262357798555078591499,
+      "sender": "0xacec43369019e173b56800aae75e1994e243428f",
+      "sender_erc20_transfer_deltas": {
+        "0x68c7a3bc173e53ed56f7807b4ad39b1b2a33ffff": 421973422056952780558426,
+        "0xdde27483de8c958e4d2657d64eb7551717457777": -30000000000000000992148
+      },
+      "sender_input_debit_raw": 30000000000000000992148,
+      "sender_output_credit_raw": 421973422056952780558426,
+      "shape": "control",
+      "transaction_index": 39,
+      "tx_hash": "0x2f5eaa2c879a3c78303899c97ed0ae149f3187be4d53d59ab76cdbf24c130b05",
+      "withdrawals_by_log": {}
+    }
+  ],
+  "chain_id": 56,
+  "common_beneficial_ownership": null,
+  "raw_header": "reports/research/bsc-gold-window-20261127/wire/03.response",
+  "raw_header_sha256": "47d4e8aaaad36f0305af164fbd452cff1baaf631158bff17ac4612a7588cc6c9",
+  "raw_response": "reports/research/bsc-gold-window-20261127/wire/16.response",
+  "raw_response_sha256": "e7e9e632e1d7919fb59b60ef3414df731f52136ce49c10599ae72fecbcc684b6",
+  "receipts_root": "0x69ff1d06ca74324c6d9412423258de355dfd8c8a30007dee70396783bd815461",
+  "screened_two_or_more_events": 11,
+  "selected": 3,
+  "shared_wbnb_received_total_wei": 4177995961550,
+  "shared_wbnb_recipient": "0xfc61b25fc3f65c4be1382ffbf99f6eae78879420",
+  "triport": {
+    "header_http": 403,
+    "requests_of_traces": 0,
+    "reservations": 2
+  }
+}

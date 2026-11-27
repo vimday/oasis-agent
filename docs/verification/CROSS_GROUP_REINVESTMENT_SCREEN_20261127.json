@@ -1,0 +1,1122 @@
+{
+  "cases": [
+    {
+      "block_number": 11671505,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 28,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 14,
+          "increasing_rounds": 14,
+          "initial_principal": 30000000000000000,
+          "last_group": 14,
+          "legs": 28,
+          "terminal_return": 30610684599624681,
+          "unique_markets": [
+            "0x73b14a78a0d396c521f954532d43fd5ffe385216",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2237,
+      "tx_hash": "0x14077bc579581c5079675fbfe611afe6de93bba12c5e11d9ff2b46862917b174"
+    },
+    {
+      "block_number": 11451614,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 68,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 34,
+          "increasing_rounds": 34,
+          "initial_principal": 20000000000000000,
+          "last_group": 34,
+          "legs": 68,
+          "terminal_return": 20576570413803778,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 993,
+      "tx_hash": "0x24dc7e8f0859884b79a8a44da4ef86691135ad9f058f3a323ca390d38a684a69"
+    },
+    {
+      "block_number": 11740507,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 48,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 24,
+          "increasing_rounds": 24,
+          "initial_principal": 30000000000000000,
+          "last_group": 24,
+          "legs": 48,
+          "terminal_return": 31517176939367955,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2341,
+      "tx_hash": "0x2587318eff7b5921c9275246f4d5bf1b2c4b55994a8f80d9a59630570a103722"
+    },
+    {
+      "block_number": 11447194,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 40,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 20,
+          "increasing_rounds": 20,
+          "initial_principal": 20000000000000000,
+          "last_group": 20,
+          "legs": 40,
+          "terminal_return": 20232112144747341,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 791,
+      "tx_hash": "0x2c0adab2a881aa9cb2efff0737ab4d4d63802be2b5a77760c0c1fb68017e6e6c"
+    },
+    {
+      "block_number": 11326027,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 136,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 68,
+          "increasing_rounds": 68,
+          "initial_principal": 30000000000000000,
+          "last_group": 68,
+          "legs": 136,
+          "terminal_return": 32322756990207871,
+          "unique_markets": [
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2069,
+      "tx_hash": "0x2f51f92b44dd05476c03dfc16b35e9f88d2bdf6c36db313af035d48912af1d30"
+    },
+    {
+      "block_number": 11430337,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 32,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 16,
+          "increasing_rounds": 16,
+          "initial_principal": 25000000000000000,
+          "last_group": 16,
+          "legs": 32,
+          "terminal_return": 25396180887718139,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2445,
+      "tx_hash": "0x3a90528d03b102c5dce04868297ae44269e5298d238dff32e12162e890726778"
+    },
+    {
+      "block_number": 11397953,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 22,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 11,
+          "increasing_rounds": 11,
+          "initial_principal": 30000000000000000,
+          "last_group": 11,
+          "legs": 22,
+          "terminal_return": 30149638600909223,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 620,
+      "tx_hash": "0x420ac842d99973c86d78844cfb2001860f746713880be84116daa8fdaf5d8a80"
+    },
+    {
+      "block_number": 12397229,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 58,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 29,
+          "increasing_rounds": 29,
+          "initial_principal": 15000000000000000,
+          "last_group": 29,
+          "legs": 58,
+          "terminal_return": 15690737883832612,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1445,
+      "tx_hash": "0x44720749f62c28ce3f8d215f1dc343e82c2e81576c6a6d01d91566b40bcfa832"
+    },
+    {
+      "block_number": 12723742,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 42,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 21,
+          "increasing_rounds": 21,
+          "initial_principal": 15000000000000000,
+          "last_group": 21,
+          "legs": 42,
+          "terminal_return": 15344747091137189,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1050,
+      "tx_hash": "0x472cb9c1fc73a73b1958b3de7410bf4c213e8c8c114d9ab04b19c3411a58ef8b"
+    },
+    {
+      "block_number": 11341013,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 40,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 20,
+          "increasing_rounds": 20,
+          "initial_principal": 30000000000000000,
+          "last_group": 20,
+          "legs": 40,
+          "terminal_return": 30382693207431252,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 328,
+      "tx_hash": "0x5206789f80d6c797e59f6530500ad77256b1f0f01e30cb41663815b2f16340d0"
+    },
+    {
+      "block_number": 11852149,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 40,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 20,
+          "increasing_rounds": 20,
+          "initial_principal": 30000000000000000,
+          "last_group": 20,
+          "legs": 40,
+          "terminal_return": 31172016343438360,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 511,
+      "tx_hash": "0x566fa1d4302e1c969b524983f94373329b55835660492f0a2c89d54142831667"
+    },
+    {
+      "block_number": 13967815,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 77,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 26,
+          "increasing_rounds": 26,
+          "initial_principal": 20000000000000000,
+          "last_group": 26,
+          "legs": 77,
+          "terminal_return": 20892072665255710,
+          "unique_markets": [
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8",
+            "0xfc1f3296458f9b2a27a0b91dd7681c4020e09d05"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1112,
+      "tx_hash": "0x57d8c7cf2c47b8738a4a279e3312f4e1125b92fa6b9eb416f57340cd86aa2776"
+    },
+    {
+      "block_number": 12452747,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 42,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 21,
+          "increasing_rounds": 21,
+          "initial_principal": 15000000000000000,
+          "last_group": 21,
+          "legs": 42,
+          "terminal_return": 15374084097006454,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1202,
+      "tx_hash": "0x5e9c2a9f0d0bc341671efdc8643be54bd54743abcbf222824ea6c77231da4e3a"
+    },
+    {
+      "block_number": 11660222,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 100,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 50,
+          "increasing_rounds": 50,
+          "initial_principal": 20000000000000000,
+          "last_group": 50,
+          "legs": 100,
+          "terminal_return": 21913240600285522,
+          "unique_markets": [
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 808,
+      "tx_hash": "0x61c00451496dbf330f4a788bf2b40214662734732e40785e91c7827f00ffcbf9"
+    },
+    {
+      "block_number": 11409815,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 20,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 10,
+          "increasing_rounds": 10,
+          "initial_principal": 30000000000000000,
+          "last_group": 10,
+          "legs": 20,
+          "terminal_return": 30271146336414286,
+          "unique_markets": [
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 728,
+      "tx_hash": "0x6e7c799d89626abe49456d53bf24814a85b825b285b88a8055b4f6f06046cc47"
+    },
+    {
+      "block_number": 11332610,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 102,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 51,
+          "increasing_rounds": 51,
+          "initial_principal": 30000000000000000,
+          "last_group": 51,
+          "legs": 102,
+          "terminal_return": 31623980367257260,
+          "unique_markets": [
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1675,
+      "tx_hash": "0x84dbfda2d50e482ff465a19fa9959426e21da7260efa5a3acb753361f3fa2f3b"
+    },
+    {
+      "block_number": 11910178,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 36,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 18,
+          "increasing_rounds": 18,
+          "initial_principal": 30000000000000000,
+          "last_group": 18,
+          "legs": 36,
+          "terminal_return": 30812170727067404,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 973,
+      "tx_hash": "0x90d528e6340942ccc091f7abab94b450bf14a97a7cf75ee64bf91afb1c362cfd"
+    },
+    {
+      "block_number": 11153145,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 27,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 9,
+          "increasing_rounds": 9,
+          "initial_principal": 50000000000000000,
+          "last_group": 9,
+          "legs": 27,
+          "terminal_return": 50804939820696643,
+          "unique_markets": [
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1041,
+      "tx_hash": "0x94308da5098237afbb8f43c9424b116ede1bf10098b2a8c3472e10aced05f428"
+    },
+    {
+      "block_number": 12971125,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 32,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 16,
+          "increasing_rounds": 16,
+          "initial_principal": 15000000000000000,
+          "last_group": 16,
+          "legs": 32,
+          "terminal_return": 15214670892101591,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 615,
+      "tx_hash": "0x94dc0b8ff97862a9c339ad30e53afd2cd26e9807662107cf86de060f0cdcbec4"
+    },
+    {
+      "block_number": 11857524,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 39,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 13,
+          "increasing_rounds": 13,
+          "initial_principal": 30000000000000000,
+          "last_group": 13,
+          "legs": 39,
+          "terminal_return": 30952133826764794,
+          "unique_markets": [
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1209,
+      "tx_hash": "0x9d82b211f5ebb65951a4442291cbdbcb99730cbbe93eed48c42d6f0e523789f3"
+    },
+    {
+      "block_number": 12888757,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 56,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 28,
+          "increasing_rounds": 28,
+          "initial_principal": 15000000000000000,
+          "last_group": 28,
+          "legs": 56,
+          "terminal_return": 15562164335784770,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1957,
+      "tx_hash": "0xa59baa4e94b6cdb29b9fe54ae508c0c731f4dcb7bc2542aa30c4a18a43e7934a"
+    },
+    {
+      "block_number": 11468319,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 100,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 50,
+          "increasing_rounds": 50,
+          "initial_principal": 20000000000000000,
+          "last_group": 50,
+          "legs": 100,
+          "terminal_return": 21069697329617860,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xb589969d38ce76d3d7aa319de7133bc9755fd840"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 997,
+      "tx_hash": "0xb6f716079d44082e78c66f2d09ffd586ea891240ef691dafcad886c3456fe2ab"
+    },
+    {
+      "block_number": 12922276,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 28,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 14,
+          "increasing_rounds": 14,
+          "initial_principal": 15000000000000000,
+          "last_group": 14,
+          "legs": 28,
+          "terminal_return": 15186595738174440,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1801,
+      "tx_hash": "0xbe975f4d45572d10756b20bac4aeee8b1e8d344e7deb6c9fb3fdf0b501b56e35"
+    },
+    {
+      "block_number": 11576133,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 58,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 29,
+          "increasing_rounds": 29,
+          "initial_principal": 30000000000000000,
+          "last_group": 29,
+          "legs": 58,
+          "terminal_return": 31881183779439877,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 496,
+      "tx_hash": "0xcaa48e70df28aebee08e886e68f4c5ef5b64c8312a8010f503c4c8dba153301c"
+    },
+    {
+      "block_number": 13031049,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 42,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 21,
+          "increasing_rounds": 21,
+          "initial_principal": 15000000000000000,
+          "last_group": 21,
+          "legs": 42,
+          "terminal_return": 15336373107287533,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 718,
+      "tx_hash": "0xceb74517c7f08dae5e6356582b03438670699a3218ab06affd236e00bd6714fb"
+    },
+    {
+      "block_number": 12196165,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 30,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 15,
+          "increasing_rounds": 15,
+          "initial_principal": 30000000000000000,
+          "last_group": 15,
+          "legs": 30,
+          "terminal_return": 30593783084838602,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1953,
+      "tx_hash": "0xd2c00e230ea534626c862cd1514ce2b6a40e013d2eac5c4bde0389a573bcd823"
+    },
+    {
+      "block_number": 11633886,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 84,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 42,
+          "increasing_rounds": 42,
+          "initial_principal": 10000000000000000,
+          "last_group": 42,
+          "legs": 84,
+          "terminal_return": 10596549142106263,
+          "unique_markets": [
+            "0x73b14a78a0d396c521f954532d43fd5ffe385216",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 936,
+      "tx_hash": "0xd3761a3023b4848219ad6d608b138c74f2f2ccf409667d99a561d0c66d1ba36a"
+    },
+    {
+      "block_number": 11472581,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 86,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 43,
+          "increasing_rounds": 43,
+          "initial_principal": 20000000000000000,
+          "last_group": 43,
+          "legs": 86,
+          "terminal_return": 20927141916809858,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2481,
+      "tx_hash": "0xd3afc752a4fe2e687a9d07a763d7f3bd8889b911e1c312a24dbc5785fc5d29d2"
+    },
+    {
+      "block_number": 11885128,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 30,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 15,
+          "increasing_rounds": 15,
+          "initial_principal": 30000000000000000,
+          "last_group": 15,
+          "legs": 30,
+          "terminal_return": 30590184775466010,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1340,
+      "tx_hash": "0xd51b720a13f2cff90793e9eb6f9703b49624b0993f2e9d4883ac1d39ce14e99e"
+    },
+    {
+      "block_number": 12096849,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 28,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 14,
+          "increasing_rounds": 14,
+          "initial_principal": 30000000000000000,
+          "last_group": 14,
+          "legs": 28,
+          "terminal_return": 30548237093075864,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 601,
+      "tx_hash": "0xe3d9da003f5d01a9a41aefa4bfaf5a793cf8530f724c34251a0ce22c32bb61a8"
+    },
+    {
+      "block_number": 11827620,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 24,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 12,
+          "increasing_rounds": 12,
+          "initial_principal": 30000000000000000,
+          "last_group": 12,
+          "legs": 24,
+          "terminal_return": 30420501562342120,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 852,
+      "tx_hash": "0xe46c3fe4d1669c2aed0d016db6d194c6ab44d012919e133545cf356dd5684b3b"
+    },
+    {
+      "block_number": 12362723,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 34,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 17,
+          "increasing_rounds": 17,
+          "initial_principal": 15000000000000000,
+          "last_group": 17,
+          "legs": 34,
+          "terminal_return": 15250406039580930,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 1446,
+      "tx_hash": "0xed6ec8a9872c0aba12ed0ef5e4ea41856974ea21b0bb2af39ff3af4198b2164a"
+    },
+    {
+      "block_number": 12253351,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 34,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 17,
+          "increasing_rounds": 17,
+          "initial_principal": 30000000000000000,
+          "last_group": 17,
+          "legs": 34,
+          "terminal_return": 30743949411183754,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1408,
+      "tx_hash": "0xf07b9b11c154d599338a0a5417e8c57d83096693c38b6a249b352ba96387a149"
+    },
+    {
+      "block_number": 11652119,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 62,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 31,
+          "increasing_rounds": 31,
+          "initial_principal": 10000000000000000,
+          "last_group": 31,
+          "legs": 62,
+          "terminal_return": 10416822726001695,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1955,
+      "tx_hash": "0xf2b8b5983cc3562139c1aab5402d6931c14985a738601ed3403c13c35802c4bb"
+    },
+    {
+      "block_number": 11573857,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 80,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 40,
+          "increasing_rounds": 40,
+          "initial_principal": 20000000000000000,
+          "last_group": 40,
+          "legs": 80,
+          "terminal_return": 20859003808078390,
+          "unique_markets": [
+            "0x1a981daa7967c66c3356ad044979bc82e4a478b9",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 2249,
+      "tx_hash": "0xf3da2631feeaae09fdcd2bc480f22b45061dc264a76e3efa5e9ba68f6a5cc895"
+    },
+    {
+      "block_number": 11451647,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 70,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 35,
+          "increasing_rounds": 35,
+          "initial_principal": 20000000000000000,
+          "last_group": 35,
+          "legs": 70,
+          "terminal_return": 20609624097302341,
+          "unique_markets": [
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 1,
+      "source_row": 1347,
+      "tx_hash": "0xf5f7e87cdaabcc3e8ced658f6b3f6e78a89385ebdbd83da712d05bb7e24cede9"
+    },
+    {
+      "block_number": 11368164,
+      "chain": "optimism",
+      "chain_id": 10,
+      "published_events": 30,
+      "runs": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "decreasing_rounds": 0,
+          "first_group": 1,
+          "groups": 15,
+          "increasing_rounds": 15,
+          "initial_principal": 25000000000000000,
+          "last_group": 15,
+          "legs": 30,
+          "terminal_return": 25351469291972823,
+          "unique_markets": [
+            "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8"
+          ],
+          "zero_rounds": 0
+        }
+      ],
+      "shard": 2,
+      "source_row": 474,
+      "tx_hash": "0xfeaa871915ec822576218433d7b8a3da057114bfa6d9728bc5f95ad23341ed54"
+    }
+  ],
+  "evidence": "published asset and amount matches; custody and fees require receipts",
+  "revision": "79d31e0a07b702b5eabb849ac5d513863cad8bb3",
+  "summary": [
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "632bc41447a3bca2ab5df87a60b4e9db867003d7",
+      "chain": "arbitrum",
+      "has_changed_principal_link": 6,
+      "max_legs": 4,
+      "multi_group": 69,
+      "shard": 1,
+      "transactions": 5000
+    },
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "a0791bf703ddcf28ee5f1bae099660d0ba6898b7",
+      "chain": "arbitrum",
+      "has_changed_principal_link": 8,
+      "max_legs": 12,
+      "multi_group": 74,
+      "shard": 2,
+      "transactions": 5000
+    },
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "15e3072ef2547fd08ae239e8e2edfef7decc9a29",
+      "chain": "ethereum",
+      "has_changed_principal_link": 15,
+      "max_legs": 6,
+      "multi_group": 16,
+      "shard": 1,
+      "transactions": 5000
+    },
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "9e791a6e7bc664b2103a69080502c9ed47b1b653",
+      "chain": "ethereum",
+      "has_changed_principal_link": 25,
+      "max_legs": 6,
+      "multi_group": 29,
+      "shard": 2,
+      "transactions": 5000
+    },
+    {
+      "at_least_100": 1,
+      "at_least_20": 21,
+      "at_least_200": 0,
+      "at_least_50": 9,
+      "blob": "188a3498ee1b13be8c9ce34f4fd94829ef74cf59",
+      "chain": "optimism",
+      "has_changed_principal_link": 31,
+      "max_legs": 136,
+      "multi_group": 375,
+      "shard": 1,
+      "transactions": 2500
+    },
+    {
+      "at_least_100": 3,
+      "at_least_20": 16,
+      "at_least_200": 0,
+      "at_least_50": 5,
+      "blob": "a8f3ff564e1840cf3a24f32fd1ee368408ca6554",
+      "chain": "optimism",
+      "has_changed_principal_link": 25,
+      "max_legs": 102,
+      "multi_group": 319,
+      "shard": 2,
+      "transactions": 2500
+    },
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "559a924f7c560a8b803ce42d490521178287dc6b",
+      "chain": "zksync",
+      "has_changed_principal_link": 2,
+      "max_legs": 5,
+      "multi_group": 18,
+      "shard": 1,
+      "transactions": 5000
+    },
+    {
+      "at_least_100": 0,
+      "at_least_20": 0,
+      "at_least_200": 0,
+      "at_least_50": 0,
+      "blob": "dbff28e408620f8c893c4c14a0c09555259d4467",
+      "chain": "zksync",
+      "has_changed_principal_link": 7,
+      "max_legs": 5,
+      "multi_group": 20,
+      "shard": 2,
+      "transactions": 5000
+    }
+  ]
+}

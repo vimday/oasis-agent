@@ -12,7 +12,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from heapq import nsmallest
-from itertools import pairwise
+from itertools import groupby, pairwise
 
 from .v2_sizing import (
     _MAX_UINT112,
@@ -30,6 +30,7 @@ MAX_V2_BATCH_LEGS = 512
 MAX_V2_BATCH_SEARCH_LEGS = 100_000
 MAX_V2_BATCH_BEAM_WIDTH = 128
 V2_BATCH_SHORTLIST_SIZE = 8
+MAX_V2_REPEAT_ROUNDS = 200
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +242,364 @@ def _batch_pools(orders: tuple[V2BatchOrder, ...], anchor: str) -> dict[str, V2P
                 raise ValueError(f"conflicting starting pool state for {pool.pool_id}")
 
     return pools
+
+
+@dataclass(frozen=True, slots=True)
+class V2RepeatedPrefix:
+    rounds: int
+    amount_out: int
+    marginal_net: int
+    cumulative_net: int
+
+
+@dataclass(frozen=True, slots=True)
+class V2RepeatedRoute:
+    order_id: str
+    principal_per_round: int
+    prefixes: tuple[V2RepeatedPrefix, ...]
+    best_rounds: int
+    best_net: int
+    stop_reason: str
+    failed_hop: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class V2RouteRepetitionRound:
+    rounds: int
+    amount_in: int
+    amount_out: int
+    gross: int
+    round_cost: int
+    cumulative_cost: int
+    marginal_net: int
+    cumulative_net: int
+    capital_after: int
+
+
+@dataclass(frozen=True, slots=True)
+class V2RouteRepetitionRun:
+    order_id: str
+    initial_principal: int
+    initial_capital: int
+    batch_fixed_cost: int
+    success_cost_per_round: int
+    failure_cost_per_attempt: int
+    prefixes: tuple[V2RouteRepetitionRound, ...]
+    best_rounds: int
+    best_net: int
+    best_cost: int
+    stop_reason: str
+    failed_hop: int | None
+    rejected_next_input: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class V2RouteRepetitionComparison:
+    fixed_principal: V2RouteRepetitionRun
+    full_output: V2RouteRepetitionRun
+
+
+@dataclass(frozen=True, slots=True)
+class V2SwitchPrefix(V2RouteRepetitionRound):
+    order_id: str
+    cumulative_legs: int
+
+
+@dataclass(frozen=True, slots=True)
+class V2SwitchGroup:
+    initial_principal: int
+    menu_order_ids: tuple[str, ...]
+    prefixes: tuple[V2SwitchPrefix, ...]
+    best_rounds: int
+    best_net: int
+    best_cost: int
+    stop_reason: str
+    unexecuted_next_input: int | None
+    search_leg_evaluations: int
+    quoted_legs: int
+    extension_status_counts: dict[V2BatchStatus, int]
+
+
+@dataclass(frozen=True, slots=True)
+class V2SwitchSearch:
+    groups: tuple[V2SwitchGroup, ...]
+    best: V2SwitchGroup
+
+    @property
+    def search_leg_evaluations(self) -> int:
+        return sum(group.search_leg_evaluations for group in self.groups)
+
+    @property
+    def quoted_legs(self) -> int:
+        return sum(group.quoted_legs for group in self.groups)
+
+    @property
+    def extensions_evaluated(self) -> int:
+        return sum(sum(group.extension_status_counts.values()) for group in self.groups)
+
+    @property
+    def budget_exhausted(self) -> bool:
+        return any(group.stop_reason == "leg_budget" for group in self.groups)
+
+
+def search_v2_full_output_switches(
+    orders: Iterable[V2BatchOrder],
+    *,
+    initial_capital: int,
+    anchor_token: str,
+    batch_fixed_cost: int,
+    max_rounds: int,
+    max_leg_evaluations: int,
+) -> V2SwitchSearch:
+    """Replay one greedy trajectory per starting lot and compare its prefixes with hold.
+
+    Groups share the search budget in ascending lot order; each starts with the
+    original capital and reserves. A round compares all fitting routes at the
+    same amount. Ranking uses the post-cost balance, then ascending order ID.
+    The next round uses the chosen route's full output. A single greedy
+    trajectory per group leaves alternative route sequences unexplored.
+    """
+    _uint(initial_capital, 1, _MAX_UINT256, "initial capital")
+    _uint(batch_fixed_cost, 0, initial_capital - 1, "batch fixed cost")
+    _uint(max_rounds, 1, MAX_V2_REPEAT_ROUNDS, "maximum repeated rounds")
+    _uint(max_leg_evaluations, 1, MAX_V2_BATCH_SEARCH_LEGS, "switch leg evaluation budget")
+    sequence = tuple(sorted(orders, key=lambda order: (order.amount_in, order.order_id)))
+    _uint(len(sequence), 1, MAX_V2_BATCH_ORDERS, "candidate count")
+    pools = _batch_pools(sequence, _identity(anchor_token))
+    groups = []
+    remaining = max_leg_evaluations
+    for principal, matching in groupby(sequence, key=lambda order: order.amount_in):
+        group = _greedy_switch_group(
+            tuple(matching),
+            principal=principal,
+            initial_capital=initial_capital,
+            batch_fixed_cost=batch_fixed_cost,
+            max_rounds=max_rounds,
+            leg_budget=remaining,
+            original_pools=pools,
+        )
+        remaining -= group.search_leg_evaluations
+        groups.append(group)
+    best = min(
+        groups, key=lambda group: (-group.best_net, group.best_rounds, group.initial_principal)
+    )
+    return V2SwitchSearch(tuple(groups), best)
+
+
+def _greedy_switch_group(
+    menu: tuple[V2BatchOrder, ...],
+    *,
+    principal: int,
+    initial_capital: int,
+    batch_fixed_cost: int,
+    max_rounds: int,
+    leg_budget: int,
+    original_pools: dict[str, V2Pool],
+) -> V2SwitchGroup:
+    pools = original_pools.copy()
+    capital = initial_capital - batch_fixed_cost
+    amount_in = principal
+    prefixes = []
+    total_cost = batch_fixed_cost
+    statuses: Counter[V2BatchStatus] = Counter()
+    best_net = best_rounds = best_cost = previous_net = 0
+    executed_legs = trial_legs = quoted_legs = 0
+    stop = "round_limit"
+    for rounds in range(1, max_rounds + 1):
+        fitting = tuple(
+            order for order in menu if executed_legs + len(order.route.legs) <= MAX_V2_BATCH_LEGS
+        )
+        if not fitting:
+            stop = "batch_leg_limit"
+            break
+        required = sum(len(order.route.legs) for order in fitting)
+        if trial_legs + required > leg_budget:
+            stop = "leg_budget"
+            break
+        trial_legs += required
+        winner = None
+        round_statuses: Counter[V2BatchStatus] = Counter()
+        for order in fitting:
+            entry, updates = _attempt(replace(order, amount_in=amount_in), capital, pools)
+            round_statuses[entry.status] += 1
+            if entry.quote is not None:
+                quoted_legs += len(order.route.legs)
+            # The menu is sorted by order ID, so the earlier exact tie wins.
+            if entry.status == V2BatchStatus.EXECUTED and (
+                winner is None or entry.capital_after > winner[0].capital_after
+            ):
+                winner = entry, updates, len(order.route.legs)
+        statuses.update(round_statuses)
+        if winner is None:
+            stop = (
+                next(iter(round_statuses)).value
+                if len(round_statuses) == 1
+                else "no_executable_route"
+            )
+            break
+        entry, updates, legs = winner
+        assert entry.quote is not None
+        pools.update(updates)
+        capital = entry.capital_after
+        executed_legs += legs
+        total_cost += entry.cost_in_anchor
+        net = capital - initial_capital
+        amount_out = entry.quote.amount_out
+        prefixes.append(
+            V2SwitchPrefix(
+                rounds,
+                amount_in,
+                amount_out,
+                entry.gross_profit,
+                entry.cost_in_anchor,
+                total_cost,
+                net - previous_net,
+                net,
+                capital,
+                entry.order_id,
+                executed_legs,
+            )
+        )
+        if net > best_net:
+            best_net, best_rounds, best_cost = net, rounds, total_cost
+        previous_net, amount_in = net, amount_out
+    return V2SwitchGroup(
+        principal,
+        tuple(order.order_id for order in menu),
+        tuple(prefixes),
+        best_rounds,
+        best_net,
+        best_cost,
+        stop,
+        None if stop == "round_limit" else amount_in,
+        trial_legs,
+        quoted_legs,
+        dict(sorted(statuses.items())),
+    )
+
+
+def evaluate_v2_repeated_route(
+    order: V2BatchOrder, *, initial_capital: int, batch_fixed_cost: int, max_rounds: int
+) -> V2RepeatedRoute:
+    """Compare hold and each feasible fixed-principal prefix on carried V2 reserves.
+
+    The first prefix pays the shared cost. Rejected extensions are never selected
+    and cannot reduce the proceeds of a previously feasible shorter batch.
+    """
+    result = _repeat_route(
+        order,
+        initial_capital=initial_capital,
+        batch_fixed_cost=batch_fixed_cost,
+        max_rounds=max_rounds,
+        reinvest=False,
+    )
+    return V2RepeatedRoute(
+        result.order_id,
+        result.initial_principal,
+        tuple(
+            V2RepeatedPrefix(row.rounds, row.amount_out, row.marginal_net, row.cumulative_net)
+            for row in result.prefixes
+        ),
+        result.best_rounds,
+        result.best_net,
+        result.stop_reason,
+        result.failed_hop,
+    )
+
+
+def compare_v2_route_repetitions(
+    order: V2BatchOrder, *, initial_capital: int, batch_fixed_cost: int, max_rounds: int
+) -> V2RouteRepetitionComparison:
+    """Replay fixed sizes and full-output reinvestment on separate copies of one snapshot.
+
+    Both arms start with the given order size. Each pays the shared cost once
+    and draws per-route costs from the same anchor capital as its trade. A
+    rejected extension is diagnostic and cannot alter an earlier prefix.
+    """
+    return V2RouteRepetitionComparison(
+        _repeat_route(
+            order,
+            initial_capital=initial_capital,
+            batch_fixed_cost=batch_fixed_cost,
+            max_rounds=max_rounds,
+            reinvest=False,
+        ),
+        _repeat_route(
+            order,
+            initial_capital=initial_capital,
+            batch_fixed_cost=batch_fixed_cost,
+            max_rounds=max_rounds,
+            reinvest=True,
+        ),
+    )
+
+
+def _repeat_route(
+    order: V2BatchOrder,
+    *,
+    initial_capital: int,
+    batch_fixed_cost: int,
+    max_rounds: int,
+    reinvest: bool,
+) -> V2RouteRepetitionRun:
+    _uint(initial_capital, 1, _MAX_UINT256, "initial capital")
+    _uint(batch_fixed_cost, 0, initial_capital - 1, "batch fixed cost")
+    _uint(max_rounds, 1, MAX_V2_REPEAT_ROUNDS, "maximum repeated rounds")
+    limit = min(max_rounds, MAX_V2_BATCH_LEGS // len(order.route.legs))
+    pools = {leg.pool.pool_id: leg.pool for leg in order.route.legs}
+    capital = initial_capital - batch_fixed_cost
+    prefixes = []
+    previous_net = best_net = best_rounds = best_cost = 0
+    cumulative_cost = batch_fixed_cost
+    attempt = order
+    stop = "round_limit" if limit == max_rounds else "batch_leg_limit"
+    failed_hop = None
+    rejected_next_input = None
+    for rounds in range(1, limit + 1):
+        entry, updates = _attempt(attempt, capital, pools)
+        if entry.status != V2BatchStatus.EXECUTED:
+            stop, failed_hop = entry.status.value, entry.failure_hop
+            rejected_next_input = attempt.amount_in
+            break
+        assert entry.quote is not None
+        capital = entry.capital_after
+        pools.update(updates)
+        amount_out = entry.quote.amount_out
+        cumulative_cost += entry.cost_in_anchor
+        net = capital - initial_capital
+        prefixes.append(
+            V2RouteRepetitionRound(
+                rounds,
+                attempt.amount_in,
+                amount_out,
+                entry.gross_profit,
+                entry.cost_in_anchor,
+                cumulative_cost,
+                net - previous_net,
+                net,
+                capital,
+            )
+        )
+        if net > best_net:
+            best_net, best_rounds, best_cost = net, rounds, cumulative_cost
+        previous_net = net
+        if reinvest and rounds < limit:
+            attempt = replace(order, amount_in=amount_out)
+    return V2RouteRepetitionRun(
+        order.order_id,
+        order.amount_in,
+        initial_capital,
+        batch_fixed_cost,
+        order.success_cost_in_anchor,
+        order.failure_cost_in_anchor,
+        tuple(prefixes),
+        best_rounds,
+        best_net,
+        best_cost,
+        stop,
+        failed_hop,
+        rejected_next_input,
+    )
 
 
 @dataclass(frozen=True, slots=True)

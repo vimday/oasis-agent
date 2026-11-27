@@ -355,7 +355,7 @@ def reduce_batch_shadow(
     discovery: BatchShadowPhase,
     first_return: BatchShadowPhase | None,
     child: BatchShadowPhase | None,
-    independent_child_clock: bool = False,
+    independent_child_observed_ns: int | None = None,
 ) -> BatchShadowOutcome:
     """Bind H/K/C and compare timing only to a child observed independently of H."""
     h = _stage(scope, discovery)
@@ -366,10 +366,10 @@ def reduce_batch_shadow(
     quorum = h.quorum_return_ns - start if h.quorum_return_ns is not None else None
     child_verified = c.head is not None and c.status not in ("scope_mismatch", "clock_invalid")
     before_child = (
-        h.quorum_return_ns < c.head.observed_ns
-        if independent_child_clock is True
+        h.quorum_return_ns < independent_child_observed_ns
+        if type(independent_child_observed_ns) is int
+        and 0 < independent_child_observed_ns < 1 << 64
         and h.quorum_return_ns is not None
-        and c.head is not None
         and child_verified
         else None
     )

@@ -1,0 +1,667 @@
+{
+  "execution_eligible": false,
+  "owner_net_wei": null,
+  "results": [
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 1511317529241,
+      "evaluated_legs": 156,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        16
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 6045270116964,
+      "evaluated_legs": 312,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        4
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 12090540233929,
+      "evaluated_legs": 312,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        2
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 24181080467859,
+      "evaluated_legs": 624,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": {
+        "distinct_pools": 11,
+        "gas_price_wei": 50000000,
+        "gross_wbnb_wei": 3027913131749,
+        "market_legs": 12,
+        "net_upper_wbnb_wei": -1425386868251,
+        "standard_v2_minimum_gas": 89066
+      },
+      "principal_multiplier": [
+        1,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 238107831321,
+      "same_route_reinvest_best_net_wbnb_wei": 238107831321,
+      "selected_sequence": [
+        "candidate-1",
+        "candidate-34",
+        "candidate-19"
+      ],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 133005300428,
+      "switch_greedy_best_net_wbnb_wei": 371113131749,
+      "switch_greedy_best_rounds": 3,
+      "switch_greedy_modeled_cost_wbnb_wei": 2656800000000
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 48362160935718,
+      "evaluated_legs": 468,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        2,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 96724321871436,
+      "evaluated_legs": 312,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": {
+        "distinct_pools": 4,
+        "gas_price_wei": 50000000,
+        "gross_wbnb_wei": 1514589126813,
+        "market_legs": 4,
+        "net_upper_wbnb_wei": -523210873187,
+        "standard_v2_minimum_gas": 40756
+      },
+      "principal_multiplier": [
+        4,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 68989126813,
+      "same_route_reinvest_best_net_wbnb_wei": 68989126813,
+      "selected_sequence": [
+        "candidate-2"
+      ],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 68989126813,
+      "switch_greedy_best_rounds": 1,
+      "switch_greedy_modeled_cost_wbnb_wei": 1445600000000
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 193448643742872,
+      "evaluated_legs": 312,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        8,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 386897287485744,
+      "evaluated_legs": 156,
+      "menu": "all-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        16,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 1511317529241,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        16
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 6045270116964,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        4
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 12090540233929,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        2
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 24181080467859,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 48362160935718,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        2,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 96724321871436,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        4,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 193448643742872,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        8,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 40,
+      "common_first_principal_wbnb_wei": 386897287485744,
+      "evaluated_legs": 156,
+      "menu": "all-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        16,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 2072170434503,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        16
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 8288681738015,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        4
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 16577363476031,
+      "evaluated_legs": 70,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        2
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 33154726952062,
+      "evaluated_legs": 105,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 66309453904124,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        2,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 132618907808248,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        4,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 265237815616496,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        8,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 530475631232992,
+      "evaluated_legs": 35,
+      "menu": "without_floki-optimistic",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        16,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 2072170434503,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        16
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 8288681738015,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        4
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 16577363476031,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        2
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 33154726952062,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        1,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 66309453904124,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        2,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 132618907808248,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        4,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 265237815616496,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        8,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    },
+    {
+      "budget_exhausted": false,
+      "candidate_routes": 9,
+      "common_first_principal_wbnb_wei": 530475631232992,
+      "evaluated_legs": 35,
+      "menu": "without_floki-sensitivity",
+      "post_selection_fee_check": null,
+      "principal_multiplier": [
+        16,
+        1
+      ],
+      "same_route_fixed_best_net_wbnb_wei": 0,
+      "same_route_reinvest_best_net_wbnb_wei": 0,
+      "selected_sequence": [],
+      "stop": "below_minimum_net",
+      "switch_delta_vs_single_reinvestment_wbnb_wei": 0,
+      "switch_greedy_best_net_wbnb_wei": 0,
+      "switch_greedy_best_rounds": 0,
+      "switch_greedy_modeled_cost_wbnb_wei": 0
+    }
+  ],
+  "scope_sha256": "a0427d819536680e08144a5a38c5a0cbb0d1b8081a7fef0901222c8dca301f71"
+}

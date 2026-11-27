@@ -1,0 +1,236 @@
+{
+  "chain_id": 4663,
+  "historical_same_principal_windows": 0,
+  "holdout": {
+    "caller": "0x8f56032baada22cd9ad8f69fbec86261ea3256ea",
+    "directory": "reports/research/robinhood-gold-window-20261127/window",
+    "envelope_sha256": "f0a9d8fe4e36234b28c67276ae7c6e8f6a58959e9f1838964973e7ef6c0c34bb",
+    "fee_tiers_in_order": [
+      83,
+      100
+    ],
+    "frozen_utc": "2026-11-27T14:30:40.409227+00:00",
+    "minimum_output_wei": 1002579717917749,
+    "phases": {
+      "direct_child": {
+        "base_fee_wei": 54814000,
+        "block_hash": "0x1214427c08cc55da446cb7bb271b542bb5206bf349e391cc26fa94d73cdcafc9",
+        "gross_wei": 2579717917749,
+        "height": 124317827,
+        "median_gas_error": 4653,
+        "median_net_error_wei": -255049542000,
+        "median_predicted_net_wei": -5122032780251,
+        "minout_shortfall_wei": null,
+        "net_21000_gas_wei": 1428623917749,
+        "optimistic_gas_error": 737,
+        "optimistic_net_error_wei": -40397918000,
+        "optimistic_predicted_net_wei": -4907381156251,
+        "paired_estimated_gas": [
+          135854,
+          135854
+        ],
+        "strict_max_affordable_gas": 47063,
+        "whole_estimated_net_wei": -4866983238251
+      },
+      "discovery": {
+        "base_fee_wei": 58348000,
+        "block_hash": "0x3726def52b6f0e038c13eb33413f16fb9d386fccc404333e15fd0b683b6b9248",
+        "gross_wei": 2579717917749,
+        "height": 124317826,
+        "median_gas_error": 4653,
+        "median_net_error_wei": -271493244000,
+        "median_predicted_net_wei": -5618584518251,
+        "minout_shortfall_wei": null,
+        "net_21000_gas_wei": 1354409917749,
+        "optimistic_gas_error": 737,
+        "optimistic_net_error_wei": -43002476000,
+        "optimistic_predicted_net_wei": -5390093750251,
+        "paired_estimated_gas": [
+          135854,
+          135854
+        ],
+        "strict_max_affordable_gas": 44212,
+        "whole_estimated_net_wei": -5347091274251
+      },
+      "return_head": {
+        "base_fee_wei": 51840000,
+        "block_hash": "0x901cb7247fcf4c4259320ba5559330ba90d7ddd0993bb0500f85453c15215499",
+        "gross_wei": 1453030951690,
+        "height": 124317859,
+        "median_gas_error": null,
+        "median_net_error_wei": null,
+        "median_predicted_net_wei": -5830851928310,
+        "minout_shortfall_wei": 1126686966059,
+        "net_21000_gas_wei": 364390951690,
+        "optimistic_gas_error": null,
+        "optimistic_net_error_wei": null,
+        "optimistic_predicted_net_wei": -5627846488310,
+        "paired_estimated_gas": null,
+        "strict_max_affordable_gas": 28029,
+        "whole_estimated_net_wei": null
+      }
+    },
+    "principal_wei": 1000000000000000,
+    "route": "v4-2-e15",
+    "router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "router_runtime_keccak": "2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+  },
+  "old_windows": [
+    {
+      "caller": "0x8f56032baada22cd9ad8f69fbec86261ea3256ea",
+      "directory": "reports/research/robinhood-shadow-nov27/corrected",
+      "envelope_sha256": "f891e70175bacd348b856e73770a08632c20cf0b95f0f2f9f087e7346bb7da3b",
+      "fee_tiers_in_order": [
+        83,
+        100
+      ],
+      "frozen_utc": "2026-11-27T01:43:07.119964+00:00",
+      "minimum_output_wei": 100000000000000,
+      "phases": {
+        "direct_child": {
+          "base_fee_wei": 20006000,
+          "block_hash": "0xef151cff9d11b22d103ed2cb3a7a925225b075ee6bcbfd86bad38479204374c1",
+          "gross_wei": 72035689738,
+          "height": 123899188,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            136591,
+            136591
+          ]
+        },
+        "discovery": {
+          "base_fee_wei": 20004000,
+          "block_hash": "0xbcdff4c5e2f6486869168da73a33367cefd6844c813c4c6321b8a390a61b0fbf",
+          "gross_wei": 72035689738,
+          "height": 123899187,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            136591,
+            136591
+          ]
+        },
+        "return_head": {
+          "base_fee_wei": 20022000,
+          "block_hash": "0xf30cd2c6f0e2acd3215b664ca4f01e59bd6e5b28246b09dc49223439ca73f84e",
+          "gross_wei": 72035689738,
+          "height": 123899214,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            136591,
+            136591
+          ]
+        }
+      },
+      "principal_wei": 100000000000000,
+      "route": "v4-2-e14",
+      "router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "router_runtime_keccak": "2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+    },
+    {
+      "caller": "0x8f56032baada22cd9ad8f69fbec86261ea3256ea",
+      "directory": "reports/research/robinhood-cash-three-state-20261127/forward",
+      "envelope_sha256": "f92df49eb2cf58a83cddf15cecae7bfe6f010ef49dfc71a57b13f107d8f9296e",
+      "fee_tiers_in_order": [
+        83,
+        100
+      ],
+      "frozen_utc": "2026-11-27T07:30:38.252647+00:00",
+      "minimum_output_wei": 100000000000000,
+      "phases": {
+        "direct_child": {
+          "base_fee_wei": 20028000,
+          "block_hash": "0x9267c2eb1c86cd8ba3a757109da181234b33e2d7fdb3c4de65f4591cb0a2c307",
+          "gross_wei": 21353709798,
+          "height": 124085183,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            140507,
+            140507
+          ]
+        },
+        "discovery": {
+          "base_fee_wei": 20006000,
+          "block_hash": "0xadeb87fac13779747f602c0464e29c838ffbdc3ebd00eb216f1df7aa1e6f329e",
+          "gross_wei": 21353709798,
+          "height": 124085182,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            140507,
+            140507
+          ]
+        },
+        "return_head": {
+          "base_fee_wei": 20000000,
+          "block_hash": "0xb495aba461d8aafa7d4399e6e7d4fc424ca3c2f68e36ea1c28a5f0383ec6c4c6",
+          "gross_wei": 21353709798,
+          "height": 124085209,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            140507,
+            140507
+          ]
+        }
+      },
+      "principal_wei": 100000000000000,
+      "route": "v4-2-e14",
+      "router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "router_runtime_keccak": "2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+    },
+    {
+      "caller": "0x8f56032baada22cd9ad8f69fbec86261ea3256ea",
+      "directory": "reports/research/robinhood-next-window-20261127/validated",
+      "envelope_sha256": "ddfc626415bbb6ff6330410968760021eb33a91a5595563516a53b87242fa016",
+      "fee_tiers_in_order": [
+        83,
+        100
+      ],
+      "frozen_utc": "2026-11-27T13:56:03.012636+00:00",
+      "minimum_output_wei": 100000000000000,
+      "phases": {
+        "direct_child": {
+          "base_fee_wei": 20000000,
+          "block_hash": "0x7af174b3997c7987b21b2c72ece9f6f9eaa266c35ce0e9b759a7c6f06534c4f4",
+          "gross_wei": 15154907305,
+          "height": 124298174,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            142644,
+            142644
+          ]
+        },
+        "discovery": {
+          "base_fee_wei": 20072000,
+          "block_hash": "0xc5fbfd8823acd1014522a15d268cc3f09f92d8a1f65dbbbc4b3e808ab0be486c",
+          "gross_wei": 15154907305,
+          "height": 124298173,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            142644,
+            142644
+          ]
+        },
+        "return_head": {
+          "base_fee_wei": 20000000,
+          "block_hash": "0xfacda9943fd97bf027c8e5b79e326e8c6ab947f3f81ac5c1e371a9e84aff204c",
+          "gross_wei": 19490093930,
+          "height": 124298231,
+          "minout_shortfall_wei": null,
+          "paired_estimated_gas": [
+            142644,
+            142644
+          ]
+        }
+      },
+      "principal_wei": 100000000000000,
+      "route": "v4-2-e14",
+      "router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+      "router_runtime_keccak": "2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde"
+    }
+  ],
+  "realized_all_cost_net_wei": null,
+  "rule_lock_sha256": "4b08205314d5061f03ac985fa984a09bbf815ca3e614830ceacbc1aef43a8e9d",
+  "unit_estimates": {
+    "optimistic": 136591,
+    "point_median": 140507
+  }
+}

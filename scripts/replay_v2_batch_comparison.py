@@ -2,9 +2,11 @@
 
 import argparse
 import json
+from collections.abc import Sequence
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
 from oasis_agent.fastpath.v2_batch import (
@@ -12,18 +14,26 @@ from oasis_agent.fastpath.v2_batch import (
     MAX_V2_BATCH_ORDERS,
     V2BatchOrder,
     V2BatchRun,
+    V2RepeatedRoute,
+    V2RouteRepetitionRun,
     compare_v2_batch,
+    compare_v2_route_repetitions,
+    evaluate_v2_repeated_route,
     search_v2_batches,
+    search_v2_full_output_switches,
 )
 from oasis_agent.fastpath.v2_sizing import MAX_V2_LEGS
 
-if __package__:
+if TYPE_CHECKING or __package__:
     from .replay_v2_pool_expansion import _build_route, _hex, _read_snapshot, _uint
 else:
     from replay_v2_pool_expansion import _build_route, _hex, _read_snapshot, _uint
 
 _PLAN_SCHEMA = "oasis-v2-batch-plan-v1"
 _SEARCH_PLAN_SCHEMA = "oasis-v2-batch-search-plan-v1"
+_REPEAT_PLAN_SCHEMA = "oasis-v2-batch-search-plan-v2"
+_REINVEST_PLAN_SCHEMA = "oasis-v2-batch-search-plan-v3"
+_SWITCH_PLAN_SCHEMA = "oasis-v2-batch-search-plan-v4"
 
 
 def analyze(
@@ -33,7 +43,7 @@ def analyze(
     chain: int,
     eth_scope: bytes | None = None,
     eth_baseline: bytes | None = None,
-) -> dict:
+) -> dict[str, Any]:
     snapshot = _read_snapshot(snapshot_raw, chain, eth_scope, eth_baseline)
     plan = strict_json_object(plan_raw)
     fields = {
@@ -43,15 +53,16 @@ def analyze(
         "batch_fixed_cost",
         "orders",
     }
-    search_plan = plan.get("schema") == _SEARCH_PLAN_SCHEMA
+    schema = plan.get("schema")
+    switch_plan = schema == _SWITCH_PLAN_SCHEMA
+    reinvest_plan = schema in (_REINVEST_PLAN_SCHEMA, _SWITCH_PLAN_SCHEMA)
+    repeat_plan = schema == _REPEAT_PLAN_SCHEMA
+    search_plan = schema == _SEARCH_PLAN_SCHEMA or repeat_plan or reinvest_plan
     if search_plan:
         fields.add("search")
     if plan.keys() != fields:
         raise ValueError("invalid batch plan fields")
-    if (
-        plan["schema"] not in (_PLAN_SCHEMA, _SEARCH_PLAN_SCHEMA)
-        or plan["snapshot_sha256"] != snapshot.digest
-    ):
+    if (schema != _PLAN_SCHEMA and not search_plan) or plan["snapshot_sha256"] != snapshot.digest:
         raise ValueError("batch plan must bind the retained snapshot")
     capital, fixed = _uint(plan["initial_capital"]), _uint(plan["batch_fixed_cost"])
     if fixed >= capital:
@@ -60,8 +71,8 @@ def analyze(
     if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_V2_BATCH_ORDERS:
         raise ValueError("expected 1 to 64 ordered cycles")
 
-    separate = []
-    shared = []
+    separate: list[V2BatchOrder] = []
+    shared: list[V2BatchOrder] = []
     for row in rows:
         if not isinstance(row, dict) or row.keys() != {
             "id",
@@ -118,11 +129,16 @@ def analyze(
     }
     if search_plan:
         settings = plan["search"]
-        if not isinstance(settings, dict) or settings.keys() != {
+        search_fields = {
             "max_batch_orders",
             "beam_width",
             "max_leg_evaluations",
-        }:
+        }
+        if repeat_plan or reinvest_plan:
+            search_fields.add("max_repeat_rounds")
+        if switch_plan:
+            search_fields.add("max_switch_leg_evaluations")
+        if not isinstance(settings, dict) or settings.keys() != search_fields:
             raise ValueError("invalid batch search fields")
         found = search_v2_batches(
             shared,
@@ -150,10 +166,101 @@ def analyze(
             "best_batch_marginals": [asdict(item) for item in found.marginals],
             "delta_vs_best_standalone_or_hold": found.best_net - best_or_hold,
         }
+        if repeat_plan:
+            rounds = _uint(settings["max_repeat_rounds"])
+            repeated = [
+                evaluate_v2_repeated_route(
+                    order, initial_capital=capital, batch_fixed_cost=fixed, max_rounds=rounds
+                )
+                for order in shared
+            ]
+            report["schema"] = "oasis-v2-batch-search-report-v2"
+            report["fixed_principal_repetitions"] = _repetitions(
+                repeated, rounds=rounds, best_distinct_net=found.best_net
+            )
+        elif reinvest_plan:
+            rounds = _uint(settings["max_repeat_rounds"])
+            compared_repetitions = [
+                compare_v2_route_repetitions(
+                    order, initial_capital=capital, batch_fixed_cost=fixed, max_rounds=rounds
+                )
+                for order in shared
+            ]
+            fixed_repeats = _repetitions(
+                [item.fixed_principal for item in compared_repetitions],
+                rounds=rounds,
+                best_distinct_net=found.best_net,
+            )
+            full_output = _repetitions(
+                [item.full_output for item in compared_repetitions],
+                rounds=rounds,
+                best_distinct_net=found.best_net,
+            )
+            full_output["delta_vs_fixed_principal_or_hold"] = (
+                full_output["best_net"] - fixed_repeats["best_net"]
+            )
+            report["schema"] = "oasis-v2-batch-search-report-v3"
+            report["fixed_principal_repetitions"] = fixed_repeats
+            report["full_output_reinvestments"] = full_output
+            if switch_plan:
+                switch_budget = _uint(settings["max_switch_leg_evaluations"])
+                switched = search_v2_full_output_switches(
+                    shared,
+                    initial_capital=capital,
+                    anchor_token=snapshot.anchor,
+                    batch_fixed_cost=fixed,
+                    max_rounds=rounds,
+                    max_leg_evaluations=switch_budget,
+                )
+                best = switched.best
+                report["schema"] = "oasis-v2-batch-search-report-v4"
+                report["full_output_pool_switches"] = {
+                    "strategy": "greedy_per_equal_initial_principal",
+                    "group_order": "ascending_initial_principal",
+                    "complete_for_greedy": not switched.budget_exhausted,
+                    "budget_exhausted": switched.budget_exhausted,
+                    "max_switch_leg_evaluations": switch_budget,
+                    "max_rounds_per_group": rounds,
+                    "max_legs_per_batch": MAX_V2_BATCH_LEGS,
+                    "max_menu_width": MAX_V2_BATCH_ORDERS,
+                    "search_leg_evaluations": switched.search_leg_evaluations,
+                    "quoted_legs": switched.quoted_legs,
+                    "extensions_evaluated": switched.extensions_evaluated,
+                    "best_initial_principal": best.initial_principal if best.best_rounds else None,
+                    "best_order_ids": [row.order_id for row in best.prefixes[: best.best_rounds]],
+                    "best_rounds": best.best_rounds,
+                    "best_net": best.best_net,
+                    "best_cost": best.best_cost,
+                    "delta_vs_fixed_route_full_output_or_hold": best.best_net
+                    - full_output["best_net"],
+                    "delta_vs_fixed_principal_or_hold": best.best_net - fixed_repeats["best_net"],
+                    "groups": [asdict(item) for item in switched.groups],
+                }
     return report
 
 
-def _series(run: V2BatchRun, *, fixed_cost: int) -> dict:
+def _repetitions(
+    runs: Sequence[V2RepeatedRoute | V2RouteRepetitionRun],
+    *,
+    rounds: int,
+    best_distinct_net: int,
+) -> dict[str, Any]:
+    best = min(runs, key=lambda item: (-item.best_net, item.best_rounds, item.order_id))
+    result = {
+        "max_rounds_per_route": rounds,
+        "max_legs_per_batch": MAX_V2_BATCH_LEGS,
+        "best_route_id": best.order_id if best.best_rounds else None,
+        "best_rounds": best.best_rounds,
+        "best_net": best.best_net,
+        "delta_vs_best_distinct_order_batch_or_hold": best.best_net - best_distinct_net,
+        "routes": [asdict(item) for item in runs],
+    }
+    if isinstance(best, V2RouteRepetitionRun):
+        result["best_cost"] = best.best_cost
+    return result
+
+
+def _series(run: V2BatchRun, *, fixed_cost: int) -> dict[str, Any]:
     return {
         "net": run.net_profit - fixed_cost,
         "gross": run.gross_profit,

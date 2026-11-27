@@ -6,7 +6,10 @@ from oasis_agent.fastpath.v2_batch import (
     V2BatchOrder,
     V2BatchStatus,
     compare_v2_batch,
+    compare_v2_route_repetitions,
+    evaluate_v2_repeated_route,
     search_v2_batches,
+    search_v2_full_output_switches,
 )
 from oasis_agent.fastpath.v2_sizing import V2Leg, V2Pool, V2Route
 
@@ -23,6 +26,205 @@ def _orders() -> tuple[V2BatchOrder, V2BatchOrder]:
         V2BatchOrder("first", route, 204, 5, 7),
         V2BatchOrder("second", route, 204, 5, 7),
     )
+
+
+def test_fixed_principal_prefixes_match_independent_full_prefix_replays() -> None:
+    order = replace(_orders()[0], amount_in=29)
+    report = evaluate_v2_repeated_route(
+        order, initial_capital=400, batch_fixed_cost=64, max_rounds=200
+    )
+    assert report.stop_reason == "below_minimum_net" and 1 < report.best_rounds < 200
+    assert report.prefixes[0].cumulative_net < 0 < report.best_net
+    for prefix in report.prefixes:
+        sequence = [replace(order, order_id=f"round-{i}") for i in range(prefix.rounds)]
+        run = compare_v2_batch(sequence, initial_capital=336, anchor_token="A").ordered
+        assert prefix.cumulative_net == run.final_capital - 400
+        assert prefix.amount_out == run.results[-1].quote.amount_out
+    assert sum(p.marginal_net for p in report.prefixes) == report.prefixes[-1].cumulative_net
+    assert report.best_net == max(p.cumulative_net for p in report.prefixes)
+    rejected = evaluate_v2_repeated_route(
+        order, initial_capital=38, batch_fixed_cost=10, max_rounds=2
+    )
+    assert (rejected.stop_reason, rejected.best_net, rejected.prefixes) == (
+        "insufficient_capital",
+        0,
+        (),
+    )
+
+
+def test_reinvestment_matches_separate_replays_from_the_original_pools() -> None:
+    order = replace(_orders()[0], amount_in=29)
+    compared = compare_v2_route_repetitions(
+        order, initial_capital=400, batch_fixed_cost=64, max_rounds=25
+    )
+    sequence = []
+    amount = order.amount_in
+    reports = compared.fixed_principal, compared.full_output
+    assert reports[0].prefixes[0] == reports[1].prefixes[0]
+    assert len(compared.full_output.prefixes) >= 2
+    for row in compared.full_output.prefixes:
+        assert row.amount_in == amount
+        sequence.append(replace(order, order_id=f"round-{row.rounds}", amount_in=amount))
+        replay = compare_v2_batch(sequence, initial_capital=336, anchor_token="A").ordered
+        quote = replay.results[-1].quote
+        assert quote is not None
+        assert row.amount_out == quote.amount_out
+        assert row.capital_after == replay.final_capital
+        assert row.cumulative_cost == 64 + replay.cost_in_anchor
+        assert row.cumulative_net == replay.gross_profit - row.cumulative_cost
+        amount = quote.amount_out
+    reinvest = compared.full_output
+    best = reinvest.prefixes[reinvest.best_rounds - 1]
+    assert (
+        best.cumulative_net
+        == reinvest.best_net
+        == max(0, *(row.cumulative_net for row in reinvest.prefixes))
+    )
+    assert best.cumulative_cost == reinvest.best_cost
+    assert sum(row.marginal_net for row in reinvest.prefixes) == (
+        reinvest.prefixes[-1].cumulative_net
+    )
+
+
+def test_reinvestment_stops_if_idle_capital_cannot_cover_the_full_next_input_and_cost() -> None:
+    order = replace(_orders()[0], amount_in=29)
+    compared = compare_v2_route_repetitions(
+        order, initial_capital=44, batch_fixed_cost=8, max_rounds=3
+    )
+    reinvest = compared.full_output
+    assert len(reinvest.prefixes) == 1
+    assert len(compared.fixed_principal.prefixes) > 1
+    first = reinvest.prefixes[0]
+    assert first.capital_after - first.amount_out == 2
+    assert reinvest.rejected_next_input == first.amount_out
+    assert reinvest.stop_reason == "insufficient_capital" and reinvest.failed_hop is None
+    assert reinvest.best_rounds == 1 and reinvest.best_cost == 13
+    assert reinvest.best_net == first.cumulative_net
+
+    hold = compare_v2_route_repetitions(
+        order, initial_capital=35, batch_fixed_cost=8, max_rounds=3
+    ).full_output
+    assert not hold.prefixes and hold.rejected_next_input == order.amount_in
+    assert hold.best_rounds == hold.best_net == hold.best_cost == 0
+
+
+def _switch_orders() -> tuple[V2BatchOrder, ...]:
+    pools = (
+        V2Pool("p0", "A", "B", 2900, 3600, 997, 1000),
+        V2Pool("p1", "A", "B", 2200, 1600, 997, 1000),
+        V2Pool("p2", "A", "B", 1200, 500, 997, 1000),
+    )
+    return tuple(
+        V2BatchOrder(
+            f"p{i}-p{j}",
+            V2Route((V2Leg(pools[i], "A"), V2Leg(pools[j], "B"))),
+            30,
+            2,
+            3,
+        )
+        for i, j in ((0, 1), (0, 2), (1, 2))
+    )
+
+
+def test_switching_three_pools_beats_both_fixed_route_arms_and_replays_exactly() -> None:
+    orders = _switch_orders()
+    kwargs = {"initial_capital": 2000, "batch_fixed_cost": 8, "max_rounds": 8}
+    switched = search_v2_full_output_switches(
+        orders, anchor_token="A", max_leg_evaluations=200, **kwargs
+    )
+    best = switched.best
+    fixed = [compare_v2_route_repetitions(order, **kwargs) for order in orders]
+    assert best.best_net == 194 > max(item.full_output.best_net for item in fixed) == 167
+    assert max(item.fixed_principal.best_net for item in fixed) == 153
+    assert best.best_rounds == 4 and best.best_cost == 8 + 4 * 2
+    assert best.stop_reason == "below_minimum_net" and best.unexecuted_next_input == 240
+    assert [(row.order_id, row.amount_in, row.amount_out) for row in best.prefixes] == [
+        ("p0-p2", 30, 80),
+        ("p0-p2", 80, 166),
+        ("p0-p1", 166, 221),
+        ("p0-p2", 221, 240),
+    ]
+    assert not switched.budget_exhausted
+    assert switched.quoted_legs == switched.search_leg_evaluations == 30
+    assert switched.extensions_evaluated == 15
+
+    by_id = {order.order_id: order for order in orders}
+    sequence = []
+    for row in best.prefixes:
+        sequence.append(
+            replace(by_id[row.order_id], order_id=f"round-{row.rounds}", amount_in=row.amount_in)
+        )
+        prefix = compare_v2_batch(sequence, initial_capital=1992, anchor_token="A").ordered
+        quote = prefix.results[-1].quote
+        assert quote is not None and quote.amount_out == row.amount_out
+        assert prefix.final_capital == row.capital_after
+        assert row.cumulative_net == prefix.final_capital - 2000
+        assert row.cumulative_cost == 8 + prefix.cost_in_anchor
+
+
+def test_switching_budget_drops_incomplete_rounds_and_breaks_exact_ties_stably() -> None:
+    orders = _switch_orders()
+    kwargs = {"initial_capital": 2000, "anchor_token": "A", "batch_fixed_cost": 8}
+    unfunded = search_v2_full_output_switches(orders, max_rounds=3, max_leg_evaluations=5, **kwargs)
+    assert unfunded.budget_exhausted and unfunded.extensions_evaluated == 0
+    assert not unfunded.best.prefixes and unfunded.best.best_rounds == 0
+    one = search_v2_full_output_switches(orders, max_rounds=3, max_leg_evaluations=11, **kwargs)
+    assert one.budget_exhausted and one.extensions_evaluated == 3
+    assert one.best.search_leg_evaluations == 6 and len(one.best.prefixes) == 1
+    assert one.best.unexecuted_next_input == one.best.prefixes[0].amount_out
+
+    route = orders[1]
+    tie_and_other_lot = (
+        replace(route, order_id="z"),
+        replace(route, order_id="other-lot", amount_in=31),
+        replace(route, order_id="a"),
+    )
+    tied = search_v2_full_output_switches(
+        tie_and_other_lot, max_rounds=1, max_leg_evaluations=6, **kwargs
+    )
+    same, other = tied.groups
+    assert same.initial_principal == 30 and same.menu_order_ids == ("a", "z")
+    assert same.prefixes[0].order_id == "a"
+    assert other.initial_principal == 31 and other.menu_order_ids == ("other-lot",)
+    assert other.prefixes[0].amount_out == route.route.quote(31).amount_out
+    assert tied == search_v2_full_output_switches(
+        reversed(tie_and_other_lot), max_rounds=1, max_leg_evaluations=6, **kwargs
+    )
+
+
+def test_repeat_search_bounds_rounds_and_legs_and_preserves_shortest_tie() -> None:
+    def route(n: int) -> V2Route:
+        return V2Route(
+            tuple(
+                V2Leg(V2Pool(str(i), str(i), str((i + 1) % n), 10**20, 10**20, 1, 1), str(i))
+                for i in range(n)
+            )
+        )
+
+    def run(n: int, rounds: int):
+        return evaluate_v2_repeated_route(
+            V2BatchOrder("repeat", route(n), 1000, 0, 0, -100),
+            initial_capital=10**8,
+            batch_fixed_cost=0,
+            max_rounds=rounds,
+        )
+
+    assert len(run(2, 200).prefixes) == 200
+    capped = run(3, 200)
+    assert len(capped.prefixes) == 512 // 3 and capped.stop_reason == "batch_leg_limit"
+    assert capped.best_rounds == capped.best_net == 0
+    switched = search_v2_full_output_switches(
+        (V2BatchOrder("repeat", route(3), 1000, 0, 0, -100),),
+        initial_capital=10**8,
+        anchor_token="0",
+        batch_fixed_cost=0,
+        max_rounds=200,
+        max_leg_evaluations=1000,
+    ).best
+    assert len(switched.prefixes) == 512 // 3 and switched.stop_reason == "batch_leg_limit"
+    assert switched.prefixes[-1].cumulative_legs == 510 and switched.best_rounds == 0
+    with pytest.raises(ValueError, match="maximum repeated rounds"):
+        run(2, 201)
 
 
 def test_reused_pools_erode_second_cycle_and_reverted_state_is_discarded() -> None:

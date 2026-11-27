@@ -1,0 +1,1943 @@
+{
+  "all_shard_rows": 17500,
+  "chains": {
+    "arbitrum": {
+      "at_least_distinct_published_indices": {
+        "20": 6,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "at_least_in_one_exact_closed_group": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "covered_transaction_height_range": [
+        324081,
+        106248649
+      ],
+      "exact_group_count": 3190,
+      "first_shard_blob": "632bc41447a3bca2ab5df87a60b4e9db867003d7",
+      "longest_exact_group_histogram": {
+        "0": 1951,
+        "2": 1321,
+        "3": 1571,
+        "4": 145,
+        "5": 9,
+        "6": 2,
+        "7": 1
+      },
+      "multiple_published_groups": 74,
+      "new_identities": 5000,
+      "overlap_first_shard": 0,
+      "overlap_first_shard_hashes": [],
+      "overlap_prior_catalog": 0,
+      "overlap_prior_catalog_hashes": [],
+      "overlapping_published_group_indices": 0,
+      "second_shard_transactions": 5000,
+      "source": {
+        "blob": "a0791bf703ddcf28ee5f1bae099660d0ba6898b7",
+        "bytes": 17057571,
+        "chain": "arbitrum",
+        "path": "data/mev/arbitrage/arbitrum/mev_arbitrage_results_2.json",
+        "received_utc": "2026-11-27T14:21:35.398818+00:00",
+        "sha256": "98a2ed5a4491ae328c6028bf75cdaabb0e68f56513a1b56d7649f2b7bc6c4c11",
+        "url": "https://raw.githubusercontent.com/christoftorres/Rolling-in-the-Shadows/79d31e0a07b702b5eabb849ac5d513863cad8bb3/data/mev/arbitrage/arbitrum/mev_arbitrage_results_2.json"
+      }
+    },
+    "ethereum": {
+      "at_least_distinct_published_indices": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "at_least_in_one_exact_closed_group": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "covered_transaction_height_range": [
+        12000004,
+        13797198
+      ],
+      "exact_group_count": 3992,
+      "first_shard_blob": "15e3072ef2547fd08ae239e8e2edfef7decc9a29",
+      "longest_exact_group_histogram": {
+        "0": 1035,
+        "2": 2068,
+        "3": 1512,
+        "4": 313,
+        "5": 51,
+        "6": 21
+      },
+      "multiple_published_groups": 29,
+      "new_identities": 5000,
+      "overlap_first_shard": 0,
+      "overlap_first_shard_hashes": [],
+      "overlap_prior_catalog": 0,
+      "overlap_prior_catalog_hashes": [],
+      "overlapping_published_group_indices": 0,
+      "second_shard_transactions": 5000,
+      "source": {
+        "blob": "9e791a6e7bc664b2103a69080502c9ed47b1b653",
+        "bytes": 20080094,
+        "chain": "ethereum",
+        "path": "data/mev/arbitrage/ethereum/mev_arbitrage_results_2.json",
+        "received_utc": "2026-11-27T14:21:46.631749+00:00",
+        "sha256": "e1ff3c0c658d7200bcfc93f86ea86d56b90ebbc5acf2ae55b382d3200cf7b969",
+        "url": "https://raw.githubusercontent.com/christoftorres/Rolling-in-the-Shadows/79d31e0a07b702b5eabb849ac5d513863cad8bb3/data/mev/arbitrage/ethereum/mev_arbitrage_results_2.json"
+      }
+    },
+    "optimism": {
+      "at_least_distinct_published_indices": {
+        "20": 122,
+        "50": 28,
+        "100": 4,
+        "200": 0
+      },
+      "at_least_in_one_exact_closed_group": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "covered_transaction_height_range": [
+        333269,
+        85559095
+      ],
+      "exact_group_count": 3807,
+      "first_shard_blob": "188a3498ee1b13be8c9ce34f4fd94829ef74cf59",
+      "longest_exact_group_histogram": {
+        "0": 944,
+        "2": 298,
+        "3": 987,
+        "4": 257,
+        "5": 13,
+        "6": 1
+      },
+      "multiple_published_groups": 319,
+      "new_identities": 2500,
+      "overlap_first_shard": 0,
+      "overlap_first_shard_hashes": [],
+      "overlap_prior_catalog": 0,
+      "overlap_prior_catalog_hashes": [],
+      "overlapping_published_group_indices": 0,
+      "second_shard_transactions": 2500,
+      "source": {
+        "blob": "a8f3ff564e1840cf3a24f32fd1ee368408ca6554",
+        "bytes": 15214019,
+        "chain": "optimism",
+        "path": "data/mev/arbitrage/optimism/mev_arbitrage_results_2.json",
+        "received_utc": "2026-11-27T14:21:56.644276+00:00",
+        "sha256": "74717a1cf8b0a2c6093c1f70bfda6ea8c02438805ae0592b4cbdc3aeca2daeee",
+        "url": "https://raw.githubusercontent.com/christoftorres/Rolling-in-the-Shadows/79d31e0a07b702b5eabb849ac5d513863cad8bb3/data/mev/arbitrage/optimism/mev_arbitrage_results_2.json"
+      }
+    },
+    "zksync": {
+      "at_least_distinct_published_indices": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "at_least_in_one_exact_closed_group": {
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "covered_transaction_height_range": [
+        113778,
+        12474134
+      ],
+      "exact_group_count": 2020,
+      "first_shard_blob": "559a924f7c560a8b803ce42d490521178287dc6b",
+      "longest_exact_group_histogram": {
+        "0": 3004,
+        "2": 1454,
+        "3": 514,
+        "4": 15,
+        "5": 13
+      },
+      "multiple_published_groups": 20,
+      "new_identities": 5000,
+      "overlap_first_shard": 0,
+      "overlap_first_shard_hashes": [],
+      "overlap_prior_catalog": 0,
+      "overlap_prior_catalog_hashes": [],
+      "overlapping_published_group_indices": 0,
+      "second_shard_transactions": 5000,
+      "source": {
+        "blob": "dbff28e408620f8c893c4c14a0c09555259d4467",
+        "bytes": 18885223,
+        "chain": "zksync",
+        "path": "data/mev/arbitrage/zksync/mev_arbitrage_results_2.json",
+        "received_utc": "2026-11-27T14:22:08.057195+00:00",
+        "sha256": "2a9a31da8f61d4dd144e4640c782db5945a101147d95528d656ae2057bdcf777",
+        "url": "https://raw.githubusercontent.com/christoftorres/Rolling-in-the-Shadows/79d31e0a07b702b5eabb849ac5d513863cad8bb3/data/mev/arbitrage/zksync/mev_arbitrage_results_2.json"
+      }
+    }
+  },
+  "download_plan": {
+    "bytes": 1857,
+    "path": "reports/research/multihop-second-shards-20261127/download-plan.json",
+    "sha256": "cec4f29a68ee95938e69d75ddc87120b30bb837e329f70920fc7c9d993c66034"
+  },
+  "download_stop": {
+    "bytes": 1298,
+    "path": "reports/research/multihop-second-shards-20261127/DOWNLOAD_STOP.json",
+    "sha256": "543bf09f63328dfef1e38117082e394e4dd6ad99c0997f564decd9c08ea87fe2"
+  },
+  "exports": {
+    "closed_groups": {
+      "rows": 13009,
+      "sha256": "920079ba1e7e1ca66af07c70940088ebf4327c5cdb37fd89f2ab841d01ab6515"
+    },
+    "hashes": {
+      "rows": 17500,
+      "sha256": "d3d352111af5e046f7cb7b6b22845dbd77842963190d4a6ca6de128abbe44fef"
+    }
+  },
+  "independent_receipt_queue": [
+    {
+      "block_number": 11169933,
+      "block_utc": 1654878501,
+      "chain": "optimism",
+      "chain_id": 10,
+      "exact_closed_groups": [
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 285725073472475,
+          "group_number": 1,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525960994229294268096,
+            42555847
+          ],
+          "leg_out_amounts_raw": [
+            525960994229294268096,
+            42555847,
+            25285725073472475
+          ],
+          "log_indices": [
+            3,
+            10,
+            15
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25285725073472475,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 274185243813544,
+          "group_number": 2,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525933007578663847486,
+            42537904
+          ],
+          "leg_out_amounts_raw": [
+            525933007578663847486,
+            42537904,
+            25274185243813544
+          ],
+          "log_indices": [
+            19,
+            26,
+            31
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25274185243813544,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 265906539871341,
+          "group_number": 3,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154939273451847292407,
+            42525448
+          ],
+          "leg_out_amounts_raw": [
+            154939273451847292407,
+            42525448,
+            25265906539871341
+          ],
+          "log_indices": [
+            35,
+            42,
+            47
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25265906539871341,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 261776101421220,
+          "group_number": 4,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525905023161749759521,
+            42519973
+          ],
+          "leg_out_amounts_raw": [
+            525905023161749759521,
+            42519973,
+            25261776101421220
+          ],
+          "log_indices": [
+            51,
+            58,
+            63
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25261776101421220,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 250252070982046,
+          "group_number": 5,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525877040978314302498,
+            42502052
+          ],
+          "leg_out_amounts_raw": [
+            525877040978314302498,
+            42502052,
+            25250252070982046
+          ],
+          "log_indices": [
+            67,
+            74,
+            79
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25250252070982046,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 241264660153022,
+          "group_number": 6,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154905755677378326836,
+            42488399
+          ],
+          "leg_out_amounts_raw": [
+            154905755677378326836,
+            42488399,
+            25241264660153022
+          ],
+          "log_indices": [
+            83,
+            90,
+            95
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25241264660153022,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 237860364806290,
+          "group_number": 7,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525849061028119806330,
+            42484143
+          ],
+          "leg_out_amounts_raw": [
+            525849061028119806330,
+            42484143,
+            25237860364806290
+          ],
+          "log_indices": [
+            99,
+            106,
+            111
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25237860364806290,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 226353314130207,
+          "group_number": 8,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525821083310928632544,
+            42466246
+          ],
+          "leg_out_amounts_raw": [
+            525821083310928632544,
+            42466246,
+            25226353314130207
+          ],
+          "log_indices": [
+            115,
+            122,
+            127
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25226353314130207,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 216658527888405,
+          "group_number": 9,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154872248778005881167,
+            42451398
+          ],
+          "leg_out_amounts_raw": [
+            154872248778005881167,
+            42451398,
+            25216658527888405
+          ],
+          "log_indices": [
+            131,
+            138,
+            143
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25216658527888405,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 213979032752995,
+          "group_number": 10,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525793107826503174274,
+            42448359
+          ],
+          "leg_out_amounts_raw": [
+            525793107826503174274,
+            42448359,
+            25213979032752995
+          ],
+          "log_indices": [
+            147,
+            154,
+            159
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25213979032752995,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 202487766088918,
+          "group_number": 11,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525765134574605856258,
+            42430484
+          ],
+          "leg_out_amounts_raw": [
+            525765134574605856258,
+            42430484,
+            25202487766088918
+          ],
+          "log_indices": [
+            163,
+            170,
+            175
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25202487766088918,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 200710831173604,
+          "group_number": 12,
+          "leg_in_amounts_raw": [
+            24999999524615988,
+            42428962
+          ],
+          "leg_out_amounts_raw": [
+            42428962,
+            25200710355789592
+          ],
+          "log_indices": [
+            179,
+            183
+          ],
+          "market_events": 2,
+          "markets": [
+            "0x94ad9a19126ebb02dda874237e5820fd4943f5de",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 24999999524615988,
+          "return_raw": 25200710355789592,
+          "route_symbols": [
+            "Wrapped Ether",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 191215097090759,
+          "group_number": 13,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154838752749025787275,
+            42414445
+          ],
+          "leg_out_amounts_raw": [
+            154838752749025787275,
+            42414445,
+            25191215097090759
+          ],
+          "log_indices": [
+            187,
+            194,
+            199
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25191215097090759,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 189259142766648,
+          "group_number": 14,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525737163554999134832,
+            42412621
+          ],
+          "leg_out_amounts_raw": [
+            525737163554999134832,
+            42412621,
+            25189259142766648
+          ],
+          "log_indices": [
+            203,
+            210,
+            215
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25189259142766648,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 177784065328743,
+          "group_number": 15,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525709194767445497923,
+            42394768
+          ],
+          "leg_out_amounts_raw": [
+            525709194767445497923,
+            42394768,
+            25177784065328743
+          ],
+          "log_indices": [
+            219,
+            226,
+            231
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25177784065328743,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 166681889729016,
+          "group_number": 16,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154805267585736420321,
+            42377541
+          ],
+          "leg_out_amounts_raw": [
+            154805267585736420321,
+            42377541,
+            25166681889729016
+          ],
+          "log_indices": [
+            235,
+            242,
+            247
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25166681889729016,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 165446245019571,
+          "group_number": 17,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525681228211707465048,
+            42376927
+          ],
+          "leg_out_amounts_raw": [
+            525681228211707465048,
+            42376927,
+            25165446245019571
+          ],
+          "log_indices": [
+            251,
+            258,
+            263
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25165446245019571,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 153987529772423,
+          "group_number": 18,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525653263887547587305,
+            42359097
+          ],
+          "leg_out_amounts_raw": [
+            525653263887547587305,
+            42359097,
+            25153987529772423
+          ],
+          "log_indices": [
+            267,
+            274,
+            279
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25153987529772423,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 142536490309096,
+          "group_number": 19,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525625301794728447371,
+            42341278
+          ],
+          "leg_out_amounts_raw": [
+            525625301794728447371,
+            42341278,
+            25142536490309096
+          ],
+          "log_indices": [
+            283,
+            290,
+            295
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25142536490309096,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 141314978144939,
+          "group_number": 20,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154771793283438697105,
+            42340685
+          ],
+          "leg_out_amounts_raw": [
+            154771793283438697105,
+            42340685,
+            25141314978144939
+          ],
+          "log_indices": [
+            299,
+            306,
+            311
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25141314978144939,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 130224738776893,
+          "group_number": 21,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525597341933012659496,
+            42323471
+          ],
+          "leg_out_amounts_raw": [
+            525597341933012659496,
+            42323471,
+            25130224738776893
+          ],
+          "log_indices": [
+            315,
+            322,
+            327
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25130224738776893,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 118789456832959,
+          "group_number": 22,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525569384302162869495,
+            42305674
+          ],
+          "leg_out_amounts_raw": [
+            525569384302162869495,
+            42305674,
+            25118789456832959
+          ],
+          "log_indices": [
+            331,
+            338,
+            343
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25118789456832959,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 116854151820602,
+          "group_number": 23,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154738329837436074417,
+            42303876
+          ],
+          "leg_out_amounts_raw": [
+            154738329837436074417,
+            42303876,
+            25116854151820602
+          ],
+          "log_indices": [
+            347,
+            354,
+            359
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25116854151820602,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 106495079761976,
+          "group_number": 24,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525541428901941754748,
+            42287889
+          ],
+          "leg_out_amounts_raw": [
+            525541428901941754748,
+            42287889,
+            25106495079761976
+          ],
+          "log_indices": [
+            363,
+            370,
+            375
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25106495079761976,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 95076735241921,
+          "group_number": 25,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525513475732112024193,
+            42270116
+          ],
+          "leg_out_amounts_raw": [
+            525513475732112024193,
+            42270116,
+            25095076735241921
+          ],
+          "log_indices": [
+            379,
+            386,
+            391
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25095076735241921,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 92429562773278,
+          "group_number": 26,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            154704877243034547390,
+            42267116
+          ],
+          "leg_out_amounts_raw": [
+            154704877243034547390,
+            42267116,
+            25092429562773278
+          ],
+          "log_indices": [
+            395,
+            402,
+            407
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xff7fbdf7832ae524deda39ca402e03d92adff7a5",
+            "0x9355292f66552ea5717b274d27eefc8254011d83",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25092429562773278,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Thales DAO Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x217d47011b23bb961eb6d93ca9945b7501a5bb11",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 82799721303243,
+          "group_number": 27,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525485524792436418318,
+            42252353
+          ],
+          "leg_out_amounts_raw": [
+            525485524792436418318,
+            42252353,
+            25082799721303243
+          ],
+          "log_indices": [
+            411,
+            418,
+            423
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25082799721303243,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 80513811623585,
+          "group_number": 28,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48221945245049125305,
+            42249960
+          ],
+          "leg_out_amounts_raw": [
+            48221945245049125305,
+            42249960,
+            25080513811623585
+          ],
+          "log_indices": [
+            427,
+            433,
+            438
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25080513811623585,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 77999561024692,
+          "group_number": 29,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48221348413456490208,
+            42247182
+          ],
+          "leg_out_amounts_raw": [
+            48221348413456490208,
+            42247182,
+            25077999561024692
+          ],
+          "log_indices": [
+            442,
+            448,
+            453
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25077999561024692,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 75485525857112,
+          "group_number": 30,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48220751592944051393,
+            42244404
+          ],
+          "leg_out_amounts_raw": [
+            48220751592944051393,
+            42244404,
+            25075485525857112
+          ],
+          "log_indices": [
+            457,
+            463,
+            468
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25075485525857112,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 73713814062310,
+          "group_number": 31,
+          "leg_in_amounts_raw": [
+            24999999830172804,
+            42242876
+          ],
+          "leg_out_amounts_raw": [
+            42242876,
+            25073713644235114
+          ],
+          "log_indices": [
+            472,
+            476
+          ],
+          "market_events": 2,
+          "markets": [
+            "0x94ad9a19126ebb02dda874237e5820fd4943f5de",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 24999999830172804,
+          "return_raw": 25073713644235114,
+          "route_symbols": [
+            "Wrapped Ether",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 72107496096916,
+          "group_number": 32,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48220154783511534591,
+            42241627
+          ],
+          "leg_out_amounts_raw": [
+            48220154783511534591,
+            42241627,
+            25072107496096916
+          ],
+          "log_indices": [
+            480,
+            486,
+            491
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25072107496096916,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 69594586763843,
+          "group_number": 33,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48219557985158665539,
+            42238850
+          ],
+          "leg_out_amounts_raw": [
+            48219557985158665539,
+            42238850,
+            25069594586763843
+          ],
+          "log_indices": [
+            495,
+            501,
+            506
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25069594586763843,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 67081892682644,
+          "group_number": 34,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48218961197885169983,
+            42236073
+          ],
+          "leg_out_amounts_raw": [
+            48218961197885169983,
+            42236073,
+            25067081892682644
+          ],
+          "log_indices": [
+            510,
+            516,
+            521
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25067081892682644,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 65344483891667,
+          "group_number": 35,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            525457576082677709160,
+            42234602
+          ],
+          "leg_out_amounts_raw": [
+            525457576082677709160,
+            42234602,
+            25065344483891667
+          ],
+          "log_indices": [
+            525,
+            532,
+            537
+          ],
+          "market_events": 3,
+          "markets": [
+            "0xf334f6104a179207ddacfb41fa3567feea8595c2",
+            "0xdee1856d7b75abf4c1bdf986da4e1c6c7864d640",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25065344483891667,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Lyra Token",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 63705722512652,
+          "group_number": 36,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48218364421690773679,
+            42233297
+          ],
+          "leg_out_amounts_raw": [
+            48218364421690773679,
+            42233297,
+            25063705722512652
+          ],
+          "log_indices": [
+            541,
+            547,
+            552
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25063705722512652,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        },
+        {
+          "closing_token": "0x4200000000000000000000000000000000000006",
+          "gross_raw": 61193560335988,
+          "group_number": 37,
+          "leg_in_amounts_raw": [
+            25000000000000000,
+            48217767656575202390,
+            42230520
+          ],
+          "leg_out_amounts_raw": [
+            48217767656575202390,
+            42230520,
+            25061193560335988
+          ],
+          "log_indices": [
+            556,
+            562,
+            567
+          ],
+          "market_events": 3,
+          "markets": [
+            "0x68f5c0a2de713a54991e01858fd27a3832401849",
+            "0x47029bc8f5cbe3b464004e87ef9c9419a48018cd",
+            "0x79c912fef520be002c2b6e57ec4324e260f38e50"
+          ],
+          "principal_raw": 25000000000000000,
+          "return_raw": 25061193560335988,
+          "route_symbols": [
+            "Wrapped Ether",
+            "Optimism",
+            "USD Coin",
+            "Wrapped Ether"
+          ],
+          "route_tokens": [
+            "0x4200000000000000000000000000000000000006",
+            "0x4200000000000000000000000000000000000042",
+            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "0x4200000000000000000000000000000000000006"
+          ]
+        }
+      ],
+      "exact_groups_with_reset_principal_and_gap": 32,
+      "gross_sum_by_closing_token_raw": {
+        "0x4200000000000000000000000000000000000006": 5654794866077543
+      },
+      "new_to_prior_catalog": 1,
+      "published_exact_closed_groups": 37,
+      "published_groups": 37,
+      "published_indices": 109,
+      "published_max_exact_closed_group": 3,
+      "reported_group_legs": 109,
+      "selection": "largest_published_index_count",
+      "source": "CCS24_shard_2",
+      "source_row": 1513,
+      "transaction_index": 0,
+      "tx_hash": "0xb85f0867de699f8e71ff611aa40eefe79cdbf68f1bfe9015ce0f518fbb5733e5"
+    },
+    {
+      "block_number": 54354197,
+      "block_utc": 1674245236,
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "exact_closed_groups": [
+        {
+          "closing_token": "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+          "gross_raw": 1633774,
+          "group_number": 1,
+          "leg_in_amounts_raw": [
+            28125000,
+            28126763660622778578,
+            28224503474427288571,
+            2199472281340967600293,
+            18063736032372515,
+            29273472,
+            18366756248743241
+          ],
+          "leg_out_amounts_raw": [
+            28126763660622778578,
+            28224503474427288571,
+            2199472281340967600293,
+            18063736032372515,
+            29273472,
+            18366756248743241,
+            29758774
+          ],
+          "log_indices": [
+            28,
+            32,
+            34,
+            42,
+            47,
+            53,
+            58
+          ],
+          "market_events": 7,
+          "markets": [
+            "0x50450351517117cb58189edba6bbad6284d45902",
+            "0x7f18d4d3938936bb3d94773f1d937e0fb3abdcca",
+            "0xba12222222228d8ba445958a75a0704d566bf2c8",
+            "0x41dcbcc79923f5508b4a49d78000309052938327",
+            "0x641c00a822e8b671738d32a431a4fb6074e5c79d",
+            "0x00fa2ed5947733cdedc614a371feca2ac9af150a",
+            "0x17c14d2c404d167802b16c450d3c99f88f2c4f4d"
+          ],
+          "principal_raw": 28125000,
+          "return_raw": 29758774,
+          "route_symbols": [
+            "USD Coin (Arb1)",
+            "Sperax USD",
+            "handleUSD",
+            "handleFOREX",
+            "Wrapped Ether",
+            "Tether USD",
+            "Wrapped Ether",
+            "USD Coin (Arb1)"
+          ],
+          "route_tokens": [
+            "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",
+            "0xd74f5255d557944cf7dd0e45ff521520002d5748",
+            "0x8616e8ea83f048ab9a5ec513c9412dd2993bce3f",
+            "0xdb298285fe4c5410b05390ca80e8fbe9de1f259b",
+            "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+            "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+            "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+            "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8"
+          ]
+        }
+      ],
+      "exact_groups_with_reset_principal_and_gap": 0,
+      "gross_sum_by_closing_token_raw": {
+        "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8": 1633774
+      },
+      "new_to_prior_catalog": 1,
+      "published_exact_closed_groups": 1,
+      "published_groups": 1,
+      "published_indices": 7,
+      "published_max_exact_closed_group": 7,
+      "reported_group_legs": 7,
+      "selection": "longest_published_exact_group",
+      "source": "CCS24_shard_2",
+      "source_row": 4477,
+      "transaction_index": 4,
+      "tx_hash": "0x1ff0c2dd4f302a5d278261be2924131f3c0f18cb3ea6d8da95becfa0252bddb1"
+    }
+  ],
+  "new_identities": 17500,
+  "observed_gas_and_receipts": "Independent verification has a separate scope.",
+  "prior_catalog": {
+    "bytes": 4524557,
+    "path": "docs/verification/MULTICHAIN_MULTIHOP_ALL_HASHES_20261127.tsv.gz",
+    "sha256": "bf5a3cafbae4b84c6949f3dc66e209a23d053b6b8c76de83f0df9adb3ea593bd"
+  },
+  "prior_catalog_identities": 100572,
+  "revision": "79d31e0a07b702b5eabb849ac5d513863cad8bb3",
+  "schema": "oasis.ccs24-second-shards.v1",
+  "selection_rule": {
+    "bytes": 652,
+    "path": "reports/research/multihop-second-shards-20261127/selection-rule.json",
+    "sha256": "6c85c7613df3e4736c25c58e0f51a53434f25890b41321f3abed23b1dd1d082a"
+  },
+  "source_tree": {
+    "bytes": 2600000,
+    "path": "reports/research/multichain-inventory-20261127/paper-tree.json",
+    "sha256": "e0120f7b1fe9eae4f17265e08e8e8d796347f6307952cec75e330f9482faf308"
+  },
+  "top_by_chain": {
+    "arbitrum": {
+      "published_indices": {
+        "block_number": 8310716,
+        "block_utc": 1647949808,
+        "chain": "arbitrum",
+        "chain_id": 42161,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 13,
+        "published_groups": 13,
+        "published_indices": 39,
+        "published_max_exact_closed_group": 3,
+        "reported_group_legs": 39,
+        "source": "CCS24_shard_2",
+        "source_row": 1854,
+        "transaction_index": 2,
+        "tx_hash": "0x3850eb5083dddae35d96189560fc19e31c14874d53eafe44b3d49cda6aa40df8"
+      },
+      "published_max_exact_closed_group": {
+        "block_number": 54354197,
+        "block_utc": 1674245236,
+        "chain": "arbitrum",
+        "chain_id": 42161,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 1,
+        "published_groups": 1,
+        "published_indices": 7,
+        "published_max_exact_closed_group": 7,
+        "reported_group_legs": 7,
+        "source": "CCS24_shard_2",
+        "source_row": 4477,
+        "transaction_index": 4,
+        "tx_hash": "0x1ff0c2dd4f302a5d278261be2924131f3c0f18cb3ea6d8da95becfa0252bddb1"
+      }
+    },
+    "ethereum": {
+      "published_indices": {
+        "block_number": 12861377,
+        "block_utc": 1626756708,
+        "chain": "ethereum",
+        "chain_id": 1,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 0,
+        "published_groups": 1,
+        "published_indices": 8,
+        "published_max_exact_closed_group": 0,
+        "reported_group_legs": 8,
+        "source": "CCS24_shard_2",
+        "source_row": 2516,
+        "transaction_index": 0,
+        "tx_hash": "0xdb3aa5fbb57159efb74c9fb291d36e1dea00a724584b43d2e6a5a568e00ba5dc"
+      },
+      "published_max_exact_closed_group": {
+        "block_number": 12324623,
+        "block_utc": 1619555398,
+        "chain": "ethereum",
+        "chain_id": 1,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 1,
+        "published_groups": 1,
+        "published_indices": 6,
+        "published_max_exact_closed_group": 6,
+        "reported_group_legs": 6,
+        "source": "CCS24_shard_2",
+        "source_row": 4568,
+        "transaction_index": 47,
+        "tx_hash": "0x0572d00bc64707b7b8a1188e10706e7cade24fc72a70b0bfbbd6f58caddd1147"
+      }
+    },
+    "optimism": {
+      "published_indices": {
+        "block_number": 11169933,
+        "block_utc": 1654878501,
+        "chain": "optimism",
+        "chain_id": 10,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 37,
+        "published_groups": 37,
+        "published_indices": 109,
+        "published_max_exact_closed_group": 3,
+        "reported_group_legs": 109,
+        "source": "CCS24_shard_2",
+        "source_row": 1513,
+        "transaction_index": 0,
+        "tx_hash": "0xb85f0867de699f8e71ff611aa40eefe79cdbf68f1bfe9015ce0f518fbb5733e5"
+      },
+      "published_max_exact_closed_group": {
+        "block_number": 27848520,
+        "block_utc": 1665071108,
+        "chain": "optimism",
+        "chain_id": 10,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 1,
+        "published_groups": 1,
+        "published_indices": 6,
+        "published_max_exact_closed_group": 6,
+        "reported_group_legs": 6,
+        "source": "CCS24_shard_2",
+        "source_row": 874,
+        "transaction_index": 0,
+        "tx_hash": "0xd8afa246d706bf16a9d0c8c84c944555fa56695f2e5ffed5af61c9167d063379"
+      }
+    },
+    "zksync": {
+      "published_indices": {
+        "block_number": 2088502,
+        "block_utc": 1682250403,
+        "chain": "zksync",
+        "chain_id": 324,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 6,
+        "published_groups": 6,
+        "published_indices": 18,
+        "published_max_exact_closed_group": 3,
+        "reported_group_legs": 18,
+        "source": "CCS24_shard_2",
+        "source_row": 12,
+        "transaction_index": 1,
+        "tx_hash": "0xf8967ba25c15eafa32e58b08d5742b868a49543371332e413cb37f7f47e30bfb"
+      },
+      "published_max_exact_closed_group": {
+        "block_number": 9520397,
+        "block_utc": 1690296454,
+        "chain": "zksync",
+        "chain_id": 324,
+        "new_to_prior_catalog": 1,
+        "published_exact_closed_groups": 1,
+        "published_groups": 1,
+        "published_indices": 5,
+        "published_max_exact_closed_group": 5,
+        "reported_group_legs": 5,
+        "source": "CCS24_shard_2",
+        "source_row": 1107,
+        "transaction_index": 13,
+        "tx_hash": "0x125a9d2bbcd14c34f858cf203fa9b150e4060cd5fdd93321fff5c7bc15481fd5"
+      }
+    }
+  }
+}

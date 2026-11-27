@@ -1,0 +1,2162 @@
+{
+  "capture": {
+    "actual": 9,
+    "cap": 12,
+    "lanes": {
+      "arbitrum-0": {
+        "checks": [
+          {
+            "http": 200,
+            "method": "eth_chainId",
+            "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+            "response_sha256": "937de275b7fc223f33af3b5fdcef1c024e5cf8b2665ad8161096c7e6f9e1733d",
+            "result": "ok"
+          },
+          {
+            "http": 200,
+            "method": "debug_traceTransaction",
+            "request_sha256": "32d316ee32e2b04cb589df04bb0233db2b910f583e2b63fae29382f60408e175",
+            "response_sha256": "d136bfda1c2a1903d51ab0231dc7570735c4972511a688dde8ec43533d0111ba",
+            "result": {
+              "code": -32601,
+              "message": "the method debug_traceTransaction does not exist/is not available"
+            }
+          }
+        ],
+        "endpoint": "https://arb1.arbitrum.io/rpc",
+        "reservations": 2
+      },
+      "arbitrum-1": {
+        "checks": [
+          {
+            "http": 200,
+            "method": "eth_chainId",
+            "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+            "response_sha256": "91a950147615d1e67791f1b5fbebdd8e2e76cfcf83d781717b534cfe4eab0d71",
+            "result": "ok"
+          },
+          {
+            "http": 200,
+            "method": "eth_getBlockByHash",
+            "request_sha256": "375764f1c26062bb1de9dfb633c863f760e318896abca046fa42a09136271a18",
+            "response_sha256": "bdbd322f2953349b59678b5bf04fdf88129707f5ab369b1c6dcfeefa13c6f614",
+            "result": "ok"
+          },
+          {
+            "http": 403,
+            "method": "eth_getCode",
+            "request_sha256": "015f14d037cebcd08e86f571a9272eaee8c7e6ae31c5ab62114b58789d6f9876",
+            "response_sha256": "9a9c4cad7278f824736e3f2579d619b818ecf0c17cab024fb739e1cb63fe82e8",
+            "result": {
+              "code": -32602,
+              "message": "Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode"
+            }
+          }
+        ],
+        "endpoint": "https://arbitrum-one-rpc.publicnode.com",
+        "reservations": 3
+      },
+      "optimism-0": {
+        "checks": [
+          {
+            "http": 200,
+            "method": "eth_chainId",
+            "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+            "response_sha256": "30f888a61faf6834b77b24f6c2a6fed186db37b394aabc2fa88cf350a705913b",
+            "result": "ok"
+          },
+          {
+            "http": 403,
+            "method": "debug_traceTransaction",
+            "request_sha256": "99c961ecc6956a2883447d86d36be040e62f56f21d31a9b00bda60d4a8256c2a",
+            "response_sha256": "4eb544943e41fc08d2340176c0d9dd064398673116d3d0194c5e90dc407c34f2",
+            "result": {
+              "code": -32601,
+              "message": "rpc method is not whitelisted"
+            }
+          }
+        ],
+        "endpoint": "https://mainnet.optimism.io",
+        "reservations": 2
+      },
+      "optimism-1": {
+        "checks": [
+          {
+            "http": 200,
+            "method": "eth_chainId",
+            "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+            "response_sha256": "30f888a61faf6834b77b24f6c2a6fed186db37b394aabc2fa88cf350a705913b",
+            "result": "ok"
+          },
+          {
+            "http": 200,
+            "method": "eth_getBlockByHash",
+            "request_sha256": "9c252beb98102d1c320f009ca036182413549ef4b1da27ad943733c084ebb49c",
+            "response_sha256": "d24b724805fc740a6fe78ed1233a0e4b48d2a3656c6dc63b48059f6eff20eaec",
+            "result": "null"
+          }
+        ],
+        "endpoint": "https://optimism-rpc.publicnode.com",
+        "reservations": 2
+      }
+    },
+    "scope_sha256": "792b35a7969627f1759d8aeddc1c7f4c4489e0a862b19f2ac388f2c478eb2f44"
+  },
+  "cases": [
+    {
+      "anchor": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+      "anchor_decimals": 6,
+      "block": 13677163,
+      "block_hash": "0xda586dc0f956deb4dd2ebce5b44fe7b03fcf13d5b3b738a25f9fd564f35b862f",
+      "calldata": {
+        "bytes": 36,
+        "selector": "0xe652c7e6",
+        "sha256": "1c6db6ca79e072e1e8f74a14b5fd9ad7637e38acceb9fd10fccdd7e1769a807b",
+        "single_word": 69000000000000,
+        "witness": "signed_hash_and_two_full_blocks"
+      },
+      "chain": "optimism",
+      "chain_id": 10,
+      "conditionally_bounded_full_fee_wei": 68998254946208,
+      "entity_net": null,
+      "executor": "0xdffd487ebed8830cdb8216ba696d672072414dce",
+      "gas_cap_price_wei": 1100000,
+      "gas_limit": 15000000,
+      "l1_fee_added_to_observed_wei": 52498254946208,
+      "last_distribution_to_sender_log": 994,
+      "observed_gas_price_wei": 1100000,
+      "observed_network_fee_wei": 64884518946208,
+      "prefix_envelope_proven": false,
+      "receipt_sha256": "b23e82938d828f7ea1a67d54d90212f4e723c81997a86a9f6dbf606c65964713",
+      "rounds": [
+        {
+          "cumulative_gross_raw": 14987,
+          "executor_payout_log": 12,
+          "executor_principal_log": 2,
+          "gross_raw": 14987,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014987,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 13,
+          "round": 1,
+          "sender_funding_log": 0,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 13624545,
+            "2000_USDC_per_ETH": 6812272
+          },
+          "swap_logs": [
+            8,
+            9
+          ]
+        },
+        {
+          "cumulative_gross_raw": 29817,
+          "executor_payout_log": 26,
+          "executor_principal_log": 16,
+          "gross_raw": 14830,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014830,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 27,
+          "round": 2,
+          "sender_funding_log": 14,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 13481818,
+            "2000_USDC_per_ETH": 6740909
+          },
+          "swap_logs": [
+            22,
+            23
+          ]
+        },
+        {
+          "cumulative_gross_raw": 44489,
+          "executor_payout_log": 40,
+          "executor_principal_log": 30,
+          "gross_raw": 14672,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014672,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 41,
+          "round": 3,
+          "sender_funding_log": 28,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 13338181,
+            "2000_USDC_per_ETH": 6669090
+          },
+          "swap_logs": [
+            36,
+            37
+          ]
+        },
+        {
+          "cumulative_gross_raw": 59005,
+          "executor_payout_log": 54,
+          "executor_principal_log": 44,
+          "gross_raw": 14516,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014516,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 55,
+          "round": 4,
+          "sender_funding_log": 42,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 13196363,
+            "2000_USDC_per_ETH": 6598181
+          },
+          "swap_logs": [
+            50,
+            51
+          ]
+        },
+        {
+          "cumulative_gross_raw": 73365,
+          "executor_payout_log": 68,
+          "executor_principal_log": 58,
+          "gross_raw": 14360,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014360,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 69,
+          "round": 5,
+          "sender_funding_log": 56,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 13054545,
+            "2000_USDC_per_ETH": 6527272
+          },
+          "swap_logs": [
+            64,
+            65
+          ]
+        },
+        {
+          "cumulative_gross_raw": 87569,
+          "executor_payout_log": 82,
+          "executor_principal_log": 72,
+          "gross_raw": 14204,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014204,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 83,
+          "round": 6,
+          "sender_funding_log": 70,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12912727,
+            "2000_USDC_per_ETH": 6456363
+          },
+          "swap_logs": [
+            78,
+            79
+          ]
+        },
+        {
+          "cumulative_gross_raw": 101618,
+          "executor_payout_log": 96,
+          "executor_principal_log": 86,
+          "gross_raw": 14049,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32014049,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 97,
+          "round": 7,
+          "sender_funding_log": 84,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12771818,
+            "2000_USDC_per_ETH": 6385909
+          },
+          "swap_logs": [
+            92,
+            93
+          ]
+        },
+        {
+          "cumulative_gross_raw": 115512,
+          "executor_payout_log": 110,
+          "executor_principal_log": 100,
+          "gross_raw": 13894,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013894,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 111,
+          "round": 8,
+          "sender_funding_log": 98,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12630909,
+            "2000_USDC_per_ETH": 6315454
+          },
+          "swap_logs": [
+            106,
+            107
+          ]
+        },
+        {
+          "cumulative_gross_raw": 129251,
+          "executor_payout_log": 124,
+          "executor_principal_log": 114,
+          "gross_raw": 13739,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013739,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 125,
+          "round": 9,
+          "sender_funding_log": 112,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12489999,
+            "2000_USDC_per_ETH": 6244999
+          },
+          "swap_logs": [
+            120,
+            121
+          ]
+        },
+        {
+          "cumulative_gross_raw": 142837,
+          "executor_payout_log": 138,
+          "executor_principal_log": 128,
+          "gross_raw": 13586,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013586,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 139,
+          "round": 10,
+          "sender_funding_log": 126,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12350909,
+            "2000_USDC_per_ETH": 6175454
+          },
+          "swap_logs": [
+            134,
+            135
+          ]
+        },
+        {
+          "cumulative_gross_raw": 156269,
+          "executor_payout_log": 152,
+          "executor_principal_log": 142,
+          "gross_raw": 13432,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013432,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 153,
+          "round": 11,
+          "sender_funding_log": 140,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12210909,
+            "2000_USDC_per_ETH": 6105454
+          },
+          "swap_logs": [
+            148,
+            149
+          ]
+        },
+        {
+          "cumulative_gross_raw": 169548,
+          "executor_payout_log": 166,
+          "executor_principal_log": 156,
+          "gross_raw": 13279,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013279,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 167,
+          "round": 12,
+          "sender_funding_log": 154,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 12071818,
+            "2000_USDC_per_ETH": 6035909
+          },
+          "swap_logs": [
+            162,
+            163
+          ]
+        },
+        {
+          "cumulative_gross_raw": 182675,
+          "executor_payout_log": 180,
+          "executor_principal_log": 170,
+          "gross_raw": 13127,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32013127,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 181,
+          "round": 13,
+          "sender_funding_log": 168,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11933636,
+            "2000_USDC_per_ETH": 5966818
+          },
+          "swap_logs": [
+            176,
+            177
+          ]
+        },
+        {
+          "cumulative_gross_raw": 195650,
+          "executor_payout_log": 194,
+          "executor_principal_log": 184,
+          "gross_raw": 12975,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012975,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 195,
+          "round": 14,
+          "sender_funding_log": 182,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11795454,
+            "2000_USDC_per_ETH": 5897727
+          },
+          "swap_logs": [
+            190,
+            191
+          ]
+        },
+        {
+          "cumulative_gross_raw": 208473,
+          "executor_payout_log": 208,
+          "executor_principal_log": 198,
+          "gross_raw": 12823,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012823,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 209,
+          "round": 15,
+          "sender_funding_log": 196,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11657272,
+            "2000_USDC_per_ETH": 5828636
+          },
+          "swap_logs": [
+            204,
+            205
+          ]
+        },
+        {
+          "cumulative_gross_raw": 221145,
+          "executor_payout_log": 222,
+          "executor_principal_log": 212,
+          "gross_raw": 12672,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012672,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 223,
+          "round": 16,
+          "sender_funding_log": 210,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11519999,
+            "2000_USDC_per_ETH": 5759999
+          },
+          "swap_logs": [
+            218,
+            219
+          ]
+        },
+        {
+          "cumulative_gross_raw": 233667,
+          "executor_payout_log": 236,
+          "executor_principal_log": 226,
+          "gross_raw": 12522,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012522,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 237,
+          "round": 17,
+          "sender_funding_log": 224,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11383636,
+            "2000_USDC_per_ETH": 5691818
+          },
+          "swap_logs": [
+            232,
+            233
+          ]
+        },
+        {
+          "cumulative_gross_raw": 246038,
+          "executor_payout_log": 250,
+          "executor_principal_log": 240,
+          "gross_raw": 12371,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012371,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 251,
+          "round": 18,
+          "sender_funding_log": 238,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11246363,
+            "2000_USDC_per_ETH": 5623181
+          },
+          "swap_logs": [
+            246,
+            247
+          ]
+        },
+        {
+          "cumulative_gross_raw": 258260,
+          "executor_payout_log": 264,
+          "executor_principal_log": 254,
+          "gross_raw": 12222,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012222,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 265,
+          "round": 19,
+          "sender_funding_log": 252,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 11110909,
+            "2000_USDC_per_ETH": 5555454
+          },
+          "swap_logs": [
+            260,
+            261
+          ]
+        },
+        {
+          "cumulative_gross_raw": 270333,
+          "executor_payout_log": 278,
+          "executor_principal_log": 268,
+          "gross_raw": 12073,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32012073,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 279,
+          "round": 20,
+          "sender_funding_log": 266,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10975454,
+            "2000_USDC_per_ETH": 5487727
+          },
+          "swap_logs": [
+            274,
+            275
+          ]
+        },
+        {
+          "cumulative_gross_raw": 282257,
+          "executor_payout_log": 292,
+          "executor_principal_log": 282,
+          "gross_raw": 11924,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011924,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 293,
+          "round": 21,
+          "sender_funding_log": 280,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10839999,
+            "2000_USDC_per_ETH": 5419999
+          },
+          "swap_logs": [
+            288,
+            289
+          ]
+        },
+        {
+          "cumulative_gross_raw": 294033,
+          "executor_payout_log": 306,
+          "executor_principal_log": 296,
+          "gross_raw": 11776,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011776,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 307,
+          "round": 22,
+          "sender_funding_log": 294,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10705454,
+            "2000_USDC_per_ETH": 5352727
+          },
+          "swap_logs": [
+            302,
+            303
+          ]
+        },
+        {
+          "cumulative_gross_raw": 305661,
+          "executor_payout_log": 320,
+          "executor_principal_log": 310,
+          "gross_raw": 11628,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011628,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 321,
+          "round": 23,
+          "sender_funding_log": 308,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10570909,
+            "2000_USDC_per_ETH": 5285454
+          },
+          "swap_logs": [
+            316,
+            317
+          ]
+        },
+        {
+          "cumulative_gross_raw": 317141,
+          "executor_payout_log": 334,
+          "executor_principal_log": 324,
+          "gross_raw": 11480,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011480,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 335,
+          "round": 24,
+          "sender_funding_log": 322,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10436363,
+            "2000_USDC_per_ETH": 5218181
+          },
+          "swap_logs": [
+            330,
+            331
+          ]
+        },
+        {
+          "cumulative_gross_raw": 328474,
+          "executor_payout_log": 348,
+          "executor_principal_log": 338,
+          "gross_raw": 11333,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011333,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 349,
+          "round": 25,
+          "sender_funding_log": 336,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10302727,
+            "2000_USDC_per_ETH": 5151363
+          },
+          "swap_logs": [
+            344,
+            345
+          ]
+        },
+        {
+          "cumulative_gross_raw": 339661,
+          "executor_payout_log": 362,
+          "executor_principal_log": 352,
+          "gross_raw": 11187,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011187,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 363,
+          "round": 26,
+          "sender_funding_log": 350,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10169999,
+            "2000_USDC_per_ETH": 5084999
+          },
+          "swap_logs": [
+            358,
+            359
+          ]
+        },
+        {
+          "cumulative_gross_raw": 350702,
+          "executor_payout_log": 376,
+          "executor_principal_log": 366,
+          "gross_raw": 11041,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32011041,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 377,
+          "round": 27,
+          "sender_funding_log": 364,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 10037272,
+            "2000_USDC_per_ETH": 5018636
+          },
+          "swap_logs": [
+            372,
+            373
+          ]
+        },
+        {
+          "cumulative_gross_raw": 361597,
+          "executor_payout_log": 390,
+          "executor_principal_log": 380,
+          "gross_raw": 10895,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010895,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 391,
+          "round": 28,
+          "sender_funding_log": 378,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9904545,
+            "2000_USDC_per_ETH": 4952272
+          },
+          "swap_logs": [
+            386,
+            387
+          ]
+        },
+        {
+          "cumulative_gross_raw": 372347,
+          "executor_payout_log": 404,
+          "executor_principal_log": 394,
+          "gross_raw": 10750,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010750,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 405,
+          "round": 29,
+          "sender_funding_log": 392,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9772727,
+            "2000_USDC_per_ETH": 4886363
+          },
+          "swap_logs": [
+            400,
+            401
+          ]
+        },
+        {
+          "cumulative_gross_raw": 382952,
+          "executor_payout_log": 418,
+          "executor_principal_log": 408,
+          "gross_raw": 10605,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010605,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 419,
+          "round": 30,
+          "sender_funding_log": 406,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9640909,
+            "2000_USDC_per_ETH": 4820454
+          },
+          "swap_logs": [
+            414,
+            415
+          ]
+        },
+        {
+          "cumulative_gross_raw": 393413,
+          "executor_payout_log": 432,
+          "executor_principal_log": 422,
+          "gross_raw": 10461,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010461,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 433,
+          "round": 31,
+          "sender_funding_log": 420,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9509999,
+            "2000_USDC_per_ETH": 4754999
+          },
+          "swap_logs": [
+            428,
+            429
+          ]
+        },
+        {
+          "cumulative_gross_raw": 403730,
+          "executor_payout_log": 446,
+          "executor_principal_log": 436,
+          "gross_raw": 10317,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010317,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 447,
+          "round": 32,
+          "sender_funding_log": 434,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9379090,
+            "2000_USDC_per_ETH": 4689545
+          },
+          "swap_logs": [
+            442,
+            443
+          ]
+        },
+        {
+          "cumulative_gross_raw": 413904,
+          "executor_payout_log": 460,
+          "executor_principal_log": 450,
+          "gross_raw": 10174,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010174,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 461,
+          "round": 33,
+          "sender_funding_log": 448,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9249090,
+            "2000_USDC_per_ETH": 4624545
+          },
+          "swap_logs": [
+            456,
+            457
+          ]
+        },
+        {
+          "cumulative_gross_raw": 423935,
+          "executor_payout_log": 474,
+          "executor_principal_log": 464,
+          "gross_raw": 10031,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32010031,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 475,
+          "round": 34,
+          "sender_funding_log": 462,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 9119090,
+            "2000_USDC_per_ETH": 4559545
+          },
+          "swap_logs": [
+            470,
+            471
+          ]
+        },
+        {
+          "cumulative_gross_raw": 433824,
+          "executor_payout_log": 488,
+          "executor_principal_log": 478,
+          "gross_raw": 9889,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009889,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 489,
+          "round": 35,
+          "sender_funding_log": 476,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8989999,
+            "2000_USDC_per_ETH": 4494999
+          },
+          "swap_logs": [
+            484,
+            485
+          ]
+        },
+        {
+          "cumulative_gross_raw": 443571,
+          "executor_payout_log": 502,
+          "executor_principal_log": 492,
+          "gross_raw": 9747,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009747,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 503,
+          "round": 36,
+          "sender_funding_log": 490,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8860909,
+            "2000_USDC_per_ETH": 4430454
+          },
+          "swap_logs": [
+            498,
+            499
+          ]
+        },
+        {
+          "cumulative_gross_raw": 453176,
+          "executor_payout_log": 516,
+          "executor_principal_log": 506,
+          "gross_raw": 9605,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009605,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 517,
+          "round": 37,
+          "sender_funding_log": 504,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8731818,
+            "2000_USDC_per_ETH": 4365909
+          },
+          "swap_logs": [
+            512,
+            513
+          ]
+        },
+        {
+          "cumulative_gross_raw": 462640,
+          "executor_payout_log": 530,
+          "executor_principal_log": 520,
+          "gross_raw": 9464,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009464,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 531,
+          "round": 38,
+          "sender_funding_log": 518,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8603636,
+            "2000_USDC_per_ETH": 4301818
+          },
+          "swap_logs": [
+            526,
+            527
+          ]
+        },
+        {
+          "cumulative_gross_raw": 471964,
+          "executor_payout_log": 544,
+          "executor_principal_log": 534,
+          "gross_raw": 9324,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009324,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 545,
+          "round": 39,
+          "sender_funding_log": 532,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8476363,
+            "2000_USDC_per_ETH": 4238181
+          },
+          "swap_logs": [
+            540,
+            541
+          ]
+        },
+        {
+          "cumulative_gross_raw": 481147,
+          "executor_payout_log": 558,
+          "executor_principal_log": 548,
+          "gross_raw": 9183,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009183,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 559,
+          "round": 40,
+          "sender_funding_log": 546,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8348181,
+            "2000_USDC_per_ETH": 4174090
+          },
+          "swap_logs": [
+            554,
+            555
+          ]
+        },
+        {
+          "cumulative_gross_raw": 490191,
+          "executor_payout_log": 572,
+          "executor_principal_log": 562,
+          "gross_raw": 9044,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32009044,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 573,
+          "round": 41,
+          "sender_funding_log": 560,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8221818,
+            "2000_USDC_per_ETH": 4110909
+          },
+          "swap_logs": [
+            568,
+            569
+          ]
+        },
+        {
+          "cumulative_gross_raw": 499095,
+          "executor_payout_log": 586,
+          "executor_principal_log": 576,
+          "gross_raw": 8904,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008904,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 587,
+          "round": 42,
+          "sender_funding_log": 574,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 8094545,
+            "2000_USDC_per_ETH": 4047272
+          },
+          "swap_logs": [
+            582,
+            583
+          ]
+        },
+        {
+          "cumulative_gross_raw": 507860,
+          "executor_payout_log": 600,
+          "executor_principal_log": 590,
+          "gross_raw": 8765,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008765,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 601,
+          "round": 43,
+          "sender_funding_log": 588,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7968181,
+            "2000_USDC_per_ETH": 3984090
+          },
+          "swap_logs": [
+            596,
+            597
+          ]
+        },
+        {
+          "cumulative_gross_raw": 516487,
+          "executor_payout_log": 614,
+          "executor_principal_log": 604,
+          "gross_raw": 8627,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008627,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 615,
+          "round": 44,
+          "sender_funding_log": 602,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7842727,
+            "2000_USDC_per_ETH": 3921363
+          },
+          "swap_logs": [
+            610,
+            611
+          ]
+        },
+        {
+          "cumulative_gross_raw": 524976,
+          "executor_payout_log": 628,
+          "executor_principal_log": 618,
+          "gross_raw": 8489,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008489,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 629,
+          "round": 45,
+          "sender_funding_log": 616,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7717272,
+            "2000_USDC_per_ETH": 3858636
+          },
+          "swap_logs": [
+            624,
+            625
+          ]
+        },
+        {
+          "cumulative_gross_raw": 533327,
+          "executor_payout_log": 642,
+          "executor_principal_log": 632,
+          "gross_raw": 8351,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008351,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 643,
+          "round": 46,
+          "sender_funding_log": 630,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7591818,
+            "2000_USDC_per_ETH": 3795909
+          },
+          "swap_logs": [
+            638,
+            639
+          ]
+        },
+        {
+          "cumulative_gross_raw": 541541,
+          "executor_payout_log": 656,
+          "executor_principal_log": 646,
+          "gross_raw": 8214,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008214,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 657,
+          "round": 47,
+          "sender_funding_log": 644,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7467272,
+            "2000_USDC_per_ETH": 3733636
+          },
+          "swap_logs": [
+            652,
+            653
+          ]
+        },
+        {
+          "cumulative_gross_raw": 549618,
+          "executor_payout_log": 670,
+          "executor_principal_log": 660,
+          "gross_raw": 8077,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32008077,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 671,
+          "round": 48,
+          "sender_funding_log": 658,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7342727,
+            "2000_USDC_per_ETH": 3671363
+          },
+          "swap_logs": [
+            666,
+            667
+          ]
+        },
+        {
+          "cumulative_gross_raw": 557559,
+          "executor_payout_log": 684,
+          "executor_principal_log": 674,
+          "gross_raw": 7941,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007941,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 685,
+          "round": 49,
+          "sender_funding_log": 672,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7219090,
+            "2000_USDC_per_ETH": 3609545
+          },
+          "swap_logs": [
+            680,
+            681
+          ]
+        },
+        {
+          "cumulative_gross_raw": 565364,
+          "executor_payout_log": 698,
+          "executor_principal_log": 688,
+          "gross_raw": 7805,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007805,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 699,
+          "round": 50,
+          "sender_funding_log": 686,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 7095454,
+            "2000_USDC_per_ETH": 3547727
+          },
+          "swap_logs": [
+            694,
+            695
+          ]
+        },
+        {
+          "cumulative_gross_raw": 573034,
+          "executor_payout_log": 712,
+          "executor_principal_log": 702,
+          "gross_raw": 7670,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007670,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 713,
+          "round": 51,
+          "sender_funding_log": 700,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6972727,
+            "2000_USDC_per_ETH": 3486363
+          },
+          "swap_logs": [
+            708,
+            709
+          ]
+        },
+        {
+          "cumulative_gross_raw": 580569,
+          "executor_payout_log": 726,
+          "executor_principal_log": 716,
+          "gross_raw": 7535,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007535,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 727,
+          "round": 52,
+          "sender_funding_log": 714,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6849999,
+            "2000_USDC_per_ETH": 3424999
+          },
+          "swap_logs": [
+            722,
+            723
+          ]
+        },
+        {
+          "cumulative_gross_raw": 587969,
+          "executor_payout_log": 740,
+          "executor_principal_log": 730,
+          "gross_raw": 7400,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007400,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 741,
+          "round": 53,
+          "sender_funding_log": 728,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6727272,
+            "2000_USDC_per_ETH": 3363636
+          },
+          "swap_logs": [
+            736,
+            737
+          ]
+        },
+        {
+          "cumulative_gross_raw": 595235,
+          "executor_payout_log": 754,
+          "executor_principal_log": 744,
+          "gross_raw": 7266,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007266,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 755,
+          "round": 54,
+          "sender_funding_log": 742,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6605454,
+            "2000_USDC_per_ETH": 3302727
+          },
+          "swap_logs": [
+            750,
+            751
+          ]
+        },
+        {
+          "cumulative_gross_raw": 602367,
+          "executor_payout_log": 768,
+          "executor_principal_log": 758,
+          "gross_raw": 7132,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32007132,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 769,
+          "round": 55,
+          "sender_funding_log": 756,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6483636,
+            "2000_USDC_per_ETH": 3241818
+          },
+          "swap_logs": [
+            764,
+            765
+          ]
+        },
+        {
+          "cumulative_gross_raw": 609366,
+          "executor_payout_log": 782,
+          "executor_principal_log": 772,
+          "gross_raw": 6999,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006999,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 783,
+          "round": 56,
+          "sender_funding_log": 770,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6362727,
+            "2000_USDC_per_ETH": 3181363
+          },
+          "swap_logs": [
+            778,
+            779
+          ]
+        },
+        {
+          "cumulative_gross_raw": 616232,
+          "executor_payout_log": 796,
+          "executor_principal_log": 786,
+          "gross_raw": 6866,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006866,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 797,
+          "round": 57,
+          "sender_funding_log": 784,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6241818,
+            "2000_USDC_per_ETH": 3120909
+          },
+          "swap_logs": [
+            792,
+            793
+          ]
+        },
+        {
+          "cumulative_gross_raw": 622966,
+          "executor_payout_log": 810,
+          "executor_principal_log": 800,
+          "gross_raw": 6734,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006734,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 811,
+          "round": 58,
+          "sender_funding_log": 798,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6121818,
+            "2000_USDC_per_ETH": 3060909
+          },
+          "swap_logs": [
+            806,
+            807
+          ]
+        },
+        {
+          "cumulative_gross_raw": 629568,
+          "executor_payout_log": 824,
+          "executor_principal_log": 814,
+          "gross_raw": 6602,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006602,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 825,
+          "round": 59,
+          "sender_funding_log": 812,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 6001818,
+            "2000_USDC_per_ETH": 3000909
+          },
+          "swap_logs": [
+            820,
+            821
+          ]
+        },
+        {
+          "cumulative_gross_raw": 636038,
+          "executor_payout_log": 838,
+          "executor_principal_log": 828,
+          "gross_raw": 6470,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006470,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 839,
+          "round": 60,
+          "sender_funding_log": 826,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5881818,
+            "2000_USDC_per_ETH": 2940909
+          },
+          "swap_logs": [
+            834,
+            835
+          ]
+        },
+        {
+          "cumulative_gross_raw": 642377,
+          "executor_payout_log": 852,
+          "executor_principal_log": 842,
+          "gross_raw": 6339,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006339,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 853,
+          "round": 61,
+          "sender_funding_log": 840,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5762727,
+            "2000_USDC_per_ETH": 2881363
+          },
+          "swap_logs": [
+            848,
+            849
+          ]
+        },
+        {
+          "cumulative_gross_raw": 648585,
+          "executor_payout_log": 866,
+          "executor_principal_log": 856,
+          "gross_raw": 6208,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006208,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 867,
+          "round": 62,
+          "sender_funding_log": 854,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5643636,
+            "2000_USDC_per_ETH": 2821818
+          },
+          "swap_logs": [
+            862,
+            863
+          ]
+        },
+        {
+          "cumulative_gross_raw": 654663,
+          "executor_payout_log": 880,
+          "executor_principal_log": 870,
+          "gross_raw": 6078,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32006078,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 881,
+          "round": 63,
+          "sender_funding_log": 868,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5525454,
+            "2000_USDC_per_ETH": 2762727
+          },
+          "swap_logs": [
+            876,
+            877
+          ]
+        },
+        {
+          "cumulative_gross_raw": 660611,
+          "executor_payout_log": 894,
+          "executor_principal_log": 884,
+          "gross_raw": 5948,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005948,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 895,
+          "round": 64,
+          "sender_funding_log": 882,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5407272,
+            "2000_USDC_per_ETH": 2703636
+          },
+          "swap_logs": [
+            890,
+            891
+          ]
+        },
+        {
+          "cumulative_gross_raw": 666429,
+          "executor_payout_log": 908,
+          "executor_principal_log": 898,
+          "gross_raw": 5818,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005818,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 909,
+          "round": 65,
+          "sender_funding_log": 896,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5289090,
+            "2000_USDC_per_ETH": 2644545
+          },
+          "swap_logs": [
+            904,
+            905
+          ]
+        },
+        {
+          "cumulative_gross_raw": 672118,
+          "executor_payout_log": 922,
+          "executor_principal_log": 912,
+          "gross_raw": 5689,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005689,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 923,
+          "round": 66,
+          "sender_funding_log": 910,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5171818,
+            "2000_USDC_per_ETH": 2585909
+          },
+          "swap_logs": [
+            918,
+            919
+          ]
+        },
+        {
+          "cumulative_gross_raw": 677678,
+          "executor_payout_log": 936,
+          "executor_principal_log": 926,
+          "gross_raw": 5560,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005560,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 937,
+          "round": 67,
+          "sender_funding_log": 924,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 5054545,
+            "2000_USDC_per_ETH": 2527272
+          },
+          "swap_logs": [
+            932,
+            933
+          ]
+        },
+        {
+          "cumulative_gross_raw": 683110,
+          "executor_payout_log": 950,
+          "executor_principal_log": 940,
+          "gross_raw": 5432,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005432,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 951,
+          "round": 68,
+          "sender_funding_log": 938,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 4938181,
+            "2000_USDC_per_ETH": 2469090
+          },
+          "swap_logs": [
+            946,
+            947
+          ]
+        },
+        {
+          "cumulative_gross_raw": 688414,
+          "executor_payout_log": 964,
+          "executor_principal_log": 954,
+          "gross_raw": 5304,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005304,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 965,
+          "round": 69,
+          "sender_funding_log": 952,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 4821818,
+            "2000_USDC_per_ETH": 2410909
+          },
+          "swap_logs": [
+            960,
+            961
+          ]
+        },
+        {
+          "cumulative_gross_raw": 693591,
+          "executor_payout_log": 978,
+          "executor_principal_log": 968,
+          "gross_raw": 5177,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 32005177,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 979,
+          "round": 70,
+          "sender_funding_log": 966,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 4706363,
+            "2000_USDC_per_ETH": 2353181
+          },
+          "swap_logs": [
+            974,
+            975
+          ]
+        },
+        {
+          "cumulative_gross_raw": 698641,
+          "executor_payout_log": 992,
+          "executor_principal_log": 982,
+          "gross_raw": 5050,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": 64884518946208,
+          "payout_raw": 32005050,
+          "principal_raw": 32000000,
+          "principal_return_to_sender_log": 993,
+          "round": 71,
+          "sender_funding_log": 980,
+          "strict_incremental_gas_max_by_scenario": {
+            "1000_USDC_per_ETH": 4590909,
+            "2000_USDC_per_ETH": 2295454
+          },
+          "swap_logs": [
+            988,
+            989
+          ]
+        }
+      ],
+      "scenarios": {
+        "1000_USDC_per_ETH": {
+          "anchor_raw_per_ETH": 1000000000,
+          "first_round_covering_conditional_fee_ceiling": 5,
+          "first_round_covering_full_observed_network_fee": 5,
+          "rounds_individually_positive_at_hypothetical_incremental_gas": {
+            "100000": 71,
+            "200000": 71,
+            "300000": 71,
+            "400000": 71,
+            "50000": 71,
+            "500000": 71
+          }
+        },
+        "2000_USDC_per_ETH": {
+          "anchor_raw_per_ETH": 2000000000,
+          "first_round_covering_conditional_fee_ceiling": 10,
+          "first_round_covering_full_observed_network_fee": 10,
+          "rounds_individually_positive_at_hypothetical_incremental_gas": {
+            "100000": 71,
+            "200000": 71,
+            "300000": 71,
+            "400000": 71,
+            "50000": 71,
+            "500000": 71
+          }
+        }
+      },
+      "sender": "0x582fe1d93f89524f38708297eecf1a7e20aa9ba6",
+      "source_row": 1412,
+      "transaction_index": 0,
+      "tx_hash": "0x88ebc4488b690912980b05a1f3f2f6a94d41f12d6435927bc2b9fbacd37f443b"
+    },
+    {
+      "anchor": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "anchor_decimals": 18,
+      "block": 34561017,
+      "block_hash": "0x529a959a35127431ed7497a533372c3988b1d4c33b3054482fb4389819c2db64",
+      "calldata": {
+        "aligned_words": 35,
+        "aligned_words_equal_round_count": 0,
+        "bytes": 1124,
+        "selector": "0x20af6029",
+        "sha256": "4d887189d4ebf4a27d95cb6dc8351921fce059ac2847786c72d09c03b70b130e",
+        "witness": "pinned_paper_row_only"
+      },
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "conditionally_bounded_full_fee_wei": 1025964460000000,
+      "entity_net": null,
+      "executor": "0x004ed4cf52d2e15d2dd376a6fc2b1508b9942699",
+      "gas_cap_price_wei": 106000000,
+      "gas_limit": 9678910,
+      "l1_fee_added_to_observed_wei": 0,
+      "last_distribution_to_sender_log": null,
+      "observed_gas_price_wei": 100000000,
+      "observed_network_fee_wei": 816820300000000,
+      "prefix_envelope_proven": false,
+      "receipt_sha256": "194bba0840f14a524dfd2c7bec19aba22d650dd48e0a8a7569958a687599d695",
+      "rounds": [
+        {
+          "cumulative_gross_raw": 161978689092396,
+          "executor_payout_log": 17,
+          "executor_principal_log": 10,
+          "gross_raw": 161978689092396,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290161978689092396,
+          "principal_raw": 290000000000000000,
+          "round": 1,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1619786
+          },
+          "swap_logs": [
+            11,
+            14,
+            15
+          ]
+        },
+        {
+          "cumulative_gross_raw": 317266770919993,
+          "executor_payout_log": 26,
+          "executor_principal_log": 19,
+          "gross_raw": 155288081827597,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290155288081827597,
+          "principal_raw": 290000000000000000,
+          "round": 2,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1552880
+          },
+          "swap_logs": [
+            20,
+            23,
+            24
+          ]
+        },
+        {
+          "cumulative_gross_raw": 465863821554195,
+          "executor_payout_log": 35,
+          "executor_principal_log": 28,
+          "gross_raw": 148597050634202,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290148597050634202,
+          "principal_raw": 290000000000000000,
+          "round": 3,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1485970
+          },
+          "swap_logs": [
+            29,
+            32,
+            33
+          ]
+        },
+        {
+          "cumulative_gross_raw": 607770051050692,
+          "executor_payout_log": 44,
+          "executor_principal_log": 37,
+          "gross_raw": 141906229496497,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290141906229496497,
+          "principal_raw": 290000000000000000,
+          "round": 4,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1419062
+          },
+          "swap_logs": [
+            38,
+            41,
+            42
+          ]
+        },
+        {
+          "cumulative_gross_raw": 742986303363609,
+          "executor_payout_log": 53,
+          "executor_principal_log": 46,
+          "gross_raw": 135216252312917,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290135216252312917,
+          "principal_raw": 290000000000000000,
+          "round": 5,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1352162
+          },
+          "swap_logs": [
+            47,
+            50,
+            51
+          ]
+        },
+        {
+          "cumulative_gross_raw": 871512154551542,
+          "executor_payout_log": 62,
+          "executor_principal_log": 55,
+          "gross_raw": 128525851187933,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290128525851187933,
+          "principal_raw": 290000000000000000,
+          "round": 6,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1285258
+          },
+          "swap_logs": [
+            56,
+            59,
+            60
+          ]
+        },
+        {
+          "cumulative_gross_raw": 993348448500353,
+          "executor_payout_log": 71,
+          "executor_principal_log": 64,
+          "gross_raw": 121836293948811,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290121836293948811,
+          "principal_raw": 290000000000000000,
+          "round": 7,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1218362
+          },
+          "swap_logs": [
+            65,
+            68,
+            69
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1108494761196909,
+          "executor_payout_log": 80,
+          "executor_principal_log": 73,
+          "gross_raw": 115146312696556,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290115146312696556,
+          "principal_raw": 290000000000000000,
+          "round": 8,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1151463
+          },
+          "swap_logs": [
+            74,
+            77,
+            78
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1216951936404801,
+          "executor_payout_log": 89,
+          "executor_principal_log": 82,
+          "gross_raw": 108457175207892,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290108457175207892,
+          "principal_raw": 290000000000000000,
+          "round": 9,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1084571
+          },
+          "swap_logs": [
+            83,
+            86,
+            87
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1318719550120029,
+          "executor_payout_log": 98,
+          "executor_principal_log": 91,
+          "gross_raw": 101767613715228,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290101767613715228,
+          "principal_raw": 290000000000000000,
+          "round": 10,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 1017676
+          },
+          "swap_logs": [
+            92,
+            95,
+            96
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1413798446089675,
+          "executor_payout_log": 107,
+          "executor_principal_log": 100,
+          "gross_raw": 95078895969646,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290095078895969646,
+          "principal_raw": 290000000000000000,
+          "round": 11,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 950788
+          },
+          "swap_logs": [
+            101,
+            104,
+            105
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1502188833990187,
+          "executor_payout_log": 116,
+          "executor_principal_log": 109,
+          "gross_raw": 88390387900512,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290088390387900512,
+          "principal_raw": 290000000000000000,
+          "round": 12,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 883903
+          },
+          "swap_logs": [
+            110,
+            113,
+            114
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1583890289804732,
+          "executor_payout_log": 125,
+          "executor_principal_log": 118,
+          "gross_raw": 81701455814545,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290081701455814545,
+          "principal_raw": 290000000000000000,
+          "round": 13,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 817014
+          },
+          "swap_logs": [
+            119,
+            122,
+            123
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1658903657070755,
+          "executor_payout_log": 134,
+          "executor_principal_log": 127,
+          "gross_raw": 75013367266023,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290075013367266023,
+          "principal_raw": 290000000000000000,
+          "round": 14,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 750133
+          },
+          "swap_logs": [
+            128,
+            131,
+            132
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1727228511648420,
+          "executor_payout_log": 143,
+          "executor_principal_log": 136,
+          "gross_raw": 68324854577665,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290068324854577665,
+          "principal_raw": 290000000000000000,
+          "round": 15,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 683248
+          },
+          "swap_logs": [
+            137,
+            140,
+            141
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1788865697084160,
+          "executor_payout_log": 152,
+          "executor_principal_log": 145,
+          "gross_raw": 61637185435740,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290061637185435740,
+          "principal_raw": 290000000000000000,
+          "round": 16,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 616371
+          },
+          "swap_logs": [
+            146,
+            149,
+            150
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1843815422992044,
+          "executor_payout_log": 161,
+          "executor_principal_log": 154,
+          "gross_raw": 54949725907884,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290054949725907884,
+          "principal_raw": 290000000000000000,
+          "round": 17,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 549497
+          },
+          "swap_logs": [
+            155,
+            158,
+            159
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1892077265165420,
+          "executor_payout_log": 170,
+          "executor_principal_log": 163,
+          "gross_raw": 48261842173376,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290048261842173376,
+          "principal_raw": 290000000000000000,
+          "round": 18,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 482618
+          },
+          "swap_logs": [
+            164,
+            167,
+            168
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1933652066995113,
+          "executor_payout_log": 179,
+          "executor_principal_log": 172,
+          "gross_raw": 41574801829693,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290041574801829693,
+          "principal_raw": 290000000000000000,
+          "round": 19,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 415748
+          },
+          "swap_logs": [
+            173,
+            176,
+            177
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1968540038010383,
+          "executor_payout_log": 188,
+          "executor_principal_log": 181,
+          "gross_raw": 34887971015270,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290034887971015270,
+          "principal_raw": 290000000000000000,
+          "round": 20,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 348879
+          },
+          "swap_logs": [
+            182,
+            185,
+            186
+          ]
+        },
+        {
+          "cumulative_gross_raw": 1996741387713131,
+          "executor_payout_log": 197,
+          "executor_principal_log": 190,
+          "gross_raw": 28201349702748,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290028201349702748,
+          "principal_raw": 290000000000000000,
+          "round": 21,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 282013
+          },
+          "swap_logs": [
+            191,
+            194,
+            195
+          ]
+        },
+        {
+          "cumulative_gross_raw": 2018255691782870,
+          "executor_payout_log": 206,
+          "executor_principal_log": 199,
+          "gross_raw": 21514304069739,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290021514304069739,
+          "principal_raw": 290000000000000000,
+          "round": 22,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 215143
+          },
+          "swap_logs": [
+            200,
+            203,
+            204
+          ]
+        },
+        {
+          "cumulative_gross_raw": 2033083793496637,
+          "executor_payout_log": 215,
+          "executor_principal_log": 208,
+          "gross_raw": 14828101713767,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": null,
+          "payout_raw": 290014828101713767,
+          "principal_raw": 290000000000000000,
+          "round": 23,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 148281
+          },
+          "swap_logs": [
+            209,
+            212,
+            213
+          ]
+        },
+        {
+          "cumulative_gross_raw": 2041225902218061,
+          "executor_payout_log": 224,
+          "executor_principal_log": 217,
+          "gross_raw": 8142108721424,
+          "measured_incremental_network_fee_wei": null,
+          "measured_prefix_network_fee_wei": 816820300000000,
+          "payout_raw": 290008142108721424,
+          "principal_raw": 290000000000000000,
+          "round": 24,
+          "strict_incremental_gas_max_by_scenario": {
+            "ETH_WETH_at_par": 81421
+          },
+          "swap_logs": [
+            218,
+            221,
+            222
+          ]
+        }
+      ],
+      "scenarios": {
+        "ETH_WETH_at_par": {
+          "anchor_raw_per_ETH": 1000000000000000000,
+          "first_round_covering_conditional_fee_ceiling": 8,
+          "first_round_covering_full_observed_network_fee": 6,
+          "rounds_individually_positive_at_hypothetical_incremental_gas": {
+            "100000": 23,
+            "200000": 22,
+            "300000": 20,
+            "400000": 19,
+            "50000": 24,
+            "500000": 17
+          }
+        }
+      },
+      "sender": "0xe5dd0debb5a0351dc685b4ebaceea2bec938a950",
+      "source_row": 1357,
+      "transaction_index": 2,
+      "tx_hash": "0x83ca4b8034a4eda21a724619c4e3c75c6b7ad01fb5cf024817e3dfa2b7e9b75c"
+    }
+  ]
+}

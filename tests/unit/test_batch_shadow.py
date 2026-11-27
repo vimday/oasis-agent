@@ -102,7 +102,7 @@ def test_hkc_reuses_same_hash_with_new_witness_clock_and_correct_integer_fees() 
         discovery=H,
         first_return=K_SAME,
         child=C,
-        independent_child_clock=True,
+        independent_child_observed_ns=C_HEAD.observed_ns,
     )
     assert report.discovery.network_fee_net == 85
     assert report.discovery.policy_net == 55
@@ -130,6 +130,21 @@ def test_post_quorum_poll_does_not_qualify_even_with_three_profitable_states() -
     assert summary["natural_positive_direct_child_still_positive"] == 1
     assert summary["natural_timely_h_k_c_rated"] == 0
     assert summary["natural_timely_h_k_c_survivors"] is None
+
+
+def test_earlier_independent_child_overrides_post_quorum_http_observation() -> None:
+    report = reduce_batch_shadow(
+        SCOPE,
+        kind="natural_forward",
+        discovery=H,
+        first_return=K_SAME,
+        child=C,
+        independent_child_observed_ns=1_090,
+    )
+    assert report.child.head is not None and report.child.head.observed_ns == 1_150
+    assert report.quorum_return_delay_ns == 100 and report.quorum_within_deadline
+    assert report.quorum_before_direct_child is False
+    assert report.timely_h_k_c_survivor is False
 
 
 def test_missing_inclusion_and_opportunity_keep_network_net_only() -> None:
@@ -187,7 +202,7 @@ def test_evm_revert_charges_simulated_cost_but_cannot_survive() -> None:
         discovery=H,
         first_return=K_SAME,
         child=child,
-        independent_child_clock=True,
+        independent_child_observed_ns=C_HEAD.observed_ns,
     )
     assert report.child.status == "reverted"
     assert report.child.policy_net == -45
@@ -242,7 +257,7 @@ def test_budget_clock_uses_the_later_response_even_if_published_after_child() ->
         discovery=h,
         first_return=k,
         child=C,
-        independent_child_clock=True,
+        independent_child_observed_ns=C_HEAD.observed_ns,
     )
     assert report.first_return_delay_ns == 50 and report.quorum_return_delay_ns == 201
     assert report.quorum_before_direct_child is False and report.quorum_within_deadline is False
@@ -263,7 +278,7 @@ def test_latest_may_skip_child_but_cannot_reuse_a_different_state_request() -> N
         discovery=H,
         first_return=k,
         child=C,
-        independent_child_clock=True,
+        independent_child_observed_ns=C_HEAD.observed_ns,
     )
     assert report.first_return.status == "succeeded" and report.timely_h_k_c_survivor
 
