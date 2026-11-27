@@ -98,3 +98,21 @@ def test_shadow_denominator_keeps_model_and_missing_whole_stages() -> None:
     ] = CHILD
     with pytest.raises(ValueError, match="parent hash conflict"):
         summarize_base_shadow([first, fork])
+
+
+def test_arrival_deadlines_measure_observed_children_only() -> None:
+    first = _row(1, PARENT, "0x" + "aa" * 32, 10)
+    second = _row(2, CHILD, PARENT, 16)
+    third = _row(3, "0x" + "56" * 32, CHILD, 30)
+    third["block_number"] = 4
+    third["shadow_cycle_lifecycle"]["mixed_base_state"]["newheads_observation"]["head"][
+        "height"
+    ] = 4
+
+    result = summarize_base_shadow([first, second, third], arrival_deadlines=True)
+    report = result["arrival_deadlines"]
+    assert report["witnessed_direct_child_pairs"] == 1
+    assert report["state_ready_before_child_observed"] == 1
+    assert report["discovery_finished_before_child_observed"] == 0
+    assert report["blocks_without_observed_direct_child"] == [2, 4]
+    assert report["pairs"][0]["child_receive_minus_discovery_finished_ns"] == -2

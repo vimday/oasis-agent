@@ -1,0 +1,5772 @@
+{
+  "archive_logs_sha256": "b85430497ac398e554f914437113616b6a460ae30a9bede8d6673dd64a1187cc",
+  "cases": [
+    {
+      "block_receipts": 245,
+      "call_trace_frames": 2322,
+      "caught_reverts": [],
+      "direct_native_fee_calls": [],
+      "envelope_fees": {
+        "base_wei_per_gas": 117682126,
+        "burn_wei": 1310511920964032,
+        "effective_wei_per_gas": 117694480,
+        "gas_used": 11136032,
+        "gas_wei": 1310649495503360,
+        "priority_wei": 137574539328,
+        "tip_wei_per_gas": 12354
+      },
+      "generic_depth": 1,
+      "generic_exact_links": 0,
+      "generic_leg_shapes": {
+        "v2": 153
+      },
+      "generic_pool_keys": 2,
+      "generic_resolved_events": 76,
+      "generic_supported_events": 153,
+      "matched_archived_logs": 942,
+      "morpho_principals": [
+        {
+          "amount": 180000000000000000,
+          "event": 475,
+          "fee_raw": 0,
+          "path": [
+            0
+          ],
+          "repay": 1415,
+          "take": 476,
+          "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        }
+      ],
+      "observed_payout": {
+        "conditional_common_role_eth_weth_delta_wei": null,
+        "direct_eth_to_header_fee_receiver_wei": 0,
+        "effective_gas_price": 117694480,
+        "fee_payer": "0x571d0ec17d84fdee89f5c9cf6b2fd930205e776f",
+        "fee_receiver": "0x396343362be2a4da1ce0c1c210945346fb82aa49",
+        "gas_used": 11136032,
+        "paid_gas_wei": 1310649495503360,
+        "transaction_recipient": "0xf03228d46db8d5cf8486e6a9a5b8ae1eb1c2c505",
+        "visible_role_deltas": [
+          {
+            "account": "0x571d0ec17d84fdee89f5c9cf6b2fd930205e776f",
+            "asset": "0x6982508145454ce325ddbe47a25d4ec3d2311933",
+            "delta_after_receipt_gas": 3242641288180949262409427
+          },
+          {
+            "account": "0x571d0ec17d84fdee89f5c9cf6b2fd930205e776f",
+            "asset": "ETH",
+            "delta_after_receipt_gas": 3381940409190669
+          }
+        ]
+      },
+      "receipts_root": "0x81a9115d010bc043ff730dbc192d96facbef020b40b5de6ae42dec08d6bd84e5",
+      "selector_histogram": {
+        "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822": 153
+      },
+      "separate_two_swap_weth_bridges": [
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              3,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              3,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              3,
+              4
+            ],
+            [
+              0,
+              1,
+              3,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            487,
+            493
+          ],
+          "weth_amount": 3194568201301947,
+          "weth_bridge_logs": [
+            485,
+            488,
+            489,
+            490
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              5,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              5,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              5,
+              4
+            ],
+            [
+              0,
+              1,
+              5,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            499,
+            505
+          ],
+          "weth_amount": 3183283918186353,
+          "weth_bridge_logs": [
+            497,
+            500,
+            501,
+            502
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              7,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              7,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              7,
+              4
+            ],
+            [
+              0,
+              1,
+              7,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            511,
+            517
+          ],
+          "weth_amount": 3172059349178989,
+          "weth_bridge_logs": [
+            509,
+            512,
+            513,
+            514
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              9,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              9,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              9,
+              4
+            ],
+            [
+              0,
+              1,
+              9,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            523,
+            529
+          ],
+          "weth_amount": 3160894073590833,
+          "weth_bridge_logs": [
+            521,
+            524,
+            525,
+            526
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              11,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              11,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              11,
+              4
+            ],
+            [
+              0,
+              1,
+              11,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            535,
+            541
+          ],
+          "weth_amount": 3149787674431623,
+          "weth_bridge_logs": [
+            533,
+            536,
+            537,
+            538
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              13,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              13,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              13,
+              4
+            ],
+            [
+              0,
+              1,
+              13,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            547,
+            553
+          ],
+          "weth_amount": 3138739738370893,
+          "weth_bridge_logs": [
+            545,
+            548,
+            549,
+            550
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              15,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              15,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              15,
+              4
+            ],
+            [
+              0,
+              1,
+              15,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            559,
+            565
+          ],
+          "weth_amount": 3127749855699495,
+          "weth_bridge_logs": [
+            557,
+            560,
+            561,
+            562
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              17,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              17,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              17,
+              4
+            ],
+            [
+              0,
+              1,
+              17,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            571,
+            577
+          ],
+          "weth_amount": 3116817620291585,
+          "weth_bridge_logs": [
+            569,
+            572,
+            573,
+            574
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              19,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              19,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              19,
+              4
+            ],
+            [
+              0,
+              1,
+              19,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            583,
+            589
+          ],
+          "weth_amount": 3105942629567081,
+          "weth_bridge_logs": [
+            581,
+            584,
+            585,
+            586
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              21,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              21,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              21,
+              4
+            ],
+            [
+              0,
+              1,
+              21,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            595,
+            601
+          ],
+          "weth_amount": 3095124484454573,
+          "weth_bridge_logs": [
+            593,
+            596,
+            597,
+            598
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              23,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              23,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              23,
+              4
+            ],
+            [
+              0,
+              1,
+              23,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            607,
+            613
+          ],
+          "weth_amount": 3084362789354692,
+          "weth_bridge_logs": [
+            605,
+            608,
+            609,
+            610
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              25,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              25,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              25,
+              4
+            ],
+            [
+              0,
+              1,
+              25,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            619,
+            625
+          ],
+          "weth_amount": 3073657152103913,
+          "weth_bridge_logs": [
+            617,
+            620,
+            621,
+            622
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              27,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              27,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              27,
+              4
+            ],
+            [
+              0,
+              1,
+              27,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            631,
+            637
+          ],
+          "weth_amount": 3063007183938812,
+          "weth_bridge_logs": [
+            629,
+            632,
+            633,
+            634
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              29,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              29,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              29,
+              4
+            ],
+            [
+              0,
+              1,
+              29,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            643,
+            649
+          ],
+          "weth_amount": 3052412499460743,
+          "weth_bridge_logs": [
+            641,
+            644,
+            645,
+            646
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              31,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              31,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              31,
+              4
+            ],
+            [
+              0,
+              1,
+              31,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            655,
+            661
+          ],
+          "weth_amount": 3041872716600950,
+          "weth_bridge_logs": [
+            653,
+            656,
+            657,
+            658
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              33,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              33,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              33,
+              4
+            ],
+            [
+              0,
+              1,
+              33,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            667,
+            673
+          ],
+          "weth_amount": 3031387456586100,
+          "weth_bridge_logs": [
+            665,
+            668,
+            669,
+            670
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              35,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              35,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              35,
+              4
+            ],
+            [
+              0,
+              1,
+              35,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            679,
+            685
+          ],
+          "weth_amount": 3020956343904228,
+          "weth_bridge_logs": [
+            677,
+            680,
+            681,
+            682
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              37,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              37,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              37,
+              4
+            ],
+            [
+              0,
+              1,
+              37,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            691,
+            697
+          ],
+          "weth_amount": 3010579006271094,
+          "weth_bridge_logs": [
+            689,
+            692,
+            693,
+            694
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              39,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              39,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              39,
+              4
+            ],
+            [
+              0,
+              1,
+              39,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            703,
+            709
+          ],
+          "weth_amount": 3000255074596944,
+          "weth_bridge_logs": [
+            701,
+            704,
+            705,
+            706
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              41,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              41,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              41,
+              4
+            ],
+            [
+              0,
+              1,
+              41,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            715,
+            721
+          ],
+          "weth_amount": 2989984182953670,
+          "weth_bridge_logs": [
+            713,
+            716,
+            717,
+            718
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              43,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              43,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              43,
+              4
+            ],
+            [
+              0,
+              1,
+              43,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            727,
+            733
+          ],
+          "weth_amount": 2979765968542364,
+          "weth_bridge_logs": [
+            725,
+            728,
+            729,
+            730
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              45,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              45,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              45,
+              4
+            ],
+            [
+              0,
+              1,
+              45,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            739,
+            745
+          ],
+          "weth_amount": 2969600071661257,
+          "weth_bridge_logs": [
+            737,
+            740,
+            741,
+            742
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              47,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              47,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              47,
+              4
+            ],
+            [
+              0,
+              1,
+              47,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            751,
+            757
+          ],
+          "weth_amount": 2959486135674043,
+          "weth_bridge_logs": [
+            749,
+            752,
+            753,
+            754
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              49,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              49,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              49,
+              4
+            ],
+            [
+              0,
+              1,
+              49,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            763,
+            769
+          ],
+          "weth_amount": 2949423806978580,
+          "weth_bridge_logs": [
+            761,
+            764,
+            765,
+            766
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              51,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              51,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              51,
+              4
+            ],
+            [
+              0,
+              1,
+              51,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            775,
+            781
+          ],
+          "weth_amount": 2939412734975963,
+          "weth_bridge_logs": [
+            773,
+            776,
+            777,
+            778
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              53,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              53,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              53,
+              4
+            ],
+            [
+              0,
+              1,
+              53,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            787,
+            793
+          ],
+          "weth_amount": 2929452572039963,
+          "weth_bridge_logs": [
+            785,
+            788,
+            789,
+            790
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              55,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              55,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              55,
+              4
+            ],
+            [
+              0,
+              1,
+              55,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            799,
+            805
+          ],
+          "weth_amount": 2919542973486831,
+          "weth_bridge_logs": [
+            797,
+            800,
+            801,
+            802
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              57,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              57,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              57,
+              4
+            ],
+            [
+              0,
+              1,
+              57,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            811,
+            817
+          ],
+          "weth_amount": 2909683597545457,
+          "weth_bridge_logs": [
+            809,
+            812,
+            813,
+            814
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              59,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              59,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              59,
+              4
+            ],
+            [
+              0,
+              1,
+              59,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            823,
+            829
+          ],
+          "weth_amount": 2899874105327883,
+          "weth_bridge_logs": [
+            821,
+            824,
+            825,
+            826
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              61,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              61,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              61,
+              4
+            ],
+            [
+              0,
+              1,
+              61,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            835,
+            841
+          ],
+          "weth_amount": 2890114160800159,
+          "weth_bridge_logs": [
+            833,
+            836,
+            837,
+            838
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              63,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              63,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              63,
+              4
+            ],
+            [
+              0,
+              1,
+              63,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            847,
+            853
+          ],
+          "weth_amount": 2880403430753552,
+          "weth_bridge_logs": [
+            845,
+            848,
+            849,
+            850
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              65,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              65,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              65,
+              4
+            ],
+            [
+              0,
+              1,
+              65,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            859,
+            865
+          ],
+          "weth_amount": 2870741584776082,
+          "weth_bridge_logs": [
+            857,
+            860,
+            861,
+            862
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              67,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              67,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              67,
+              4
+            ],
+            [
+              0,
+              1,
+              67,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            871,
+            877
+          ],
+          "weth_amount": 2861128295224401,
+          "weth_bridge_logs": [
+            869,
+            872,
+            873,
+            874
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              69,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              69,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              69,
+              4
+            ],
+            [
+              0,
+              1,
+              69,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            883,
+            889
+          ],
+          "weth_amount": 2851563237195994,
+          "weth_bridge_logs": [
+            881,
+            884,
+            885,
+            886
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              71,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              71,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              71,
+              4
+            ],
+            [
+              0,
+              1,
+              71,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            895,
+            901
+          ],
+          "weth_amount": 2842046088501714,
+          "weth_bridge_logs": [
+            893,
+            896,
+            897,
+            898
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              73,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              73,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              73,
+              4
+            ],
+            [
+              0,
+              1,
+              73,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            907,
+            913
+          ],
+          "weth_amount": 2832576529638628,
+          "weth_bridge_logs": [
+            905,
+            908,
+            909,
+            910
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              75,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              75,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              75,
+              4
+            ],
+            [
+              0,
+              1,
+              75,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            919,
+            925
+          ],
+          "weth_amount": 2823154243763182,
+          "weth_bridge_logs": [
+            917,
+            920,
+            921,
+            922
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              77,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              77,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              77,
+              4
+            ],
+            [
+              0,
+              1,
+              77,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            931,
+            937
+          ],
+          "weth_amount": 2813778916664690,
+          "weth_bridge_logs": [
+            929,
+            932,
+            933,
+            934
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              79,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              79,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              79,
+              4
+            ],
+            [
+              0,
+              1,
+              79,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            943,
+            949
+          ],
+          "weth_amount": 2804450236739107,
+          "weth_bridge_logs": [
+            941,
+            944,
+            945,
+            946
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              81,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              81,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              81,
+              4
+            ],
+            [
+              0,
+              1,
+              81,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            955,
+            961
+          ],
+          "weth_amount": 2795167894963134,
+          "weth_bridge_logs": [
+            953,
+            956,
+            957,
+            958
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              83,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              83,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              83,
+              4
+            ],
+            [
+              0,
+              1,
+              83,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            967,
+            973
+          ],
+          "weth_amount": 2785931584868598,
+          "weth_bridge_logs": [
+            965,
+            968,
+            969,
+            970
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              85,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              85,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              85,
+              4
+            ],
+            [
+              0,
+              1,
+              85,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            979,
+            985
+          ],
+          "weth_amount": 2776741002517147,
+          "weth_bridge_logs": [
+            977,
+            980,
+            981,
+            982
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              87,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              87,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              87,
+              4
+            ],
+            [
+              0,
+              1,
+              87,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            991,
+            997
+          ],
+          "weth_amount": 2767595846475225,
+          "weth_bridge_logs": [
+            989,
+            992,
+            993,
+            994
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              89,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              89,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              89,
+              4
+            ],
+            [
+              0,
+              1,
+              89,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1003,
+            1009
+          ],
+          "weth_amount": 2758495817789338,
+          "weth_bridge_logs": [
+            1001,
+            1004,
+            1005,
+            1006
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              91,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              91,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              91,
+              4
+            ],
+            [
+              0,
+              1,
+              91,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1015,
+            1021
+          ],
+          "weth_amount": 2749440619961613,
+          "weth_bridge_logs": [
+            1013,
+            1016,
+            1017,
+            1018
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              93,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              93,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              93,
+              4
+            ],
+            [
+              0,
+              1,
+              93,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1027,
+            1033
+          ],
+          "weth_amount": 2740429958925622,
+          "weth_bridge_logs": [
+            1025,
+            1028,
+            1029,
+            1030
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              95,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              95,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              95,
+              4
+            ],
+            [
+              0,
+              1,
+              95,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1039,
+            1045
+          ],
+          "weth_amount": 2731463543022499,
+          "weth_bridge_logs": [
+            1037,
+            1040,
+            1041,
+            1042
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              97,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              97,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              97,
+              4
+            ],
+            [
+              0,
+              1,
+              97,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1051,
+            1057
+          ],
+          "weth_amount": 2722541082977317,
+          "weth_bridge_logs": [
+            1049,
+            1052,
+            1053,
+            1054
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              99,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              99,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              99,
+              4
+            ],
+            [
+              0,
+              1,
+              99,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1063,
+            1069
+          ],
+          "weth_amount": 2713662291875746,
+          "weth_bridge_logs": [
+            1061,
+            1064,
+            1065,
+            1066
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              101,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              101,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              101,
+              4
+            ],
+            [
+              0,
+              1,
+              101,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1075,
+            1081
+          ],
+          "weth_amount": 2704826885140970,
+          "weth_bridge_logs": [
+            1073,
+            1076,
+            1077,
+            1078
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              103,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              103,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              103,
+              4
+            ],
+            [
+              0,
+              1,
+              103,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1087,
+            1093
+          ],
+          "weth_amount": 2696034580510869,
+          "weth_bridge_logs": [
+            1085,
+            1088,
+            1089,
+            1090
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              105,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              105,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              105,
+              4
+            ],
+            [
+              0,
+              1,
+              105,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1099,
+            1105
+          ],
+          "weth_amount": 2687285098015461,
+          "weth_bridge_logs": [
+            1097,
+            1100,
+            1101,
+            1102
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              107,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              107,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              107,
+              4
+            ],
+            [
+              0,
+              1,
+              107,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1111,
+            1117
+          ],
+          "weth_amount": 2678578159954600,
+          "weth_bridge_logs": [
+            1109,
+            1112,
+            1113,
+            1114
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              109,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              109,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              109,
+              4
+            ],
+            [
+              0,
+              1,
+              109,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1123,
+            1129
+          ],
+          "weth_amount": 2669913490875927,
+          "weth_bridge_logs": [
+            1121,
+            1124,
+            1125,
+            1126
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              111,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              111,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              111,
+              4
+            ],
+            [
+              0,
+              1,
+              111,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1135,
+            1141
+          ],
+          "weth_amount": 2661290817553069,
+          "weth_bridge_logs": [
+            1133,
+            1136,
+            1137,
+            1138
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              113,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              113,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              113,
+              4
+            ],
+            [
+              0,
+              1,
+              113,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1147,
+            1153
+          ],
+          "weth_amount": 2652709868964086,
+          "weth_bridge_logs": [
+            1145,
+            1148,
+            1149,
+            1150
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              115,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              115,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              115,
+              4
+            ],
+            [
+              0,
+              1,
+              115,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1159,
+            1165
+          ],
+          "weth_amount": 2644170376270160,
+          "weth_bridge_logs": [
+            1157,
+            1160,
+            1161,
+            1162
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              117,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              117,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              117,
+              4
+            ],
+            [
+              0,
+              1,
+              117,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1171,
+            1177
+          ],
+          "weth_amount": 2635672072794526,
+          "weth_bridge_logs": [
+            1169,
+            1172,
+            1173,
+            1174
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              119,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              119,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              119,
+              4
+            ],
+            [
+              0,
+              1,
+              119,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1183,
+            1189
+          ],
+          "weth_amount": 2627214694001634,
+          "weth_bridge_logs": [
+            1181,
+            1184,
+            1185,
+            1186
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              121,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              121,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              121,
+              4
+            ],
+            [
+              0,
+              1,
+              121,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1195,
+            1201
+          ],
+          "weth_amount": 2618797977476555,
+          "weth_bridge_logs": [
+            1193,
+            1196,
+            1197,
+            1198
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              123,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              123,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              123,
+              4
+            ],
+            [
+              0,
+              1,
+              123,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1207,
+            1213
+          ],
+          "weth_amount": 2610421662904608,
+          "weth_bridge_logs": [
+            1205,
+            1208,
+            1209,
+            1210
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              125,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              125,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              125,
+              4
+            ],
+            [
+              0,
+              1,
+              125,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1219,
+            1225
+          ],
+          "weth_amount": 2602085492051219,
+          "weth_bridge_logs": [
+            1217,
+            1220,
+            1221,
+            1222
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              127,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              127,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              127,
+              4
+            ],
+            [
+              0,
+              1,
+              127,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1231,
+            1237
+          ],
+          "weth_amount": 2593789208742008,
+          "weth_bridge_logs": [
+            1229,
+            1232,
+            1233,
+            1234
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              129,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              129,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              129,
+              4
+            ],
+            [
+              0,
+              1,
+              129,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1243,
+            1249
+          ],
+          "weth_amount": 2585532558843091,
+          "weth_bridge_logs": [
+            1241,
+            1244,
+            1245,
+            1246
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              131,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              131,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              131,
+              4
+            ],
+            [
+              0,
+              1,
+              131,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1255,
+            1261
+          ],
+          "weth_amount": 2577315290241609,
+          "weth_bridge_logs": [
+            1253,
+            1256,
+            1257,
+            1258
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              133,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              133,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              133,
+              4
+            ],
+            [
+              0,
+              1,
+              133,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1267,
+            1273
+          ],
+          "weth_amount": 2569137152826467,
+          "weth_bridge_logs": [
+            1265,
+            1268,
+            1269,
+            1270
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              135,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              135,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              135,
+              4
+            ],
+            [
+              0,
+              1,
+              135,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1279,
+            1285
+          ],
+          "weth_amount": 2560997898469291,
+          "weth_bridge_logs": [
+            1277,
+            1280,
+            1281,
+            1282
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              137,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              137,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              137,
+              4
+            ],
+            [
+              0,
+              1,
+              137,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1291,
+            1297
+          ],
+          "weth_amount": 2552897281005596,
+          "weth_bridge_logs": [
+            1289,
+            1292,
+            1293,
+            1294
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              139,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              139,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              139,
+              4
+            ],
+            [
+              0,
+              1,
+              139,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1303,
+            1309
+          ],
+          "weth_amount": 2544835056216157,
+          "weth_bridge_logs": [
+            1301,
+            1304,
+            1305,
+            1306
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              141,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              141,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              141,
+              4
+            ],
+            [
+              0,
+              1,
+              141,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1315,
+            1321
+          ],
+          "weth_amount": 2536810981808595,
+          "weth_bridge_logs": [
+            1313,
+            1316,
+            1317,
+            1318
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              144,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              144,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              144,
+              4
+            ],
+            [
+              0,
+              1,
+              144,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1327,
+            1333
+          ],
+          "weth_amount": 2528824817399157,
+          "weth_bridge_logs": [
+            1325,
+            1328,
+            1329,
+            1330
+          ]
+        },
+        {
+          "native_call_paths": [
+            [
+              0,
+              1,
+              150,
+              0,
+              2,
+              5,
+              0
+            ],
+            [
+              0,
+              1,
+              150,
+              0,
+              2,
+              6
+            ],
+            [
+              0,
+              1,
+              150,
+              0,
+              4
+            ],
+            [
+              0,
+              1,
+              150,
+              0,
+              4,
+              0
+            ]
+          ],
+          "pool_addresses": [
+            "0xc43163172061c6d77821d6bb72f00c86cfa4870a",
+            "0xa43fe16908251ee70ef74718545e4fe6c5ccec9f"
+          ],
+          "swap_events": [
+            1342,
+            1348
+          ],
+          "weth_amount": 2520876324494703,
+          "weth_bridge_logs": [
+            1340,
+            1343,
+            1344,
+            1345
+          ]
+        }
+      ],
+      "sources": [
+        {
+          "completed_utc": "2026-11-27T01:54:36.142811+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "431b4d631c191ac7e894c62d863026d9abe4e3f456e81c3472ad7da19d31fac1",
+          "response_bytes": 590386,
+          "response_sha256": "83a62bcfc5c6938a1a8994890c43514e0986801c42fc7797c8ecf5ae9c5fe9ed",
+          "source": "https://ethereum.publicnode.com",
+          "started_utc": "2026-11-27T01:54:35.824506+00:00",
+          "stderr": ""
+        },
+        {
+          "completed_utc": "2026-11-27T01:54:37.910971+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "dfe8017c0a8abcd952bda670ec6837d038a05262a8bb5d792a1f1659b698be4a",
+          "response_bytes": 1803700,
+          "response_sha256": "27b1c16ec06f6d8d2a59ff1a4903352687e4308426886b44c4a7ae6096e8bbc1",
+          "source": "https://eth.nodely.dev",
+          "started_utc": "2026-11-27T01:54:36.144451+00:00",
+          "stderr": ""
+        },
+        {
+          "completed_utc": "2026-11-27T01:54:38.781842+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "e02f9f2e7a3fad64276860bbd6f77f5f08a4847d63d62e49ec402e8eac98a411",
+          "response_bytes": 1220120,
+          "response_sha256": "19da406f92d2472edfafe61867b5480dd60f95dbe3c3a34b1cfc9ed00a69be23",
+          "source": "https://eth.drpc.org",
+          "started_utc": "2026-11-27T01:54:37.979953+00:00",
+          "stderr": ""
+        }
+      ],
+      "swap_branches": [
+        [
+          1,
+          [
+            483
+          ]
+        ],
+        [
+          3,
+          [
+            487,
+            493
+          ]
+        ],
+        [
+          5,
+          [
+            499,
+            505
+          ]
+        ],
+        [
+          7,
+          [
+            511,
+            517
+          ]
+        ],
+        [
+          9,
+          [
+            523,
+            529
+          ]
+        ],
+        [
+          11,
+          [
+            535,
+            541
+          ]
+        ],
+        [
+          13,
+          [
+            547,
+            553
+          ]
+        ],
+        [
+          15,
+          [
+            559,
+            565
+          ]
+        ],
+        [
+          17,
+          [
+            571,
+            577
+          ]
+        ],
+        [
+          19,
+          [
+            583,
+            589
+          ]
+        ],
+        [
+          21,
+          [
+            595,
+            601
+          ]
+        ],
+        [
+          23,
+          [
+            607,
+            613
+          ]
+        ],
+        [
+          25,
+          [
+            619,
+            625
+          ]
+        ],
+        [
+          27,
+          [
+            631,
+            637
+          ]
+        ],
+        [
+          29,
+          [
+            643,
+            649
+          ]
+        ],
+        [
+          31,
+          [
+            655,
+            661
+          ]
+        ],
+        [
+          33,
+          [
+            667,
+            673
+          ]
+        ],
+        [
+          35,
+          [
+            679,
+            685
+          ]
+        ],
+        [
+          37,
+          [
+            691,
+            697
+          ]
+        ],
+        [
+          39,
+          [
+            703,
+            709
+          ]
+        ],
+        [
+          41,
+          [
+            715,
+            721
+          ]
+        ],
+        [
+          43,
+          [
+            727,
+            733
+          ]
+        ],
+        [
+          45,
+          [
+            739,
+            745
+          ]
+        ],
+        [
+          47,
+          [
+            751,
+            757
+          ]
+        ],
+        [
+          49,
+          [
+            763,
+            769
+          ]
+        ],
+        [
+          51,
+          [
+            775,
+            781
+          ]
+        ],
+        [
+          53,
+          [
+            787,
+            793
+          ]
+        ],
+        [
+          55,
+          [
+            799,
+            805
+          ]
+        ],
+        [
+          57,
+          [
+            811,
+            817
+          ]
+        ],
+        [
+          59,
+          [
+            823,
+            829
+          ]
+        ],
+        [
+          61,
+          [
+            835,
+            841
+          ]
+        ],
+        [
+          63,
+          [
+            847,
+            853
+          ]
+        ],
+        [
+          65,
+          [
+            859,
+            865
+          ]
+        ],
+        [
+          67,
+          [
+            871,
+            877
+          ]
+        ],
+        [
+          69,
+          [
+            883,
+            889
+          ]
+        ],
+        [
+          71,
+          [
+            895,
+            901
+          ]
+        ],
+        [
+          73,
+          [
+            907,
+            913
+          ]
+        ],
+        [
+          75,
+          [
+            919,
+            925
+          ]
+        ],
+        [
+          77,
+          [
+            931,
+            937
+          ]
+        ],
+        [
+          79,
+          [
+            943,
+            949
+          ]
+        ],
+        [
+          81,
+          [
+            955,
+            961
+          ]
+        ],
+        [
+          83,
+          [
+            967,
+            973
+          ]
+        ],
+        [
+          85,
+          [
+            979,
+            985
+          ]
+        ],
+        [
+          87,
+          [
+            991,
+            997
+          ]
+        ],
+        [
+          89,
+          [
+            1003,
+            1009
+          ]
+        ],
+        [
+          91,
+          [
+            1015,
+            1021
+          ]
+        ],
+        [
+          93,
+          [
+            1027,
+            1033
+          ]
+        ],
+        [
+          95,
+          [
+            1039,
+            1045
+          ]
+        ],
+        [
+          97,
+          [
+            1051,
+            1057
+          ]
+        ],
+        [
+          99,
+          [
+            1063,
+            1069
+          ]
+        ],
+        [
+          101,
+          [
+            1075,
+            1081
+          ]
+        ],
+        [
+          103,
+          [
+            1087,
+            1093
+          ]
+        ],
+        [
+          105,
+          [
+            1099,
+            1105
+          ]
+        ],
+        [
+          107,
+          [
+            1111,
+            1117
+          ]
+        ],
+        [
+          109,
+          [
+            1123,
+            1129
+          ]
+        ],
+        [
+          111,
+          [
+            1135,
+            1141
+          ]
+        ],
+        [
+          113,
+          [
+            1147,
+            1153
+          ]
+        ],
+        [
+          115,
+          [
+            1159,
+            1165
+          ]
+        ],
+        [
+          117,
+          [
+            1171,
+            1177
+          ]
+        ],
+        [
+          119,
+          [
+            1183,
+            1189
+          ]
+        ],
+        [
+          121,
+          [
+            1195,
+            1201
+          ]
+        ],
+        [
+          123,
+          [
+            1207,
+            1213
+          ]
+        ],
+        [
+          125,
+          [
+            1219,
+            1225
+          ]
+        ],
+        [
+          127,
+          [
+            1231,
+            1237
+          ]
+        ],
+        [
+          129,
+          [
+            1243,
+            1249
+          ]
+        ],
+        [
+          131,
+          [
+            1255,
+            1261
+          ]
+        ],
+        [
+          133,
+          [
+            1267,
+            1273
+          ]
+        ],
+        [
+          135,
+          [
+            1279,
+            1285
+          ]
+        ],
+        [
+          137,
+          [
+            1291,
+            1297
+          ]
+        ],
+        [
+          139,
+          [
+            1303,
+            1309
+          ]
+        ],
+        [
+          141,
+          [
+            1315,
+            1321
+          ]
+        ],
+        [
+          144,
+          [
+            1327,
+            1333
+          ]
+        ],
+        [
+          150,
+          [
+            1342,
+            1348,
+            1354
+          ]
+        ],
+        [
+          155,
+          [
+            1362
+          ]
+        ],
+        [
+          160,
+          [
+            1370
+          ]
+        ],
+        [
+          165,
+          [
+            1378
+          ]
+        ],
+        [
+          170,
+          [
+            1386
+          ]
+        ],
+        [
+          175,
+          [
+            1394
+          ]
+        ],
+        [
+          180,
+          [
+            1402
+          ]
+        ],
+        [
+          185,
+          [
+            1410
+          ]
+        ]
+      ],
+      "target": {
+        "block_hash": "0xa901b38bb7deb972e417a752cdeb5a2f6b70c8caa470e6ccbeba88f4b66ee974",
+        "block_number": 26474882,
+        "events": 153,
+        "indexes": 153,
+        "pool_keys": 2,
+        "transaction_hash": "0xc0f84bc1e826057a03860b8b11a1da2327862608fe7788be3138634e8b9f05fc",
+        "transaction_index": 142
+      },
+      "timestamp_utc": "2026-11-23T02:36:11+00:00",
+      "v4_weth_groups": 0,
+      "v4_weth_unlocks": 0
+    },
+    {
+      "block_receipts": 129,
+      "call_trace_frames": 1797,
+      "caught_reverts": [
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          7
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          9
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          11
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          37
+        ],
+        [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          41
+        ]
+      ],
+      "direct_native_fee_calls": [
+        {
+          "from": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "path": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            60
+          ],
+          "value": 3631209248466342
+        }
+      ],
+      "envelope_fees": {
+        "base_wei_per_gas": 186982225,
+        "burn_wei": 1961028439710500,
+        "effective_wei_per_gas": 186982225,
+        "gas_used": 10487780,
+        "gas_wei": 1961028439710500,
+        "priority_wei": 0,
+        "tip_wei_per_gas": 0
+      },
+      "generic_depth": 4,
+      "generic_exact_links": 83,
+      "generic_leg_shapes": {
+        "curve_int128": 3,
+        "pancake_v3": 10,
+        "v2": 35,
+        "v3": 69,
+        "v4": 18
+      },
+      "generic_pool_keys": 96,
+      "generic_resolved_events": 135,
+      "generic_supported_events": 135,
+      "matched_archived_logs": 516,
+      "morpho_principals": [
+        {
+          "amount": 128509079,
+          "event": 834,
+          "fee_raw": 0,
+          "path": [
+            0
+          ],
+          "repay": 1349,
+          "take": 835,
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        {
+          "amount": 21497170180794617856,
+          "event": 836,
+          "fee_raw": 0,
+          "path": [
+            0,
+            1,
+            0
+          ],
+          "repay": 1348,
+          "take": 837,
+          "token": "0x6b175474e89094c44da98b954eedeac495271d0f"
+        },
+        {
+          "amount": 18571208,
+          "event": 838,
+          "fee_raw": 0,
+          "path": [
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "repay": 1347,
+          "take": 839,
+          "token": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        },
+        {
+          "amount": 196044068312714048,
+          "event": 840,
+          "fee_raw": 0,
+          "path": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            0
+          ],
+          "repay": 1346,
+          "take": 841,
+          "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        }
+      ],
+      "observed_payout": {
+        "conditional_common_role_eth_weth_delta_wei": null,
+        "direct_eth_to_header_fee_receiver_wei": 3631209248466342,
+        "effective_gas_price": 186982225,
+        "fee_payer": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+        "fee_receiver": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+        "gas_used": 10487780,
+        "paid_gas_wei": 1961028439710500,
+        "transaction_recipient": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+        "visible_role_deltas": [
+          {
+            "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+            "asset": "ETH",
+            "delta_after_receipt_gas": 325198576182300
+          },
+          {
+            "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+            "asset": "0x0258f474786ddfd37abce6df6bbb1dd5dfc4434a",
+            "delta_after_receipt_gas": 165760
+          },
+          {
+            "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+            "asset": "0x6b175474e89094c44da98b954eedeac495271d0f",
+            "delta_after_receipt_gas": 814346240
+          }
+        ]
+      },
+      "receipts_root": "0x45c3980bb53dfe882353c4d53d9101d793d1cb9923603acf04456d4215192bce",
+      "selector_histogram": {
+        "0x143f1f8e861fbdeddd5b46e844b7d3ac7b86a122f36e8c463859ee6811b1f29c": 2,
+        "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83": 10,
+        "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b": 1,
+        "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f": 18,
+        "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140": 3,
+        "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67": 69,
+        "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822": 35
+      },
+      "sources": [
+        {
+          "completed_utc": "2026-11-27T01:54:39.104651+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "a2ff0312e47ea82b1c77ce465c905852eec702b5821eaddee81d52070bf3db1f",
+          "response_bytes": 472400,
+          "response_sha256": "37bfae73ba524ce8e87401e6a2272eb8bcac34f11f2292d4bcfe4680aa2a9c58",
+          "source": "https://ethereum.publicnode.com",
+          "started_utc": "2026-11-27T01:54:38.782993+00:00",
+          "stderr": ""
+        },
+        {
+          "completed_utc": "2026-11-27T01:54:41.029713+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "1d9b5a05dea359825f4fc5ff694028d97e4dd6d74edae0650870f169ff58475c",
+          "response_bytes": 1503610,
+          "response_sha256": "8002b89a92a61673bc5e9a25e5c66aa4b5f18799d01e9d1b4e071992df648318",
+          "source": "https://eth.nodely.dev",
+          "started_utc": "2026-11-27T01:54:39.105952+00:00",
+          "stderr": ""
+        },
+        {
+          "completed_utc": "2026-11-27T01:54:42.133417+00:00",
+          "curl_returncode": 0,
+          "failure": null,
+          "http": "200",
+          "request_sha256": "be0cbf53926471ef82d59c058bac936923e87e1e43591d76d6c866f6845a6354",
+          "response_bytes": 1592349,
+          "response_sha256": "f1c45e7fecf51181387c82734569c63cb019e9f08f49593ffdb9c9c4c964980b",
+          "source": "https://eth.drpc.org",
+          "started_utc": "2026-11-27T01:54:41.086462+00:00",
+          "stderr": ""
+        }
+      ],
+      "strict_components": {
+        "closed_component_sizes": {
+          "2": 1,
+          "3": 21,
+          "4": 7
+        },
+        "closed_four_leg_sequences": [
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                23,
+                6
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1010,
+              "leg": {
+                "amount_in": 128509079,
+                "amount_out": 159068219280851199854,
+                "event": {
+                  "log_index": 1011,
+                  "pool": [
+                    "0x81b5d56a6fe73e4ca9c2201aa2d5b366cd6e14dc",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0xc6694e05b750015f54ac646544a4a9d33cbe4086"
+              },
+              "output_transfer_log": 1009
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                23,
+                8
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1013,
+              "leg": {
+                "amount_in": 159068219280851199854,
+                "amount_out": 73955134786150655,
+                "event": {
+                  "log_index": 1014,
+                  "pool": [
+                    "0x93620949fb692040a69bf7ecea2d080b9869b489",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc6694e05b750015f54ac646544a4a9d33cbe4086",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1012
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                23,
+                9
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1016,
+              "leg": {
+                "amount_in": 73955134786150655,
+                "amount_out": 209353,
+                "event": {
+                  "log_index": 1017,
+                  "pool": [
+                    "0xe12959c09e80f3228c52c517cf70ea6eb13d5e10",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e"
+              },
+              "output_transfer_log": 1015
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                23,
+                11
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1019,
+              "leg": {
+                "amount_in": 209353,
+                "amount_out": 128854513,
+                "event": {
+                  "log_index": 1020,
+                  "pool": [
+                    "0x09c5f9b273de8d41e5dce0867ca67e78c92a3a32",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1018
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                24,
+                5
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1022,
+              "leg": {
+                "amount_in": 40414338,
+                "amount_out": 6012996510679284121598,
+                "event": {
+                  "log_index": 1023,
+                  "pool": [
+                    "0x1517ba8f1a1b192ac62f824d6e10f88ae99391b3",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0x628a3b2e302c7e896acc432d2d0dd22b6cb9bc88"
+              },
+              "output_transfer_log": 1021
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                24,
+                10
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1024,
+              "leg": {
+                "amount_in": 6012996510679284121598,
+                "amount_out": 23333032837572980,
+                "event": {
+                  "log_index": 1027,
+                  "pool": [
+                    "0x03296fdd8bf8e0f9def07fac3466b256fc8720b0",
+                    null
+                  ],
+                  "shape": "v2"
+                },
+                "token_in": "0x628a3b2e302c7e896acc432d2d0dd22b6cb9bc88",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1025
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                24,
+                11
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1029,
+              "leg": {
+                "amount_in": 23333032837572980,
+                "amount_out": 66048,
+                "event": {
+                  "log_index": 1030,
+                  "pool": [
+                    "0xe12959c09e80f3228c52c517cf70ea6eb13d5e10",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e"
+              },
+              "output_transfer_log": 1028
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                24,
+                13
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1032,
+              "leg": {
+                "amount_in": 66048,
+                "amount_out": 40650211,
+                "event": {
+                  "log_index": 1033,
+                  "pool": [
+                    "0x09c5f9b273de8d41e5dce0867ca67e78c92a3a32",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1031
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                27,
+                4
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1053,
+              "leg": {
+                "amount_in": 22165606002327552,
+                "amount_out": 38660605,
+                "event": {
+                  "log_index": 1054,
+                  "pool": [
+                    "0xc7bbec68d12a0d1830360f8ec58fa599ba1b0e9b",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+              },
+              "output_transfer_log": 1052
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                27,
+                5
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1056,
+              "leg": {
+                "amount_in": 38660605,
+                "amount_out": 38704118831888109635,
+                "event": {
+                  "log_index": 1057,
+                  "pool": [
+                    "0x6c2348deec1508724c0207a84d21cc5ee88231c8",
+                    null
+                  ],
+                  "shape": "pancake_v3"
+                },
+                "token_in": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+                "token_out": "0x0000000000085d4780b73119b644ae5ecd22b376"
+              },
+              "output_transfer_log": 1055
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                27,
+                10
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1058,
+              "leg": {
+                "amount_in": 38704118831888109635,
+                "amount_out": 13797831264662740496037,
+                "event": {
+                  "log_index": 1061,
+                  "pool": [
+                    "0x8a5d5864ccca335ec997bdf42dbd32ccec0b1d5e",
+                    null
+                  ],
+                  "shape": "v2"
+                },
+                "token_in": "0x0000000000085d4780b73119b644ae5ecd22b376",
+                "token_out": "0x6e0dade58d2d89ebbe7afc384e3e4f15b70b14d8"
+              },
+              "output_transfer_log": 1059
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                27,
+                15
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1062,
+              "leg": {
+                "amount_in": 13797831264662740496037,
+                "amount_out": 22294467651403192,
+                "event": {
+                  "log_index": 1065,
+                  "pool": [
+                    "0xf227e97616063a0ea4143744738f9def2aa06743",
+                    null
+                  ],
+                  "shape": "v2"
+                },
+                "token_in": "0x6e0dade58d2d89ebbe7afc384e3e4f15b70b14d8",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1063
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                33,
+                6
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1122,
+              "leg": {
+                "amount_in": 34450081,
+                "amount_out": 322854076944215003041,
+                "event": {
+                  "log_index": 1123,
+                  "pool": [
+                    "0x1dc681260fc323e6f7eb38de7c6015b6c4bd71f7",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0xfd78b26d1e5fcac01ba43479a44afb69a8073716"
+              },
+              "output_transfer_log": 1121
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                33,
+                8
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1125,
+              "leg": {
+                "amount_in": 322854076944215003041,
+                "amount_out": 19895457055425047,
+                "event": {
+                  "log_index": 1126,
+                  "pool": [
+                    "0xb5aca3949a45bf4ff7b8b70172ea514d83e0e6f1",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xfd78b26d1e5fcac01ba43479a44afb69a8073716",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1124
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                33,
+                9
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1128,
+              "leg": {
+                "amount_in": 19895457055425047,
+                "amount_out": 56317,
+                "event": {
+                  "log_index": 1129,
+                  "pool": [
+                    "0xe12959c09e80f3228c52c517cf70ea6eb13d5e10",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e"
+              },
+              "output_transfer_log": 1127
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                33,
+                11
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1131,
+              "leg": {
+                "amount_in": 56317,
+                "amount_out": 34660578,
+                "event": {
+                  "log_index": 1132,
+                  "pool": [
+                    "0x09c5f9b273de8d41e5dce0867ca67e78c92a3a32",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1130
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                35,
+                5
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1143,
+              "leg": {
+                "amount_in": 72884483,
+                "amount_out": 1269489082386325753,
+                "event": {
+                  "log_index": 1144,
+                  "pool": [
+                    "0xe71aa139ee3304c0abf9d9f9b4232326e4850ecd",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0xb753428af26e81097e7fd17f40c88aaa3e04902c"
+              },
+              "output_transfer_log": 1142
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                35,
+                10
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1145,
+              "leg": {
+                "amount_in": 1269489082386325753,
+                "amount_out": 41971820114840725,
+                "event": {
+                  "log_index": 1148,
+                  "pool": [
+                    "0xc76225124f3caab07f609b1d147a31de43926cd6",
+                    null
+                  ],
+                  "shape": "v2"
+                },
+                "token_in": "0xb753428af26e81097e7fd17f40c88aaa3e04902c",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1146
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                35,
+                11
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1150,
+              "leg": {
+                "amount_in": 41971820114840725,
+                "amount_out": 118804,
+                "event": {
+                  "log_index": 1151,
+                  "pool": [
+                    "0xe12959c09e80f3228c52c517cf70ea6eb13d5e10",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e"
+              },
+              "output_transfer_log": 1149
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                35,
+                13
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1153,
+              "leg": {
+                "amount_in": 118804,
+                "amount_out": 73117329,
+                "event": {
+                  "log_index": 1154,
+                  "pool": [
+                    "0x09c5f9b273de8d41e5dce0867ca67e78c92a3a32",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0x72dfb2e44f59c5ad2bafe84314e5b99a7cd5075e",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1152
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                44,
+                5
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1222,
+              "leg": {
+                "amount_in": 67648033826799616,
+                "amount_out": 117899041,
+                "event": {
+                  "log_index": 1223,
+                  "pool": [
+                    "0xe0554a476a092703abdb3ef35c80e0d76d32939f",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1221
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                44,
+                6
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1224,
+              "leg": {
+                "amount_in": 117899041,
+                "amount_out": 118125526765771392492,
+                "event": {
+                  "log_index": 1226,
+                  "pool": [
+                    "0x4dece678ceceb27446b35c672dc7d61f30bad69e",
+                    null
+                  ],
+                  "shape": "curve_int128"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+              },
+              "output_transfer_log": 1225
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                44,
+                8,
+                0,
+                0
+              ],
+              "hookless_v4_caller": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "input_transfer_log": 1229,
+              "leg": {
+                "amount_in": 118125526765771392492,
+                "amount_out": 2204069378669554975702,
+                "event": {
+                  "log_index": 1227,
+                  "pool": [
+                    "0x000000000004444c5dc75cb358380d2e3de08a90",
+                    "0x04bd1d22bc8da78aea385fc1808efe20f926002a65c61a81ae4d43962d073497"
+                  ],
+                  "shape": "v4"
+                },
+                "token_in": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e",
+                "token_out": "0x01791f726b4103694969820be083196cc7c045ff"
+              },
+              "output_transfer_log": 1228
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                44,
+                10
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1231,
+              "leg": {
+                "amount_in": 2204069378669554975702,
+                "amount_out": 67866570829310513,
+                "event": {
+                  "log_index": 1232,
+                  "pool": [
+                    "0x6f582cf72ea9084a109be3d04eb58477b869a38e",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0x01791f726b4103694969820be083196cc7c045ff",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1230
+            }
+          ],
+          [
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                48,
+                5
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1261,
+              "leg": {
+                "amount_in": 46944528946429952,
+                "amount_out": 81812877,
+                "event": {
+                  "log_index": 1262,
+                  "pool": [
+                    "0xe0554a476a092703abdb3ef35c80e0d76d32939f",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+                "token_out": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+              },
+              "output_transfer_log": 1260
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                48,
+                6
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1264,
+              "leg": {
+                "amount_in": 81812877,
+                "amount_out": 81862202433268670355,
+                "event": {
+                  "log_index": 1265,
+                  "pool": [
+                    "0x1e1dfff79d95725aaafd6b47af4fbc28d859ce28",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "token_out": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d"
+              },
+              "output_transfer_log": 1263
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                48,
+                11
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1266,
+              "leg": {
+                "amount_in": 81862202433268670355,
+                "amount_out": 99141638657623399033372,
+                "event": {
+                  "log_index": 1269,
+                  "pool": [
+                    "0xdabc816b691c8c2135f087a32eeb09a3f548938e",
+                    null
+                  ],
+                  "shape": "v2"
+                },
+                "token_in": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d",
+                "token_out": "0xcab84bc21f9092167fcfe0ea60f5ce053ab39a1e"
+              },
+              "output_transfer_log": 1267
+            },
+            {
+              "call_path": [
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                0,
+                1,
+                48,
+                13
+              ],
+              "hookless_v4_caller": null,
+              "input_transfer_log": 1271,
+              "leg": {
+                "amount_in": 99141638657623399033372,
+                "amount_out": 47105890452271257,
+                "event": {
+                  "log_index": 1272,
+                  "pool": [
+                    "0xd19393e02c3cc60c21a89b5e85656ff1122ebd51",
+                    null
+                  ],
+                  "shape": "v3"
+                },
+                "token_in": "0xcab84bc21f9092167fcfe0ea60f5ce053ab39a1e",
+                "token_out": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+              },
+              "output_transfer_log": 1270
+            }
+          ]
+        ],
+        "component_sizes": {
+          "1": 11,
+          "2": 6,
+          "3": 28,
+          "4": 7
+        }
+      },
+      "swap_branches": [
+        [
+          6,
+          [
+            850,
+            854,
+            858
+          ]
+        ],
+        [
+          8,
+          [
+            861,
+            864,
+            867,
+            870
+          ]
+        ],
+        [
+          10,
+          [
+            873,
+            874
+          ]
+        ],
+        [
+          12,
+          [
+            882,
+            886,
+            890
+          ]
+        ],
+        [
+          13,
+          [
+            893,
+            896,
+            899
+          ]
+        ],
+        [
+          14,
+          [
+            902,
+            906,
+            910
+          ]
+        ],
+        [
+          15,
+          [
+            913,
+            917,
+            921
+          ]
+        ],
+        [
+          16,
+          [
+            924,
+            925,
+            931
+          ]
+        ],
+        [
+          17,
+          [
+            934,
+            938,
+            942
+          ]
+        ],
+        [
+          18,
+          [
+            945,
+            951,
+            963
+          ]
+        ],
+        [
+          19,
+          [
+            972,
+            976,
+            980
+          ]
+        ],
+        [
+          20,
+          [
+            983,
+            986,
+            987
+          ]
+        ],
+        [
+          21,
+          [
+            992,
+            995,
+            999
+          ]
+        ],
+        [
+          22,
+          [
+            1002,
+            1005,
+            1008
+          ]
+        ],
+        [
+          23,
+          [
+            1011,
+            1014,
+            1017,
+            1020
+          ]
+        ],
+        [
+          24,
+          [
+            1023,
+            1027,
+            1030,
+            1033
+          ]
+        ],
+        [
+          25,
+          [
+            1036,
+            1040,
+            1044
+          ]
+        ],
+        [
+          26,
+          [
+            1048,
+            1051
+          ]
+        ],
+        [
+          27,
+          [
+            1054,
+            1057,
+            1061,
+            1065
+          ]
+        ],
+        [
+          28,
+          [
+            1068,
+            1072,
+            1076
+          ]
+        ],
+        [
+          29,
+          [
+            1079,
+            1080,
+            1085
+          ]
+        ],
+        [
+          30,
+          [
+            1095,
+            1099,
+            1102
+          ]
+        ],
+        [
+          31,
+          [
+            1105,
+            1108,
+            1111
+          ]
+        ],
+        [
+          32,
+          [
+            1114,
+            1117,
+            1120
+          ]
+        ],
+        [
+          33,
+          [
+            1123,
+            1126,
+            1129,
+            1132
+          ]
+        ],
+        [
+          34,
+          [
+            1135,
+            1136,
+            1139
+          ]
+        ],
+        [
+          35,
+          [
+            1144,
+            1148,
+            1151,
+            1154
+          ]
+        ],
+        [
+          36,
+          [
+            1157,
+            1160,
+            1163
+          ]
+        ],
+        [
+          38,
+          [
+            1166,
+            1170,
+            1174
+          ]
+        ],
+        [
+          39,
+          [
+            1177,
+            1181,
+            1184
+          ]
+        ],
+        [
+          40,
+          [
+            1188,
+            1191,
+            1198
+          ]
+        ],
+        [
+          42,
+          [
+            1201,
+            1204,
+            1207
+          ]
+        ],
+        [
+          43,
+          [
+            1210,
+            1215,
+            1220
+          ]
+        ],
+        [
+          44,
+          [
+            1223,
+            1226,
+            1227,
+            1232
+          ]
+        ],
+        [
+          45,
+          [
+            1235,
+            1238,
+            1241
+          ]
+        ],
+        [
+          46,
+          [
+            1244,
+            1245,
+            1250
+          ]
+        ],
+        [
+          47,
+          [
+            1253,
+            1254,
+            1257
+          ]
+        ],
+        [
+          48,
+          [
+            1262,
+            1265,
+            1269,
+            1272
+          ]
+        ],
+        [
+          49,
+          [
+            1275,
+            1279,
+            1282
+          ]
+        ],
+        [
+          50,
+          [
+            1285,
+            1288,
+            1291
+          ]
+        ],
+        [
+          51,
+          [
+            1294,
+            1297,
+            1298
+          ]
+        ],
+        [
+          52,
+          [
+            1301,
+            1314,
+            1319
+          ]
+        ],
+        [
+          53,
+          [
+            1324,
+            1327,
+            1333
+          ]
+        ],
+        [
+          54,
+          [
+            1334
+          ]
+        ],
+        [
+          55,
+          [
+            1340
+          ]
+        ],
+        [
+          56,
+          [
+            1343
+          ]
+        ]
+      ],
+      "target": {
+        "block_hash": "0xb846c09f9643b9d01ea18b03fc83abaee6e6e0f3b685d18e187c89eb8e85b0b2",
+        "block_number": 26475108,
+        "events": 138,
+        "indexes": 138,
+        "pool_keys": 99,
+        "transaction_hash": "0x0562bcc6684814dd0dff5e1bf82d96d4eb7dbbecd4b9fe3857c8d0f93a99c1d2",
+        "transaction_index": 88
+      },
+      "timestamp_utc": "2026-11-23T03:21:23+00:00",
+      "v4_weth_groups": 0,
+      "v4_weth_unlocks": 18
+    }
+  ],
+  "eligible_tail": [
+    {
+      "block_hash": "0xa901b38bb7deb972e417a752cdeb5a2f6b70c8caa470e6ccbeba88f4b66ee974",
+      "block_number": 26474882,
+      "events": 153,
+      "indexes": 153,
+      "pool_keys": 2,
+      "transaction_hash": "0xc0f84bc1e826057a03860b8b11a1da2327862608fe7788be3138634e8b9f05fc",
+      "transaction_index": 142
+    },
+    {
+      "block_hash": "0xb846c09f9643b9d01ea18b03fc83abaee6e6e0f3b685d18e187c89eb8e85b0b2",
+      "block_number": 26475108,
+      "events": 138,
+      "indexes": 138,
+      "pool_keys": 99,
+      "transaction_hash": "0x0562bcc6684814dd0dff5e1bf82d96d4eb7dbbecd4b9fe3857c8d0f93a99c1d2",
+      "transaction_index": 88
+    },
+    {
+      "block_hash": "0x254360338434af7c2cf1bdd812b5f0c552580f710f2ad174ec7dbed5752e70c5",
+      "block_number": 26478283,
+      "events": 137,
+      "indexes": 137,
+      "pool_keys": 99,
+      "transaction_hash": "0xfdc95125e665fcb4166c6935819d34189302336f8276568e228bffdf6143a1f9",
+      "transaction_index": 112
+    },
+    {
+      "block_hash": "0xa2d3bec3d30d8627f8267575d769ccc7db67c63a89f3010bee02fb9c6eeecef8",
+      "block_number": 26481219,
+      "events": 136,
+      "indexes": 136,
+      "pool_keys": 1,
+      "transaction_hash": "0x0b00a4e38c42d8084296706ccfa2cef5fdbad86c01da7926eb26a37d29853064",
+      "transaction_index": 128
+    },
+    {
+      "block_hash": "0x66cdb43ce2d5730fa672ca3ff44c2a6d534cb303d56ad7e49376126bcb511290",
+      "block_number": 26481277,
+      "events": 130,
+      "indexes": 130,
+      "pool_keys": 1,
+      "transaction_hash": "0x827a84ff90d26a01b2e3ce8c5123b8ff91f20ff703805f7c62cf428ae6383bcb",
+      "transaction_index": 151
+    },
+    {
+      "block_hash": "0x66cdb43ce2d5730fa672ca3ff44c2a6d534cb303d56ad7e49376126bcb511290",
+      "block_number": 26481277,
+      "events": 130,
+      "indexes": 130,
+      "pool_keys": 1,
+      "transaction_hash": "0x8189273a8ef76997cb32a8d8dc6745ff6c96875dfcc603645feb51c1d8a799d8",
+      "transaction_index": 152
+    },
+    {
+      "block_hash": "0x1c925f0c55a97b706cceaded5a79ff767acddb102400922717d59c118fc9efef",
+      "block_number": 26481278,
+      "events": 130,
+      "indexes": 130,
+      "pool_keys": 1,
+      "transaction_hash": "0xb0e0ed2a682cc2e4833d23db29095ece3ced18e951ded2b7f2fda4477d2e6ef0",
+      "transaction_index": 164
+    },
+    {
+      "block_hash": "0xb345ec4bcae4ae5743f4ef0b37a6c642db1a006a5d2dcc95d6986862eeeb700b",
+      "block_number": 26478284,
+      "events": 124,
+      "indexes": 124,
+      "pool_keys": 89,
+      "transaction_hash": "0x2f58a2d373367f674995d82991983b1f2d4b2d63310d59119d53d1672e09de74",
+      "transaction_index": 13
+    },
+    {
+      "block_hash": "0x973e52352aed6e0a4450dee1225705d1fa2fe348474fcc2458f35235aa0faad8",
+      "block_number": 26474883,
+      "events": 122,
+      "indexes": 122,
+      "pool_keys": 3,
+      "transaction_hash": "0xfc4c2415e7ac136b39b6d08ae375640314dcb30f47322ea6effdc7ef60151c51",
+      "transaction_index": 0
+    },
+    {
+      "block_hash": "0x52b2a3fcacce1cf142b40329e3beb573661b75db807206d82825e74f7e1c54fa",
+      "block_number": 26475104,
+      "events": 121,
+      "indexes": 121,
+      "pool_keys": 94,
+      "transaction_hash": "0x05bfeceaac81460dac63e6137fa5e4064d5c7e8134e0abab51b289bde6b8d508",
+      "transaction_index": 80
+    },
+    {
+      "block_hash": "0x52b2a3fcacce1cf142b40329e3beb573661b75db807206d82825e74f7e1c54fa",
+      "block_number": 26475104,
+      "events": 118,
+      "indexes": 118,
+      "pool_keys": 88,
+      "transaction_hash": "0x88c863bc062364b1289d70821a20f667ebb91bd5c4491568ea2f1fb0c9f7b4bb",
+      "transaction_index": 66
+    },
+    {
+      "block_hash": "0x84d3a2603e658b4e6a6af8aa20821031e0eeed28a17176eac6522ac9a3ab8090",
+      "block_number": 26475107,
+      "events": 113,
+      "indexes": 113,
+      "pool_keys": 75,
+      "transaction_hash": "0xf37eb85bdb614cd0981117bd885c494d22f7e0f473fce35328e13233210b555c",
+      "transaction_index": 145
+    },
+    {
+      "block_hash": "0xcb8cec7db9503e5a077d15820b6ffc1c5567355a24ac5e629773ef5f3870fe1b",
+      "block_number": 26479393,
+      "events": 113,
+      "indexes": 113,
+      "pool_keys": 77,
+      "transaction_hash": "0x7b78224fc011ace4fdb41b3725266267eba681383ec1b147cfa730d2012740d3",
+      "transaction_index": 85
+    },
+    {
+      "block_hash": "0xd0b6a1dd706da51f6f239b0b6d813ab43b1e62147cbff321146a620e8f757376",
+      "block_number": 26478288,
+      "events": 106,
+      "indexes": 106,
+      "pool_keys": 77,
+      "transaction_hash": "0xb3ef721461c5031a6c949dbd8ac28f58741156d286381038e03d2be7526c375f",
+      "transaction_index": 143
+    },
+    {
+      "block_hash": "0xad23bf0cc2cb32d029eba806ab6b3fe3c802aacf755179e1735d512cb6ada9ce",
+      "block_number": 26478290,
+      "events": 102,
+      "indexes": 102,
+      "pool_keys": 74,
+      "transaction_hash": "0x35a3185b6fec639ea52ec51bffb2ca66d237895a0aac7954bfd7955873ded10e",
+      "transaction_index": 6
+    },
+    {
+      "block_hash": "0x074f0512840f8814e2e4aeefd071296a31fd59ed6e5c7fa63807184ade1baf2d",
+      "block_number": 26478274,
+      "events": 101,
+      "indexes": 101,
+      "pool_keys": 63,
+      "transaction_hash": "0xfe869435a60caaf20e34e85330d0e2ed6c3a82174ad52af6e47810c109064eef",
+      "transaction_index": 38
+    },
+    {
+      "block_hash": "0x29030cb8e56323b250eb5a46e3e7ae2a968160667f679e66c3acd9babf84ee6a",
+      "block_number": 26478275,
+      "events": 101,
+      "indexes": 101,
+      "pool_keys": 86,
+      "transaction_hash": "0xa2e93011da195ca9092e439d00e600f4815b791dae78d38b75ab9ac39810ecd6",
+      "transaction_index": 12
+    },
+    {
+      "block_hash": "0x6a7bc941501bc48f6d0cde7d2ccc2a4cd3d50467851770222b498fd50c7550f3",
+      "block_number": 26478285,
+      "events": 100,
+      "indexes": 100,
+      "pool_keys": 69,
+      "transaction_hash": "0xf99920390d463751870cc42cc8b67b89c05ccc406e55a3b6acc08d04f4df27a0",
+      "transaction_index": 41
+    }
+  ],
+  "ranked_tail_sha256": "200fe63cc1fcb82a9394ab676d7c3b5326a17f042d4908cabe692072c4f195a0",
+  "schema": "eth-hundred-event-holdout-v1",
+  "scope_sha256": "0b22b8cd71b48d0df86cb8ddd6bfa1606965274a13d986387901ed415e4e3035",
+  "selection": {
+    "archive": {
+      "bytes": 1287833130,
+      "sha256": "a860202b464447b0411b4c9dac34ac7058c1410828f43e5fdd289349778cbc72",
+      "url": "https://aws-public-blockchain.s3.us-east-2.amazonaws.com/v1.0/eth/logs/date=2026-11-23/part-00000-2f853232-c2fb-4546-82a9-c739c6562dcc-c000.snappy.parquet"
+    },
+    "chain_id": 1,
+    "date_utc": "2026-11-23",
+    "denominators": {
+      "any": 219842,
+      "at_least_100": 18,
+      "at_least_20": 862,
+      "at_least_200": 0,
+      "at_least_50": 167
+    },
+    "eligibility": "at least 100 observed logs matching eight EVM selector signatures",
+    "event_rank": "descending matched logs, then ascending block number, transaction index and hash",
+    "exclusions": [
+      "0x17886d908ef8eb9f864cd6776991952c15ac79a5a364037318d0ef53efe19c89",
+      "0x5d7da8c6f67fb7872f450b86913473ae8cb2e761437d00c21e7f31e70ee6d419"
+    ],
+    "hist_sha256": "72e7d2c985d0cee177a3ac6fd24f6576c7ebcb11bca9e6a5f30ab3c555cfd2da",
+    "pool_rank": "descending distinct emitter/(emitter and topic1 pool ID for V4 and Balancer) keys, then ascending block number, transaction index and hash",
+    "schema": "eth-hundred-event-tail-preregister-v1",
+    "selection": "first choose event rank, then highest pool rank from eligible distinct transactions; exclude previously deep-audited transaction identities",
+    "selection_sql_sha256": "e40c850929bbb00cfb3da5885af5e5206e58cdf69feb4e51dcbbcacd7bd68450",
+    "utc": "2026-11-27T01:53:02.545418+00:00"
+  }
+}

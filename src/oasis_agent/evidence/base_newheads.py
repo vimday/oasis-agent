@@ -22,7 +22,7 @@ from ..rpc.budget import BudgetPolicy, RpcBudget
 from ..rpc.protocol import response_envelope, strict_json_object
 from .base_denim import BASE_CHAIN_ID
 from .base_head_compare import BaseHead, decode_notification
-from .rpc_validation import rpc_quantity, strict_integer, strict_string
+from .rpc_validation import rpc_quantity, strict_integer, strict_list, strict_object, strict_string
 
 DIRECTORY = "base_newheads"
 ENDPOINT = "wss://base-rpc.publicnode.com"
@@ -145,11 +145,21 @@ class NewHeadsSession:
         stop_state: Event,
         *,
         socket_factory: SocketFactory | None = None,
+        max_observed_heads: int | None = None,
     ) -> None:
         if type(ticks) is not int or not 1 <= ticks <= MAX_HEADS:
             raise ValueError(f"Base newHeads requires 1..{MAX_HEADS} ticks")
+        if max_observed_heads is not None and (
+            type(max_observed_heads) is not int or not ticks <= max_observed_heads <= MAX_HEADS
+        ):
+            raise ValueError("Base latest-head capture needs a bounded observation window")
         directory.mkdir()
         self.directory, self.ticks, self.stop_state = directory, ticks, stop_state
+        self.max_observed_heads = max_observed_heads
+        self._window = ticks if max_observed_heads is None else max_observed_heads
+        self._frame_outcomes: dict[int, tuple[str, HeadObservation | None]] = {}
+        self._dispatches: list[tuple[int, int]] = []
+        self.schedule_sha256: str | None = None
         self.factory = socket_factory or public_socket
         self.ledger = directory / "original-budget.sqlite3"
         with RpcBudget(self.ledger, POLICIES):
@@ -164,12 +174,17 @@ class NewHeadsSession:
                     "mode": "injected" if socket_factory is not None else "public-shadow",
                     "ticks": ticks,
                     "rpc_scope": ["connection", "eth_chainId", "eth_subscribe(newHeads)"],
+                    **(
+                        {"selection": "latest_queued", "max_observed_heads": max_observed_heads}
+                        if max_observed_heads is not None
+                        else {}
+                    ),
                 }
             ),
         )
         self._stop = Event()
         self._lock = Lock()
-        self._queue: Queue[HeadObservation | None] = Queue(maxsize=ticks + 1)
+        self._queue: Queue[HeadObservation | None] = Queue(maxsize=self._window + 1)
         self._thread = Thread(target=self._read_worker, name="base-newheads", daemon=True)
         self._failure: NewHeadsError | None = None
 
@@ -197,7 +212,8 @@ class NewHeadsSession:
                     }
                 ),
             )
-            self._queue.put_nowait(None)
+            if not self._queue.full():
+                self._queue.put_nowait(None)
 
     @property
     def failure(self) -> NewHeadsError | None:
@@ -220,7 +236,21 @@ class NewHeadsSession:
             raise NewHeadsError("Base newHeads closed before another head") from None
         self.check()
         if observed is None:
+            if self.max_observed_heads is not None:
+                raise NewHeadsError("Base latest-head observation window exhausted")
             raise NewHeadsError("Base newHeads closed before another head")
+        if self.max_observed_heads is not None:
+            with self._lock:
+                self.check()
+                while not self._queue.empty():
+                    following = self._queue.get_nowait()
+                    if following is None:
+                        self._queue.put_nowait(None)
+                        break
+                    self._frame_outcomes[observed.frame] = ("superseded_in_queue", observed)
+                    observed = following
+                self._frame_outcomes[observed.frame] = ("dispatched", observed)
+                self._dispatches.append((observed.frame, time.monotonic_ns()))
         return observed
 
     def close(self) -> None:
@@ -230,6 +260,26 @@ class NewHeadsSession:
         self._thread.join(timeout=4 * WS_TIMEOUT_S + 1)
         if self._thread.is_alive():
             raise NewHeadsError("Base newHeads reader failed to stop")
+        if self.max_observed_heads is not None and self.schedule_sha256 is None:
+            raw = canonical_json(
+                {
+                    "schema": "oasis.base-newheads-schedule.v1",
+                    "max_observed_heads": self.max_observed_heads,
+                    "dispatches": [
+                        {"frame": frame, "monotonic_ns": clock} for frame, clock in self._dispatches
+                    ],
+                    "frames": [
+                        {
+                            "frame": frame,
+                            "status": status,
+                            "observation": observation.to_wire() if observation else None,
+                        }
+                        for frame, (status, observation) in self._frame_outcomes.items()
+                    ],
+                }
+            )
+            _write(self.directory / "schedule.json", raw)
+            self.schedule_sha256 = sha256_hex(raw)
 
     def _recv(self, socket: WebSocket) -> tuple[bytes, int, int]:
         raw = socket.recv(timeout=WS_TIMEOUT_S, decode=False)
@@ -282,7 +332,7 @@ class NewHeadsSession:
     def _frames(self, socket: WebSocket, subscription: str) -> None:
         previous = None
         accepted = 0
-        for index in range(1, _frame_limit(self.ticks) + 1):
+        for index in range(1, _frame_limit(self._window) + 1):
             if self._stop.is_set() or self.stop_state.is_set():
                 return
             raw, mono, unix = self._recv(socket)
@@ -299,13 +349,23 @@ class NewHeadsSession:
                     }
                 ),
             )
+            if self.max_observed_heads is not None:
+                self._frame_outcomes[index] = ("rejected_frame", None)
             head = decode_notification(strict_json_object(raw), subscription)
+            observation = HeadObservation(index, digest, head, mono, unix)
             if _direct(previous, head):
-                self._queue.put_nowait(HeadObservation(index, digest, head, mono, unix))
+                with self._lock:
+                    if self.max_observed_heads is not None:
+                        self._frame_outcomes[index] = ("undispatched_window_end", observation)
+                    self._queue.put_nowait(observation)
                 previous = head
                 accepted += 1
-                if accepted == self.ticks:
+                if accepted == self._window:
+                    if self.max_observed_heads is not None:
+                        self._queue.put_nowait(None)
                     return
+            elif self.max_observed_heads is not None:
+                self._frame_outcomes[index] = ("duplicate_same_head", observation)
         raise NewHeadsError("Base newHeads frame limit exhausted")
 
 
@@ -314,18 +374,21 @@ def replay_head_observation(directory: Path, reference: object) -> HeadObservati
         raise ValueError("missing Base newHeads reference")
     plan = strict_json_object(_read(directory / "plan.json"))
     ticks = strict_integer(plan.get("ticks"), "Base newHeads tick count")
+    observation_limit = ticks
+    if plan.get("selection") == "latest_queued":
+        observation_limit = strict_integer(plan.get("max_observed_heads"), "Base head window")
     if (
         plan.get("schema") != "oasis.base-newheads.v1"
         or plan.get("source") != ENDPOINT
         or plan.get("chain_id") != BASE_CHAIN_ID
-        or not 1 <= ticks <= MAX_HEADS
+        or not 1 <= ticks <= observation_limit <= MAX_HEADS
     ):
         raise ValueError("invalid Base newHeads replay plan")
     stop = directory / "STOP.json"
     if stop.exists() and strict_json_object(_read(stop)).get("canonical_conflict") is not False:
         raise ValueError("Base newHeads capture has a canonical conflict")
     index = strict_integer(reference.get("frame"), "Base newHeads frame index")
-    if not 1 <= index <= _frame_limit(ticks):
+    if not 1 <= index <= _frame_limit(observation_limit):
         raise ValueError("Base newHeads frame index outside capture")
     with RpcBudget(directory / "original-budget.sqlite3", POLICIES, read_only=True) as budget:
         if budget.counts() != {POLICIES[0].source: 3}:
@@ -356,6 +419,110 @@ def replay_head_observation(directory: Path, reference: object) -> HeadObservati
             previous = head
             accepted += 1
             observed = HeadObservation(cursor, digest, head, mono, unix)
-    if not 1 <= accepted <= ticks or observed is None or observed.to_wire() != reference:
+    if (
+        not 1 <= accepted <= observation_limit
+        or observed is None
+        or observed.to_wire() != reference
+    ):
         raise ValueError("Base newHeads observation differs from state manifest")
     return observed
+
+
+def replay_head_schedule(directory: Path, schedule_sha256: str) -> dict[str, object]:
+    """Bind every latest-mode disposition to the bounded original WebSocket stream."""
+    raw = _read(directory / "schedule.json")
+    if sha256_hex(raw) != schedule_sha256:
+        raise ValueError("Base latest-head schedule digest differs")
+    schedule = strict_json_object(raw)
+    plan = strict_json_object(_read(directory / "plan.json"))
+    limit = strict_integer(schedule.get("max_observed_heads"), "head window")
+    ticks = strict_integer(plan.get("ticks"), "state tick limit")
+    if (
+        schedule.get("schema") != "oasis.base-newheads-schedule.v1"
+        or plan.get("selection") != "latest_queued"
+        or plan.get("max_observed_heads") != limit
+        or not 1 <= ticks <= limit <= MAX_HEADS
+    ):
+        raise ValueError("Base latest-head schedule disagrees with its plan")
+    with RpcBudget(directory / "original-budget.sqlite3", POLICIES, read_only=True) as budget:
+        if budget.counts() != {POLICIES[0].source: 3}:
+            raise ValueError("Base latest-head schedule lacks its source ledger")
+    if (
+        _read(directory / "chain.request.json") != CHAIN_REQUEST
+        or _read(directory / "subscription.request.json") != SUB_REQUEST
+    ):
+        raise ValueError("Base latest-head control request bytes changed")
+    subscription = _subscription(
+        _read(directory / "chain.response.json"), _read(directory / "subscription.response.json")
+    )
+    dispatches: dict[int, int] = {}
+    last_dispatch = 0
+    for raw_dispatch in strict_list(schedule.get("dispatches"), "head dispatches"):
+        dispatch = strict_object(raw_dispatch, "head dispatch")
+        frame = strict_integer(dispatch.get("frame"), "dispatched frame")
+        clock = strict_integer(dispatch.get("monotonic_ns"), "dispatch clock")
+        if frame <= max(dispatches, default=0) or clock < last_dispatch or clock <= 0:
+            raise ValueError("invalid Base latest-head dispatch sequence")
+        last_dispatch = clock
+        dispatches[frame] = clock
+    rows = strict_list(schedule.get("frames"), "head frame outcomes")
+    if len(dispatches) > ticks or len(rows) > _frame_limit(limit):
+        raise ValueError("Base latest-head schedule exceeds its bounds")
+    expected_names = {f"frame-{i:08d}.raw" for i in range(1, len(rows) + 1)}
+    if {p.name for p in directory.glob("frame-*.raw")} != expected_names:
+        raise ValueError("Base latest-head schedule does not cover all raw frames")
+    previous = None
+    observed = 0
+    last_receive = 0
+    for frame, raw_status in enumerate(rows, 1):
+        outcome = strict_object(raw_status, "head frame outcome")
+        raw_path, info_path = _frame_paths(directory, frame)
+        frame_raw = _read(raw_path)
+        info = strict_json_object(_read(info_path))
+        digest = sha256_hex(frame_raw)
+        mono = strict_integer(info.get("received_monotonic_ns"), "head receive")
+        unix = strict_integer(info.get("received_unix_ns"), "head receive Unix time")
+        if (
+            outcome.get("frame") != frame
+            or digest != info.get("sha256")
+            or mono < last_receive
+            or min(mono, unix) <= 0
+        ):
+            raise ValueError("Base latest-head raw frame or clock differs")
+        last_receive = mono
+        try:
+            head = decode_notification(strict_json_object(frame_raw), subscription)
+            accepted = _direct(previous, head)
+        except ValueError, NewHeadsError:
+            if (
+                not (directory / "STOP.json").is_file()
+                or frame != len(rows)
+                or outcome.get("status") != "rejected_frame"
+                or outcome.get("observation") is not None
+            ):
+                raise ValueError("invalid unclassified Base latest-head frame") from None
+            continue
+        expected = "duplicate_same_head"
+        if not accepted and frame in dispatches:
+            raise ValueError("a duplicate Base head was dispatched")
+        if accepted:
+            previous = head
+            observed += 1
+            if frame in dispatches:
+                expected = "dispatched"
+                if dispatches[frame] < mono:
+                    raise ValueError("Base latest head dispatched before reception")
+            else:
+                following = next((clock for n, clock in dispatches.items() if n > frame), None)
+                expected = "undispatched_window_end" if following is None else "superseded_in_queue"
+                if following is not None and following < mono:
+                    raise ValueError("Base latest head superseded before reception")
+        if (
+            outcome.get("status") != expected
+            or outcome.get("observation")
+            != HeadObservation(frame, digest, head, mono, unix).to_wire()
+        ):
+            raise ValueError("Base latest-head disposition does not replay")
+    if observed > limit or not dispatches.keys() <= set(range(1, len(rows) + 1)):
+        raise ValueError("Base latest-head schedule outside its bounds")
+    return schedule

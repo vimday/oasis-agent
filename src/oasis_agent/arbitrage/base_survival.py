@@ -3,6 +3,7 @@
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 
 from ..evidence.rpc_validation import rpc_quantity, strict_integer, strict_list, strict_object
 from ..models.common import normalize_hash32
@@ -36,6 +37,58 @@ class SimulatedCall:
     success: bool
     return_data: bytes
     weth_delta: int
+
+
+@dataclass(frozen=True, slots=True)
+class _HeadTiming:
+    block: int
+    block_hash: str
+    relation: str
+    received_ns: int
+    state_ready_ns: int
+    discovery_finished_ns: int
+
+
+def _arrival_deadlines(timings: Sequence[_HeadTiming]) -> dict[str, object]:
+    pairs: list[dict[str, object]] = []
+    missing_child: list[int] = []
+    for current, successor in pairwise(timings):
+        if successor.relation != "direct_child":
+            missing_child.append(current.block)
+            continue
+        pairs.append(
+            {
+                "block": current.block,
+                "block_hash": current.block_hash,
+                "child_block": successor.block,
+                "child_hash": successor.block_hash,
+                "head_to_child_receive_ns": successor.received_ns - current.received_ns,
+                "child_receive_minus_state_ready_ns": (
+                    successor.received_ns - current.state_ready_ns
+                ),
+                "child_receive_minus_discovery_finished_ns": (
+                    successor.received_ns - current.discovery_finished_ns
+                ),
+            }
+        )
+    missing_child.append(timings[-1].block)
+    compared = tuple(
+        (current, successor)
+        for current, successor in pairwise(timings)
+        if successor.relation == "direct_child"
+    )
+    return {
+        "clock_scope": "local_public_websocket_receive_monotonic",
+        "witnessed_direct_child_pairs": len(pairs),
+        "state_ready_before_child_observed": sum(
+            current.state_ready_ns < successor.received_ns for current, successor in compared
+        ),
+        "discovery_finished_before_child_observed": sum(
+            current.discovery_finished_ns < successor.received_ns for current, successor in compared
+        ),
+        "blocks_without_observed_direct_child": missing_child,
+        "pairs": pairs,
+    }
 
 
 def _transfer_address(value: object) -> str:
@@ -124,11 +177,14 @@ def _cohort_counts(mixed: dict[str, object]) -> dict[str, tuple[int, int | None]
     return out
 
 
-def summarize_base_shadow(records: Sequence[object]) -> dict[str, object]:
+def summarize_base_shadow(
+    records: Sequence[object], *, arrival_deadlines: bool = False
+) -> dict[str, object]:
     """Preserve each sampled head, candidate model amounts, and explicit missing stages."""
     if not 1 <= len(records) <= 64:
         raise ValueError("Base survival requires 1 to 64 captured heads")
     frames = []
+    timings = []
     counts: Counter[str] = Counter()
     previous_hash: str | None = None
     previous_number = 0
@@ -177,6 +233,8 @@ def summarize_base_shadow(records: Sequence[object]) -> dict[str, object]:
             if relation == "direct_child" and parent != previous_hash:
                 raise ValueError("campaign parent hash conflict")
         counts[relation] += 1
+        if arrival_deadlines:
+            timings.append(_HeadTiming(number, block_hash, relation, clock, state, discovered))
         previous_number, previous_hash = number, block_hash
         cohort_counts = _cohort_counts(mixed)
         dispositions = [
@@ -220,4 +278,5 @@ def summarize_base_shadow(records: Sequence[object]) -> dict[str, object]:
         "same_envelope_child_simulations": 0,
         "execution_eligible": False,
         "positive_survival_rate": None,
+        **({"arrival_deadlines": _arrival_deadlines(timings)} if arrival_deadlines else {}),
     }

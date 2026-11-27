@@ -97,3 +97,21 @@ def test_robinhood_quote_scope_does_not_accept_ambiguous_input() -> None:
         parse_routes({"left": {"pools": [], "amount_in": True}})
     with pytest.raises(ValueError, match="unexpected"):
         parse_routes({"left": {"pools": [], "amount_in": 10, "token": TOKEN}})
+
+
+def test_native_shadow_router_prepays_principal_and_collects_full_credit() -> None:
+    route = NativeRoute("control", 111, (LEFT, RIGHT))
+    raw = bytes.fromhex(route.shadow_router_data(120, 500)[2:])
+    assert raw[:4] == keccak(b"execute(bytes,bytes[],uint256)")[:4]
+    command, (plan,), deadline = decode(("bytes", "bytes[]", "uint256"), raw[4:])
+    assert (command, deadline) == (bytes([0x10]), 500)
+    actions, (settle, swap, take) = decode(("bytes", "bytes[]"), plan)
+    assert actions == bytes([0x0B, 0x07, 0x0F])
+    assert decode(("address", "uint256", "bool"), settle) == (ZERO_ADDRESS, 111, False)
+    assert decode(
+        ("(address,(address,uint24,int24,address,bytes)[],uint256[],uint128,uint128)",), swap
+    ) == ((ZERO_ADDRESS, route.path(), (), 111, 120),)
+    assert decode(("address", "uint256"), take) == (ZERO_ADDRESS, 120)
+    for amount, when in ((110, 500), (True, 500), (INT128, 500), (120, 0), (120, True)):
+        with pytest.raises(ValueError):
+            route.shadow_router_data(amount, when)

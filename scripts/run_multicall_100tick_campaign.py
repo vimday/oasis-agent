@@ -2099,6 +2099,7 @@ def run_multicall_campaign(
     mixed_base_secondary_max_rpc_calls: int | None = None,
     base_newheads: bool = False,
     base_newheads_overlap_headers: bool = False,
+    base_newheads_max_observed: int | None = None,
     base_newheads_socket_factory: SocketFactory | None = None,
 ) -> CampaignRunResult:
     """Execute a bounded multi-tick Base Multicall3 + CEX-DEX shadow campaign."""
@@ -2129,6 +2130,13 @@ def run_multicall_campaign(
         base_newheads_overlap_headers and not base_newheads
     ):
         raise ShadowRunnerError("overlapping headers require the Base newHeads opt-in")
+    if base_newheads_max_observed is not None and (
+        not base_newheads
+        or type(ticks) is not int
+        or type(base_newheads_max_observed) is not int
+        or not ticks <= base_newheads_max_observed <= MAX_HEADS
+    ):
+        raise ShadowRunnerError("latest-head mode requires a bounded Base newHeads window")
     if base_newheads:
         if not mixed_enabled:
             raise ShadowRunnerError("Base newHeads requires a mixed Base address manifest")
@@ -2608,6 +2616,7 @@ def run_multicall_campaign(
                 ticks,
                 mixed_capture.stopped,
                 socket_factory=base_newheads_socket_factory,
+                max_observed_heads=base_newheads_max_observed,
             )
             head_session.start()
 
@@ -3945,6 +3954,11 @@ def run_multicall_campaign(
             "rpc_attempts_by_source": head_session.counts(),
             "stop_reason": str(head_session.failure) if head_session.failure else None,
         }
+        if base_newheads_max_observed is not None:
+            if head_session.schedule_sha256 is None:
+                raise ShadowRunnerError("Base latest-head scheduling evidence was not retained")
+            summary_body["base_newheads"]["schedule_sha256"] = head_session.schedule_sha256
+            summary_body["base_newheads"]["selection"] = "latest_queued"
     summary_sha256 = sha256_hex(canonical_json(summary_body))
     summary = {**summary_body, "summary_sha256": summary_sha256}
     _write_new_bytes(
@@ -4169,6 +4183,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start overlapping fixed-height headers from an accepted Base newHeads hint.",
     )
     parser.add_argument(
+        "--base-newheads-max-observed",
+        type=int,
+        help=(
+            "Dispatch the newest queued head and retain every skipped frame. "
+            "Limit observed distinct heads separately from --ticks, up to 64."
+        ),
+    )
+    parser.add_argument(
         "--replay-mixed-base",
         type=Path,
         help="Verify a captured mixed_base_state attempt manifest offline.",
@@ -4235,6 +4257,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             mixed_base_secondary_max_rpc_calls=args.mixed_base_secondary_max_rpc_calls,
             base_newheads=args.base_newheads,
             base_newheads_overlap_headers=args.base_newheads_overlap_headers,
+            base_newheads_max_observed=args.base_newheads_max_observed,
         )
     except (
         OSError,

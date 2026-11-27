@@ -25,6 +25,7 @@ from oasis_agent.evidence.swap_flow import (
     profile_swap_receipt,
 )
 from oasis_agent.evidence.swap_flow_trace import replay_trace_funding
+from oasis_agent.evidence.swap_transfer_splits import replay_with_transfer_splits
 from oasis_agent.rpc.protocol import response_envelope
 
 MAX_BYTES = 16_000_000
@@ -47,7 +48,10 @@ def analyze(
     trace_raw: bytes | None = None,
     call_trace_request: bytes | None = None,
     call_trace_raw: bytes | None = None,
+    transfer_splits: bool = False,
 ) -> dict[str, object]:
+    if transfer_splits and call_trace_raw is None:
+        raise ValueError("split transfers require a retained callTracer request and response")
     if chain_id <= 0:
         raise ValueError("invalid chain ID")
     bh = strict_object(strict_json_object(block_raw).get("result"), "header")
@@ -149,7 +153,12 @@ def analyze(
         envelope = response_envelope(call_trace_raw, request_id)
         if "result" not in envelope:
             raise ValueError("callTracer request failed")
-        result["trace_funding"] = asdict(replay_trace_funding(receipt, envelope["result"]))
+        if transfer_splits:
+            funding, splits = replay_with_transfer_splits(receipt, envelope["result"])
+            result["token_retained_funding"] = asdict(splits)
+        else:
+            funding = replay_trace_funding(receipt, envelope["result"])
+        result["trace_funding"] = asdict(funding)
         result["call_trace_request_sha256"] = sha256(call_trace_request).hexdigest()
         result["call_trace_response_sha256"] = sha256(call_trace_raw).hexdigest()
     if funding_raw is None:
@@ -200,10 +209,16 @@ def main() -> None:
     parser.add_argument("--trace", type=Path)
     parser.add_argument("--call-trace-request", type=Path)
     parser.add_argument("--call-trace", type=Path, help="retained callTracer JSON-RPC response")
+    parser.add_argument(
+        "--transfer-splits",
+        action="store_true",
+        help="Verify balance-backed transfers split between a pool and the token contract",
+    )
     args = parser.parse_args()
     try:
         result = analyze(
             chain_id=args.chain,
+            transfer_splits=args.transfer_splits,
             block_raw=read(args.block),
             receipt_raw=read(args.receipt),
             funding_raw=read(args.funding) if args.funding is not None else None,

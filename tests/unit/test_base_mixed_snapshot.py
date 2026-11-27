@@ -609,3 +609,41 @@ def test_newheads_gap_stops_without_retry(tmp_path: Path) -> None:
         assert json.loads((folder / "STOP.json").read_bytes())["canonical_conflict"] is False
     finally:
         session.close()
+
+
+def test_latest_newheads_retains_superseded_frames_and_replays(tmp_path: Path) -> None:
+    specs = _specs()
+    header = json.loads(_address_mock(specs, {"method": "eth_getBlockByNumber", "id": 1}))["result"]
+    next_hash = "0x" + "ba" * 32
+    last_hash = "0x" + "da" * 32
+    child = header | {"number": hex(BLOCK + 1), "hash": next_hash, "parentHash": header["hash"]}
+    grandchild = child | {"number": hex(BLOCK + 2), "hash": last_hash, "parentHash": next_hash}
+    folder = tmp_path / "latest"
+    session = newheads.NewHeadsSession(
+        folder,
+        1,
+        Event(),
+        socket_factory=lambda: nullcontext(_HeadSocket((header, child, grandchild))),
+        max_observed_heads=3,
+    )
+    session.start()
+    session._thread.join(timeout=2)
+    try:
+        selected = session.next_head()
+        assert selected.head.block_hash == last_hash
+        with pytest.raises(newheads.NewHeadsError, match="window exhausted"):
+            session.next_head()
+    finally:
+        session.close()
+    assert session.schedule_sha256 is not None
+    schedule = newheads.replay_head_schedule(folder, session.schedule_sha256)
+    assert [row["status"] for row in schedule["frames"]] == [
+        "superseded_in_queue",
+        "superseded_in_queue",
+        "dispatched",
+    ]
+    assert newheads.replay_head_observation(folder, selected.to_wire()) == selected
+    raw = folder / "frame-00000001.raw"
+    raw.write_bytes(raw.read_bytes() + b" ")
+    with pytest.raises(ValueError, match="raw frame"):
+        newheads.replay_head_schedule(folder, session.schedule_sha256)

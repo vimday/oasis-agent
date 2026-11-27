@@ -1,0 +1,591 @@
+{
+  "chain_id": 56,
+  "landed": {
+    "candidate_thresholds": {
+      "100": 0,
+      "20": 1,
+      "200": 0,
+      "5": 16,
+      "50": 0
+    },
+    "cases": [
+      {
+        "block_hash": "0x36a9906a879812edcce1e7ac8a66d2fa4a17df92f7615e138e384a1a0cb1702a",
+        "core_registry_events": 0,
+        "events": 21,
+        "fee_recipient": "0x4e5acf9684652bea56f2f01b7101a225ee33d23f",
+        "frames": 477,
+        "gas_used": 2257237,
+        "gross_wbnb_wei": "7760944915970",
+        "index": 27,
+        "logs": 90,
+        "native_outflows": [
+          [
+            [
+              50
+            ],
+            "0x4848489f0b2bedd788c696e2d79b6b69d7484848",
+            3235146250000
+          ]
+        ],
+        "receipt_root": "0xfb516ec7af88830a22fc389dcfafbe1c74dabebbe639e2d1f7cfa80b3fafc08c",
+        "rooted_receipts": 85,
+        "routes": [
+          {
+            "in_wbnb_wei": "905066231275000",
+            "out_wbnb_wei": "906817384758705",
+            "swap_logs": [
+              229,
+              211,
+              216,
+              220,
+              221,
+              226
+            ]
+          },
+          {
+            "in_wbnb_wei": "3188860000000000",
+            "out_wbnb_wei": "3193623571551811",
+            "swap_logs": [
+              206,
+              195,
+              196,
+              199,
+              204
+            ]
+          },
+          {
+            "in_wbnb_wei": "200541334938620",
+            "out_wbnb_wei": "201134870419574",
+            "swap_logs": [
+              279,
+              263,
+              270,
+              273,
+              276
+            ]
+          },
+          {
+            "in_wbnb_wei": "505098467499968",
+            "out_wbnb_wei": "505751151899468",
+            "swap_logs": [
+              255,
+              234,
+              241,
+              249,
+              253
+            ]
+          }
+        ],
+        "signed_price_wei": 0,
+        "split_proofs": [
+          {
+            "balance_reads": [
+              [
+                35,
+                3,
+                8
+              ],
+              [
+                35,
+                3,
+                14
+              ],
+              [
+                35,
+                3,
+                20
+              ]
+            ],
+            "credited": 837358902661763506257,
+            "gross": 845817073395720713390,
+            "holder": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "pool": "0x1eb67475b83db25cf284e55add842e25a8ad463d",
+            "pool_credit_log": 244,
+            "reserve_reads": [
+              [
+                35,
+                3,
+                10
+              ],
+              [
+                35,
+                3,
+                17
+              ]
+            ],
+            "retained_by_token": 8458170733957207133,
+            "source_swap_log": 241,
+            "source_transfer_log": 236,
+            "sync_logs": [
+              240,
+              248
+            ],
+            "target_swap_log": 249,
+            "token": "0xad6d2d8fcb2c521ae92c4b2adda00ffafea47777",
+            "token_credit_log": 242,
+            "transfer_call": [
+              35,
+              3,
+              16
+            ]
+          }
+        ],
+        "trace_sha256": "35f6426c35540551057c0f5d7641f244ca89deeca03d4c40d5871d9865e905f8",
+        "trace_source": "https://triport.io/public/bsc",
+        "tx": "0x4290816be2b3046da22b8da3fcbf927efb4b8ed1c23b862b6ca0883c14ca8a4a",
+        "visible_sender_executor_delta_wei": "0",
+        "wbnb_outflows": [
+          [
+            281,
+            "0x1c6e6db469419167b42cb08bf19745549bb1bb07",
+            4525798665970
+          ]
+        ]
+      },
+      {
+        "block_hash": "0xb44f4844817958f4fe3a89b5a738ba65239b7d085b4e59e470912e4785c8650d",
+        "core_registry_events": 0,
+        "events": 10,
+        "fee_recipient": "0xf8de5e61322302b2c6e0a525cc842f10332811bf",
+        "frames": 137,
+        "gas_used": 1041304,
+        "gross_wbnb_wei": "14280868517272",
+        "index": 3,
+        "logs": 33,
+        "native_outflows": [
+          [
+            [
+              0,
+              7
+            ],
+            "0x1266c6be60392a8ff346e8d5eccd3e69dd9c5f20",
+            13566825091408
+          ],
+          [
+            [
+              0,
+              8
+            ],
+            "0x3e49341fdb44c28e0ac2fca517ee99920f411398",
+            714043425864
+          ]
+        ],
+        "receipt_root": "0xe659f9504e625b01b2d3a7052fea010c43af0ea1dfe9ec25fff6bbad1a1b3835",
+        "rooted_receipts": 92,
+        "routes": [
+          {
+            "in_wbnb_wei": "920842617055540",
+            "out_wbnb_wei": "928509801026529",
+            "swap_logs": [
+              44,
+              32,
+              35,
+              36,
+              40
+            ]
+          },
+          {
+            "in_wbnb_wei": "850964633038892",
+            "out_wbnb_wei": "857578317585175",
+            "swap_logs": [
+              59,
+              48,
+              51,
+              52,
+              56
+            ]
+          }
+        ],
+        "signed_price_wei": 0,
+        "split_proofs": [],
+        "trace_sha256": "b42c11cc27b54b124d79c9d3370aac8596624e973361b545adc46923f8fc3b38",
+        "trace_source": "https://triport.io/public/bsc",
+        "tx": "0x735da39464ad24014dcbd34be0330b7ab65183c2eb0cf74199c7bf3737196232",
+        "visible_sender_executor_delta_wei": "0",
+        "wbnb_outflows": []
+      }
+    ],
+    "emitting_and_silent_transactions": 3290,
+    "independent_gas_reads": 1,
+    "independent_gas_stopped": {
+      "http": "403",
+      "reason": "ValueError 135951972 RPC refusal None",
+      "response_sha256": "684194e010b0bc2abfdbe54ac9dc8eae1954fe5ce2d41aa06cde460ec3e116c8"
+    },
+    "inputs": {
+      "cohort_plan": "3b6da750cbb28fb78329fd99c4ec83ae7be2c5628a58d5272a5e103ece9e8d48",
+      "commitment_plan": "ca598b3cb6269bdf60734aa0d0d2f62d07ed080032780d2d1a84652a45b4be83",
+      "fees_plan": "022a5342d964505f046a51d9c58b387ba37256e53c648399bac16d7336302d21",
+      "historic_case_decoder": "a49b25c9a462a11ef67f19028834f00e1947ce486bb129eef66451cae776464a",
+      "ranking": "8bd347b33a068026822f343497344a1d21f31dee26aa17bcf9ce35010b6d0b9b"
+    },
+    "missing_headers_and_signed_fee_reads": 28,
+    "receipt_and_trace_reads": 44,
+    "roots": [
+      [
+        135951972,
+        "0x3b77d314b4573dd504a526c925a1bb78ad0d25a672e767fde0ca0b008efdd84b",
+        "0x2bcf1881a0b15bdd7c47f7a62add1fc03475c62057ecb7d659d625bdeabf444d",
+        76,
+        850
+      ],
+      [
+        135951973,
+        "0xbaf92c31b846e64bfce87cca1db01218690cb0c394d1727c40a0d1a6edb6180c",
+        "0xf077dd6aeb337465f2a3c89002fcd607a99ffaa952121180a3537729012eb67e",
+        86,
+        502
+      ],
+      [
+        135951974,
+        "0x8463cc483722c96a265cc8aab2533f4503cc4274e657e8859337920ba630e18b",
+        "0x85c774f687b5fecdca3d7d46db9540bec075c193996990d1315d6c67ec99cc95",
+        100,
+        435
+      ],
+      [
+        135951975,
+        "0x9891735cb44aae88b93725c26525cf68a122ecdd55bbc798100d18037b0f70a7",
+        "0x1e976a0220d94044e7002181cace6d0c758e0199ca4ddbab6469a037af03920d",
+        72,
+        357
+      ],
+      [
+        135951976,
+        "0x97d59c588fb1552eda9ae1bea49d7e33525612c973102a2d80c34903c4ba12b1",
+        "0x2ed8d0d162dda8679d816fe0f6c75997ea7aa5f2dd6595c6763db046e5c036a4",
+        76,
+        601
+      ],
+      [
+        135951977,
+        "0xb7dbb5808506963a31c2799f497ff5fc4192b567df159694fe37677a16efb727",
+        "0x3e817060c97089de7402e501d39f2fa9c42e37b2d2ac801d46ddcaf82b28851f",
+        98,
+        606
+      ],
+      [
+        135951978,
+        "0xc27a21f61a473e661af9e5c8718e57fd53241cd13e74109aa5a7ef03eddea065",
+        "0x0c3e845d6a4658485dfe010b18764491bfea163cacf3068f1b93a22051b6b81a",
+        106,
+        1435
+      ],
+      [
+        135951979,
+        "0xd996ff36e3bfc4e170c04fcf7defa30f6eceb83ca659f951940f419a77d35725",
+        "0x20ac3ca0ebefb66da9819d13e16feaf782a449e8f0bfeef8607b9f9ac8312486",
+        63,
+        603
+      ],
+      [
+        135951980,
+        "0xb44f4844817958f4fe3a89b5a738ba65239b7d085b4e59e470912e4785c8650d",
+        "0xe659f9504e625b01b2d3a7052fea010c43af0ea1dfe9ec25fff6bbad1a1b3835",
+        92,
+        733
+      ],
+      [
+        135951981,
+        "0xa53fdd9134eed456c6d91a4874a011fad4f5de8cc38eaaa23ba47f8bab61e703",
+        "0x24b8d35e14e2326cf2751744a65417c323afb145dca641394ad8216ed321614f",
+        101,
+        1017
+      ],
+      [
+        135951982,
+        "0xd7be7b557694661fd54c174bb4a77076611f644b80a9633f76696e893f62dc53",
+        "0x8d49d7d5f5bfa416903f1ac5c0c30503cd04b4f287f6820b2244ca8d655bb504",
+        78,
+        465
+      ],
+      [
+        135951983,
+        "0x7bed8cf16bf0ff6180123d2b1f5d3399e6b8684f06f943ea7b2e6a294f29f4ea",
+        "0xf317b71a417da838b284731f2336090869aff2787fd10dfae49505d09af7dae9",
+        81,
+        548
+      ],
+      [
+        135951984,
+        "0x6e703bb4b666f5ed5e689ff5bfacf1b8bc520283ab605637a2d64dc83eafa0bf",
+        "0x8080aedb9e16588dab538d9ea02bff4ff978ba39f7c88f025abe70e4ff460e47",
+        66,
+        3465
+      ],
+      [
+        135951985,
+        "0x8c9537df49a52100de1b552aaef3b2d8a302fb8d4ab79632e7584108565eaf40",
+        "0x0895be355809500b0f743ad1ba146bf6d724c9024213a4ca3f5cf3cfe1cee892",
+        92,
+        1334
+      ],
+      [
+        135951986,
+        "0xe41dea9b6015b25e17b9904a2f7dcddad2b7b8911ff7cbb2a86c42276a1a4dd8",
+        "0x863e9d0ea971739d9b409644b74db9bd4d1a246b5a4072ae3ac6328724b95efd",
+        108,
+        947
+      ],
+      [
+        135951987,
+        "0x257d4f9087f5f1daef30a75e0494fe63e8bba6f943b709fa659a7940bb457e4f",
+        "0x6bb521acbd4513c28d159519d48dcd679f8d12683f25420a323eb629f854e388",
+        89,
+        498
+      ],
+      [
+        135951988,
+        "0x0de409178351b0b1a954bbf12871d3e515d4a77c079bcb9edb32c9d11343ad18",
+        "0xcf15bd05f88cca996eb9cb4440c500a489a973fba6bd29883fc764321ba8c90e",
+        58,
+        392
+      ],
+      [
+        135951989,
+        "0x3a84c1454c341b8c94e8d72d9dbec69644bcbfde1e62cf9ae97bca4cdc0e1375",
+        "0x5292fe4bfdfc75dc6a81a710d1798ecbff029e479f577e05f049202e8a01dc1b",
+        83,
+        736
+      ],
+      [
+        135951990,
+        "0x973553516a67e16450bae3d6de0a3cfdd0ff66730ceb80c0eeb828a384563722",
+        "0xc9b5807758e2efdf484475b643be3001b1238a6099c6e905301997b85ede4d54",
+        93,
+        1303
+      ],
+      [
+        135951991,
+        "0xf0d8e8363dbcd2562e5349c79135a1ae474297d4be2c1b9edfbee49584be71be",
+        "0x24a176eb63c513769d76b152371b929961d018baaa3858ac3b4ba92ccf98ba85",
+        88,
+        714
+      ],
+      [
+        135951992,
+        "0x3614c31c5f69f765aae384db5fe8ea1f1a2bdccecb3cbeaeab4aefb770979b84",
+        "0x65499ec6632618e5fcd03e04deb43badcb5a1c92ba082d6f77079f30f53855de",
+        63,
+        533
+      ],
+      [
+        135951993,
+        "0x51a9f68ae9ef50659c3473a3a0b300dfb91902cab07e779118e56a17d230f1ff",
+        "0x236bfca9a234ec5aca7f65c3efa750b5cfc495fb52c82c15ca38c3f0969fd6cf",
+        89,
+        683
+      ],
+      [
+        135951994,
+        "0xda5ae96cf6f8180d376867447ffa331513da088de01cde22ed6c265a95688755",
+        "0xd75358d6c3bb5ce744fb755dbc38ad74444b8eaf48c9c28db191857abef600d5",
+        81,
+        503
+      ],
+      [
+        135951995,
+        "0xc89b8945f2d66446b59e59d2a1a3012033972b939d79a11d392a126de0622904",
+        "0x50c368fe8e9b941c7efaaf6e0174c9c1cbc0472e15fab49fd60bf891808e1d01",
+        74,
+        302
+      ],
+      [
+        135951996,
+        "0x974ad148124cf98eab43eae0a0ca2f22e10bd1acd3bb625748aa224eb3f2d1d4",
+        "0x01e0d5af11a9ebfc5e3579f16dbde53d60aeb218889ec6c614b7e5aa3d2795ca",
+        84,
+        435
+      ],
+      [
+        135951997,
+        "0x296755d5ee2c2ce1e18ed36b6d91068c60bc14d568360e8d7eb6902e5141be59",
+        "0x5cdbf2aee878a4de5376fde5cd93c2d19e52ea6c3d588e77b92ed505dde72b4f",
+        67,
+        1069
+      ],
+      [
+        135951998,
+        "0x5916f136af7f68805b948868442454a3b292911d260dba51092566be7ba5d688",
+        "0xe905dbc5b1d4fe2cf78a405a1a7338d52fddf9fa87a02472e19005727c4108d3",
+        90,
+        833
+      ],
+      [
+        135951999,
+        "0x93f1c2bbf8122f54c067b6aa5d690bc7c3961887ae41caf5579349fcdcabde10",
+        "0xecbd66627d153200d6a4b1cb0dc7c5d7a39654933a74f2a0fe94517f3f4fc9c2",
+        74,
+        363
+      ],
+      [
+        135952000,
+        "0x213c358c8d1e178aeb7ae81c942fa3c7d1f2a0f64eff13a3d3506b7108bdb4bd",
+        "0x903d0f93cd12be868399d6e3894fc81caec2c20e24b51cf883ec09cd9d074af1",
+        75,
+        434
+      ],
+      [
+        135952001,
+        "0x9d7092b278f1a9c277468fd08aad703f05bf3208eb2fefea5741944f9d268434",
+        "0x3c9e0415621e18969c7f6da381ea3f3c29db59294054ded69721e3b0aa6eb81f",
+        77,
+        489
+      ],
+      [
+        135952002,
+        "0xcb1d4bb963feef4cda1144190714ab6ee8f6e0408511669ceaa5a7fc8fca4038",
+        "0x8aa5955966dacdbc218f9f50055a8a5209c0bb9b7199c0da18b2d39c886287d7",
+        65,
+        568
+      ],
+      [
+        135952003,
+        "0x6386d08cde7db08259c0131f46f40c1e3b70f5933c3a08657b3a00c0efe25bb8",
+        "0xefc7dc8c16d6e8355d3b13a1e6679b896a7c158ebd267d4685a640300ae7f0a2",
+        74,
+        464
+      ],
+      [
+        135952004,
+        "0x8f4e6cda43766aff6d93b18c39bb20df08026a164e880d8926a9c8f5c87141ec",
+        "0x7d96101b4c77c8b3a4fb40cedb804a14263d262e798116dc45041547010192e5",
+        81,
+        726
+      ],
+      [
+        135952005,
+        "0xf6e464a010a7fc6b7eea3e78a6100e73442f18e893f9048c7a7c125572394878",
+        "0xdd1d9b7d5247dc5b774585b9ea5accbcd7c9e5eed59406aee5d7050b0cd65490",
+        102,
+        682
+      ],
+      [
+        135952006,
+        "0x045a1ab5c90498fcbbc9d7049348cc946cd8a0f0666b135a4572c6edcb100f34",
+        "0x29b9f070ac7603ea617e60024d2b5d11741a11abc3972faa80d79f652e9375f9",
+        67,
+        424
+      ],
+      [
+        135952007,
+        "0x9508e15d90e6bc9c6ec9009bfae30fa8e6267576bbe7e256820649b9f7d52699",
+        "0x0684eb26bbb952126ca17e026b0c944be94ee163c628533f6dfac6bbe4fb6035",
+        88,
+        737
+      ],
+      [
+        135952008,
+        "0x36a9906a879812edcce1e7ac8a66d2fa4a17df92f7615e138e384a1a0cb1702a",
+        "0xfb516ec7af88830a22fc389dcfafbe1c74dabebbe639e2d1f7cfa80b3fafc08c",
+        85,
+        646
+      ],
+      [
+        135952009,
+        "0xfbee54f7d9e5533f42a7bf5789378a9cd45889ef7d82658a8526da5b57f34e14",
+        "0x65904bf6e960d0b58514f19b30be161ce546ddf682c5d5231f9f328bd0a290a1",
+        79,
+        562
+      ],
+      [
+        135952010,
+        "0x631a89d2d4af77ca338befabc6e9c296c613ebaad0bd53c3cdc2aa01e4eaf841",
+        "0xe9ad27cc0bf22846e03ab2d6a791b449328c829fb001a2ce09805cc045bb8344",
+        101,
+        572
+      ],
+      [
+        135952011,
+        "0x76c41e2e53a97722041c237114fa40c5d4099d860c5e75e08821e11e350cab7f",
+        "0x616ef2a28f38650db4d934ec74b239daeceec1ee1175af087182fa02b14f1af3",
+        68,
+        397
+      ]
+    ]
+  },
+  "prospective": {
+    "completed_utc": "2026-11-27T01:38:42.729114+00:00",
+    "control": [
+      {
+        "block": 135951972,
+        "block_hash": "0x3b77d314b4573dd504a526c925a1bb78ad0d25a672e767fde0ca0b008efdd84b",
+        "body_gas": 219328,
+        "full_gas_known": false,
+        "gross_wei": "-146314809440020",
+        "intrinsic": 23604,
+        "net_lower_wei": "-221314809440020",
+        "net_upper_wei": "-156032109440020",
+        "output_wei": "9853685190559980",
+        "shared_call": false,
+        "stage": "discovery"
+      },
+      {
+        "block": 135951972,
+        "block_hash": "0x3b77d314b4573dd504a526c925a1bb78ad0d25a672e767fde0ca0b008efdd84b",
+        "body_gas": 219328,
+        "full_gas_known": false,
+        "gross_wei": "-146314809440020",
+        "intrinsic": 23604,
+        "net_lower_wei": "-221314809440020",
+        "net_upper_wei": "-156032109440020",
+        "output_wei": "9853685190559980",
+        "shared_call": true,
+        "stage": "after_first_return"
+      },
+      {
+        "block": 135951973,
+        "block_hash": "0xbaf92c31b846e64bfce87cca1db01218690cb0c394d1727c40a0d1a6edb6180c",
+        "body_gas": 219328,
+        "full_gas_known": false,
+        "gross_wei": "-146314809440020",
+        "intrinsic": 23604,
+        "net_lower_wei": "-221314809440020",
+        "net_upper_wei": "-156032109440020",
+        "output_wei": "9853685190559980",
+        "shared_call": false,
+        "stage": "direct_child"
+      }
+    ],
+    "control_principal_wei": "10000000000000000",
+    "eligible_frozen": 0,
+    "envelope_sha256": "ac78879fc237b190306da9f0d83d323e61a4175857aac27598c31b1300695443",
+    "first": 135951972,
+    "first_return_to_latest_request_ns": 2142792,
+    "first_return_to_latest_response_ns": 107537792,
+    "free_calls": 34,
+    "frozen_utc": "2026-11-27T01:38:10.988500+00:00",
+    "gas_price_wei": "50000000",
+    "heads": 12,
+    "last": 135952011,
+    "max_gross_upper_wei": {
+      "active_economic": "200197050419",
+      "all_diagnostic": "1028848306998"
+    },
+    "observations_sha256": "5c3813b570c0455882c2e6a5e426d09782cf70202c8a37f874d90ea6b49bb9c3",
+    "pools": 115,
+    "route_counts": {
+      "standard_subset": {
+        "active_paths": 88248,
+        "finite_grid_positive_after_21k": 0,
+        "finite_grid_positive_after_60k": 0,
+        "finite_grid_positive_gross": 0,
+        "finite_grid_quotes": 95112,
+        "frozen_paths": 88248,
+        "positive_marginal": 15852
+      },
+      "whole_registry": {
+        "active_paths": 102432,
+        "finite_grid_positive_after_21k": 0,
+        "finite_grid_positive_after_60k": 0,
+        "finite_grid_positive_gross": 0,
+        "finite_grid_quotes": 120816,
+        "frozen_paths": 102432,
+        "positive_marginal": 20136
+      }
+    },
+    "scope_sha256": "98a1d9f76a59fd6cdaf78773b82abb9808f9cd5f8b5f11acb4b8c1cf79d25f4a",
+    "source": "https://bsc-dataseed.bnbchain.org"
+  }
+}

@@ -66,6 +66,27 @@ class NativeRoute:
             f"quoteExactInput({PATH_ABI})", (PATH_ABI,), ((ZERO_ADDRESS, self.path(), self.amount),)
         )
 
+    def shadow_router_data(self, minimum_output: int, deadline: int) -> str:
+        """Encode a native-funded round trip for a read-only Universal Router simulation."""
+        if type(minimum_output) is not int or not self.amount <= minimum_output < INT128:
+            raise ValueError("shadow minimum must cover the principal and fit positive int128")
+        if type(deadline) is not int or not 0 < deadline < 2**64:
+            raise ValueError("invalid shadow deadline")
+        # A closed native path nets both ends in one v4 currency delta. Credit the supplied
+        # principal first, then take the full output to msgSender after the exact-input swap.
+        settle = encode(["address", "uint256", "bool"], [ZERO_ADDRESS, self.amount, False])
+        # This deployment's ExactInputParams includes minHopPriceX36[] before amountIn.
+        # An empty array selects the deployment's route-level minimum-output check.
+        params = "(address,(address,uint24,int24,address,bytes)[],uint256[],uint128,uint128)"
+        swap = encode([params], [(ZERO_ADDRESS, self.path(), (), self.amount, minimum_output)])
+        take = encode(["address", "uint256"], [ZERO_ADDRESS, minimum_output])
+        actions = encode(["bytes", "bytes[]"], [bytes([0x0B, 0x07, 0x0F]), [settle, swap, take]])
+        return calldata(
+            "execute(bytes,bytes[],uint256)",
+            ("bytes", "bytes[]", "uint256"),
+            (b"\x10", [actions], deadline),
+        )
+
 
 def parse_routes(raw: object) -> tuple[NativeRoute, ...]:
     doc = strict_object(raw, "quote routes")
