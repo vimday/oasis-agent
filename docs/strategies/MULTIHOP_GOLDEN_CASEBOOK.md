@@ -21,6 +21,11 @@ Optimism、Arbitrum 和 Era 的 1,216 个块查得 797 笔至少两个市场事�
 
 Base 对同一 0.001 ETH 本金的三态负控及每个新头完整扫描时钟单列在影子记录中。[固定本金与 4／58／66 池时效](../verification/BASE_STATIC_STATE_AND_FIXED_PRINCIPAL_20261127.md)
 
+## 2026 年六链新窗和 Base 整笔微利
+
+- **Base** 同一 Uniswap V3／Slipstream 路线的固定 WETH 和 USDC 本金在 H 整笔仿真均重现原逐腿回款。WETH 约 29.3 万 gas，扣模拟链费后余 1,682,277,530,217 wei，直接子状态变为 −12,323,213,006,118 wei。两块完整收据把市场变化定位到子块内的一笔反向 Uniswap 兑换。USDC 的 2,881 个最小单位条件净额采用同块首腿比价，仿真本金来自探针专用库存覆盖。[原报价整笔复算](../verification/BASE_MIXED_WHOLE_20261128.md) · [同头优先前瞻](../verification/BASE_MIXED_HEAD_PRIORITY_20261128.md)
+- **Ethereum、BSC、Optimism** 新核 Ethereum 三腿微利和同笔多组净额，BSC 的四腿实际资金循环，以及 OP 单组毛差不足以单独覆盖整笔费用但同笔整体有条件费后余额。Robinhood、Arbitrum 和 Era 的样本覆盖与缺测一并保留。六链登记 1,946 笔多事件候选，按实际资金核验串行、分组和外付。[六链新窗与结算](../verification/Y2026_MULTICHAIN_EXPANDED_20261128.md)
+
 ## 新留出样本的微利与批次
 
 - **Ethereum** `0x81a8f20b` 的 7702 委托账户用三个池赚取 WETH，扣发送人实际链费及区块付款后，ETH/WETH 按面值共增 14,947,051,008,769 wei。Morpho 样本 `0xea937e77` 归还 13,370.835646604 WETH 后，发送人实际净增 99,047,440,146,282 ETH wei。14 事件账户抽象对照把资金交给第三方，发送人自己支付链费。[逐笔实际费用和余额](../verification/Y2026_ETH_BSC_UNTOUCHED_20261128.md)

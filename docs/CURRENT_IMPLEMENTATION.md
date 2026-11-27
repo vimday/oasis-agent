@@ -79,6 +79,7 @@
 
 ## 证据导航
 
+- 11 月 28 日，Base 上一块缓存与最新头单槽调度已进入新窗口的只读测量。原混合池微利的 WETH 整笔在 H 费后余 1,682,277,530,217 wei，P、C 均负；同一固定本金的新 15 头有 10 次在子头前发出，零次模拟和费用都按时齐备。诊断在实时线程退出后运行。另核六链新成交。[历史 P/H/C](verification/BASE_MIXED_WHOLE_20261128.md) · [同头优先实测](verification/BASE_MIXED_HEAD_PRIORITY_20261128.md) · [六链扩样](verification/Y2026_MULTICHAIN_EXPANDED_20261128.md)
 - 11 月 28 日，Base 新增只读策略对照复算，使用同一交易摘要、父子哈希和子头到达时限衡量上一块和同头决策。六组固定本金对照均无正例。自然八头两笔逐腿报价费后为正，属于同一池环且均过了直接子头，整笔状态未知。Morpho 只读回放补上了新 Ethereum 成交所示的单个冗余零字 ABI 布局。[Base 策略对照](verification/BASE_PRIOR_HEAD_POLICY_20261128.md) · [自然机会](verification/BASE_PRIOR_HEAD_POLICY_NATURAL_20261128.md) · [Ethereum 与 BSC 新样本](verification/Y2026_ETH_BSC_UNTOUCHED_20261128.md)
 - 11 月 28 日，Robinhood／Arbitrum／Era／Optimism 的 5,696 块新窗口筛查 1,522 笔多事件并深核 23 笔，核实两轮 WETH 全额复投、分流和四市场费用负例。[四链留出结果](verification/Y2026_L2_FUNDING_HOLDOUT_20261128.md)
 - 11 月 28 日，真实 Anvil 演练显式固定签名域 8453 下的 Ethereum/Cancun 模式，核对父块与第一笔交易的结算位置，原生费用按 wei 精确对账。真实 Base 独立补查三个执行器在 12 个整块中的 13 笔调用，观察到四次实际扣费回滚和四次已证的只读空跑。[Linux 复现与修复](verification/ANVIL_CI_PRESTATE_20261128.md) · [完整尝试与微利费用](verification/BASE_EXECUTOR_ATTEMPTS_20261128.md)

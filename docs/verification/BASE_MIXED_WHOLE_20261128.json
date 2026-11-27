@@ -1,0 +1,450 @@
+{
+  "actual_paid_wei": null,
+  "canonical_runtime_hashes": {
+    "0x000000000000000000000000000000000000a257": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+    "0x4200000000000000000000000000000000000006": "0x8a3a1f6a9f9dce633117adee5b458245835a8645a8c8726a26382a4622508b1c",
+    "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "0xa6705a10bb756b5dea144591118be77d7af0c3eee3bf2dfe2583dcb0364fefab",
+    "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59": "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+    "0xb4cb800910b228ed3d0834cf79d697127bbb00e5": "0xc4cf5547246c44150ee6b531697f4b80171a18ce116dcffd894d91ad81d7ad1d"
+  },
+  "exchanges": {
+    "01-official": {
+      "received_ns": 1400306373804250,
+      "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+      "response_sha256": "395c4282d446999297cdcba9e50c3df13687008bc4eecc206a5d616be7f6d227",
+      "retrieved_unix_ns": 1795801148866938000,
+      "sent_ns": 1400305927173166,
+      "status": 200
+    },
+    "02-state": {
+      "received_ns": 1400306616554458,
+      "request_sha256": "ac21579831e1dbbc2a33e0fc5d8e52c8fe9794f8646ea9ade03b85aceff82668",
+      "response_sha256": "d0bc93fe0b5c8b0584b34a9123cedd4e7b7661e9e3b1d81e140b5f7aa304aaca",
+      "retrieved_unix_ns": 1795801149109674000,
+      "sent_ns": 1400306375469250,
+      "status": 200
+    },
+    "03-official": {
+      "received_ns": 1400306877194250,
+      "request_sha256": "41daef2e635f213f8c45a94d6eb9b45add2468cb6e820ff06e3869a29e0440ee",
+      "response_sha256": "1c8bc69d231040d2934afe20793cdd20f7de4e6add63f62e7685762126d14001",
+      "retrieved_unix_ns": 1795801149370355000,
+      "sent_ns": 1400306618039916,
+      "status": 200
+    },
+    "04-state": {
+      "received_ns": 1400307007768625,
+      "request_sha256": "46031ba9e9c577f27243e00c4d0d3301542097478e9023de0d566d1d829c736c",
+      "response_sha256": "76ea9a9e586e1eafc45552848ba6928590b14de8279efebdda2e31aaad7dc464",
+      "retrieved_unix_ns": 1795801149500928000,
+      "sent_ns": 1400306878708125,
+      "status": 200
+    },
+    "05-state": {
+      "received_ns": 1400307253471541,
+      "request_sha256": "6b7e0ec7c5355f4c7de6b90485df77d3150b6c02a126b0c4fa1e1a751bf70f6e",
+      "response_sha256": "44ad6303884b2a6580a00c4f48b224dd86d543a30e2e396473309aaef219a53e",
+      "retrieved_unix_ns": 1795801149748297000,
+      "sent_ns": 1400307130611166,
+      "status": 200
+    },
+    "06-state": {
+      "received_ns": 1400307510148541,
+      "request_sha256": "2d1149cb042b02f42badd09d73ff55402b916c4341eae416b0782659c17aee5a",
+      "response_sha256": "cc3cd8bbffe2f35309cef242a80294c776589efecebc4b54ee550d0f36d9ad14",
+      "retrieved_unix_ns": 1795801150003627000,
+      "sent_ns": 1400307380571375,
+      "status": 200
+    },
+    "07-state": {
+      "received_ns": 1400307759174416,
+      "request_sha256": "aa20c94b72bd0b156fc8058af2c81c29d35f0ebff1a9c8cad95ec7716ca7384f",
+      "response_sha256": "05635553bf711dc2f7d68d47a94788efc008f1db0df1ca7711fe81a216befe7e",
+      "retrieved_unix_ns": 1795801150252237000,
+      "sent_ns": 1400307632648583,
+      "status": 200
+    },
+    "08-state": {
+      "received_ns": 1400308005439125,
+      "request_sha256": "40cdbff332dfc0d976be725513efac20928ff5e0493bc74740c375a724f16ca3",
+      "response_sha256": "359dafc4d5034ff13e92e89cda8ccb5f4ed3f9267ec6a9be9549675bbd51e09e",
+      "retrieved_unix_ns": 1795801150498596000,
+      "sent_ns": 1400307884353875,
+      "status": 200
+    },
+    "09-state": {
+      "received_ns": 1400308263089625,
+      "request_sha256": "882d164118c3c405850da3f32027dd01939c87b11304068adb9181d93fc0ad49",
+      "response_sha256": "a542c03d8f1b222f2a5201bda83b14389a10e146cbd1a9cd50277989bc2d64bf",
+      "retrieved_unix_ns": 1795801150756398000,
+      "sent_ns": 1400308137100458,
+      "status": 200
+    },
+    "10-state": {
+      "received_ns": 1400308520984708,
+      "request_sha256": "4e7835cecd9d702ee86b9cd64ec1df641e0eb55ad47a677aa243d0bfc9ea6ce0",
+      "response_sha256": "1d605b89697c24a82696796fcc3851f2d6f91964717302005ece40cfcdbcb04d",
+      "retrieved_unix_ns": 1795801151014004000,
+      "sent_ns": 1400308387369333,
+      "status": 200
+    },
+    "11-state": {
+      "received_ns": 1400308764947875,
+      "request_sha256": "ab3f5ded10ac4bba25dfafdf30cedd0dd506e76ee83d3a6ef5bf574eb4693fd7",
+      "response_sha256": "953811fee422983fdeb26c870ea7926a69f9148aefd93c13dd6dff7c37e7082f",
+      "retrieved_unix_ns": 1795801151258082000,
+      "sent_ns": 1400308638654125,
+      "status": 200
+    },
+    "12-official": {
+      "received_ns": 1400309047908625,
+      "request_sha256": "2955843214a3f1fa6c074921067447859d57e285a47ec298e643d9f4f5899a78",
+      "response_sha256": "a407e61498f2c03ce33ed163a8b4e516ce837e6417e4abc7a43ecddb0c8a968d",
+      "retrieved_unix_ns": 1795801151541257000,
+      "sent_ns": 1400308767604583,
+      "status": 200
+    },
+    "13-official": {
+      "received_ns": 1400309312431500,
+      "request_sha256": "dd00e16f0b3caf1baa7f0f3d4dc301ee7b400ad51fd40575a14f234b993fade6",
+      "response_sha256": "87216724145e33db82055eef214f407e90b7de7ed0ad1f729266581689cd1a53",
+      "retrieved_unix_ns": 1795801151805444000,
+      "sent_ns": 1400309050442541,
+      "status": 200
+    },
+    "14-official": {
+      "received_ns": 1400309570992791,
+      "request_sha256": "7e634ff18ae0f7df489596914f3ec9e36b63b84e8c79847a7a0d54e740695c4a",
+      "response_sha256": "1cb5ca6b7927b503cbcce029020aa139173d50cc51846156815e283702d9886b",
+      "retrieved_unix_ns": 1795801152064033000,
+      "sent_ns": 1400309314052083,
+      "status": 200
+    },
+    "15-state": {
+      "received_ns": 1400309714417833,
+      "request_sha256": "e95da41f656218a658dfa9f9c929549937fa4b9bdb2845f1293c822722a56348",
+      "response_sha256": "9704becd5e2e9e0072fb632aa9ec220b647183881b53f913c998aed6fa7c40a4",
+      "retrieved_unix_ns": 1795801152207524000,
+      "sent_ns": 1400309572371083,
+      "status": 200
+    },
+    "16-state": {
+      "received_ns": 1400309950382333,
+      "request_sha256": "e98a1008189e4faf11d1a6a42357a98e2ac0deb20ce97075b60a53bfa236da10",
+      "response_sha256": "17502f0de493c003fcc1a413e1209a71affdd04097faecab9ed1c43617e030eb",
+      "retrieved_unix_ns": 1795801152443427000,
+      "sent_ns": 1400309824822125,
+      "status": 200
+    },
+    "17-official": {
+      "received_ns": 1400310224523708,
+      "request_sha256": "464082072543823b2460fc968392e02d53acdb3a3592becf6ae845e8a1935189",
+      "response_sha256": "c77e618b72c7fe3262d550f452d7893b294f73fddf5d129aa8dc449bfcd55f3e",
+      "retrieved_unix_ns": 1795801152717552000,
+      "sent_ns": 1400309952518375,
+      "status": 200
+    },
+    "18-official": {
+      "received_ns": 1400310562558000,
+      "request_sha256": "c65581ccb3f57078ebfaaf0c160442dff4fa810a3d83f68de72c7df00bf2cdeb",
+      "response_sha256": "da667b318ca4107f8a7183d1a2eb5bada117212fbc6b1b3053d5f48216b4419a",
+      "retrieved_unix_ns": 1795801153055592000,
+      "sent_ns": 1400310226232666,
+      "status": 200
+    },
+    "19-official": {
+      "received_ns": 1400310822994125,
+      "request_sha256": "edb6424dc1d1d8053001f338e829f8dd0caf4232bc1f32e28e98c7134b7204e7",
+      "response_sha256": "6f5b7ac662d9b480af4bd2bde018e2d91f258765cdc8f44c9050c67ad0daa5fb",
+      "retrieved_unix_ns": 1795801153319090000,
+      "sent_ns": 1400310564282333,
+      "status": 200
+    },
+    "20-state": {
+      "received_ns": 1400310953363333,
+      "request_sha256": "c6466d2f08819bce2df6ef00fa0250194447d4abbd7644ff5a9aa2378801bc1b",
+      "response_sha256": "c89a57a76ca4b10dae6a5591b96c6a8e7c8f0919341b30fc33603bd3b1689556",
+      "retrieved_unix_ns": 1795801153446398000,
+      "sent_ns": 1400310827535500,
+      "status": 200
+    },
+    "21-state": {
+      "received_ns": 1400311219763500,
+      "request_sha256": "bc17b675b554fbc988af0c6c1b5fab29a54b932c7a27487ab619395d1735c49b",
+      "response_sha256": "6f65bf3eacc0d0c52ed3f49b9e2b9af7560e4bdf0cadd8521e7a15ea6bc56115",
+      "retrieved_unix_ns": 1795801153712935000,
+      "sent_ns": 1400311081481166,
+      "status": 200
+    },
+    "22-official": {
+      "received_ns": 1400311480279791,
+      "request_sha256": "acc1c46b72b4c2af9f9863a4842402bc726dc4f74b4d53d2cea4df5d05d6b2f4",
+      "response_sha256": "1ffcf28bc92d596e46883cdd56b606b65a668bb632f837de073b43db586dec17",
+      "retrieved_unix_ns": 1795801153973426000,
+      "sent_ns": 1400311222410416,
+      "status": 200
+    },
+    "23-official": {
+      "received_ns": 1400311753624833,
+      "request_sha256": "d69f3a7aa0621b697dec53915349d14ed0642ecd144174c7b1985b30a5b9961b",
+      "response_sha256": "357a8a9578e49dc447949715e8f72f162a07d05d082a82fdb3f8670cd3dcf152",
+      "retrieved_unix_ns": 1795801154246780000,
+      "sent_ns": 1400311482437750,
+      "status": 200
+    }
+  },
+  "execution_eligible": false,
+  "request_counts": {
+    "official": 10,
+    "state": 13
+  },
+  "rows": [
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2059041449052,
+      "charged_fee_in_settlement_smallest_units": 2059041449052,
+      "conditional_net_raw": 1682277530217,
+      "conversion_basis": "ETH and WETH par",
+      "final_received_raw": 67284190259874398,
+      "gas_used": 293025,
+      "height": 63043739,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2052517640550,
+      "middle_raw": 112289127,
+      "operator_upper_wei": 0,
+      "parent_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "payment_log_indices": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        7
+      ],
+      "principal_raw": 67280448940895129,
+      "settlement_delta_raw": 3741318979269,
+      "simulated_base_fee": 5004582,
+      "status": "settled",
+      "token": "0x4200000000000000000000000000000000000006"
+    },
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2014686870399,
+      "charged_fee_in_settlement_smallest_units": 3363,
+      "conditional_net_raw": 2881,
+      "conversion_basis": "USDC/WETH first-leg implied rate",
+      "final_received_raw": 112826204,
+      "gas_used": 286728,
+      "height": 63043739,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2008409787696,
+      "middle_raw": 67602256126940030,
+      "operator_upper_wei": 0,
+      "parent_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "payment_log_indices": [
+        0,
+        1,
+        3,
+        4,
+        6
+      ],
+      "principal_raw": 112819960,
+      "settlement_delta_raw": 6244,
+      "simulated_base_fee": 5004582,
+      "status": "settled",
+      "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+    },
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2059036656511,
+      "charged_fee_in_settlement_smallest_units": 2059036656511,
+      "conditional_net_raw": -12323213006118,
+      "conversion_basis": "ETH and WETH par",
+      "final_received_raw": 67270184764545522,
+      "gas_used": 293039,
+      "height": 63043740,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2052512848009,
+      "middle_raw": 112265753,
+      "operator_upper_wei": 0,
+      "parent_hash": "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7",
+      "payment_log_indices": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        7
+      ],
+      "principal_raw": 67280448940895129,
+      "settlement_delta_raw": -10264176349607,
+      "simulated_base_fee": 5004231,
+      "status": "settled",
+      "token": "0x4200000000000000000000000000000000000006"
+    },
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2014684288105,
+      "charged_fee_in_settlement_smallest_units": 3363,
+      "conditional_net_raw": -20605,
+      "conversion_basis": "USDC/WETH first-leg implied rate",
+      "final_received_raw": 112802718,
+      "gas_used": 286742,
+      "height": 63043740,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2008407205402,
+      "middle_raw": 67602256126940030,
+      "operator_upper_wei": 0,
+      "parent_hash": "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7",
+      "payment_log_indices": [
+        0,
+        1,
+        3,
+        4,
+        6
+      ],
+      "principal_raw": 112819960,
+      "settlement_delta_raw": -17242,
+      "simulated_base_fee": 5004231,
+      "status": "settled",
+      "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+    },
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2077965212334,
+      "charged_fee_in_settlement_smallest_units": 2077965212334,
+      "conditional_net_raw": -39739508543898,
+      "conversion_basis": "ETH and WETH par",
+      "final_received_raw": 67242787397563565,
+      "gas_used": 295859,
+      "height": 63043738,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2071441403832,
+      "middle_raw": 112220029,
+      "operator_upper_wei": 0,
+      "parent_hash": "0x23e7d4113cedab6d5c1c6a4867aa919063f6697441e0e1ecd09e49f19978638f",
+      "payment_log_indices": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        7
+      ],
+      "principal_raw": 67280448940895129,
+      "settlement_delta_raw": -37661543331564,
+      "simulated_base_fee": 5001448,
+      "status": "settled",
+      "token": "0x4200000000000000000000000000000000000006"
+    },
+    {
+      "actor_eth_balance": 4612654423117055500,
+      "chain_fee_scenario_wei": 2033630368479,
+      "charged_fee_in_settlement_smallest_units": 3394,
+      "conditional_net_raw": -66578,
+      "conversion_basis": "USDC/WETH first-leg implied rate",
+      "final_received_raw": 112756776,
+      "gas_used": 289562,
+      "height": 63043738,
+      "l1_upper_wei": {
+        "0x4200000000000000000000000000000000000006": 6523808502,
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6277082703
+      },
+      "l2_wei": 2027353285776,
+      "middle_raw": 67602256126940030,
+      "operator_upper_wei": 0,
+      "parent_hash": "0x23e7d4113cedab6d5c1c6a4867aa919063f6697441e0e1ecd09e49f19978638f",
+      "payment_log_indices": [
+        0,
+        1,
+        3,
+        4,
+        6
+      ],
+      "principal_raw": 112819960,
+      "settlement_delta_raw": -63184,
+      "simulated_base_fee": 5001448,
+      "status": "settled",
+      "token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+    }
+  ],
+  "scope": {
+    "chain_id": 8453,
+    "code_override": "0x000000000000000000000000000000000000a257",
+    "driver_sha256": "807576cc95eb745cb16da4a91436ffecabb14daf46143832639811db23f29bf0",
+    "envelopes": {
+      "0x4200000000000000000000000000000000000006": {
+        "accessList": [],
+        "data": "0x71bcdb0b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ef07363b736b990000000000000000000000000000000000000000000000000000000000000001",
+        "from": "0x000000000000000000000000000000000000dead",
+        "gas": "0x86470",
+        "maxFeePerGas": "0xee6b280",
+        "maxPriorityFeePerGas": "0x1e8480",
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000a257",
+        "value": "0xef07363b736b99"
+      },
+      "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": {
+        "accessList": [],
+        "data": "0x71bcdb0b00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000006b97ef80000000000000000000000000000000000000000000000000000000000000001",
+        "from": "0x000000000000000000000000000000000000dead",
+        "gas": "0x86470",
+        "maxFeePerGas": "0xee6b280",
+        "maxPriorityFeePerGas": "0x1e8480",
+        "nonce": "0x0",
+        "to": "0x000000000000000000000000000000000000a257",
+        "value": "0x0"
+      }
+    },
+    "frozen_utc": "2026-11-27T17:38:56.220390+00:00",
+    "h": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+    "limits": {
+      "official": 10,
+      "state": 15
+    },
+    "p": "0x23e7d4113cedab6d5c1c6a4867aa919063f6697441e0e1ecd09e49f19978638f",
+    "parent_heights": [
+      63043739,
+      63043740,
+      63043738
+    ],
+    "probe_source_sha256": "d78d51fc450c9635c660e022b64687460d83c0d731874da589dbdaa8eb677fb8",
+    "providers": {
+      "official": "https://mainnet.base.org",
+      "state": "https://base-rpc.publicnode.com"
+    },
+    "quoted_h": {
+      "0x4200000000000000000000000000000000000006": [
+        112289127,
+        67284190259874398
+      ],
+      "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": [
+        67602256126940030,
+        112826204
+      ]
+    },
+    "retained_natural_report_sha256": "ae29b57a682f9a48befec8393eff376ba03a1ea22e3c18327c5adb05320020b6",
+    "runtime_keccak": "0xe6b51499182d33a391897d0ae9cc9ee1b0f5f1ca08fc72a8a12dec63c516a4d9",
+    "runtime_sha256": "fc1485f9d893c0d42b3c69909700500713b540de675a18c39265f61822f8e45a",
+    "schema": "oasis-base-mixed-whole-fixture-v1",
+    "usd": 0,
+    "usdc_inventory_slot": "0x19de1d1dace5bd00ab26f6ba40fdc3f3fce89eeb4c7cf628e0783c1711c007dc"
+  },
+  "scope_sha256": "fd19b97954261008eaa4faed53c8d4b2aaf768bb6d2e0ba8a9aca6092f28c458",
+  "stopped": null
+}

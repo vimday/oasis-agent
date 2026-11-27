@@ -1,0 +1,112 @@
+{
+  "blocks": [
+    {
+      "bloom_possible_emitters": [
+        "0xb4cb800910b228ed3d0834cf79d697127bbb00e5"
+      ],
+      "hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "height": 63043739,
+      "pool_log_transactions": [
+        {
+          "index": 8,
+          "topics": [
+            {
+              "amount_and_price": [
+                -1007625433939030492,
+                1681489650,
+                3236792050830338930364599,
+                150486843437272468,
+                -202121
+              ],
+              "index": 16,
+              "pool": "0xb4cb800910b228ed3d0834cf79d697127bbb00e5",
+              "topic0": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+            }
+          ],
+          "transaction_hash": "0x06ec4fd51ea41d63139d0f353ba07a1277fab786ee6a3946062cdfe132210f1a"
+        },
+        {
+          "index": 10,
+          "topics": [
+            {
+              "amount_and_price": [
+                -126197058019116124,
+                210658008,
+                3236902946756139806907637,
+                150486843437272468,
+                -202120
+              ],
+              "index": 33,
+              "pool": "0xb4cb800910b228ed3d0834cf79d697127bbb00e5",
+              "topic0": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+            }
+          ],
+          "transaction_hash": "0x093df523c482d12bf87eadcd0e0249c740b96709522f87c6da11ea308cbb3877"
+        }
+      ],
+      "receipts": 110,
+      "root": "0xd56ab1920109cfdc5ffb5170a439ac35c8751db732b6993f882f71d6fde07994"
+    },
+    {
+      "bloom_possible_emitters": [
+        "0xb4cb800910b228ed3d0834cf79d697127bbb00e5"
+      ],
+      "hash": "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7",
+      "height": 63043740,
+      "pool_log_transactions": [
+        {
+          "index": 4,
+          "topics": [
+            {
+              "amount_and_price": [
+                383463892634854442,
+                -639935241,
+                3236566034291515671445504,
+                150486843437272468,
+                -202122
+              ],
+              "index": 7,
+              "pool": "0xb4cb800910b228ed3d0834cf79d697127bbb00e5",
+              "topic0": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+            }
+          ],
+          "transaction_hash": "0x1aaea79e7f20e458b562fa8d8406754c1f72e1e69ee61bf485a391d75b374e6c"
+        }
+      ],
+      "receipts": 48,
+      "root": "0xeac412189bae56cc9735423245f9ac3592fc658b3e389a71f4d3b022fe62a401"
+    }
+  ],
+  "counts": {
+    "archive": 3
+  },
+  "proofs": {
+    "01-archive": {
+      "received_ns": 1400506316831791,
+      "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+      "response_sha256": "603e6c54211eac5fb5f3133ce0c8d52b375c58dcdfd80b3a3cea9d9b58b64a85",
+      "retrieved_unix_ns": 1795801348810321000,
+      "sent_ns": 1400506044960333,
+      "status": 200
+    },
+    "02-archive": {
+      "received_ns": 1400506725115375,
+      "request_sha256": "37e95ffa55d36aa38c0f4bb09396097051a15961361c6b479096aead79f8040b",
+      "response_sha256": "74ba823edb0b5da2e0d6307b294e69764b4b01f3246a04be9109169aca99424c",
+      "retrieved_unix_ns": 1795801349218658000,
+      "sent_ns": 1400506350158708,
+      "status": 200
+    },
+    "03-archive": {
+      "received_ns": 1400507093381708,
+      "request_sha256": "d220e50d272c20fe267c6a27a7ace4ba3e664aa76f4451db55c51f52452a3d2f",
+      "response_sha256": "ac52d83c141fc76345fec1c5f40ddcd9688d7138962f3003092b6b3d5ddf2ae4",
+      "retrieved_unix_ns": 1795801349586997000,
+      "sent_ns": 1400506745618791,
+      "status": 200
+    }
+  },
+  "schema": "oasis-base-mixed-child-receipts-v1",
+  "scope_sha256": "d481af0b4e1ab1acbf9b5f10cf1b0ebd67b29c6405582ba346f3c4992eecd13d",
+  "stopped": null
+}
