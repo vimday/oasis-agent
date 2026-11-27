@@ -506,6 +506,21 @@ def test_morpho_callback_connects_a_nested_borrower_and_proves_only_its_principa
     assert len(loan.callback_links) == 1
 
 
+@pytest.mark.parametrize(
+    ("trailer", "observed"),
+    [(bytes(32), True), (bytes(31) + b"\x01", False), (bytes(64), False)],
+)
+def test_morpho_loan_accepts_a_single_spare_zero_word(trailer, observed):
+    receipt, tree = callback_case()
+    outer = tree["calls"][0]["calls"][0]
+    outer["input"] += trailer.hex()
+    result = morpho_callbacks(receipt, tree, replay_trace_funding(receipt, tree))
+    assert bool(result.loans) is observed
+    if observed:
+        assert result.loans[0].credit_log == 1
+        assert result.loans[0].repaid_raw == X
+
+
 @pytest.mark.parametrize("change", ["wrong_payload", "wrong_repayment", "intervening"])
 def test_callback_mismatch_and_visible_intermediate_principal_spend(change):
     receipt, tree = callback_case(**{change: True})

@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 28 日，Base 新增只读策略对照复算，使用同一交易摘要、父子哈希和子头到达时限衡量上一块和同头决策。六组固定本金对照均无正例。自然八头两笔逐腿报价费后为正，属于同一池环且均过了直接子头，整笔状态未知。Morpho 只读回放补上了新 Ethereum 成交所示的单个冗余零字 ABI 布局。[Base 策略对照](verification/BASE_PRIOR_HEAD_POLICY_20261128.md) · [自然机会](verification/BASE_PRIOR_HEAD_POLICY_NATURAL_20261128.md) · [Ethereum 与 BSC 新样本](verification/Y2026_ETH_BSC_UNTOUCHED_20261128.md)
+- 11 月 28 日，Robinhood／Arbitrum／Era／Optimism 的 5,696 块新窗口筛查 1,522 笔多事件并深核 23 笔，核实两轮 WETH 全额复投、分流和四市场费用负例。[四链留出结果](verification/Y2026_L2_FUNDING_HOLDOUT_20261128.md)
 - 11 月 28 日，真实 Anvil 演练显式固定签名域 8453 下的 Ethereum/Cancun 模式，核对父块与第一笔交易的结算位置，原生费用按 wei 精确对账。真实 Base 独立补查三个执行器在 12 个整块中的 13 笔调用，观察到四次实际扣费回滚和四次已证的只读空跑。[Linux 复现与修复](verification/ANVIL_CI_PRESTATE_20261128.md) · [完整尝试与微利费用](verification/BASE_EXECUTOR_ATTEMPTS_20261128.md)
 - 11 月 28 日上海时间，新增 Base、Elysium 各 12 个整块的成交背景。Base 验出一笔三池 cbBTC 毛差向第三方全额付款、三笔 USDC 两池路径；Elysium 唯一两事件样本最终持有另一资产。[整块覆盖和各笔成本](verification/Y2026_BASE_ELYSIUM_BLOCKS_20261128.md)
 - 11 月 27 日 UTC，多跳只读回放能验证 Ethereum Morpho 回调借还与持有人的实际本金。7 月四池路径及同一执行器三笔 11 月成交已核到最终发送人，另有一笔 OP 四池加变现经状态差分证实发送人亏损。Base 可选单次静态 V4 读取在四个同头对照中节省 164–319 ms，正常新窗的四头均晚于直接子头。独立三跳控制 H／K／C 各实付 0.001 ETH，三个费用情景均为负。[各链黄金样本](strategies/MULTIHOP_GOLDEN_CASEBOOK.md#2026-年-11-月的回调还本与最终收款) · [Base 逐头及逐态测量](verification/BASE_STATIC_STATE_AND_FIXED_PRINCIPAL_20261127.md)

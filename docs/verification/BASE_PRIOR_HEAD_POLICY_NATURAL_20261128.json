@@ -1,0 +1,445 @@
+{
+  "attribution_sha256": "1c59bc62aef3a50e0c6f9bf04354c48e5af7fb68f7f6d7d582977b473a1b6cec",
+  "base_http_ws_reservations": {
+    "base_official": 16,
+    "publicnode_base": 20,
+    "publicnode_newheads": 3
+  },
+  "direct_child_witnesses": {
+    "63043732": {
+      "block": 63043732,
+      "child_receive_minus_discovery_finished_ns": -750374041,
+      "child_receive_minus_state_ready_ns": -720822708,
+      "observed_child": 63043733
+    },
+    "63043736": {
+      "block": 63043736,
+      "child_receive_minus_discovery_finished_ns": -606568125,
+      "child_receive_minus_state_ready_ns": -576901000,
+      "observed_child": 63043737
+    },
+    "63043739": {
+      "block": 63043739,
+      "child_receive_minus_discovery_finished_ns": -787487209,
+      "child_receive_minus_state_ready_ns": -751853375,
+      "observed_child": 63043740
+    },
+    "63043749": {
+      "block": 63043749,
+      "child_receive_minus_discovery_finished_ns": -518481416,
+      "child_receive_minus_state_ready_ns": -482529166,
+      "observed_child": 63043750
+    },
+    "63043752": {
+      "block": 63043752,
+      "child_receive_minus_discovery_finished_ns": -775866958,
+      "child_receive_minus_state_ready_ns": -741324916,
+      "observed_child": 63043753
+    },
+    "63043756": {
+      "block": 63043756,
+      "child_receive_minus_discovery_finished_ns": -582761375,
+      "child_receive_minus_state_ready_ns": -553417833,
+      "observed_child": 63043757
+    },
+    "63043759": {
+      "block": 63043759,
+      "child_receive_minus_discovery_finished_ns": -489232125,
+      "child_receive_minus_state_ready_ns": -459811542,
+      "observed_child": 63043760
+    },
+    "63043762": {
+      "block": 63043762,
+      "child_receive_minus_discovery_finished_ns": -515296333,
+      "child_receive_minus_state_ready_ns": -485482250,
+      "observed_child": 63043763
+    }
+  },
+  "heads": [
+    {
+      "block": 63043732,
+      "block_hash": "0x7724387d9420c53b3181f83377a6787a9aa127771b27030d8b0014ed3b7f5a72",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        }
+      },
+      "head_to_discovery_ns": 775773791,
+      "head_to_state_ns": 746222458,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0x79933050c0b7ee74fc6f500ffc7c418d730ba643e644b2dea14f6d8ddde02714",
+      "prior_fixed_route_model_reprice": null,
+      "queue_before_state_ns": 972625,
+      "relation": "first",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043736,
+      "block_hash": "0x044e1c59c84204f81f7046c24d7836683a5f27fa5656d2b34cb5d5d0fa3d2389",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        }
+      },
+      "head_to_discovery_ns": 815292875,
+      "head_to_state_ns": 785625750,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0xff586b8cfea9a13eb75cb07ef3e65c52ec5e3e0162443a47369a7e81d2b84608",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0x7724387d9420c53b3181f83377a6787a9aa127771b27030d8b0014ed3b7f5a72",
+        "prior_block_number": 63043732,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 183195542,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043739,
+      "block_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 2,
+          "unresolved_sizing_intervals": 49
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 2,
+          "unresolved_sizing_intervals": 49
+        }
+      },
+      "head_to_discovery_ns": 1064768625,
+      "head_to_state_ns": 1029134791,
+      "normal_ranked_candidates": [
+        {
+          "base_token": "0x4200000000000000000000000000000000000006",
+          "break_even_gas_for_positive_at_model_fees": 533761,
+          "child_receive_minus_quote_finish_ns": -1306003000,
+          "hop_quote_sources": [
+            "v3_quoter",
+            "slipstream_quoter"
+          ],
+          "input_raw": "67280448940895129",
+          "l1_cost_raw": "4213573545",
+          "l2_cost_raw": "3500724000000",
+          "modeled_net_raw": "236381405724",
+          "modeled_net_usdc_raw": "394",
+          "quote_finished_monotonic_ns": 1398282585278541,
+          "quote_replay_attempt": 4,
+          "quote_rpc_calls": 2,
+          "quote_started_monotonic_ns": 1398282066812375,
+          "quoted_net_raw": "236381405724",
+          "quoted_output_raw": "67284190259874398",
+          "rank": 1,
+          "retained_hop_outputs_raw": [
+            112289127,
+            67284190259874398
+          ],
+          "route": [
+            [
+              "0xb4cb800910b228ed3d0834cf79d697127bbb00e5",
+              "0x4200000000000000000000000000000000000006",
+              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+            ],
+            [
+              "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+              "0x4200000000000000000000000000000000000006"
+            ]
+          ],
+          "status": "per_leg_positive",
+          "topology_sha256": "b5f03e04ca4dd05b98d80dd6a5203af72000ed53e80de38db4d83e122dbb3e82",
+          "whole_transaction_status": "not_simulated"
+        },
+        {
+          "base_token": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "child_receive_minus_quote_finish_ns": -1797420834,
+          "hop_quote_sources": [
+            "slipstream_quoter",
+            "v3_quoter"
+          ],
+          "input_raw": "112819960",
+          "l1_cost_raw": "8",
+          "l2_cost_raw": "5843",
+          "modeled_net_raw": "393",
+          "modeled_net_usdc_raw": "393",
+          "quote_finished_monotonic_ns": 1398283076696375,
+          "quote_replay_attempt": 5,
+          "quote_rpc_calls": 2,
+          "quote_started_monotonic_ns": 1398282585329958,
+          "quoted_net_raw": "393",
+          "quoted_output_raw": "112826204",
+          "rank": 2,
+          "retained_hop_outputs_raw": [
+            67602256126940030,
+            112826204
+          ],
+          "route": [
+            [
+              "0xb2cc224c1c9fee385f8ad6a55b4d94e92359dc59",
+              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+              "0x4200000000000000000000000000000000000006"
+            ],
+            [
+              "0xb4cb800910b228ed3d0834cf79d697127bbb00e5",
+              "0x4200000000000000000000000000000000000006",
+              "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+            ]
+          ],
+          "status": "per_leg_positive",
+          "topology_sha256": "b5f03e04ca4dd05b98d80dd6a5203af72000ed53e80de38db4d83e122dbb3e82",
+          "whole_transaction_status": "not_simulated"
+        }
+      ],
+      "parent_hash": "0x23e7d4113cedab6d5c1c6a4867aa919063f6697441e0e1ecd09e49f19978638f",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0x044e1c59c84204f81f7046c24d7836683a5f27fa5656d2b34cb5d5d0fa3d2389",
+        "prior_block_number": 63043736,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 175664250,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043749,
+      "block_hash": "0x2874a2392209deba85a712dcfb64d9cd008c04ce87ff40684d1ee99f816619a7",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 47
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 47
+        }
+      },
+      "head_to_discovery_ns": 770925416,
+      "head_to_state_ns": 734973166,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0xe7a6f38b19cafa83e97dec3f3913b363f5759523a65c5ac3f4e1ebca6e69b7c9",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+        "prior_block_number": 63043739,
+        "prior_candidates": 2,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 100524333,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043752,
+      "block_hash": "0x161166a0147b254dc0132f719cb78b95be584eec6716cfefe3b246c38f7710a6",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 47
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 47
+        }
+      },
+      "head_to_discovery_ns": 867499792,
+      "head_to_state_ns": 832957750,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0xd250eec02dccb816b9f2bf36b55be07e0528811b06da35c9d5f91fc46d6ab180",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0x2874a2392209deba85a712dcfb64d9cd008c04ce87ff40684d1ee99f816619a7",
+        "prior_block_number": 63043749,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 66043500,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043756,
+      "block_hash": "0xc615ec825fb2326077334b205a5f33de258050a85837fba455e94ce1f1ac7024",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        }
+      },
+      "head_to_discovery_ns": 752594958,
+      "head_to_state_ns": 723251416,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0x9fc7bbc9d056c51584b159ede8ca0749472e28b95dc281dd1d67174b864ad35c",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0x161166a0147b254dc0132f719cb78b95be584eec6716cfefe3b246c38f7710a6",
+        "prior_block_number": 63043752,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 167860041,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043759,
+      "block_hash": "0x77848f0df61cedd3214a8f9d670599ed84d39146806517cfc42af3b7a8024508",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        }
+      },
+      "head_to_discovery_ns": 738435042,
+      "head_to_state_ns": 709014459,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0x38b0a63e100d88b11374493463fe7d57a8227d09b1c3b64d99c9a5accf1dd6d9",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0xc615ec825fb2326077334b205a5f33de258050a85837fba455e94ce1f1ac7024",
+        "prior_block_number": 63043756,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 171996250,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    },
+    {
+      "block": 63043762,
+      "block_hash": "0x005a309e6c0f2cb9d7fe912813e258633d32d9502120e437f455471abc50d4c1",
+      "cohorts": {
+        "address_58": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        },
+        "four_pool": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 4
+        },
+        "mixed_66": {
+          "model_candidates": 0,
+          "unresolved_sizing_intervals": 45
+        }
+      },
+      "head_to_discovery_ns": 682540291,
+      "head_to_state_ns": 652726208,
+      "normal_ranked_candidates": [],
+      "parent_hash": "0x50698792ef1f318f8839fb54f9ecdf7971d0d5506d3870bc982b8deb340a2cb1",
+      "prior_fixed_route_model_reprice": {
+        "marks": [],
+        "prior_block_hash": "0x77848f0df61cedd3214a8f9d670599ed84d39146806517cfc42af3b7a8024508",
+        "prior_block_number": 63043759,
+        "prior_candidates": 0,
+        "status": "block_gap"
+      },
+      "queue_before_state_ns": 112341541,
+      "relation": "gap",
+      "same_envelope_child_simulations": 0,
+      "whole_transaction_simulations": 0
+    }
+  ],
+  "normal_discovery_candidates": 2,
+  "positive_survival_rate": null,
+  "schedule_sha256": "2a29dfb30a7ced6c6ff70e77f710dc6e6a1656295953ca805b00b556a5ada12b",
+  "scope": {
+    "all_base_primitives_cap": 45,
+    "cex_scope": "offline synthetic Coinbase responses provided to normal campaign",
+    "code_identity": {
+      "scripts/run_multicall_100tick_campaign.py": "210ddf7cfb08cdc1c661404bce66f061550e5017b80289f1c412984a0760e994",
+      "src/oasis_agent/evidence/base_newheads.py": "bfce6fd808a97ce02b9b5844185ca822b25f56f53cd0aefc0372f95d1502ea20",
+      "src/oasis_agent/fastpath/base_mixed_snapshot.py": "75257c05debc2b2e4b05a2271b2fb2ce915dfffd15669379500698af013c898e"
+    },
+    "connection_and_ws_control_cap": 3,
+    "directional_snapshots": [
+      4,
+      58,
+      66
+    ],
+    "driver_sha256": "8cfbf8f10fb43535c9a1687f87f20007d1065f198c3c4267eb3164ae981f9302",
+    "eligibility": "normal shadow ranked model candidate, retain per-leg for supported address pools",
+    "fee_model": "existing shadow fixed L1/L2",
+    "frozen_utc": "2026-11-27T17:05:13.730265+00:00",
+    "max_observed_heads": 56,
+    "max_usd": 0,
+    "observe_first_positive_without_backfill": true,
+    "per_source_http_max": {
+      "base_official": 16,
+      "publicnode_base": 26
+    },
+    "prior_manifest_sha256": "20b43e2f3677c64a4d55a9c38484d2bf53bf0c86c93ac47fa4d23755f6fa6b9c",
+    "require_direct_child": true,
+    "reserve_budget_for_future_state_pins": true,
+    "retry": false,
+    "rpc_timeout_s": 4.0,
+    "schema": "oasis-base-static-v4-policy-natural-holdout-v1",
+    "selection": "latest_queued",
+    "sources": [
+      "wss://base-rpc.publicnode.com",
+      "https://base-rpc.publicnode.com",
+      "https://mainnet.base.org"
+    ],
+    "ticks": 8,
+    "v4_static_read": true,
+    "wall_time_cap_s": 35
+  },
+  "scope_sha256": "119add2877bebde6c06e0a88706efcbe08d94127c6b65657aa02ee219b506c4c",
+  "summary_sha256": "5a1a2bc49c767ee5c4e1f8a0a58dd26a509605b2acf07619fce61ef3486197b9",
+  "whole_transaction_simulations": 0
+}

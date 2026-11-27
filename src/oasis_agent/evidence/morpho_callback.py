@@ -57,6 +57,20 @@ class CallbackResearch:
     unresolved_loan_logs: tuple[tuple[int, str], ...]
 
 
+def _loan_arguments(loan: Frame) -> tuple[str, int, bytes]:
+    raw = _calldata(loan, "flashLoan", _LOAN_TYPES)
+    offset = 32 * len(_LOAN_TYPES)
+    if len(raw) >= offset + 32 and int.from_bytes(raw[offset - 32 : offset], "big") == offset:
+        size = int.from_bytes(raw[offset : offset + 32], "big")
+        end = offset + 32 + ((size + 31) // 32) * 32
+        # A settled Morpho loan carries one excess zero word outside its declared
+        # bytes argument. The callback still has to reproduce the exact payload.
+        if len(raw) == end + 32 and raw[end:] == bytes(32):
+            raw = raw[:end]
+    token, amount, payload = _static_then_bytes(_LOAN_TYPES, raw)
+    return token, amount, payload
+
+
 def _bound_transfer(
     frame: Frame,
     payments: list[_Transfer],
@@ -133,9 +147,7 @@ def _authenticate(
     loan = frames[path]
     borrower, token = map(_indexed_address, log.topics[1:])
     (amount,) = abi(("uint256",), data_bytes(log.data))
-    arg_token, arg_amount, payload = _static_then_bytes(
-        _LOAN_TYPES, _calldata(loan, "flashLoan", _LOAN_TYPES)
-    )
+    arg_token, arg_amount, payload = _loan_arguments(loan)
     if (*path, 3) in frames or (*path, 0, 0) in frames or (*path, 2, 0) in frames:
         raise ValueError("loan needs direct unambiguous token transfers")
     cb = (*path, 1)
