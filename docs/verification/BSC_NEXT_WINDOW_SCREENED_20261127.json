@@ -1,0 +1,202 @@
+{
+  "schema": "oasis-bsc-next-window-screened-v1",
+  "chain_id": 56,
+  "chain": "bsc",
+  "block_number": 136050291,
+  "block_hash": "0x51f3a45428b0c9f1ba6df92b8deb478cc72f4ae2915b834fcda3d405ac0c837f",
+  "receipts_root": "0xc28df2d0f6d1ebaf4cd40bd1634e1eadee7d99c8f81784aa7050ec329974d374",
+  "raw_response": "reports/research/bsc-next-window-20261127/wire/16.response",
+  "raw_response_sha256": "fa94254c3cff0b283fc0c13d04d54bd89b30cb4aedcb92ffefe6468195ebcc47",
+  "raw_header": "reports/research/bsc-next-window-20261127/wire/03.response",
+  "raw_header_sha256": "c556b78779dc8005b8fbfea43e9818819774dd815fe76333460670307d894b95",
+  "all_receipts": 139,
+  "matched_log_topic0": [
+    "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+    "0x143f1f8e861fbdeddd5b46e844b7d3ac7b86a122f36e8c463859ee6811b1f29c",
+    "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+    "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b",
+    "0x276856b36cbc45526a0ba64f44611557a2a8b68662c5388e9fe6d72e86e1c8cb",
+    "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+    "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140",
+    "0xb2e76ae99761dc136e598d4a629bb347eccb9532a5f8bbd72e18467c3c34cc98",
+    "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+    "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+  ],
+  "pool_roster_overlap_transactions": 3,
+  "samples": [
+    {
+      "tx_hash": "0x6fc26b7399a8294e6893789b350c75d145b386aeaf860dcb3a4a567c16234f26",
+      "transaction_index": 5,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 3,
+      "swap_log_indices": [
+        54,
+        57,
+        58
+      ],
+      "receipt_gas_used": 385127,
+      "effective_gas_price_wei": "52000002",
+      "receipt_gas_bnb_wei": "20026604770254",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0x433f0448f4c3b7b43fb9d74c57b131de15d713d669c0f3a1f505251a11f40b26",
+      "transaction_index": 7,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        68,
+        83
+      ],
+      "receipt_gas_used": 886443,
+      "effective_gas_price_wei": "150000000",
+      "receipt_gas_bnb_wei": "132966450000000",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0x8fab7f15655f45eaae25c2891aff5e6e6e794ff54f495704f09e03ed074cf5e3",
+      "transaction_index": 9,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        122,
+        147
+      ],
+      "receipt_gas_used": 881945,
+      "effective_gas_price_wei": "120000000",
+      "receipt_gas_bnb_wei": "105833400000000",
+      "roster_overlap": [
+        {
+          "log_index": 147,
+          "logical_pool_id": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "emitter": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "roster": "added"
+        }
+      ]
+    },
+    {
+      "tx_hash": "0xac9ee64e20e2af109a26e8376ac8c5adcb027338f896ae9642144f57f20af380",
+      "transaction_index": 10,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        156,
+        159
+      ],
+      "receipt_gas_used": 357868,
+      "effective_gas_price_wei": "50001000",
+      "receipt_gas_bnb_wei": "17893757868000",
+      "roster_overlap": [
+        {
+          "log_index": 159,
+          "logical_pool_id": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "emitter": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "roster": "added"
+        }
+      ]
+    },
+    {
+      "tx_hash": "0xf6ed8c11cf9abb853d7a8ebf1db23814579ac76e8e390123b96870b68eaf3fe1",
+      "transaction_index": 12,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        180,
+        205
+      ],
+      "receipt_gas_used": 850153,
+      "effective_gas_price_wei": "100000000",
+      "receipt_gas_bnb_wei": "85015300000000",
+      "roster_overlap": [
+        {
+          "log_index": 205,
+          "logical_pool_id": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "emitter": "0x172fcd41e0913e95784454622d1c3724f546f849",
+          "roster": "added"
+        }
+      ]
+    },
+    {
+      "tx_hash": "0xc54bae191d3de2c1d8982d30a4a79d54d1f518c2295dde26eff89499bc834062",
+      "transaction_index": 14,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        225,
+        239
+      ],
+      "receipt_gas_used": 683174,
+      "effective_gas_price_wei": "120000000",
+      "receipt_gas_bnb_wei": "81980880000000",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0xeef062c84539d61fdf7df8d9ed9839021781998df72091e5c0a09a3d48fc2f8b",
+      "transaction_index": 16,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 4,
+      "swap_log_indices": [
+        270,
+        273,
+        277,
+        282
+      ],
+      "receipt_gas_used": 1033891,
+      "effective_gas_price_wei": "72340264",
+      "receipt_gas_bnb_wei": "74791947887224",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0x76cbae4e13f4e187f866ac57100751c05ab786bb0c0e5d27f6ba997b881e6417",
+      "transaction_index": 65,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        494,
+        507
+      ],
+      "receipt_gas_used": 603572,
+      "effective_gas_price_wei": "74750000",
+      "receipt_gas_bnb_wei": "45117007000000",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0xf763331ee6da9983d937d2853676734090b6bc63cb01dd55a3cb26dfbfdad81b",
+      "transaction_index": 86,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        655,
+        660
+      ],
+      "receipt_gas_used": 382284,
+      "effective_gas_price_wei": "71500000",
+      "receipt_gas_bnb_wei": "27333306000000",
+      "roster_overlap": []
+    },
+    {
+      "tx_hash": "0xcd1dd0852a6c4ebd5524e693ed9f33b00840d4137416d43df9d18c7471732e52",
+      "transaction_index": 87,
+      "shape": "unresolved",
+      "receipt_status": 1,
+      "recognized_swap_shapes": 2,
+      "swap_log_indices": [
+        669,
+        686
+      ],
+      "receipt_gas_used": 547960,
+      "effective_gas_price_wei": "71500000",
+      "receipt_gas_bnb_wei": "39179140000000",
+      "roster_overlap": []
+    }
+  ]
+}

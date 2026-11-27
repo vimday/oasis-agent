@@ -60,6 +60,24 @@ def test_batch_plan_reserves_shared_cost_and_compares_best_single_or_hold() -> N
     )
     assert result["ordered_batch"]["net"] < result["batch_reset_pool_diagnostic"]["net"]
     assert result["batch_delta_vs_ordered_separate"] == result["ordered_batch"]["net"] + 40
+    assert "search" not in result
+
+    search_plan = {
+        **plan,
+        "schema": "oasis-v2-batch-search-plan-v1",
+        "search": {"max_batch_orders": 2, "beam_width": 4, "max_leg_evaluations": 20},
+    }
+    report = analyze(snapshot, dumps(search_plan).encode(), chain=56)
+    assert report["schema"] == "oasis-v2-batch-search-report-v1"
+    assert report["execution_eligible"] is False
+    search = report["search"]
+    assert search["complete_in_declared_scope"] is True
+    assert search["extensions_evaluated"] == sum(search["extension_status_counts"].values()) == 4
+    assert search["best_net"] == search["best_batch"]["net"] > 0
+    assert search["best_batch_marginals"][0]["without_order_net"] == 0
+    with pytest.raises(ValueError, match="invalid leg evaluation budget"):
+        limited = {**search_plan, "search": {**search_plan["search"], "max_leg_evaluations": 0}}
+        analyze(snapshot, dumps(limited).encode(), chain=56)
 
     with pytest.raises(ValueError, match="bind the retained snapshot"):
         analyze(snapshot + b" ", dumps(plan).encode(), chain=56)

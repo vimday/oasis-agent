@@ -23,6 +23,7 @@ from oasis_agent.evidence.robinhood_quote import (
     parse_routes,
     quote_multicall,
     read_quotes,
+    route_capacity_diagnostics,
 )
 from oasis_agent.evidence.rpc_validation import strict_json_object, strict_object
 from oasis_agent.fastpath.multicall_universe import MULTICALL3
@@ -259,7 +260,11 @@ def _run(
     return {"schema": SCHEMA, "status": "complete", "states": rows, "execution_eligible": False}
 
 
-def run(root: Path, sources: Path, route_path: Path | None) -> dict[str, Any]:
+def run(
+    root: Path, sources: Path, route_path: Path | None, *, capacity_diagnostics: bool = False
+) -> dict[str, Any]:
+    if capacity_diagnostics and route_path is not None:
+        raise ValueError("capacity diagnostics require a completed retained capture")
     if route_path is None:
         if strict_json_object(read_bounded(root / "STOP", 2048)) != {"status": "complete"}:
             raise ValueError("incomplete original scope")
@@ -271,6 +276,14 @@ def run(root: Path, sources: Path, route_path: Path | None) -> dict[str, Any]:
             result = _run(root, sources, routes, budget)
         if read_bounded(root / "report.json", MAX_RPC_BYTES) != canonical_json(result):
             raise ValueError("quote report differs from retained evidence")
+        if capacity_diagnostics:
+            result["route_capacity_diagnostics"] = [
+                {
+                    "block_hash": state["hash"],
+                    "routes": route_capacity_diagnostics(routes, state["pools"], state["quotes"]),
+                }
+                for state in result["states"]
+            ]
         return result
 
     route_raw = read_bounded(route_path, MAX_ROUTES_BYTES)
@@ -302,9 +315,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("out", type=Path)
     parser.add_argument("--sources-dir", type=Path, required=True)
-    parser.add_argument("--capture-routes", type=Path, help="one new public live scope")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--capture-routes", type=Path, help="one new public live scope")
+    mode.add_argument(
+        "--capacity-diagnostics",
+        action="store_true",
+        help="show directional grid and liquidity reverts from the retained replay only",
+    )
     args = parser.parse_args()
-    print(canonical_json(run(args.out, args.sources_dir, args.capture_routes)).decode())
+    report = run(
+        args.out,
+        args.sources_dir,
+        args.capture_routes,
+        capacity_diagnostics=args.capacity_diagnostics,
+    )
+    print(canonical_json(report).decode())
     return 0
 
 

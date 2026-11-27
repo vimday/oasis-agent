@@ -14,6 +14,15 @@ from ..fastpath.multicall_universe import (
     _encode_aggregate3_calldata,
 )
 from ..models.common import ZERO_ADDRESS
+from ..models.v4 import SwapDirection
+from ..uniswap_v4.fees import MAX_LP_FEE, settled_fee_breakdown
+from ..uniswap_v4.liquidity_math import (
+    MAX_TICK,
+    MIN_TICK,
+    amount0_delta,
+    amount1_delta,
+    sqrt_price_at_tick,
+)
 from ..uniswap_v4.quotes import QuotePoolKey, decode_single_pool_quote
 from ..uniswap_v4.state_rpc import Slot0State
 from .nitro_block import NitroHeader, nitro_header
@@ -26,6 +35,8 @@ QUOTER = "0x8dc178efb8111bb0973dd9d722ebeff267c98f94"
 POOL_ABI = ("address", "address", "uint24", "int24", "address")
 PATH_ABI = "(address,(address,uint24,int24,address,bytes)[],uint128)"
 INT128 = 1 << 127
+_LIQUIDITY_ERROR = keccak(b"NotEnoughLiquidity(bytes32)")[:4]
+_WRAPPED_REVERT = keccak(b"UnexpectedRevertBytes(bytes)")[:4]
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,3 +226,107 @@ def read_quotes(raw: object, routes: tuple[NativeRoute, ...], base_fee: int) -> 
             quote.update({"status": "quoter_reverted", "revert_data": "0x" + payload.hex()})
         quotes.append(quote)
     return {"pools": state, "quotes": quotes, "whole_transaction_simulated": False}
+
+
+@dataclass(frozen=True, slots=True)
+class FirstGridInput:
+    tick: int
+    fee_pips: int
+    input_raw: int
+
+
+def first_grid_input(
+    pool: QuotePoolKey, slot: Slot0State, liquidity: int, direction: SwapDirection
+) -> FirstGridInput | None:
+    """Gross raw input to the first possible initialized tick in this direction."""
+    if pool.hooks != ZERO_ADDRESS or slot.lp_fee != pool.fee:
+        raise ValueError("first grid input requires matching static no-hook pool fees")
+    lower = (slot.tick // pool.tick_spacing) * pool.tick_spacing
+    zero_for_one = direction is SwapDirection.ZERO_FOR_ONE
+    tick = lower if zero_for_one else lower + pool.tick_spacing
+    if not MIN_TICK < tick < MAX_TICK:
+        return None
+    price = slot.sqrt_price_x96
+    if (
+        not sqrt_price_at_tick(slot.tick)
+        <= price
+        <= sqrt_price_at_tick(min(slot.tick + 1, MAX_TICK))
+    ):
+        return None
+    fee = settled_fee_breakdown(slot.lp_fee, slot.protocol_fee, direction).swap_fee
+    if fee == MAX_LP_FEE:
+        return None
+    delta = amount0_delta if zero_for_one else amount1_delta
+    net = delta(price, sqrt_price_at_tick(tick), liquidity, round_up=True)
+    divisor = MAX_LP_FEE - fee
+    return FirstGridInput(tick, fee, (net * MAX_LP_FEE + divisor - 1) // divisor)
+
+
+def _liquidity_error_pool(value: object) -> bytes | None:
+    try:
+        payload = data_bytes(value)
+        if payload[:4] == _WRAPPED_REVERT:
+            (payload,) = abi(("bytes",), payload[4:])
+    except ValueError:
+        return None
+    return payload[4:] if len(payload) == 36 and payload[:4] == _LIQUIDITY_ERROR else None
+
+
+def route_capacity_diagnostics(
+    routes: tuple[NativeRoute, ...], pools_raw: object, quotes_raw: object
+) -> list[dict[str, object]]:
+    """Diagnose only from the accepted same-block quotes and initial state."""
+    states = {}
+    for item in strict_list(pools_raw, "quote states"):
+        row = strict_object(item, "quote pool state")
+        pool_id = data_bytes(row["pool_id"])
+        if len(pool_id) != 32 or pool_id in states:
+            raise ValueError("invalid or duplicate quote pool ID")
+        slot = Slot0State(
+            strict_integer(row["sqrt_price_x96"], "sqrt price"),
+            strict_integer(row["tick"], "tick"),
+            strict_integer(row["protocol_fee_packed"], "protocol fee"),
+            strict_integer(row["lp_fee"], "LP fee"),
+        )
+        states[pool_id] = (slot, strict_integer(row["liquidity"], "active liquidity"))
+    diagnostics: list[dict[str, object]] = []
+    for route, raw in zip(routes, strict_list(quotes_raw, "quotes"), strict=True):
+        quote = strict_object(raw, "quote result")
+        if quote["route"] != route.name:
+            raise ValueError("quote and route identity mismatch")
+        failure_pool = (
+            _liquidity_error_pool(quote["revert_data"])
+            if (quote["status"] == "quoter_reverted")
+            else None
+        )
+        currency_in = ZERO_ADDRESS
+        legs: list[dict[str, object]] = []
+        for i, (pool_id, pool) in enumerate(_pool_ids((route,)).items(), start=1):
+            if currency_in == pool.currency0:
+                direction, currency_out = SwapDirection.ZERO_FOR_ONE, pool.currency1
+            else:
+                direction, currency_out = SwapDirection.ONE_FOR_ZERO, pool.currency0
+            grid = first_grid_input(pool, *states[pool_id], direction)
+            amount_in = route.amount if i == 1 else None
+            legs.append(
+                {
+                    "hop": i,
+                    "pool_id": "0x" + pool_id.hex(),
+                    "currency_in": currency_in,
+                    "currency_out": currency_out,
+                    "direction": direction.value,
+                    "amount_in_raw": amount_in,
+                    "first_grid_tick": grid.tick if grid is not None else None,
+                    "first_grid_gross_input_raw": grid.input_raw if grid is not None else None,
+                    "swap_fee_pips": grid.fee_pips if grid is not None else None,
+                    "amount_exceeds_first_grid": (
+                        amount_in > grid.input_raw
+                        if grid is not None and amount_in is not None
+                        else None
+                    ),
+                    "quoter_reported_liquidity_failure": failure_pool == pool_id,
+                }
+            )
+            currency_in = currency_out
+        diagnostics.append({"route": route.name, "legs": legs})
+    return diagnostics

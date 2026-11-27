@@ -8,12 +8,17 @@ from oasis_agent.evidence.robinhood_quote import (
     MANAGER,
     PATH_ABI,
     NativeRoute,
+    _pool_ids,
+    first_grid_input,
     parse_routes,
     quote_multicall,
     read_quotes,
+    route_capacity_diagnostics,
 )
 from oasis_agent.models.common import ZERO_ADDRESS
+from oasis_agent.models.v4 import SwapDirection
 from oasis_agent.uniswap_v4.quotes import QuotePoolKey
+from oasis_agent.uniswap_v4.state_rpc import Slot0State
 
 TOKEN = "0x" + "44" * 20
 LEFT = QuotePoolKey(ZERO_ADDRESS, TOKEN, 200, 4, ZERO_ADDRESS)
@@ -115,3 +120,49 @@ def test_native_shadow_router_prepays_principal_and_collects_full_credit() -> No
     for amount, when in ((110, 500), (True, 500), (INT128, 500), (120, 0), (120, True)):
         with pytest.raises(ValueError):
             route.shadow_router_data(amount, when)
+
+
+def test_grid_distance_reproduces_retained_fourth_leg_without_claiming_capacity() -> None:
+    pool = QuotePoolKey(
+        ZERO_ADDRESS, "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18", 10_353, 207, ZERO_ADDRESS
+    )
+    slot = Slot0State(25_260_409_414_693_572_635_910_712_454_721, 115_299, 4_097_000, 10_353)
+    grid = first_grid_input(pool, slot, 23_714_791_908_981_046_884, SwapDirection.ZERO_FOR_ONE)
+    assert grid is not None
+    assert (grid.tick, grid.fee_pips, grid.input_raw) == (115_299, 11_343, 689_656_662)
+    assert grid.input_raw < 98_962_916_720_681  # retained three-hop prefix output in ETH wei
+
+
+def test_grid_distance_uses_signed_tick_and_packed_fee_direction() -> None:
+    slot = Slot0State(1 << 96, -1, (17 << 12) | 8, 500)
+    left = first_grid_input(RIGHT, slot, 1000, SwapDirection.ZERO_FOR_ONE)
+    right = first_grid_input(RIGHT, slot, 1000, SwapDirection.ONE_FOR_ZERO)
+    assert left is not None and right is not None
+    assert (left.tick, left.fee_pips, left.input_raw) == (-10, 508, 2)
+    assert (right.tick, right.fee_pips, right.input_raw) == (0, 517, 0)
+    incoherent = Slot0State(1 << 100, -1, 0, 500)
+    assert first_grid_input(RIGHT, incoherent, 1000, SwapDirection.ZERO_FOR_ONE) is None
+
+
+@pytest.mark.parametrize("failure", ["wrapped", "direct", "trailing_bytes", "unrelated_pool"])
+def test_route_diagnostics_associate_exact_reverts_without_guessing_internal_inputs(
+    failure: str,
+) -> None:
+    route = NativeRoute("control", 100_000, (LEFT, RIGHT))
+    _, target_id = _pool_ids((route,))
+    reported = bytes.fromhex("11" * 32) if failure == "unrelated_pool" else target_id
+    payload = keccak(b"NotEnoughLiquidity(bytes32)")[:4] + reported
+    if failure != "direct":
+        payload = keccak(b"UnexpectedRevertBytes(bytes)")[:4] + encode(["bytes"], [payload])
+    if failure == "trailing_bytes":
+        payload += b"\x00"
+    result = read_quotes(_aggregate([(False, payload)]), (route,), 3)
+    (report,) = route_capacity_diagnostics((route,), result["pools"], result["quotes"])
+    first, second = report["legs"]
+    assert first["amount_in_raw"] == route.amount
+    assert first["amount_exceeds_first_grid"] is True
+    assert first["quoter_reported_liquidity_failure"] is False
+    assert second["currency_in"] == TOKEN
+    assert second["direction"] == "one_for_zero"
+    assert second["amount_in_raw"] is second["amount_exceeds_first_grid"] is None
+    assert second["quoter_reported_liquidity_failure"] is (failure in {"direct", "wrapped"})

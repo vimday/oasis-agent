@@ -7,7 +7,14 @@ from hashlib import sha256
 from pathlib import Path
 
 from oasis_agent.evidence.rpc_validation import strict_json_object
-from oasis_agent.fastpath.v2_batch import V2BatchOrder, V2BatchRun, compare_v2_batch
+from oasis_agent.fastpath.v2_batch import (
+    MAX_V2_BATCH_LEGS,
+    MAX_V2_BATCH_ORDERS,
+    V2BatchOrder,
+    V2BatchRun,
+    compare_v2_batch,
+    search_v2_batches,
+)
 from oasis_agent.fastpath.v2_sizing import MAX_V2_LEGS
 
 if __package__:
@@ -16,6 +23,7 @@ else:
     from replay_v2_pool_expansion import _build_route, _hex, _read_snapshot, _uint
 
 _PLAN_SCHEMA = "oasis-v2-batch-plan-v1"
+_SEARCH_PLAN_SCHEMA = "oasis-v2-batch-search-plan-v1"
 
 
 def analyze(
@@ -28,21 +36,28 @@ def analyze(
 ) -> dict:
     snapshot = _read_snapshot(snapshot_raw, chain, eth_scope, eth_baseline)
     plan = strict_json_object(plan_raw)
-    if plan.keys() != {
+    fields = {
         "schema",
         "snapshot_sha256",
         "initial_capital",
         "batch_fixed_cost",
         "orders",
-    }:
+    }
+    search_plan = plan.get("schema") == _SEARCH_PLAN_SCHEMA
+    if search_plan:
+        fields.add("search")
+    if plan.keys() != fields:
         raise ValueError("invalid batch plan fields")
-    if plan["schema"] != _PLAN_SCHEMA or plan["snapshot_sha256"] != snapshot.digest:
+    if (
+        plan["schema"] not in (_PLAN_SCHEMA, _SEARCH_PLAN_SCHEMA)
+        or plan["snapshot_sha256"] != snapshot.digest
+    ):
         raise ValueError("batch plan must bind the retained snapshot")
     capital, fixed = _uint(plan["initial_capital"]), _uint(plan["batch_fixed_cost"])
     if fixed >= capital:
         raise ValueError("batch fixed cost must leave positive working capital")
     rows = plan["orders"]
-    if not isinstance(rows, list) or not 1 <= len(rows) <= 64:
+    if not isinstance(rows, list) or not 1 <= len(rows) <= MAX_V2_BATCH_ORDERS:
         raise ValueError("expected 1 to 64 ordered cycles")
 
     separate = []
@@ -84,7 +99,7 @@ def analyze(
     batch_net = batch.ordered.net_profit - fixed
     best_or_hold = max(0, baseline.best_standalone_net)
 
-    return {
+    report = {
         "schema": "oasis-v2-batch-comparison-v1",
         "status": "constant_product_model_only",
         "chain_id": snapshot.chain,
@@ -101,6 +116,41 @@ def analyze(
         "batch_delta_vs_ordered_separate": batch_net - baseline.ordered.net_profit,
         "batch_delta_vs_best_standalone_or_hold": batch_net - best_or_hold,
     }
+    if search_plan:
+        settings = plan["search"]
+        if not isinstance(settings, dict) or settings.keys() != {
+            "max_batch_orders",
+            "beam_width",
+            "max_leg_evaluations",
+        }:
+            raise ValueError("invalid batch search fields")
+        found = search_v2_batches(
+            shared,
+            initial_capital=capital,
+            anchor_token=snapshot.anchor,
+            batch_fixed_cost=fixed,
+            max_batch_orders=_uint(settings["max_batch_orders"]),
+            beam_width=_uint(settings["beam_width"]),
+            max_leg_evaluations=_uint(settings["max_leg_evaluations"]),
+        )
+        report["schema"] = "oasis-v2-batch-search-report-v1"
+        report["execution_eligible"] = False
+        report["search"] = {
+            "complete_in_declared_scope": found.complete,
+            "beam_pruned": found.beam_pruned,
+            "budget_exhausted": found.budget_exhausted,
+            "max_batch_legs": MAX_V2_BATCH_LEGS,
+            "extensions_evaluated": found.extensions_evaluated,
+            "extension_status_counts": dict(found.extension_status_counts),
+            "search_leg_evaluations": found.search_leg_evaluations,
+            "counterfactual_leg_evaluations": found.counterfactual_leg_evaluations,
+            "best_net": found.best_net,
+            "ranked_positive_batches": [asdict(candidate) for candidate in found.shortlist],
+            "best_batch": _series(found.winner, fixed_cost=fixed) if found.winner else None,
+            "best_batch_marginals": [asdict(item) for item in found.marginals],
+            "delta_vs_best_standalone_or_hold": found.best_net - best_or_hold,
+        }
+    return report
 
 
 def _series(run: V2BatchRun, *, fixed_cost: int) -> dict:

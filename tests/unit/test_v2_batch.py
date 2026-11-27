@@ -6,6 +6,7 @@ from oasis_agent.fastpath.v2_batch import (
     V2BatchOrder,
     V2BatchStatus,
     compare_v2_batch,
+    search_v2_batches,
 )
 from oasis_agent.fastpath.v2_sizing import V2Leg, V2Pool, V2Route
 
@@ -131,3 +132,69 @@ def test_configured_exact_net_guard_and_invalid_snapshot_states() -> None:
         compare_v2_batch((first,), initial_capital=300, anchor_token="WRONG")
     with pytest.raises(ValueError, match="distinct IDs"):
         compare_v2_batch((first, first), initial_capital=300, anchor_token="A")
+
+
+def test_batch_search_finds_member_that_fails_standalone_and_reprices_deletions() -> None:
+    route = _route()
+    reverse = V2Route((V2Leg(route.legs[1].pool, "A"), V2Leg(route.legs[0].pool, "B")))
+    orders = (
+        V2BatchOrder("a-reverse", reverse, 40, 1, 3, 1),
+        V2BatchOrder("b-forward", route, 248, 5, 7, 1),
+    )
+    original = compare_v2_batch(orders, initial_capital=600, anchor_token="A")
+    assert original.standalone[0].status == V2BatchStatus.BELOW_MINIMUM_NET
+
+    result = search_v2_batches(
+        orders,
+        initial_capital=600,
+        anchor_token="A",
+        batch_fixed_cost=15,
+        max_batch_orders=2,
+        beam_width=4,
+        max_leg_evaluations=40,
+    )
+    assert result.complete and result.best_net == 112
+    assert result.winner is not None
+    assert [item.order_id for item in result.winner.results] == ["b-forward", "a-reverse"]
+    assert result.winner.results[1].quote is not None
+    assert result.winner.results[1].quote.amounts == (40, 55, 42)
+    assert result.winner.gross_profit - result.winner.cost_in_anchor - 15 == result.best_net
+    assert [(item.order_ids, item.net_in_anchor) for item in result.shortlist] == [
+        (("b-forward", "a-reverse"), 112),
+        (("b-forward",), 111),
+    ]
+    forward, reverse_delta = result.marginals
+    assert forward.incremental_net is None and forward.blocked_order_id == "a-reverse"
+    assert forward.blocked_status == V2BatchStatus.BELOW_MINIMUM_NET
+    assert (reverse_delta.without_order_net, reverse_delta.incremental_net) == (111, 1)
+
+
+def test_batch_search_retains_below_overhead_prefix_and_reports_incomplete_search() -> None:
+    orders = _orders()
+    independent = V2Route(
+        tuple(
+            V2Leg(replace(leg.pool, pool_id=f"other-{leg.pool.pool_id}"), leg.token_in)
+            for leg in orders[0].route.legs
+        )
+    )
+    orders = (orders[0], replace(orders[1], route=independent))
+    kwargs = {
+        "initial_capital": 500,
+        "anchor_token": "A",
+        "batch_fixed_cost": 200,
+        "max_batch_orders": 2,
+    }
+    result = search_v2_batches(orders, beam_width=2, max_leg_evaluations=8, **kwargs)
+    assert result.complete and result.best_net == 60
+    assert [item.order_ids for item in result.shortlist] == [
+        ("first", "second"),
+        ("second", "first"),
+    ]
+    assert [item.without_order_net for item in result.marginals] == [-70, -70]
+    assert result.search_leg_evaluations == 8 and result.counterfactual_leg_evaluations == 4
+
+    pruned = search_v2_batches(reversed(orders), beam_width=1, max_leg_evaluations=8, **kwargs)
+    assert pruned.beam_pruned and not pruned.complete and pruned.best_net == 60
+    exhausted = search_v2_batches(orders, beam_width=2, max_leg_evaluations=4, **kwargs)
+    assert exhausted.budget_exhausted and not exhausted.complete
+    assert exhausted.winner is None and exhausted.best_net == 0 and exhausted.shortlist == ()

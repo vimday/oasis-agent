@@ -119,7 +119,79 @@ def swap(pool, in_token, out_token, supplied, bought, fault=None):
     )
 
 
-def sample(fault):
+def pancake_v3_swap(zero_for_one, fault):
+    amount_in, amount_out = 25, 100
+    in_token = A if zero_for_one else C
+    delta0, delta1 = (25, -100) if zero_for_one else (-100, 25)
+    data = b"callback"
+    sender, pool = HOLDER, POOL1
+    query = calldata("balanceOf(address)", ("address",), (pool,))
+    payment = transfer(in_token, sender, pool, amount_in)
+    movements = [payment]
+    if fault == "unrelated_input_movement":
+        movements.append(transfer(in_token, sender, pool, 1))
+    callback = frame(
+        pool,
+        sender,
+        calldata(
+            "pancakeV3SwapCallback(int256,int256,bytes)",
+            ("int256", "int256", "bytes"),
+            (
+                delta0 + int(fault == "callback_deltas"),
+                delta1,
+                b"other" if fault == "callback_bytes" else data,
+            ),
+        ),
+        calls=movements,
+    )
+    pool_received = 500 + amount_in + int(fault == "source_balance")
+    calls = [
+        transfer(B, pool, sender, amount_out),
+        frame(pool, in_token, query, kind="STATICCALL", out=word(500)),
+        callback,
+        frame(
+            pool,
+            OTHER if fault == "source_asset" else in_token,
+            query,
+            kind="STATICCALL",
+            out=word(pool_received),
+        ),
+    ]
+    if fault == "source_order":
+        calls[0], calls[1] = calls[1], calls[0]
+    log = event(
+        pool,
+        topic("Swap(address,address,int256,int256,uint160,uint128,int24,uint128,uint128)"),
+        sender,
+        sender,
+        "0x"
+        + encode(
+            ["int256", "int256", "uint160", "uint128", "int24", "uint128", "uint128"],
+            [delta0, delta1, 1 << 96, 500, 0, 0, 0],
+        ).hex(),
+        len(calls),
+    )
+    return frame(
+        sender,
+        pool,
+        calldata(
+            "swap(address,bool,int256,uint160,bytes)",
+            ("address", "bool", "int256", "uint160", "bytes"),
+            (
+                sender,
+                zero_for_one,
+                -amount_out if fault == "exact_output" else amount_in + int(fault == "partial"),
+                (1 << 96) - 1 if zero_for_one else (1 << 96) + 1,
+                data,
+            ),
+        ),
+        out="0x" + encode(["int256", "int256"], [delta0, delta1]).hex(),
+        calls=calls,
+        logs=[log],
+    )
+
+
+def sample(fault, *, pancake_v3=False, zero_for_one=True, chain_id=56):
     logs = [
         event(B, TRANSFER, HOLDER, B if fault != "other_recipient" else OTHER, word(1)),
         event(B, TRANSFER, HOLDER, POOL2, word(99)),
@@ -132,11 +204,18 @@ def sample(fault):
     out = word(0 if fault == "false" else 1)
     impl = frame(B, IMPLEMENTATION, call_data, out=out, kind="DELEGATECALL", logs=logs)
     split = frame(HOLDER, B, call_data, out=out, calls=[impl])
+    source = (
+        [pancake_v3_swap(zero_for_one, fault)]
+        if pancake_v3
+        else [
+            transfer(A, HOLDER, POOL1, 25),
+            reserves(POOL1),
+            swap(POOL1, A, B, 25, 100),
+        ]
+    )
     moves = [
         balance(3 if fault == "inventory" else 0),
-        transfer(A, HOLDER, POOL1, 25),
-        reserves(POOL1),
-        swap(POOL1, A, B, 25, 100),
+        *source,
         balance(99 if fault == "intermediate" else 100),
         split,
         reserves(POOL2, fault == "malformed_reserves"),
@@ -159,7 +238,7 @@ def sample(fault):
 
     visit(root)
     rc = ObservedReceipt(
-        BlockRef(56, 100, BLOCK),
+        BlockRef(chain_id, 100, BLOCK),
         TX,
         0,
         SENDER,
@@ -205,5 +284,48 @@ def test_balance_checked_split_joins_only_the_net_credit_from_a_proxy_token():
 )
 def test_ambiguous_inexact_or_unwitnessed_debit_stays_unknown(fault):
     strict, supplemented = replay_with_transfer_splits(*sample(fault))
+    assert not supplemented.splits
+    assert supplemented.profile_with_splits == strict.profile
+
+
+@pytest.mark.parametrize("zero_for_one", [True, False])
+def test_pancake_v3_paid_input_and_v2_net_credit_join_on_bsc(zero_for_one):
+    strict, supplemented = replay_with_transfer_splits(
+        *sample(None, pancake_v3=True, zero_for_one=zero_for_one)
+    )
+    assert strict.profile.links == 0
+    assert supplemented.profile_with_splits.witnessed_depth == 2
+    (split,) = supplemented.splits
+    assert (split.gross, split.credited, split.retained_by_token) == (100, 99, 1)
+    assert split.reserve_reads == ((4,),)
+    assert split.sync_logs == (6,)
+    assert split.source_payment.balance_before == (1, 1)
+    assert split.source_payment.callback == (1, 2)
+    assert split.source_payment.transfer_call == (1, 2, 0)
+    assert split.source_payment.balance_after == (1, 3)
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "partial",
+        "exact_output",
+        "callback_deltas",
+        "callback_bytes",
+        "source_balance",
+        "source_asset",
+        "source_order",
+        "unrelated_input_movement",
+        "sync",
+    ],
+)
+def test_pancake_v3_requires_same_amount_callback_and_input_balance(fault):
+    strict, supplemented = replay_with_transfer_splits(*sample(fault, pancake_v3=True))
+    assert not supplemented.splits
+    assert supplemented.profile_with_splits == strict.profile
+
+
+def test_pancake_v3_split_is_only_recognized_on_bsc():
+    strict, supplemented = replay_with_transfer_splits(*sample(None, pancake_v3=True, chain_id=1))
     assert not supplemented.splits
     assert supplemented.profile_with_splits == strict.profile

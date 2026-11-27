@@ -12,9 +12,12 @@ from .public_receipts import ObservedReceipt
 from .research_traces import Frame, TracePath, first_failure, nested_calls
 from .swap_flow import TRANSFER, FundingLink, SwapFundingProfile, analyze_swap_funding
 from .swap_flow_trace import (
+    _V3_SWAP,
     TraceSwapFunding,
     TraceSwapProof,
+    _calldata,
     _receipt_positions,
+    _static_then_bytes,
     _Transfer,
     _transfers,
     replay_trace_funding,
@@ -25,6 +28,7 @@ _BALANCE = keccak(b"balanceOf(address)")[:4]
 _RESERVES = keccak(b"getReserves()")[:4]
 _SYNC = topic("Sync(uint112,uint112)")
 _TRUE = (1).to_bytes(32)
+_PANCAKE_V3_CALLBACK = ("int256", "int256", "bytes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,8 +46,21 @@ class TokenRetainedSplit:
     token_credit_log: int
     transfer_call: TracePath
     balance_reads: tuple[TracePath, TracePath, TracePath]
-    reserve_reads: tuple[TracePath, TracePath]
-    sync_logs: tuple[int, int]
+    reserve_reads: tuple[TracePath, ...]
+    sync_logs: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PancakeV3PaymentWitness:
+    balance_before: TracePath
+    callback: TracePath
+    transfer_call: TracePath
+    balance_after: TracePath
+
+
+@dataclass(frozen=True, slots=True)
+class PancakeV3TokenRetainedSplit(TokenRetainedSplit):
+    source_payment: PancakeV3PaymentWitness
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +158,80 @@ def _transfer_call(frames: dict[TracePath, Frame], movement: _Transfer) -> Trace
     return None
 
 
+def _pancake_v3_payment_witness(
+    proof: TraceSwapProof,
+    frames: dict[TracePath, Frame],
+    incoming: _Transfer | None,
+    pool_transfers: list[_Transfer],
+    holder: str,
+    output_call: TracePath,
+) -> PancakeV3PaymentWitness | None:
+    """Bind the retained exact-input swap to the pool's actual input balance change."""
+    leg, path = proof.leg, proof.call_path
+    pool = leg.event.pool[0]
+    call = frames[path]
+    recipient, zero_for_one, specified, _, callback_data = _static_then_bytes(
+        _V3_SWAP, _calldata(call, "swap", _V3_SWAP)
+    )
+    if (
+        not path
+        or output_call[:-1] != path
+        or call.sender != holder
+        or call.value
+        or recipient != holder
+        or specified != leg.amount_in
+        or zero_for_one != (leg.token_in < leg.token_out)
+    ):
+        return None
+    # PancakeV3Pool.swap transfers the output, reads the input balance, calls
+    # pancakeV3SwapCallback, then checks the input balance again.
+    amount0, amount1 = (
+        (leg.amount_in, -leg.amount_out) if zero_for_one else (-leg.amount_out, leg.amount_in)
+    )
+    if incoming is None or incoming.sender != holder:
+        return None
+    payment = _transfer_call(frames, incoming)
+    if not payment or len(payment) != len(path) + 2 or payment[:-2] != path:
+        return None
+    if frames[payment].data != (
+        _TRANSFER + bytes(12) + data_bytes(pool) + leg.amount_in.to_bytes(32)
+    ):
+        return None
+    callback = payment[:-1]
+    callback_frame = frames[callback]
+    if callback_frame.recipient != holder or callback_frame.value:
+        return None
+    if _static_then_bytes(
+        _PANCAKE_V3_CALLBACK,
+        _calldata(callback_frame, "pancakeV3SwapCallback", _PANCAKE_V3_CALLBACK),
+    ) != (amount0, amount1, callback_data):
+        return None
+
+    query = _BALANCE + bytes(12) + data_bytes(pool)
+    before, after = (*path, callback[-1] - 1), (*path, callback[-1] + 1)
+    if not output_call < before:
+        return None
+    balances = []
+    for position in (before, after):
+        read = frames.get(position)
+        if (
+            read is None
+            or read.kind != "STATICCALL"
+            or read.recipient != leg.token_in
+            or read.data != query
+            or read.error is not None
+            or read.output is None
+            or len(read.output) != 32
+        ):
+            return None
+        balances.append(int.from_bytes(read.output))
+    if balances[1] - balances[0] != leg.amount_in or [
+        t.index for t in pool_transfers if before < t.path < after
+    ] != [incoming.index]:
+        return None
+    return PancakeV3PaymentWitness(before, callback, payment, after)
+
+
 def replay_with_transfer_splits(
     receipt: ObservedReceipt, trace: object
 ) -> tuple[TraceSwapFunding, SplitFunding]:
@@ -151,6 +242,7 @@ def replay_with_transfer_splits(
     frames = nested_calls(trace)
     paths = _receipt_positions(trace, frames, receipt)
     transfers = _transfers(receipt, paths)
+    transfers_by_index = {m.index: m for m in transfers}
     logs_by_frame: dict[TracePath, list[LogRecord]] = defaultdict(list)
     for log in receipt.logs:
         logs_by_frame[paths[log.log_index]].append(log)
@@ -164,9 +256,12 @@ def replay_with_transfer_splits(
     used_out = {link.source for link in funding.links}
     used_in = {link.target for link in funding.links}
     movements: dict[str, list[_Transfer]] = defaultdict(list)
+    pool_movements: dict[tuple[str, str], list[_Transfer]] = defaultdict(list)
     for transfer in transfers:
         if holder in (transfer.sender, transfer.recipient):
             movements[transfer.token].append(transfer)
+        for account in {transfer.sender, transfer.recipient}:
+            pool_movements[transfer.token, account].append(transfer)
 
     reads: dict[tuple[TracePath, str], list[tuple[TracePath, int]]] = defaultdict(list)
     query = _BALANCE + bytes(12) + data_bytes(holder)
@@ -242,13 +337,41 @@ def replay_with_transfer_splits(
                 other.index,
             ]:
                 continue
-            pool_states = [
-                _v2_reserve_witness(swaps[idx], frames, logs_by_frame[swaps[idx].call_path])
-                for idx in (source, target)
-            ]
-            if pool_states[0] is None or pool_states[1] is None:
+            target_state = _v2_reserve_witness(
+                swaps[target], frames, logs_by_frame[swaps[target].call_path]
+            )
+            if target_state is None:
                 continue
-            split = TokenRetainedSplit(
+            source_proof = swaps[source]
+            source_payment = None
+            pool_states: tuple[tuple[TracePath, int], ...]
+            if receipt.block.chain_id == 56 and source_proof.leg.event.shape == "pancake_v3":
+                input_asset = source_proof.leg.token_in
+                input_transfer = source_proof.input_transfer_log
+                if input_transfer is None or input_asset in malformed:
+                    continue
+                try:
+                    source_payment = _pancake_v3_payment_witness(
+                        source_proof,
+                        frames,
+                        transfers_by_index.get(input_transfer),
+                        pool_movements[input_asset, source_proof.leg.event.pool[0]],
+                        holder,
+                        ingress,
+                    )
+                except ValueError:
+                    continue
+                if source_payment is None:
+                    continue
+                pool_states = (target_state,)
+            else:
+                source_state = _v2_reserve_witness(
+                    source_proof, frames, logs_by_frame[source_proof.call_path]
+                )
+                if source_state is None:
+                    continue
+                pool_states = (source_state, target_state)
+            split_args = (
                 source,
                 target,
                 token,
@@ -262,8 +385,13 @@ def replay_with_transfer_splits(
                 fee.index,
                 call,
                 bounds,
-                (pool_states[0][0], pool_states[1][0]),
-                (pool_states[0][1], pool_states[1][1]),
+                tuple(state[0] for state in pool_states),
+                tuple(state[1] for state in pool_states),
+            )
+            split = (
+                TokenRetainedSplit(*split_args)
+                if source_payment is None
+                else PancakeV3TokenRetainedSplit(*split_args, source_payment)
             )
             proofs.append(split)
             additions.append(

@@ -4,6 +4,8 @@
 
 ## 哪些交易值得学
 
+所有可定位样本及公开研究新增的 Arbitrum、Optimism、zkSync 对照已归入八链索引。总览按本金从哪里来、交易中是否重置本金、最后谁拿到资产及谁付费列出代表交易。Elysium 的跨协议闭合与原生付款缺口也已收录。[八链样本总览](MULTICHAIN_MULTIHOP_SAMPLE_ATLAS.md) · [逐笔案例表](../verification/MULTICHAIN_MULTIHOP_CASES_20261127.tsv)
+
 | 真实成交或同状态重放 | 核实的资金路径和成本 | 对搜索器的影响 |
 | --- | --- | --- |
 | Ethereum，109 事件线索 | 四段分别借还 WETH。收款合约增持 0.00916371 WETH，发送者支出 0.00145432 ETH gas 和 0.00559297 ETH 直接区块付款。两地址若同属一方，可见差额约 +0.00211642 ETH。成交块末已无法足额还款。[原始借还](../verification/ETH_109_MOTIVE_20261127.md) · [后续状态](../verification/MULTIHOP_FAMILY_SCREEN_20261127.md) | 从借款、受益人和还款位置找同类交易。分别跟踪每个账户和资产。 |

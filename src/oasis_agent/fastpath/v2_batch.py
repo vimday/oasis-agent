@@ -7,9 +7,11 @@ transaction inclusion, gas measurement, and shared transaction overhead
 are outside this research model.
 """
 
-from collections.abc import Iterable, Mapping
+from collections import ChainMap, Counter
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
+from heapq import nsmallest
 from itertools import pairwise
 
 from .v2_sizing import (
@@ -22,6 +24,12 @@ from .v2_sizing import (
     _identity,
     _uint,
 )
+
+MAX_V2_BATCH_ORDERS = 64
+MAX_V2_BATCH_LEGS = 512
+MAX_V2_BATCH_SEARCH_LEGS = 100_000
+MAX_V2_BATCH_BEAM_WIDTH = 128
+V2_BATCH_SHORTLIST_SIZE = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,8 +138,10 @@ def _attempt(
         )
 
     legs = tuple(V2Leg(pools[leg.pool.pool_id], leg.token_in) for leg in order.route.legs)
-    route = order.route if legs == order.route.legs else V2Route(legs)
-    quote = route.quote(order.amount_in)
+    amounts = [order.amount_in]
+    for leg in legs:
+        amounts.append(leg.quote_exact_input(amounts[-1]))
+    quote = V2RouteQuote(tuple(amounts))
     failure_cost = order.failure_cost_in_anchor
 
     def revert(status: V2BatchStatus, hop: int | None = None) -> V2BatchEntry:
@@ -209,10 +219,20 @@ def compare_v2_batch(
     _uint(initial_capital, 0, _MAX_UINT256, "initial capital")
     anchor = _identity(anchor_token)
     sequence = tuple(orders)
-    if len({order.order_id for order in sequence}) != len(sequence):
+    pools = _batch_pools(sequence, anchor)
+    return V2BatchComparison(
+        anchor,
+        _run(sequence, initial_capital, pools, carry_pool_state=True),
+        _run(sequence, initial_capital, pools, carry_pool_state=False),
+        tuple(_attempt(order, initial_capital, pools)[0] for order in sequence),
+    )
+
+
+def _batch_pools(orders: tuple[V2BatchOrder, ...], anchor: str) -> dict[str, V2Pool]:
+    if len({order.order_id for order in orders}) != len(orders):
         raise ValueError("batch orders require distinct IDs")
     pools: dict[str, V2Pool] = {}
-    for order in sequence:
+    for order in orders:
         if order.route.anchor != anchor:
             raise ValueError("all batch orders must return the declared anchor")
         for leg in order.route.legs:
@@ -220,9 +240,209 @@ def compare_v2_batch(
             if pools.setdefault(pool.pool_id, pool) != pool:
                 raise ValueError(f"conflicting starting pool state for {pool.pool_id}")
 
-    return V2BatchComparison(
-        anchor,
-        _run(sequence, initial_capital, pools, carry_pool_state=True),
-        _run(sequence, initial_capital, pools, carry_pool_state=False),
-        tuple(_attempt(order, initial_capital, pools)[0] for order in sequence),
+    return pools
+
+
+@dataclass(frozen=True, slots=True)
+class V2BatchMarginal:
+    order_id: str
+    without_order_net: int | None
+    incremental_net: int | None
+    blocked_order_id: str | None = None
+    blocked_status: V2BatchStatus | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class V2BatchCandidate:
+    order_ids: tuple[str, ...]
+    net_in_anchor: int
+
+    @property
+    def rank(self) -> tuple[int, int, tuple[str, ...]]:
+        return -self.net_in_anchor, len(self.order_ids), self.order_ids
+
+
+@dataclass(frozen=True, slots=True)
+class V2BatchSearch:
+    initial_capital: int
+    fixed_cost: int
+    winner: V2BatchRun | None
+    shortlist: tuple[V2BatchCandidate, ...]
+    marginals: tuple[V2BatchMarginal, ...]
+    extension_status_counts: tuple[tuple[V2BatchStatus, int], ...]
+    search_leg_evaluations: int
+    counterfactual_leg_evaluations: int
+    beam_pruned: bool
+    budget_exhausted: bool
+
+    @property
+    def best_net(self) -> int:
+        return 0 if self.winner is None else self.winner.final_capital - self.initial_capital
+
+    @property
+    def complete(self) -> bool:
+        return not (self.beam_pruned or self.budget_exhausted)
+
+    @property
+    def extensions_evaluated(self) -> int:
+        return sum(count for _, count in self.extension_status_counts)
+
+
+@dataclass(frozen=True, slots=True)
+class _BatchPrefix:
+    ids: tuple[str, ...]
+    capital: int
+    entries: tuple[V2BatchEntry, ...]
+    pool_updates: dict[str, V2Pool]
+    legs: int
+
+    @property
+    def rank(self) -> tuple[int, int, tuple[str, ...]]:
+        return -self.capital, len(self.ids), self.ids
+
+
+def search_v2_batches(
+    orders: Iterable[V2BatchOrder],
+    *,
+    initial_capital: int,
+    anchor_token: str,
+    batch_fixed_cost: int,
+    max_batch_orders: int,
+    beam_width: int,
+    max_leg_evaluations: int,
+) -> V2BatchSearch:
+    """Search fixed-size ordered subsets, carrying shared reserves and bankroll.
+
+    An extension must execute in its prefix state. Standalone profitability is
+    not an input filter. Every nonempty plan reserves the same modeled shared
+    cost; hold costs zero. Completeness is relative to the frozen candidate
+    menu, maximum orders and maximum total legs, and requires an unpruned search.
+    """
+    _uint(initial_capital, 1, _MAX_UINT256, "initial capital")
+    _uint(batch_fixed_cost, 0, initial_capital - 1, "batch fixed cost")
+    _uint(max_batch_orders, 1, MAX_V2_BATCH_ORDERS, "maximum batch orders")
+    _uint(beam_width, 1, MAX_V2_BATCH_BEAM_WIDTH, "beam width")
+    _uint(max_leg_evaluations, 1, MAX_V2_BATCH_SEARCH_LEGS, "leg evaluation budget")
+    sequence = tuple(sorted(orders, key=lambda order: order.order_id))
+    _uint(len(sequence), 1, MAX_V2_BATCH_ORDERS, "candidate count")
+    pools = _batch_pools(sequence, _identity(anchor_token))
+    working_capital = initial_capital - batch_fixed_cost
+    frontier = [_BatchPrefix((), working_capital, (), {}, 0)]
+    winner = None
+    shortlist: list[V2BatchCandidate] = []
+    statuses: Counter[V2BatchStatus] = Counter()
+    search_legs = 0
+    beam_pruned = budget_exhausted = False
+
+    def extensions(prefixes: list[_BatchPrefix]) -> Iterator[_BatchPrefix]:
+        nonlocal search_legs, budget_exhausted
+        for prefix in prefixes:
+            state = ChainMap(prefix.pool_updates, pools)
+            for order in sequence:
+                legs = len(order.route.legs)
+                if order.order_id in prefix.ids or prefix.legs + legs > MAX_V2_BATCH_LEGS:
+                    continue
+                if search_legs + legs > max_leg_evaluations:
+                    budget_exhausted = True
+                    return
+                search_legs += legs
+                result, updates = _attempt(order, prefix.capital, state)
+                statuses[result.status] += 1
+                if result.status == V2BatchStatus.EXECUTED:
+                    yield _BatchPrefix(
+                        (*prefix.ids, order.order_id),
+                        result.capital_after,
+                        (*prefix.entries, result),
+                        prefix.pool_updates | updates,
+                        prefix.legs + legs,
+                    )
+
+    depth = min(max_batch_orders, len(sequence))
+    for layer in range(1, depth + 1):
+        # Keep the shortlist and one extra survivor to detect beam pruning.
+        frontier = nsmallest(
+            max(beam_width + 1, V2_BATCH_SHORTLIST_SIZE),
+            extensions(frontier),
+            key=lambda item: item.rank,
+        )
+        if frontier:
+            candidate = frontier[0]
+            if candidate.capital > initial_capital and (
+                winner is None or candidate.rank < winner.rank
+            ):
+                winner = candidate
+            shortlist.extend(
+                V2BatchCandidate(item.ids, item.capital - initial_capital)
+                for item in frontier
+                if item.capital > initial_capital
+            )
+            shortlist = nsmallest(V2_BATCH_SHORTLIST_SIZE, shortlist, key=lambda item: item.rank)
+        if not frontier or budget_exhausted:
+            break
+        if layer < depth and len(frontier) > beam_width:
+            beam_pruned = True
+        frontier = frontier[:beam_width]
+
+    run = None
+    marginals: tuple[V2BatchMarginal, ...] = ()
+    counterfactual_legs = 0
+    if winner is not None:
+        run = V2BatchRun(
+            working_capital,
+            winner.capital,
+            winner.entries,
+            tuple((pools | winner.pool_updates).values()),
+        )
+        by_id = {order.order_id: order for order in sequence}
+        marginals, counterfactual_legs = _batch_marginals(
+            tuple(by_id[order_id] for order_id in winner.ids),
+            initial_capital=initial_capital,
+            batch_fixed_cost=batch_fixed_cost,
+            winner_net=winner.capital - initial_capital,
+            pools=pools,
+        )
+    return V2BatchSearch(
+        initial_capital,
+        batch_fixed_cost,
+        run,
+        tuple(shortlist),
+        marginals,
+        tuple(sorted(statuses.items())),
+        search_legs,
+        counterfactual_legs,
+        beam_pruned,
+        budget_exhausted,
     )
+
+
+def _batch_marginals(
+    orders: tuple[V2BatchOrder, ...],
+    *,
+    initial_capital: int,
+    batch_fixed_cost: int,
+    winner_net: int,
+    pools: dict[str, V2Pool],
+) -> tuple[tuple[V2BatchMarginal, ...], int]:
+    results = []
+    legs = 0
+    for removed in orders:
+        remaining = tuple(order for order in orders if order.order_id != removed.order_id)
+        if not remaining:
+            results.append(V2BatchMarginal(removed.order_id, 0, winner_net))
+            continue
+        legs += sum(len(order.route.legs) for order in remaining)
+        counterfactual = _run(
+            remaining, initial_capital - batch_fixed_cost, pools, carry_pool_state=True
+        )
+        blocked = next(
+            (item for item in counterfactual.results if item.status != V2BatchStatus.EXECUTED),
+            None,
+        )
+        if blocked is not None:
+            results.append(
+                V2BatchMarginal(removed.order_id, None, None, blocked.order_id, blocked.status)
+            )
+        else:
+            net = counterfactual.final_capital - initial_capital
+            results.append(V2BatchMarginal(removed.order_id, net, winner_net - net))
+    return tuple(results), legs

@@ -1,0 +1,3869 @@
+{
+  "chain_id": 56,
+  "chain": "bsc",
+  "schema": "oasis-bsc-multihop-sample-inventory-v1",
+  "semantics": {
+    "serial": "A single funded serial cycle is established for the swaps observed.",
+    "batch": "Several paths or closed subgroups coexist, or the receipt and trace prove multi-asset borrowing and repayment around the swaps.",
+    "mixed": "One or more closes coexist with a cashout or an unresolved remainder.",
+    "unresolved": "Landed/indexed logs exist, but organization remains unclear.",
+    "control": "A landed comparison, LP operation, or otherwise established nonclosure.",
+    "swaps": "Count from the strongest available source. It may be only shapes. See swap_observations and evidence_level.",
+    "max_proven_funded_pool_swaps": "Largest evidenced linked path in this record. A cashout can extend this beyond a closed cycle. Zero and absence have different meanings.",
+    "costs": "Amounts are raw decimal integers keyed by asset or BNB wei. A scoped visible zero does not establish owner PnL. Receipt gas is actual inclusive charged gas only where recorded.",
+    "denominators": "Cohorts overlap and apply different filters. They cannot be added. Absence from the individually listed samples conveys no assessment.",
+    "rebuild": "python docs/verification/fixtures/build_bsc_multihop_inventory_20261127.py from a checkout with the listed retained evidence."
+  },
+  "summary": {
+    "distinct_individually_listed_landed_transactions": 97,
+    "by_shape": {
+      "serial": 2,
+      "control": 5,
+      "unresolved": 76,
+      "batch": 11,
+      "mixed": 3
+    },
+    "by_evidence_level": {
+      "trace_funding": 17,
+      "indexed_swap_shapes": 2,
+      "receipt_swap_shapes": 6,
+      "rooted_receipt_swap_shapes": 69,
+      "receipt_funding": 3
+    },
+    "maximum_proven_funded_pool_swaps_in_one_path": 6,
+    "maximum_proven_closed_cycle_swaps": 6,
+    "full_owner_pnl_measured": 0
+  },
+  "samples": [
+    {
+      "tx_hash": "0xc443a3242897a18e1293eed35987a52c3a8d5651166a53c8fd8a47d3658cb749",
+      "shape": "serial",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/strategies/MULTICHAIN_MULTIHOP_DISCOVERY.md",
+        "reports/research/multichain-discovery-20261122/eth-explorer/binance-mainnet.ndjson",
+        "reports/research/multichain-discovery-20261122/eth-explorer/bsc-trace-identity.response"
+      ],
+      "swap_observations": [
+        {
+          "count": 4,
+          "evidence_level": "trace_funding",
+          "source": "docs/strategies/MULTICHAIN_MULTIHOP_DISCOVERY.md"
+        }
+      ],
+      "block": 61000000,
+      "tx_index": 4,
+      "block_hash": "0xb4609dfdb0d6b86b1e919f374de5d8aa9cd5ce6fe33ac0020129a25051546d89",
+      "receipt_status": 1,
+      "swaps": 4,
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4
+      ],
+      "logical_pools": 4,
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "23888063753725"
+      },
+      "observed_external_native_bnb_wei": "23888063753724",
+      "funding_note": "Four distinct pools. Whole gross unwraps and is routed out. Recipient ownership remains unknown.",
+      "gas_used": 494718,
+      "effective_gas_price_wei": "100",
+      "receipt_gas_bnb_wei": "49471800"
+    },
+    {
+      "tx_hash": "0x2f7fe95e0ae0bc9a26cc08fdf6ce46da215e9f31a4d0615db182780e3be4d948",
+      "shape": "control",
+      "evidence_level": "indexed_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/MULTICHAIN_DISCOVERY_20261122.json",
+        "reports/research/multichain-discovery-20261122/eth-explorer/binance-mainnet.ndjson",
+        "docs/strategies/MULTICHAIN_MULTIHOP_DISCOVERY.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "indexed_swap_shapes",
+          "source": "docs/verification/MULTICHAIN_DISCOVERY_20261122.json"
+        }
+      ],
+      "block": 61000000,
+      "tx_index": 29,
+      "block_hash": "0xb4609dfdb0d6b86b1e919f374de5d8aa9cd5ce6fe33ac0020129a25051546d89",
+      "receipt_status": 1,
+      "swaps": 3,
+      "visible_wbnb_transfer_balance_wei": "1",
+      "funding_note": "One wei WBNB transfer residual in a nonclosing observed route.",
+      "gas_used": 564509,
+      "effective_gas_price_wei": "1000000000",
+      "receipt_gas_bnb_wei": "564509000000000"
+    },
+    {
+      "tx_hash": "0x40fc2038a4b5e1dad2e85a4ba43ac80e931dd1300e4146c7f330d081e60c114c",
+      "shape": "unresolved",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-3-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 64,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        }
+      ],
+      "block": 135107388,
+      "tx_index": 29,
+      "block_hash": "0xcc73c82a4bed4ed67abe4f5672d3fcf080148936d046d304a5cabad86a03e22b",
+      "receipt_status": 1,
+      "swaps": 64,
+      "gas_used": 7142432,
+      "effective_gas_price_wei": "100000000",
+      "receipt_gas_bnb_wei": "714243200000000"
+    },
+    {
+      "tx_hash": "0x96266eb58d9a6a43623d295793fb7162a2c21db3bea110b43366ac7da84f3e80",
+      "shape": "unresolved",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-6-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 52,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        }
+      ],
+      "block": 135109788,
+      "tx_index": 51,
+      "block_hash": "0x5e285bb111819dfed917a425fd6cdb102b05634190710e76ca64faebc646186c",
+      "receipt_status": 1,
+      "swaps": 52,
+      "gas_used": 3491860,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "174593000000000"
+    },
+    {
+      "tx_hash": "0x80ae57089c1450fa1b8a0fe676deec9e219125ad9567477ec53e185f1f656bdb",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110280,
+      "receipt_status": 1,
+      "swaps": 3
+    },
+    {
+      "tx_hash": "0x83d64ac9d0bd99f2368a9e784c14d730b19c1447b28dd3d77c80107f275354bf",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110280,
+      "receipt_status": 1,
+      "swaps": 2
+    },
+    {
+      "tx_hash": "0xafefd1ba67c4f77d079005c42b514b0de96d44e58f9b1d8e2282598464069180",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110280,
+      "receipt_status": 1,
+      "swaps": 3
+    },
+    {
+      "tx_hash": "0xc4c8d829965970a4135ef2439e499c646c17156291e630a51e2b09dd78ee0b95",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110280,
+      "receipt_status": 1,
+      "swaps": 2
+    },
+    {
+      "tx_hash": "0xb7eddffa1279089a6c93efae1037d91db98685c6b34e3f5904ac3dba128c4e17",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-1-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md",
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 80,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        },
+        {
+          "count": 80,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-batched-closures-20261123/verified.json"
+        },
+        {
+          "count": 80,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110280,
+      "tx_index": 1,
+      "block_hash": "0x2371f2ab14d301233fc5060c3e406c1b006b85081937fd57495c1242fe8f37bc",
+      "receipt_status": 1,
+      "swaps": 80,
+      "gas_used": 3747013,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "187350650000000",
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "logical_pools": 42,
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "230196445442124"
+      },
+      "observed_external_native_bnb_wei": "32386716353699",
+      "visible_bnb_component_after_costs_wei": "10459079088425"
+    },
+    {
+      "tx_hash": "0x352fa1d291e2c5545f868cf15e5d69629a4dd6a0cf50f510ab161deae0de57d8",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110280,
+      "tx_index": 25,
+      "block_hash": "0x2371f2ab14d301233fc5060c3e406c1b006b85081937fd57495c1242fe8f37bc",
+      "receipt_status": 1,
+      "overlapping_pool_swaps": 1,
+      "swaps": 3
+    },
+    {
+      "tx_hash": "0x1d2b773dd0dd2bd49ba7b7c7e27a8832c03a5ff17ed71de878ea5ae2c3cf6392",
+      "shape": "mixed",
+      "evidence_level": "receipt_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-7-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 50,
+          "evidence_level": "receipt_funding",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        }
+      ],
+      "block": 135110310,
+      "tx_index": 5,
+      "block_hash": "0x273bff6730930e257786f60899a3d4652f851c5de194f0cc98909f372a8838ca",
+      "receipt_status": 1,
+      "swaps": 50,
+      "max_proven_funded_pool_swaps": 2,
+      "gas_used": 4174692,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0",
+      "closed_cycle_depths": [
+        2,
+        2
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "66656518412157"
+      },
+      "funding_note": "Two directly funded WBNB closures. The remainder and native payments are unresolved."
+    },
+    {
+      "tx_hash": "0xdaaeba62423eebe343e50424e0b21f8a4926cf8bc3d31dd1b758f79100db94ef",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110314,
+      "receipt_status": 1,
+      "swaps": 3
+    },
+    {
+      "tx_hash": "0x10f4f551a5b96afa904394d8fb9449eaea69deea73eca3037ce56048f61d6464",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-4-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md",
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 60,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        },
+        {
+          "count": 60,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-batched-closures-20261123/verified.json"
+        },
+        {
+          "count": 60,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110314,
+      "tx_index": 28,
+      "block_hash": "0xc619ee939d6017af51ffd1e3135d786ffde51c9916505622f48accc1613bc18f",
+      "receipt_status": 1,
+      "swaps": 60,
+      "gas_used": 2846755,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "142337750000000",
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "logical_pools": 32,
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "181316269723534"
+      },
+      "observed_external_native_bnb_wei": "29732895778827",
+      "visible_bnb_component_after_costs_wei": "9245623944707"
+    },
+    {
+      "tx_hash": "0xa702ba42906be616f05563d9525e1bbf6a847aa1934928902a1b6dd9d48f15d0",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        },
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110314,
+      "tx_index": 35,
+      "block_hash": "0xc619ee939d6017af51ffd1e3135d786ffde51c9916505622f48accc1613bc18f",
+      "receipt_status": 1,
+      "overlapping_pool_swaps": 2,
+      "swaps": 5,
+      "gas_used": 395326,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "19766300000000"
+    },
+    {
+      "tx_hash": "0xc6b2f79a126f66f3db0d5599be1b2c3090e153c5be0498f542ebcb7ba2d3c4d7",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md",
+        "reports/research/bsc-ordered-marginals-20261124/candidate-triport-trace/verified.json",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 7,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        },
+        {
+          "count": 7,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-ordered-marginals-20261124/candidate-triport-trace/verified.json"
+        },
+        {
+          "count": 7,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110314,
+      "tx_index": 36,
+      "block_hash": "0xc619ee939d6017af51ffd1e3135d786ffde51c9916505622f48accc1613bc18f",
+      "receipt_status": 1,
+      "overlapping_pool_swaps": 1,
+      "swaps": 7,
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4,
+        3
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "30339974636036"
+      },
+      "observed_external_native_bnb_wei": "502801424107",
+      "visible_bnb_component_after_costs_wei": "5964823211929",
+      "gas_used": 477447,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "23872350000000"
+    },
+    {
+      "tx_hash": "0xaeba937fbdc8c29fbb1f1ae806c50326fa1ebcefc4cbffdb34e5f729de3b12b0",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-batched-closures-20261123/verified.json",
+        "docs/verification/BSC_BATCHED_CLOSURES_20261124.md",
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        }
+      ],
+      "block": 135110314,
+      "tx_index": 45,
+      "block_hash": "0xc619ee939d6017af51ffd1e3135d786ffde51c9916505622f48accc1613bc18f",
+      "receipt_status": 1,
+      "overlapping_pool_swaps": 1,
+      "swaps": 3
+    },
+    {
+      "tx_hash": "0xf3be5e679b910b206bbbb5c4bff9e4c9ec34250c2155b4c8fef23e955d52e73d",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+        "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-ordered-marginals-20261124/replayed.json"
+        },
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110314,
+      "receipt_status": 1,
+      "swaps": 5,
+      "tx_index": 120,
+      "block_hash": "0xc619ee939d6017af51ffd1e3135d786ffde51c9916505622f48accc1613bc18f",
+      "gas_used": 518558,
+      "effective_gas_price_wei": "55000000",
+      "receipt_gas_bnb_wei": "28520690000000"
+    },
+    {
+      "tx_hash": "0x3a24f27219de6df7d4bea255c41939345efe5f5d80a3e08e674bb5ea9d99a717",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-2-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md",
+        "reports/research/bsc-66-swap-forensics-20261124/verified.json",
+        "docs/verification/BSC_PAGED_LONG_TAIL_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 66,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        },
+        {
+          "count": 89,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-66-swap-forensics-20261124/verified.json"
+        },
+        {
+          "count": 89,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110349,
+      "tx_index": 1,
+      "block_hash": "0x5a348919687c873020e64206b1b22e3d89a559dbd0327055185f0963a173e953",
+      "receipt_status": 1,
+      "swaps": 89,
+      "gas_used": 4381465,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "219073250000000",
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "295812089777379"
+      },
+      "funding_note": "One four-pool group returns native BNB and wraps it. StableSwap ABI adds 23 confirmed swaps to the earlier 66.",
+      "logical_pools": 45,
+      "observed_external_native_bnb_wei": "63961502208545",
+      "visible_bnb_component_after_costs_wei": "12777337568834",
+      "visible_other_erc20_delta_raw": {}
+    },
+    {
+      "tx_hash": "0x9941cc0a15dcc4003f556f98b75de82963b8d2b5695ee45377b256c6aefda237",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 18,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110349,
+      "tx_index": 13,
+      "block_hash": "0x5a348919687c873020e64206b1b22e3d89a559dbd0327055185f0963a173e953",
+      "receipt_status": 1,
+      "swaps": 18,
+      "gas_used": 2337691,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "116884550000000"
+    },
+    {
+      "tx_hash": "0xbfa0ba87840f7a09c7111249f46bbba6688ef4722c6684177cb12fde9f77bbae",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 7,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135110349,
+      "tx_index": 15,
+      "block_hash": "0x5a348919687c873020e64206b1b22e3d89a559dbd0327055185f0963a173e953",
+      "receipt_status": 1,
+      "swaps": 7,
+      "gas_used": 1194245,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "59712250000000"
+    },
+    {
+      "tx_hash": "0x8e9f2e8c90ba87996f8fc2022dee818094abbc6bed95e864ebbb2a7abf392a04",
+      "shape": "unresolved",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "reports/research/pretrade-tail-20261123/bsc-tail-5-official/receipt.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 59,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        }
+      ],
+      "block": 135110445,
+      "tx_index": 79,
+      "block_hash": "0xb9215b5b771f41536424d86443d2a2dc4e371ec4e0ded0b634a363efa679b973",
+      "receipt_status": 1,
+      "swaps": 59,
+      "gas_used": 4993701,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "249685050000000"
+    },
+    {
+      "tx_hash": "0x004c868e409e24143e699f6186b4ef8e6b339602f5e82201a3cf806013420bfe",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/long-dex-20261123/expanded/binance-mainnet/receipts/result.json",
+        "reports/research/long-dex-20261123/expanded/binance-mainnet/result.json",
+        "docs/verification/LONG_SWAP_TAIL_20261123.md",
+        "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 80,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/long-dex-20261123/expanded/binance-mainnet/receipts/result.json"
+        },
+        {
+          "count": 80,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json"
+        }
+      ],
+      "block": 135113015,
+      "tx_index": 3,
+      "block_hash": "0x8ece252574daa9f0dc9c76d0976bb4a8dd60b96dac1b3b37a250360384afd3ae",
+      "receipt_status": 1,
+      "swaps": 80,
+      "gas_used": 3600440,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "180022000000000",
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "logical_pools": 43,
+      "gross_raw_by_asset": {
+        "0x55d398326f99059ff775485246999027b3197955": "7052201935149049",
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "211363271059021"
+      },
+      "observed_external_native_bnb_wei": "33289163470889",
+      "visible_bnb_component_after_costs_wei": "-1947892411868",
+      "conditional_marked_net_bnb_wei": "10640986677238",
+      "funding_note": "19 WBNB cycles and one USDT cycle. The separate BNB mark uses same-transaction observed conversion."
+    },
+    {
+      "tx_hash": "0x37de3d32d138e9b16858dce922ac2a08853041e2c6af63132ff5a2bd34801343",
+      "shape": "control",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/long-dex-20261123/expanded/binance-mainnet/receipts/result.json",
+        "reports/research/long-dex-20261123/expanded/binance-mainnet/result.json",
+        "docs/verification/LONG_SWAP_TAIL_20261123.md",
+        "reports/research/multichain-long-route-samples-20261123/bsc-verified.json",
+        "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 56,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/long-dex-20261123/expanded/binance-mainnet/receipts/result.json"
+        },
+        {
+          "count": 56,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/multichain-long-route-samples-20261123/bsc-verified.json"
+        }
+      ],
+      "block": 135113546,
+      "tx_index": 81,
+      "block_hash": "0x0012323b12a22413c45625df27ddd4e3a91920f447bfea4226ed5481403ab7c1",
+      "receipt_status": 1,
+      "swaps": 56,
+      "gas_used": 3786985,
+      "effective_gas_price_wei": "50009011",
+      "receipt_gas_bnb_wei": "189383374521835",
+      "max_proven_funded_pool_swaps": 5,
+      "logical_pools": 22,
+      "funding_note": "Fourteen branches fund a cross-asset output. No same-asset round trip or executable valuation was established."
+    },
+    {
+      "tx_hash": "0x7f7038389b46f3475a82d0542a2cc295ff09937b2e50a8bc75edf2ff5d3d2359",
+      "shape": "control",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/pretrade-tail-20261123/bsc-prefix-official/1.res",
+        "reports/research/pretrade-tail-20261123/bsc-prefix-blast/1.res",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "swap_observations": [],
+      "block": 135115034,
+      "tx_index": 1,
+      "block_hash": "0xa032d261bb447e4424b46726d2a523cf2960e174524da727610f7ce35cbf83f3",
+      "receipt_status": 1,
+      "funding_note": "Verified prior landed transaction. two swaps touched pools in the later 5+1 witness.",
+      "gas_used": 2086238,
+      "effective_gas_price_wei": "50200000",
+      "receipt_gas_bnb_wei": "104729147600000"
+    },
+    {
+      "tx_hash": "0xa2c11e2c90a5d5fca43a6da0e349d5daf133bf1b654425adf3496fde020caf88",
+      "shape": "mixed",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json",
+        "reports/research/long-dex-20261123/binance-mainnet/result.json",
+        "docs/verification/LONG_SWAP_TAIL_20261123.md",
+        "reports/research/long-dex-20261123/binance-mainnet/closed-branch-proof.json",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 37,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json"
+        },
+        {
+          "count": 37,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/long-dex-20261123/binance-mainnet/closed-branch-proof.json"
+        }
+      ],
+      "block": 135115034,
+      "tx_index": 2,
+      "block_hash": "0xa032d261bb447e4424b46726d2a523cf2960e174524da727610f7ce35cbf83f3",
+      "receipt_status": 1,
+      "swaps": 37,
+      "gas_used": 2618918,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0",
+      "max_proven_funded_pool_swaps": 6,
+      "closed_cycle_depths": [
+        5
+      ],
+      "gross_raw_by_asset": {
+        "0x55d398326f99059ff775485246999027b3197955": "13386390785866008"
+      },
+      "cashout_wbnb_wei": "23908475818923",
+      "observed_external_native_bnb_wei": "357703882794830",
+      "funding_note": "Five linked USDT swaps plus a separate WBNB cashout. Other branches remain outside the proof."
+    },
+    {
+      "tx_hash": "0xcfeb4409eb3e7f88a37e1f19bb0005fc4689db4edab14424f82303232d9fa09f",
+      "shape": "unresolved",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json",
+        "reports/research/long-dex-20261123/binance-mainnet/result.json",
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 35,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json"
+        }
+      ],
+      "block": 135115058,
+      "tx_index": 34,
+      "block_hash": "0xdf318224198c56bef6b6af048a23ce27e4a970002da378eefbba8dab4d5cb127",
+      "receipt_status": 1,
+      "swaps": 35,
+      "gas_used": 3425715,
+      "effective_gas_price_wei": "74750000",
+      "receipt_gas_bnb_wei": "256072196250000"
+    },
+    {
+      "tx_hash": "0x15c96a02e6580d5474e596ec128a8e42c0dd383675f84ebe32acfef2d4bda938",
+      "shape": "unresolved",
+      "evidence_level": "receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json",
+        "reports/research/long-dex-20261123/binance-mainnet/result.json",
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 31,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json"
+        }
+      ],
+      "block": 135115109,
+      "tx_index": 5,
+      "block_hash": "0xa609a6603b076088d934f7a6385bccb0146a21b0f256813421afc2851be32240",
+      "receipt_status": 1,
+      "swaps": 31,
+      "gas_used": 2505790,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0xdccd0c9ba83f7c42957f35d492804c0c8a1312b2ac4fddc10bbaea40f892ac33",
+      "shape": "serial",
+      "evidence_level": "receipt_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-recent-arbitrage-20261123/analysis.json",
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 4,
+          "evidence_level": "receipt_funding",
+          "source": "reports/research/bsc-recent-arbitrage-20261123/analysis.json"
+        }
+      ],
+      "block": 135115390,
+      "tx_index": 14,
+      "block_hash": "0x04d77fc67086544a6df70f659a6dc431901e676412f9e053429dd518b72a15cc",
+      "receipt_status": 1,
+      "swaps": 4,
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4
+      ],
+      "logical_pools": 4,
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "10097499118203"
+      },
+      "funding_note": "WBNB payout and unwrap are visible. The follow-on native recipient is unknown.",
+      "gas_used": 525450,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0xe5d8bc4ace6fe988cb978c97999172cb06ff2d3c81820e20c1b6892ec9522956",
+      "shape": "mixed",
+      "evidence_level": "receipt_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-recent-arbitrage-20261123/analysis.json",
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 4,
+          "evidence_level": "receipt_funding",
+          "source": "reports/research/bsc-recent-arbitrage-20261123/analysis.json"
+        }
+      ],
+      "block": 135115390,
+      "tx_index": 64,
+      "block_hash": "0x04d77fc67086544a6df70f659a6dc431901e676412f9e053429dd518b72a15cc",
+      "receipt_status": 1,
+      "swaps": 4,
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        3
+      ],
+      "gross_raw_by_asset": {
+        "0x55d398326f99059ff775485246999027b3197955": "1149417530210946"
+      },
+      "cashout_wbnb_wei": "2051155759984",
+      "receipt_gas_bnb_wei": "0",
+      "funding_note": "Three USDT swaps form the closed route. The fourth is the cashout."
+    },
+    {
+      "tx_hash": "0x0eff3f06fd5d5d1d783d286518ce81fee0acaf4d57e58c86a9e39da362ad8918",
+      "shape": "control",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/verified.json",
+        "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 52,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/verified.json"
+        },
+        {
+          "count": 52,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135306836,
+      "tx_index": 51,
+      "block_hash": "0x1b234423c3f6d441a87dc45e15fcd620e1c38ee51b31373a5cff8df54ff11a0a",
+      "receipt_status": 1,
+      "swaps": 52,
+      "max_proven_funded_pool_swaps": 5,
+      "logical_pools": 19,
+      "lp_token_id": 7829134,
+      "lp_assets_raw": {
+        "0x55d398326f99059ff775485246999027b3197955": "140491537708867534",
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "250056215799228"
+      },
+      "funding_note": "LP mint receives the routed assets. The LP position and refund lack an execution-equivalent realized valuation.",
+      "gas_used": 4821948,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "241097400000000"
+    },
+    {
+      "tx_hash": "0x5979842fab01ead3c7e0e8a15de14ad9f9fe3bb38d19653fb30de031ba3efa8b",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-four-pool-tail-20261124/verified.json",
+        "docs/verification/BSC_FOUR_POOL_TAIL_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 33,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-four-pool-tail-20261124/verified.json"
+        },
+        {
+          "count": 33,
+          "evidence_level": "receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135308916,
+      "tx_index": 8,
+      "block_hash": "0xd694253d4cb40fe8319c1f453a8b08c38d672180f75c0630e68e98f74099d771",
+      "receipt_status": 1,
+      "swaps": 33,
+      "logical_pools": 33,
+      "visible_other_erc20_delta_raw": {
+        "0x55d398326f99059ff775485246999027b3197955": "569634354815",
+        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": "22010259312214",
+        "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d": "8377256950282",
+        "0xe9e7cea3dedca5984780bafc599bd69add087d56": "4569"
+      },
+      "repaid_principal_raw_by_asset": {
+        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": "729369418190182636676",
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "33006041096329447",
+        "0x55d398326f99059ff775485246999027b3197955": "409793814843564814141",
+        "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d": "5752048018733769717"
+      },
+      "observed_external_native_bnb_wei": "41080884987228",
+      "visible_bnb_component_after_costs_wei": "0",
+      "funding_note": "Four principals were repaid in a multi-asset financing batch. No swap output uniquely funds a later swap input under the inspected model.",
+      "gas_used": 4575410,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0x14f92cdcf0741c85ae1f23987cc6d5ada61e552fc41f7ee61eb398aadd8971a7",
+      "shape": "unresolved",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-eight-address-holdout-20261124/verified.json",
+        "docs/verification/BSC_PAGED_LONG_TAIL_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 63,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-eight-address-holdout-20261124/verified.json"
+        },
+        {
+          "count": 63,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135377766,
+      "tx_index": 7,
+      "block_hash": "0xc86f6a0b4e50ebbbb93330b21fed7a5d31cd4599824baebe516d4f6b842e09a5",
+      "receipt_status": 1,
+      "swaps": 63,
+      "max_proven_funded_pool_swaps": 2,
+      "funding_note": "Three same-asset principals were fully returned. Two two-swap links are proven. A closed arbitrage route or valuation is unresolved.",
+      "logical_pools": 63,
+      "observed_external_native_bnb_wei": "27605303360373",
+      "visible_bnb_component_after_costs_wei": "0",
+      "visible_other_erc20_delta_raw": {
+        "0x2c3a8ee94ddd97244a93bc48298f97d2c412f7db": "561917093580084",
+        "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": "243419934642",
+        "0xe9e7cea3dedca5984780bafc599bd69add087d56": "153912512859"
+      },
+      "gas_used": 7255314,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0xb8ec22e7e9610781a593ce6cea23e581651cff8cadbd895c9a0c3c3d2ef24d2e",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 8,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135377766,
+      "tx_index": 23,
+      "block_hash": "0xc86f6a0b4e50ebbbb93330b21fed7a5d31cd4599824baebe516d4f6b842e09a5",
+      "receipt_status": 1,
+      "swaps": 8,
+      "gas_used": 1774969,
+      "effective_gas_price_wei": "74750000",
+      "receipt_gas_bnb_wei": "132678932750000"
+    },
+    {
+      "tx_hash": "0x893c277db68c59936028fad1fe033b202d3fc17375eefc1e5889bfd4bd44a2b1",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-eight-address-holdout-20261124/verified.json",
+        "docs/verification/BSC_PAGED_LONG_TAIL_20261124.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 52,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/bsc-eight-address-holdout-20261124/verified.json"
+        },
+        {
+          "count": 52,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        }
+      ],
+      "block": 135377965,
+      "tx_index": 8,
+      "block_hash": "0x4d5a78ccab70016295404213a7995a57229d6c530d8c207a16991ddb9fd46292",
+      "receipt_status": 1,
+      "swaps": 52,
+      "max_proven_funded_pool_swaps": 5,
+      "closed_cycle_depths": [
+        4,
+        4,
+        4,
+        5,
+        5
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "133195618384523"
+      },
+      "funding_note": "Twelve distinct swap subtrees and five fully linked WBNB cycles. The trace proves the aggregate payout. Other links remain open.",
+      "logical_pools": 19,
+      "observed_external_native_bnb_wei": "133195618384523",
+      "visible_bnb_component_after_costs_wei": "0",
+      "visible_other_erc20_delta_raw": {},
+      "gas_used": 3641073,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0xa578d37f34bf73830b3464884ad72c07a4d22e806f55a0dd9156b2b24c5c9792",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md",
+        "reports/research/multichain-batch-control-20261127/a578-trace/verified.json",
+        "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.md",
+        "reports/research/bsc-robinhood-serial-search-20261127/verified.json"
+      ],
+      "swap_observations": [
+        {
+          "count": 25,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-robinhood-serial-search-20261127/screen.json"
+        },
+        {
+          "count": 25,
+          "evidence_level": "trace_funding",
+          "source": "reports/research/multichain-batch-control-20261127/a578-trace/verified.json"
+        }
+      ],
+      "block": 135377965,
+      "tx_index": 14,
+      "block_hash": "0x4d5a78ccab70016295404213a7995a57229d6c530d8c207a16991ddb9fd46292",
+      "receipt_status": 1,
+      "swaps": 25,
+      "gas_used": 1721363,
+      "effective_gas_price_wei": "50000000",
+      "receipt_gas_bnb_wei": "86068150000000",
+      "max_proven_funded_pool_swaps": 4,
+      "closed_cycle_depths": [
+        4,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "supplemental_swap_shapes": 2,
+      "funding_note": "Five USDT closures and a three-swap WBNB-to-BNB path with a wrap. Two additional Algebra-shaped swaps are separate from the trace-proven count.",
+      "logical_pools": 18,
+      "observed_external_native_bnb_wei": "349849511770",
+      "visible_bnb_component_after_costs_wei": "-47435492252789",
+      "visible_other_erc20_delta_raw": {
+        "0x55d398326f99059ff775485246999027b3197955": "35871740132323228"
+      }
+    },
+    {
+      "tx_hash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+      "shape": "unresolved",
+      "evidence_level": "indexed_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/multichain-batch-control-20261127/scope.json",
+        "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": [
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffb73711df960f7dab300000000000000000000000000000000000000000000000002168fa959cef3c400000000000000000000000000000000000000000ad6ff27be3d7f4806313ea2000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048416cba019",
+              "logIndex": "0x6f",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x000000000000000000000000cc0cb5494b294618c6e5ce5f55ab87adec731e9c"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff796fbed4d7256ab3000000000000000000000000000000000000000000000000003dc51a7f073b9600000000000000000000000000000000000000000ad70177d6264e9f17840e49000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008596cf26ad",
+              "logIndex": "0x8d",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff796fbed4d7256ab300000000000000000000000000000000000000000000000086a37e738c198e6000000000000000000000000000000000000000010012a7d2a300a0993dc9e1d800000000000000000000000000000000000000000000b8f6b364c7fc9abc46b1000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000007",
+              "logIndex": "0x8f",
+              "removed": false,
+              "topics": [
+                "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+                "0xc2976a3d2568f851d497734000a5728fbd4a3bc256cde48454e358eba80671ac",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x00000000000000000000000000000000000000000000000086bacc261d0efaccffffffffffffffffffffffffffffffffffffffffffffffff795c818c73e671a00000000000000000000000000000000000000000ffe8dc03d5172797f4425f210000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+              "logIndex": "0x92",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff797c9269f4891bb5000000000000000000000000000000000000000000000000003dbf518c2594fa00000000000000000000000000000000000000000ad703c7b69b89d3cda72c9b000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000858a4c522c",
+              "logIndex": "0x99",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff797c9269f4891bb500000000000000000000000000000000000000000000000086971d6d844c5f1e0000000000000000000000000000000000000001001312e8a7fe030c43c69abb00000000000000000000000000000000000000000005374306436a6d90ff76240000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000c",
+              "logIndex": "0x9b",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x4b2e6e491226c5013dd803cf451b1c6fae5eef918fd5558f7d8aa66cfe3536dd",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x00000000000000000000000000000000000000000000000086ae5f33571485f6ffffffffffffffffffffffffffffffffffffffffffffffff7968e2927bb3a0e20000000000000000000000000000000000000000ffe8e54e93de1c39d670bd8e0000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+              "logIndex": "0x9e",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc5d3c7c9d4a6078a000000000000000000000000000000000000000000000000001ab430d7774f3000000000000000000000000000000000000000000ad704c7aea85156b440f87f000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039c08c3b77",
+              "logIndex": "0xa5",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x000000000000000000000000913c5d3e6377745bb329c1f17aed866c01ebd487"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc8722c1ef2b3e2720000000000000000000000000000000000000000000000000019807814289ad700000000000000000000000000000000000000000ad705bc21287f2d6d316b09000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037270aac24",
+              "logIndex": "0xb1",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc8722c1ef2b3e2720000000000000000000000000000000000000000000000003795b37fad62ebc800000000000000000000000000000000000000010011f234a8e42c5bbedce97f00000000000000000000000000000000000000000000356c61a5aa342d4af3730000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000a",
+              "logIndex": "0xb3",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x7226cc4b842b03e7d7e59fa8df5faddbbb15b42cf95856d6e64485e188ccdf38",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x000000000000000000000000000000000000000000000000379f4b820dafa031ffffffffffffffffffffffffffffffffffffffffffffffffc86a4c80529d14380000000000000000000000000000000000000000ffe8e924fb39674c5c27c3bf0000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+              "logIndex": "0xb6",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffffeb07ffaaf48deb0000000000000000000000000000000000000000000000000006dca6c12356e0000000000000000000000000000000000000000092709aded82794a04c612ba000000000000000000000000000000000000000000000000107582ac75e3c9515ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd45c00000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000020",
+              "logIndex": "0xbc",
+              "removed": false,
+              "topics": [
+                "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+                "0x81c144e9e30c6ca0f1501d04b107137a6862698d1f54abc16bf5d015cff35c4f",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffffff0d139600f7b22000000000000000000000000000000000000000000000000211dd8ae70c465a80000000000000000000000000000000000000017a197567b67ca7ac8d34d64410000000000000000000000000000000000000000000001592b4568c61b1af0e5000000000000000000000000000000000000000000000000000000000000f71600000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000020",
+              "logIndex": "0xc8",
+              "removed": false,
+              "topics": [
+                "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+                "0xd37aa0f0d66ad670279f6b89325c88bdff17d0265144762fb01f54fca9779944",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffe8a2773e79307efc0000000000000000000000000000000000000000000000001760f32b38d0a9c300000000000000000000000000000000000000010014bc35cf236547eaa975ac000000000000000000000000000000000000000000012c3d4316d1d746e622ce0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003f",
+              "logIndex": "0xd3",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x05dd2dc106d75562b323bad5d7c26e5677e81a78e6ce0de1cb72c6f64d610bf3",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x0000000000000000000000000000000000000000000000001764fba83e3f1199ffffffffffffffffffffffffffffffffffffffffffffffffe89f0cd4c72f563d0000000000000000000000000000000000000000ffe8eac22d115ae3ab7a91440000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+              "logIndex": "0xd6",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffff1fb8aa50f3ccd110000000000000000000000000000000000000000000000000e0680fcf63cbdea000000000000000000000000000000000000000100131038466ea78c9b40b27c00000000000000000000000000000000000000000005374306436a6d90ff76240000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000c",
+              "logIndex": "0xe7",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x4b2e6e491226c5013dd803cf451b1c6fae5eef918fd5558f7d8aa66cfe3536dd",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x0000000000000000000000000000000000000000000000000e08ec4255f8f185fffffffffffffffffffffffffffffffffffffffffffffffff1f97f0309c342160000000000000000000000000000000000000000ffe8ebba0f8963614a6083550000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+              "logIndex": "0xea",
+              "removed": false,
+              "topics": [
+                "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+                "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffff333eb46654979490000000000000000000000000000000000000000000000000005dfdf982ab51500000000000000000000000000000000000000000ad705f470827b1b4e1b00c4000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cb468b389",
+              "logIndex": "0xf1",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffffc6f37a912ba9d5c0000000000000000000000000000000000000000000000000001a302819b742e00000000000000000000000000000000000000000ad7060420eba45e626694f7000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000038a2ffc66",
+              "logIndex": "0x10f",
+              "removed": false,
+              "topics": [
+                "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            },
+            {
+              "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+              "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+              "blockNumber": "0x811b475",
+              "blockTimestamp": "0x6b04eda9",
+              "data": "0x0000000000000000000000000000000000000000000000000391ee428f580af7fffffffffffffffffffffffffffffffffffffffffffffffffc6f37a912ba9d5c0000000000000000000000000000000000000000ffd72981aa70879af1c8b7c30000000000000000000000000000000000000000000004119c41870478284ea4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff300000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001",
+              "logIndex": "0x111",
+              "removed": false,
+              "topics": [
+                "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+                "0x9f8a323d4862ebe850641951757a5397c88344ed7c8fcec710e28a8ddd31a5f6",
+                "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+              ],
+              "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+              "transactionIndex": "0x17"
+            }
+          ],
+          "evidence_level": "indexed_swap_shapes",
+          "source": "reports/research/multichain-batch-control-20261127/scope.json"
+        }
+      ],
+      "block": 135378037,
+      "tx_index": 23,
+      "block_hash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+      "swaps": [
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffb73711df960f7dab300000000000000000000000000000000000000000000000002168fa959cef3c400000000000000000000000000000000000000000ad6ff27be3d7f4806313ea2000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000048416cba019",
+          "logIndex": "0x6f",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x000000000000000000000000cc0cb5494b294618c6e5ce5f55ab87adec731e9c"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff796fbed4d7256ab3000000000000000000000000000000000000000000000000003dc51a7f073b9600000000000000000000000000000000000000000ad70177d6264e9f17840e49000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008596cf26ad",
+          "logIndex": "0x8d",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff796fbed4d7256ab300000000000000000000000000000000000000000000000086a37e738c198e6000000000000000000000000000000000000000010012a7d2a300a0993dc9e1d800000000000000000000000000000000000000000000b8f6b364c7fc9abc46b1000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000000000007",
+          "logIndex": "0x8f",
+          "removed": false,
+          "topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0xc2976a3d2568f851d497734000a5728fbd4a3bc256cde48454e358eba80671ac",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x00000000000000000000000000000000000000000000000086bacc261d0efaccffffffffffffffffffffffffffffffffffffffffffffffff795c818c73e671a00000000000000000000000000000000000000000ffe8dc03d5172797f4425f210000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+          "logIndex": "0x92",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff797c9269f4891bb5000000000000000000000000000000000000000000000000003dbf518c2594fa00000000000000000000000000000000000000000ad703c7b69b89d3cda72c9b000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f50000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000858a4c522c",
+          "logIndex": "0x99",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffff797c9269f4891bb500000000000000000000000000000000000000000000000086971d6d844c5f1e0000000000000000000000000000000000000001001312e8a7fe030c43c69abb00000000000000000000000000000000000000000005374306436a6d90ff76240000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000c",
+          "logIndex": "0x9b",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x4b2e6e491226c5013dd803cf451b1c6fae5eef918fd5558f7d8aa66cfe3536dd",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x00000000000000000000000000000000000000000000000086ae5f33571485f6ffffffffffffffffffffffffffffffffffffffffffffffff7968e2927bb3a0e20000000000000000000000000000000000000000ffe8e54e93de1c39d670bd8e0000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+          "logIndex": "0x9e",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc5d3c7c9d4a6078a000000000000000000000000000000000000000000000000001ab430d7774f3000000000000000000000000000000000000000000ad704c7aea85156b440f87f000000000000000000000000000000000000000000001ab456233b968bb7a8f4ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f5000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000039c08c3b77",
+          "logIndex": "0xa5",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x000000000000000000000000913c5d3e6377745bb329c1f17aed866c01ebd487"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc8722c1ef2b3e2720000000000000000000000000000000000000000000000000019807814289ad700000000000000000000000000000000000000000ad705bc21287f2d6d316b09000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000037270aac24",
+          "logIndex": "0xb1",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffc8722c1ef2b3e2720000000000000000000000000000000000000000000000003795b37fad62ebc800000000000000000000000000000000000000010011f234a8e42c5bbedce97f00000000000000000000000000000000000000000000356c61a5aa342d4af3730000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000a",
+          "logIndex": "0xb3",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x7226cc4b842b03e7d7e59fa8df5faddbbb15b42cf95856d6e64485e188ccdf38",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x000000000000000000000000000000000000000000000000379f4b820dafa031ffffffffffffffffffffffffffffffffffffffffffffffffc86a4c80529d14380000000000000000000000000000000000000000ffe8e924fb39674c5c27c3bf0000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+          "logIndex": "0xb6",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffffeb07ffaaf48deb0000000000000000000000000000000000000000000000000006dca6c12356e0000000000000000000000000000000000000000092709aded82794a04c612ba000000000000000000000000000000000000000000000000107582ac75e3c9515ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd45c00000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000020",
+          "logIndex": "0xbc",
+          "removed": false,
+          "topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x81c144e9e30c6ca0f1501d04b107137a6862698d1f54abc16bf5d015cff35c4f",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffffff0d139600f7b22000000000000000000000000000000000000000000000000211dd8ae70c465a80000000000000000000000000000000000000017a197567b67ca7ac8d34d64410000000000000000000000000000000000000000000001592b4568c61b1af0e5000000000000000000000000000000000000000000000000000000000000f71600000000000000000000000000000000000000000000000000000000000000630000000000000000000000000000000000000000000000000000000000000020",
+          "logIndex": "0xc8",
+          "removed": false,
+          "topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0xd37aa0f0d66ad670279f6b89325c88bdff17d0265144762fb01f54fca9779944",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xffffffffffffffffffffffffffffffffffffffffffffffffe8a2773e79307efc0000000000000000000000000000000000000000000000001760f32b38d0a9c300000000000000000000000000000000000000010014bc35cf236547eaa975ac000000000000000000000000000000000000000000012c3d4316d1d746e622ce0000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003f",
+          "logIndex": "0xd3",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x05dd2dc106d75562b323bad5d7c26e5677e81a78e6ce0de1cb72c6f64d610bf3",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x0000000000000000000000000000000000000000000000001764fba83e3f1199ffffffffffffffffffffffffffffffffffffffffffffffffe89f0cd4c72f563d0000000000000000000000000000000000000000ffe8eac22d115ae3ab7a91440000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+          "logIndex": "0xd6",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffff1fb8aa50f3ccd110000000000000000000000000000000000000000000000000e0680fcf63cbdea000000000000000000000000000000000000000100131038466ea78c9b40b27c00000000000000000000000000000000000000000005374306436a6d90ff76240000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000c",
+          "logIndex": "0xe7",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x4b2e6e491226c5013dd803cf451b1c6fae5eef918fd5558f7d8aa66cfe3536dd",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0x28e2ea090877bf75740558f6bfb36a5ffee9e9df",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x0000000000000000000000000000000000000000000000000e08ec4255f8f185fffffffffffffffffffffffffffffffffffffffffffffffff1f97f0309c342160000000000000000000000000000000000000000ffe8ebba0f8963614a6083550000000000000000000000000000000000000000000e7befb7b18a7c37a04cfbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000000000000000000000000000000000000000000000000000001f",
+          "logIndex": "0xea",
+          "removed": false,
+          "topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0x0a8c2677aaeee35a687d4debbef10e549a3d5f999ba296c141b0db464c6df290",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffff333eb46654979490000000000000000000000000000000000000000000000000005dfdf982ab51500000000000000000000000000000000000000000ad705f470827b1b4e1b00c4000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000cb468b389",
+          "logIndex": "0xf1",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xf2688fb5b81049dfb7703ada5e770543770612c4",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0xfffffffffffffffffffffffffffffffffffffffffffffffffc6f37a912ba9d5c0000000000000000000000000000000000000000000000000001a302819b742e00000000000000000000000000000000000000000ad7060420eba45e626694f7000000000000000000000000000000000000000000001ab45291f8cfbe88ae85ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff08f60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000038a2ffc66",
+          "logIndex": "0x10f",
+          "removed": false,
+          "topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        },
+        {
+          "address": "0xa0ffb9c1ce1fe56963b0321b32e7a0302114058b",
+          "blockHash": "0x94fe99d911c7c648ca9c1b8ffc59375882b1893a65315d464986d78ba8b33484",
+          "blockNumber": "0x811b475",
+          "blockTimestamp": "0x6b04eda9",
+          "data": "0x0000000000000000000000000000000000000000000000000391ee428f580af7fffffffffffffffffffffffffffffffffffffffffffffffffc6f37a912ba9d5c0000000000000000000000000000000000000000ffd72981aa70879af1c8b7c30000000000000000000000000000000000000000000004119c41870478284ea4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff300000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001",
+          "logIndex": "0x111",
+          "removed": false,
+          "topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x9f8a323d4862ebe850641951757a5397c88344ed7c8fcec710e28a8ddd31a5f6",
+            "0x0000000000000000000000002f68417a18da681589f4ea64b9cc9839209acff7"
+          ],
+          "transactionHash": "0xd4f463f5087b8e57ec89bd65932943a055816466e0f41489e0e8903e5f7fec91",
+          "transactionIndex": "0x17"
+        }
+      ],
+      "funding_note": "20 shapes in the restricted historical index. The first independent receipt request returned an empty list and stopped the scope."
+    },
+    {
+      "tx_hash": "0x60600a58e19a625088509c6f6415a2a77b90cee6a9e00845250508358018b2ae",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 9,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951977,
+      "tx_index": 15,
+      "block_hash": "0xb7dbb5808506963a31c2799f497ff5fc4192b567df159694fe37677a16efb727",
+      "receipt_status": 1,
+      "swaps": 9
+    },
+    {
+      "tx_hash": "0x56c26610e5aeabc0e7e844a18cb2d2b369560152cacfd27a1c3a019a0a521c29",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951978,
+      "tx_index": 10,
+      "block_hash": "0xc27a21f61a473e661af9e5c8718e57fd53241cd13e74109aa5a7ef03eddea065",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x735da39464ad24014dcbd34be0330b7ab65183c2eb0cf74199c7bf3737196232",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.json"
+      ],
+      "swap_observations": [
+        {
+          "count": 10,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        },
+        {
+          "count": 10,
+          "evidence_level": "trace_funding",
+          "source": "docs/verification/BSC_FROZEN_WINDOW_20261127.json"
+        }
+      ],
+      "block": 135951980,
+      "tx_index": 3,
+      "block_hash": "0xb44f4844817958f4fe3a89b5a738ba65239b7d085b4e59e470912e4785c8650d",
+      "receipt_status": 1,
+      "swaps": 10,
+      "max_proven_funded_pool_swaps": 5,
+      "closed_cycle_depths": [
+        5,
+        5
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "14280868517272"
+      },
+      "visible_bnb_component_after_costs_wei": "0",
+      "known_fee_on_transfer": false,
+      "funding_note": "The ring payouts reconcile for the measured roles. Beneficiary control and off-chain costs are unresolved.",
+      "gas_used": 1041304,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0x71a13243cfe121af1ec5da9ab7424e86ec7ccf8d01d9721259411c4a0525a431",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951980,
+      "tx_index": 46,
+      "block_hash": "0xb44f4844817958f4fe3a89b5a738ba65239b7d085b4e59e470912e4785c8650d",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x868d2fadae4130f957ef092e93979419ffd5e92c0d2f25dcda81c8802b71544a",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951980,
+      "tx_index": 57,
+      "block_hash": "0xb44f4844817958f4fe3a89b5a738ba65239b7d085b4e59e470912e4785c8650d",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0xa553db4b44c0fb5b52a534a49113537e6019ebe8912a72c6b0bdf6bc9d16cfdf",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951981,
+      "tx_index": 18,
+      "block_hash": "0xa53fdd9134eed456c6d91a4874a011fad4f5de8cc38eaaa23ba47f8bab61e703",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x8de574c1b75e150fca1c95744797e7bc4f3e0b3cc86f444d6bcafffe39cd200e",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 16,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951983,
+      "tx_index": 8,
+      "block_hash": "0x7bed8cf16bf0ff6180123d2b1f5d3399e6b8684f06f943ea7b2e6a294f29f4ea",
+      "receipt_status": 1,
+      "swaps": 16
+    },
+    {
+      "tx_hash": "0x34429d43a4d9e379aed3e9eacb9fda3e05c0667aa31318f67feade74209cba8f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 7,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951983,
+      "tx_index": 20,
+      "block_hash": "0x7bed8cf16bf0ff6180123d2b1f5d3399e6b8684f06f943ea7b2e6a294f29f4ea",
+      "receipt_status": 1,
+      "swaps": 7
+    },
+    {
+      "tx_hash": "0x66654ae52bb90334ea928c3d0ed7c3258d95d252650d38d128f075ae052f7c70",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951983,
+      "tx_index": 61,
+      "block_hash": "0x7bed8cf16bf0ff6180123d2b1f5d3399e6b8684f06f943ea7b2e6a294f29f4ea",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x9dc802656f0a1cbaa9342bcca3c9508cfeaf1ad9f419478c72ad72726addf326",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 7,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951985,
+      "tx_index": 27,
+      "block_hash": "0x8c9537df49a52100de1b552aaef3b2d8a302fb8d4ab79632e7584108565eaf40",
+      "receipt_status": 1,
+      "swaps": 7
+    },
+    {
+      "tx_hash": "0x33ebdc979311c0fcdc36f0aa03c3ae6481d8d51859ad50425b960ffb42b7d202",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951987,
+      "tx_index": 24,
+      "block_hash": "0x257d4f9087f5f1daef30a75e0494fe63e8bba6f943b709fa659a7940bb457e4f",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x39910dddc6d8b0cf1f0b42eddaa956b92642f79c961ad74a0f708e57edce301a",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135951990,
+      "tx_index": 19,
+      "block_hash": "0x973553516a67e16450bae3d6de0a3cfdd0ff66730ceb80c0eeb828a384563722",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x80e9b0d4f75135b00b27fb9ac8f6bfbd0b3de27fd0265e44551c7e388410a5a7",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 5,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135952001,
+      "tx_index": 19,
+      "block_hash": "0x9d7092b278f1a9c277468fd08aad703f05bf3208eb2fefea5741944f9d268434",
+      "receipt_status": 1,
+      "swaps": 5
+    },
+    {
+      "tx_hash": "0x6d55527ac75f3dfbbda1ff29425b2db209601b21c3d465c871467c5a07f03549",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 6,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135952005,
+      "tx_index": 51,
+      "block_hash": "0xf6e464a010a7fc6b7eea3e78a6100e73442f18e893f9048c7a7c125572394878",
+      "receipt_status": 1,
+      "swaps": 6
+    },
+    {
+      "tx_hash": "0x4290816be2b3046da22b8da3fcbf927efb4b8ed1c23b862b6ca0883c14ca8a4a",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.json"
+      ],
+      "swap_observations": [
+        {
+          "count": 21,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        },
+        {
+          "count": 21,
+          "evidence_level": "trace_funding",
+          "source": "docs/verification/BSC_FROZEN_WINDOW_20261127.json"
+        }
+      ],
+      "block": 135952008,
+      "tx_index": 27,
+      "block_hash": "0x36a9906a879812edcce1e7ac8a66d2fa4a17df92f7615e138e384a1a0cb1702a",
+      "receipt_status": 1,
+      "swaps": 21,
+      "max_proven_funded_pool_swaps": 6,
+      "closed_cycle_depths": [
+        6,
+        5,
+        5,
+        5
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "7760944915970"
+      },
+      "visible_bnb_component_after_costs_wei": "0",
+      "known_fee_on_transfer": true,
+      "funding_note": "The ring payouts reconcile for the measured roles. Beneficiary control and off-chain costs are unresolved.",
+      "gas_used": 2257237,
+      "effective_gas_price_wei": "0",
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0x1a08b571df58a4e1af02c28448a25fb89e97389bfe6c18851d0e79d7d9a09239",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+        "docs/verification/BSC_FROZEN_WINDOW_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 8,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "reports/research/bsc-window-audits-20261127/cohort/ranking.json"
+        }
+      ],
+      "block": 135952009,
+      "tx_index": 9,
+      "block_hash": "0xfbee54f7d9e5533f42a7bf5789378a9cd45889ef7d82658a8526da5b57f34e14",
+      "receipt_status": 1,
+      "swaps": 8
+    },
+    {
+      "tx_hash": "0xbddd9967c33a0e12b7a18b3933b4d08beba5e71e1810e068f19822173fc4f67f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999569,
+      "tx_index": 7,
+      "block_hash": "0xa2dfaf42a71776ca68cc915322a58271d4324ff9077d7d425cc8206a1238d11a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "353089635"
+    },
+    {
+      "tx_hash": "0x9a34a0e412e9c813c5d605a27c727077e205daef56625f940d796bcdfca1267b",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 11,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999569,
+      "tx_index": 11,
+      "block_hash": "0xa2dfaf42a71776ca68cc915322a58271d4324ff9077d7d425cc8206a1238d11a",
+      "receipt_status": 1,
+      "swaps": 11,
+      "watch_pool_additional_events": 2,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0xc42b641b931a4ba1f233aa3c0bd9cf2ea29e64d145b695517f2efedd3a40ff9b",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999569,
+      "tx_index": 12,
+      "block_hash": "0xa2dfaf42a71776ca68cc915322a58271d4324ff9077d7d425cc8206a1238d11a",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0xa1151ebe70788e5951725e1027d598eec081ae28233a8485c61000296226b52f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999569,
+      "tx_index": 27,
+      "block_hash": "0xa2dfaf42a71776ca68cc915322a58271d4324ff9077d7d425cc8206a1238d11a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "100000000"
+    },
+    {
+      "tx_hash": "0x8d2d2ce142da006e20cf5a9cd950fa18d20d11483d523f05f39a502c5f9f3c9e",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 4,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999569,
+      "tx_index": 39,
+      "block_hash": "0xa2dfaf42a71776ca68cc915322a58271d4324ff9077d7d425cc8206a1238d11a",
+      "receipt_status": 1,
+      "swaps": 4,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "60000000"
+    },
+    {
+      "tx_hash": "0x9249509bbad01d5e7793e1d618d201acf9f51ecbf1ff67bff6c92de27ba9d551",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 1,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "200000000"
+    },
+    {
+      "tx_hash": "0x82eeb6f16154ec8001654570c7a5c8ff19c8ce441067c5267ddab9699e8c6f33",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 5,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0xa88f87dc0e416d9ab0d3abcaee1134aaf49b16e646a753ce8c9fef822f34e3a6",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 1,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 8,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 1,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "56267012"
+    },
+    {
+      "tx_hash": "0x1807334b48896251a139a0dc92c5ff801e0655c175c5562199df177b063d8885",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 1,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 13,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 1,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0xe31adeba49f2b0adf4da581aa607659b89136c6d02d2b69861b277b6f6e6c362",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 41,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0x5f57aca2f5a931e8c71eefd046d8c9e6b4714bb6625726966ea3f707c2db361e",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 62,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "74750000"
+    },
+    {
+      "tx_hash": "0xf3be7bb78d96d9b2d5e90c40c2d8c39d72ed2dab949bc0d432767491fd2c472d",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 82,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0x840c0011369bd1d983d1458968ed61695e3b00281536673168270947f80cd18f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 115,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "250000000"
+    },
+    {
+      "tx_hash": "0x96d7f9172f4db6fb4ed44fbe0166245f5d2c1dc6ceda9afde9fdd183f8b1cc77",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999572,
+      "tx_index": 116,
+      "block_hash": "0x3c89b78e703d4455ce3b03692349b49cea8e8edce6cb7918b033fe69030291f8",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0xfaa27b70b336617c219122ffcdabf8d564c44224b4dfa34b433576f6eb388b44",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 8,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "150000000"
+    },
+    {
+      "tx_hash": "0x14a3ced11c34b38bfdd040626cc2d3aa2ae422235338745678bb8886dfd91cfd",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 10,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "100000000"
+    },
+    {
+      "tx_hash": "0x43643e7d125e942e0955e0557fa9bda931861a6bddc94a282d6f99417b7e5187",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 24,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0x894cae5681a30e03813c8717546169293fe505392a80b580df6d880d9f54acdf",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 26,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0x2abde120f6c4fa90936bfcff5187de710155157d477840ff5dc11e7fdcb55b73",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 69,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 0,
+      "watch_pool_baseline_events": 1,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0x040cd60bf6604c7248b6276a5be83a11bdc420cda16b77bb077abdd5da6d094f",
+      "shape": "batch",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 17,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        },
+        {
+          "count": 17,
+          "evidence_level": "trace_funding",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999575,
+      "tx_index": 94,
+      "block_hash": "0xc25e9f40e4e88255e073c7a24ee52c0047dfd00f8f1c223d120985a955ddd069",
+      "receipt_status": 1,
+      "swaps": 17,
+      "watch_pool_additional_events": 6,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0",
+      "max_proven_funded_pool_swaps": 6,
+      "closed_cycle_depths": [
+        6,
+        4,
+        3,
+        4
+      ],
+      "gross_raw_by_asset": {
+        "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "5356491881422"
+      },
+      "known_fee_on_transfer": true,
+      "funding_note": "Four WBNB closures. The additional four-leg closure proves a scope-specific 3% token transfer deduction through V3\u2192V2 evidence.",
+      "logical_pools": 15,
+      "observed_external_native_bnb_wei": "2273848750000",
+      "visible_bnb_component_after_costs_wei": "0",
+      "visible_other_erc20_delta_raw": {},
+      "gas_used": 1572140,
+      "receipt_gas_bnb_wei": "0"
+    },
+    {
+      "tx_hash": "0xce4fe9fb1f1a4383351a35f581769d45f6ae7b201537b5e2c186b762d584e829",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999578,
+      "tx_index": 29,
+      "block_hash": "0x340d2fe3cfd2daefb3b40e236092e8f1bc9d17eeb36ea7e5a8a3e2aa9aaadffe",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "556088495"
+    },
+    {
+      "tx_hash": "0x020b383ca37f8b932c75b904ae42e67504cb0fdfda4634bee3d1e2399418403b",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999578,
+      "tx_index": 35,
+      "block_hash": "0x340d2fe3cfd2daefb3b40e236092e8f1bc9d17eeb36ea7e5a8a3e2aa9aaadffe",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0xbb70315dce2ed151910a4176759797a5da124546e4997915db8c59d744b2059a",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 1,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999578,
+      "tx_index": 44,
+      "block_hash": "0x340d2fe3cfd2daefb3b40e236092e8f1bc9d17eeb36ea7e5a8a3e2aa9aaadffe",
+      "receipt_status": 1,
+      "swaps": 1,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000"
+    },
+    {
+      "tx_hash": "0xbd242e34ff6b051c0606f87235f0ea7845b6754427227d8de2ea4ffd0617d1c3",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999582,
+      "tx_index": 1,
+      "block_hash": "0xd8c19fed38c27198731de1b18f5d6a23bdb8e55f6ddbf0bb9d81814824b0eb7d",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "2000000000"
+    },
+    {
+      "tx_hash": "0x26c7759a1de5191dadf8cbe95eee9054715d28de8015f5df564b943331136490",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999582,
+      "tx_index": 18,
+      "block_hash": "0xd8c19fed38c27198731de1b18f5d6a23bdb8e55f6ddbf0bb9d81814824b0eb7d",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0xb796dfa47723f983acdc4d6f2a0dceff85b0f959b05f55d84d09101b0c922784",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 1,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999582,
+      "tx_index": 28,
+      "block_hash": "0xd8c19fed38c27198731de1b18f5d6a23bdb8e55f6ddbf0bb9d81814824b0eb7d",
+      "receipt_status": 1,
+      "swaps": 1,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000001"
+    },
+    {
+      "tx_hash": "0xc5929068faa42b54aa77bc014195dab48c8ffc1ba610d981cbb3ccacad0594ed",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999582,
+      "tx_index": 37,
+      "block_hash": "0xd8c19fed38c27198731de1b18f5d6a23bdb8e55f6ddbf0bb9d81814824b0eb7d",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "355195000"
+    },
+    {
+      "tx_hash": "0x31c821265d10c61a5a77430bc68df5a33657f5f7a324276959fb31e40ac1d331",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999582,
+      "tx_index": 39,
+      "block_hash": "0xd8c19fed38c27198731de1b18f5d6a23bdb8e55f6ddbf0bb9d81814824b0eb7d",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "200000000"
+    },
+    {
+      "tx_hash": "0x045536d62d544458226330c254e67f4f5f86e878ac2ddfb2902e6176b2ffb284",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999585,
+      "tx_index": 20,
+      "block_hash": "0x67acb262e50edc9809d6a08fb69408b1091bb6683ea573f5f1e2e5cabad4711a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0x2e118f493587a301f2f392d41f50ab682d3152ee84cf8e630086e4d8f2cd2bb1",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999585,
+      "tx_index": 21,
+      "block_hash": "0x67acb262e50edc9809d6a08fb69408b1091bb6683ea573f5f1e2e5cabad4711a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0x3ccd6357776c2202f797ed32942162d42ab8965d3d595ea00a41fbca5bd9ca5f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 17,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999585,
+      "tx_index": 25,
+      "block_hash": "0x67acb262e50edc9809d6a08fb69408b1091bb6683ea573f5f1e2e5cabad4711a",
+      "receipt_status": 1,
+      "swaps": 17,
+      "watch_pool_additional_events": 0,
+      "watch_pool_baseline_events": 1,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0x94677fb1f729e1459845c1de58056b551a4ddb6f56a6605bcee7d4ae6497ffe0",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999585,
+      "tx_index": 34,
+      "block_hash": "0x67acb262e50edc9809d6a08fb69408b1091bb6683ea573f5f1e2e5cabad4711a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0xeb78585da5427417968e449b0aa1552a3f90e42ee6e93b55b7cd78f11c974d0a",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999585,
+      "tx_index": 58,
+      "block_hash": "0x67acb262e50edc9809d6a08fb69408b1091bb6683ea573f5f1e2e5cabad4711a",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "62494314"
+    },
+    {
+      "tx_hash": "0x34f31159195279ed287fab913cbaa264530655b3b77ca3a26647f23317606dc1",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 1,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999588,
+      "tx_index": 8,
+      "block_hash": "0xbb212453e2b10b9ac2af8713e3dc1c0cdfc2c66667f1ccb7d585538143a8d03c",
+      "receipt_status": 1,
+      "swaps": 1,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50005000"
+    },
+    {
+      "tx_hash": "0xcc2012d5bbb99d8cd14c2b0039e9f4b6a32e917145dd2debf169635398ab36b1",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999588,
+      "tx_index": 39,
+      "block_hash": "0xbb212453e2b10b9ac2af8713e3dc1c0cdfc2c66667f1ccb7d585538143a8d03c",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "355195000"
+    },
+    {
+      "tx_hash": "0xf4b7a19e4f40575e2b227bff1615f341c19cefaec778a15262091893c5d254fa",
+      "shape": "control",
+      "evidence_level": "trace_funding",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 18,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        },
+        {
+          "count": 18,
+          "evidence_level": "trace_funding",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999588,
+      "tx_index": 82,
+      "block_hash": "0xbb212453e2b10b9ac2af8713e3dc1c0cdfc2c66667f1ccb7d585538143a8d03c",
+      "receipt_status": 1,
+      "swaps": 18,
+      "watch_pool_additional_events": 2,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "50000000",
+      "max_proven_funded_pool_swaps": 4,
+      "funding_note": "Six open cross-asset funding paths to USDT. The input asset lacks an execution-equivalent valuation.",
+      "logical_pools": 10,
+      "observed_external_native_bnb_wei": "0",
+      "visible_bnb_component_after_costs_wei": "-69684550000000",
+      "visible_other_erc20_delta_raw": {
+        "0x55d398326f99059ff775485246999027b3197955": "1892413938200670976182",
+        "0xbb73bb2505ac4643d5c0a99c2a1f34b3dfd09d11": "-1000000000000"
+      },
+      "gas_used": 1393691,
+      "receipt_gas_bnb_wei": "69684550000000"
+    },
+    {
+      "tx_hash": "0xca3452e3941c3cd8a93adedefdb8878831da407b8b70923a9feed94ca712d42f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999588,
+      "tx_index": 97,
+      "block_hash": "0xbb212453e2b10b9ac2af8713e3dc1c0cdfc2c66667f1ccb7d585538143a8d03c",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "274045752"
+    },
+    {
+      "tx_hash": "0x0a87864e4ac4cc31ce0713417404d53123eb7248dc37b18864019554af21e8f8",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 16,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "600000000"
+    },
+    {
+      "tx_hash": "0xede7a32b0acf6dd9a46a0543419fc697d3c40cd92f8179547d228c3b4731f11f",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 28,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "0"
+    },
+    {
+      "tx_hash": "0x88190582071fae84007378da4fd345a3de394a85fc185173abec9f44e1ec3b07",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 30,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "120000000"
+    },
+    {
+      "tx_hash": "0xecdc66fcfb2d8e6c33e2903c0986fd119eacf092b3bfaf37052aaffc9daab042",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 38,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "362494314"
+    },
+    {
+      "tx_hash": "0xa7ecc34b275fa222894fde3caf407b5ef0153d621172095da14824cbc06cd705",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 2,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 45,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 2,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "100000000"
+    },
+    {
+      "tx_hash": "0x23c472ad4f16db0b0ce90d0572e3ec700cc58b561d67740740b86291fd2bfb2e",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 49,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "100000000"
+    },
+    {
+      "tx_hash": "0x3c71fb6d6b477f8ba3f137d06e6e05a6a40acfda03dad4e9b55deabea1e2a5d8",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 54,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "80000001"
+    },
+    {
+      "tx_hash": "0xb60f254acda9e5a02ced3a73986a8deb1dc79be950a6e852865c9dae35744919",
+      "shape": "unresolved",
+      "evidence_level": "rooted_receipt_swap_shapes",
+      "all_cost_profit": null,
+      "sources": [
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+        "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md"
+      ],
+      "swap_observations": [
+        {
+          "count": 3,
+          "evidence_level": "rooted_receipt_swap_shapes",
+          "source": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json"
+        }
+      ],
+      "block": 135999591,
+      "tx_index": 109,
+      "block_hash": "0xbb2c9880f7a315ecd11819faeac4dcaced5987720e17680e382b8f55dfd2beac",
+      "receipt_status": 1,
+      "swaps": 3,
+      "watch_pool_additional_events": 1,
+      "watch_pool_baseline_events": 0,
+      "effective_gas_price_wei": "355195000"
+    }
+  ],
+  "cohorts": [
+    {
+      "id": "public_one_block",
+      "kind": "indexed_history",
+      "index": "reports/research/multichain-discovery-20261122/eth-explorer/binance-mainnet.ndjson",
+      "selector": "Single block: distinct logs[].transactionIndex and documented Swap ABI + WBNB transfer filter",
+      "first": 61000000,
+      "last": 61000000,
+      "blocks": 1,
+      "all_logs": 832,
+      "emitting_transactions": 114,
+      "individually_reviewed": 2,
+      "individually_attributed": 1
+    },
+    {
+      "id": "five_recent_finalized_blocks",
+      "kind": "receipt_screen",
+      "index": "reports/research/bsc-recent-arbitrage-20261123/analysis.json",
+      "selector": "$.preselected_receipts, $.findings, $.second_example",
+      "blocks": 5,
+      "receipts": 403,
+      "individually_attributed": 2
+    },
+    {
+      "id": "long_dex_initial",
+      "kind": "indexed_history",
+      "index": "reports/research/long-dex-20261123/binance-mainnet/result.json",
+      "selector": "$.hist and $.top (ranked by Swap shapes, no funding implication)",
+      "raw_index": "reports/research/long-dex-20261123/binance-mainnet/response.ndjson",
+      "first": 135114872,
+      "last": 135115383,
+      "requested_last": 135115383,
+      "blocks": 512,
+      "matching_transactions": 9692,
+      "matching_events": 14694,
+      "status": "complete",
+      "address_filter": "none; topic0 only",
+      "counts_ge": {
+        "5": 166,
+        "10": 22,
+        "20": 8,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      }
+    },
+    {
+      "id": "long_dex_expanded",
+      "kind": "indexed_history",
+      "index": "reports/research/long-dex-20261123/expanded/binance-mainnet/result.json",
+      "selector": "$.hist and $.top (ranked by Swap shapes, no funding implication)",
+      "raw_index": "reports/research/long-dex-20261123/expanded/binance-mainnet/response.ndjson",
+      "first": 135110776,
+      "last": 135114871,
+      "requested_last": 135114871,
+      "blocks": 4096,
+      "matching_transactions": 79911,
+      "matching_events": 118070,
+      "status": "complete",
+      "address_filter": "none; topic0 only",
+      "counts_ge": {
+        "5": 1202,
+        "10": 183,
+        "20": 40,
+        "50": 4,
+        "100": 0,
+        "200": 0
+      }
+    },
+    {
+      "id": "long_dex_executor-lookback",
+      "kind": "indexed_history",
+      "index": "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/result.json",
+      "selector": "$.hist and $.top (ranked by Swap shapes, no funding implication)",
+      "raw_index": "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/response.ndjson",
+      "first": 135090296,
+      "last": 135094091,
+      "requested_last": 135110775,
+      "blocks": 3796,
+      "matching_transactions": 228,
+      "matching_events": 1394,
+      "status": "truncated",
+      "address_filter": "transaction.to target; restricted arm",
+      "counts_ge": {
+        "5": 125,
+        "10": 25,
+        "20": 7,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      }
+    },
+    {
+      "id": "pretrade_long_index",
+      "kind": "indexed_history",
+      "index": "reports/research/pretrade-tail-20261123/bsc-1/response.ndjson",
+      "selector": "Complete NDJSON lines only before the 48 MiB response cap; aggregate by transaction index",
+      "first": 135106680,
+      "last": 135110757,
+      "blocks": 4078,
+      "matching_transactions": 84223,
+      "counts_ge": {
+        "5": 1376,
+        "10": 213,
+        "20": 58,
+        "50": 7,
+        "100": 0
+      },
+      "stop": "response byte cap; two other BSC windows stopped at HTTP 529 and add no coverage"
+    },
+    {
+      "id": "ordered_batch_other_receipts",
+      "kind": "rooted_receipt_screen",
+      "index": "reports/research/bsc-ordered-marginals-20261124/replayed.json",
+      "selector": "$.older_receipt_cohort[*].{height,counts,top_all_swaps}",
+      "blocks": 2,
+      "receipts": 236,
+      "focal_cases_excluded": 2,
+      "funding_bound": "Receipt amount links were screened. Only traced evidence proves 4+3 on the candidate."
+    },
+    {
+      "id": "eight_address_holdout",
+      "kind": "restricted_log_screen",
+      "index": "reports/research/bsc-eight-address-holdout-20261124/ranked.json",
+      "selector": "Ranked restricted API log pages by matched Swap shape count and logical pools",
+      "first": 135377727,
+      "last": 135378110,
+      "blocks": 384,
+      "blocks_with_matches": 365,
+      "matching_events": 4000,
+      "matching_transactions": 2900,
+      "counts_ge": {
+        "10": 16,
+        "20": 2,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "independently_traced_in_original_scope": 2
+    },
+    {
+      "id": "twenty_address_first_stop",
+      "kind": "stopped",
+      "index": "reports/research/bsc-paged-serial-holdout-20261124/STOP.json",
+      "selector": "$.error, $.stage",
+      "requested_first": 135378111,
+      "requested_last": 135378494,
+      "blocks": 0,
+      "stop": "HTTP 403 / -32602 on page zero"
+    },
+    {
+      "id": "four_pool_holdout",
+      "kind": "restricted_log_screen",
+      "index": "reports/research/bsc-four-pool-tail-20261124/ranked.json",
+      "selector": "$.{first,last,matching_transactions,matching_pool_events,bins,selected}",
+      "first": 135308800,
+      "last": 135308991,
+      "blocks": 192,
+      "blocks_with_matches": 170,
+      "matching_events": 476,
+      "matching_transactions": 459,
+      "counts_ge": {
+        "10": 0
+      },
+      "independently_traced": 1
+    },
+    {
+      "id": "single_pool_holdout",
+      "kind": "restricted_log_screen",
+      "index": "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/ranked.json",
+      "selector": "$.{first,last,matching_transactions,matching_pool_events,selected}",
+      "first": 135306822,
+      "last": 135306869,
+      "blocks": 48,
+      "blocks_with_matches": 14,
+      "matching_events": 27,
+      "matching_transactions": 18,
+      "independently_traced": 1
+    },
+    {
+      "id": "single_pool_first_stop",
+      "kind": "stopped",
+      "index": "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md",
+      "selector": "Independent 96-block window rejected",
+      "requested_first": 135306726,
+      "requested_last": 135306821,
+      "blocks": 0,
+      "stop": "HTTP 403 / -32701"
+    },
+    {
+      "id": "mixed_historical_rooted_recheck",
+      "kind": "mixed_receipt_screen",
+      "index": "reports/research/bsc-robinhood-serial-search-20261127/screen.json",
+      "selector": "$[?(@.chain==56)].{covered_blocks,receipts,statuses,ranking,threshold_counts}",
+      "blocks": 12,
+      "blocks_with_verified_header_and_receipt_root": 10,
+      "receipts": 1167,
+      "receipt_statuses": {
+        "0": 52,
+        "1": 1115
+      },
+      "counts_ge": {
+        "5": 14,
+        "10": 9,
+        "20": 8,
+        "50": 6,
+        "100": 0,
+        "200": 0
+      },
+      "additional_shape_counts_ge": {
+        "5": 6,
+        "10": 2,
+        "20": 1,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      }
+    },
+    {
+      "id": "forty_block_frozen_landed",
+      "kind": "rooted_receipt_screen",
+      "index": "reports/research/bsc-window-audits-20261127/cohort/ranking.json",
+      "selector": "$.totals, $.hist, $.candidates, $.selected",
+      "blocks": 40,
+      "transactions": 3290,
+      "counts_ge": {
+        "100": 0,
+        "20": 1,
+        "200": 0,
+        "5": 16,
+        "50": 0
+      },
+      "independently_traced": 2
+    },
+    {
+      "id": "frozen_115_pool_shadow",
+      "kind": "forward_shadow",
+      "index": "docs/verification/BSC_FROZEN_WINDOW_20261127.json",
+      "selector": "$.prospective, including the simulation-only control",
+      "pools": 115
+    },
+    {
+      "id": "expanded_138_pool_landed",
+      "kind": "rooted_receipt_screen",
+      "index": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+      "selector": "$.forward.scored_heads[*].receipt_observations.{all_receipts,overlap_transactions}. $.landed",
+      "first": 135999569,
+      "last": 135999591,
+      "blocks": 8,
+      "receipts": 850,
+      "unique_pool_overlap_transactions": 45,
+      "independently_traced": 2
+    },
+    {
+      "id": "expanded_138_pool_shadow",
+      "kind": "forward_shadow",
+      "index": "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json",
+      "selector": "$.forward.scored_heads and $.whole_control (read-only simulated H/K/C)",
+      "blocks": 8,
+      "pools": 138,
+      "baseline_pools": 115,
+      "simulation_only": true
+    },
+    {
+      "id": "initial_multi_chain_snapshot",
+      "kind": "shadow_or_state_only",
+      "index": "docs/verification/MULTICHAIN_DISCOVERY_20261122.json",
+      "selector": "BSC state-only row"
+    },
+    {
+      "id": "twenty_head_triangle",
+      "kind": "shadow_or_state_only",
+      "index": "reports/research/multichain-forward-20261122/bsc/summary.json",
+      "selector": "$.{block_count,economic_denominator,first_block,last_block,witness}"
+    },
+    {
+      "id": "depth_snapshot",
+      "kind": "shadow_or_state_only",
+      "index": "reports/research/multichain-depth-20261123/bsc/result.json",
+      "selector": "$.{head,index_pair_count,pools,pin_rechecked}; offline path checks have no receipts"
+    },
+    {
+      "id": "wide_v2_window",
+      "kind": "shadow_or_state_only",
+      "index": "reports/research/bsc-wide-forward-20261123/summary.json",
+      "selector": "$.{scored,pools,directional_routes,actual_receipts_collected,revert}"
+    },
+    {
+      "id": "long_forward_window",
+      "kind": "shadow_or_state_only",
+      "index": "reports/research/bsc-long-forward-20261123/verified.json",
+      "selector": "$.{outputs,received,source}"
+    },
+    {
+      "id": "ordered_v2_batch_replay",
+      "kind": "shadow_or_state_only",
+      "index": "docs/verification/BSC_V2_BATCH_COMPARISON_20261123.md",
+      "selector": "Historical reserve snapshot and synthetic same-capital ordered evaluation"
+    }
+  ],
+  "input_sha256": {
+    "docs/strategies/MULTICHAIN_MULTIHOP_DISCOVERY.md": "85bbec10e3ce1dce28f863e7c2f7c8676661f4a2b50fa420f7857e91e141b814",
+    "docs/verification/BSC_ALTERNATE_LONG_TAIL_20261124.md": "aca1353ba2375827db31e4578c9454d169b521e6a8c391ac3f2228e22744fbe7",
+    "docs/verification/BSC_BATCHED_CLOSURES_20261124.md": "5a6ff1b8315e6efbd672b6e7bf61d8f482228ab338feb61459876a7205980464",
+    "docs/verification/BSC_FOUR_POOL_TAIL_20261124.md": "11e0bd7adf4f9e38f6bab9efeffaccd7d3275901cf4d21c2b0785c34266b5a7a",
+    "docs/verification/BSC_FROZEN_WINDOW_20261127.json": "ad8b215ddf9648cd208c1b12677036e83ee1f86fce10073a080be38694e860c4",
+    "docs/verification/BSC_FROZEN_WINDOW_20261127.md": "4b80db8b92fa684afde5015928b583b770dc94ae5fb3cb1720dd7f604ce8e2d7",
+    "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.json": "791996158a8a2b4523797b35935da26860c7cb5dfcc1cb93f7720920cdacabf1",
+    "docs/verification/BSC_HISTORICAL_POOL_EXPANSION_20261127.md": "656d59cb820568e5b0de81d0ddb5b8451bfa463b5587a14fb8a781f63dc313c4",
+    "docs/verification/BSC_ORDERED_BATCH_MARGINALS_20261124.md": "bfbb1369e66c1109d431e85edfb0b7ad4b4794fa76b68f5b8caf1684301f2480",
+    "docs/verification/BSC_PAGED_LONG_TAIL_20261124.md": "fdee6517d1c31d40719a9dd546f9bc26d0527208a8fc33fb7887da710ec80bcf",
+    "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md": "44baba5292da551ed15518b5d33c823ea4c1b948dd397edf8c2fd5823cbfb9ca",
+    "docs/verification/BSC_V2_BATCH_COMPARISON_20261123.md": "7fa6b0396392f9c43d724f606eb78b2a437bda5eb636b02274cc8dad3fe9bb49",
+    "docs/verification/LONG_SWAP_TAIL_20261123.md": "2a1671968bfea9569795a88756e6a98fecebb830ea69edb17afd6c839f612ff2",
+    "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.md": "451f1587b23127ab251bd3954f6a7a8f495cd8d9453b60b937c09997dc7e7a49",
+    "docs/verification/MULTICHAIN_DISCOVERY_20261122.json": "916c7d44b183ed49ed313df84b99405fde1bd6997c55c76822aca2ef6f753fd2",
+    "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md": "f64953b18767003f3a4a6e7e863b8aaea03588a87c7ead79b1605c178e02d17c",
+    "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md": "397a01d524752f91c0f2439bb2e3a3527182e3e76f6df8775f5fbb60bf590581",
+    "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md": "99c5d9c3bfa2d66a3292151b632271e3fa6fcfe95524d5210306b8edfb344125",
+    "reports/research/bsc-66-swap-forensics-20261124/verified.json": "3cf61b6227294d9c87655f46647ce77d4be738859c074569d38d7f9d43168c14",
+    "reports/research/bsc-alternate-long-tail-20261124/retained-verified.json": "4ccf71024a1c227bbcbb533460898a439785bf6ffdad5470896dcb052e10a7fd",
+    "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/ranked.json": "1513776be5235e159e941116e2dee3949143d5405b2f47faa1c18bed1b2485e5",
+    "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/verified.json": "f84053201ed032bfd65d68aab0512ad653a342076e550ae40b8d509d3978dbca",
+    "reports/research/bsc-batched-closures-20261123/verified.json": "b4e137248827678c6cc2644262c6e05802b4c39069173d90fe9b74306004d689",
+    "reports/research/bsc-eight-address-holdout-20261124/ranked.json": "f6c363e9c7bf1b28da890e84f24784fdaf714e25ab5baa55d0d7066707cd0bf5",
+    "reports/research/bsc-eight-address-holdout-20261124/verified.json": "aa8bf8e1d6b201c37c7df5ee1465a60102e920cfda3f8b3848aa6c1cb813edab",
+    "reports/research/bsc-four-pool-tail-20261124/ranked.json": "b4e7148a1bc3140252231fae58dccae75886c91985ddea7e48db6d0313877be9",
+    "reports/research/bsc-four-pool-tail-20261124/verified.json": "a6a63e5ecaeb54e6fa72aa03fac616a22c421647811d014d7e9c29ea7e8a4a4e",
+    "reports/research/bsc-long-forward-20261123/verified.json": "10ec8af0c3da924e864ce921a01790e73d901bd7aa1092a48990376dc5f0cf2d",
+    "reports/research/bsc-ordered-marginals-20261124/candidate-triport-trace/verified.json": "0383ad9e9283718687352043b074d508f130105206930cf8d5cb072dbcf09e80",
+    "reports/research/bsc-ordered-marginals-20261124/replayed.json": "a8d1e02c5aa8be7a321b77f88c14c4219f323684d910b525ae1b05e62ddb6e22",
+    "reports/research/bsc-paged-serial-holdout-20261124/STOP.json": "b0e51cc6a29c2128552378f9808a61e329e12a0d06916fd79075cc1e326a73f0",
+    "reports/research/bsc-recent-arbitrage-20261123/analysis.json": "6c6906713c37228e56ec0b1bfd2691e783438e85e410f41d57feea6f8acd0754",
+    "reports/research/bsc-robinhood-serial-search-20261127/screen.json": "5b6b91f26002dea81b562044003d3bf033193fe821adb0d9a1a4c1b2b670e10a",
+    "reports/research/bsc-robinhood-serial-search-20261127/verified.json": "df2f45222d4f2215017dafa39e17f5c3540dd18bc872957fbd3c85341c1083f3",
+    "reports/research/bsc-wide-forward-20261123/summary.json": "3ac73520fe13a42fb1ef2e9c895575cfb1a7b4695856bea7229c55224c6c694e",
+    "reports/research/bsc-window-audits-20261127/cohort/ranking.json": "8bd347b33a068026822f343497344a1d21f31dee26aa17bcf9ce35010b6d0b9b",
+    "reports/research/long-dex-20261123/binance-mainnet/closed-branch-proof.json": "954a07961b0c4f748c493b08cfd9d3e2146d8d220a80b9cd682a5a2f0bb69510",
+    "reports/research/long-dex-20261123/binance-mainnet/receipts/result.json": "cf177a81ebce6877d6bbf2aad5b3c24c31c154f65d28c2b9f59c179b9a7431c6",
+    "reports/research/long-dex-20261123/binance-mainnet/response.ndjson": "9d0e26660cb572902dbd27215a6810fe385288b97c6f8b63a8eabb6d3b0d33aa",
+    "reports/research/long-dex-20261123/binance-mainnet/result.json": "d745e9dd0f717faa2cbace01bf4c38a47e9f0508a8f6a29c251ff840adc6846e",
+    "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/response.ndjson": "b1b3e0365eb11688ca2a63f4977a535b767394c0dc525f8d22eae21c2795d3df",
+    "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/result.json": "e111ad30df1c2d3664e446b72f561933786f58f72458ed05c9555a4c14d62285",
+    "reports/research/long-dex-20261123/expanded/binance-mainnet/receipts/result.json": "2a7c860e21d40fe6a6e374e0545de0021deab5b6ab98714458f254cc8b12b5b8",
+    "reports/research/long-dex-20261123/expanded/binance-mainnet/response.ndjson": "ee9faf95dafc3c0f272ed96b7a4dda2a41546308b44f1f3ced54ddcd586a5cd6",
+    "reports/research/long-dex-20261123/expanded/binance-mainnet/result.json": "62e2c2c7a7f83d53a4253a689a186a1a622dae732c235a6787a6df1a9593830a",
+    "reports/research/multichain-batch-control-20261127/a578-trace/verified.json": "6a24caf6a61c20c6e74cf6ba37a613c96abfb13040123b1e6e74f5d3240d1a15",
+    "reports/research/multichain-batch-control-20261127/scope.json": "7712ef3fc9027b1f398d8fa28409ad1c7da761942da4c10b294159cf85076407",
+    "reports/research/multichain-depth-20261123/bsc/result.json": "9eec8764ca9d77c291903f7a2df1e88e4b7cc42a6e690998943ceecbc124162f",
+    "reports/research/multichain-discovery-20261122/eth-explorer/binance-mainnet.ndjson": "c440207c135255242324c25427d95e2d1f32289dae5ceb3772af9aecd3f13b19",
+    "reports/research/multichain-discovery-20261122/eth-explorer/bsc-trace-identity.response": "954b93136d78e8f5a5e0c948422154d889876f4d060dd4a4d715a7f2f590eb13",
+    "reports/research/multichain-forward-20261122/bsc/summary.json": "89f53f80ace8cc36d28af068acc83d9a9437f8fe52fae7e59808218fddfd4a38",
+    "reports/research/multichain-long-route-samples-20261123/bsc-verified.json": "c593fea0c61c2b846cd0f226f063f6780781f2a999436025c936618501a02d86",
+    "reports/research/pretrade-tail-20261123/bsc-1/response.ndjson": "b580d084a610af0eb9a8276f0a792856855c9c0b54960ef17a7532cd53fdc6d4",
+    "reports/research/pretrade-tail-20261123/bsc-prefix-blast/1.res": "9e06d2213fcb2d6ad596db0b45c6f9bdd2fd5ef7a3b3c50fe6e50501612983f5",
+    "reports/research/pretrade-tail-20261123/bsc-prefix-official/1.res": "95acfed4c5ce344b91d3e70ee7587a2d2b2e65666868abf0ad63778e18980839",
+    "reports/research/pretrade-tail-20261123/bsc-tail-1-official/receipt.res": "06ff637ae1853ce4babb598d53439c654aa16c7a59aefa11912d14156235e525",
+    "reports/research/pretrade-tail-20261123/bsc-tail-2-official/receipt.res": "c42adf1b6f33b7e2cabd7d21d7e99bf845ae75ba57bf2813b5d801dbbfca5eac",
+    "reports/research/pretrade-tail-20261123/bsc-tail-3-official/receipt.res": "b72b5604a1689c2fd1c9f5d18d2cc35709dedf48675120e70c93a39e5854a354",
+    "reports/research/pretrade-tail-20261123/bsc-tail-4-official/receipt.res": "408b4c687542264e85775d015a21366f0994fd4fd4e7220eb5c0725c5bbf06ff",
+    "reports/research/pretrade-tail-20261123/bsc-tail-5-official/receipt.res": "3ab45ee896b9935c2cad2d5ddd499600de495cdf557fde937460c674078a6396",
+    "reports/research/pretrade-tail-20261123/bsc-tail-6-official/receipt.res": "c96708ff9379352d3c5f2440ddf91e7aa6531abfeb38d904f33a91d160d1eddc",
+    "reports/research/pretrade-tail-20261123/bsc-tail-7-official/receipt.res": "be23165dd4cf7f3d8fd4ac65a95839aca3b8c7f214b7dcee9c82c241bd79d0b2"
+  }
+}

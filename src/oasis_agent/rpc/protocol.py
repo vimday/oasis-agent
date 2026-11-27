@@ -25,10 +25,9 @@ def _finite_float(value: str) -> float:
     return number
 
 
-def strict_json_object(payload: bytes) -> dict[str, object]:
-    """Decode JSON bytes, rejecting ambiguity and unparseable nesting."""
+def _strict_json(payload: bytes) -> object:
     try:
-        value = json.loads(
+        return json.loads(
             payload,
             object_pairs_hook=_unique_fields,
             parse_constant=_reject_constant,
@@ -36,9 +35,22 @@ def strict_json_object(payload: bytes) -> dict[str, object]:
         )
     except (ValueError, UnicodeError, RecursionError) as exc:
         raise ValueError("RPC contains invalid or ambiguous JSON") from exc
+
+
+def strict_json_object(payload: bytes) -> dict[str, object]:
+    """Decode a JSON object, rejecting ambiguity and unparseable nesting."""
+    value = _strict_json(payload)
     if not isinstance(value, dict):
         raise TypeError("RPC envelope must be an object")
     return cast(dict[str, object], value)
+
+
+def strict_json_array(payload: bytes) -> list[object]:
+    """Decode a JSON array with the same wire checks as a single reply."""
+    value = _strict_json(payload)
+    if not isinstance(value, list):
+        raise TypeError("RPC batch envelope must be an array")
+    return cast(list[object], value)
 
 
 def response_envelope(payload: bytes, request_id: int) -> dict[str, object]:

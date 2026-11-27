@@ -1,0 +1,4807 @@
+{
+  "chain": "Base",
+  "chain_id": 8453,
+  "cohorts": [
+    {
+      "evidence": "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md",
+      "id": "appendix-500",
+      "local_inputs_sha256": {},
+      "matched_events": 1160,
+      "matched_transactions": 1034,
+      "minimum_events": {
+        "2": 103,
+        "3": 21,
+        "4": 2,
+        "5": 0
+      },
+      "reconstruction": "Appendix D specifies topic set, 5-block chunks and range; the published table has no row-by-row hash manifest.",
+      "scope": "500 blocks 60649934-60650433; 6-event named user operation belongs to a separate historical case."
+    },
+    {
+      "event_count_histogram": {
+        "1": 13732,
+        "10": 2,
+        "13": 1,
+        "16": 2,
+        "2": 1641,
+        "3": 509,
+        "35": 1,
+        "4": 133,
+        "5": 49,
+        "6": 15,
+        "7": 13,
+        "8": 2,
+        "9": 3
+      },
+      "evidence": "docs/verification/LONG_SWAP_TAIL_20261123.md",
+      "from_block": 60868904,
+      "id": "sqd-4097",
+      "kind": "retrospective_topic_scan",
+      "local_inputs_sha256": {
+        "reports/research/long-dex-20261123/base-mainnet/response.ndjson": "cf1dc601ebd425cc53550a28c986b840b37c1f0d6fa482c1009ecd4b4af7c4eb",
+        "reports/research/long-dex-20261123/base-mainnet/result.json": "da6c023d115145db7f609ad1b0148753a2dedc2016dd4f0e84c54e513d8514be"
+      },
+      "matched_events": 19642,
+      "matched_transactions": 16103,
+      "threshold_for_individual_rows": 5,
+      "to_block": 60873000
+    },
+    {
+      "event_count_histogram": {
+        "1": 10930,
+        "10": 3,
+        "11": 1,
+        "12": 1,
+        "19": 1,
+        "2": 1223,
+        "20": 1,
+        "3": 391,
+        "30": 1,
+        "4": 130,
+        "5": 63,
+        "50": 1,
+        "6": 36,
+        "7": 5,
+        "8": 4,
+        "9": 3
+      },
+      "evidence": "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+      "from_block": 60885193,
+      "id": "sqd-4096",
+      "kind": "retrospective_topic_scan",
+      "local_inputs_sha256": {
+        "reports/research/pretrade-tail-20261123/base-3/response.ndjson": "f90a25d0104fae3cc225b3826ce8362c841dc41c7d382587596e509c0982b62f",
+        "reports/research/pretrade-tail-20261123/base-3/result.json": "0621b0917ea0e42c292371913381a09ed5091322f4ffdefcba0453023ac7c1f6"
+      },
+      "matched_events": 15866,
+      "matched_transactions": 12794,
+      "threshold_for_individual_rows": 5,
+      "to_block": 60889288
+    },
+    {
+      "complete_receipts": 3,
+      "evidence": "docs/verification/LONG_SWAP_TAIL_20261123.md",
+      "id": "long-receipts",
+      "local_inputs_sha256": {
+        "reports/research/long-dex-20261123/base-mainnet/receipts/3.profile.json": "3d8190053f5b664701cd21a639675893f306763e0b669c368a5876876cf7695e",
+        "reports/research/long-dex-20261123/base-mainnet/receipts/5.profile.json": "3dce2368d25a2dfa0779c587a368d9781c06321751a88b851222e143bfc52172",
+        "reports/research/long-dex-20261123/base-mainnet/receipts/7.profile.json": "29f8fc7ae601748ba5e3f843f0deed1858d9907cc0c4c0da19cfe2cc85393b4e"
+      }
+    },
+    {
+      "complete_receipts": 4,
+      "evidence": "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+      "id": "pretrade-tail-receipts",
+      "local_inputs_sha256": {
+        "reports/research/pretrade-tail-20261123/base-tail-1-publicnode/chain.res": "60a8e1c6a5247eee8b12ffe2450558e6199f6146acc9caed1be20cd1d373d45e",
+        "reports/research/pretrade-tail-20261123/base-tail-1-publicnode/receipt.res": "6d9f0770477f8629385405997e05016fc4e418486e4e0829aaf1256feb6abe9b",
+        "reports/research/pretrade-tail-20261123/base-tail-2-publicnode/chain.res": "60a8e1c6a5247eee8b12ffe2450558e6199f6146acc9caed1be20cd1d373d45e",
+        "reports/research/pretrade-tail-20261123/base-tail-2-publicnode/receipt.res": "b06384807f0e79fdb738eabc9430180ead4228120dd0e0feb3f2b9d4c26aed8e",
+        "reports/research/pretrade-tail-20261123/base-tail-3-publicnode/chain.res": "60a8e1c6a5247eee8b12ffe2450558e6199f6146acc9caed1be20cd1d373d45e",
+        "reports/research/pretrade-tail-20261123/base-tail-3-publicnode/receipt.res": "7e106d7e7c62a18946c91ee7bddc8d01db5f55aaa39c9b890333af960c36cde4",
+        "reports/research/pretrade-tail-20261123/base-tail-4-publicnode/chain.res": "60a8e1c6a5247eee8b12ffe2450558e6199f6146acc9caed1be20cd1d373d45e",
+        "reports/research/pretrade-tail-20261123/base-tail-4-publicnode/receipt.res": "6bb5c7875d05036f2b102f22da5f2dd822c458818b48b9538d4155ff2b951170"
+      }
+    },
+    {
+      "evidence": "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+      "id": "base-hook-replay",
+      "kind": "historical_transaction_replay",
+      "local_inputs_sha256": {
+        "reports/research/pretrade-tail-20261123/base-exact-audit.json": "8c480c64baa78452cfccfb3b238ea3a4d9f1feac228fb40b484af0d9635e2ec6"
+      }
+    },
+    {
+      "evidence": "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.json",
+      "id": "cross-unlock",
+      "kind": "historical_call_tree_receipt",
+      "local_inputs_sha256": {
+        "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.json": "75638996e307ae1b6c8f3d7aa2d82223c38ac72a170765785a5b9cd0388f3a09"
+      }
+    },
+    {
+      "blocks_sampled": 384,
+      "complete_receipts": 10,
+      "event_count_histogram": {
+        "1": 343,
+        "2": 15,
+        "3": 4,
+        "4": 2,
+        "5": 2,
+        "15": 1
+      },
+      "evidence": "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md",
+      "id": "recent-384",
+      "local_inputs_sha256": {
+        "reports/research/recent-dex-arbitrage-20261123/base/01.request.json": "47f54ecbb1b3c0d25bcc1699cfe00ea3c0a857d3f620dd8f5339aac55b65b4b5",
+        "reports/research/recent-dex-arbitrage-20261123/base/01.response.json": "60a8e1c6a5247eee8b12ffe2450558e6199f6146acc9caed1be20cd1d373d45e",
+        "reports/research/recent-dex-arbitrage-20261123/base/02.request.json": "4fdd90e52c6e2947b98bb25438f8ba954414e7f4f6e062a4077a8db4e6a649e6",
+        "reports/research/recent-dex-arbitrage-20261123/base/02.response.json": "c0cbb47f5198f707dc00aa579abe0647f3559c128198f16121edfd80953ad9cd",
+        "reports/research/recent-dex-arbitrage-20261123/base/03.request.json": "5d6b73490d97c710deb8f2c1d4ed1d7e8a728f5d5fe986c201a12746028bb4bd",
+        "reports/research/recent-dex-arbitrage-20261123/base/03.response.json": "e48c5122e0cf4702d1dfee296ed72afcddf40102254c4134ee89f23ed48f0b77",
+        "reports/research/recent-dex-arbitrage-20261123/base/04.request.json": "a1aedba8857a06922f0666e952097f6f0ddd7246c1448eb9a5b858d78266fc53",
+        "reports/research/recent-dex-arbitrage-20261123/base/04.response.json": "700be81b04c2d7a1eb8c3f76955e201391ebb8941c7e796cc95a303416bcd3b5",
+        "reports/research/recent-dex-arbitrage-20261123/base/05.request.json": "c70a5ffea567854cc5658e217b43e91733092b0bf18743723a516a9e3216d424",
+        "reports/research/recent-dex-arbitrage-20261123/base/05.response.json": "c1d0705544c23bcd5407ab00662c800103b0861d9450cfeff443ba2b7b771e27",
+        "reports/research/recent-dex-arbitrage-20261123/base/06.request.json": "3431edbd68f65df649e92e38756cb31b740c0b6babe140b48974cf02e472ab69",
+        "reports/research/recent-dex-arbitrage-20261123/base/06.response.json": "cff4e2caf8ba00dfff8fde481ec91fcaf5e35b5c559b0a0e1b99dbe874d962e5",
+        "reports/research/recent-dex-arbitrage-20261123/base/07.request.json": "cc0e197d3ee0a6c17fccdad95e5fd857d4698790eb01771ab938d38a56140a76",
+        "reports/research/recent-dex-arbitrage-20261123/base/07.response.json": "9c1c1bf9b670c7dec37f781cad333daae8e81ac4899057e4ca6f7b8cb96726f1",
+        "reports/research/recent-dex-arbitrage-20261123/base/08.request.json": "b8a5bec0bcfa44212fbbf867a399beaf9af86725c257111829a13fd8012afdb1",
+        "reports/research/recent-dex-arbitrage-20261123/base/08.response.json": "265aef5773fc154ed0de48f3c04c6405dffa958c8f0b813f36f5838c6db789f6",
+        "reports/research/recent-dex-arbitrage-20261123/base/09.request.json": "a794d643a4a6340ff67b61dc69ad2aa18cc44f8324ef6e19f2ebc5ea7012ad5b",
+        "reports/research/recent-dex-arbitrage-20261123/base/09.response.json": "20d8d522ddd60d245ef12a32d21925d4a803b9e23e1610aed9250e94a4c35017",
+        "reports/research/recent-dex-arbitrage-20261123/base/10.request.json": "682e8a8ea5808642169cb055e188df0049ee24a51179cf9a8a106d6f9190d698",
+        "reports/research/recent-dex-arbitrage-20261123/base/10.response.json": "00745ac58fc8ad981e3dd522f3d99912c2c44bde0876584d47cb6a04fe9eb62a",
+        "reports/research/recent-dex-arbitrage-20261123/base/11.request.json": "9825b06daaa3375734ea6d3468bc5bd30b2448dc1c101a5cffc5372531cc3849",
+        "reports/research/recent-dex-arbitrage-20261123/base/11.response.json": "27789a5687d3b50aec00e6e9aecae7a1f0dd1c928ad158d6f523989f27858257",
+        "reports/research/recent-dex-arbitrage-20261123/base/12.request.json": "a079c32e90d2a0ea619892950bfdf688b1f9b0c926eb063f8e85886efb195557",
+        "reports/research/recent-dex-arbitrage-20261123/base/12.response.json": "c7eecfce34da7e4cca506f07ceeda58c5e0ccdf94b9df7229b01c9fdb47c431c",
+        "reports/research/recent-dex-arbitrage-20261123/base/13.request.json": "a67e2e79c2d997bb00d94d5e1fe1131243d3d76d9f6a2eeeff07b4497dca67f5",
+        "reports/research/recent-dex-arbitrage-20261123/base/13.response.json": "66dc6b7084a4c878a435ae6248e136516f5cd1851fd4e00b1edc7bc73d16d438",
+        "reports/research/recent-dex-arbitrage-20261123/base/14.request.json": "f9ad5fae2cf0e87351b6cdbadc33cc738e8ea565ac21f1e68cf1753712e71770",
+        "reports/research/recent-dex-arbitrage-20261123/base/14.response.json": "35b6e80bd202ea782dc3d6eff9f81222de9181eced878ecae0f4bd56d1ea1dd0",
+        "reports/research/recent-dex-arbitrage-20261123/base/15.request.json": "10d625aec4c82832cd1ada7b801559832337d285ab98a4f866ebf65ff95405bc",
+        "reports/research/recent-dex-arbitrage-20261123/base/15.response.json": "7caa6d9be68c990d08cfd427041da34224da677ccb1db5569700738f5d1e13e0",
+        "reports/research/recent-dex-arbitrage-20261123/base/16.request.json": "9eb05cbeb2e3ce9e4b6b1a03d41b39f7263372e4033cc1572cb2a425b4022fdb",
+        "reports/research/recent-dex-arbitrage-20261123/base/16.response.json": "c318b2442efa8b72000156209d969bf1380cc0d3075ef66c60ecee9e526f81a9",
+        "reports/research/recent-dex-arbitrage-20261123/base/17.request.json": "c243003ced15aca1d5475c70e3bd27e340a04df50ace1524e2cbe79db1f0592e",
+        "reports/research/recent-dex-arbitrage-20261123/base/17.response.json": "7ea70462212a36f0e627e35bb82460c54164d182d3812d469b8cc077571b8233",
+        "reports/research/recent-dex-arbitrage-20261123/base/18.request.json": "a38103853d5128ecb1f1849fe1cd3307193d392ccf38b7d2ce37710f3dcf4699",
+        "reports/research/recent-dex-arbitrage-20261123/base/18.response.json": "ac14e1ee988c566cdffcb5b5a9ebd7a52d56cd12e7253758cf3a29afa7b8d91b",
+        "reports/research/recent-dex-arbitrage-20261123/base/19.request.json": "7d420f0c571765cb5caaf20b84748362ce91855cf52af905d1653f3f4cfea680",
+        "reports/research/recent-dex-arbitrage-20261123/base/19.response.json": "010d3d2b3329500b6ab58ff9bac1b0532e76d0833861e94a805adb9321a419c4",
+        "reports/research/recent-dex-arbitrage-20261123/base/20.request.json": "2e873dfad7aa3b3b99ae97a2a3d105f1f548d19d41f92fba68f94002d1ddd54f",
+        "reports/research/recent-dex-arbitrage-20261123/base/20.response.json": "a16ee9e9c663ddef508b2aa5b7fd0aea9b64d5d210b61b5db6e3268f15c37980",
+        "reports/research/recent-dex-arbitrage-20261123/base/21.request.json": "a03185e51af19dbc82925ebf53ad14373e5d3bab4f81f735bf04055f1d7150d8",
+        "reports/research/recent-dex-arbitrage-20261123/base/21.response.json": "df602573ba95699c4628bc674ebc79fd74e2e611629e2ae9bde447eb0dfd7ed5",
+        "reports/research/recent-dex-arbitrage-20261123/base/22.request.json": "843de481f205124681c2c5e22346bd4c519e9e90a071b380d8b136cac097824e",
+        "reports/research/recent-dex-arbitrage-20261123/base/22.response.json": "37b5784f2b1e401b74f6528984a0d42e0e39dcb2371ba152648699689d0b8ea8",
+        "reports/research/recent-dex-arbitrage-20261123/base/23.request.json": "d7a3eb0de356eb80882f1f573980fbc6d3c8fbddb3aef526ed4ec24aed0de833",
+        "reports/research/recent-dex-arbitrage-20261123/base/23.response.json": "85e7d37761cd5c850cd38837f4d72e99c6d6cbc7a09de7cb6777e3ee7a1af553",
+        "reports/research/recent-dex-arbitrage-20261123/base/24.request.json": "6ed4d133c1bd6d3cc3df90a54dc01b2ccf546cebd2a596469d59067711d24f6d",
+        "reports/research/recent-dex-arbitrage-20261123/base/24.response.json": "07fc34b4390ad3033d6767c34503008dc4b89697c6d588953165aa1855e1b6e8",
+        "reports/research/recent-dex-arbitrage-20261123/base/25.request.json": "7209d060e24a15765887d73f32b2b8207ca6075a0ab6866aa16052b56f279648",
+        "reports/research/recent-dex-arbitrage-20261123/base/25.response.json": "a88032623876bc2f9f1cb54f011dde7ce1a5d9e15718fee8f412bf1972df937e",
+        "reports/research/recent-dex-arbitrage-20261123/base/26.request.json": "23d41d5048a749ea4582ba0cbc7e159e28bad496533e959ea763c4bf275cda37",
+        "reports/research/recent-dex-arbitrage-20261123/base/26.response.json": "6c9ae7b4681abbc7c3bd2602e498e346d6d57ca709697d134c7e40b5c3654e9f",
+        "reports/research/recent-dex-arbitrage-20261123/base/27.request.json": "9fc0097668cf916022e81b6d68c379197ab6668a8d19ad384feb2c88f6776d5f",
+        "reports/research/recent-dex-arbitrage-20261123/base/27.response.json": "e0127a97cfc62c9b11d1686a7242dc302b2ccc8f37c33f866a63ccc7a510ec16",
+        "reports/research/recent-dex-arbitrage-20261123/base/28.request.json": "8e902ef374116579a9b8083cf356d87cbef3dceb3d09ab952cb451a6b6274670",
+        "reports/research/recent-dex-arbitrage-20261123/base/28.response.json": "42cd83464feccb9b5c7c86409afcc50fb9dc4c08613ec5063f1d5a7400ae55c0",
+        "reports/research/recent-dex-arbitrage-20261123/base/selected.json": "ce39044e18f0086289804af032776f837b4daa1b53f910a255bad78c356bea4a",
+        "reports/research/recent-dex-arbitrage-20261123/base/ten-result.json": "575f96095e0ffeb44179c4c6de3d2f85f1627d54c4c56f0bdbba26bf7fb3adf1",
+        "reports/research/recent-dex-arbitrage-20261123/base/verified-base-case.json": "ef7f62fe61729fcec1c14758ee8d2a8f3cc4fbd16d6d8337cc8ef9ff4fc1989a"
+      },
+      "matched_events": 418,
+      "matched_multiple_pools": 23,
+      "matched_transactions": 367
+    },
+    {
+      "evidence": "docs/verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md",
+      "id": "v3-event-control",
+      "kind": "pool_filter_control",
+      "local_inputs_sha256": {
+        "reports/research/prospective-window-20261114/base-observed-swap.json": "452c01503f503731c9f8b965f586276e5c7b170c8e180774cfd387cb8fc8131a"
+      }
+    },
+    {
+      "directed_two_hop_routes_per_anchor_and_state": 12,
+      "evidence": "docs/verification/BASE_FORWARD_POOL_COMPARISON_20261123.md",
+      "id": "four-pool",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {},
+      "pools": 4,
+      "route_anchor_state_evaluations": 144,
+      "states": 6,
+      "whole_candidates": 0
+    },
+    {
+      "directed_pairs": 12,
+      "evidence": "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+      "fixed_input_weth_wei": "100000000000000000",
+      "historical_state_anchor": "0x5b8491be0ae575eceee782601a40a77debe134080f7935f7492f52a33163b14d",
+      "id": "four-pool-exact-state",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {},
+      "marginal_positive": 2,
+      "pools": 4,
+      "positive_finite_net": 0
+    },
+    {
+      "evidence": "docs/verification/BASE_REALTIME_OPPORTUNITY_20261127.md",
+      "id": "realtime-mixed",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {},
+      "natural_candidates": 0,
+      "pool_arms": [
+        4,
+        58,
+        66
+      ]
+    },
+    {
+      "evidence": "docs/verification/BASE_INCREMENTAL_STATE_AB_20261127.md",
+      "id": "incremental-delivery",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {},
+      "paired_block_states": 3
+    },
+    {
+      "evidence": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+      "from_block": 57365935,
+      "hash_index": "summary.json: stream_logs[].transaction_hash, event[].tx; wire.sqlite3: witness eth_getTransactionReceipt",
+      "headers": 450,
+      "id": "event-quote-nov14",
+      "independently_checked_trigger_receipts": 4,
+      "kind": "observed_swap_trigger_for_shadow_quotes",
+      "local_inputs_sha256": {
+        "reports/research/event-quote-20261114/base-transport-recovery/summary.json": "2c603a994f90f32623977921336c19dd5d3446a677e867190c05271da9fea18c",
+        "reports/research/event-quote-20261114/base-transport-recovery/wire.sqlite3": "70989b804e0f5538188abd4ad4402ddf641c4543cd2a301035cc9cc96d9bc7d1"
+      },
+      "stream_events": 14,
+      "stream_transactions": 14,
+      "to_block": 57366408
+    },
+    {
+      "evidence": "docs/verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md",
+      "from_block": 61270732,
+      "hash_index": "summary.json: stream_logs[].transaction_hash, event[].tx; wire.sqlite3: witness eth_getTransactionReceipt",
+      "headers": 450,
+      "id": "event-quote-nov23",
+      "independently_checked_trigger_receipts": 4,
+      "kind": "observed_swap_trigger_for_shadow_quotes",
+      "local_inputs_sha256": {
+        "reports/research/event-quote-20261123/base/summary.json": "8a1aa8257662a277fa3a5dee918dac518380bc9ccfff5d3c7ba780b515927d30",
+        "reports/research/event-quote-20261123/base/wire.sqlite3": "d4c3521e044ea5a78f99b83bfcfb252c8a07c5a2af944a3f50727e88851f413a"
+      },
+      "stream_events": 143,
+      "stream_transactions": 142,
+      "to_block": 61271199
+    }
+  ],
+  "coverage": "Known locally retained or published transaction candidates and named controls. The six broad topic scans enumerate every 5+ hit. Other cohorts use their recorded selection. Cohort denominators apply to their own windows and may overlap. Shadow or constructed routes appear only as cohorts.",
+  "deduplicate_by": [
+    "chain_id",
+    "tx_hash"
+  ],
+  "full_net_unit": "ETH wei, only where every relevant cost and beneficiary is established.",
+  "offline_rebuild": {
+    "command": "PYTHONPATH=. .venv/bin/python reports/research/base-robinhood-inventory-20261127/rebuild.py base",
+    "retained_source": "reports/research/base-robinhood-inventory-20261127/rebuild.py",
+    "source_sha256": "aa7918e4118b70fb913ed8282f2390ef3fa65b5bfb82880d11f9af175c5ec689"
+  },
+  "sample_count": 231,
+  "samples": [
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x6b9451ab4629667303334ff127fc49f2f8c35369479f94d5b36e36266c1f9e32",
+          "cohort": "sqd-4096",
+          "height": 60885868,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x010cfd4bac67e67b64dbaf2a73346d65ce232897b43d7dded91bc5dd5636cdff"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4c41d66816cd6b62fbb5028e8f69201d1edea8a0ab8ff8dded9d03bc2748ec39",
+          "cohort": "sqd-4096",
+          "height": 60888331,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x018e8ffd2105207f140b955ab01fb34d2e23a75c49dc2bea3c9fc08c3e2966fb"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x31644de87c3f7c4ec37d80d0215d1727a7d009220ccd4a726fff380c64691da9",
+          "cohort": "sqd-4096",
+          "height": 60889041,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x025d5caf8fc425049c21aba9b862191e590f16ffab785d79ef82b6af6ad49678"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf21d90fe908bf7a24df8cf384ce43d1f91d9503fcc6a45ee6d70f51bfcb68a39",
+          "cohort": "sqd-4097",
+          "height": 60872654,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0342b245929f97f29ccc49f29a3ad258f5e43393dc888d1290922ba3dc2f6da8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa4d7e0c09927e28cdba1a141856c8fe3d2b45c072a911c4f9d006826e191262a",
+          "cohort": "sqd-4096",
+          "height": 60888260,
+          "index": 46,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0409dc4818e123eedbda30177a69017063e079d6c4d0bb7f1a99437b63dc85bc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf0d2cb6bc0f4bd7919088d5fec4e334c3e65e47b8b166aeb4f9287d906af2cce",
+          "cohort": "sqd-4097",
+          "height": 60871634,
+          "index": 116,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x06d81b02cc3d7e6478c5d825f36a8c34222eea299605853f7eaaf99551c316f1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881320,
+          "index": 20,
+          "kind": "receipt",
+          "l1_data_wei": 13448781067,
+          "l2_execution_wei": 10476858000000,
+          "matched_events": 2,
+          "receipt_swap_events": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x095ac9455592e3c3243d9c9460e5d64e37ba64e980a4f1a25795e75a38bfe965"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe57beed06d61af6f83fc8009d0b7827bf63205ad6db55bd7fe1018abb6f94a8c",
+          "cohort": "sqd-4097",
+          "height": 60872945,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x09cd249e6d39fdbdb394b181c0cdf843c2caa76e1d916640ed3c73503898e240"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x6e23db2d1b5c24d66e425cd319c07c6b8f20de7e26a6df4947065c090a8a2c15",
+          "cohort": "sqd-4096",
+          "height": 60888279,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0aa46ac439992b981ace6fc63baec0e3504c5079b35d148e0c030ecacda1ec76"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x514a789aab9148501d2a1cb379b955019487d5ac198820e06e3b1be1ebf4fea3",
+          "cohort": "sqd-4096",
+          "height": 60885962,
+          "index": 47,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0ad98a8f5adb39edb6df79f08433b5362769e4279d678f724474866e0faeaa68"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/PROSPECTIVE_EVENT_WINDOWS_20261114.md"
+      ],
+      "observations": [
+        {
+          "cohort": "v3-event-control",
+          "height": 57290924,
+          "index": 7,
+          "interpretation": "Observed WETH/USDC pool event; transaction-wide motive and other swaps unclassified.",
+          "kind": "single_observed_v3_swap"
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x0d4b46537e828b3cfe6706663a680c1e3c322c1d3e6ed1a53f3cc9b74f9c6680"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0e24d5c5ddcebc445bd8c90c5197b11e0a76e42adddf05155a1acd4d21093e77",
+          "cohort": "sqd-4096",
+          "height": 60885509,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0ea98fa3d6c429de92759d71872f3364b8bac9412e75e7eed416f8bc838fc403"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4ecc96b5539b8da3e4cbb0048813e1e4aa8d1d174c22d5b9cc46c7acb7c61fbc",
+          "cohort": "sqd-4096",
+          "height": 60886563,
+          "index": 33,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0ed9b37c914ca775782298dc9bcc29be627a96247d18b0999e92f5b8d6a682d5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x33e37681ce0aa2ec96d7d4505eb44d36e7160b1bf676214b4d6f7df7b3844665",
+          "cohort": "sqd-4097",
+          "height": 60871833,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0feff218309893d339c010ce7f85664de7e5565c81ed2dcb989caaad573f04ab"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x65bfb9d5634c7b831342c65f89acd1c9d3a541bccaba549841766c6ada7408ec",
+          "cohort": "sqd-4097",
+          "height": 60870371,
+          "index": 25,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1085e9ca7c4f77469d81e339346cfc4545788d0712bdbdca5dfd8bcd3e6de449"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9e69583415fd8d919dec9ca28e3f197c7a3a7dad234f93e545d063119fedf498",
+          "cohort": "sqd-4097",
+          "height": 60869937,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1137a4a26225e09a22b9c73b8c0894dfe7d0cfbd397ab6a45099a4b171948343"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-500",
+          "interpretation": "ERC-4337 user route; observed USDC recipient change alone does not establish arbitrage.",
+          "kind": "published_receipt_case_outside_window",
+          "matched_events": 6
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x1268e5aea8b9001209b45ca78d53bf173666be76d4a77396c838fca72fc37934"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x74c5b8c246a5805e61ef4c6f9dbcaaefd2352c093d0aa25054c3bd9283236ca2",
+          "cohort": "sqd-4097",
+          "height": 60871590,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x129f00f239a4715fb84732a02b924baf4546b5ca297ee9a4c93ecc2d8a2c4802"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x810ba7660cebe1441a6c92c2cc43196561e28e6676c42abc550d66f2e5e68829",
+          "cohort": "sqd-4097",
+          "height": 60871032,
+          "index": 60,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x14647a12779fb2a4339ec28ebb3b39ab9dc8a8711c9eb27e3a5b374d897dd975"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xae4b41f30bd3e0c194f6891fa566650a2bdd063291d2a3d909bca05a1d7bcde4",
+          "cohort": "sqd-4096",
+          "height": 60885691,
+          "index": 27,
+          "kind": "matched_landed_logs",
+          "matched_events": 30,
+          "matched_pool_keys": 2
+        },
+        {
+          "cohort": "pretrade-tail-receipts",
+          "height": 60885691,
+          "index": 27,
+          "kind": "receipt",
+          "l1_data_wei": 4178266987,
+          "l2_execution_wei": 44234640000000,
+          "recognized_receipt_events": 30
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1799e7441865a9e10afd892de6ffe5b110c180904f2fc6110032559da8d398b1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x248092610dacdf2f6adb54b95ef18add3ed800f923e386aa60145492b5b341b0",
+          "cohort": "sqd-4096",
+          "height": 60887205,
+          "index": 3,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x18cd7f103473bdc5c861f2a908c4c45602de14510e7a4069bd6632b711475d07"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "amount_in_usdc_raw": 500000,
+          "amount_out_usdc_raw": 500198,
+          "cohort": "recent-384",
+          "funded_swaps": 3,
+          "gross_usdc_raw": 198,
+          "height": 60881316,
+          "index": 12,
+          "indicative_known_cost_usdc": "0.01940742553000957271270718636",
+          "interpretation": "USDC to USDC through V4/V4/V3-shaped pools and ETH wrapping; indicative attached costs exceed observed gross.",
+          "kind": "receipt",
+          "l1_data_wei": 12435586704,
+          "l2_execution_wei": 11263326000000,
+          "matched_events": 3,
+          "operator_fee_wei": null,
+          "receipt_swap_events": 3
+        }
+      ],
+      "shape": "serial",
+      "tx_hash": "0x1b10cc853439321b799213e3864fbdc7b9ca12fe2f5e0669c2d63c0fe3a4336b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x40bacbdd856cc50c8a502405e881b79a431cef6fc80e4dd025e0605f6def9950",
+          "cohort": "sqd-4096",
+          "height": 60886867,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 12,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1c02fadffe298878cab33ca5da6fea31674fba657ae3f67193d6247875b289f3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb38bb871f83fda3375350f82bf40648ad842bb8d952510e7be43743e6d44cc57",
+          "cohort": "sqd-4097",
+          "height": 60870754,
+          "index": 50,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1f207a6dcae6082cc9644eaa07c44c10e62dddca9371a0730436c0d6f3851b1f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb9d70cf0f5ecb8ba045212c4c3a12139b5ac74b466041548f40e9c3f37e48704",
+          "cohort": "sqd-4097",
+          "height": 60870755,
+          "index": 53,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x210102293d5ac47cc62107051430593f95cbd07947669b052b5db9b54b790396"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x056d889a152a05197b6f708770a2b5bbcbb0ea22284f956cefb0ba9aae4c9056",
+          "cohort": "sqd-4096",
+          "height": 60885367,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x216192807dacb9730d37f30e97b7ff0c62fb70472a5e439d1ef8544e12dabcda"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xcc78c83428b9e484d5c22b3908991ef574560e91fd5e5cef73c7d55376f0bf4c",
+          "cohort": "sqd-4097",
+          "height": 60870383,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x216d8e6bc638de02fe00525232a9e11f5ad2e9571a3b787610760e0ac66d57ef"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0631677b0267b110de03b8d0898f16d7702687ab6a41bdd428915f274d1406d4",
+          "cohort": "sqd-4097",
+          "height": 60872755,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x25b9c27370898d83650aa9db2c3abff897dd609f75609a80542bb0f07d1f5e62"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa25b1d87209bf98c78d80db9c50d3034c3dfc80d2d36d3d3b13cb366cf51fb64",
+          "cohort": "sqd-4096",
+          "height": 60885847,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x25bec7d615a1e2f37cbb0f94470c04e5ffc775d193a8f27e24d892f86734a664"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa1e93846d548f22f659c00822fc48c5f24beab0bb441958e1a066d12d0b67234",
+          "cohort": "sqd-4096",
+          "height": 60887033,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x29487f2ea4d66d5ae1bdf391304157d58a0786015490cfabed7570a1dc5888b5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfbc84a793040f4f1d5807821882857fac55f59853b5495252561145af52ca389",
+          "cohort": "sqd-4096",
+          "height": 60885964,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2afa6b563742d9ec86dca9c041152afaa955c5235c0a9773d0fec02226e35c85"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x130f9c1f178789488ac04c9c9321beb2906d43f4477278029b746cbfc2bdd989",
+          "cohort": "sqd-4097",
+          "height": 60872287,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2e46ca289f02bdcfd79cba6782f0bc10eb3765af80823f12c7fd53408dab6c85"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8e9124524225f2f93e12aeb753a4fb85c877f3a7bf0c04207ec7e916643cf292",
+          "cohort": "sqd-4096",
+          "height": 60886631,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2ee9e59238bb05dec8122daa23f15ae2420d023eba685c085762469700565735"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0d1a8d4b34a31caa608b05f1a281e78c2c1910815c27b421a0bbca6dada2c278",
+          "cohort": "sqd-4097",
+          "height": 60870382,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2f2a1a18b32e071f60dc28d01d64285b78fd8c67804dd5824140f2a3883381da"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd7b3b3d094c495b79a8c82c0a23454ab64263660eb66f8606176e2bf115793b8",
+          "cohort": "sqd-4097",
+          "height": 60869254,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2f8bb45fc4ca82dbc42d28186c4cb641124af12e24861c9c1b3d895e243bfb04"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8e8cabf17c9a9b50844182276532492ec0bade74403f06415bf6abf0741d33bb",
+          "cohort": "sqd-4096",
+          "height": 60885989,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 19,
+          "matched_pool_keys": 12
+        },
+        {
+          "cohort": "pretrade-tail-receipts",
+          "height": 60885989,
+          "index": 10,
+          "kind": "receipt",
+          "l1_data_wei": 12769748801,
+          "l2_execution_wei": 13635188000000,
+          "recognized_receipt_events": 19
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2f8c976d448f94b02edb3777844c05fbb9bbc81703fe9154515548ef9dd934d5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x6ad1419bd5923e82f151a21b00cac007852d11cc102f54e32221560484c5c06d",
+          "cohort": "sqd-4096",
+          "height": 60888777,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x30185ee4908c2e2dc3c539feaaf333958ab44dbf8587038f39a18b1280d21875"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe2a312e714b8b1e04e5f7d48770210b5773f0c8e09267274299f91e7bb273020",
+          "cohort": "sqd-4096",
+          "height": 60885945,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x30986c265bdccf059ed216b1c8db6cf958d81eef85cd937ea7895d86072e4d5f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd80773c292ed81556e02cb83a733f05f9cd6dbe74302d37a1f631feeebc6ecb8",
+          "cohort": "sqd-4097",
+          "height": 60870834,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x33c3664e81db7160c32c26ba8222b11868f7550e736173f11ebbff041d7b575f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x174e824e78925928f540b3746456cf90b59ad3bc70bda4e547ce87d4b1edf2ce",
+          "cohort": "sqd-4096",
+          "height": 60886520,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x34e79cf1cda6cc77948ed9564c984e177d58f6f7b9994cc28d773e73eab0bbaa"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881315,
+          "index": 23,
+          "kind": "receipt",
+          "l1_data_wei": 24378999047,
+          "l2_execution_wei": 9743496000000,
+          "matched_events": 2,
+          "receipt_swap_events": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x378228ebfcc7794810a4a138c785b5bcd2d77f7b0bf7013757e4799973d9c657"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881313,
+          "index": 5,
+          "kind": "receipt",
+          "l1_data_wei": 12681209580,
+          "l2_execution_wei": 19470779154375,
+          "matched_events": 3,
+          "receipt_swap_events": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x388c2a756d758ef186dd64e549caaee98292fd75bba53a71cf77b9543354ca1b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb1efef11b85ca21adef1980d0fbec481cc7199ef71f599dad4ea79b754169002",
+          "cohort": "sqd-4097",
+          "height": 60870395,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x396967176abcf50ffbd60eb5c187a7c6f297fed4f06d242ae4049d5e22154666"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x2a9950fc3d64456d66ad10283a44329f18890d8d618cd0d9fcca1c05d5588c1a",
+          "cohort": "sqd-4096",
+          "height": 60886366,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3a0bf3609ab2b3599f212cbc42b84332058e864c1b2b820b249fa40b58326f5f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8978fe4c0d1e7594f6c0a912cf73690f955db1391c09a7556410c998eb5dae29",
+          "cohort": "sqd-4096",
+          "height": 60886298,
+          "index": 41,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3a25aba32370516faf2938314fe16c472e4792a607f26bda8d7501c69a5830bc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb5162bde6feeabdf7ee9d992510cf391e7eada7b8749c93c6d90a1f7834a27d1",
+          "cohort": "sqd-4097",
+          "height": 60871363,
+          "index": 28,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3a717c47b3006acf370bb5061216d9e1e4c8d925cc72783386730a3be86a7ab4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc7a451fca134550f62f2108438ceed6958464a789232b9159ce1d971fd44f57d",
+          "cohort": "sqd-4096",
+          "height": 60888332,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3af36475b4cc9443d1b2da13b1cd63e1a4be4c326aa6c723137156e31196842f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881304,
+          "index": 11,
+          "kind": "receipt",
+          "l1_data_wei": 12650506720,
+          "l2_execution_wei": 3490752000000,
+          "matched_events": 3,
+          "receipt_swap_events": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3b3a0bd6718a703830805a79229524c30a53ea6d00ed2f3bc44ded3e485411d2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe7352ea82eb96cdc5d78d5298e10acfb91c485f97718e95b3184748172e40352",
+          "cohort": "sqd-4097",
+          "height": 60871170,
+          "index": 42,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3b4e4ed02fe2835776de4045e281aeba916413b5a7eb8a2af5b402e4b5351fb9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8623cb95c50c06e5085b68275851f33d652ab478aa1da3fba93d899d69eee4b2",
+          "cohort": "sqd-4097",
+          "height": 60870928,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3b6b70674fa82a3dd6615c7106b7e41b97818cc484d3305a149117860a6cf142"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x248695c070a9d44f97b3de6bb2ff2fb87334197fb8557e60d53641f479daae35",
+          "cohort": "sqd-4096",
+          "height": 60886444,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3ea36e51440ae48f3961879adcfb3f7e1d315655f2fb1c550b79d42c9e58a822"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x385e13861292222122890646d807a7c623384134f9b58a621b3da5620a743842",
+          "cohort": "sqd-4096",
+          "height": 60886541,
+          "index": 46,
+          "kind": "matched_landed_logs",
+          "matched_events": 11,
+          "matched_pool_keys": 11
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3effbdaf7188ac67fa3df655bb38b0c60780bd61170833de1d4ec25587f31ef3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe85e6e1f7ec3e0ce0b7118410e303effafa181c31c3cf1f414a8ff8ffe67a20e",
+          "cohort": "sqd-4096",
+          "height": 60887120,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x4216e5e4798a5b5d2df32692d2ae1e5c67cf66db9003bf96ba3a7327248ec763"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc0332913590a1c126a124ad8409124f4ee36bedaeded1d04bb3458cc7a29ad7f",
+          "cohort": "sqd-4096",
+          "height": 60888271,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x44901e169a0fb04cd4faf7ef4f2513778d6f214e662b50c99aa7ccf8ebd34def"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd4758628d9a0ea8f337a46926b3e39bb059e5ebdd7dd9eda7998450812fed410",
+          "cohort": "sqd-4096",
+          "height": 60885499,
+          "index": 86,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x44ae989eb3a3fb46142d7190565af7ad7adc2bc387a2eac53c73442a018c25aa"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0e7ab6593c663720212fe4cd0f4d6607e94c7b9bf94543cd0e1ec1bda6a8e69c",
+          "cohort": "sqd-4097",
+          "height": 60871502,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x46af2bbad4273283c0cf621bd3d5f3ab36c6a631bcafb2fdec9392fc06386a63"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5dffcb6fc0b0d53c642eaeddcbc8f3d9fce9c9e28997bf569f4f234661c5c741",
+          "cohort": "sqd-4097",
+          "height": 60869048,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x47157c4152977dd8e49b0251ab33e317e4d6ee204403484f557815d3c24ce03d"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x21b5afa7bfb5eb7428eba93209cf732c30e53d9df8bba7e0987115278a0dffd8",
+          "cohort": "sqd-4096",
+          "height": 60889016,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x477dc763a7dcc037e83269f3df173f0d3311a15075c44d2bc2474d5fcf3099be"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf695f3d5f5f67ee8fb675b9311f3862407918d66a4fa2d494a58c8ed92ef9bdf",
+          "cohort": "sqd-4096",
+          "height": 60887372,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x49f3f41347fe577152ea2f5973f5450aef2e8830be455bac1db30dd35061628c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe4bb43cb779528bb829caec4889f5ecac8dd79eba7a6d869b30f66e630f5d7b6",
+          "cohort": "sqd-4096",
+          "height": 60886273,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x4cc4870e220ad063a52000516e04893c8cae3a3ed3542f765f02c7af4846c54c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd4a15d5875eb7b07bfd4e5cdb7c48449434015e5e3fea23b54f728944df57d4e",
+          "cohort": "sqd-4096",
+          "height": 60886368,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x4ccb52a10b0d33d299ba08eb481ec2bddd08d4708c60761ef9a92047619d664a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881297,
+          "index": 6,
+          "kind": "receipt",
+          "l1_data_wei": 22567530336,
+          "l2_execution_wei": 29568888900000,
+          "matched_events": 2,
+          "receipt_swap_events": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x4e4006269f22c5415a45a7a711734f45643e630cb548bd610f854ff7df294160"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x98b239a60ca58a2036c8149643d2bf44041f8e824cb227abe20bb397fe133bb2",
+          "cohort": "sqd-4096",
+          "height": 60886301,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x4ee4decbc13f2e6d26bbd629f55963a4446a25a15981ca89c41a3c702869e8b2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.json"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x85ddd77a6ecc5bec2fcb8c0c4d902114bf660223b7cffa27f75468322f2925a6",
+          "cohort": "sqd-4096",
+          "height": 60886174,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 20,
+          "matched_pool_keys": 20
+        },
+        {
+          "cohort": "pretrade-tail-receipts",
+          "height": 60886174,
+          "index": 7,
+          "kind": "receipt",
+          "l1_data_wei": 15038833890,
+          "l2_execution_wei": 21610778124169,
+          "recognized_receipt_events": 20
+        },
+        {
+          "cohort": "cross-unlock",
+          "distinct_pool_keys": 20,
+          "height": 60886174,
+          "index": 7,
+          "interpretation": "Open cross-asset flow with 2 cross-unlock funding links and native ETH rewrapping.",
+          "kind": "receipt_trace_all_logs_matched",
+          "operator_fee_wei": null,
+          "partial_fee_l1_l2_wei": "21625816958059",
+          "receipt_root_verified": false,
+          "receipt_swap_events": 20
+        }
+      ],
+      "shape": "mixed",
+      "tx_hash": "0x4f05bfa344adcf8b3cd6707f2a74fcc632a7b2299d4b2284717cc7db4136d456"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x6bc4361d6829773763772c72e1e90357edaa439ac2808d4815213cd00b5317bb",
+          "cohort": "sqd-4096",
+          "height": 60887085,
+          "index": 33,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x503254754a063bf49787d21cebd7c172b1bd3a31984eae4b049de38d50dea816"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60880452,
+          "index": 58,
+          "kind": "receipt",
+          "l1_data_wei": 15458781713,
+          "l2_execution_wei": 10442898961440,
+          "matched_events": 3,
+          "receipt_swap_events": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x515e0a85e463c5a42d717c8cb296ce685149090294b12ed92c5d0b523f31cf83"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x04ae6c9c990e6df80edb5ff64f8f3ba5afdd2e0455f15b8a8fdb355962a125aa",
+          "cohort": "sqd-4097",
+          "height": 60870644,
+          "index": 35,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x51823ec01c882cfcc09a7dd7056f3a0ebf44caa84360fd9482041c055b6de0b8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8c92213ca3f2c5e34fbbf30fc5e040a9562e4044328cf918519750d13dce9cec",
+          "cohort": "sqd-4096",
+          "height": 60885859,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x51c28cb31b9d701daaf86be0a0aac99fe119d0b1480a42f8d152bf2e5f8fa2b4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x773914c4dd428447b5af75122ce55f3abc055ede42ef8b48be2206b79f1710fd",
+          "cohort": "sqd-4096",
+          "height": 60887643,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x531b717422c67fea2dc6e82c3360238ffb82be5e7936cd0fcf81e5e519e2b84e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xcc5bede9f8bf8e551890191c1b13d1b7b8d90424b7c9a9c596ed64e8d6a945a6",
+          "cohort": "sqd-4096",
+          "height": 60886601,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5456f046b5f398d1cf1750f70fc1df027a5fe7e0c5eb38a4755bd518888d166e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x56b9dc0970af58c1b082eefd71107992075a227dc03ddaed910556037573d952",
+          "cohort": "sqd-4096",
+          "height": 60885359,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x58cfbda9395ceddd01c262ee801da7198f4ca9e2db02e32522da83c844379608"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5664d1786c82c4df6917105e176bf4e6ae3eaa4659945c3c7e89abb3a125c53a",
+          "cohort": "sqd-4097",
+          "height": 60869219,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5907b58fbee4e7cdcf57858b39ed761999d7762dd0360a22436490c44174475c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881309,
+          "index": 43,
+          "kind": "receipt",
+          "l1_data_wei": 5199946150,
+          "l2_execution_wei": 1899212650944,
+          "matched_events": 2,
+          "receipt_swap_events": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x59c72f358698347435ec2ff2b9414ecd758b8b06222f0844694fcba126f104c0"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf0cfc893d56e05c4df1cc223768bf3ca56271ac59a166adf105ce3a240c15db5",
+          "cohort": "sqd-4096",
+          "height": 60888748,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5a7ca3c527e7642ed93d3a831a7de286060bf09a0a1977d2574a16f59fc88d3c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa63bbac89db144d0cb853a64a8cba42e6eed00c6571774ea0ce23e053354c4da",
+          "cohort": "sqd-4097",
+          "height": 60870998,
+          "index": 57,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5b6a4c5c490ea53df3b2d5e3dcfadb545b924080748c43fa919a8fae194ffc34"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md",
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd7435ca885937e8331e77a2919e948f7ca147eaa9efea48b057ff707bd55f495",
+          "cohort": "sqd-4097",
+          "height": 60871104,
+          "index": 30,
+          "kind": "matched_landed_logs",
+          "matched_events": 35,
+          "matched_pool_keys": 2
+        },
+        {
+          "cohort": "long-receipts",
+          "height": 60871104,
+          "index": 30,
+          "kind": "receipt",
+          "l1_data_wei": 7598624923,
+          "l2_execution_wei": 47981274932484,
+          "receipt_swap_events": 35
+        },
+        {
+          "cohort": "base-hook-replay",
+          "distinct_pool_ids": 2,
+          "height": 60871104,
+          "index": 30,
+          "interpretation": "Two Zora hook pools, seven-event pattern repeated five times. Bundler reimbursement is a separate role; funded serial route unresolved.",
+          "kind": "calibrated_landed_replay",
+          "known_execution_and_l1_fee_wei": 47988873557407,
+          "operator_fee_wei": 0,
+          "receipt_swap_events": 35,
+          "visible_bundler_after_reimbursement_wei": 10404777649913
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5b8491be0ae575eceee782601a40a77debe134080f7935f7492f52a33163b14d"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xdc28cee21cefc5c1e080e594e60bc45b11267f785a628cf0f005455fc6caf641",
+          "cohort": "sqd-4096",
+          "height": 60885491,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5c08c5f2ea7d96fb9a3bbccaf6f2b3c5c078a476fd23755d349d720868ccee0c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc7eea2b5e624c358d49d24591e3cfefe1d0b0b849044b74907334ee7afef6048",
+          "cohort": "sqd-4097",
+          "height": 60872870,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5c0fa685fd0bfe1c5ebd429ab65fd54481b1f5d2daa573970c484648c689fac8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3dad26e83e9104e2e9236d3f4f6ad696a4cacc4945b321b171acb0b5636ed074",
+          "cohort": "sqd-4096",
+          "height": 60885486,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5c38d3e602014247578959311563d2a7a2f21fc56fa650b98fe24a068262f1fc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb21ea4ffcd7b33a55315efc4f93b74478419772ce30ea6bf42e0bfaaf01ecd08",
+          "cohort": "sqd-4096",
+          "height": 60886100,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5e6623d66066b8d04d4a089ab2cf23c8d8df56dd6d935dd3da4e5b79b3660ee9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5ed07846c47ab944bc2311547a407a980fb27e06370bb9a82293cc44cbeb6375",
+          "cohort": "sqd-4097",
+          "height": 60870828,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5ecb92a5616c9861c7e6c81e5f994a6ed2827045e02cd1d1a73c188eb9095d64"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4a09ba78698660728853a876d78c67f77d9f145d43f8cc4b80f87793595692e0",
+          "cohort": "sqd-4096",
+          "height": 60888484,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5fdd19b7651a9abfc6a1fd76a8111f5a78353b0d14a0e4205454ac2094a56301"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xff241f5fc9c87a794873107e427516eee3774d0567f1b392b3b8c84d1369aa1f",
+          "cohort": "sqd-4097",
+          "height": 60872641,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x602e58a253e5d733ce62cadc7973d683554e6a5369eb7948f70c237d9a8e32b8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x328bd06f5dd4337f53d5c1673c392c720555277128422563e6ed7c5945965b00",
+          "cohort": "sqd-4096",
+          "height": 60887082,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x60bad5205b6507a53c65aff11bc9b4df3b7c27f1a16bf4fa06fd10095f0e7dec"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x84855ced661d9b5a4c7d1b502bc0d5da89680d2b757fd1f684086b559971be50",
+          "cohort": "sqd-4097",
+          "height": 60870939,
+          "index": 26,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x631a4336c4b3141db723654be984c77ec4cd664fdf760f8062229048880674d5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x86b14ed1bfa09a730064cc1ff4e58d788ad0f550e72e0cd82cf6aa66dde90889",
+          "cohort": "sqd-4097",
+          "height": 60869582,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 13,
+          "matched_pool_keys": 13
+        },
+        {
+          "cohort": "long-receipts",
+          "height": 60869582,
+          "index": 13,
+          "kind": "receipt",
+          "l1_data_wei": 15511860103,
+          "l2_execution_wei": 28938687024000,
+          "receipt_swap_events": 13
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x63a53fa18cfc9e4d67801868590236438af4c022d14533f7918b9199019c3fe2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3ddfa857ab61b973624c7d793a7cf3068ccaa4d5b81f74bd57a2eaad42e3881a",
+          "cohort": "sqd-4097",
+          "height": 60870172,
+          "index": 21,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x66049ce9362c430210c17c86e73fdeea95248531064acecaa0dea59340fdcf2e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9b2ffb45f88ad8219d0ba66768a1c4477982c6db1b682041f53930aa0461bbb0",
+          "cohort": "sqd-4097",
+          "height": 60870537,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6806d5299bfd7aa25fc9c64d8e6bc9d933486e001893a572565475d2c6d00005"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd3b7f220ee37342e1db4588f07f66034ca8f33ed93e95bf36e6dda28c5d2d063",
+          "cohort": "sqd-4097",
+          "height": 60871753,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6851b88153dadefa42edfd810136cd1dc8fb8f42ac7dc354bedb60e91aee5dc1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd8667e72061607e3237a7c865273ab24e159bb5adff303ec2e7f1e4e0752a153",
+          "cohort": "sqd-4097",
+          "height": 60870897,
+          "index": 38,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x686f722b6f3649b6247152ecefc958b830e1d8a59d823c483da89045463869d6"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x65bfb9d5634c7b831342c65f89acd1c9d3a541bccaba549841766c6ada7408ec",
+          "cohort": "sqd-4097",
+          "height": 60870371,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x694729d6664f45573c6496ef6e3915ba4b6ce6c50c06bbaaa834b923acc6f2d2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xecf20693b889acb1bc42be797338116327d764c63fa077f39985da51d7296466",
+          "cohort": "sqd-4097",
+          "height": 60870602,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 16,
+          "matched_pool_keys": 11
+        },
+        {
+          "cohort": "long-receipts",
+          "height": 60870602,
+          "index": 9,
+          "kind": "receipt",
+          "l1_data_wei": 12620241440,
+          "l2_execution_wei": 9953510000000,
+          "receipt_swap_events": 16
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x696754492b51d931ccaf9f4f2e2ebce69b2abe6659b271564cb54720485b6612"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8e5d29c99ea9b3c484b588da0a7702061eaf644d0d3982c1af8f6043d5233799",
+          "cohort": "sqd-4096",
+          "height": 60885534,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6add770c2138bb5631f4dd7b0bcad550e07239042d89d440db561525a9b284be"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe67d6a922f8b959897e341487c467b1bbf2e71e7b9b6dddb39b0e9544e799a8e",
+          "cohort": "sqd-4096",
+          "height": 60887363,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6c5c34cf701b78c4199f507d68281eb8a10434b022e70bc669b44dc339306493"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x65bfb9d5634c7b831342c65f89acd1c9d3a541bccaba549841766c6ada7408ec",
+          "cohort": "sqd-4097",
+          "height": 60870371,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6cfed2b1271e049db49e162f16e5fd38cd5cf298a5bc49b8d150c5fc3c86860b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xcd7a2385567f4d5cdfcb7ea3609d657c0865997cf62cc5d4675755fc9866dc9e",
+          "cohort": "sqd-4096",
+          "height": 60886661,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6d0f0013a7e72156c68ff6ba47521da6fcbbcbd005ad53d056f934db668da61e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x7917011f9ec345fc6e6f93e59245018d34b10781c5f2e3cc38a69b6c23fefe04",
+          "cohort": "sqd-4097",
+          "height": 60869269,
+          "index": 34,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6d6a4c23ed08871dc139b6bc0b8d92b96efc07b1d37060b7c858870dcb1b1bf4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe477883913ea4d1ff63f7ef621b4b32db3a6242774d1379bd6ca1248c41c265e",
+          "cohort": "sqd-4096",
+          "height": 60885208,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6ea61eb24812925b2707093dd653a28c83e4869e92b79ec4f750a981954313ca"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf55e4b780b42ef09437f935e86187f9d0e9cb6153a2f489e57313cec929a3b29",
+          "cohort": "sqd-4096",
+          "height": 60885392,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6f7c7e2ed05220f438039dcf5a33a30ef1ef4c56e0a3806a23007fc7817647cc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3f1deda1de0df395be00bbda66ff5d395dd98328e9628684f8d73933dbacff7e",
+          "cohort": "sqd-4096",
+          "height": 60886170,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7068f0d9e9acbd1b7714f4190bca74486984dc83de3454e75b93c0d32a30a696"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa0717779ac7e993c9bd0a243eae94aad613c41205d22753a3767bb7b8b6d1c4f",
+          "cohort": "recent-384",
+          "height": 60879042,
+          "index": 78,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x70fd68522d9e24da77e8ce1e966ec9b7486cd276753a66fc3a113891ae9635b8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc7aeea369f5e4702603cff7af4e143b9228078009cdd003c36b58e408b0749d7",
+          "cohort": "sqd-4097",
+          "height": 60872155,
+          "index": 3,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7213b2ce1138df73899b87f7a0bd5adcc0d861ba738d32232b661ddbb162564c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfaba2263a7f8acc65df658b2dac6b8e4d5e57a3ede059ba596fb714f8068033b",
+          "cohort": "sqd-4097",
+          "height": 60872863,
+          "index": 49,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x72632fbb664fb83df3cfafe961ea323790597fe52f28777af6584d8a89042d85"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5f4709b427cf29697484a10e50c98772b4753c5c0419fee32b80b2e05945d02c",
+          "cohort": "sqd-4096",
+          "height": 60887153,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x73d97b68ba4100993677f61132ebad167ffc7403ea2a27c92ba8fe21078a4b85"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9f03d58eca41269dc4736b5ab8180ff30b7f2f6636d608f4c3937b3fd132966a",
+          "cohort": "sqd-4097",
+          "height": 60869190,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x751502b027d681e33d41bbdec54b081c31d635ff8aa7639b8ef80e6ffa7f1518"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x26b0a795df7ab5347d506175da9ac88d806963e300f32e97e6a6a535d0cf703a",
+          "cohort": "sqd-4096",
+          "height": 60886690,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x775e5dce3af771bd82b84a7779cc4edda75cba1577073bd478ccc12de0ed0d4c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x56944c2421c14ad14d75e0fb9413df8f77fcc6c55e22164cd441c0de42426fec",
+          "cohort": "sqd-4097",
+          "height": 60870707,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x786f6ccd0ae60d932c875d942c4e2ba5cc869dfc07b5eec9ad373028ed1c92e9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xad548aac45b7f0102b1978d661fbed17204f87e278822f1c2d52b35cfcf9325b",
+          "cohort": "sqd-4096",
+          "height": 60888283,
+          "index": 70,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7a4f56ca502aec3c24e7d42bb61b73e96fc3ca4c13c8f5d277c55c041c6fc86b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x318cc2af4da9ded9471085b79d0322d9cd22d340bd01f1178e96475628e6dab9",
+          "cohort": "sqd-4096",
+          "height": 60887064,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7a91defa27e09e039eb763622e5d591be34775e0be0646a3467a97d5e50aceae"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3ac59953921ff17d0f5abc30fb7e7cb8943e94f0b3deffb150254aef5936c114",
+          "cohort": "recent-384",
+          "height": 60882013,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 15,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7d985291250edc780a5afbf763a22bb07519711f2f14ff773bdfcc7e5d42d864"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc0207ecd7b86ef4fec47bc1d7b7a107e7f8f38a6bef3aaccf3282221757062a3",
+          "cohort": "sqd-4096",
+          "height": 60887919,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7d9e672524c89828b7b8c3c07353b7106016e3ab3a7ee338b0536503fada2625"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5d026411ea9de06b42d70edf8b026c102e9be92dfe9c635a4f960c02a8480d79",
+          "cohort": "sqd-4096",
+          "height": 60888081,
+          "index": 27,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7dd6405eb2a1b50b2a8a41a04973b35fffb6562eccf621d98a7baf3d0e04ec2f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5757d5b6b63ebeb92b2fbc3d7a0940370d42a0aedae2b3f8b0a20f592e2a70a0",
+          "cohort": "sqd-4096",
+          "height": 60886244,
+          "index": 34,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7e86c1ccbf30c80116667127dcd1416b21880e09bac00ee7d32b49f5d8229b4d"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3b35510b8d64644fe9756c4659bec15fe423d4cad3fd26ba0b186291d41bf4e2",
+          "cohort": "sqd-4097",
+          "height": 60870373,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7eb1c68d2c8055f9019216c92a13dcb25557c30abe4579b06c2387c5fd241b2b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3138cc04415c112acd77289c34bbab8281b9ae55b212df2aa8c775dd9c1d69e7",
+          "cohort": "sqd-4096",
+          "height": 60888637,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7edf7ed9babcceea200b18bf6f6ebb5891b8a1cc42290b3f50666c24635507d8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfeb4c2c0c8969e311a3a86612b329775325d7e8b028de2e4df0f48190f218f54",
+          "cohort": "sqd-4096",
+          "height": 60887763,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7f2e8ae84b7a0ba11639f7f89d23a895076d6696932d9b451b2d6102484e7318"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x23d9983effef2578e1e90f6d33ae32922dfa8700d18b0d25663fc40cb784375c",
+          "cohort": "sqd-4097",
+          "height": 60871068,
+          "index": 55,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x83239ac64b433bcbde4a1dbc2c2504f887d63113dd52a0ba241379d844531f66"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x41ed933723ff70db6d6638cb3ad6df3a891b4e9742ad9f7138feca173a050ab0",
+          "cohort": "sqd-4096",
+          "height": 60886704,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x835ecf56422d5f1a9ec2c89f01bdd4c45e15de8332bc15ae11035f2e8f1d1028"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc0b8cfba27513fd695602522d67a42cd57da383b718a4ff550372243817bcf1c",
+          "cohort": "sqd-4096",
+          "height": 60889180,
+          "index": 52,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x85f2d60538fd5dbad541138777f78425d97d8490028bab1a001d850ed56afba4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc9c9459c151a6a367213f79e61769eb3492f9e7d4dd81f63b3ce6ba15cd7207f",
+          "cohort": "sqd-4097",
+          "height": 60870922,
+          "index": 225,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x868ec9c781e057ae37fa8367e120543355bc72febc04eec111633a5fbf39a7bb"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xaab7992111e5d80b0eac58589498c30de61b53663b0f363740d6111e87ec8a0a",
+          "cohort": "sqd-4096",
+          "height": 60887009,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x86dcdc7b7800c7ae9576c8a90dadbd3e563bc1968cf66d76a387ed19bfd16ce8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4b6a8c16a27cbb29770931e5d161c62f2b69773ea6446640b338e2f930659759",
+          "cohort": "sqd-4096",
+          "height": 60886478,
+          "index": 12,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x87793a7109847d165abacbb289621843e88215b5b4ec46d5dc60edf40c898d59"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3b35510b8d64644fe9756c4659bec15fe423d4cad3fd26ba0b186291d41bf4e2",
+          "cohort": "sqd-4097",
+          "height": 60870373,
+          "index": 21,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x88b60cc30744fb7baaf4bcbbf43bfe388f5240ab7b251ebf93067e2cc8b325ae"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xadc093eccf2140b901712d7a85a3167eb3432cecc860736f2de84c725c98494a",
+          "cohort": "sqd-4096",
+          "height": 60885539,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8d5cee9e778b53ae5712da3340189bbb32d2fef87c3d6171f03e916ec1c5078e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xef69ba24226163c5025386181ffe0124a8601a36f893f8d2ec73588f0fff6389",
+          "cohort": "sqd-4097",
+          "height": 60870971,
+          "index": 68,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8e737129d81891ee3e68380abde22cc952e0987d0b467ffbc048422d0f601d1a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x220efb4e8eb01b7dba94d79bc7570d18ac360e8a71a1a5afcf92e7535be6a161",
+          "cohort": "sqd-4097",
+          "height": 60870138,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8e99929d0922b06063a39510246860fde67f963f47578e997800c2b7a5e7b852"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xac8f74519ab9222954d67513a93bc8c7c53140d965c8466622a1df7acaf8982d",
+          "cohort": "sqd-4096",
+          "height": 60887486,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8f7fe80e42c4feab5617cb1d0a92c4c80a2009c4620bc678c59a4bc6cca66e32"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe550d982819c09f4f083ad2008d48d57b183fdbc0905093d87200eecaf4f436e",
+          "cohort": "sqd-4096",
+          "height": 60888963,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9101fc905b2fbf695651a5d817ffd2bdbe865b89be2ac56b6e090578d2bcad06"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfde2a43b0df0443e34effd5fab369f1284e40530044f2301cfce04ab942896b1",
+          "cohort": "sqd-4096",
+          "height": 60888218,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x936f3eb100f6b86678b723361239260f82357d64a338a6b666f62abd208d682f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x799d85081b58ce43aed0061a0617617d6e78d284ea1d23169cbeed6f9835180b",
+          "cohort": "sqd-4096",
+          "height": 60888310,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9445098ef97b1452d7eb1abf744bb177905079608d75b4ffec8cd8137e72db40"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0a995ab26c0aa2c7ade973e5413cb3c459bfb69981d85f2baeab0c4715af2fd6",
+          "cohort": "sqd-4096",
+          "height": 60885775,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x94968826cf99c39e163c90967f383396564371d2e4f94c5915cd9fe8b49609a8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x959c1899e85ffc690ed375dee1f5415697cbbf28559bb520981d8bb3354d5e8a",
+          "cohort": "sqd-4097",
+          "height": 60870443,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 16,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9612c4f7a06efef6438c80fb9c14425a7832bc67582ac21a199067215780622c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xbc957d04c0bb42133df3801cce4c292735a17b5d3427b7ed7659a4a91d127e1f",
+          "cohort": "sqd-4096",
+          "height": 60887179,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x965e2c1bd23f39fc21c99c395ce6307c20b6d8afa7419d3946858fd23c8981eb"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x80d34111e18713c0b759a7503bcca43c7b5949bb77c9d41510f1f344a8e3623c",
+          "cohort": "sqd-4096",
+          "height": 60886663,
+          "index": 25,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x969dca9a98c30b0595d15288540a290b77691beede1fc43a85bf4f59b01e9118"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf370c64b520bcbb9c0c6f30d2c2340955f9f00fb955921e9e19ebb36f6f221d6",
+          "cohort": "sqd-4096",
+          "height": 60887145,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 1
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x97f1049235987b9973d4eaa2cb7f756d6cab9cfba8eacfa27199ae6c432cf63b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5ca088bf7a23189dead1a79e82b037ddb3c6dd043949ac1942b18a0b7bba87a7",
+          "cohort": "sqd-4096",
+          "height": 60886323,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x98a952b755f77d2cef7c7fc7a1a9bb6b43757aa392817f2985093549ad0e31e9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x810835e0f55f5ffc86e6643efa17c7b2399837e7899b1c57663fbccf8d2bcf94",
+          "cohort": "sqd-4097",
+          "height": 60870849,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9ad6068de405d4d209d300e373daf78e744ac9cbd489acb8a3f38e1d89693984"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x76a4d615591688eeb30fd86f254722d7b672d232f63e5cb8775caf0a4a2cb6cc",
+          "cohort": "sqd-4096",
+          "height": 60886379,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9b5a257ba4af9924531855273ca4a5d3a9e621662543f252149bd923a370e2f6"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5bc96c68d707c3b5ee3dc549b5da14da1cfed40268198ae0255febf1ff9c7a74",
+          "cohort": "sqd-4096",
+          "height": 60887078,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9c74fb5f67e7f0e00369c6ed9c8e86ffc95d57656472601e062955a606e62c07"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x14eb352fe4116a4a95ce9309a9a6e11e73c00a635f937f72cc96255f4a997e95",
+          "cohort": "sqd-4096",
+          "height": 60886581,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9c9a844cdf5852365c4d2cc835c2348c305f6bed209ef3125310469075b218d5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x06b81d65b5c5caf7c4cdb8357d740c4f64f5613fda0182e5310d25a479eba622",
+          "cohort": "sqd-4096",
+          "height": 60885777,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9d2f7589a9f6843f062ce006ec3fbd28d2b1317aefa77748e3e71c2ac14646e4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x1949afc817d048900533eea9b5ef094a313349d84f039b89d4659e126a879f9f",
+          "cohort": "sqd-4096",
+          "height": 60889001,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9d95feaf5dcf87c0318d992ef3a275f136bd8e86257f05780c7add42dcc86add"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x64ea8bad566db42e9f6edad35490bc470c6e3390abd269e357066ed966fd1660",
+          "cohort": "sqd-4096",
+          "height": 60886616,
+          "index": 12,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9e9d8cf14d740c03edd61b1af20bd52b1896c6b53d878ab67094893efa2af63c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x01d4d78b4786c0533e4ee342cb8c54ab7105589cd85489c0729888a12031c9c5",
+          "cohort": "sqd-4097",
+          "height": 60871069,
+          "index": 42,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9ea806b2c29da787174996513f481bfbd532fd68054b38c8735fe308e28003d5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xeae0534b535d86d170af4a38de96433cedad8cbe977a6c5baa77df2d55e23f41",
+          "cohort": "sqd-4096",
+          "height": 60887129,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9ed34457248d53348b02dc4f2f979c192c6015914d7dd7440a175e42407f3ede"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa11b36e90c88d515a64458923f828f0affe2bd98ef389f8c407fd80bc09b52f2",
+          "cohort": "sqd-4097",
+          "height": 60871791,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9f2411494d7bc675a08845d204c8480b7853a2786415aa934118e667183fceb7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf4151fcd2f69a7e1d70e591480a65f398770ee8bda5b4c60b0369a8c8852e9ce",
+          "cohort": "sqd-4097",
+          "height": 60870968,
+          "index": 49,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9f7087ee2aa2c1c101b09bfead5422e577a4efc0ff3c7ed06d4fcc073db97df2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x60ff9d824e893117af3af9c30921d83484bbfae35eeeb26134aae71bcd33527d",
+          "cohort": "sqd-4097",
+          "height": 60872890,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa08f3c04dc88890eb7f83ced8c6dab233afb97dab76b6969f72fef5b74f5ac4b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x91b1f1460f317512d5f6af8be6f82a6b18b55400e9d30770a79289c365ed4570",
+          "cohort": "sqd-4096",
+          "height": 60885615,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa2729af18fd1e1406baa17467a997c9d54499218433a0a9e542c8347f544d0aa"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x66179471032148bb5a30ca47e02a268f9295a7f397654cb083135cd07fbe4289",
+          "cohort": "sqd-4096",
+          "height": 60886484,
+          "index": 55,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa27ec8733282daf7395aa9307f58cf4e00fd7b33827ec678f12dd4b9e2db0236"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x051950b830f1948d1b8811372de7cf7e4e53164ea3a6033f05493375c268627e",
+          "cohort": "sqd-4096",
+          "height": 60887193,
+          "index": 44,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa30a105826dc10fc4b62a84e9932213771b54b46b5ef63a0c8bde8fc2f7dadde"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x980ec2c008a1e561eaa0cc19ee4da4af1d516f0f593f0934aa8189a98f9c7b11",
+          "cohort": "sqd-4097",
+          "height": 60869024,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa4b275f2f7cc5645c65494d8aedbd307bea09b3f52f3245cccc15bf036efffc2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd5144cc4db65c43b053119bb283cfd500a7801e48ba23c091034efa85f6c178d",
+          "cohort": "sqd-4096",
+          "height": 60887922,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa5d885c5db54755c48c24166189db5dbaf2923e8631f60496acc8c68d68ee261"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/EVENT_QUOTE_RESULTS_20261114.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov14",
+          "height": 57365955,
+          "index": 4,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 6
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xa6a4c5055ca11be6a3caf71b8fc1c9a0bb91753f3c6934ad61daa0185c3056d3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3cdd8589d3b92ab5cd8297cdf2fa336c611279dcbddd94cac08c969374099d28",
+          "cohort": "sqd-4096",
+          "height": 60888898,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xaab7fe4a8a6a7cb1f943a9a464e6c191efef0ee7925c6da689a7cad077403fc2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf6b2fe02ea0925a58223dd1a663a1f8a0f44d078f9f80231975047e09124f885",
+          "cohort": "sqd-4097",
+          "height": 60871733,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xab6ff00ea2a74dc965f6b2ed7c6c2b116279e0030bf9199c638d90382da97da5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x19f5527162fe945bcbbd179599fc4723c2def58bbfbb974b37d47a5312613254",
+          "cohort": "sqd-4096",
+          "height": 60889066,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xacc0535e37735da7f244c8b9ca01a29b9af37fa6dcc78d03d6249949799e236f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xdca17057b9a0cae29f05794b9708d19d463f17bedfb6def3cb5a33389f79e6de",
+          "cohort": "sqd-4097",
+          "height": 60869198,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xad147006b94c229021e6b6c69764da621d49290ec1fb8bcc055e964479542d6e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/EVENT_QUOTE_RESULTS_20261114.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov14",
+          "height": 57365960,
+          "index": 3,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 5
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xaed9d1ae2875ea2db90c76b666200a78135d1813150928e4e3f2dc2132d7ff52"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60879042,
+          "index": 60,
+          "kind": "receipt",
+          "l1_data_wei": 29239643874,
+          "l2_execution_wei": 6097174451460,
+          "matched_events": 4,
+          "receipt_swap_events": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xafbbbea6635a0ad2544ace91c03800f5411a9699531814d6cd00f05852e8220c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xeb80b61975ed159fa136da9a0e193b2d8b4181e1d65906a3208e736e362e08e9",
+          "cohort": "sqd-4096",
+          "height": 60888319,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb11bc9826ab3f5fa1164da58e0624e1cb2f34b068c9830309d32726aefa1bccc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x00e07f4c2b2309fee142a0cbc61c952c471bb1edc70895ea1d7cfdef82cb0d06",
+          "cohort": "sqd-4097",
+          "height": 60870612,
+          "index": 22,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb29ef845fe90d433673cbf3f5f2a4ef14df34e155238a6b50f55745243b3ad45"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x74ec30886ac082ba875f387fb55c810ade49078771f3036f3858ae9e3feae334",
+          "cohort": "sqd-4096",
+          "height": 60886803,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb30aeaa01ea8c092bed33302f48bc4b530de13dbaff4ad70b8840ebfe3441673"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9998c47c2c38603f17e9f7fc9bcf10425cf199a17cbe2dea35715e4aac185ff4",
+          "cohort": "sqd-4097",
+          "height": 60871677,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb3924071cc7c7be2e4d929c1b52dc7cbfda7ec4136425b74e974cb7f04d6e55e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe7a1dc17c06d48e36430904b8c331ae027bfda2a3b859353a5774d6eaa4ef1f4",
+          "cohort": "sqd-4097",
+          "height": 60870839,
+          "index": 59,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 10
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb41f32090a1b727c077399165d0c65709e82023c8cf55b71d03f660462437951"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x2bed3f871150fae007c6a1a776465ef5c67b52ef7fa9d0bf936bd19257a70da4",
+          "cohort": "sqd-4096",
+          "height": 60888306,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb508cc1c90e3c736c54343db9435d8312ebea97ec4e320629b01d2afa138df9d"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa26e85acba487c8d4ed129e5402f5665eb9b37ec0b495df0c4361fe3e084f53c",
+          "cohort": "sqd-4097",
+          "height": 60870107,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb52554bc61350022d332d0d4f1fc9b60bf3d745a22ba2e812a11f9bbc8e0ca4f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe9e14d35c659534f04fb189c5ae6b4667d3b5a717809ce8458cb4665ade453ae",
+          "cohort": "sqd-4097",
+          "height": 60870531,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb5db65ba1094a22ccaad35c23570e5d6b2d0e9dddd0d0112a7b7e5f9b66649a8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf069061cef314e90ec057a9b53a15c651b174675e4dc2128d1c24500afc23d00",
+          "cohort": "sqd-4097",
+          "height": 60870824,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb71c7ba1582cfb46d6f0653c95f11ab1d70b2cbaf3a2bac35ab794b794d09a9b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8c2b80f4132ee32539e056f0c7bd2464fc969eea55c847fa9b3fcb610b4ed4f6",
+          "cohort": "sqd-4096",
+          "height": 60888996,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb75ddd71830b9bd310480b4e93b9ec31db37a62fc84eb5eafa7b517f0869503f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0b82c1d9b91d63ba762c1d19495f8694128bbd09fd36cd2de0adfd0661bf010a",
+          "cohort": "sqd-4096",
+          "height": 60886647,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb7d6239168e92832aae0dd97555f6ae74e67c595d3c12f1082d9338de769b30d"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x37bd4350e9b4efab04fca21af56afbbbbc50e489b3b80c3bb9dc552ad2429c5d",
+          "cohort": "sqd-4096",
+          "height": 60888590,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb8fdc12c9b790b7ad453b866c1387d2c0f8f0e0a979d74b9cfa6e9426c0e2adf"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xce37df76b6edc2e370843d30d7db69e0aa96be7136c72c78b00b981540116fb3",
+          "cohort": "sqd-4096",
+          "height": 60888595,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xba6f5511d55883d63aba1a723d466d55f5ec9e3cfca228f9c38b45d06e16e087"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md",
+        "docs/verification/MULTICHAIN_BATCH_CONTROL_20261127.json"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xda8a0e036b5b0748c1891cc43d5a1e416061580b2f51a35e4dc3c03c0e917c32",
+          "cohort": "sqd-4096",
+          "height": 60887559,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 50,
+          "matched_pool_keys": 2
+        },
+        {
+          "cohort": "pretrade-tail-receipts",
+          "height": 60887559,
+          "index": 9,
+          "kind": "receipt",
+          "l1_data_wei": 4268501257,
+          "l2_execution_wei": 65605314000000,
+          "recognized_receipt_events": 50
+        },
+        {
+          "cohort": "cross-unlock",
+          "distinct_pool_keys": 2,
+          "height": 60887559,
+          "index": 9,
+          "interpretation": "Two unlocks contain 5 and 45 swaps in 2 logical pools; inventory in two ERC20 currencies, closure unproved.",
+          "kind": "receipt_trace_all_logs_matched",
+          "operator_fee_wei": null,
+          "partial_fee_l1_l2_wei": "65609582501257",
+          "receipt_root_verified": false,
+          "receipt_swap_events": 50
+        }
+      ],
+      "shape": "batch",
+      "tx_hash": "0xbc860b989bc68c8f449e3a6d4a59bdc28a0cd898c6d652fd74db80393c961246"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x7c880be1828e400abb351de1043891ed03cae14e031b38877c2ab8021d3264f7",
+          "cohort": "sqd-4097",
+          "height": 60870948,
+          "index": 42,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbccb685df9478f6aaa284fbe73de442161ef3ad5d8075925003fbcf1b4061ce1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfeb004b23e094bbe47446e52f3cd5161220b3634ad1fdcdf5f22653905d21779",
+          "cohort": "sqd-4097",
+          "height": 60871386,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbd0d9f87538fb1eb9fec0ca4845770fe9595dc225fe14a694c2a0f78644a2f0c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x6c932d6ace64d249981a739e04417a50e3b542732fc1e9feba1348e4fe904b08",
+          "cohort": "sqd-4097",
+          "height": 60871226,
+          "index": 18,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbfa05c28be0b7065424abc0715300ea21beff55786a9ccd1e9901143e7abe409"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa0b9daf4708513665cfdbd32e7292d68ec2b36a6877abcd1e9db48ad4e45b6b0",
+          "cohort": "sqd-4096",
+          "height": 60886754,
+          "index": 17,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc0ccd5a5b5722ea8469dbfea400555355bcb45b50bb0822563c2335b697058f4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4af890b6f04aef8259112f7b403d3ac65549eac2e0ee51ca559261acfb9289e4",
+          "cohort": "sqd-4096",
+          "height": 60887942,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc162122739450fb2e47da2081d0bb149a13ac0d5f10b807b0030fe491133bd2b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/EVENT_QUOTE_RESULTS_20261114.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov14",
+          "height": 57365957,
+          "index": 2,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 2
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xc323cbe7fbc0e4d4c002504c20a8e8a19825ab31b51f3085c8bb8b9f58c3a833"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe704fb3be3957922c90d5e2aae27cd99ce674520822c91ad9d135244f8cf019a",
+          "cohort": "sqd-4096",
+          "height": 60885298,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc38a13230ba59aaa13411a388fdb6bb46e949b9740ee170e6ad19c6f2e041831"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc32979b406eeff680a0fc5113a52eb53e07b67188389261e085304f034527d61",
+          "cohort": "sqd-4097",
+          "height": 60870974,
+          "index": 35,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc49d84901ae18c4c235cac3cc3747ca3acbffe8ad2e537218b97c830d447880b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfa8410274cc47cd6c9f3b15bff40b0ed3328612df8e9bb8504bbb2e2e1c22d23",
+          "cohort": "sqd-4096",
+          "height": 60888476,
+          "index": 24,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc6fdd4fef1cce508b20c4dd5842c631b4b1b401a34d1102e471e11aa790b1bcd"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb2b412131f60c44901b30c9a3fea2bec526321c8fb52fe5a7467a78a4ed64957",
+          "cohort": "sqd-4097",
+          "height": 60870880,
+          "index": 126,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc860c711a413f01c0847d73e3a9eebcf58565855caf8152c3010daabe810b88c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9e79f28d46e4850a16e81e2e1e799a7ac8497a357b10224224f4449f1ae0a997",
+          "cohort": "sqd-4096",
+          "height": 60886313,
+          "index": 21,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc8ab8fa783582adc494fbbe4affb674cf21539d0cac91bf2633ec3e8204dc443"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb8a65108b6b123e259aa95825fd97a48c5dbd3afa21e5299b027dfa677b28d3d",
+          "cohort": "sqd-4097",
+          "height": 60872737,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 10
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xca78036d483f13df21d4a6a3445abb2fe44bb6412d81479ce0bf151f26bade04"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf3d6bc3d805baecb21d388e9072fe12bb398403c9f5193b00ebf06cc2b79ff9b",
+          "cohort": "sqd-4096",
+          "height": 60886288,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xcb612d67a9266d6f18a24b544b64fb8cfe37285c6325e74704d3191b3fd03507"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x12aaa715e798f68d614725a4e398ef60632b8e924460b70934fca94580efa4fc",
+          "cohort": "sqd-4097",
+          "height": 60869339,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xcbaac1d60debb59bc032932fdf4ad6c027b255a5f3272e26ef7d91173d708db3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x887a2244db5d910a86e8b07058d3973cb274fb71f6d1051ad0c821e0492e924e",
+          "cohort": "recent-384",
+          "height": 60878968,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xccac55196288833a305bdd7456e6227aced606023e8889af33e3270bad94fd09"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov23",
+          "height": 61270770,
+          "index": 13,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 24
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xcdd314f13178008f2989a8f644b1cc5795fbf99f8210c658fdace23b52d9434b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x64f0a5994c2316dcca137de4b816d5aa8cb3d8ce369c7ec9ea3d1fc1b0e93fd8",
+          "cohort": "sqd-4096",
+          "height": 60887008,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xce2d63fe4dfac7ad7873754ffd999ec4cf9446c86640d9107e8a3f55a423385c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe5cf426fa5ccf0b336e6405fd4825d7f2f0ab3c858f71aea6626113082d1ddd3",
+          "cohort": "sqd-4096",
+          "height": 60887172,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xcefbdda7adb446eed7e6ae1a8983ada55a9b76aeeb1c5f51ea9be252c1632fc7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd9cdeeb73a3f3caa61b164a5f0efa87d5b04b61e5a28c8734d63b3e2d1f30a9d",
+          "cohort": "sqd-4096",
+          "height": 60887544,
+          "index": 12,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd12fed925d07defde25a9c63b11154a307bcbfbe59e18e498da2453eab7d7fbd"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa1339997c2b2ec90f0c487ea4a4ed06ae309eb2d80d92cfd6cdc3bc41f03b1cf",
+          "cohort": "sqd-4097",
+          "height": 60870369,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd4d8b182d4d31a8e190018817c8b8145acdf37cfef1560bddfb906f28ed5eaf8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x76b3f5f86970c35e17e24123f70825f05c5a1abc744ff329e463b4ea843a553c",
+          "cohort": "sqd-4096",
+          "height": 60888746,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd86c5b64a26bd93329794b82d16a1eb9b3c2ebcd4d9c33c3fcc03105ff9aedee"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x03e1d197f04505cd34a86c2c3eb1dfd6751fca8383f0eba9ba63bde55aa1bb72",
+          "cohort": "sqd-4096",
+          "height": 60887013,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd93cb2eb022b78cd38d9c24862f411ff6e755c9e80b10081dec86ae038a53c50"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8926a2120e87d0b359bfdfd423a85d20c36b34dcc32b9b9312ec875647ff82f6",
+          "cohort": "sqd-4096",
+          "height": 60887103,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd9d9333897efde24551ac8efac15a4635f5a4f91666be11227e650fee0eee727"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x0f2088d00338e263ee76b797fcac5c68baa7c18dbdce7ceac5eac2a000a9f339",
+          "cohort": "sqd-4097",
+          "height": 60870372,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xda0665c588e7e2ffefdb4d14e75c8c8f756fc4e155ae2a5d55fa2b7b1f13cd4a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa96d1f7487101f285b5b1fe7fc92f3b0c9c48ea19d04453070a48a99a7213631",
+          "cohort": "sqd-4097",
+          "height": 60870907,
+          "index": 40,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xdaa2aad5d04c476662f614ec72ead8984cd2301d52be3c4fb606d5417864cb38"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov23",
+          "height": 61270747,
+          "index": 90,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 115
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xdec8faf6e1f27c95091f51da74d77b8eba5a79ef644f943b75747fea5429b09f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb006b098ddbd27fa999d4bb2ebef34ae144839aa37acae8902a6136e1d7e5e60",
+          "cohort": "sqd-4097",
+          "height": 60870621,
+          "index": 146,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe001cbf7b890d8df70965a0be814c93d138aff33609edb462ed6ae3c4623acfa"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb9db4a742e79e02fe495370d3f61b42b72acab40902d84b6d4a9aa1d4ec28efb",
+          "cohort": "sqd-4096",
+          "height": 60888800,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe10dc26cdb79e409c9de23da15609c395366ceefa614815204447b9e0a142aa1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5341f83ed8973e8a99c6f82c79f1fd2c2451235e3d09df66b92dba2abdb6f9f4",
+          "cohort": "sqd-4097",
+          "height": 60871174,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe4242c3e17b2db83291e1d4d3878142ed1ae3874042da2c79ce3969c77ebb457"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xea4b174ca384bd99d28d85aa433066d8c39445655f9c212aed87793b56f5c28f",
+          "cohort": "sqd-4097",
+          "height": 60870875,
+          "index": 26,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe476b2b75da147143cfc491b5c60a5e8def9722107a6f5505100a693769071b1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9b438494722408b9d76be5af3edb2b80f625a912ffd5353e614f74fc244f072d",
+          "cohort": "sqd-4096",
+          "height": 60887101,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe68ca64375269469255b1840b3d878a2fa79d63cb2af2ef008ccd6551ccb5a31"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xbdc212f7aadea42df4d3fc8764810a648c9f95b102b8e6e4aa3fb814dfab7131",
+          "cohort": "sqd-4096",
+          "height": 60885284,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe83c64871c9f48c1673a6408efbecabce50bac381086f4597e53c78c3b4b2c43"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xdb7f620ad688f25afa3951880f498dfd552526f23c01c452f2c72d5823f33660",
+          "cohort": "sqd-4096",
+          "height": 60889261,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe946fbbee2b62fc14d70a1309560d5fb575e17b2c44bbb0a7a063796d6c1e15f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov23",
+          "height": 61270765,
+          "index": 2,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 2
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xe974f7062fca0215eb2456abaf36af1bad03d25614591d08e2818512e003498b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_DEADLINE_ENGINEERING_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov23",
+          "height": 61270767,
+          "index": 17,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 28
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xea9a88b0fbec5f17ed922ea75db3fe29f774e640050dea11f311d3a473e3236f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xea28d1b0f4963e5d69ab871be2ce7e9f16584896d8bd8ef6b863df5b26ae677c",
+          "cohort": "sqd-4096",
+          "height": 60886676,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xed4b7a97163abc6a6b038ed31f3bffc96c6edd13d1d76ff59c3e7514288904b5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb17f1f9967fe3c43781b877e510abbaa12e25967d5d184cd96c2ff9c52b92fcb",
+          "cohort": "sqd-4097",
+          "height": 60871377,
+          "index": 26,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xeec80497fdea4bc4e10a576fbfbee6325d9f5f5de8783dd6e939117ebfee2d33"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4d3a03a8a2b9b2563a3fb2b381bb01ac69ebe747bfd6eb3f767ef1d458dfface",
+          "cohort": "sqd-4096",
+          "height": 60885326,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf01007e133d1e5e624c88f5c2695b7e03c528a3ab1743025306ad5f2d388db87"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x004c921e785e7ce501c56c70476f6123a75b7fe1c7bbfa24fc70dd0d77dcbf96",
+          "cohort": "sqd-4096",
+          "height": 60886258,
+          "index": 49,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf100650e884ea29ae66230cd12e30933f76dacd943572a4e29345dd7dd4f1bca"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa71d320a568e449ddc9d8f614591b7cc00cc2d81de1c8decf7b68348cc4e9c06",
+          "cohort": "sqd-4097",
+          "height": 60872168,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf27cd989f0eb9a2a050903c7a9164f0bc9e74b0946a3785cc552a106451a132b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x14d334a74bd44ed47362265514d19682751815076a02cece59934258c06574cf",
+          "cohort": "sqd-4096",
+          "height": 60886287,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf37f06301cab4d2b759dda8365165148030d0e8ab0b87dea4671dba89ecb0349"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe98278584777c23f3c7ab71aee19f4200e34006ee9547e8419ece4278b935140",
+          "cohort": "sqd-4097",
+          "height": 60871021,
+          "index": 86,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf3dd978518d4b749413b087693dcb49d3d0590b295320e3489f813c9326d2849"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x14729b3d9a01ae3fb95ab055b9f1afcefed60385e8fe257f54a51034c2582bc6",
+          "cohort": "sqd-4096",
+          "height": 60886793,
+          "index": 13,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf4901636e59ef180eb2877a98f0ee28786201caeed32cbbce69cb2a068ecde54"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd380dacc7f7629d5406900c96c388b106726e4eb034a097160b941a89238d9d7",
+          "cohort": "sqd-4096",
+          "height": 60887117,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf4acabb56bb86de37e9f0dccc401d75ca953af9b2431356e0b7753300fd703f1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9965cd85cad1023c9211bbe728855dffcaeaa34f932c754f6dabed8c1665a5ff",
+          "cohort": "sqd-4097",
+          "height": 60871102,
+          "index": 53,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf52416a9ac444b28e98bda41d649dee4ba782f4edf4e7f2e48dfbe097d60eec2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd417eb5d38e3d44b0812660bca1ba2049d4323aec058809aa3caa700b156771a",
+          "cohort": "sqd-4097",
+          "height": 60871003,
+          "index": 22,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf6546002e48674f2a25889916edcfd83dd8cf5b68ad38c770e9afa02244d4fe3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf58b1df48883a069dcaca408ddea8a992e6396ec32256cef873f30b73a909365",
+          "cohort": "sqd-4097",
+          "height": 60868985,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf65fd3a6e8b579b5103b7f8e83bf509d6a1edf2bf31be327144056e5fdc36be0"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x025748636b0f0374b291d7cde066c214710629cd087ad161fa3a599078f8ecd5",
+          "cohort": "sqd-4097",
+          "height": 60871370,
+          "index": 20,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf68af451479adfaa494a5d74834a1ef5f0150eb3f392912dee4d4e0a919dc343"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf7bed1d12132b6460e4e0bb1fefc0b9c828f34c126f1f8ddad68037536714c8f",
+          "cohort": "sqd-4096",
+          "height": 60886037,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf7584e4c1b9c11c7c711e56ec93afd83402ff1b61037e01fef0fc62daba73a68"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5ad279c12e21549739a12401ae4ea2495868df576550dc0aaf5308a940939837",
+          "cohort": "sqd-4097",
+          "height": 60871635,
+          "index": 39,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf7ddd0cc5b4f8a2f0f695f629216835d9cd93a7492ef0977ca1593a87c6a95e5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/EVENT_QUOTE_RESULTS_20261114.md"
+      ],
+      "observations": [
+        {
+          "cohort": "event-quote-nov14",
+          "height": 57365947,
+          "index": 4,
+          "interpretation": "Observed triggering pool event. Quoted strategy envelope was simulated separately. The matched receipt establishes no funded cycle.",
+          "kind": "receipt_checked_swap_trigger",
+          "trigger_log_index": 5
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xf86d82e427b8084188f8f2c9cd370f45f4d77ee667336712109e6539d3a7ae72"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x2635d0b244886c0a16eca53b3d251f7a333994c7d3ea694483acef794aeef413",
+          "cohort": "sqd-4096",
+          "height": 60886232,
+          "index": 16,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf90486288e367dd5677523f97337c2d03037793dfbc144de51b2a6cd08faabba"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xbf244ca2e351b9fde19b8d8e6777f2ff342d8c1f86e50618fe001bd3b6db0fe6",
+          "cohort": "sqd-4097",
+          "height": 60869026,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfab5639cf2238fdc9acecc5a60c0ebc7d3f3356075f43d41b9e545173d1f57bc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x84c2b6ba6855ed20a3633be7806c0818e8fb5b66e6ceb71c10172276b2b325a7",
+          "cohort": "sqd-4097",
+          "height": 60872888,
+          "index": 23,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfbe10077eae323fbe5174f07d47f1d5cf6ad81ab7c93d4a39ea1f932080dfdeb"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x81b7248ddef50eaeacf2b87411eba5ec449ecdac5b87c3307c9755e794594e5e",
+          "cohort": "sqd-4097",
+          "height": 60870910,
+          "index": 104,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfd14db0bcfb8f70bf307e98ebd6153e4010a7e53aeb630cc6eba0632839d9d27"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "cohort": "recent-384",
+          "height": 60881300,
+          "index": 10,
+          "kind": "receipt",
+          "l1_data_wei": 10439900837,
+          "l2_execution_wei": 10529844000000,
+          "matched_events": 4,
+          "receipt_swap_events": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfd39d422e0342beba10277abb52e40ce0fa22d2196f5387c4034d4ac611df6a1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTIHOP_PRETRADE_REPLAY_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x71a5918b1d7bd76c7f8a21fef4dc7c9ab1be766b0109e9de7f4dbb9eb9edf55c",
+          "cohort": "sqd-4096",
+          "height": 60887157,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 2
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfe905d2d1f7685682350f43905024cbc0286907b9580696d976d26009571614d"
+    }
+  ],
+  "schema": "oasis-multihop-historical-inventory-v1",
+  "shape_counts": {
+    "batch": 1,
+    "control": 10,
+    "mixed": 1,
+    "serial": 1,
+    "unresolved": 218
+  },
+  "shape_semantics": {
+    "batch": "Multiple observed swap-bearing groups or unlocks; individual financed closures require further proof.",
+    "control": "Named event, inclusion check, or open end-to-end user route used as a comparison.",
+    "mixed": "Split, hook, or cross-unlock structure with multiple economic roles.",
+    "serial": "Amount-linked ordered swaps with an evidenced capital currency closure; profitability reported separately.",
+    "unresolved": "Transaction/event record without a resolved transaction-wide flow classification."
+  }
+}

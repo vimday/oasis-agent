@@ -138,7 +138,12 @@ def replay(
         frozen = strict_json_object(manifest_raw)
         if any(
             frozen.get(key) != mix.get(key)
-            for key in ("newheads_observation", "state_ready_monotonic_ns")
+            for key in (
+                "newheads_observation",
+                "state_ready_monotonic_ns",
+                "parallel_v4_transport_overlap_ns",
+                "batched_v4_transport_ns",
+            )
         ):
             raise ValueError("snapshot timing or stream header disagrees with attribution")
         state = replay_mixed_snapshot(manifest)

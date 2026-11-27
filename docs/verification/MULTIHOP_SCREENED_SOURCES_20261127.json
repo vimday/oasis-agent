@@ -1,0 +1,1272 @@
+{
+  "schema": "oasis.multihop.screened-sources.v1",
+  "date": "2026-11-27",
+  "screened_tsv": {
+    "path": "reports/research/multichain-inventory-20261127/screened.tsv",
+    "bytes": 8007160,
+    "sha256": "f904bb13d21b9d42eddb1faa13f65243af521ea30baa8c9c1a08ab7cb65527ec",
+    "columns": [
+      "chain_id",
+      "tx_hash",
+      "block_number",
+      "matched_events",
+      "source"
+    ],
+    "rows": 83165
+  },
+  "rows_by_chain_id": {
+    "1": 31545,
+    "56": 46646,
+    "4663": 715,
+    "8453": 4259
+  },
+  "unique_transactions_by_chain_id": {
+    "1": 31274,
+    "56": 46646,
+    "4663": 715,
+    "8453": 4259
+  },
+  "ethereum_archive_event_signatures": {
+    "v2": "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+    "v3": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+    "pancake_v3": "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+    "v4": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+    "balancer_v2": "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b",
+    "curve": "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140",
+    "curve_crypto": "0x143f1f8e861fbdeddd5b46e844b7d3ac7b86a122f36e8c463859ee6811b1f29c",
+    "bancor": "0x276856b36cbc45526a0ba64f44611557a2a8b68662c5388e9fe6d72e86e1c8cb"
+  },
+  "evm_filtered_event_signatures": {
+    "v2": "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+    "aerodrome": "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+    "v3": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+    "pancake_v3": "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+    "v4": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+    "infinity_cl": "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237"
+  },
+  "cross_source_anchor_checks": {
+    "same_height_overlaps": [
+      {
+        "sources": [
+          "eth_archive_13",
+          "eth_rankable"
+        ],
+        "matching_block_hashes": 296,
+        "first_common_height": 26402310,
+        "last_common_height": 26409445
+      },
+      {
+        "sources": [
+          "eth_archive_25",
+          "eth_rankable"
+        ],
+        "matching_block_hashes": 10,
+        "first_common_height": 26488831,
+        "last_common_height": 26495619
+      },
+      {
+        "sources": [
+          "eth_archive_24",
+          "eth_rankable"
+        ],
+        "matching_block_hashes": 10,
+        "first_common_height": 26481901,
+        "last_common_height": 26488400
+      },
+      {
+        "sources": [
+          "eth_archive_23",
+          "eth_weth_23"
+        ],
+        "matching_block_hashes": 691,
+        "first_common_height": 26474115,
+        "last_common_height": 26481277
+      }
+    ],
+    "sqd_adjacent_parent_checks": [
+      {
+        "sources": [
+          "bsc_sqd_expanded",
+          "bsc_sqd_long"
+        ],
+        "child_height": 135114872,
+        "parent_hash": "0xb230c1ae6b88b29deebe43b4651d05bfa55458d178e623ee0fd7c773f5e1c62a",
+        "child_hash": "0xa7284c3d87558ce3adc82621984d3f64fa079f798b17d47d4a25c2a7bc918713"
+      }
+    ],
+    "block_hash_conflicts": 0,
+    "transaction_anchor_conflicts": 0,
+    "quarantined_sources": [],
+    "scope": "Retained-source anchor comparison. Receipt roots remain unverified here."
+  },
+  "method": "Each row preserves one transaction in one source. The Ethereum archive uses at least five distinct matched log indices from its original eight-signature set. Other EVM captures use at least two distinct matched log indices from six supported Swap signatures. The builder deduplicates exact in-source logs and reconciles secondary Ethereum aggregate event counts to the full-day counts.",
+  "limits": "This public signature screen leaves pool bytecode, receipt roots, direction, funding, amounts, gas, attribution and profitability unverified. SQD projections omit event data. RPC logs retain address and topic filters. Coverage beyond listed ranges and filters is unknown. The same transaction can meet different source filters.",
+  "sources": [
+    {
+      "source": "eth_archive_13",
+      "chain_id": 1,
+      "kind": "ethereum_full_day_log_projection",
+      "scope": "UTC 2026-11-13; unfiltered address universe in the eight-signature daily scan.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/eth-open-archive-20261127/candidates.csv",
+          "bytes": 121724517,
+          "sha256": "629285306b7e86f0f1fe168c4c22022deda620fc24e444de8b095445d4e6e7c9",
+          "coverage_record": {
+            "path": "reports/research/eth-open-archive-20261127/coverage.csv",
+            "bytes": 160,
+            "sha256": "27d4f62bb25173f0b00f650fcc370d66d95707a92df91451bd752a91ad4663fa"
+          },
+          "frequency_witness": {
+            "path": "reports/research/eth-open-archive-20261127/hist.csv",
+            "bytes": 3040,
+            "sha256": "13314f881812e8a660d92ae5c61325d5821f7f3e99e4a764cc7652a83be33b4d"
+          }
+        }
+      ],
+      "input_rows_or_logs": 86163,
+      "matched_events_before_threshold": 86163,
+      "matched_event_counts_by_signature": {
+        "v2": 13091,
+        "v4": 24676,
+        "v3": 39326,
+        "curve_crypto": 2794,
+        "curve": 2788,
+        "pancake_v3": 2596,
+        "balancer_v2": 420,
+        "bancor": 472
+      },
+      "distinct_matched_transactions_before_threshold": 8271,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 8271,
+      "maximum_matched_events": 137
+    },
+    {
+      "source": "eth_archive_25",
+      "chain_id": 1,
+      "kind": "ethereum_full_day_log_projection",
+      "scope": "UTC 2026-11-25; unfiltered address universe in the eight-signature daily scan.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/eth-open-archive-20261127/candidates.csv",
+          "bytes": 121724517,
+          "sha256": "629285306b7e86f0f1fe168c4c22022deda620fc24e444de8b095445d4e6e7c9",
+          "coverage_record": {
+            "path": "reports/research/eth-open-archive-20261127/coverage.csv",
+            "bytes": 160,
+            "sha256": "27d4f62bb25173f0b00f650fcc370d66d95707a92df91451bd752a91ad4663fa"
+          },
+          "frequency_witness": {
+            "path": "reports/research/eth-open-archive-20261127/hist.csv",
+            "bytes": 3040,
+            "sha256": "13314f881812e8a660d92ae5c61325d5821f7f3e99e4a764cc7652a83be33b4d"
+          }
+        }
+      ],
+      "input_rows_or_logs": 95031,
+      "matched_events_before_threshold": 95031,
+      "matched_event_counts_by_signature": {
+        "v3": 42604,
+        "v4": 27264,
+        "v2": 14514,
+        "bancor": 400,
+        "balancer_v2": 513,
+        "pancake_v3": 2218,
+        "curve_crypto": 4281,
+        "curve": 3237
+      },
+      "distinct_matched_transactions_before_threshold": 8314,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 8314,
+      "maximum_matched_events": 180
+    },
+    {
+      "source": "eth_archive_24",
+      "chain_id": 1,
+      "kind": "ethereum_full_day_log_projection",
+      "scope": "UTC 2026-11-24; unfiltered address universe in the eight-signature daily scan.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/multihop-family-screen-20261127/newday.csv",
+          "bytes": 48515949,
+          "sha256": "799807e2a6445968f17b5dfc47015b62323a4e766486c528ea13a22716612455",
+          "coverage_record": {
+            "path": "reports/research/multihop-family-screen-20261127/newday-screen.json",
+            "bytes": 14310,
+            "sha256": "534c8c6974f6fbeddbe9afdeeae99053b5afa5174f3d327f24790a8fac8ed31c"
+          },
+          "frequency_witness": {
+            "path": "reports/research/multihop-family-screen-20261127/newday-screen.json",
+            "bytes": 14310,
+            "sha256": "534c8c6974f6fbeddbe9afdeeae99053b5afa5174f3d327f24790a8fac8ed31c"
+          }
+        }
+      ],
+      "input_rows_or_logs": 72354,
+      "matched_events_before_threshold": 72354,
+      "matched_event_counts_by_signature": {
+        "curve_crypto": 3155,
+        "v4": 20301,
+        "v3": 32629,
+        "v2": 11661,
+        "curve": 2377,
+        "pancake_v3": 1585,
+        "bancor": 289,
+        "balancer_v2": 357
+      },
+      "distinct_matched_transactions_before_threshold": 6700,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 6700,
+      "maximum_matched_events": 169
+    },
+    {
+      "source": "eth_archive_23",
+      "chain_id": 1,
+      "kind": "ethereum_full_day_log_projection",
+      "scope": "UTC 2026-11-23; unfiltered address universe in the eight-signature daily scan.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/multichain-inventory-20261127/eth-nov23-candidates.csv.gz",
+          "bytes": 7833616,
+          "sha256": "6d89bf3828c1138cac242b516aa63698368ad3290b8bd32b4af3f1c1e4a3e9bc",
+          "decompressed_sha256": "9cf45ec8018bc79f17124adef0ce124af879671d3a4c69a870452eae10aed0c5",
+          "coverage_record": {
+            "path": "reports/research/eth-forward-and-tail-20261127/historical/aws-coverage.csv",
+            "bytes": 110,
+            "sha256": "732d3af95bc889b2984a0e79fe75327629bb539cf52890f2e89873854a303aed"
+          },
+          "frequency_witness": {
+            "path": "reports/research/eth-forward-and-tail-20261127/historical/aws-hist.csv",
+            "bytes": 1550,
+            "sha256": "72e7d2c985d0cee177a3ac6fd24f6576c7ebcb11bca9e6a5f30ab3c555cfd2da"
+          }
+        }
+      ],
+      "input_rows_or_logs": 87252,
+      "matched_events_before_threshold": 87252,
+      "matched_event_counts_by_signature": {
+        "v3": 39601,
+        "v4": 25645,
+        "v2": 13343,
+        "curve_crypto": 3204,
+        "pancake_v3": 1832,
+        "curve": 2865,
+        "balancer_v2": 386,
+        "bancor": 376
+      },
+      "distinct_matched_transactions_before_threshold": 7989,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 7989,
+      "maximum_matched_events": 153
+    },
+    {
+      "source": "eth_weth_23",
+      "chain_id": 1,
+      "kind": "ethereum_secondary_selection",
+      "scope": "Nov 23 WETH manager-transfer subset; archived aggregate event counts.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/eth-forward-and-tail-20261127/historical/aws-weth-candidates.csv",
+          "bytes": 147484,
+          "sha256": "93370c4bda49bd0eef200ab5f341bf033bb9247540941c692a922360d4fff127"
+        }
+      ],
+      "input_rows_or_logs": 968,
+      "matched_events_before_threshold": 4474,
+      "matched_event_counts_by_signature": null,
+      "distinct_matched_transactions_before_threshold": 968,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 220,
+      "maximum_matched_events": 96
+    },
+    {
+      "source": "eth_rankable",
+      "chain_id": 1,
+      "kind": "ethereum_secondary_selection",
+      "scope": "Nov 13, 24, 25 selected executor or count-bin rows; archived aggregate shape counts.",
+      "minimum_matched_events_per_transaction": 5,
+      "source_files": [
+        {
+          "path": "reports/research/eth-batch-cohort-20261127/rankable.csv",
+          "bytes": 76139,
+          "sha256": "566aab02416da20cdb2b177d753c9454b3009d40238d51639548c6ce75794481"
+        }
+      ],
+      "input_rows_or_logs": 442,
+      "matched_events_before_threshold": 2799,
+      "matched_event_counts_by_signature": null,
+      "distinct_matched_transactions_before_threshold": 442,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 51,
+      "maximum_matched_events": 180
+    },
+    {
+      "source": "base_sqd_long",
+      "chain_id": 8453,
+      "kind": "sqd_index_log_projection",
+      "scope": "Six topics, full address universe.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/long-dex-20261123/base-mainnet/response.ndjson",
+          "bytes": 8714333,
+          "sha256": "cf1dc601ebd425cc53550a28c986b840b37c1f0d6fa482c1009ecd4b4af7c4eb",
+          "request": {
+            "path": "reports/research/long-dex-20261123/base-mainnet/request.json",
+            "bytes": 732,
+            "sha256": "1808568db1c832889201ccc1f684f36f590a32bfad9418b5aaced6734a5544c8"
+          },
+          "capture_result": {
+            "path": "reports/research/long-dex-20261123/base-mainnet/done.json",
+            "bytes": 377,
+            "sha256": "bd427d09a4826213217589d98b8f7431e946fcc2c1c0fcf81cef8b792870b89b"
+          },
+          "requested_from_block": 60868904,
+          "requested_through_block": 60873000,
+          "covered_from_block": 60868904,
+          "covered_through_block": 60873000,
+          "covered_blocks": 4097,
+          "missing_requested_blocks": 0,
+          "expected_topic_filter": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ]
+        }
+      ],
+      "input_rows_or_logs": 19642,
+      "matched_events_before_threshold": 19642,
+      "matched_event_counts_by_signature": {
+        "v2": 554,
+        "v3": 12052,
+        "v4": 2450,
+        "pancake_v3": 4090,
+        "aerodrome": 454,
+        "infinity_cl": 42
+      },
+      "distinct_matched_transactions_before_threshold": 16103,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 2371,
+      "maximum_matched_events": 35
+    },
+    {
+      "source": "base_sqd_tail",
+      "chain_id": 8453,
+      "kind": "sqd_index_log_projection",
+      "scope": "Six topics, full address universe.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/pretrade-tail-20261123/base-3/response.ndjson",
+          "bytes": 7208480,
+          "sha256": "f90a25d0104fae3cc225b3826ce8362c841dc41c7d382587596e509c0982b62f",
+          "request": {
+            "path": "reports/research/pretrade-tail-20261123/base-3/request.json",
+            "bytes": 732,
+            "sha256": "a983d511cdd75012b07f20cf9399397dcbf33ca063a626adb1ae1deb3357b553"
+          },
+          "capture_result": {
+            "path": "reports/research/pretrade-tail-20261123/base-3/done.json",
+            "bytes": 377,
+            "sha256": "e55483ea51d89bd81d1cd0d486af36821fa109a870bd1390f661de15b8f988de"
+          },
+          "requested_from_block": 60885193,
+          "requested_through_block": 60889288,
+          "covered_from_block": 60885193,
+          "covered_through_block": 60889288,
+          "covered_blocks": 4096,
+          "missing_requested_blocks": 0,
+          "expected_topic_filter": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ]
+        }
+      ],
+      "input_rows_or_logs": 15866,
+      "matched_events_before_threshold": 15866,
+      "matched_event_counts_by_signature": {
+        "pancake_v3": 2448,
+        "v3": 9601,
+        "v4": 2710,
+        "v2": 433,
+        "aerodrome": 643,
+        "infinity_cl": 31
+      },
+      "distinct_matched_transactions_before_threshold": 12794,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 1864,
+      "maximum_matched_events": 50
+    },
+    {
+      "source": "bsc_sqd_long",
+      "chain_id": 56,
+      "kind": "sqd_index_log_projection",
+      "scope": "Six topics, full address universe.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/long-dex-20261123/binance-mainnet/response.ndjson",
+          "bytes": 5967028,
+          "sha256": "9d0e26660cb572902dbd27215a6810fe385288b97c6f8b63a8eabb6d3b0d33aa",
+          "request": {
+            "path": "reports/research/long-dex-20261123/binance-mainnet/request.json",
+            "bytes": 734,
+            "sha256": "a32b9aad539d9fc86ab6577081d6b340ea2d32feeaca028f2754d60242dbd7cd"
+          },
+          "capture_result": {
+            "path": "reports/research/long-dex-20261123/binance-mainnet/done.json",
+            "bytes": 382,
+            "sha256": "cc6d8da8a118716cd4ac0cd0fe463a13d35f7fae312a7fea5447a6d3f6824751"
+          },
+          "requested_from_block": 135114872,
+          "requested_through_block": 135115383,
+          "covered_from_block": 135114872,
+          "covered_through_block": 135115383,
+          "covered_blocks": 512,
+          "missing_requested_blocks": 0,
+          "expected_topic_filter": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ]
+        }
+      ],
+      "input_rows_or_logs": 14694,
+      "matched_events_before_threshold": 14694,
+      "matched_event_counts_by_signature": {
+        "infinity_cl": 2263,
+        "v2": 4495,
+        "pancake_v3": 6059,
+        "v3": 851,
+        "v4": 1025,
+        "aerodrome": 1
+      },
+      "distinct_matched_transactions_before_threshold": 9692,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 2751,
+      "maximum_matched_events": 37
+    },
+    {
+      "source": "bsc_sqd_expanded",
+      "chain_id": 56,
+      "kind": "sqd_index_log_projection",
+      "scope": "Six topics, full address universe.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/long-dex-20261123/expanded/binance-mainnet/response.ndjson",
+          "bytes": 47945689,
+          "sha256": "ee9faf95dafc3c0f272ed96b7a4dda2a41546308b44f1f3ced54ddcd586a5cd6",
+          "request": {
+            "path": "reports/research/long-dex-20261123/expanded/binance-mainnet/request.json",
+            "bytes": 734,
+            "sha256": "cdc550fba356aa784f3bac469f3a1026d83e365f61231747f9f1e1b598c08044"
+          },
+          "capture_result": {
+            "path": "reports/research/long-dex-20261123/expanded/binance-mainnet/done.json",
+            "bytes": 383,
+            "sha256": "e935b2865660fd6e77e5e3d1361bffdf844f046748da956333fb1db444842937"
+          },
+          "requested_from_block": 135110776,
+          "requested_through_block": 135114871,
+          "covered_from_block": 135110776,
+          "covered_through_block": 135114871,
+          "covered_blocks": 4096,
+          "missing_requested_blocks": 0,
+          "expected_topic_filter": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ]
+        }
+      ],
+      "input_rows_or_logs": 118070,
+      "matched_events_before_threshold": 118070,
+      "matched_event_counts_by_signature": {
+        "infinity_cl": 17987,
+        "pancake_v3": 46923,
+        "v2": 38546,
+        "v3": 6368,
+        "v4": 8242,
+        "aerodrome": 4
+      },
+      "distinct_matched_transactions_before_threshold": 79911,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 21387,
+      "maximum_matched_events": 80
+    },
+    {
+      "source": "bsc_sqd_executor",
+      "chain_id": 56,
+      "kind": "sqd_index_log_projection",
+      "scope": "One destination filter, full log rows for matched transactions, partial block range.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/response.ndjson",
+          "bytes": 2480875,
+          "sha256": "b1b3e0365eb11688ca2a63f4977a535b767394c0dc525f8d22eae21c2795d3df",
+          "request": {
+            "path": "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/request.json",
+            "bytes": 378,
+            "sha256": "f11ff9b76c66b0e2df67d9e1db1bc7b5d99d4e5df60cc969949208add38aafc9"
+          },
+          "capture_result": {
+            "path": "reports/research/long-dex-20261123/executor-lookback/binance-mainnet/done.json",
+            "bytes": 382,
+            "sha256": "8513009f2adfebd7067cdd9184a51c3b2c16aba799465f78ffd11a0c49298204"
+          },
+          "requested_from_block": 135090296,
+          "requested_through_block": 135110775,
+          "covered_from_block": 135090296,
+          "covered_through_block": 135094091,
+          "covered_blocks": 3796,
+          "missing_requested_blocks": 16684,
+          "expected_topic_filter": null
+        }
+      ],
+      "input_rows_or_logs": 4544,
+      "matched_events_before_threshold": 1394,
+      "matched_event_counts_by_signature": {
+        "v4": 345,
+        "pancake_v3": 434,
+        "v3": 94,
+        "infinity_cl": 53,
+        "v2": 468
+      },
+      "distinct_matched_transactions_before_threshold": 228,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 228,
+      "maximum_matched_events": 46
+    },
+    {
+      "source": "bsc_sqd_tail",
+      "chain_id": 56,
+      "kind": "sqd_index_log_projection",
+      "scope": "Six topics, full address universe. Complete prefix through the byte-ceiling stop.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/pretrade-tail-20261123/bsc-1/response.ndjson",
+          "bytes": 50302561,
+          "sha256": "b580d084a610af0eb9a8276f0a792856855c9c0b54960ef17a7532cd53fdc6d4",
+          "unparsed_truncated_tail": {
+            "bytes": 7899,
+            "sha256": "39e36aaf3b4399351104adc15ee4ec1d99d6a220c804255b9a425ae303b1e127"
+          },
+          "complete_line_prefix_sha256": "60d08bc970fbd3bcbe91c6fc6c1649dbfc148095382d68bc2a4244e5e3457281",
+          "request": {
+            "path": "reports/research/pretrade-tail-20261123/bsc-1/request.json",
+            "bytes": 734,
+            "sha256": "244d2107b8cd961174bd91d0911f788d4ef53aee8c149b21ef05e0bc44bcf49e"
+          },
+          "capture_result": {
+            "path": "reports/research/pretrade-tail-20261123/bsc-1/done.json",
+            "bytes": 255,
+            "sha256": "9e34a176ca1de58b0952ddd5b44b87b73fab117fee33d0eb423098e386e2fb92"
+          },
+          "requested_from_block": 135106680,
+          "requested_through_block": 135110775,
+          "covered_from_block": 135106680,
+          "covered_through_block": 135110757,
+          "covered_blocks": 4078,
+          "missing_requested_blocks": 18,
+          "expected_topic_filter": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ]
+        }
+      ],
+      "input_rows_or_logs": 123957,
+      "matched_events_before_threshold": 123957,
+      "matched_event_counts_by_signature": {
+        "v2": 39742,
+        "pancake_v3": 51448,
+        "infinity_cl": 16711,
+        "v4": 7872,
+        "v3": 8180,
+        "aerodrome": 4
+      },
+      "distinct_matched_transactions_before_threshold": 84223,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 21677,
+      "maximum_matched_events": 80
+    },
+    {
+      "source": "base_rpc_early",
+      "chain_id": 8453,
+      "kind": "eth_getLogs",
+      "scope": "Four disjoint 96-block log windows.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/recent-dex-arbitrage-20261123/base/05.response.json",
+          "bytes": 76764,
+          "sha256": "c1d0705544c23bcd5407ab00662c800103b0861d9450cfeff443ba2b7b771e27",
+          "request": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/05.request.json",
+            "bytes": 1166,
+            "sha256": "c70a5ffea567854cc5658e217b43e91733092b0bf18743723a516a9e3216d424"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/ledger.jsonl",
+            "bytes": 14850,
+            "sha256": "82f7c3a1b1bb48f86f9202f0257117f55df8c0edbc74795192c211a3d1ff7b95"
+          },
+          "requested_from_block": 60881923,
+          "requested_through_block": 60882018,
+          "response_log_rows": 79,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 10
+        },
+        {
+          "path": "reports/research/recent-dex-arbitrage-20261123/base/06.response.json",
+          "bytes": 112306,
+          "sha256": "cff4e2caf8ba00dfff8fde481ec91fcaf5e35b5c559b0a0e1b99dbe874d962e5",
+          "request": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/06.request.json",
+            "bytes": 1166,
+            "sha256": "3431edbd68f65df649e92e38756cb31b740c0b6babe140b48974cf02e472ab69"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/ledger.jsonl",
+            "bytes": 14850,
+            "sha256": "82f7c3a1b1bb48f86f9202f0257117f55df8c0edbc74795192c211a3d1ff7b95"
+          },
+          "requested_from_block": 60881263,
+          "requested_through_block": 60881358,
+          "response_log_rows": 115,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 10
+        },
+        {
+          "path": "reports/research/recent-dex-arbitrage-20261123/base/07.response.json",
+          "bytes": 82373,
+          "sha256": "9c1c1bf9b670c7dec37f781cad333daae8e81ac4899057e4ca6f7b8cb96726f1",
+          "request": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/07.request.json",
+            "bytes": 1166,
+            "sha256": "cc0e197d3ee0a6c17fccdad95e5fd857d4698790eb01771ab938d38a56140a76"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/ledger.jsonl",
+            "bytes": 14850,
+            "sha256": "82f7c3a1b1bb48f86f9202f0257117f55df8c0edbc74795192c211a3d1ff7b95"
+          },
+          "requested_from_block": 60880363,
+          "requested_through_block": 60880458,
+          "response_log_rows": 85,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 10
+        },
+        {
+          "path": "reports/research/recent-dex-arbitrage-20261123/base/08.response.json",
+          "bytes": 135032,
+          "sha256": "265aef5773fc154ed0de48f3c04c6405dffa958c8f0b813f36f5838c6db789f6",
+          "request": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/08.request.json",
+            "bytes": 1166,
+            "sha256": "b8a5bec0bcfa44212fbbf867a399beaf9af86725c257111829a13fd8012afdb1"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/recent-dex-arbitrage-20261123/base/ledger.jsonl",
+            "bytes": 14850,
+            "sha256": "82f7c3a1b1bb48f86f9202f0257117f55df8c0edbc74795192c211a3d1ff7b95"
+          },
+          "requested_from_block": 60878963,
+          "requested_through_block": 60879058,
+          "response_log_rows": 139,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 10
+        }
+      ],
+      "input_rows_or_logs": 418,
+      "matched_events_before_threshold": 418,
+      "matched_event_counts_by_signature": {
+        "v4": 210,
+        "pancake_v3": 56,
+        "v3": 137,
+        "aerodrome": 15
+      },
+      "distinct_matched_transactions_before_threshold": 367,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 24,
+      "maximum_matched_events": 15
+    },
+    {
+      "source": "rh_rpc_long",
+      "chain_id": 4663,
+      "kind": "eth_getLogs",
+      "scope": "Eight adjacent 512-block log windows.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/02.res",
+          "bytes": 592882,
+          "sha256": "d179394b96715f438eeebf9b43040485efde61d6970d236e66d03d797cf9cd4f",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/02.req",
+            "bytes": 550,
+            "sha256": "ac94ed2461e47376cbd6699ce2a94fbfea20a138bc086f54b5e3abf7a5c7b6e3"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120754500,
+          "requested_through_block": 120755011,
+          "response_log_rows": 655,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/03.res",
+          "bytes": 649315,
+          "sha256": "63bdc5344ba06af1cd7c46d50860c4594892a9ecd781da4d0ac4b8d6e0d9b5fa",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/03.req",
+            "bytes": 550,
+            "sha256": "150c4c6d108bf10422584abc1b72561c1d7c9bfdf3bd40f8587bb69ab64273e6"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120755012,
+          "requested_through_block": 120755523,
+          "response_log_rows": 715,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/04.res",
+          "bytes": 334528,
+          "sha256": "c8209dee1e08365faa477db160ca7e337d72582e10e75cfe5e0b14dbedfae522",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/04.req",
+            "bytes": 550,
+            "sha256": "eb7006680c684ffa706f631674ef2b1b70b2dbb09dc05e57c432a4b836271b1d"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120755524,
+          "requested_through_block": 120756035,
+          "response_log_rows": 368,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/05.res",
+          "bytes": 72911,
+          "sha256": "bf22cbe766ee5a0505d6fbaec7f7aed045dcaa09bb0c785dc99b6253c389057f",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/05.req",
+            "bytes": 550,
+            "sha256": "b3bc93806aa88868a7de86ae303dc367abd76e5a3f8851cc697396b860a1ea7f"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120756036,
+          "requested_through_block": 120756547,
+          "response_log_rows": 80,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/06.res",
+          "bytes": 277642,
+          "sha256": "28f29c3dea5e3c980887840a09906e4cba9e36e502001597013b9ee18aad5082",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/06.req",
+            "bytes": 550,
+            "sha256": "ae1fdb3188ed6b34032bf97bf6c69cc8ccbecfd9fc8954d6c680bee5f550a680"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120756548,
+          "requested_through_block": 120757059,
+          "response_log_rows": 305,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/07.res",
+          "bytes": 294937,
+          "sha256": "ead1f9e3e8867b04f88d75f3fe8daed12974c4ad3daf501048b9ec43bace4cfd",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/07.req",
+            "bytes": 550,
+            "sha256": "39518d510fde62869b143feabf490d32ca7c3819d2cbd71396a1600cfc516619"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120757060,
+          "requested_through_block": 120757571,
+          "response_log_rows": 322,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/08.res",
+          "bytes": 1145514,
+          "sha256": "c296de09b6331f7d7ce4d4963c3df83c46efdabeccbff338d1b7c83ffde9cdfc",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/08.req",
+            "bytes": 550,
+            "sha256": "cccd110391347330709f3989e8025dae96f13c4324301e0f49204c336e12990f"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120757572,
+          "requested_through_block": 120758083,
+          "response_log_rows": 1263,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/long-dex-20261123/robinhood-rpc/09.res",
+          "bytes": 415439,
+          "sha256": "d8ac18e60c69d3a880b124cb744f4840fc8fb5607455eefeabf071390a9b9795",
+          "request": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/09.req",
+            "bytes": 550,
+            "sha256": "dd582b87de70efa7e7b3b072db178a2f8e0f2f7aa43c7451018260069a68ed6d"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/long-dex-20261123/robinhood-rpc/ledger.jsonl",
+            "bytes": 2970,
+            "sha256": "526444e3601510d7adb3455e6b0f4c7e51bfcf04269de7a453a3bc5da9c9b738"
+          },
+          "requested_from_block": 120758084,
+          "requested_through_block": 120758595,
+          "response_log_rows": 455,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": null
+        }
+      ],
+      "input_rows_or_logs": 4163,
+      "matched_events_before_threshold": 4163,
+      "matched_event_counts_by_signature": {
+        "v4": 1702,
+        "v3": 2298,
+        "v2": 105,
+        "pancake_v3": 35,
+        "infinity_cl": 15,
+        "aerodrome": 8
+      },
+      "distinct_matched_transactions_before_threshold": 3335,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 435,
+      "maximum_matched_events": 15
+    },
+    {
+      "source": "rh_rpc_depth",
+      "chain_id": 4663,
+      "kind": "eth_getLogs",
+      "scope": "Three disjoint 512-block windows, V3/V4 family only.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/multichain-depth-20261123/robinhood/03.response.json",
+          "bytes": 365187,
+          "sha256": "43d05fd30e3e608cb4d11a233ff4adf91ee6fd453f299da2e9c323484a7ab6ea",
+          "request": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/03.request.json",
+            "bytes": 326,
+            "sha256": "b2524566d491900358319b15dff2286c5afe318c74e426e10d80150ddad3562d"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/03.meta.json",
+            "bytes": 419,
+            "sha256": "59ccdcf83eef2c30811c94c4d893772269128a389db91e804c14a0fa42a91f8e"
+          },
+          "requested_from_block": 120740132,
+          "requested_through_block": 120740643,
+          "response_log_rows": 399,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/multichain-depth-20261123/robinhood/04.response.json",
+          "bytes": 613533,
+          "sha256": "8abf30e58cf85bdc70b317612623044ba59ff647eb663086f13cd9a30eebfcf5",
+          "request": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/04.request.json",
+            "bytes": 326,
+            "sha256": "8a2d061517853229430299d305b6fa94c3b7dca6e8841e87c17f966a02ce1255"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/04.meta.json",
+            "bytes": 419,
+            "sha256": "dea9c6b414ff4a6be20e7bdfd3fb4ffde9702750dd2f309857084acaec5575ff"
+          },
+          "requested_from_block": 120733000,
+          "requested_through_block": 120733511,
+          "response_log_rows": 668,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+          ],
+          "requested_emitter_count": null
+        },
+        {
+          "path": "reports/research/multichain-depth-20261123/robinhood/05.response.json",
+          "bytes": 803115,
+          "sha256": "bef0912d401ce9ab742e76eb6d57bf1f922951a4fbc8f2845fca296cc98e34c0",
+          "request": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/05.request.json",
+            "bytes": 326,
+            "sha256": "4c1abd02b3e59abbd309189e5e590344f86bfdcf85444e02636d144db4c5140d"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/multichain-depth-20261123/robinhood/05.meta.json",
+            "bytes": 419,
+            "sha256": "d33b58edc6a59112769b867cfe1ee17308ed579f85bfe372fed7ad703f13c9d6"
+          },
+          "requested_from_block": 120722000,
+          "requested_through_block": 120722511,
+          "response_log_rows": 888,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+          ],
+          "requested_emitter_count": null
+        }
+      ],
+      "input_rows_or_logs": 1955,
+      "matched_events_before_threshold": 1955,
+      "matched_event_counts_by_signature": {
+        "v4": 855,
+        "v3": 1087,
+        "pancake_v3": 13
+      },
+      "distinct_matched_transactions_before_threshold": 1623,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 197,
+      "maximum_matched_events": 11
+    },
+    {
+      "source": "rh_rpc_tail",
+      "chain_id": 4663,
+      "kind": "eth_getLogs",
+      "scope": "One 512-block V3/V4 topic window.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/robinhood-tail-512-20261124/run/01-official.response",
+          "bytes": 875760,
+          "sha256": "374b66aa821020bd635ced6375afb6d62395a7a571fd94957a036b825b059159",
+          "request": {
+            "path": "reports/research/robinhood-tail-512-20261124/run/01-official.request",
+            "bytes": 1034,
+            "sha256": "01d489dfd6522ff8e1319009953fdb977ec295471735251d6ae57625149ab9d7"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/robinhood-tail-512-20261124/run/01-official.meta",
+            "bytes": 312,
+            "sha256": "5bef3abb2cd1e66e266c8d4639974fc8fd33c9d89793f62a03d81a33953ffa67"
+          },
+          "requested_from_block": 121590369,
+          "requested_through_block": 121590880,
+          "response_log_rows": 947,
+          "requested_topics": [
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+          ],
+          "requested_emitter_count": 17
+        }
+      ],
+      "input_rows_or_logs": 947,
+      "matched_events_before_threshold": 947,
+      "matched_event_counts_by_signature": {
+        "v4": 622,
+        "v3": 325
+      },
+      "distinct_matched_transactions_before_threshold": 805,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 83,
+      "maximum_matched_events": 10
+    },
+    {
+      "source": "bsc_rpc_eight",
+      "chain_id": 56,
+      "kind": "eth_getLogs",
+      "scope": "Eight-address holdout with two pages.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/bsc-eight-address-holdout-20261124/page0.response.json",
+          "bytes": 1912714,
+          "sha256": "c7f2f2f43e19243e48c74b31c4e3619a8b6bf47d20d3449ee2cee809e5389524",
+          "request": {
+            "path": "reports/research/bsc-eight-address-holdout-20261124/page0.request.json",
+            "bytes": 1058,
+            "sha256": "7e2705f3adfff572cdf2f7386af18380f2a13323b1de8dbb1cd01673cc023bb8"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/bsc-eight-address-holdout-20261124/page0.meta.json",
+            "bytes": 381,
+            "sha256": "325a0ecf90ec7dce05c137d5a6e5313e9ebf50c34042deeecb5977f9bd474422"
+          },
+          "requested_from_block": 135377727,
+          "requested_through_block": 135377918,
+          "response_log_rows": 1913,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 8
+        },
+        {
+          "path": "reports/research/bsc-eight-address-holdout-20261124/page1.response.json",
+          "bytes": 2094357,
+          "sha256": "d41c2446d2d71b1a166133fa14d6db98b4764282e6f78f3ad5a06c9ed8cace82",
+          "request": {
+            "path": "reports/research/bsc-eight-address-holdout-20261124/page1.request.json",
+            "bytes": 1058,
+            "sha256": "c36ff8f6dfbca835b4620fb7d0ffcfdea2c2d8b45fd3cb0f390f9719e097de96"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/bsc-eight-address-holdout-20261124/page1.meta.json",
+            "bytes": 381,
+            "sha256": "d3eb515d4b11aa2a562f194d54c3bbd6d2f984c8852d258c2384c96e443174fb"
+          },
+          "requested_from_block": 135377919,
+          "requested_through_block": 135378110,
+          "response_log_rows": 2087,
+          "requested_topics": [
+            "0x04206ad2b7c0f463bff3dd4f33c5735b0f2957a351e4f79763a4fa9e775dd237",
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+            "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822"
+          ],
+          "requested_emitter_count": 8
+        }
+      ],
+      "input_rows_or_logs": 4000,
+      "matched_events_before_threshold": 4000,
+      "matched_event_counts_by_signature": {
+        "v4": 1018,
+        "pancake_v3": 1345,
+        "infinity_cl": 1616,
+        "v2": 8,
+        "v3": 13
+      },
+      "distinct_matched_transactions_before_threshold": 2900,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 588,
+      "maximum_matched_events": 36
+    },
+    {
+      "source": "bsc_rpc_four",
+      "chain_id": 56,
+      "kind": "eth_getLogs",
+      "scope": "Four address-filtered pools in one fixed window.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/bsc-four-pool-tail-20261124/logs.response.json",
+          "bytes": 484304,
+          "sha256": "222e283a65fe8423ea6dc08c9cb46bd6eca62716c8378bc6648efc19e515b140",
+          "request": {
+            "path": "reports/research/bsc-four-pool-tail-20261124/logs.request.json",
+            "bytes": 602,
+            "sha256": "c295978bf4c152d29057b92ee5d7c64be47e54aca50966929b61b4a2cfe78130"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/bsc-four-pool-tail-20261124/logs.meta.json",
+            "bytes": 385,
+            "sha256": "474d522b204d836a6be16a7a392aaf2bb1faef67d5539f87899eab24bb999c1f"
+          },
+          "requested_from_block": 135308800,
+          "requested_through_block": 135308991,
+          "response_log_rows": 476,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+            "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+          ],
+          "requested_emitter_count": 4
+        }
+      ],
+      "input_rows_or_logs": 476,
+      "matched_events_before_threshold": 476,
+      "matched_event_counts_by_signature": {
+        "pancake_v3": 471,
+        "v3": 5
+      },
+      "distinct_matched_transactions_before_threshold": 459,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 12,
+      "maximum_matched_events": 4
+    },
+    {
+      "source": "bsc_rpc_single",
+      "chain_id": 56,
+      "kind": "eth_getLogs",
+      "scope": "Single address-filtered pool; repeated swaps can qualify.",
+      "minimum_matched_events_per_transaction": 2,
+      "source_files": [
+        {
+          "path": "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/logs.response.json",
+          "bytes": 27561,
+          "sha256": "d0d98846451a38c25bd5d7bb9c23d7cd615a9a2fc9a3bbdc8f2c574088ac28d9",
+          "request": {
+            "path": "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/logs.request.json",
+            "bytes": 320,
+            "sha256": "3006fb4b52945eddfd502f98cbf4ea3312bf6ee43309bb9f4ff3d558412f915c"
+          },
+          "response_digest_witness": {
+            "path": "reports/research/bsc-alternate-long-tail-20261124/single-pool-followup/logs.meta.json",
+            "bytes": 384,
+            "sha256": "e62985ea8c827ac14087fdf03b440ff1488f16ee51860869473f41a0d0292903"
+          },
+          "requested_from_block": 135306822,
+          "requested_through_block": 135306869,
+          "response_log_rows": 27,
+          "requested_topics": [
+            "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83"
+          ],
+          "requested_emitter_count": 1
+        }
+      ],
+      "input_rows_or_logs": 27,
+      "matched_events_before_threshold": 27,
+      "matched_event_counts_by_signature": {
+        "pancake_v3": 27
+      },
+      "distinct_matched_transactions_before_threshold": 18,
+      "duplicate_event_rows_removed": 0,
+      "exported_rows": 3,
+      "maximum_matched_events": 6
+    }
+  ]
+}

@@ -1,0 +1,1994 @@
+{
+  "chain": "Robinhood",
+  "chain_id": 4663,
+  "cohorts": [
+    {
+      "evidence": "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md",
+      "from_block": 120349565,
+      "id": "appendix-20000",
+      "kind": "published_topic_scan",
+      "local_inputs_sha256": {},
+      "matched_events": 30158,
+      "matched_transactions": 25829,
+      "minimum_events": {
+        "10": 18,
+        "15": 7,
+        "2": 2452,
+        "20": 4,
+        "22": 2,
+        "3": 1045,
+        "4": 373,
+        "5": 173,
+        "8": 32
+      },
+      "reconstruction": "Published appendix D lists named transaction hashes and 500-block topic query; no complete local hash manifest established for the 20,000-block survey.",
+      "to_block": 120369564
+    },
+    {
+      "event_count_histogram": {
+        "1": 2900,
+        "10": 3,
+        "11": 2,
+        "13": 1,
+        "15": 1,
+        "2": 243,
+        "3": 109,
+        "4": 40,
+        "5": 21,
+        "6": 8,
+        "7": 2,
+        "8": 2,
+        "9": 3
+      },
+      "evidence": "docs/verification/LONG_SWAP_TAIL_20261123.md",
+      "from_block": 120754500,
+      "id": "rpc-4096",
+      "kind": "topic_scan",
+      "local_inputs_sha256": {
+        "reports/research/long-dex-20261123/robinhood-rpc/01.res": "75ea0f516604d743a7a785da0919b7b26debc20e260ff9d0a045c6cfa40f876f",
+        "reports/research/long-dex-20261123/robinhood-rpc/02.req": "ac94ed2461e47376cbd6699ce2a94fbfea20a138bc086f54b5e3abf7a5c7b6e3",
+        "reports/research/long-dex-20261123/robinhood-rpc/02.res": "d179394b96715f438eeebf9b43040485efde61d6970d236e66d03d797cf9cd4f",
+        "reports/research/long-dex-20261123/robinhood-rpc/03.req": "150c4c6d108bf10422584abc1b72561c1d7c9bfdf3bd40f8587bb69ab64273e6",
+        "reports/research/long-dex-20261123/robinhood-rpc/03.res": "63bdc5344ba06af1cd7c46d50860c4594892a9ecd781da4d0ac4b8d6e0d9b5fa",
+        "reports/research/long-dex-20261123/robinhood-rpc/04.req": "eb7006680c684ffa706f631674ef2b1b70b2dbb09dc05e57c432a4b836271b1d",
+        "reports/research/long-dex-20261123/robinhood-rpc/04.res": "c8209dee1e08365faa477db160ca7e337d72582e10e75cfe5e0b14dbedfae522",
+        "reports/research/long-dex-20261123/robinhood-rpc/05.req": "b3bc93806aa88868a7de86ae303dc367abd76e5a3f8851cc697396b860a1ea7f",
+        "reports/research/long-dex-20261123/robinhood-rpc/05.res": "bf22cbe766ee5a0505d6fbaec7f7aed045dcaa09bb0c785dc99b6253c389057f",
+        "reports/research/long-dex-20261123/robinhood-rpc/06.req": "ae1fdb3188ed6b34032bf97bf6c69cc8ccbecfd9fc8954d6c680bee5f550a680",
+        "reports/research/long-dex-20261123/robinhood-rpc/06.res": "28f29c3dea5e3c980887840a09906e4cba9e36e502001597013b9ee18aad5082",
+        "reports/research/long-dex-20261123/robinhood-rpc/07.req": "39518d510fde62869b143feabf490d32ca7c3819d2cbd71396a1600cfc516619",
+        "reports/research/long-dex-20261123/robinhood-rpc/07.res": "ead1f9e3e8867b04f88d75f3fe8daed12974c4ad3daf501048b9ec43bace4cfd",
+        "reports/research/long-dex-20261123/robinhood-rpc/08.req": "cccd110391347330709f3989e8025dae96f13c4324301e0f49204c336e12990f",
+        "reports/research/long-dex-20261123/robinhood-rpc/08.res": "c296de09b6331f7d7ce4d4963c3df83c46efdabeccbff338d1b7c83ffde9cdfc",
+        "reports/research/long-dex-20261123/robinhood-rpc/09.req": "dd582b87de70efa7e7b3b072db178a2f8e0f2f7aa43c7451018260069a68ed6d",
+        "reports/research/long-dex-20261123/robinhood-rpc/09.res": "d8ac18e60c69d3a880b124cb744f4840fc8fb5607455eefeabf071390a9b9795",
+        "reports/research/long-dex-20261123/robinhood-rpc/result.json": "76bb31045c554704063dab2c6c4462c72b1c0def5d03174d6853d8464362f83d"
+      },
+      "matched_events": 4163,
+      "matched_transactions": 3335,
+      "threshold_for_individual_rows": 5,
+      "to_block": 120758595
+    },
+    {
+      "complete_receipts": 3,
+      "evidence": "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md",
+      "id": "long-receipts",
+      "local_inputs_sha256": {
+        "reports/research/multichain-long-route-samples-20261123/rh-verified.json": "5c55d1d074a84e1582c81e92d48ae788beeaa21948616568a200cfa2ecd7b35d"
+      },
+      "matched_trace_logs": 691
+    },
+    {
+      "closed_route_candidates": 17,
+      "complete_receipts": 6,
+      "event_count_histogram": {
+        "1": 1426,
+        "2": 115,
+        "3": 48,
+        "4": 26,
+        "5": 2,
+        "6": 5,
+        "11": 1
+      },
+      "evidence": "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md",
+      "id": "ordinary-closed-screen",
+      "local_inputs_sha256": {
+        "reports/research/multichain-depth-20261123/robinhood/03.response.json": "43d05fd30e3e608cb4d11a233ff4adf91ee6fd453f299da2e9c323484a7ab6ea",
+        "reports/research/multichain-depth-20261123/robinhood/04.response.json": "8abf30e58cf85bdc70b317612623044ba59ff647eb663086f13cd9a30eebfcf5",
+        "reports/research/multichain-depth-20261123/robinhood/05.response.json": "bef0912d401ce9ab742e76eb6d57bf1f922951a4fbc8f2845fca296cc98e34c0",
+        "reports/research/robinhood-ordinary-arb-20261123/discovery.json": "91bbe2d345db3a91c439601ae5e678a80e06362dae2ea3ad8a5a84d938a9a5eb",
+        "reports/research/robinhood-ordinary-arb-20261123/ordinary-arb-analysis.json": "0fe2b8158b2e8f845775d5121336ab0ce4182419f33f1839115975cf60c3af2f"
+      },
+      "matched_events": 1955,
+      "matched_transactions": 1623,
+      "modes": {
+        "log_order": 8,
+        "reordered": 1,
+        "wrap_hypothesis": 8
+      }
+    },
+    {
+      "candidates_at_original_threshold": 0,
+      "event_count_histogram": {
+        "1": 722,
+        "10": 1,
+        "2": 49,
+        "3": 23,
+        "4": 5,
+        "5": 2,
+        "6": 3
+      },
+      "evidence": "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md",
+      "from_block": 121590369,
+      "id": "rpc-512",
+      "local_inputs_sha256": {
+        "reports/research/robinhood-tail-512-20261124/forensic/partial-verified.json": "f018aa08683bb178d4d2929cf95f2313da48c76c2137ff59242902c8614e5f7c",
+        "reports/research/robinhood-tail-512-20261124/run/01-official.response": "374b66aa821020bd635ced6375afb6d62395a7a571fd94957a036b825b059159",
+        "reports/research/robinhood-tail-512-20261124/run/result.json": "61adcccb15f7c35f11276f4de44a47621a01e11c542da989d9b4389e27a24d89"
+      },
+      "matched_events": 947,
+      "matched_transactions": 805,
+      "official_v4_events": 622,
+      "original_long_threshold": 20,
+      "threshold_for_individual_rows": 5,
+      "to_block": 121590880,
+      "verified_v3_events": 325
+    },
+    {
+      "blocks": 6,
+      "event_count_at_least": {
+        "10": 4,
+        "100": 0,
+        "20": 3,
+        "200": 0,
+        "5": 4,
+        "50": 0
+      },
+      "evidence": "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md",
+      "id": "six-rooted-blocks",
+      "local_inputs_sha256": {
+        "reports/research/bsc-robinhood-serial-search-20261127/screen.json": "5b6b91f26002dea81b562044003d3bf033193fe821adb0d9a1a4c1b2b670e10a"
+      },
+      "matched_shape_events": 99,
+      "receipt_status_counts": {
+        "0": 29,
+        "1": 46
+      },
+      "receipts": 75
+    },
+    {
+      "complete_receipts": 45,
+      "evidence": "docs/verification/ROBINHOOD_FEED_PAIR_20261124.md",
+      "id": "paired-feed-blocks",
+      "local_inputs_sha256": {
+        "reports/research/robinhood-feed-pair-20261124/anchors.json": "4ab0ec1a42bf6aa9c25c80d6be877df2654e48a99bdda5b56c814ffe4a7103c8",
+        "reports/research/robinhood-feed-pair-20261124/trace-121533644/verified.json": "556a08d5b096c358825dc1aa49fbbbbcec12e109c7638728f9edc383f26eef16"
+      },
+      "root_verified_blocks": 2
+    },
+    {
+      "decoded_transaction_hashes": 371,
+      "evidence": "docs/verification/MULTICHAIN_FORWARD_20261123.json",
+      "id": "nitro-feed-receipt",
+      "local_inputs_sha256": {
+        "docs/verification/MULTICHAIN_FORWARD_20261123.json": "d5187c4f8df7080d0d128adbad1a82e07ce2e923883ca9f4db763ded704064f5"
+      },
+      "observed_messages": 136,
+      "probed_receipts": 1
+    },
+    {
+      "constructed_distinct_pool_hops": [
+        78,
+        100,
+        109
+      ],
+      "evidence": "docs/verification/MULTICHAIN_TAIL_DEPTH_20261123.md",
+      "id": "long-topology",
+      "kind": "constructed_pool_graph_not_transaction",
+      "local_inputs_sha256": {},
+      "matched_landed_transactions": null,
+      "verified_pools": 214
+    },
+    {
+      "evidence": "docs/verification/ROBINHOOD_QUOTE_DELIVERY_20261124.md",
+      "id": "quote-ladder",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {},
+      "route_hops": [
+        2,
+        4,
+        10,
+        20
+      ]
+    },
+    {
+      "direct_eoa_balance_delta": null,
+      "evidence": "docs/verification/ROBINHOOD_THREE_CASH_STATES_20261127.json",
+      "id": "three-state",
+      "kind": "shadow_non_transaction",
+      "local_inputs_sha256": {
+        "docs/verification/ROBINHOOD_THREE_CASH_STATES_20261127.json": "b9fd93dee8f7181afce34bf728bcf7389f52202d69473d23fdf05fcd12a99588"
+      },
+      "positive_screens": 0,
+      "probe_wei_after_estimated_network": {
+        "direct_child": "-2792720486202",
+        "discovery": "-2789629332202",
+        "return_head": "-2788786290202"
+      },
+      "route_state_pairs": 24,
+      "states": 3
+    },
+    {
+      "evidence": "docs/verification/ROBINHOOD_FOURTH_LEG_CAPACITY_20261127.json",
+      "fresh_height": 124091614,
+      "id": "fourth-leg-capacity",
+      "kind": "isolated_quoter_non_transaction",
+      "largest_passing_wei": "500000000",
+      "local_inputs_sha256": {
+        "docs/verification/ROBINHOOD_FOURTH_LEG_CAPACITY_20261127.json": "c1d38010f58729b24d2a08ea14ec59448de1f2ad638ca1d326c8db6d7b315ccb"
+      },
+      "smallest_rejected_wei": "1000000000",
+      "tier_points": 16
+    }
+  ],
+  "coverage": "Known locally retained or published transaction candidates and named controls. The six broad topic scans enumerate every 5+ hit. Other cohorts use their recorded selection. Cohort denominators apply to their own windows and may overlap. Shadow or constructed routes appear only as cohorts.",
+  "deduplicate_by": [
+    "chain_id",
+    "tx_hash"
+  ],
+  "full_net_unit": "ETH wei, only where every relevant cost and beneficiary is established.",
+  "offline_rebuild": {
+    "command": "PYTHONPATH=. .venv/bin/python reports/research/base-robinhood-inventory-20261127/rebuild.py robinhood",
+    "retained_source": "reports/research/base-robinhood-inventory-20261127/rebuild.py",
+    "source_sha256": "aa7918e4118b70fb913ed8282f2390ef3fa65b5bfb82880d11f9af175c5ec689"
+  },
+  "sample_count": 84,
+  "samples": [
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722271,
+          "index": 140,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        },
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "case": "two_hop_largest_wrap_claim",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": 234206963750472,
+          "event_gross_raw": 242082538922472,
+          "gas_wei": 7875575172000,
+          "height": 120722271,
+          "index": 140,
+          "interpretation": "Amounts and receipt checked; native leg, hook effects, or ownership require additional evidence for wallet-level PnL.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 1
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x04e5be9e965eea5ccce417b486a1b1285b3fae0f5614b0b9b0c2aef3e0b1a39a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x7cf7e68849b0e685a1b117791a5299bfb869938ca62233548f681bcfe96d1754",
+          "cohort": "rpc-4096",
+          "height": 120755254,
+          "index": 3,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x05114b5130c9b60ddaaec3fdd543ab2f55b8f228845248d1808dc301dadf35ec"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x7269e7088a7e1e9186dc3f9431ac0f067fee00635ebdb2ef3838245f6aadd84f",
+          "cohort": "rpc-4096",
+          "height": 120756717,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x06f511a42a7a5d6189c9e12449df702a26e5d619d4cfcd102b69f1c8f6332219"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 4,
+          "kind": "published_event_case",
+          "matched_events": 15
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x0d888e98af87f59e09cfdac46181e2ed67c4bd1f0ed8742b0172b6093cb422b1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4937cc08eb1751c2452dea1a39668c84dd270d2f370badfe59ef73a523b73d81",
+          "cohort": "rpc-4096",
+          "height": 120755143,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 11,
+          "matched_pool_keys": 11
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x124b9af2d84b5e603c63a9adb1ec91a500de95dd72fe25b7d6e72ce5a693a7b3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 11,
+          "kind": "published_event_case",
+          "matched_events": 19
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x16052cdcaa4222019094abb68fbae637627f4372317acc4e3af1c953f46daa57"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x170276700b7f9b204e9f5baec9a57615cb184e171264b0efa1ebc7ebfa243add",
+          "cohort": "rpc-4096",
+          "height": 120757822,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x175a43468cfb4db2c94f22463fdde07a5ad5f4ae0deca021c79f244e82fd2f3f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x555ec1105921968b765ef097edcf65e0a34d703916fa6674f31de33405734272",
+          "cohort": "rpc-4096",
+          "height": 120758099,
+          "index": 11,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1cc992c5ca8b4a0c32067e254e337e18b0f9a3d37fe0987dd4f7143c1698f4c8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 4,
+          "kind": "published_event_case",
+          "matched_events": 20
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x1f1ed9d04f5b876afbfb24676b0164b03f7e8e98f453aa0f8a37e114fdba7ac1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf8d2b8e1504a9f58cbe02da85cab02b2bb7f469ff54d1347c3653a392e077b50",
+          "cohort": "rpc-4096",
+          "height": 120757835,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x284790c2294d534384bcd023152354771dfcfc238bc8172fbb126c95cc7015d9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0000000000000000000000000000000000000000",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733324,
+          "index": 1,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2d0b51ddfdf2d6da72716e3534b4e9a889e1dec43ba1ac932a55a6c488b6df3e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xcf03815f0b4200e380149dd2f8e17893f874abb0a82318005779fbb765e5d9c5",
+          "cohort": "rpc-4096",
+          "height": 120755696,
+          "index": 7,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x2d8c7a7c15cc9ee967e3b1d3a0796fa018a0ad6adf6a854e2a8b987db93f1112"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x1639b6aafb5c945b5b1fecee4f974c17df2fd05863916e3df059e552c92918c1",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722269,
+          "index": 8,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x366d0974d9cc89a4bae51b2e63901c9fa94821c5170931a0dff97695d7323e7f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5cb60e92650f5aefae5ef3fcba92bd310e7781ed0bc5f9ddfda60af6fcc4e3a3",
+          "cohort": "rpc-4096",
+          "height": 120755409,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 10
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x3f5b3c5497ce4c0caab4ab5f5177f985e47f3f8d2b2085653ac6705988f5b660"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722275,
+          "index": 36,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x43b52d1bc5667cc688ccc058625d32a5cb09c11ea6383f408c331e0da7958f76"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf93a02978b887a8f126c02a7bbf2e24699d814c04e8aa7eb7baf54943f7c5b3a",
+          "cohort": "rpc-4096",
+          "height": 120757589,
+          "index": 24,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x43e73ee00e2382afe75b70312e2cfbfae3a755f0ec73e441571b381062671575"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_FEED_PAIR_20261124.md"
+      ],
+      "observations": [
+        {
+          "closure": "open_cross_asset",
+          "cohort": "paired-feed-blocks",
+          "gas_wei": 5619659752000,
+          "height": 121533644,
+          "kind": "rooted_receipt_pool_events",
+          "matched_events": 2,
+          "verified_serial_swaps": 2
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x444f619d4ca6d77064af82dde7d7bffa09e628e598835825506086e9bfd62bf1"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x94afece4354e625153493cb6d73f2c40fa72ddf65f43aa71f2e6bcb7adc21444",
+          "cohort": "rpc-4096",
+          "height": 120755687,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x47ccf24313b426a529c4c58571d5b060d308f5f80c9156418230b635b2daced5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md",
+        "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 6,
+          "kind": "published_event_case",
+          "matched_events": 21
+        },
+        {
+          "block_hash": "0xce71d386454c88fcc1a9f1c2807493e243a8638e07742f09c78c0b4f63c29deb",
+          "cohort": "long-receipts",
+          "distinct_pool_keys": 6,
+          "gas_wei": 144492700000000,
+          "height": 120369170,
+          "index": 1,
+          "interpretation": "Five swap-bearing sibling groups, exact whole-leg edges only reach two swaps. Overall ownership and settlement unresolved.",
+          "kind": "rooted_receipt_trace",
+          "receipt_root": "0xd9f5851b695bb46761a4702fbfd178d0d21b4434f312bc99684f225e662f7c91",
+          "receipt_swap_events": 21,
+          "trace_frames": 1223
+        },
+        {
+          "cohort": "six-rooted-blocks",
+          "gas_wei": 144492700000000,
+          "height": 120369170,
+          "index": 1,
+          "kind": "rooted_receipt_expanded_event_screen",
+          "matched_events": 21
+        }
+      ],
+      "shape": "batch",
+      "tx_hash": "0x57110d3c1a28867544969054504e0abb875060908a6780dd29534faf0895d7e2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x850035c31efc291b7e25026b1bbaf84f6e297332beb632294149658763bd3bdd",
+          "cohort": "rpc-4096",
+          "height": 120754730,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x57721ae43851a05971daaf767d1b49268f8fca5f4c2fadfd9ec16c49ef924040"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xb807410e759a819d901a08a0ed79b725cecf42dd628f08fe22853e523121dc83",
+          "cohort": "rpc-512",
+          "height": 121590546,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5826e1249a0f57a5cda8236abe0b935e120fd56e387cb577cbe26a4c98e50355"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf93a02978b887a8f126c02a7bbf2e24699d814c04e8aa7eb7baf54943f7c5b3a",
+          "cohort": "rpc-4096",
+          "height": 120757589,
+          "index": 22,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x58db76a7b463764eb5ed65cacbcac1789f01014d8afc23f0ac228a615bf7375c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x00e3d24b3d98cc0331f7baf5939c35bfa9a7f448643e8afb1ec8aedfaf2815ba",
+          "cohort": "rpc-4096",
+          "height": 120756751,
+          "index": 28,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5cd9f0a5e000b0ee17cd93debaa3cd27cbc05c6a2b3ff874a8787f238e13005a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x844813f4a3eb316914b7ab3754461f7e556c6f242b66498b5fa098e20042e3c9",
+          "cohort": "rpc-4096",
+          "height": 120757756,
+          "index": 10,
+          "kind": "matched_landed_logs",
+          "matched_events": 15,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x5ea647b8bf501344133724da25152cf13525a9f2a047e0be10b2283b189e016e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4e53efedf44885b47d6b83cff130bb358ea5e95ef2d34bb5cbca0168b733591c",
+          "cohort": "rpc-4096",
+          "height": 120758076,
+          "index": 15,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6144504c969a1c1555d079fe45acac99ba5704f6d004ae11abeda002a6f6e804"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x2a892cfb3addec92b7c239998d3f1a3fd09460391ef454292c567475417fcd9d",
+          "cohort": "rpc-4096",
+          "height": 120754627,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x66678df20ff6dbd0b3e58c39d79abd2709d4c05a9196b3acb4203a27b54e1056"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733240,
+          "index": 3,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6b7419cb98516e34a74fb1bf4d46750270267b302ec5746114bf49caa23d7bf9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120740599,
+          "index": 3,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        },
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "case": "two_hop_feed_wrap_claim",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": 6710764234266,
+          "event_gross_raw": 14506843006266,
+          "gas_wei": 7796078772000,
+          "height": 120740599,
+          "index": 3,
+          "interpretation": "Amounts and receipt checked; native leg, hook effects, or ownership require additional evidence for wallet-level PnL.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 1
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6e6a0d79e9f2a37acab5bc7ca5db4a095c65ddab7b82aa2ea4d2d44bd3d2ce9e"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfc70505f087c9febfd9c2f66b84d768fb2927841abd23b55c59454db1ed4921d",
+          "cohort": "rpc-4096",
+          "height": 120754708,
+          "index": 12,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x6f5ffa4955a0cd99edb44c8403525b2e91f27d9ba69fc7bbec1e4371ac7e06c7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xfce9a5140844e76539f75fde3cd002a5bebe8f5f30f795a6279203ef65edb101",
+          "cohort": "rpc-4096",
+          "height": 120755250,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x7244fde90a31bf69f47d0b9f8a74fa8fb9cbed3cd104de70658dd7baf7de4603"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe91a97e33e6600a16d9ed920012c1ad54881f5df0840c9260a899a6d775914d0",
+          "cohort": "rpc-4096",
+          "height": 120757140,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x730da68f828c0705ca7eaf57b9c90e48dae00b303396cd3aac3b4832aa0d90b8"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc389f7b805ff62cff42e1ad1db50dc0c19dfca5333dd719cc50d7d3bb7487aae",
+          "cohort": "rpc-4096",
+          "height": 120757691,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 7,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x74b7dd77a5087f3e05b586bb6c29581448f491b0a4e98f79f6536bbc0bd4a6d4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733321,
+          "index": 15,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 4,
+          "matching_mode": "reordered"
+        },
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "case": "four_hop_weth_hookless",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": 787566174147,
+          "event_gross_raw": 7694668320147,
+          "gas_wei": 6907102146000,
+          "height": 120733321,
+          "index": 15,
+          "interpretation": "Integer-matched four V3 swap legs; intermediate executor balances reconcile. Payer differs from executor.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 1
+        }
+      ],
+      "shape": "serial",
+      "tx_hash": "0x7534c1c15b8a18d80850e94dfe93e5ab85ff6aed486ce53fcdf3e6992a43a44a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x63bf0c01ac1ad77b82236721d66c859b89d61c6c153c9706018840e56212baf8",
+          "cohort": "rpc-512",
+          "height": 121590533,
+          "index": 3,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8029a677f87079ea80701a3a4d6660ff1fff3a86b3f2e2c5f7966526a6392006"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_FEED_PAIR_20261124.md"
+      ],
+      "observations": [
+        {
+          "cohort": "paired-feed-blocks",
+          "height": 121533513,
+          "interpretation": "Single observed pool event used to verify feed inclusion.",
+          "kind": "rooted_receipt_pool_events",
+          "matched_events": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x80e6d08f0ebd046e50e8828987fa92c1cebeddada8d24edc195cb1cefd1f25b9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x1c64bb3255a2b6e5df048956bf679bb938b7999751cf918de07089f81420be07",
+          "cohort": "rpc-4096",
+          "height": 120755541,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x83f55730e837d208eefbb977601da1c6e04e7c4f96afa669716b29bd2d55380f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x91abd7beb130445c467a2ed8d1821d758afe4e39fbaac9f149cfc700173a9586",
+          "cohort": "rpc-4096",
+          "height": 120756658,
+          "index": 25,
+          "kind": "matched_landed_logs",
+          "matched_events": 9,
+          "matched_pool_keys": 7
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x84b21c288c085ab57698bb67fc5b1ba98a908459fd19def89782bd712c9f8471"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc3d0b8b699fcc5c041902d43fe700e74ba8d8f09ca8312ad8add64501e6680ed",
+          "cohort": "rpc-4096",
+          "height": 120755637,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8533ed3eafea470e4a9de7e455493ea4058321519cf5f3522d01a3375d0eb7c0"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x2f1cfa5ecfd5742b5309ff7073c185299484798a57e3226f1aee7c83ab854b1d",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733130,
+          "index": 5,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8672911dfe8cb8646a4a694b973f1da9686ba015573b1cffba1a81d4878e11ba"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x8032f65b91d9add04fedf1d100ec5efa39eb5480e971aa40c965ba9436842bea",
+          "cohort": "rpc-512",
+          "height": 121590645,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x87c50df8f0c8bf6a6d30f42afea6e0c1947696fb46de15adcb20495fc49d97dc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733247,
+          "index": 4,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8854815b3002dd0b5850d8c9108b515740d31da797735815d4cdbc0bc30de776"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x61f6f3cf3b75c45db5d9140406dca4c8fdbb25fbb35c4a06b213339556b860fd",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722238,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x88ec1c3127ff26f53ca018b13fffd5f68721c941fafa5b6018f821d487542df6"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4bc433d68bda43d6b761d6aeb1b07d1a0d7632e00b6c3fc0920d4b0340da8705",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722345,
+          "index": 21,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x897fbb9aee0b632acff78ba5026fae61c2ada2afcbe7db6278c55f87e56a635a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe7cc2323a2b336a8dd9cf0c32cea4eaa5c4185e7400bb4c75e5636613e3927e2",
+          "cohort": "rpc-512",
+          "height": 121590421,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8be57b66eab4b6e81a31bfe7bbc517a93eee00a2d850dbff4200466ffbaa1f9c"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0000000000000000000000000000000000000000",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733252,
+          "index": 3,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        },
+        {
+          "anchor_token": "0x0000000000000000000000000000000000000000",
+          "case": "triangle_eth_hookless",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": 1870466410211,
+          "event_gross_raw": 4736773040211,
+          "gas_wei": 2866306630000,
+          "height": 120733252,
+          "index": 3,
+          "interpretation": "Amounts and receipt checked; native leg, hook effects, or ownership require additional evidence for wallet-level PnL.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 0
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8efc387505a809bb22be8c325e120d93751d66facf55719a37f1b25f041998c4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x50cd08689a56b493c22a1ffe6e09c69d8fc38bc62bf83513c2d4f8422d9aa7db",
+          "cohort": "rpc-4096",
+          "height": 120755252,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x8f35435073ef03272e2406ef0f796b0446aefac67585debba4fb1737125dcdf7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc07384ec4bb24c6f6d2040207254a51cb16aafcb7b671550cc87f55f4aefbd50",
+          "cohort": "rpc-4096",
+          "height": 120757576,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x932a0d7052a4c83460d7958fca4d731c6675c5afe0926ad78f7bef9630a6a172"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120740258,
+          "index": 1,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "log_order"
+        },
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "case": "two_hop_usdg",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": null,
+          "event_gross_raw": 24452,
+          "gas_wei": 4720030434000,
+          "height": 120740258,
+          "index": 1,
+          "interpretation": "Amounts and receipt checked; native leg, hook effects, or ownership require additional evidence for wallet-level PnL.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 1
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x935b9de0ee5d0eced6d27617e96a9c20595fbcc9fc3826fb92c35c55d7507ad0"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733112,
+          "index": 3,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9692a36f7e7b787aca9f29a57ce84348ea8991d8a8a3aa4bcb06a257e9905229"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x17d51d136c19989e35d1d2549f65ff228691f0ab57a323342eecf50efef4bffa",
+          "cohort": "rpc-4096",
+          "height": 120757875,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 1
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9851678117ffbbb950be428dddb9808160b21a812d15ac62690140d718649dd2"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md",
+        "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 4,
+          "kind": "published_event_case",
+          "matched_events": 22
+        },
+        {
+          "block_hash": "0xbab0deff3bc50b19b42455d2cd2d2c9d6c11cd416e69bcebf0986bfd7c7b3c65",
+          "cohort": "long-receipts",
+          "distinct_pool_keys": 7,
+          "gas_wei": 80814682380000,
+          "height": 120354773,
+          "index": 3,
+          "interpretation": "Five user-funded open split paths and eight hook swaps. Longest 3 economic swaps, 4 actions including ETH wrapping.",
+          "kind": "rooted_receipt_trace",
+          "receipt_root": "0x0cd50c6ded1a924bdeede99b1eaa95e3fc1ec0923d5a2d9260e90580650c0718",
+          "receipt_swap_events": 22,
+          "trace_frames": 982
+        },
+        {
+          "cohort": "six-rooted-blocks",
+          "gas_wei": 80814682380000,
+          "height": 120354773,
+          "index": 3,
+          "kind": "rooted_receipt_expanded_event_screen",
+          "matched_events": 22
+        }
+      ],
+      "shape": "mixed",
+      "tx_hash": "0x98a5143fcf86defcb660b9548f8eea52011856a24526fa2d2564864cc604362a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xc3d0b8b699fcc5c041902d43fe700e74ba8d8f09ca8312ad8add64501e6680ed",
+          "cohort": "rpc-4096",
+          "height": 120755637,
+          "index": 6,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9a90bb673ff6133caec780549edb9060898624423c8fb54784f7885cb9eb0537"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xada713b8d2320ac8e2cf5bbff6bcbe6c4acf5885a19051ad2c994f759d565191",
+          "cohort": "rpc-4096",
+          "height": 120758077,
+          "index": 14,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0x9e9647e032084077384a745b180dcba13a8248d6b5835f47ab7eeb2d53a811e3"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x4e53efedf44885b47d6b83cff130bb358ea5e95ef2d34bb5cbca0168b733591c",
+          "cohort": "rpc-4096",
+          "height": 120758076,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 4
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa20647fac75d38d9a18fdcfa2cc49e3a609e39556ce54def6a24fad8541b60dc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTICHAIN_LONG_ROUTE_SAMPLES_20261123.md",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xa7232c99a67d7d32b4c6206159681eb3c0bfde6155e8f0b466b133800f049ead",
+          "cohort": "long-receipts",
+          "distinct_pool_keys": 6,
+          "gas_wei": 141499145502000,
+          "height": 120369109,
+          "index": 1,
+          "interpretation": "Five swap-bearing sibling groups, exact whole-leg edges only reach two swaps. Overall ownership and settlement unresolved.",
+          "kind": "rooted_receipt_trace",
+          "receipt_root": "0x744ae4d8410ab21878079a01afa8c1ba332fdd5a4afa8436a758ce11355816f0",
+          "receipt_swap_events": 22,
+          "trace_frames": 1219
+        },
+        {
+          "cohort": "six-rooted-blocks",
+          "gas_wei": 141499145502000,
+          "height": 120369109,
+          "index": 1,
+          "kind": "rooted_receipt_expanded_event_screen",
+          "matched_events": 22
+        }
+      ],
+      "shape": "batch",
+      "tx_hash": "0xa96d1eda66c013d77e2d89bcb623be3275fb38bfbba748ccac535ae6cb4b6a88"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722274,
+          "index": 72,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xa97f58877a1d4563f5859f39e936222a5bd454c159417f94126abc2a2dac02ad"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/MULTICHAIN_FORWARD_20261123.json"
+      ],
+      "observations": [
+        {
+          "cohort": "nitro-feed-receipt",
+          "gas_wei": 2694720936000,
+          "height": 120740543,
+          "index": 1,
+          "kind": "receipt_single_pool",
+          "matched_events": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xab4c1b4c174cf81dca7b357e0879e86e4797236bbd564dfdc44e6c6dda6254b7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722281,
+          "index": 2,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb18c8d075f32e150bbb4bc6038c808d0ff88ff7177f8b287624acf01bd5b46de"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733233,
+          "index": 2,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 3,
+          "matching_mode": "log_order"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb3aa90eea7381f1bd9c1211484d7da5087a64a319093842ec732ffc2831f8da5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x10a866027e70828a85d67b0b1b567687ccbf02246f782a5e2553125b1e217d15",
+          "cohort": "rpc-4096",
+          "height": 120758413,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xb5fc462149d71a5f61697924eb7939bc16ba388e4d3461d9cff8112cf433b748"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733089,
+          "index": 7,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbadc04ca0c543fd8d79d20febe84845a0dfa794101260a351c02511504c5b138"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x37b8b9a4070ce6186e9d5edee4b45aa83f78b92b1bcc318ed97a0be9b49c0b46",
+          "cohort": "ordinary-closed-screen",
+          "height": 120740371,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbb94326ac0d4a7b7d5818907a2ff3bb72e31edf0da544cf939313875dfd855cf"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x3a70a55e5d2693fe3fe61b3491c7da0f68dae282ddaf3950d0dced3145e00ed8",
+          "cohort": "rpc-4096",
+          "height": 120755552,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xbe24f41aa00a453d05094742a0ce6dd02b00b40577cb0d8c8830fc5ed2ad8f45"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5366504eeedd6cefdaf577d0c5bfa102e3fc0d6faebde6cbb8decc1bb32dbfec",
+          "cohort": "rpc-4096",
+          "height": 120757837,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc1b103704e102c1565d1e6790216d4d082f1a9b9f41b0f134d3c550e32624633"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/strategies/MULTIHOP_ARBITRAGE_RESEARCH.md"
+      ],
+      "observations": [
+        {
+          "cohort": "appendix-20000",
+          "distinct_emitters": 4,
+          "kind": "published_event_case",
+          "matched_events": 10
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc7eb380bad9c243ac61317ede2e6295bfdd2a6d614acc8a23db14685b34065f7"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5365a224e318944c9f7263722cd76b90f73f9305f7fca93b15ad47f79e808660",
+          "cohort": "rpc-4096",
+          "height": 120754688,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xc8499596ed367b2269fcfd99a7aa98f80d215ba9e8e967bb78095a46cacf53cb"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5f232429a406bd7e01286b96e05fe8c67ac1a4b65e41bd8afd501cf1ca565ef2",
+          "cohort": "rpc-4096",
+          "height": 120757957,
+          "index": 28,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xcbac1ccb5dc2dc3ecf3ccdad7634aa7d612b32e7a801ab75b657622ccc371482"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0000000000000000000000000000000000000000",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733321,
+          "index": 6,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "log_order"
+        },
+        {
+          "anchor_token": "0x0000000000000000000000000000000000000000",
+          "case": "two_hop_eth_hook",
+          "cohort": "ordinary-closed-screen",
+          "conditional_same_unit_gross_less_receipt_gas_wei": 38848873927538,
+          "event_gross_raw": 42058360795538,
+          "gas_wei": 3209486868000,
+          "height": 120733321,
+          "index": 6,
+          "interpretation": "Amounts and receipt checked; native leg, hook effects, or ownership require additional evidence for wallet-level PnL.",
+          "kind": "full_receipt_amount_matching",
+          "receipt_beneficiaries_with_exact_anchor_gross": 0
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd14cb797f222fc9ab159feb60b7e3224f71915927d6bb4b3493aefd599bcae07"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9cbeaa6b88209a60083314924e7b7d59632519b788ffb21d8bedb394c86fcaca",
+          "cohort": "rpc-4096",
+          "height": 120755635,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd4ab82010beb1f3f77a9ab01b763fca2bb46fa96f3b7096dccb5e74feeb0e863"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xbba3f553873114b406ed8ff0e7aa31a89babc9a1b8ae880600010c34f3236b22",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733127,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 11,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd5288ae98d36e11659c12bf9e4db379fe54f89e2be1c2b48d85ff077f79cfe2b"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722115,
+          "index": 1,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 4,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd66059ee3c277645b17157cbad241a39532d44f67f9f3eb3409485d087783dca"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md",
+        "docs/verification/BSC_ROBINHOOD_SERIAL_SEARCH_20261127.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x7ff2d750a0ba765f4da3cce5f41ab51c26e703551e9fe1a33e2c8a64fb78229c",
+          "cohort": "rpc-512",
+          "height": 121590404,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 10,
+          "matched_pool_keys": 10
+        },
+        {
+          "additional_unverified_v3_shape_events": 9,
+          "cohort": "rpc-512",
+          "gas_wei": 125129504400000,
+          "height": 121590404,
+          "interpretation": "10 verified V4 pools and 9 out-of-list V3-shaped emitters; economic funding depth unresolved.",
+          "kind": "rooted_receipt_trace_refused",
+          "matched_v4_events": 10,
+          "receipt_root": "0x1639c4fdcd46a54d7abfe1ff598159b703e40925b627d9a285dc9df6bc3640ac"
+        },
+        {
+          "cohort": "six-rooted-blocks",
+          "gas_wei": 125129504400000,
+          "height": 121590404,
+          "index": 1,
+          "kind": "rooted_receipt_expanded_event_screen",
+          "matched_events": 19
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd702baf3702ca2ab278bb09d78c9e519db96ff2d782ae505f057b1b8d9b585fe"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x22c15ca472702deb51045faf3bffa9db0cbbb4a9add9188fed0e22a4932297d7",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733216,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xd9fde362210ff6cc10cb57bc7dc93cbfb1c7fcaed2256e97df17037b62d90ab5"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf4bf2f0638c9468d579aeb697bfa3586b9983a2265230d430632650a359c5ec1",
+          "cohort": "ordinary-closed-screen",
+          "height": 120733084,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 6
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xdc6201990f19df33b572d205776a90a1316be694586963322d7dbc226c2d3540"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/RECENT_DEX_ARBITRAGE_20261123.md"
+      ],
+      "observations": [
+        {
+          "anchor_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "cohort": "ordinary-closed-screen",
+          "height": 120722271,
+          "index": 62,
+          "kind": "observed_events_amount_matched_candidate",
+          "matched_events": 2,
+          "matching_mode": "wrap_hypothesis"
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe23706a5f32d58e2ea6e594318038a5f821ebd682f0d704c4e981a405ca812da"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x9fcc91b68274f6fa7f08a58d2fdc9a2b335710c230bd5014ef050475db628e39",
+          "cohort": "rpc-4096",
+          "height": 120757732,
+          "index": 2,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xe93a4e028af36e68cd9dd0273ebbd8086f804d21b19737ab05a345665609f8ae"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x31d3018011a248c061cdbe1b8151d07b1f8b032295dc6d1a4b179dafafa67857",
+          "cohort": "rpc-4096",
+          "height": 120757773,
+          "index": 1,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xefaedb5ea66c95c4ebeaecdb3f92689aa85e9dd93867a81353c006ad513ff791"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xd507fa9fcbb555447cd9ba28dd113cc9b45edaaefb536bef3a8edd87e56140ba",
+          "cohort": "rpc-4096",
+          "height": 120756957,
+          "index": 19,
+          "kind": "matched_landed_logs",
+          "matched_events": 13,
+          "matched_pool_keys": 11
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf120b1cae1db81786d98800591ba0dd0f16d7dff595101f9a6bfb215abc8136a"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/ROBINHOOD_512_BLOCK_TAIL_20261124.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe86207f6be6c1fa8fc0a152330568ffcf89a0a0e1fa09ddb2f4cd5b59ce4c522",
+          "cohort": "rpc-512",
+          "height": 121590454,
+          "index": 3,
+          "kind": "matched_landed_logs",
+          "matched_events": 6,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf8de6f27c273529dabcda5ec08f9343e08a4b33da920036ac0cb20399f9eeef4"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x5e635651a87c6b6bd5cb06c0780f49a53891ac0aeb745d6e43ede418d23bef28",
+          "cohort": "rpc-4096",
+          "height": 120758014,
+          "index": 4,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 5
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf95be9a826860f128fa32e0140490a03c5cae12ee4d02e48e99fa254461ffd0f"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xe4a86dc38d7a53473e489b009fbaff3420a158fc7901f7a41be6e3fe9177f8ff",
+          "cohort": "rpc-4096",
+          "height": 120757484,
+          "index": 25,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xf9e42eaf250864cf627468cac248ac46791e098a4909e399914608fd3b2e30e9"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xedaf0fd470e9d8e2f647b3cf1e56e9b0815b1f9ea2c078751bfc01347ce96776",
+          "cohort": "rpc-4096",
+          "height": 120756260,
+          "index": 9,
+          "kind": "matched_landed_logs",
+          "matched_events": 5,
+          "matched_pool_keys": 3
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfc331a8d3ad0fb482310dfdf209fc1c0b3ac285320fb26833daabc58e005a5bf"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0x17ee8fcfe0e0f415c57a103aede8d7a34d0b0872c7c625c7e6133d4257fc7f68",
+          "cohort": "rpc-4096",
+          "height": 120756896,
+          "index": 31,
+          "kind": "matched_landed_logs",
+          "matched_events": 8,
+          "matched_pool_keys": 8
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfc70a8263b14f474f7470cf2d7d43fe98a0f581f54fb4b73d9be9bf62b5a18cc"
+    },
+    {
+      "economic_net_after_all_costs": null,
+      "evidence": [
+        "docs/verification/LONG_SWAP_TAIL_20261123.md"
+      ],
+      "observations": [
+        {
+          "block_hash": "0xf93a02978b887a8f126c02a7bbf2e24699d814c04e8aa7eb7baf54943f7c5b3a",
+          "cohort": "rpc-4096",
+          "height": 120757589,
+          "index": 23,
+          "kind": "matched_landed_logs",
+          "matched_events": 11,
+          "matched_pool_keys": 9
+        }
+      ],
+      "shape": "unresolved",
+      "tx_hash": "0xfcc039e33df67bbd09d15968076bb0c9db0771c573d76fda9ea2e8166554c2a0"
+    }
+  ],
+  "schema": "oasis-multihop-historical-inventory-v1",
+  "shape_counts": {
+    "batch": 2,
+    "control": 3,
+    "mixed": 1,
+    "serial": 1,
+    "unresolved": 77
+  },
+  "shape_semantics": {
+    "batch": "Multiple observed swap-bearing groups or unlocks; individual financed closures require further proof.",
+    "control": "Named event, inclusion check, or open end-to-end user route used as a comparison.",
+    "mixed": "Split, hook, or cross-unlock structure with multiple economic roles.",
+    "serial": "Amount-linked ordered swaps with an evidenced capital currency closure; profitability reported separately.",
+    "unresolved": "Transaction/event record without a resolved transaction-wide flow classification."
+  }
+}

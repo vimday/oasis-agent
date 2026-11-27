@@ -2099,6 +2099,8 @@ def run_multicall_campaign(
     mixed_base_secondary_max_rpc_calls: int | None = None,
     base_newheads: bool = False,
     base_newheads_overlap_headers: bool = False,
+    base_newheads_overlap_v4: bool = False,
+    base_newheads_batch_v4: bool = False,
     base_newheads_max_observed: int | None = None,
     base_newheads_socket_factory: SocketFactory | None = None,
 ) -> CampaignRunResult:
@@ -2130,6 +2132,14 @@ def run_multicall_campaign(
         base_newheads_overlap_headers and not base_newheads
     ):
         raise ShadowRunnerError("overlapping headers require the Base newHeads opt-in")
+    if type(base_newheads_overlap_v4) is not bool or (
+        base_newheads_overlap_v4 and not base_newheads
+    ):
+        raise ShadowRunnerError("overlapping V4 reads require the Base newHeads opt-in")
+    if type(base_newheads_batch_v4) is not bool or (
+        base_newheads_batch_v4 and (not base_newheads or base_newheads_overlap_v4)
+    ):
+        raise ShadowRunnerError("batched V4 reads require newHeads and a single V4 read mode")
     if base_newheads_max_observed is not None and (
         not base_newheads
         or type(ticks) is not int
@@ -2449,7 +2459,7 @@ def run_multicall_campaign(
             mixed_official_transport = mixed_capture.budgeted(MIXED_OFFICIAL, official_send)
             active_rpc_transport = mixed_capture.budgeted(MIXED_PUBLICNODE, active_rpc_transport)
             mixed_workers = concurrent.futures.ThreadPoolExecutor(
-                max_workers=2,
+                max_workers=3 if base_newheads_overlap_v4 else 2,
                 thread_name_prefix="base-state",
             )
         elif multicall_mod is not None:
@@ -2553,6 +2563,8 @@ def run_multicall_campaign(
                         mixed_workers,
                         head=head,
                         parallel_headers=base_newheads_overlap_headers,
+                        parallel_v4=base_newheads_overlap_v4,
+                        batched_v4=base_newheads_batch_v4,
                     ),
                 )
                 snapshot = _extract_snapshot_from_multicall_universe(
@@ -2945,6 +2957,14 @@ def run_multicall_campaign(
                     mixed_comparison["parallel_header_transport_overlap_ns"] = (
                         latest_mixed.parallel_header_transport_overlap_ns
                     )
+                    if latest_mixed.parallel_v4_transport_overlap_ns is not None:
+                        mixed_comparison["parallel_v4_transport_overlap_ns"] = (
+                            latest_mixed.parallel_v4_transport_overlap_ns
+                        )
+                    if latest_mixed.batched_v4_transport_ns is not None:
+                        mixed_comparison["batched_v4_transport_ns"] = (
+                            latest_mixed.batched_v4_transport_ns
+                        )
                     mixed_comparison["head_to_state_ready_ns"] = (
                         latest_mixed.state_ready_monotonic_ns - selected_head.received_monotonic_ns
                     )
@@ -3954,6 +3974,10 @@ def run_multicall_campaign(
             "rpc_attempts_by_source": head_session.counts(),
             "stop_reason": str(head_session.failure) if head_session.failure else None,
         }
+        if base_newheads_overlap_v4:
+            summary_body["base_newheads"]["parallel_v4"] = True
+        if base_newheads_batch_v4:
+            summary_body["base_newheads"]["batched_v4"] = True
         if base_newheads_max_observed is not None:
             if head_session.schedule_sha256 is None:
                 raise ShadowRunnerError("Base latest-head scheduling evidence was not retained")
@@ -4183,6 +4207,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start overlapping fixed-height headers from an accepted Base newHeads hint.",
     )
     parser.add_argument(
+        "--base-newheads-overlap-v4",
+        action="store_true",
+        help="Overlap fixed-hash V4 runtime and state reads under the same source budget.",
+    )
+    parser.add_argument(
+        "--base-newheads-batch-v4",
+        action="store_true",
+        help="Batch the fixed-hash V4 runtime and state queries with two paced reservations.",
+    )
+    parser.add_argument(
         "--base-newheads-max-observed",
         type=int,
         help=(
@@ -4257,6 +4291,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             mixed_base_secondary_max_rpc_calls=args.mixed_base_secondary_max_rpc_calls,
             base_newheads=args.base_newheads,
             base_newheads_overlap_headers=args.base_newheads_overlap_headers,
+            base_newheads_overlap_v4=args.base_newheads_overlap_v4,
+            base_newheads_batch_v4=args.base_newheads_batch_v4,
             base_newheads_max_observed=args.base_newheads_max_observed,
         )
     except (

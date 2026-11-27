@@ -79,6 +79,12 @@
 
 ## 证据导航
 
+- 11 月 27 日，八链已落块候选统一按链、哈希、资金依赖及费用分项归档。收据核对 Optimism 71 个两跳环、Arbitrum 24 个三跳环以及 zkSync 三个共享 vault 四跳环。Ethereum 两个新增 H/K/C 窗口的自然正候选均为零，缺独立 C 时钟的及时性留空。[八链逐笔总览](strategies/MULTICHAIN_MULTIHOP_SAMPLE_ATLAS.md) · [范围和复算](verification/MULTICHAIN_SAMPLE_CATALOG_20261127.md)
+
+- 11 月 27 日，Ethereum 整批短名单接入双源整笔 H/K/C。新窗口的 45 池 79,760 个整数报价点中有 22 个毛差为正，零个过基础 gas。仅两段预注册负控完成双源整笔及独立 trace 费用诊断，三时点均负。Base 同头把官方 HTTP 每头 3 次减至 2 次，两臂及时率均为 0/2。自然正例及存续率仍待证据。 [整批双源窗口与 Base 往返](verification/ETH_BATCH_HKC_AND_BASE_RPC_20261127.md)
+
+- 11 月 27 日新增离线 V2 组合净额排序和删组复算、Base 同哈希 V4 取数重叠对照、BSC 跨协议税后资金连边、Robinhood 失败腿诊断以及独立的多跳影子验收。Base 新路径完成两个头，状态 0/2 赶上直接子头，4/58/66 池组仍为零模型正例。当前验收缺少冻结范围的自然前瞻正例，实盘资格仍关闭。 [整批搜索与准实盘工程核验](verification/MULTIHOP_PRELIVE_ENGINEERING_20261127.md)
+
 - 11 月 27 日，Ethereum 历史回放入口新增逐自调用 WETH 对账，验证两条六池环均增加整批净额。Base 增加三份同头 Bloom 见证的复核入口，实测减少地址池读取但完整状态仍晚到。BSC 从 115 扩至 138 个登记池；Robinhood 双源三态独立退款及第四池单腿拒绝已核。[四链总结和工程决策](strategies/MULTICHAIN_MULTIHOP_ARBITRAGE_SUMMARY.md)
 
 - 11 月 27 日，四链新窗口实际费用合格正候选为零。固定负控的整笔回报时 Ethereum、BSC 仍在 H，Base 在 H+11，Robinhood 在 H+27。新增 Base 最新头调度及跳帧复核、Robinhood 部署 ABI 编码和 BSC 逐币储备验证的税后资金边。同期 BSC 两个实际批次的 31 腿全部位于登记池外。Ethereum 在一日 18 笔百事件交易中逐笔核查，153/138 事件两笔极值分别核出 72 组两池资金桥接及 29 个同币短环，另有两笔六池 WETH 闭环。[四链三时点](verification/FOUR_CHAIN_FROZEN_SHADOW_20261127.md) · [百事件资金与费用](verification/BATCH_HUNDRED_HOLDOUT_20261127.md) · [全组普查](verification/BATCH_HUNDRED_CENSUS_20261127.md)

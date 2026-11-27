@@ -1,0 +1,388 @@
+{
+  "chain": "elysium",
+  "chain_id": 99901,
+  "cohorts": {
+    "anomaly": {
+      "failed_same_block_attribution": null,
+      "rooted_blocks": 2,
+      "transactions_in_blocks": 50,
+      "winner_prestate_replayed": false
+    },
+    "elysium": {
+      "distinct_transactions": 5,
+      "reported_failure": null,
+      "sampled_quotes": 0,
+      "stream_logs": 5
+    },
+    "elysium-live": {
+      "distinct_transactions": 5,
+      "reported_failure": "TimeoutError",
+      "sampled_quotes": 4,
+      "stream_logs": 5
+    }
+  },
+  "samples": [
+    {
+      "block_number": 3628116,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x8b315ceedff3d2846fdf14e9fdef2ad06af65736c49b8375ac6df302e55be101",
+          "cohort": "anomaly",
+          "receipt_decoding": {
+            "additional_protocol_or_chain_fee_raw": null,
+            "additional_receipt_fee_fields_uninterpreted": {
+              "gasUsedForL1": 0
+            },
+            "builder_payment_raw": null,
+            "erc20_flow_issue": null,
+            "erc20_residuals": [],
+            "executor": "0x96a5f7e210a8d9b4981b948e95b7d505cd03713b",
+            "external_funding_and_internal_transfers_raw": null,
+            "fully_reconciled_net_raw": null,
+            "gas_payer": "0xbc3f59673a582cb32dbbc0d2936f9685c2faeb32",
+            "inventory_valuation_change_raw": null,
+            "legs": [
+              {
+                "asset_in": "0x0000000000000000000000000000000000000000",
+                "asset_out": "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0",
+                "input_raw": 64364289869769402,
+                "log_index": 7,
+                "output_raw": 11265597392481973137,
+                "protocol": "v4"
+              },
+              {
+                "asset_in": "0xe45a355d9e9cad2ad85f2d03e3ee3102a036acf0",
+                "asset_out": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+                "input_raw": 11265597392481973137,
+                "log_index": 11,
+                "output_raw": 4955656,
+                "protocol": "v3"
+              },
+              {
+                "asset_in": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+                "asset_out": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+                "input_raw": 4955656,
+                "log_index": 18,
+                "output_raw": 1093818002962823959343,
+                "protocol": "solidly_volatile"
+              },
+              {
+                "asset_in": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+                "asset_out": null,
+                "input_raw": 1093818002962823959343,
+                "log_index": 19,
+                "output_raw": null,
+                "protocol": "wrapped_burn"
+              }
+            ],
+            "prefix_transaction_types": [
+              106,
+              2,
+              2,
+              2,
+              2
+            ],
+            "prestate_replayed": false,
+            "principal_exceeding_tx_value_raw": 64364289869769402,
+            "principal_native_raw": 64364289869769402,
+            "receipt_conditional_net_at_parity_raw": 1093747630693024750378,
+            "receipt_effective_gas_price_raw": 11063543641,
+            "receipt_gas_product_native_raw": 6007979929439563,
+            "receipt_gas_used": 543043,
+            "route_output_less_principal_and_receipt_gas_raw": null,
+            "route_output_native_raw": null,
+            "sender": "0xbc3f59673a582cb32dbbc0d2936f9685c2faeb32",
+            "solidly_input_fee": {
+              "already_in_swap_amounts": true,
+              "raw": 14866,
+              "recipient": null,
+              "token": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+              "transfers": [
+                {
+                  "log_index": 14,
+                  "raw": 1486,
+                  "recipient": "0xf47010d35234540312337b2feb61c96c542dc2a6"
+                },
+                {
+                  "log_index": 15,
+                  "raw": 13380,
+                  "recipient": "0x32be9f66597fd80b100400d3cca9eb5f233c35a2"
+                }
+              ]
+            },
+            "sync_event": {
+              "log_index": 17,
+              "reserve0_raw": 4941081,
+              "reserve1_raw": 64423118817792456
+            },
+            "transaction_native_value_raw": 0,
+            "window_failed_attempt_cost_raw": null,
+            "wrapped_output_raw": 1093818002962823959343,
+            "wrapper_exit_evidence": "wrapped_burn_only"
+          },
+          "receipts_root": "0x33618b2ec5a3c6200fd1edc5558048b427caf3f87b03d51a7055f5733ecda47b",
+          "role": "winner",
+          "source": "docs/verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md",
+          "transaction_index": 5
+        }
+      ],
+      "shape": "serial",
+      "tx_hash": "0x4c88853a130363551076e2c66ae13bcd2fcb049b43494d615fc4aeb76d478ef7"
+    },
+    {
+      "block_number": 6430807,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x1ac04e896f4ff67e2af356d799c3addb4cb74c184ab0f2b359cc8967b06382a6",
+          "cohort": "elysium-live",
+          "log_index": 0,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x593f9ab6554dcad3ef8c8993584b6c9172c82ae03f775fb97c9fdd4af1b40c2f"
+    },
+    {
+      "block_number": 6423698,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x640d983678731c1a37515c9747f5b2f1f6c7e7eb740ebf01f12df87082fcda72",
+          "cohort": "elysium",
+          "log_index": 0,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x5b33b66a772a7f506bdf42549e55fc7649b693917bfeb2545698edb0b0b184ef"
+    },
+    {
+      "block_number": 6430528,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x6470cb145a1bf36ce8b8e2a9ed35367bf4031f351d49b5dae346315c0a465ffe",
+          "cohort": "elysium-live",
+          "log_index": 0,
+          "role": "quote_trigger_only",
+          "selected_for_quote": true,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 2
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x5b9cb045ac965101d4e3abcac52771cda170558e5eba14ae471798f985afa676"
+    },
+    {
+      "block_number": 6430513,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0xc85974e4b8c64ef180ff33f48a0e18915f44f5db8d2ea8005071c4c05b5cdd8b",
+          "cohort": "elysium-live",
+          "log_index": 1,
+          "role": "quote_trigger_only",
+          "selected_for_quote": true,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x68ab542fa59f1159ba4161c12b71611615f2166dcd5b9da80e5649822da362dd"
+    },
+    {
+      "block_number": 6423860,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x2a6baba3b88378b6e795e5bc4cdf72a83b06132c7712f5f9df4fc90147bdf401",
+          "cohort": "elysium",
+          "log_index": 4,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x8103b3fbc52ff0e2541ff5b994766ee7ecb710f94c3b9ca23b3fe32b72704205"
+    },
+    {
+      "block_number": 6423697,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0xaf0ee5afa5e84d467910041903db423438da62d60dd2919c349e9dfb5fd8f402",
+          "cohort": "elysium",
+          "log_index": 0,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x8185938a0e35f8a6a007e24f5c8e292e6228ac31286e8340f85a93dc1b4007b3"
+    },
+    {
+      "block_number": 6424035,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x4e14c72879e6052b80176a0cac5af2211103b3b13d8506c4c69cb68d9fe58b63",
+          "cohort": "elysium",
+          "log_index": 20,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 5
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0x83be84cdd4fd686459dd68137bee27d31ea24bfe1379d104f95ad6f975389352"
+    },
+    {
+      "block_number": 6430512,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x1dfcda415dd44dea8c768a40b36710827b7411dfbf229094df88f21d8936ee3d",
+          "cohort": "elysium-live",
+          "log_index": 20,
+          "role": "quote_trigger_only",
+          "selected_for_quote": true,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 1
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xa8e852f621f9dda7368900bdaad98844fc9dc8d4311b0f4dea7291532823cd3c"
+    },
+    {
+      "block_number": 3628115,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0xe7f820fa7d7c66a27ba3d1f644f4c8b1975ad5e98b68f01128de95967d7f59f3",
+          "cohort": "anomaly",
+          "receipt_decoding": {
+            "amount_out_min_raw": 4884102,
+            "erc20_flow_issue": null,
+            "erc20_transfers_reconciled": true,
+            "fee_transfers": [
+              {
+                "log_index": 31,
+                "raw": 329132652873989802,
+                "recipient": "0xf47010d35234540312337b2feb61c96c542dc2a6"
+              },
+              {
+                "log_index": 32,
+                "raw": 2962193875865908222,
+                "recipient": "0x32be9f66597fd80b100400d3cca9eb5f233c35a2"
+              }
+            ],
+            "input_asset": "0xba876237b0f021a6c6d852d6c26e107997cc5e81",
+            "input_raw": 1097108842913299341565,
+            "min_out_discount_bps_floor": 25,
+            "output_asset": "0xb47c4c8f73f009cc0c0d3f92b388d13e293f0b65",
+            "output_raw": 4896343,
+            "recipient": "0xbe504fbfc1ad30708a79f5821ed5ea6eef1a877b",
+            "router": "0xf5a91fcb09b5c68f98a8f92ede96f9300f3b74f0",
+            "router_selector": "0xf41766d8",
+            "sender": "0xbe504fbfc1ad30708a79f5821ed5ea6eef1a877b",
+            "swap_log_index": 35,
+            "sync_event": {
+              "log_index": 34,
+              "reserve0_raw": 291,
+              "reserve1_raw": 1093882426081641751799
+            },
+            "transaction_native_value_raw": 0
+          },
+          "receipts_root": "0xb3b6ab39739d72e2b8c7217283b518b3e80f768b80474c93f55ac8b8646739e2",
+          "role": "trigger",
+          "source": "docs/verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md",
+          "transaction_index": 26
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xbdfce4e2f04b27b266d61a77077d2e857a0c69b66524742396e27c30df233a59"
+    },
+    {
+      "block_number": 3628116,
+      "entity_net": null,
+      "observations": [
+        {
+          "cohort": "anomaly",
+          "gas_used": 24036,
+          "role": "failed_same_block_unknown_strategy",
+          "source": "docs/verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md",
+          "transaction_index": 22
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xd1c1ca705431ba5d553d6e0343bf44bbf63c59db053cd29fd32eb8a175db97f4"
+    },
+    {
+      "block_number": 6430487,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0x121e80d27aa3db96f2c691afda1a8db45bd59a0c345da49f1656c76da5cc18ea",
+          "cohort": "elysium-live",
+          "log_index": 19,
+          "role": "quote_trigger_only",
+          "selected_for_quote": true,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 4
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xd2df1f306a0e1eb37f8c0b0726a3bdb2468fbd1b41d04b95ed3f768f454fb8e5"
+    },
+    {
+      "block_number": 6423705,
+      "entity_net": null,
+      "observations": [
+        {
+          "block_hash": "0xccef69032334448715b748aac4c89aa806e19b4214e784dd6d56f41673c7c369",
+          "cohort": "elysium",
+          "log_index": 9,
+          "role": "quote_trigger_only",
+          "selected_for_quote": false,
+          "source": "docs/verification/EVENT_QUOTE_RESULTS_20261114.md",
+          "transaction_index": 2
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xe5bebf3a43e8378e5f563d23597b0f4e8a8bd27eb9236593417b8aed180f25d1"
+    },
+    {
+      "block_number": 3628116,
+      "entity_net": null,
+      "observations": [
+        {
+          "cohort": "anomaly",
+          "gas_used": 35894,
+          "role": "failed_same_block_unknown_strategy",
+          "source": "docs/verification/ELYSIUM_NITRO_COMMITMENTS_20261114.md",
+          "transaction_index": 9
+        }
+      ],
+      "shape": "control",
+      "tx_hash": "0xf7f4a90f5c04294ebdbe679b8c35c6de7e3e3906b2b1ad9735e718d73688d89a"
+    }
+  ],
+  "source_sha256": {
+    "elysium-commitments-20261114/committed-2.json": "695fcffa1b8b6331f931a5fa6813b580aa57e2708f8e9b3e59a98d716cc78028",
+    "event-quote-20261114/elysium-live/summary.json": "cd0f5713713eb817f81b6daecf0924f4ac0c6e96610fe8e63c73fcb5d6ea6d25",
+    "event-quote-20261114/elysium/summary.json": "ed3fd6bbb7c93f3a0f92a54028d54064e8b1c57e3e50e58ae0b70194bfbccec8"
+  }
+}

@@ -498,34 +498,80 @@ class _HeadSocket:
 
 
 @pytest.mark.parametrize("parallel", [False, True])
-@pytest.mark.parametrize("mismatch", [False, True])
+@pytest.mark.parametrize(
+    ("v4_mode", "failure"),
+    [
+        ("serial", None),
+        ("serial", "header"),
+        ("overlap", None),
+        ("overlap", "runtime"),
+        ("overlap", "limited"),
+        ("batch", None),
+        ("batch", "duplicate_id"),
+        ("batch", "member_error"),
+    ],
+)
 def test_newheads_campaign_binds_before_state_and_replays(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    mismatch: bool,
+    v4_mode: str,
+    failure: str | None,
     parallel: bool,
 ) -> None:
     monkeypatch.setattr(mixed, "MANAGER_RUNTIME", "0x" + keccak(RUNTIME).hex())
     specs = _specs()
     header = json.loads(_address_mock(specs, {"method": "eth_getBlockByNumber", "id": 1}))["result"]
-    hint = header | {"stateRoot": HASH} if mismatch else header
+    hint = header | {"stateRoot": HASH} if failure == "header" else header
     prior = _prior(tmp_path / "prior", specs)
     out = tmp_path / "campaign"
     calls = []
     header_barrier = Barrier(2, timeout=3)
+    v4_barrier = Barrier(2, timeout=3)
+    overlap_v4 = v4_mode == "overlap"
+    batch_v4 = v4_mode == "batch"
 
     def transport(url: str, request: bytes, timeout: float) -> bytes:
         req = json.loads(request)
+        if isinstance(req, list):
+            assert batch_v4 and url == mixed.OFFICIAL_URL
+            calls.append((url, "batch"))
+            code, state = req
+            pin = {"blockHash": HASH, "requireCanonical": True}
+            assert code["method"] == "eth_getCode" and code["params"] == [mixed.MANAGER, pin]
+            assert state["method"] == "eth_call" and state["params"][1] == pin
+            reply = json.loads(_result(code, "0x" + RUNTIME.hex()))
+            if failure == "duplicate_id":
+                return canonical_json([reply, reply])
+            if failure == "member_error":
+                return canonical_json(
+                    [
+                        {
+                            "jsonrpc": "2.0",
+                            "id": state["id"],
+                            "error": {"code": -32005, "message": "limit"},
+                        },
+                        reply,
+                    ]
+                )
+            return canonical_json([json.loads(_v4_answer(state)), reply])
         calls.append((url, req["method"]))
         if req["method"] == "eth_getBlockByNumber":
             assert req["params"] == [hex(BLOCK), False]
             if parallel:
                 header_barrier.wait()
             return _address_mock(specs, req)
+        if failure == "limited" and url == mixed.OFFICIAL_URL:
+            raise mixed.MixedRpcHttpError("limited", 429, b"official rate limit")
         if req["method"] == "eth_getCode":
             assert url == mixed.OFFICIAL_URL
-            return _result(req, "0x" + RUNTIME.hex())
-        return _address_mock(specs, req) if url != mixed.OFFICIAL_URL else _v4_answer(req)
+            if overlap_v4:
+                v4_barrier.wait()
+            return _result(req, "0x" if failure == "runtime" else "0x" + RUNTIME.hex())
+        if url != mixed.OFFICIAL_URL:
+            return _address_mock(specs, req)
+        if overlap_v4:
+            v4_barrier.wait()
+        return _v4_answer(req)
 
     def run():
         return campaign.run_multicall_campaign(
@@ -542,10 +588,12 @@ def test_newheads_campaign_binds_before_state_and_replays(
             mixed_base_secondary_max_rpc_calls=3,
             base_newheads=True,
             base_newheads_overlap_headers=parallel,
+            base_newheads_overlap_v4=overlap_v4,
+            base_newheads_batch_v4=batch_v4,
             base_newheads_socket_factory=lambda: nullcontext(_HeadSocket((hint,))),
         )
 
-    if mismatch:
+    if failure == "header":
         with pytest.raises(newheads.NewHeadsError, match="conflicts with"):
             run()
         expected = [(mixed.SOURCES[mixed.PUBLICNODE], "eth_getBlockByNumber")]
@@ -554,6 +602,41 @@ def test_newheads_campaign_binds_before_state_and_replays(
         assert sorted(calls) == sorted(expected)
         assert (out / newheads.DIRECTORY / "STOP.json").is_file()
         assert not (out / mixed.DIRECTORY / "attempt-00000001" / "state.json").exists()
+        return
+    if failure == "runtime":
+        with pytest.raises(ValueError, match="PoolManager runtime changed"):
+            run()
+        scope = out / mixed.DIRECTORY / "attempt-00000001"
+        retained = json.loads((scope / "manifest.json").read_bytes())
+        assert retained["status"] == "failed"
+        assert retained["execution_eligible"] is False
+        assert retained["budget_after"][mixed.OFFICIAL] == 3
+        assert (scope / "v4_state.response.json").is_file()
+        assert not (scope / "state.json").exists()
+        return
+    if failure == "limited":
+        with pytest.raises(mixed.MixedRpcHttpError, match="limited"):
+            run()
+        scope = out / mixed.DIRECTORY
+        terminal = json.loads((scope / "STOP.json").read_bytes())
+        retained = json.loads((scope / "attempt-00000001/manifest.json").read_bytes())
+        assert retained["status"] == "failed"
+        assert retained["budget_after"][mixed.OFFICIAL] == 2
+        assert terminal["source"] == mixed.OFFICIAL and terminal["http_status"] == 429
+        assert sum(url == mixed.OFFICIAL_URL for url, _ in calls) == 2
+        assert not (scope / "attempt-00000001/state.json").exists()
+        return
+    if failure in ("duplicate_id", "member_error"):
+        with pytest.raises(ValueError, match=r"duplicate|error or null result"):
+            run()
+        scope = out / mixed.DIRECTORY
+        terminal = json.loads((scope / "STOP.json").read_bytes())
+        retained = json.loads((scope / "attempt-00000001/manifest.json").read_bytes())
+        assert retained["status"] == "failed"
+        assert retained["budget_after"][mixed.OFFICIAL] == 3
+        assert terminal["source"] == mixed.OFFICIAL
+        assert calls.count((mixed.OFFICIAL_URL, "batch")) == 1
+        assert not (scope / "attempt-00000001/state.json").exists()
         return
 
     result = run()
@@ -570,7 +653,12 @@ def test_newheads_campaign_binds_before_state_and_replays(
     }
     manifest = out / record["manifest"]
     retained = json.loads(manifest.read_bytes())
-    assert retained["schema"] == (mixed.PARALLEL_HEAD_SCHEMA if parallel else mixed.HEAD_SCHEMA)
+    expected_schema = mixed.PARALLEL_HEAD_SCHEMA if parallel else mixed.HEAD_SCHEMA
+    if overlap_v4:
+        expected_schema = mixed.PARALLEL_V4_SCHEMA
+    if batch_v4:
+        expected_schema = mixed.V4_BATCH_SCHEMA
+    assert retained["schema"] == expected_schema
     assert len(mixed.replay_mixed_snapshot(manifest).nodes) == 66
     if parallel:
         assert record["parallel_header_transport_overlap_ns"] > 0
@@ -579,6 +667,28 @@ def test_newheads_campaign_binds_before_state_and_replays(
         original = manifest.read_bytes()
         manifest.write_bytes(canonical_json(retained))
         with pytest.raises(ValueError, match="header transport overlap differs"):
+            mixed.replay_mixed_snapshot(manifest)
+        manifest.write_bytes(original)
+        retained = json.loads(original)
+    if overlap_v4:
+        assert result.summary["base_newheads"]["parallel_v4"] is True
+        overlap = record["parallel_v4_transport_overlap_ns"]
+        assert retained["parallel_v4_transport_overlap_ns"] == overlap > 0
+        original = manifest.read_bytes()
+        retained["parallel_v4_transport_overlap_ns"] += 1
+        manifest.write_bytes(canonical_json(retained))
+        with pytest.raises(ValueError, match="V4 transport overlap differs"):
+            mixed.replay_mixed_snapshot(manifest)
+        manifest.write_bytes(original)
+    if batch_v4:
+        assert result.summary["base_newheads"]["batched_v4"] is True
+        assert calls.count((mixed.OFFICIAL_URL, "batch")) == 1
+        assert record["batched_v4_transport_ns"] == retained["batched_v4_transport_ns"] > 0
+        assert retained["budget_after"][mixed.OFFICIAL] == 3
+        original = manifest.read_bytes()
+        retained["batched_v4_transport_ns"] += 1
+        manifest.write_bytes(canonical_json(retained))
+        with pytest.raises(ValueError, match="V4 batch transport differs"):
             mixed.replay_mixed_snapshot(manifest)
         manifest.write_bytes(original)
     raw = out / newheads.DIRECTORY / "frame-00000001.raw"
