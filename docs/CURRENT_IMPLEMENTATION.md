@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 27 日，Ethereum 历史回放入口新增逐自调用 WETH 对账，验证两条六池环均增加整批净额。Base 增加三份同头 Bloom 见证的复核入口，实测减少地址池读取但完整状态仍晚到。BSC 从 115 扩至 138 个登记池；Robinhood 双源三态独立退款及第四池单腿拒绝已核。[四链总结和工程决策](strategies/MULTICHAIN_MULTIHOP_ARBITRAGE_SUMMARY.md)
+
 - 11 月 27 日，四链新窗口实际费用合格正候选为零。固定负控的整笔回报时 Ethereum、BSC 仍在 H，Base 在 H+11，Robinhood 在 H+27。新增 Base 最新头调度及跳帧复核、Robinhood 部署 ABI 编码和 BSC 逐币储备验证的税后资金边。同期 BSC 两个实际批次的 31 腿全部位于登记池外。Ethereum 在一日 18 笔百事件交易中逐笔核查，153/138 事件两笔极值分别核出 72 组两池资金桥接及 29 个同币短环，另有两笔六池 WETH 闭环。[四链三时点](verification/FOUR_CHAIN_FROZEN_SHADOW_20261127.md) · [百事件资金与费用](verification/BATCH_HUNDRED_HOLDOUT_20261127.md) · [全组普查](verification/BATCH_HUNDRED_CENSUS_20261127.md)
 
 - 11 月 27 日核实 109 事件候选四段 WETH 本金和收款。固定历史交易模拟表明，前一笔公开价格更新使条件差额增加约 0.000027653 ETH，更新前已为正。成交块末同一批次第一组无法归还全部本金，直接子块末提前回滚。新增按日分层筛选器、审计去重与 v4 解锁内本金核对入口；三日 23,285 笔候选中，去重队列 40 笔均核过整块收据。另补 BSC 25 事件样本及 Base 两例资金证据。[策略与数据核验](verification/MULTIHOP_FAMILY_SCREEN_20261127.md)

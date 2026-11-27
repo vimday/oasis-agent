@@ -6,6 +6,7 @@ from pathlib import Path
 from oasis_agent.arbitrage.base_survival import summarize_base_shadow
 from oasis_agent.arbitrage.cycle_evidence import read_bounded
 from oasis_agent.evidence.base_newheads import DIRECTORY, replay_head_schedule
+from oasis_agent.evidence.log_bloom import possible_log_emitters
 from oasis_agent.evidence.rpc_validation import (
     strict_digest,
     strict_integer,
@@ -33,7 +34,7 @@ def _observed_child_deadlines(
         if outcome.get("status") == "dispatched":
             dispatched.append(obs)
 
-    out = []
+    out: list[dict[str, object]] = []
     for idx, row in enumerate(records):
         life = strict_object(row["shadow_cycle_lifecycle"], "shadow lifecycle")
         mixed = strict_object(life["mixed_base_state"], "mixed Base state")
@@ -61,7 +62,45 @@ def _observed_child_deadlines(
     return out
 
 
-def replay(root: Path, *, arrival_deadlines: bool = False) -> dict[str, object]:
+def _replay_address_log_bloom(
+    manifest: Path, frozen: dict[str, object], pool_ids: set[str]
+) -> dict[str, object]:
+    roles = strict_object(frozen["roles"], "mixed Base exchange roles")
+    witnesses = []
+    blooms = []
+    for role in ("primary_header", "secondary_header"):
+        evidence = strict_object(roles[role], "Base header exchange")
+        digest = strict_digest(evidence["response_sha256"], "Base header response digest")
+        raw = read_bounded(manifest.with_name(f"{role}.response.json"), 1024 * 1024)
+        if sha256_hex(raw) != digest:
+            raise ValueError("Base log Bloom header changed after snapshot replay")
+        blooms.append(strict_object(strict_json_object(raw)["result"], "header")["logsBloom"])
+        witnesses.append(digest)
+
+    observation = frozen.get("newheads_observation")
+    if observation is not None:
+        ref = strict_object(observation, "Base newHeads observation")
+        number = strict_integer(ref["frame"], "Base newHeads frame index")
+        digest = strict_digest(ref["frame_sha256"], "Base newHeads frame digest")
+        stream = manifest.parent.parent.parent / DIRECTORY
+        raw = read_bounded(stream / f"frame-{number:08d}.raw", 1024 * 1024)
+        if sha256_hex(raw) != digest:
+            raise ValueError("Base log Bloom frame changed after snapshot replay")
+        params = strict_object(strict_json_object(raw)["params"], "Base newHeads parameters")
+        blooms.append(strict_object(params["result"], "Base newHeads payload")["logsBloom"])
+        witnesses.append(digest)
+
+    possible = possible_log_emitters(pool_ids, matching_header_blooms=blooms)
+    return {
+        "possible_emitters": sorted(possible),
+        "excluded_emitters": sorted(pool_ids - possible),
+        "witness_sha256": witnesses,
+    }
+
+
+def replay(
+    root: Path, *, arrival_deadlines: bool = False, address_log_bloom: bool = False
+) -> dict[str, object]:
     raw = read_bounded(root / "shadow_attribution.jsonl", 16 * 1024 * 1024)
     records = [strict_json_object(line) for line in raw.splitlines()]
     chain_head = verify_campaign_attribution_chain(records)
@@ -75,6 +114,7 @@ def replay(root: Path, *, arrival_deadlines: bool = False) -> dict[str, object]:
     ):
         raise ValueError("campaign summary disagrees with its attribution chain")
     report = summarize_base_shadow(records, arrival_deadlines=arrival_deadlines)
+    bloom_report = []
     for row in records:
         life = strict_object(row["shadow_cycle_lifecycle"], "shadow lifecycle")
         mix = strict_object(life["mixed_base_state"], "mixed Base state")
@@ -104,6 +144,18 @@ def replay(root: Path, *, arrival_deadlines: bool = False) -> dict[str, object]:
         state = replay_mixed_snapshot(manifest)
         if (state.block.number, state.block.block_hash) != (row["block_number"], row["block_hash"]):
             raise ValueError("replayed snapshot belongs to another block")
+        if address_log_bloom:
+            bloom_report.append(
+                {
+                    "block": state.block.number,
+                    "block_hash": state.block.block_hash,
+                    **_replay_address_log_bloom(
+                        manifest, frozen, {node.pool_id for node in state.address_state.pool_nodes}
+                    ),
+                }
+            )
+    if address_log_bloom:
+        report["address_log_bloom"] = bloom_report
     stream = strict_object(summary.get("base_newheads", {}), "head session summary")
     if stream.get("selection") == "latest_queued":
         schedule = replay_head_schedule(
@@ -129,8 +181,18 @@ def main() -> int:
         action="store_true",
         help="Compare local state and discovery times to observed direct-child receive times.",
     )
+    parser.add_argument(
+        "--address-log-bloom",
+        action="store_true",
+        help="Report possible and excluded address-pool log emitters from verified block headers.",
+    )
     args = parser.parse_args()
-    print(canonical_json(replay(args.campaign, arrival_deadlines=args.arrival_deadlines)).decode())
+    result = replay(
+        args.campaign,
+        arrival_deadlines=args.arrival_deadlines,
+        address_log_bloom=args.address_log_bloom,
+    )
+    print(canonical_json(result).decode())
     return 0
 
 

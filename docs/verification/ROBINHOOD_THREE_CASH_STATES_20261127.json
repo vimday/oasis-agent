@@ -1,0 +1,896 @@
+{
+  "chain_id": 4663,
+  "comparison_scope_sha256": "0ef9c13634687e5760fd02ae3a3862b857295c58abfb5b7c0b6bab2d7f5cd33f",
+  "counts": {
+    "official": 25,
+    "publicnode": 25
+  },
+  "dual_feeds": {
+    "capture_sha256": {
+      "delayed": "8c59e0d0b1177b6841a99d9bce12750b11b3f71ad6de7a90c58be66875d632a2",
+      "primary": "b87b714ab60c536304771d7222f5b525560a3d1f7b4a282783d42fd1d5c2aade"
+    },
+    "delayed_sequences": 136,
+    "matched_same_hash": 132,
+    "primary_internal_missing": 0,
+    "primary_sequences": 136,
+    "reasons": {
+      "delayed": "frame_cap",
+      "primary": "frame_cap"
+    }
+  },
+  "execution_eligible": false,
+  "historical_child": {
+    "cash_wei": null,
+    "error": {
+      "code": -32602,
+      "message": "invalid or unsupported block parameters"
+    },
+    "hash": "0xef151cff9d11b22d103ed2cb3a7a925225b075ee6bcbfd86bad38479204374c1",
+    "http": 400,
+    "number": 123899188,
+    "scope_sha256": "b5c732a12eb56d41ff882fcfe22d72bfe3a4ba4f0557fdc1811d012b9805edf5",
+    "source": "https://triport.io/public/robinhood",
+    "wire": {
+      "received_ns": 1363717370486208,
+      "request_sha256": "f08a4817daeb0f17c7476bcc906736fd6b0fd1c5c9b75ae50fe23c2d493f8afc",
+      "response_sha256": "3de54790333e029ef9acf8419eb23e9ba024f0387333b7e70fa8766b4194bb87",
+      "retrieved_unix_ns": 1795764559879366000,
+      "sent_ns": 1363716806800708,
+      "status": 400
+    }
+  },
+  "original_routes_sha256": "90fa59d39781169c8081efa5ac1bd27b85bc4a0a0930a497134b96ab33764d0c",
+  "previous_successful_long_route": {
+    "hash": "0xbcdff4c5e2f6486869168da73a33367cefd6844c813c4c6321b8a390a61b0fbf",
+    "pool_state": {
+      "liquidity": 23714791908981046884,
+      "lp_fee": 10353,
+      "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+      "protocol_fee_packed": 4097000,
+      "sqrt_price_x96": 26193244243859693245795203846829,
+      "tick": 116024
+    },
+    "quote": {
+      "gross_wei": -6114613981360,
+      "hops": 24,
+      "input_wei": 100000000000000,
+      "optimistic_net_wei_before_other_costs": -6534697981360,
+      "output_wei": 93885386018640,
+      "quoter_gas_estimate": 755285,
+      "route": "v4-24",
+      "status": "quoted"
+    }
+  },
+  "probe_bytecode_sha256": "ef9e9c8ff0918fa6a4979052b55cde22bbd0e95af70bec2ec21d864c3f4936f8",
+  "return_head_bracket": {
+    "next_seen": [
+      124085210,
+      "0x573538330705e17be2e8d17a61231698923b6ab99681359787d04060c1ec9235",
+      1363796390029250
+    ],
+    "selected": [
+      124085209,
+      "0xb495aba461d8aafa7d4399e6e7d4fc424ca3c2f68e36ea1c28a5f0383ec6c4c6",
+      1363796263656125
+    ],
+    "simulation_completed_ns": 1363796332719333
+  },
+  "schema": "oasis-robinhood-three-refund-states-v1",
+  "scope_sha256": "34ecf50bc9cbfbc1deab4bb86995a48044d0ac48d3492c2529cc9695b13ca422",
+  "selection": {
+    "account": {
+      "code_bytes": 0,
+      "native_wei": 47394516545374728,
+      "nonce": 84644
+    },
+    "calldata_sha256": "f9a7363e2f1341f9a57b098a2da7d4bd93ad1a8ca31bdce489e577fb2632a146",
+    "deadline": 1795764754,
+    "discovery_state": "0xadeb87fac13779747f602c0464e29c838ffbdc3ebd00eb216f1df7aa1e6f329e",
+    "envelope_sha256": "f92df49eb2cf58a83cddf15cecae7bfe6f010ef49dfc71a57b13f107d8f9296e",
+    "frozen": {
+      "monotonic_ns": 1363795744929541,
+      "utc": "2026-11-27T07:30:38.252647+00:00"
+    },
+    "kind": "negative_control",
+    "minout_wei": 100000000000000,
+    "principal_wei": 100000000000000,
+    "quote_received_ns": 1363795734817958,
+    "route": "v4-2-e14"
+  },
+  "states": {
+    "direct_child": {
+      "base_fee_wei": "20028000",
+      "checked_pools": 27,
+      "direct_eoa_balance_delta": null,
+      "estimated_gas": 140507,
+      "estimated_network_cost_wei": "2814074196000",
+      "failed_long_route": {
+        "leg": 4,
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "pool_state": {
+          "liquidity": 23714791908981046884,
+          "lp_fee": 10353,
+          "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+          "protocol_fee_packed": 4097000,
+          "sqrt_price_x96": 25260409414693572635910712454721,
+          "tick": 115299
+        },
+        "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000"
+      },
+      "feed_to_initial_full_result_ns": 4864469875,
+      "hash": "0x9267c2eb1c86cd8ba3a757109da181234b33e2d7fdb3c4de65f4591cb0a2c307",
+      "number": 124085183,
+      "parent_hash": "0xadeb87fac13779747f602c0464e29c838ffbdc3ebd00eb216f1df7aa1e6f329e",
+      "positive_screen": 0,
+      "probe_gross_wei": "21353709798",
+      "probe_net_after_estimated_network_wei": "-2792720486202",
+      "quotes": [
+        {
+          "gross_wei": 21353709798,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -399234290202,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -1866148980589,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -2286736980589,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -222414878452855,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -222835466452855,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -114689905605,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -535277905605,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3221836066644,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -3642424066644,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -230267884856671,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -230688472856671,
+          "route": "v4-2-reverse-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -2828245641861,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3248833641861,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        }
+      ],
+      "quotes_to_initial_full_result_ns": 615387334,
+      "refund_probe_wei": "100021353709798",
+      "sender_available_wei": "47394516545374728",
+      "sender_nonce": 84644,
+      "state_root": "0x4bf7ca7a37294bd7f9ebbf67b28f089ab48cf773924e4ef718565b3aa970374e",
+      "utc_feed_received": "2026-11-27T07:30:35.503477+00:00"
+    },
+    "discovery": {
+      "base_fee_wei": "20006000",
+      "checked_pools": 27,
+      "direct_eoa_balance_delta": null,
+      "estimated_gas": 140507,
+      "estimated_network_cost_wei": "2810983042000",
+      "failed_long_route": {
+        "leg": 4,
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "pool_state": {
+          "liquidity": 23714791908981046884,
+          "lp_fee": 10353,
+          "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+          "protocol_fee_packed": 4097000,
+          "sqrt_price_x96": 25260409414693572635910712454721,
+          "tick": 115299
+        },
+        "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000"
+      },
+      "feed_to_initial_full_result_ns": 3510065833,
+      "hash": "0xadeb87fac13779747f602c0464e29c838ffbdc3ebd00eb216f1df7aa1e6f329e",
+      "number": 124085182,
+      "parent_hash": "0xae05daa780c3ddfd047dbb8961fb7d9dcc15329a252b815a62a06f28806dc56b",
+      "positive_screen": 0,
+      "probe_gross_wei": "21353709798",
+      "probe_net_after_estimated_network_wei": "-2789629332202",
+      "quotes": [
+        {
+          "gross_wei": 21353709798,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -398772290202,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -1866148980589,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -2286274980589,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -222414878452855,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -222835004452855,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -114689905605,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -534815905605,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3221836066644,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -3641962066644,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -230267884856671,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -230688010856671,
+          "route": "v4-2-reverse-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -2828245641861,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3248371641861,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        }
+      ],
+      "quotes_to_initial_full_result_ns": 597901375,
+      "refund_probe_wei": "100021353709798",
+      "sender_available_wei": "47394516545374728",
+      "sender_nonce": 84644,
+      "state_root": "0xab6b8d35e86a719d69d69ef50d32ec5bc159f09a18c31415a660895ec7c5ced6",
+      "utc_feed_received": "2026-11-27T07:30:35.330364+00:00"
+    },
+    "return_head": {
+      "base_fee_wei": "20000000",
+      "checked_pools": 27,
+      "direct_eoa_balance_delta": null,
+      "estimated_gas": 140507,
+      "estimated_network_cost_wei": "2810140000000",
+      "failed_long_route": {
+        "leg": 4,
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "pool_state": {
+          "liquidity": 23714791908981046884,
+          "lp_fee": 10353,
+          "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+          "protocol_fee_packed": 4097000,
+          "sqrt_price_x96": 25260409414693572635910712454721,
+          "tick": 115299
+        },
+        "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000"
+      },
+      "feed_to_initial_full_result_ns": 2986958333,
+      "hash": "0xb495aba461d8aafa7d4399e6e7d4fc424ca3c2f68e36ea1c28a5f0383ec6c4c6",
+      "number": 124085209,
+      "parent_hash": "0x7292620416d95ee030936e9a8745d1f78c88d637f4257ddf89e6efb1674b88a0",
+      "positive_screen": 0,
+      "probe_gross_wei": "21353709798",
+      "probe_net_after_estimated_network_wei": "-2788786290202",
+      "quotes": [
+        {
+          "gross_wei": 21353709798,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -398646290202,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -1866148980589,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -2286148980589,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -222414878452855,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -222834878452855,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -114689905605,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -534689905605,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3221836066644,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -3641836066644,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -230267884856671,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -230687884856671,
+          "route": "v4-2-reverse-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -2828245641861,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3248245641861,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        }
+      ],
+      "quotes_to_initial_full_result_ns": 551014375,
+      "refund_probe_wei": "100021353709798",
+      "sender_available_wei": "47394516545374728",
+      "sender_nonce": 84644,
+      "state_root": "0x2080b05cad43494dd2720f66ab586af216ba95efba9511ddbf0fa9083e295bdf",
+      "utc_feed_received": "2026-11-27T07:30:38.771359+00:00"
+    }
+  },
+  "wires": {
+    "1": {
+      "official": {
+        "received_ns": 1363794254186166,
+        "request_sha256": "88cfb71ea44312e031c421ad7c810896220f41460cb550d1f9ecf67b224e6684",
+        "response_sha256": "47630a3145b617e698a4591e298b9b40e7b5eae1d8fca7d8100d961e4aa92cba",
+        "retrieved_unix_ns": 1795764636763307000,
+        "sent_ns": 1363793734299541,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363794096446291,
+        "request_sha256": "88cfb71ea44312e031c421ad7c810896220f41460cb550d1f9ecf67b224e6684",
+        "response_sha256": "47630a3145b617e698a4591e298b9b40e7b5eae1d8fca7d8100d961e4aa92cba",
+        "retrieved_unix_ns": 1795764636604906000,
+        "sent_ns": 1363793737176958,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "2": {
+      "official": {
+        "received_ns": 1363794575225250,
+        "request_sha256": "4118eebcdaa1621e68444bae916055829f34fe2060521b7a89c3b61ce03778c8",
+        "response_sha256": "6bebbb40331a5a2116035f89276802edd59995f9f011f622bd64df407e7f067f",
+        "retrieved_unix_ns": 1795764637083564000,
+        "sent_ns": 1363794259653583,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363794451787166,
+        "request_sha256": "4118eebcdaa1621e68444bae916055829f34fe2060521b7a89c3b61ce03778c8",
+        "response_sha256": "6bebbb40331a5a2116035f89276802edd59995f9f011f622bd64df407e7f067f",
+        "retrieved_unix_ns": 1795764636961529000,
+        "sent_ns": 1363794260315375,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "3": {
+      "official": {
+        "received_ns": 1363794847908875,
+        "request_sha256": "d21166941af719f26828bb8eff734d1c214d1630a041928f863e8d10a53ebc7b",
+        "response_sha256": "86b76513746441f5d3ff609c9cd06d84f5e82f313688715c7f28dd36b85f91b6",
+        "retrieved_unix_ns": 1795764637356349000,
+        "sent_ns": 1363794579080916,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363794717681875,
+        "request_sha256": "d21166941af719f26828bb8eff734d1c214d1630a041928f863e8d10a53ebc7b",
+        "response_sha256": "86b76513746441f5d3ff609c9cd06d84f5e82f313688715c7f28dd36b85f91b6",
+        "retrieved_unix_ns": 1795764637226410000,
+        "sent_ns": 1363794580556000,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "4": {
+      "official": {
+        "received_ns": 1363795135771916,
+        "request_sha256": "c0b5cb27fcf8f8c2af8702aaddabf6191ce1baa385acfe7a7bde93aa4bfb6571",
+        "response_sha256": "5d0ffdea4645d84e0e047b80bf75f4c3ff1409377b557db384ac40d49be18226",
+        "retrieved_unix_ns": 1795764637645962000,
+        "sent_ns": 1363794851379375,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363794979163750,
+        "request_sha256": "c0b5cb27fcf8f8c2af8702aaddabf6191ce1baa385acfe7a7bde93aa4bfb6571",
+        "response_sha256": "5d0ffdea4645d84e0e047b80bf75f4c3ff1409377b557db384ac40d49be18226",
+        "retrieved_unix_ns": 1795764637487558000,
+        "sent_ns": 1363794852278541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "5": {
+      "official": {
+        "received_ns": 1363795424688916,
+        "request_sha256": "e6c60f8dd97806f46f95281870f22e01d060d98e9498cbcb439d4adac8aaa9f0",
+        "response_sha256": "53a3467b3b3b32b591b8d84b10adc7525a0c1f0aa7e1819d31ba3107891b838d",
+        "retrieved_unix_ns": 1795764637933545000,
+        "sent_ns": 1363795140250541,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363795281877208,
+        "request_sha256": "e6c60f8dd97806f46f95281870f22e01d060d98e9498cbcb439d4adac8aaa9f0",
+        "response_sha256": "53a3467b3b3b32b591b8d84b10adc7525a0c1f0aa7e1819d31ba3107891b838d",
+        "retrieved_unix_ns": 1795764637790986000,
+        "sent_ns": 1363795140880208,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "6": {
+      "official": {
+        "received_ns": 1363795734817958,
+        "request_sha256": "b425f51c9f99403be3a3b8521a58d6e871f83658777ee7dbdf3ff61c9cf09dd9",
+        "response_sha256": "2b777193dd4d8b5d51410c41503186db41acddfe93e863eaf9ae665cd05ff980",
+        "retrieved_unix_ns": 1795764638243229000,
+        "sent_ns": 1363795435317250,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363795612608208,
+        "request_sha256": "b425f51c9f99403be3a3b8521a58d6e871f83658777ee7dbdf3ff61c9cf09dd9",
+        "response_sha256": "2b777193dd4d8b5d51410c41503186db41acddfe93e863eaf9ae665cd05ff980",
+        "retrieved_unix_ns": 1795764638120988000,
+        "sent_ns": 1363795435813041,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "7": {
+      "official": {
+        "received_ns": 1363796045719500,
+        "request_sha256": "d4798371a2c35f54921738c06cd8db30d39a43427205576346c2141d5d224d02",
+        "response_sha256": "e8956c9e64e67d5480720605ce6aafa4e82dd34e9dbfd7493594b4cbbb34771b",
+        "retrieved_unix_ns": 1795764638554479000,
+        "sent_ns": 1363795746543833,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363795884840666,
+        "request_sha256": "d4798371a2c35f54921738c06cd8db30d39a43427205576346c2141d5d224d02",
+        "response_sha256": "e8956c9e64e67d5480720605ce6aafa4e82dd34e9dbfd7493594b4cbbb34771b",
+        "retrieved_unix_ns": 1795764638393264000,
+        "sent_ns": 1363795747186541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "8": {
+      "official": {
+        "received_ns": 1363796332719333,
+        "request_sha256": "cd81873e5139346f305adfcd8f83159ecbcd030b90fbf36dbb1c38111fe00702",
+        "response_sha256": "c684057e20c025d87c12a8ef0bc2fb1f3e324b2c5b92ea6db19bf5c28bae0f3a",
+        "retrieved_unix_ns": 1795764638841509000,
+        "sent_ns": 1363796049716958,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363796187449666,
+        "request_sha256": "cd81873e5139346f305adfcd8f83159ecbcd030b90fbf36dbb1c38111fe00702",
+        "response_sha256": "c684057e20c025d87c12a8ef0bc2fb1f3e324b2c5b92ea6db19bf5c28bae0f3a",
+        "retrieved_unix_ns": 1795764638695894000,
+        "sent_ns": 1363796050274208,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "9": {
+      "official": {
+        "received_ns": 1363796678621250,
+        "request_sha256": "6f1ff600eef8e08f37127e2acca439e7d31476ac718cbbe6339da4d70d84525b",
+        "response_sha256": "82167a4151528a0ee072f0b9bc449620e8b54d7b9b8e42a871f081d734a39610",
+        "retrieved_unix_ns": 1795764639187074000,
+        "sent_ns": 1363796403879541,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363796540829083,
+        "request_sha256": "6f1ff600eef8e08f37127e2acca439e7d31476ac718cbbe6339da4d70d84525b",
+        "response_sha256": "82167a4151528a0ee072f0b9bc449620e8b54d7b9b8e42a871f081d734a39610",
+        "retrieved_unix_ns": 1795764639049305000,
+        "sent_ns": 1363796404481416,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "10": {
+      "official": {
+        "received_ns": 1363796955272541,
+        "request_sha256": "e639ffeba0a928b422fc7033aaccd38e17bf57a80b3b2fcce0bbbfa3b862600b",
+        "response_sha256": "47b4b7e6033058c68ca2384aaa0cb0222d26f182ae676ba52713863a75296e62",
+        "retrieved_unix_ns": 1795764639464048000,
+        "sent_ns": 1363796683030916,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363796811693708,
+        "request_sha256": "e639ffeba0a928b422fc7033aaccd38e17bf57a80b3b2fcce0bbbfa3b862600b",
+        "response_sha256": "47b4b7e6033058c68ca2384aaa0cb0222d26f182ae676ba52713863a75296e62",
+        "retrieved_unix_ns": 1795764639320064000,
+        "sent_ns": 1363796683712458,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "11": {
+      "official": {
+        "received_ns": 1363797244854166,
+        "request_sha256": "6765580ca5e004b1223e4eb5519bde5157737a76affb5284867af68dad024f01",
+        "response_sha256": "48d07e4e465a5a0642b5591211ac713a4e05b53d557178a9396dd069dbfadbe3",
+        "retrieved_unix_ns": 1795764639753320000,
+        "sent_ns": 1363796964435666,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363797098611625,
+        "request_sha256": "6765580ca5e004b1223e4eb5519bde5157737a76affb5284867af68dad024f01",
+        "response_sha256": "48d07e4e465a5a0642b5591211ac713a4e05b53d557178a9396dd069dbfadbe3",
+        "retrieved_unix_ns": 1795764639607057000,
+        "sent_ns": 1363796964957541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "12": {
+      "official": {
+        "received_ns": 1363797526176416,
+        "request_sha256": "d4cf5ee9ca26437cbdbfd8b8d161972c73f97f5bbead8ad13c578208a5b89ce6",
+        "response_sha256": "b9edddbc1ea77bfbe9c428b6ad2d07cb08f5a73a09dc29fa31aa6fa10e8f5532",
+        "retrieved_unix_ns": 1795764640034566000,
+        "sent_ns": 1363797255280333,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363797380737458,
+        "request_sha256": "d4cf5ee9ca26437cbdbfd8b8d161972c73f97f5bbead8ad13c578208a5b89ce6",
+        "response_sha256": "b9edddbc1ea77bfbe9c428b6ad2d07cb08f5a73a09dc29fa31aa6fa10e8f5532",
+        "retrieved_unix_ns": 1795764639889481000,
+        "sent_ns": 1363797255839125,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "13": {
+      "official": {
+        "received_ns": 1363797860241500,
+        "request_sha256": "7197beec2fc312d1b872cbef8daad983ba12f3423a8c3b6faa731cf9874f84ba",
+        "response_sha256": "12dafd5852f159d2364383b2ac5c4b72192d989e39e5ea39df5d58b0b8239eac",
+        "retrieved_unix_ns": 1795764640368266000,
+        "sent_ns": 1363797530073625,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363797745463750,
+        "request_sha256": "7197beec2fc312d1b872cbef8daad983ba12f3423a8c3b6faa731cf9874f84ba",
+        "response_sha256": "12dafd5852f159d2364383b2ac5c4b72192d989e39e5ea39df5d58b0b8239eac",
+        "retrieved_unix_ns": 1795764640254077000,
+        "sent_ns": 1363797530994708,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "14": {
+      "official": {
+        "received_ns": 1363798130934083,
+        "request_sha256": "b917dcd1b9b336f630c0f18fc61d649cb1eeac15de02acb1a50c47e01b10c8db",
+        "response_sha256": "8a2813d36f237d08d8847ef1023cef93906c97d4cace589da32f73a2428c8aee",
+        "retrieved_unix_ns": 1795764640639509000,
+        "sent_ns": 1363797862006541,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363797983689208,
+        "request_sha256": "b917dcd1b9b336f630c0f18fc61d649cb1eeac15de02acb1a50c47e01b10c8db",
+        "response_sha256": "8a2813d36f237d08d8847ef1023cef93906c97d4cace589da32f73a2428c8aee",
+        "retrieved_unix_ns": 1795764640492206000,
+        "sent_ns": 1363797862635916,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "15": {
+      "official": {
+        "received_ns": 1363798413550625,
+        "request_sha256": "45a53f796496f1d15be5d96f334f65c1271b3509b6d952b48b7d3a1ae1e1771b",
+        "response_sha256": "8cd9762ad6c589dfbe68c86886e429de79f54c7fac1e6ab2d2aacb6586b44861",
+        "retrieved_unix_ns": 1795764640921897000,
+        "sent_ns": 1363798135605291,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363798320125750,
+        "request_sha256": "45a53f796496f1d15be5d96f334f65c1271b3509b6d952b48b7d3a1ae1e1771b",
+        "response_sha256": "8cd9762ad6c589dfbe68c86886e429de79f54c7fac1e6ab2d2aacb6586b44861",
+        "retrieved_unix_ns": 1795764640829017000,
+        "sent_ns": 1363798136149708,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "16": {
+      "official": {
+        "received_ns": 1363798699600083,
+        "request_sha256": "c25d0c5ff3a9896a6a7c7b532933c84d73d4fe9b47f94e059f3d2fe63b9974b6",
+        "response_sha256": "bce42da024b4dc6243b2c4b18a47b2332b3430c07b879c3debcdd7d1874c1dcf",
+        "retrieved_unix_ns": 1795764641208122000,
+        "sent_ns": 1363798425759875,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363798564115416,
+        "request_sha256": "c25d0c5ff3a9896a6a7c7b532933c84d73d4fe9b47f94e059f3d2fe63b9974b6",
+        "response_sha256": "bce42da024b4dc6243b2c4b18a47b2332b3430c07b879c3debcdd7d1874c1dcf",
+        "retrieved_unix_ns": 1795764641072937000,
+        "sent_ns": 1363798426542583,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "17": {
+      "official": {
+        "received_ns": 1363798982238875,
+        "request_sha256": "e8b8b3714f51540a174932861f59af46056207b292c69b47dc8399e8cd3c7c93",
+        "response_sha256": "a47ae9def1124b6164db76552384f99056277960f9b1b402835d43d15a405fc3",
+        "retrieved_unix_ns": 1795764641490742000,
+        "sent_ns": 1363798707043458,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363798833343958,
+        "request_sha256": "e8b8b3714f51540a174932861f59af46056207b292c69b47dc8399e8cd3c7c93",
+        "response_sha256": "a47ae9def1124b6164db76552384f99056277960f9b1b402835d43d15a405fc3",
+        "retrieved_unix_ns": 1795764641341871000,
+        "sent_ns": 1363798707446541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "18": {
+      "official": {
+        "received_ns": 1363799250614458,
+        "request_sha256": "d9fd4247c0a28e7bf22fe565629e63c52ba9b62d642bc12c9e12caad2eab86a7",
+        "response_sha256": "98a53f4888ce9d0247673b2e2ec2e72ec349c9eae9c1c693732378c363d5a291",
+        "retrieved_unix_ns": 1795764641758710000,
+        "sent_ns": 1363798984515708,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363799104618875,
+        "request_sha256": "d9fd4247c0a28e7bf22fe565629e63c52ba9b62d642bc12c9e12caad2eab86a7",
+        "response_sha256": "98a53f4888ce9d0247673b2e2ec2e72ec349c9eae9c1c693732378c363d5a291",
+        "retrieved_unix_ns": 1795764641612652000,
+        "sent_ns": 1363798985104708,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "19": {
+      "official": {
+        "received_ns": 1363799536731416,
+        "request_sha256": "4c63c072f42ea7d886cc0d53bf4d97fff992dac5929ee7c91c68523bb9c10ccc",
+        "response_sha256": "103a5d52d76dad11af4a8403f328b74ac8679fd55fe61846a9ae1b3761f1db16",
+        "retrieved_unix_ns": 1795764642045894000,
+        "sent_ns": 1363799252785750,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363799370264666,
+        "request_sha256": "4c63c072f42ea7d886cc0d53bf4d97fff992dac5929ee7c91c68523bb9c10ccc",
+        "response_sha256": "103a5d52d76dad11af4a8403f328b74ac8679fd55fe61846a9ae1b3761f1db16",
+        "retrieved_unix_ns": 1795764641878491000,
+        "sent_ns": 1363799253386000,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "20": {
+      "official": {
+        "received_ns": 1363799812058958,
+        "request_sha256": "0f2988c877bf0dd8e77dc2591acc1190f651fe34b2b8942f9c6c7fb5d127297f",
+        "response_sha256": "0fedbe49736e5b4e8aabc81e425b1cbea8b65526881a5a9fbef8f9b94c58cb4f",
+        "retrieved_unix_ns": 1795764642320592000,
+        "sent_ns": 1363799541424041,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363799688722375,
+        "request_sha256": "0f2988c877bf0dd8e77dc2591acc1190f651fe34b2b8942f9c6c7fb5d127297f",
+        "response_sha256": "0fedbe49736e5b4e8aabc81e425b1cbea8b65526881a5a9fbef8f9b94c58cb4f",
+        "retrieved_unix_ns": 1795764642197529000,
+        "sent_ns": 1363799542004375,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "21": {
+      "official": {
+        "received_ns": 1363800106246708,
+        "request_sha256": "9f441010227181e23809068ffb7499715f49981a9e9331c523c397f2592ff80c",
+        "response_sha256": "720423a287be545e4be4f7a1f94c89d53335c6f8d75400d33f1bc14d7959ee0b",
+        "retrieved_unix_ns": 1795764642614776000,
+        "sent_ns": 1363799817590416,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363799968662833,
+        "request_sha256": "9f441010227181e23809068ffb7499715f49981a9e9331c523c397f2592ff80c",
+        "response_sha256": "720423a287be545e4be4f7a1f94c89d53335c6f8d75400d33f1bc14d7959ee0b",
+        "retrieved_unix_ns": 1795764642477747000,
+        "sent_ns": 1363799818243750,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "22": {
+      "official": {
+        "received_ns": 1363800392920958,
+        "request_sha256": "87a784e57696233e60f6416675eac3ef511b2bfb7d2d3dc322f760675f2665a1",
+        "response_sha256": "61e2f054c5be4035f79a0443a580829902593d0c41295abdb86c7366e75550b3",
+        "retrieved_unix_ns": 1795764642901302000,
+        "sent_ns": 1363800111567375,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363800229671000,
+        "request_sha256": "87a784e57696233e60f6416675eac3ef511b2bfb7d2d3dc322f760675f2665a1",
+        "response_sha256": "61e2f054c5be4035f79a0443a580829902593d0c41295abdb86c7366e75550b3",
+        "retrieved_unix_ns": 1795764642738115000,
+        "sent_ns": 1363800112287083,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "23": {
+      "official": {
+        "received_ns": 1363800666252166,
+        "request_sha256": "5f20161c8b9861aa3bbde82ec1dab8723b657bbc9cdfe84d81b33ade52e42e30",
+        "response_sha256": "310cdf8e509b5b91f38c4a2c66fa2f360d59ad28ba3e074ad8bf7731636233b8",
+        "retrieved_unix_ns": 1795764643174393000,
+        "sent_ns": 1363800396574416,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363800529505625,
+        "request_sha256": "5f20161c8b9861aa3bbde82ec1dab8723b657bbc9cdfe84d81b33ade52e42e30",
+        "response_sha256": "310cdf8e509b5b91f38c4a2c66fa2f360d59ad28ba3e074ad8bf7731636233b8",
+        "retrieved_unix_ns": 1795764643040964000,
+        "sent_ns": 1363800397221541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "24": {
+      "official": {
+        "received_ns": 1363800966976666,
+        "request_sha256": "99e4451bca5a7667bb2a303b878274d742bbd5650c74b00f65c62e59b3c44fca",
+        "response_sha256": "73366ada33039426ac792ecc3c58385ca1eb0cae9a6cad04d22fbf764bc08271",
+        "retrieved_unix_ns": 1795764643475782000,
+        "sent_ns": 1363800669344083,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363800794723083,
+        "request_sha256": "99e4451bca5a7667bb2a303b878274d742bbd5650c74b00f65c62e59b3c44fca",
+        "response_sha256": "73366ada33039426ac792ecc3c58385ca1eb0cae9a6cad04d22fbf764bc08271",
+        "retrieved_unix_ns": 1795764643303714000,
+        "sent_ns": 1363800670199750,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    },
+    "25": {
+      "official": {
+        "received_ns": 1363801252605625,
+        "request_sha256": "3b1900fed514ff9816e0931609e5c2f5c99a25708fd5ce7b164a19814e0a07e9",
+        "response_sha256": "6d1ac5a3389d195d46633567e1b82098d64729236b75045907a708cf8cf62066",
+        "retrieved_unix_ns": 1795764643761426000,
+        "sent_ns": 1363800972478583,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      "publicnode": {
+        "received_ns": 1363801093623750,
+        "request_sha256": "3b1900fed514ff9816e0931609e5c2f5c99a25708fd5ce7b164a19814e0a07e9",
+        "response_sha256": "6d1ac5a3389d195d46633567e1b82098d64729236b75045907a708cf8cf62066",
+        "retrieved_unix_ns": 1795764643602123000,
+        "sent_ns": 1363800972954916,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    }
+  }
+}

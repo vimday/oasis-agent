@@ -3,7 +3,7 @@
 import argparse
 import json
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
 from itertools import pairwise
@@ -29,6 +29,7 @@ from oasis_agent.evidence.swap_flow_trace import (
     _transfers,
     replay_trace_funding,
 )
+from oasis_agent.evidence.weth_batch_cash import replay_weth_self_calls
 from oasis_agent.evidence.weth_principal import WETH
 from oasis_agent.models.chain import LogRecord
 from oasis_agent.models.common import ZERO_ADDRESS
@@ -339,6 +340,11 @@ def main() -> None:
         default=[],
         help="registered path event,input_log,output_log; repeat for each leg",
     )
+    parser.add_argument(
+        "--self-call-cash",
+        action="store_true",
+        help="Reconcile WETH transfers with boundary balance reads per executor self-call",
+    )
     args = parser.parse_args()
     block_raw = read(args.block)
     receipts_raw = read(args.receipts)
@@ -380,6 +386,8 @@ def main() -> None:
         "settlement": _settlement(receipt, trace, address(header.get("miner"))),
         "serial_witness": _serial(receipt, trace_raw, trace, tuple(args.leg)) if args.leg else None,
     }
+    if args.self_call_cash:
+        report["weth_self_calls"] = [asdict(c) for c in replay_weth_self_calls(receipt, trace)]
     print(json.dumps(report, indent=2, sort_keys=True))
 
 

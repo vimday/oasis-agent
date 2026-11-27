@@ -1,0 +1,1667 @@
+{
+  "detailed_receipt_witness": {
+    "committed_groups": [
+      [
+        0,
+        [
+          826,
+          835,
+          843,
+          846
+        ]
+      ],
+      [
+        1,
+        [
+          852,
+          857,
+          862,
+          863,
+          872
+        ]
+      ],
+      [
+        2,
+        [
+          875,
+          880,
+          883,
+          888,
+          890
+        ]
+      ],
+      [
+        3,
+        [
+          896,
+          900,
+          910,
+          913,
+          918
+        ]
+      ],
+      [
+        4,
+        [
+          924,
+          934,
+          936
+        ]
+      ],
+      [
+        5,
+        [
+          941,
+          942,
+          956,
+          960
+        ]
+      ],
+      [
+        6,
+        [
+          965,
+          969,
+          973,
+          976,
+          981,
+          984,
+          987,
+          990
+        ]
+      ],
+      [
+        8,
+        [
+          1011,
+          1018,
+          1023,
+          1028
+        ]
+      ],
+      [
+        11,
+        [
+          1036,
+          1039,
+          1046
+        ]
+      ],
+      [
+        12,
+        [
+          1048,
+          1054,
+          1062,
+          1065
+        ]
+      ],
+      [
+        13,
+        [
+          1068,
+          1070,
+          1073,
+          1076
+        ]
+      ],
+      [
+        15,
+        [
+          1105,
+          1106,
+          1110
+        ]
+      ],
+      [
+        16,
+        [
+          1139,
+          1142,
+          1144
+        ]
+      ],
+      [
+        18,
+        [
+          1148,
+          1185,
+          1187
+        ]
+      ],
+      [
+        19,
+        [
+          1190,
+          1217
+        ]
+      ],
+      [
+        20,
+        [
+          1222,
+          1225,
+          1228,
+          1231,
+          1234,
+          1236
+        ]
+      ],
+      [
+        22,
+        [
+          1241,
+          1249
+        ]
+      ],
+      [
+        23,
+        [
+          1264,
+          1272
+        ]
+      ]
+    ],
+    "failed_direct_subcalls": [
+      7,
+      9,
+      10,
+      14,
+      17,
+      21
+    ],
+    "four_action_callback": [
+      {
+        "call_path": [
+          11,
+          1,
+          0
+        ],
+        "input": {
+          "amount": 632226591,
+          "index": 1045,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            14,
+            0
+          ],
+          "recipient": "0xdf50fbde8180c8785842c8e316ebe06f542d3443",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "kind": "v3",
+        "output": {
+          "amount": 632144898667672672731,
+          "index": 1032,
+          "path": [
+            11,
+            1,
+            0,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0xdf50fbde8180c8785842c8e316ebe06f542d3443",
+          "token": "0x956f47f50a910163d8bf957cf5846d573e7f87ca"
+        },
+        "pool": "0xdf50fbde8180c8785842c8e316ebe06f542d3443",
+        "swap_log": 1046
+      },
+      {
+        "call_path": [
+          11,
+          1,
+          0,
+          2,
+          5
+        ],
+        "input": {
+          "amount": 632144898667672672731,
+          "index": 1033,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            1
+          ],
+          "recipient": "0x9928e4046d7c6513326ccea028cd3e7a91c7590a",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0x956f47f50a910163d8bf957cf5846d573e7f87ca"
+        },
+        "kind": "v2",
+        "output": {
+          "amount": 1954690920595836578500,
+          "index": 1034,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            5,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0x9928e4046d7c6513326ccea028cd3e7a91c7590a",
+          "token": "0xc7283b66eb1eb5fb86327f08e1b5816b0720212b"
+        },
+        "pool": "0x9928e4046d7c6513326ccea028cd3e7a91c7590a",
+        "swap_log": 1036
+      },
+      {
+        "call_path": [
+          11,
+          1,
+          0,
+          2,
+          8
+        ],
+        "input": {
+          "amount": 1954690920595836578500,
+          "index": 1038,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            8,
+            2,
+            0
+          ],
+          "recipient": "0xe2c5d82523e0e767b83d78e2bfc6fcd74d1432ef",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xc7283b66eb1eb5fb86327f08e1b5816b0720212b"
+        },
+        "kind": "v3",
+        "output": {
+          "amount": 382658114247965592,
+          "index": 1037,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            8,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0xe2c5d82523e0e767b83d78e2bfc6fcd74d1432ef",
+          "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        },
+        "pool": "0xe2c5d82523e0e767b83d78e2bfc6fcd74d1432ef",
+        "swap_log": 1039
+      },
+      {
+        "external_call": [
+          11,
+          1,
+          0,
+          2,
+          12
+        ],
+        "native_forward": [
+          11,
+          1,
+          0,
+          2,
+          11,
+          0
+        ],
+        "native_spend": 382658114247965592,
+        "protocol_operation_log": 1044,
+        "unwrap_log": 1040,
+        "usdc_output": {
+          "amount": 636321764,
+          "index": 1042,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            12,
+            7,
+            0,
+            0,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0x52aa899454998be5b000ad077a46bbe360f4e497",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "usdc_repayment": {
+          "amount": 632226591,
+          "index": 1045,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            14,
+            0
+          ],
+          "recipient": "0xdf50fbde8180c8785842c8e316ebe06f542d3443",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "usdc_residual": {
+          "amount": 4095173,
+          "index": 1047,
+          "path": [
+            11,
+            1,
+            2,
+            0
+          ],
+          "recipient": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "wrapped_output": {
+          "amount": 382658114247965592,
+          "index": 1037,
+          "path": [
+            11,
+            1,
+            0,
+            2,
+            8,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0xe2c5d82523e0e767b83d78e2bfc6fcd74d1432ef",
+          "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+        }
+      }
+    ],
+    "six_swap_crvusd_netting_transfers": [
+      {
+        "amount": 9697345908836476502014,
+        "index": 964,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0,
+          1
+        ],
+        "recipient": "0x0dd8079e7af97eae7754aaab6b212549d2376888",
+        "sender": "0x4dece678ceceb27446b35c672dc7d61f30bad69e",
+        "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+      },
+      {
+        "amount": 9697345908836476502014,
+        "index": 966,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          6
+        ],
+        "recipient": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "sender": "0x0dd8079e7af97eae7754aaab6b212549d2376888",
+        "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+      },
+      {
+        "amount": 9697345908836476502014,
+        "index": 970,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+        "sender": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+      },
+      {
+        "amount": 9697345908836476502014,
+        "index": 971,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          5,
+          0,
+          0,
+          1,
+          0
+        ],
+        "recipient": "0x4f52c3a81e33521e5a9a47fd9d3be475d2279c2e",
+        "sender": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+      },
+      {
+        "amount": 9697345908836476502014,
+        "index": 978,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          8
+        ],
+        "recipient": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+        "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+      }
+    ],
+    "six_swap_legs": [
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          0
+        ],
+        "input": {
+          "amount": 9662126356,
+          "index": 963,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4,
+            0,
+            0,
+            0
+          ],
+          "recipient": "0x4dece678ceceb27446b35c672dc7d61f30bad69e",
+          "sender": "0x0dd8079e7af97eae7754aaab6b212549d2376888",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "kind": "curve",
+        "output": {
+          "amount": 9697345908836476502014,
+          "index": 964,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4,
+            0,
+            1
+          ],
+          "recipient": "0x0dd8079e7af97eae7754aaab6b212549d2376888",
+          "sender": "0x4dece678ceceb27446b35c672dc7d61f30bad69e",
+          "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+        },
+        "pool": "0x4dece678ceceb27446b35c672dc7d61f30bad69e",
+        "swap_log": 965
+      },
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          5,
+          0,
+          0,
+          2
+        ],
+        "input": {
+          "amount": 9697345908836476502014,
+          "index": 971,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            5,
+            0,
+            0,
+            1,
+            0
+          ],
+          "recipient": "0x4f52c3a81e33521e5a9a47fd9d3be475d2279c2e",
+          "sender": "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "token": "0xf939e0a03fb07f59a73314e73794be0e57ac1b4e"
+        },
+        "kind": "curve2",
+        "output": {
+          "amount": 165975888853810699,
+          "index": 972,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            5,
+            0,
+            0,
+            2,
+            6
+          ],
+          "recipient": "0x000000000004444c5dc75cb358380d2e3de08a90",
+          "sender": "0x4f52c3a81e33521e5a9a47fd9d3be475d2279c2e",
+          "token": "0x18084fba666a33d37592fa2633fd49a74dd93a88"
+        },
+        "pool": "0x4f52c3a81e33521e5a9a47fd9d3be475d2279c2e",
+        "swap_log": 973
+      },
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          13
+        ],
+        "input": {
+          "amount": 165975888853810699,
+          "index": 979,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            12
+          ],
+          "recipient": "0xae6ee608b297305abf3eb609b81febbb8f6a0bb3",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0x18084fba666a33d37592fa2633fd49a74dd93a88"
+        },
+        "kind": "curve",
+        "output": {
+          "amount": 16550832,
+          "index": 980,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            13,
+            22,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0xae6ee608b297305abf3eb609b81febbb8f6a0bb3",
+          "token": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"
+        },
+        "pool": "0xae6ee608b297305abf3eb609b81febbb8f6a0bb3",
+        "swap_log": 981
+      },
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          16
+        ],
+        "input": {
+          "amount": 16550832,
+          "index": 983,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            16,
+            2,
+            0,
+            0
+          ],
+          "recipient": "0xe8f7c89c5efa061e340f2d2f206ec78fd8f7e124",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf"
+        },
+        "kind": "v3",
+        "output": {
+          "amount": 16512544,
+          "index": 982,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            16,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0xe8f7c89c5efa061e340f2d2f206ec78fd8f7e124",
+          "token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"
+        },
+        "pool": "0xe8f7c89c5efa061e340f2d2f206ec78fd8f7e124",
+        "swap_log": 984
+      },
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          19
+        ],
+        "input": {
+          "amount": 16512544,
+          "index": 986,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            19,
+            2,
+            0
+          ],
+          "recipient": "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"
+        },
+        "kind": "v3",
+        "output": {
+          "amount": 9681652890,
+          "index": 985,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            19,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+          "token": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        },
+        "pool": "0x56534741cd8b152df6d48adf7ac51f75169a83b2",
+        "swap_log": 987
+      },
+      {
+        "call_path": [
+          6,
+          1,
+          0,
+          0,
+          23
+        ],
+        "input": {
+          "amount": 9681652890,
+          "index": 988,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            22
+          ],
+          "recipient": "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+          "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "token": "0xdac17f958d2ee523a2206206994597c13d831ec7"
+        },
+        "kind": "curve",
+        "output": {
+          "amount": 9666683647,
+          "index": 989,
+          "path": [
+            6,
+            1,
+            0,
+            0,
+            23,
+            22,
+            0
+          ],
+          "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+          "sender": "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+          "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        },
+        "pool": "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+        "swap_log": 990
+      }
+    ],
+    "six_swap_usdc_cash": {
+      "gross": {
+        "amount": 9666683647,
+        "index": 989,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          23,
+          22,
+          0
+        ],
+        "recipient": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+        "sender": "0x4f493b7de8aac7d55f71853688b1f7c8f0243c85",
+        "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      },
+      "principal": {
+        "amount": 9662126356,
+        "index": 962,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "recipient": "0x0dd8079e7af97eae7754aaab6b212549d2376888",
+        "sender": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      },
+      "repaid": {
+        "amount": 9662126356,
+        "index": 991,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          26,
+          0
+        ],
+        "recipient": "0x000000000004444c5dc75cb358380d2e3de08a90",
+        "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+        "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      },
+      "residual": {
+        "amount": 4557291,
+        "index": 992,
+        "path": [
+          6,
+          1,
+          2,
+          0
+        ],
+        "recipient": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+        "sender": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+        "token": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      }
+    },
+    "v4_events_excluded_from_six": [
+      {
+        "log_index": 969,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          0
+        ],
+        "pool_id": "0x552e7f9593059871d2a7915957c8c86a0d8f547e041b3002142c5cd9d4c88a5a"
+      },
+      {
+        "log_index": 976,
+        "path": [
+          6,
+          1,
+          0,
+          0,
+          5
+        ],
+        "pool_id": "0x4e57e9b241d45de9cbd87537747aa0ad4f83b13168f7660429292bc92d8b4cea"
+      }
+    ]
+  },
+  "incomplete_utc_day": {
+    "advertised_bytes": 1151002447,
+    "attempts": 2,
+    "date": "2026-11-26",
+    "object_reserved_to_stop_ns": 172140034812,
+    "partial_bytes": 9437184,
+    "partial_sha256": "936bf96a0d7686703085b1ee73cc5fe6592a3afe5c1441a113c2fd25262c8c0e",
+    "stop": {
+      "details": "fixed archive download window",
+      "exception": "TimeoutError",
+      "stop_ns": 1795765510133530183
+    },
+    "stop_sha256": "f2ab51df67a5e4b7bdd86d6865b0b4842f9405971db36e2d9f297df407d0ab22",
+    "thresholds": null
+  },
+  "limited_window": {
+    "all_events": 2656,
+    "audit": {
+      "call_frames": 2200,
+      "compatible_shape_events": 67,
+      "explicit_native_fee_calls": [
+        {
+          "call": [
+            24
+          ],
+          "from": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+          "value": 68668396611438850
+        }
+      ],
+      "fee_check": "signed type 2 and rooted gas",
+      "fees": {
+        "base_wei_per_gas": 214265494,
+        "burn_wei": 2873167001402732,
+        "effective_wei_per_gas": 214265494,
+        "gas_used": 13409378,
+        "gas_wei": 2873167001402732,
+        "priority_wei": 0,
+        "tip_wei_per_gas": 0
+      },
+      "funding": {
+        "links": 1,
+        "resolved_events": 56,
+        "same_currency_depth": 0,
+        "same_currency_legs": [],
+        "same_currency_links": [],
+        "strict_depth": 2,
+        "strict_legs": [
+          {
+            "call_path": [
+              8,
+              1,
+              0,
+              0,
+              0,
+              2,
+              13
+            ],
+            "hookless_v4_caller": "0xbf0827fa737682c8d9d9fa015f5f7d7bf1fe6a6b",
+            "input_transfer_log": 1020,
+            "leg": {
+              "amount_in": 1523382769,
+              "amount_out": 1521371280586963455615,
+              "event": {
+                "log_index": 1018,
+                "pool": [
+                  "0x000000000004444c5dc75cb358380d2e3de08a90",
+                  "0xd14e79ec722a4755872f54f860d70ed144c21c70d6b5bbbf5086e91b49609583"
+                ],
+                "shape": "v4"
+              },
+              "token_in": "0xef87f4608e601e8564800265aee1c1ffadf73283",
+              "token_out": "0x29a294f8fe285dfb259705213e375ecb7fcf9d9b"
+            },
+            "output_transfer_log": 1019
+          },
+          {
+            "call_path": [
+              8,
+              1,
+              0,
+              0,
+              0,
+              2,
+              21
+            ],
+            "hookless_v4_caller": null,
+            "input_transfer_log": 1019,
+            "leg": {
+              "amount_in": 1521371280586963455615,
+              "amount_out": 917780250439495439,
+              "event": {
+                "log_index": 1023,
+                "pool": [
+                  "0x0f00e97c79c8b6081d94b7ed2af7882ec7d6de9d",
+                  null
+                ],
+                "shape": "v2"
+              },
+              "token_in": "0x29a294f8fe285dfb259705213e375ecb7fcf9d9b",
+              "token_out": "0xa250cc729bb3323e7933022a67b52200fe354767"
+            },
+            "output_transfer_log": 1021
+          }
+        ],
+        "strict_links": [
+          {
+            "amount": 1521371280586963455615,
+            "evidence_id": "logs:1019",
+            "source": 1018,
+            "target": 1023,
+            "token": "0x29a294f8fe285dfb259705213e375ecb7fcf9d9b"
+          }
+        ],
+        "unresolved_events": [
+          [
+            835,
+            "V4 returned delta differs from event"
+          ],
+          [
+            843,
+            "missing or ambiguous exact transfer"
+          ],
+          [
+            880,
+            "missing matching swap CALL"
+          ],
+          [
+            900,
+            "V4 returned delta differs from event"
+          ],
+          [
+            941,
+            "missing matching swap CALL"
+          ],
+          [
+            969,
+            "V4 returned delta differs from event"
+          ],
+          [
+            976,
+            "V4 returned delta differs from event"
+          ],
+          [
+            981,
+            "missing matching swap CALL"
+          ],
+          [
+            990,
+            "missing matching swap CALL"
+          ],
+          [
+            1011,
+            "V4 returned delta differs from event"
+          ],
+          [
+            1264,
+            "V4 returned delta differs from event"
+          ]
+        ]
+      },
+      "matched_receipt_logs": 450,
+      "settlement": {
+        "conditional_common_role_eth_weth_delta_wei": null,
+        "direct_eth_to_header_fee_receiver_wei": 68668396611438850,
+        "effective_gas_price": 214265494,
+        "fee_payer": "0x1a3a5086f7bb99721d89400ec1645bb9f8df6297",
+        "fee_receiver": "0x4838b106fce9647bdf1e7877bf73ce8b0bad5f97",
+        "gas_used": 13409378,
+        "paid_gas_wei": 2873167001402732,
+        "transaction_recipient": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+        "visible_role_deltas": [
+          {
+            "account": "0x1a3a5086f7bb99721d89400ec1645bb9f8df6297",
+            "asset": "ETH",
+            "delta_after_receipt_gas": -2873167001402732
+          },
+          {
+            "account": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+            "asset": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+            "delta_after_receipt_gas": 10266363
+          },
+          {
+            "account": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+            "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+            "delta_after_receipt_gas": 73101695986504260
+          },
+          {
+            "account": "0xe0243b811a6db6e91a59d64f20b523596d60f738",
+            "asset": "ETH",
+            "delta_after_receipt_gas": -68668396611438850
+          }
+        ]
+      },
+      "source": {
+        "completed_utc": "2026-11-27T07:48:14.042231+00:00",
+        "curl_returncode": 0,
+        "failure": null,
+        "http": "200",
+        "request_sha256": "018cd8accf50bdb161220c74659a0b986e36fb0f3b6bf07a7f859fe55cc6ab38",
+        "response_bytes": 3629120,
+        "response_sha256": "0900a8ee0b71954fd8888371f62be9cceb0739fe5857ec5e944553f22664d692",
+        "source": "https://eth.drpc.org",
+        "started_utc": "2026-11-27T07:48:11.661783+00:00",
+        "stderr": ""
+      }
+    },
+    "complete_blocks": [
+      {
+        "hash": "0x7d94d30f11d7105e23e6481ef51539b9b4b732206fdcb150e8d70e2a725ca26b",
+        "height": 26463200,
+        "parent": "0x0386d1b696a61dd93097aca4ccc070971607f6fba6a4f314dc67bb9b41df0565",
+        "receipt_logs": 1904,
+        "root": "0xe666fe749d99f9e740189354cae509fba1d9bd2af758fb60eaaecd02a87b1c0e",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:42.713127+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "0930603d10766f86de49e630d0686a48856ba22511cc41bd73998f1be99327fd",
+            "response_bytes": 762298,
+            "response_sha256": "88de9651dbf1d8ab0626d96d7f4a1df55637ba9402bb2080cae7ec0cda85f96c",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:42.367418+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:45.496778+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "235c733c415d7c7f5663e159fa062fd29cb9b9e0d7e5e2e4c1174bff6377eee5",
+            "response_bytes": 1746147,
+            "response_sha256": "613b338d3f2d3d595c12328fb47a185b27d4bc0dcb17c8052fd611d68c5be9db",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:42.718200+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:32:11+00:00",
+        "transactions": 334
+      },
+      {
+        "hash": "0xf1890d73122847f61723eaeb98e575700fdb53272f952e7e2bc8244c4aba36dc",
+        "height": 26463201,
+        "parent": "0x7d94d30f11d7105e23e6481ef51539b9b4b732206fdcb150e8d70e2a725ca26b",
+        "receipt_logs": 940,
+        "root": "0x273fa0defa5d64bf7ec542348398dfbd31cbf4fc3ba70cbbbf3f161cd9b90ad6",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:46.111459+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "4dc44df3297a0b6f4c073a468c8cdc1c1618b668e0775c680ce4381bcff8141b",
+            "response_bytes": 220096,
+            "response_sha256": "5bb0059d2385d50819c13e1e5aa244b2dafc7ed5a85d1a52e82afe3f34fdd223",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:45.578932+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:48.449991+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "18fe3188135cc07e5e8fa6daa07113084445557741c40f7fb4094d1b47f4e65e",
+            "response_bytes": 697329,
+            "response_sha256": "8a8dd471eab1fa6e75f5088717b2b932bf340060faa096284095a4b66383dff3",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:46.113205+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:32:23+00:00",
+        "transactions": 53
+      },
+      {
+        "hash": "0x47a2e8091bbf03d28f98b889d3b4a6523ef6e196eb629bc4fb0eebc5fb26cdaf",
+        "height": 26463202,
+        "parent": "0xf1890d73122847f61723eaeb98e575700fdb53272f952e7e2bc8244c4aba36dc",
+        "receipt_logs": 1415,
+        "root": "0x03eb6ec8e101ddfb28089ecedeefb36682c450f621b2a6d8c93ad1f28a2aaa2c",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:48.796268+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "b95fa18868d31a4ecc62652cd39b30b7a3f7a73ad86a9c34e556ab0c8ee5c787",
+            "response_bytes": 214897,
+            "response_sha256": "13bd75009cc972c3a598e3d2dc730b2c68d8a1f06accd8a91e56568692f7bfd3",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:48.483928+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:51.319676+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "b7ec1b9adf906dbb1a39a7791ea251f7dfd11e1f3047e1ea3c65fe33612654e5",
+            "response_bytes": 1027736,
+            "response_sha256": "15fa706d7fb619b9bbd362fd12d4c8c90366f35fc239d8ff91b98e2cf89194a4",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:48.797899+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:32:35+00:00",
+        "transactions": 59
+      },
+      {
+        "hash": "0xe5904ff59cf57e937cda6a9f96519f305c900d664c8f0a37ef1b9e32b859613a",
+        "height": 26463203,
+        "parent": "0x47a2e8091bbf03d28f98b889d3b4a6523ef6e196eb629bc4fb0eebc5fb26cdaf",
+        "receipt_logs": 1507,
+        "root": "0x78c2a51050c9a4fcb097eb30078a1cc5deef007c6ad3b3add605396f6cbeb8e7",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:51.710810+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "e59a8e7f9e76c5fcdc96bd06b93df6c77d0fe0f89328c9346f1c5ad09970fd42",
+            "response_bytes": 627874,
+            "response_sha256": "1f003a82b03689e6b444cd385567fea5158aca7b1a50a5c5497c936e30e919c4",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:51.366247+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:54.292087+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "523e72145b76e3034848572f73c3c265917c2b7a907855e71e102c74b88c1645",
+            "response_bytes": 1364107,
+            "response_sha256": "1b01dd15c4b9df806396cf036c01f48e3d61d2db308bce527411c00b7ca05e41",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:51.714984+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:32:47+00:00",
+        "transactions": 320
+      },
+      {
+        "hash": "0xab6c5d88dcc2668a53101e940ff3ee7f58d3fb123cd4edf8c920c140b83158bf",
+        "height": 26463204,
+        "parent": "0xe5904ff59cf57e937cda6a9f96519f305c900d664c8f0a37ef1b9e32b859613a",
+        "receipt_logs": 1928,
+        "root": "0xd7509a9afbea9dc479da60204171c77df6f3d58bd6fbec584d4c4ee446f37cd8",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:54.775472+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "a289ec88bfa5827e8dec09d8e2e26c41d6c3c3d645d62a9ad32fe1d427df52b5",
+            "response_bytes": 360310,
+            "response_sha256": "5ef30c0887d5d73cd2d3c6f0a0a0701d510cb96f7ef4b70d26b92ee3e044cc31",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:54.353910+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:57.533119+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "150caaaf04ec27f7a94ab94eac1e53f2eff2845031a62073451098f5cd4bfce1",
+            "response_bytes": 1389619,
+            "response_sha256": "8dadd99163481e133caabbe1a6e6504b8549b7ec3ec810a136a26cc47438ea5e",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:54.777802+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:32:59+00:00",
+        "transactions": 52
+      },
+      {
+        "hash": "0x91586a7d12d6383596d50c6b94af6ef56ada695706aba237561281c20a82ef3d",
+        "height": 26463205,
+        "parent": "0xab6c5d88dcc2668a53101e940ff3ee7f58d3fb123cd4edf8c920c140b83158bf",
+        "receipt_logs": 1718,
+        "root": "0x87f5940124f6f2d1c274299fd7a264a0b3c99085f21a3add9dcad15d16a4fadd",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:57.949382+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "c3b115708824a1ea179e39ba48c7a9528fc738f23770c35c406293cbedcc45e6",
+            "response_bytes": 788901,
+            "response_sha256": "f76b622b31c7e40047a7e045b33aad4b67838cb733560106d694aead0328a04d",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:57.595725+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:47:58.810046+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "5a940032602c9e7a4bdf435e658c56cf744241c131425426a707451cf392a68a",
+            "response_bytes": 1574389,
+            "response_sha256": "71dc1f0a48ece2abbd16ce1c8dd99b608f66f65d77068f2d317318aad0cc1b05",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:57.954376+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:33:11+00:00",
+        "transactions": 373
+      },
+      {
+        "hash": "0xb4b8fe8368a35bb307a35593c3635aee54beac06366229c57e6819187858a919",
+        "height": 26463206,
+        "parent": "0x91586a7d12d6383596d50c6b94af6ef56ada695706aba237561281c20a82ef3d",
+        "receipt_logs": 2017,
+        "root": "0x42a9acd2d971ac7087bfb8687fe6a008126074fd4ff2c8180b0b0e543802b99c",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:47:59.206192+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "705704f45fdd9d4dccf6d485e2d7c17600fd044d802b3e800e4c83220ad4edc6",
+            "response_bytes": 313313,
+            "response_sha256": "976af8c3ef9d471dc37e29fd2be8d6af2f9e135820a1b045b77451b10653ad46",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:47:58.880677+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:01.028656+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "fe8c3a5172ab132215fefe40df1630fc4e8e6cb1c6525290d41739b4dbcb77ed",
+            "response_bytes": 1459916,
+            "response_sha256": "3aa015305659bca7bc47abe6b741f28b7748ad4baaf788c2374794b8e6457af2",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:47:59.208140+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:33:23+00:00",
+        "transactions": 60
+      },
+      {
+        "hash": "0xba723bb487c96770bb98a08cbd2199e12cc3821b05ba92580914bedaa20f9c1a",
+        "height": 26463207,
+        "parent": "0xb4b8fe8368a35bb307a35593c3635aee54beac06366229c57e6819187858a919",
+        "receipt_logs": 1377,
+        "root": "0x5a2c8a14270a19c2215ecdee6487542eec98be31d4cc050e84db82213d79ee86",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:48:01.458308+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "aebf28061f9dffe929e35751960173692412317c1c56ddc4f8942a96f6f63ddd",
+            "response_bytes": 679975,
+            "response_sha256": "96c58cc41d5d93669f448c8a099630f8edf98e1808f201971475a0a33166de28",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:48:01.094648+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:02.097161+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "7e843892a13ad9f548ec8d40cfb77bb70a1afcbd2d14489dac39602e66a3af75",
+            "response_bytes": 1218869,
+            "response_sha256": "3b9f9153167672e6d5c185de49a11f90b9871c77c95868b5ca312d85797c7b04",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:48:01.462251+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:33:35+00:00",
+        "transactions": 260
+      },
+      {
+        "hash": "0xe09b848ec676178c148507a3734a41b7bf5a41abf21e3eaae7ba30d72d5c6c1d",
+        "height": 26463208,
+        "parent": "0xba723bb487c96770bb98a08cbd2199e12cc3821b05ba92580914bedaa20f9c1a",
+        "receipt_logs": 1445,
+        "root": "0x223b283b7f794ffdec552b19b5e2804a7ebd276a225ad3842d1dbee0f3349870",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:48:02.490182+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "58d6b9c0797cb17080ece74c7c795d87dc16b999cef0759a35802d5ae0ed69e0",
+            "response_bytes": 476311,
+            "response_sha256": "4d183892cba6543d08c0e985915ab7497097a2342225d176b7278d9f2bbd003a",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:48:02.154965+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:03.207083+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "45d31c6e336376d0c94d6ded7089eae63d4a75b9fb39bb8f00793084b69ecde8",
+            "response_bytes": 1125677,
+            "response_sha256": "24788a4f77ed2eebd38a3a860382e0ed685cad1323bdeb04bbe5b5594e7bb755",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:48:02.492895+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:33:47+00:00",
+        "transactions": 111
+      },
+      {
+        "hash": "0xfe6ac5fbcf84f35f166390332fd1d60fe63e1487ad94a292502f6a19d13b00c7",
+        "height": 26463209,
+        "parent": "0xe09b848ec676178c148507a3734a41b7bf5a41abf21e3eaae7ba30d72d5c6c1d",
+        "receipt_logs": 970,
+        "root": "0x8eca8d3fd68fd8214215836623dff8410f1b2595930affd9328b4d6bf76ddce8",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:48:03.659181+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "1fb9152fc045a25508bebd3b07f49301b28846ba373dcec47512b2478bdd62f8",
+            "response_bytes": 568053,
+            "response_sha256": "8655ce4319d181d5accd406b12bd54a0095882a62703bc9a647dd748db431035",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:48:03.258072+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:05.580260+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "4cd433bf7071e596d6ec2801690137e451d68598daf5541daf8478d1fb668e78",
+            "response_bytes": 976032,
+            "response_sha256": "afc35f91dc0f754e1178f3352678ce32d739e6ec2fcc4e2ee64b877e373fa38f",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:48:03.662804+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:33:59+00:00",
+        "transactions": 270
+      },
+      {
+        "hash": "0x9e6930e9755d431f953a9ae7fbfa2d513ccd5a8de5906b2f22396eef88f01e31",
+        "height": 26463210,
+        "parent": "0xfe6ac5fbcf84f35f166390332fd1d60fe63e1487ad94a292502f6a19d13b00c7",
+        "receipt_logs": 1555,
+        "root": "0x20d4c153921b98419953f118e621bc2c2ea65b16c7286370e05e1685e0ee11c6",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:48:05.982301+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "04568a95cebf6f38d1506c7f6cc5a8fc1e5818645c21a4732e1e339321ff3bd2",
+            "response_bytes": 1075846,
+            "response_sha256": "ce8f9b4957be4404589d989ce2179ac04345abd3dd2d8e80762d48ed3f7d0b42",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:48:05.625427+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:08.611270+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "f046094368f2db356560d4d03a9a06c9f0545d49a055722d725a2af027e2e411",
+            "response_bytes": 1563806,
+            "response_sha256": "c1bd87133d1d1a774f9d62985103543e457e2324a01f9aa6a7c74c1de88bd8ca",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:48:05.988425+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:34:11+00:00",
+        "transactions": 462
+      },
+      {
+        "hash": "0xeedeafe9c1dbcea1c50ce715542cf43fd51f9918e491007901eccf954ca82eb6",
+        "height": 26463211,
+        "parent": "0x9e6930e9755d431f953a9ae7fbfa2d513ccd5a8de5906b2f22396eef88f01e31",
+        "receipt_logs": 998,
+        "root": "0xf108fb9c410eda95259da6aeb92e0ece0867efb531768a9a30b7af5f2a638c25",
+        "sources": [
+          {
+            "completed_utc": "2026-11-27T07:48:09.063608+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "cac38311545a00491d06932dc37681987123d51babc8b7656ddb84f6a5d43fb8",
+            "response_bytes": 686368,
+            "response_sha256": "5697028df139be6838aecd0e647a4fc0310e591c021ca2c0ef9ce37d149c52ef",
+            "source": "https://ethereum.publicnode.com",
+            "started_utc": "2026-11-27T07:48:08.681917+00:00",
+            "stderr": ""
+          },
+          {
+            "completed_utc": "2026-11-27T07:48:11.594608+00:00",
+            "curl_returncode": 0,
+            "failure": null,
+            "http": "200",
+            "request_sha256": "4ea32e96dedefea260dbb0f6284c8a4033d5d1c1c12cc35d19348b8becb0c1d1",
+            "response_bytes": 1134780,
+            "response_sha256": "24e719e424d0a7fb34b710a7adc7bbed46dddc4edeb35e5ad67b4ab89980d3a0",
+            "source": "https://eth.nodely.dev",
+            "started_utc": "2026-11-27T07:48:09.068246+00:00",
+            "stderr": ""
+          }
+        ],
+        "timestamp_utc": "2026-11-21T11:34:23+00:00",
+        "transactions": 429
+      }
+    ],
+    "counts": {
+      "header": 12,
+      "receipts": 12,
+      "trace": 1
+    },
+    "decision": "selected",
+    "matched_event_hist": {
+      "1": 473,
+      "10": 3,
+      "11": 2,
+      "116": 1,
+      "13": 1,
+      "15": 1,
+      "17": 1,
+      "19": 2,
+      "2": 98,
+      "21": 1,
+      "23": 1,
+      "24": 2,
+      "25": 2,
+      "29": 1,
+      "3": 101,
+      "34": 1,
+      "38": 1,
+      "4": 30,
+      "43": 1,
+      "48": 1,
+      "5": 13,
+      "50": 1,
+      "54": 2,
+      "56": 1,
+      "57": 1,
+      "58": 1,
+      "6": 10,
+      "66": 1,
+      "67": 1,
+      "69": 1,
+      "7": 4,
+      "70": 3,
+      "8": 5,
+      "9": 5
+    },
+    "ranked_top": [
+      {
+        "equal_amount_proxy_depth": 6,
+        "events": 70,
+        "hash": "0x5ccab418ee71a7947a7ea111c2e28dce1dd92f78278550366bced9bf94c35af7",
+        "height": 26463204,
+        "index": 10,
+        "pool_keys": 54,
+        "proxy_events": [
+          965,
+          973,
+          981,
+          984,
+          987,
+          990
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 6,
+        "events": 13,
+        "hash": "0x23f001233df2dcfc0ae9d98a8751e00d4e39f793bc6918790a9b1fefca493e4d",
+        "height": 26463205,
+        "index": 299,
+        "pool_keys": 13,
+        "proxy_events": [
+          1348,
+          1344,
+          1343,
+          1342,
+          1341,
+          1349
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 6,
+        "events": 116,
+        "hash": "0x1783158586e48f525dfb7bd6a02241580d96c84e8813f2503f2fc648822baed7",
+        "height": 26463206,
+        "index": 24,
+        "pool_keys": 80,
+        "proxy_events": [
+          1455,
+          1451,
+          1456,
+          1459,
+          1462,
+          1464
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 5,
+        "events": 6,
+        "hash": "0x95ebed0e6bfc7f4ff344d765c045f34b01f6a71559d069e74d894016a44f61f4",
+        "height": 26463204,
+        "index": 23,
+        "pool_keys": 6,
+        "proxy_events": [
+          1684,
+          1690,
+          1694,
+          1699,
+          1704
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 5,
+        "events": 54,
+        "hash": "0xc17ba397450d00d0cbe46bdcb42ed8600c70441dd059853dc2e154303623b71f",
+        "height": 26463206,
+        "index": 7,
+        "pool_keys": 49,
+        "proxy_events": [
+          689,
+          691,
+          692,
+          693,
+          695
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 5,
+        "events": 67,
+        "hash": "0x3ad468768d223c6fa9fb37f294956c7852b0da7b2d2acda7ccd327bc69c1f266",
+        "height": 26463208,
+        "index": 22,
+        "pool_keys": 55,
+        "proxy_events": [
+          422,
+          410,
+          413,
+          416,
+          419
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 4,
+        "events": 29,
+        "hash": "0xf23958c9b677d51432ae9c0a5258f543262723e74b6fccacb006f889e5da2c6b",
+        "height": 26463202,
+        "index": 15,
+        "pool_keys": 23,
+        "proxy_events": [
+          1086,
+          1089,
+          1092,
+          1095
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 4,
+        "events": 5,
+        "hash": "0xa030e34540296fca7a91e94713c3b538ab0bc615b5785d94d38ca60084bdded2",
+        "height": 26463206,
+        "index": 18,
+        "pool_keys": 5,
+        "proxy_events": [
+          1188,
+          1194,
+          1200,
+          1204
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 4,
+        "events": 24,
+        "hash": "0x2fc2c841ee1e3859df9048ac53db239b8fa61500a3bdafd685bf959e55a23cc4",
+        "height": 26463207,
+        "index": 21,
+        "pool_keys": 24,
+        "proxy_events": [
+          338,
+          332,
+          333,
+          336
+        ]
+      },
+      {
+        "equal_amount_proxy_depth": 4,
+        "events": 6,
+        "hash": "0x3eff819953569ea6704227f0a9c0e2e3e1029a715d6b5c98ed164ed18cba2d0b",
+        "height": 26463207,
+        "index": 140,
+        "pool_keys": 6,
+        "proxy_events": [
+          1081,
+          1082,
+          1093,
+          1096
+        ]
+      }
+    ],
+    "ranking_population": 71,
+    "scope_sha256": "c14a941525145340f9b38e045b2710a73c014ccb64c5a13d3080c2db9b3f6831",
+    "thresholds": {
+      "1": 773,
+      "100": 1,
+      "20": 24,
+      "200": 0,
+      "5": 71,
+      "50": 13
+    },
+    "tx_total": 2783
+  },
+  "normal_replay_sha256": "e2701cceb408b3546a5db71ba0033784e5da5fad62bd7c5a40dabe77566cab6f",
+  "schema": "ethereum-independent-window-usdc-closures-v1"
+}

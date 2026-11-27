@@ -1,0 +1,455 @@
+{
+  "anchored_afternoon": {
+    "decimals": {
+      "0x0000000000000000000000000000000000000000": 18,
+      "0x020bfc650a365f8bb26819deaabf3e21291018b4": 18,
+      "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18": 18,
+      "0x5fc5360d0400a0fd4f2af552add042d716f1d168": 6
+    },
+    "first_band": {
+      "current_liquidity": "23714791908981046884",
+      "direction": "zero_for_one",
+      "gross_wei_to_grid_line": "689656662",
+      "lower_grid_tick": 115299,
+      "net_wei_to_grid_line": "681833886",
+      "swap_fee_pips": 11343
+    },
+    "hash": "0xadeb87fac13779747f602c0464e29c838ffbdc3ebd00eb216f1df7aa1e6f329e",
+    "highest_quoted_grid_wei": null,
+    "isolated_fourth_at_original_input": {
+      "input_wei": "99381415795914",
+      "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+      "status": "NotEnoughLiquidity"
+    },
+    "isolated_fourth_currency_out": "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+    "isolated_fourth_input_tiers": [
+      {
+        "input_wei": "10000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "1000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "10000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "25000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "50000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "75000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "100000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "125000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "200000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "1000000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      }
+    ],
+    "lowest_rejected_grid_wei": "10000000000",
+    "number": 124085182,
+    "prefixes": [
+      {
+        "amount_out": "3418053365573764899",
+        "length": 1,
+        "output_currency": "0x020bfc650a365f8bb26819deaabf3e21291018b4",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "172248",
+        "length": 2,
+        "output_currency": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "99381415795914",
+        "length": 3,
+        "output_currency": "0x0000000000000000000000000000000000000000",
+        "status": "quoted"
+      },
+      {
+        "length": 4,
+        "output_currency": "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "length": 24,
+        "output_currency": "0x0000000000000000000000000000000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      }
+    ],
+    "slot": {
+      "liquidity": 23714791908981046884,
+      "lp_fee": 10353,
+      "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+      "protocol_fee_packed": 4097000,
+      "sqrt_price_x96": 25260409414693572635910712454721,
+      "tick": 115299
+    },
+    "source_count": 1,
+    "state_root": "0xab6b8d35e86a719d69d69ef50d32ec5bc159f09a18c31415a660895ec7c5ced6"
+  },
+  "baseline_report_sha256": "b9fd93dee8f7181afce34bf728bcf7389f52202d69473d23fdf05fcd12a99588",
+  "chain_id": 4663,
+  "earlier_morning": {
+    "error": {
+      "code": -32000,
+      "message": "historical state 75cd846547205694c7100469f5a435c097a9aca84a08a8508735ef2861b4ba43 is not available"
+    },
+    "first_band": {
+      "current_liquidity": "23714791908981046884",
+      "direction": "zero_for_one",
+      "gross_wei_to_grid_line": "379342265630532",
+      "lower_grid_tick": 115920,
+      "net_wei_to_grid_line": "375039386311484",
+      "swap_fee_pips": 11343
+    },
+    "hash": "0xbcdff4c5e2f6486869168da73a33367cefd6844c813c4c6321b8a390a61b0fbf",
+    "historical_quote": {
+      "gross_wei": -6114613981360,
+      "hops": 24,
+      "input_wei": 100000000000000,
+      "optimistic_net_wei_before_other_costs": -6534697981360,
+      "output_wei": 93885386018640,
+      "quoter_gas_estimate": 755285,
+      "route": "v4-24",
+      "status": "quoted"
+    },
+    "isolated_fourth_at_original_input": null,
+    "number": 123899187,
+    "slot": {
+      "liquidity": 23714791908981046884,
+      "lp_fee": 10353,
+      "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+      "protocol_fee_packed": 4097000,
+      "sqrt_price_x96": 26193244243859693245795203846829,
+      "tick": 116024
+    },
+    "source_count_for_segments": 0
+  },
+  "historical_scope_sha256": "b800b0f15f0f24378fcf10f8035e88c63bc497546a333df6d71eb6f063533edc",
+  "historical_stop_ledger_counts": {
+    "official": 28,
+    "publicnode": 25
+  },
+  "historical_wire": [
+    {
+      "received_ns": 1364351028200166,
+      "request_sha256": "ede4ee33874beac549541317c3f18c9aca85b61c554580df750228aa3ce3f496",
+      "response_sha256": "dce177793b3b410e1e977e3dcf949300a131deb60ab08554ef64ddf8ba51c801",
+      "retrieved_unix_ns": 1795765193534697000,
+      "sent_ns": 1364350621598208,
+      "source": "https://rpc.mainnet.chain.robinhood.com",
+      "status": 200
+    },
+    {
+      "received_ns": 1364351307527875,
+      "request_sha256": "3e8f937e25f8c426ed49cebf22ba14e77147ffc222d75c39d2c67fd6a9ccaa87",
+      "response_sha256": "cc46eaa9e020321c3940f35e684d67e3ca23fbf7aea2c19eb21f0c96235ee6dd",
+      "retrieved_unix_ns": 1795765193814093000,
+      "sent_ns": 1364351035389333,
+      "source": "https://rpc.mainnet.chain.robinhood.com",
+      "status": 200
+    },
+    {
+      "received_ns": 1364351594376916,
+      "request_sha256": "17f23156624e626e9c64ab73d1761ca188aa02a1ca70e7dcbc20d269b023bb32",
+      "response_sha256": "5cbe7a1412043db226f5606378e6bc77e1a74b742096151495277389df6d43fc",
+      "retrieved_unix_ns": 1795765194101297000,
+      "sent_ns": 1364351319533541,
+      "source": "https://rpc.mainnet.chain.robinhood.com",
+      "status": 200
+    }
+  ],
+  "original_ledger_counts": {
+    "official": 30,
+    "publicnode": 29
+  },
+  "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+  "principal_native_wei": "100000000000000",
+  "route": "v4-24",
+  "schema": "oasis-robinhood-fourth-leg-capacity-v1",
+  "subsequent_blind_window": {
+    "decimals": {
+      "0x0000000000000000000000000000000000000000": 18,
+      "0x020bfc650a365f8bb26819deaabf3e21291018b4": 18,
+      "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18": 18,
+      "0x5fc5360d0400a0fd4f2af552add042d716f1d168": 6
+    },
+    "feed_summary": {
+      "capture_sha256": "1422769316507923f7476866f0e8c479eebb702a57c3cb3b0943027578973ac3",
+      "chain_id": 4663,
+      "compressed_envelopes": 7,
+      "compression": "arbitrum-permessage-deflate",
+      "confirmation_envelopes": 0,
+      "envelopes": 7,
+      "evidence_limits": [
+        "single feed source",
+        "receipt/state absence",
+        "no finality validation"
+      ],
+      "feed_block_hashes": 7,
+      "first_receive_utc": "2026-11-27T07:42:33.775652+00:00",
+      "first_sequence": 124091614,
+      "forward_gap_missing": 0,
+      "genesis_block_offset": 0,
+      "incomplete_fragment": false,
+      "last_receive_utc": "2026-11-27T07:42:34.165626+00:00",
+      "last_sequence": 124091620,
+      "messages": 7,
+      "method_rpc_reads": 0,
+      "non_increasing_pairs": 0,
+      "parent_header_kinds": {
+        "3": 7
+      },
+      "receive_span_seconds": 0.389978667,
+      "schema": "oasis-robinhood-nitro-replay-v1",
+      "signatures_v2_present": 7,
+      "signatures_verified": 0,
+      "signed_envelope_kinds": {
+        "3": 4,
+        "4": 13
+      },
+      "signed_eth_hashes": 13,
+      "unique_sequences": 7
+    },
+    "first_band": {
+      "current_liquidity": "23714791908981046884",
+      "direction": "zero_for_one",
+      "gross_wei_to_grid_line": "689656662",
+      "immediate_liquidity_below_grid_line": "0",
+      "lower_grid_tick": 115299,
+      "net_wei_to_grid_line": "681833886",
+      "swap_fee_pips": 11343
+    },
+    "hash": "0x383a9238635439950d781f67be3be2d0a198c744ee79b6e6b8cca634346d1ed2",
+    "highest_quoted_grid_wei": "500000000",
+    "isolated_fourth_at_original_input": {
+      "input_wei": "98962916720681",
+      "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+      "status": "NotEnoughLiquidity"
+    },
+    "isolated_fourth_currency_out": "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+    "isolated_fourth_input_tiers": [
+      {
+        "amount_out": "100433488",
+        "input_wei": "1000",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "10049956307",
+        "input_wei": "100000",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "1005002746338",
+        "input_wei": "10000000",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "10050027451362",
+        "input_wei": "100000000",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "50250136989643",
+        "input_wei": "500000000",
+        "status": "quoted"
+      },
+      {
+        "input_wei": "1000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "10000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "1000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "10000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "25000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "50000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "75000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "100000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "125000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "200000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "input_wei": "1000000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      }
+    ],
+    "lowest_rejected_grid_wei": "1000000000",
+    "number": 124091614,
+    "prefixes": [
+      {
+        "amount_out": "3484680483239666790",
+        "length": 1,
+        "output_currency": "0x020bfc650a365f8bb26819deaabf3e21291018b4",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "170933",
+        "length": 2,
+        "output_currency": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+        "status": "quoted"
+      },
+      {
+        "amount_out": "98962916720681",
+        "length": 3,
+        "output_currency": "0x0000000000000000000000000000000000000000",
+        "status": "quoted"
+      },
+      {
+        "length": 4,
+        "output_currency": "0x2e8c31162b855a2ffa90f6f8634643ad6f111e18",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      },
+      {
+        "length": 24,
+        "output_currency": "0x0000000000000000000000000000000000000000",
+        "pool_id": "0xb7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c1",
+        "status": "NotEnoughLiquidity"
+      }
+    ],
+    "runtime_keccaks": {
+      "0x8366a39cc670b4001a1121b8f6a443a643e40951": "bd3881180b547f5fe817545743cfb4343e96b1bc6640dcd70c106b0066e95626",
+      "0x8876789976decbfcbbbe364623c63652db8c0904": "2ce6aaaf9f4151f5e1cbf774668772f17f532ae11b15e9284fd0a072a8b0fbde",
+      "0x8dc178efb8111bb0973dd9d722ebeff267c98f94": "d707b1da8cb165e5ea35a3b4450d971eb562ec171e23492aa117036b78a868f6",
+      "0xca11bde05977b3631167028862be2a173976ca11": "d5c15df687b16f2ff992fc8d767b4216323184a2bbc6ee2f9c398c318e770891",
+      "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b": "7d9c591e0956fd89d98feb4ffcfe8bf1f7a62bd485edd979fa21d104b49878a6"
+    },
+    "scope_sha256": "700918bc41af355908797d984495b7eef73b3d445d1438419f448bac0e38df82",
+    "slot_and_boundary": {
+      "liquidity": 23714791908981046884,
+      "lower_tick_liquidity_gross": 23714791908981046884,
+      "lower_tick_liquidity_net": 23714791908981046884,
+      "lp_fee": 10353,
+      "protocol_fee_packed": 4097000,
+      "sqrt_price_x96": 25260409414693572635910712454721,
+      "tick": 115299
+    },
+    "source_count": 2,
+    "state_root": "0x21d9739038fb359b26659b4aabc1f64d148679e1d6625ecaacbdefb1ae40a725",
+    "wire": [
+      {
+        "received_ns": 1364512439544541,
+        "request_sha256": "f9201a37989c8e1bf07fa1cfe3822817d5d90d5d57bb87756e2b337d1c0ca930",
+        "response_sha256": "4dfd6e70665edfbf200ea66f975d71659b5512c78e6b0059468f3cd77e326633",
+        "retrieved_unix_ns": 1795765354945771000,
+        "sent_ns": 1364512171113208,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      },
+      {
+        "received_ns": 1364512575653083,
+        "request_sha256": "910b334b0da9f746412f8b98dc5195f619f2a804e8d25c40b63fdbe062c2cf3c",
+        "response_sha256": "79e9aa489ac5c2293a8fe7d8074bd3372a8fa6d89ca42837e801f952c52835cd",
+        "retrieved_unix_ns": 1795765355081903000,
+        "sent_ns": 1364512441951541,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      },
+      {
+        "received_ns": 1364512997120583,
+        "request_sha256": "24be78ff60d7bd0902118e45d5c78faf7d315f85a3d9298f7f9b1d21dc654869",
+        "response_sha256": "5b403fef0a124c326d76ebb4ef0a0f91f95b91c013ac82155290dc382d89e93f",
+        "retrieved_unix_ns": 1795765355504766000,
+        "sent_ns": 1364512581634125,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      {
+        "received_ns": 1364513143951291,
+        "request_sha256": "24be78ff60d7bd0902118e45d5c78faf7d315f85a3d9298f7f9b1d21dc654869",
+        "response_sha256": "5b403fef0a124c326d76ebb4ef0a0f91f95b91c013ac82155290dc382d89e93f",
+        "retrieved_unix_ns": 1795765355651575000,
+        "sent_ns": 1364513002150875,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      },
+      {
+        "received_ns": 1364513443658666,
+        "request_sha256": "f382d9cc2ab65292df8f7f123d8da49c4e6b095a2823f9699ec1a38b0d94a972",
+        "response_sha256": "534d41d012d76bdb2eeaa2128f61bc3848b2e2b2bcd64016b372641be853f58c",
+        "retrieved_unix_ns": 1795765355950795000,
+        "sent_ns": 1364513156351958,
+        "source": "https://rpc.mainnet.chain.robinhood.com",
+        "status": 200
+      },
+      {
+        "received_ns": 1364513604650916,
+        "request_sha256": "f382d9cc2ab65292df8f7f123d8da49c4e6b095a2823f9699ec1a38b0d94a972",
+        "response_sha256": "534d41d012d76bdb2eeaa2128f61bc3848b2e2b2bcd64016b372641be853f58c",
+        "retrieved_unix_ns": 1795765356112294000,
+        "sent_ns": 1364513448427333,
+        "source": "https://robinhood-rpc.publicnode.com",
+        "status": 200
+      }
+    ]
+  }
+}

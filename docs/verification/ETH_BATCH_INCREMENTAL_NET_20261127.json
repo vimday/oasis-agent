@@ -1,0 +1,852 @@
+{
+  "anonymous_reads": 18,
+  "cases": [
+    {
+      "batch": {
+        "called": 30,
+        "record_count": 44,
+        "record_index": 11,
+        "target_call_sha256": "0688d2b70c5dbe410b84ad6d3705d15818e7f5374dc90b09ce0d844b0a9cfee1"
+      },
+      "block": 26478288,
+      "full_minus_drop": {
+        "conditional_net_wei": 528354751889949,
+        "direct_payment_wei": 537664674420226,
+        "gas": 407649,
+        "gas_cost_wei": 623489503785852
+      },
+      "hash": "0xd0b6a1dd706da51f6f239b0b6d813ab43b1e62147cbff321146a620e8f757376",
+      "index": 143,
+      "prior_route_swap_indices": [
+        28
+      ],
+      "receipts_root": "0x84d3da9de3b6123d0ade49ccaaa02311c32a8632e09da56992e6c6a4a9ca52cf",
+      "requests": {
+        "after_landed": {
+          "envelope_sha256": "0a067869b01abcc6dd2c40e664db3b4a646719d8a864218433b998b8f946f4b8",
+          "request_sha256": "195c44d1db357fe563d100572debea62dbafb0574f387491822d02acbac5d367",
+          "response_sha256": "f9445f296bf04128ae2f9a6b3e1973b106f44543cf03ac3528a01c4fea449aab",
+          "tx_index_before": 144,
+          "wire": "b3ef721461c5-after_landed"
+        },
+        "after_touch": {
+          "envelope_sha256": "0a067869b01abcc6dd2c40e664db3b4a646719d8a864218433b998b8f946f4b8",
+          "request_sha256": "2d3132a8e206950af94f7dfcc15baa0fd124ed141eab96401e23cc913f82319b",
+          "response_sha256": "8c8f6134575b58bc334fec9ba1436fb0b1ec93cbda4bdbc6599053038fb4eaaa",
+          "tx_index_before": 29,
+          "wire": "b3ef721461c5-after_touch"
+        },
+        "before_touch": {
+          "envelope_sha256": "0a067869b01abcc6dd2c40e664db3b4a646719d8a864218433b998b8f946f4b8",
+          "request_sha256": "ff368879ce54e466a44bf8fc4312efdf0ec3f301c45d00602537147a3c5d0f3a",
+          "response_sha256": "bcc2ebb51e2c6ee53a572a122abaf08efd7d17147659de28afb1378435b70afa",
+          "tx_index_before": 28,
+          "wire": "b3ef721461c5-before_touch"
+        },
+        "drop": {
+          "envelope_sha256": "ae634c3808e521c529196a5017dc73f2495e1c6c9d99c22f3f3b03995c096b03",
+          "request_sha256": "7c36789386e01dffab54d2f12f12933cdfdc4b8cdbe70e7fe3f55bbadc3d0626",
+          "response_sha256": "749d659d7a75fde0d4ee788a0a07b6c234380703a9bf2a2c41682bd1b89897d6",
+          "tx_index_before": 143,
+          "wire": "b3ef721461c5-drop"
+        },
+        "landed": {
+          "envelope_sha256": "0a067869b01abcc6dd2c40e664db3b4a646719d8a864218433b998b8f946f4b8",
+          "request_sha256": "83667ec77430ec2eb7b8d079af4a4edffae7b37b5246fb1ab52cb1c6e6f61f5b",
+          "response_sha256": "4142d44be6108a5dc8f3d64f9d375adabbe29333f7ba776d20e6506958a8000c",
+          "tx_index_before": 143,
+          "wire": "b3ef721461c5-landed"
+        },
+        "only": {
+          "envelope_sha256": "d3b23b39d6e3ebc99c5c206fa934f3808f389e23ff22d50d0a594b4af3386db9",
+          "request_sha256": "72771c242d2d147e5e577485936ea7d3e727bc77b5f9b501c9cfc4107196b161",
+          "response_sha256": "365948f670cdd9ca7fa3138414de3cbd4b16a5effe4f709d278e90cf7020fa22",
+          "tx_index_before": 143,
+          "wire": "b3ef721461c5-only"
+        },
+        "opening": {
+          "envelope_sha256": "0a067869b01abcc6dd2c40e664db3b4a646719d8a864218433b998b8f946f4b8",
+          "request_sha256": "566fddd16f79062bf00f935987e9ca0a9e1945c52d8447e149043970bf5bb7cf",
+          "response_sha256": "418c48b7b47a073276ae10dc3771246cf643b438ca1eb2dc2d67b5e9718a647e",
+          "tx_index_before": 0,
+          "wire": "b3ef721461c5-opening"
+        }
+      },
+      "stages": {
+        "after_landed": {
+          "conditional_net_wei": -2851872304815236,
+          "direct_payment_wei": 0,
+          "failed_calls": 5,
+          "gas": 1864607,
+          "gas_cost_wei": 2851872304815236,
+          "logs": 0,
+          "revert_string": "profit",
+          "role_deltas": [
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -2851872304815236
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 2,
+          "status": "revert",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "after_touch": {
+          "conditional_net_wei": 15197159376759664,
+          "direct_payment_wei": 15003868744328467,
+          "failed_calls": 0,
+          "gas": 10364477,
+          "gas_cost_wei": 15852222430889996,
+          "logs": 393,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 46053250551978127
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -15003868744328467
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -15852222430889996
+            }
+          ],
+          "self_call_cash_reconciled": 44,
+          "self_call_cash_weth_wei": 46053250551978127,
+          "self_calls": 44,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            115159857800375489,
+            116638701057962621
+          ]
+        },
+        "before_touch": {
+          "conditional_net_wei": 14176635160487785,
+          "direct_payment_wei": 13979061994282189,
+          "failed_calls": 0,
+          "gas": 10343269,
+          "gas_cost_wei": 15819785296501612,
+          "logs": 393,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 43975482451271586
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -13979061994282189
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -15819785296501612
+            }
+          ],
+          "self_call_cash_reconciled": 44,
+          "self_call_cash_weth_wei": 43975482451271586,
+          "self_calls": 44,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            115546357031965758,
+            116638701057962621
+          ]
+        },
+        "drop": {
+          "conditional_net_wei": 5443298286469477,
+          "direct_payment_wei": 5305400698933796,
+          "failed_calls": 4,
+          "gas": 7107801,
+          "gas_cost_wei": 10871213515790748,
+          "logs": 243,
+          "other_calls_with_changed_logs_status_or_output": 12,
+          "other_calls_with_changed_weth_delta": 12,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 21619912501194021
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -5305400698933796
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -10871213515790748
+            }
+          ],
+          "self_call_cash_reconciled": 28,
+          "self_call_cash_weth_wei": 21619912501194021,
+          "self_calls": 29,
+          "status": "success",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "landed": {
+          "conditional_net_wei": 5971653038359426,
+          "direct_payment_wei": 5843065373354022,
+          "failed_calls": 4,
+          "gas": 7515450,
+          "gas_cost_wei": 11494703019576600,
+          "logs": 256,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 23309421431290048
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -5843065373354022
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -11494703019576600
+            }
+          ],
+          "self_call_cash_reconciled": 29,
+          "self_call_cash_weth_wei": 23309421431290048,
+          "self_calls": 30,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            114874482420509368,
+            116638701057962621
+          ]
+        },
+        "only": {
+          "conditional_net_wei": 644928068275049,
+          "direct_payment_wei": 376679329504720,
+          "failed_calls": 0,
+          "gas": 485533,
+          "gas_cost_wei": 742611239673484,
+          "logs": 13,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 1764218637453253
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -376679329504720
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -742611239673484
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "success",
+          "target_called": false,
+          "target_six_hop_io": [
+            114874482420509368,
+            116638701057962621
+          ]
+        },
+        "opening": {
+          "conditional_net_wei": 8202960836196575,
+          "direct_payment_wei": 8005387669990979,
+          "failed_calls": 0,
+          "gas": 10347716,
+          "gas_cost_wei": 15826586877821168,
+          "logs": 393,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 32034935384008722
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -8005387669990979
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -15826586877821168
+            }
+          ],
+          "self_call_cash_reconciled": 44,
+          "self_call_cash_weth_wei": 32034935384008722,
+          "self_calls": 44,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            115546357031965758,
+            116638701057962621
+          ]
+        }
+      },
+      "transactions_commitment": {
+        "count_by_type": {
+          "2": 199
+        },
+        "signed_transactions": 199,
+        "transactions_root": "0x55783ff544fd83c40ac229378c4fee0d85b2ea6e4c345b9f0894526c300fb5ff"
+      },
+      "tx": "0xb3ef721461c5031a6c949dbd8ac28f58741156d286381038e03d2be7526c375f"
+    },
+    {
+      "batch": {
+        "called": 26,
+        "record_count": 47,
+        "record_index": 43,
+        "target_call_sha256": "2ee91b0de8361c12afdcf9ba0d6b112fccd267a7d9c073094c0e00cc48c69751"
+      },
+      "block": 26478285,
+      "full_minus_drop": {
+        "conditional_net_wei": 121490982829648,
+        "direct_payment_wei": 122374925542742,
+        "gas": 360869,
+        "gas_cost_wei": 520371163020422
+      },
+      "hash": "0x6a7bc941501bc48f6d0cde7d2ccc2a4cd3d50467851770222b498fd50c7550f3",
+      "index": 41,
+      "prior_route_swap_indices": [
+        16,
+        24
+      ],
+      "receipts_root": "0x9ab4abc48571a07e8fc11cb23f93697d0018624ec649ab2defc5ce8291519bd4",
+      "requests": {
+        "after_landed": {
+          "envelope_sha256": "7049389d144503339fbbde44d0df05b5e3c8f214c32690419bd86fb1dee564d3",
+          "request_sha256": "4f09bf76d8d4b5d65125b825bb2d17b4b85f057ac7fe6a79c1560d0fe92c12d7",
+          "response_sha256": "0a9b3703f0f9dc38e3579e05ff23f4485f45b6af8774da9963ce8be376eb1429",
+          "tx_index_before": 42,
+          "wire": "f99920390d46-after_landed"
+        },
+        "after_touch": {
+          "envelope_sha256": "7049389d144503339fbbde44d0df05b5e3c8f214c32690419bd86fb1dee564d3",
+          "request_sha256": "75c2af8af87558bb548f63a8cdd0e69047d8d1c2484760443f0830da4aabb4d3",
+          "response_sha256": "dd6f0567189f4e14486ff46faec4d6365f1868d535365bf8bbff7321fa85607a",
+          "tx_index_before": 25,
+          "wire": "f99920390d46-after_touch"
+        },
+        "before_touch": {
+          "envelope_sha256": "7049389d144503339fbbde44d0df05b5e3c8f214c32690419bd86fb1dee564d3",
+          "request_sha256": "79332f42cda980d288790966efa4ddacb41e65e3738da7fbe91cd6aa3f494a5e",
+          "response_sha256": "a5de3a1a226749934016e9f54c207474da4c7560ac3aef4e6e93847a90426279",
+          "tx_index_before": 24,
+          "wire": "f99920390d46-before_touch"
+        },
+        "drop": {
+          "envelope_sha256": "3fa963fa59985caaded1f04d6f217f954b98f93e8c7d11919ecb30ddf594746d",
+          "request_sha256": "cec654b8e32d56d2265cabb310243fc69eb69e440acad74e261151c953dff672",
+          "response_sha256": "62ddf2042a6a03155b75b6bf2df8a6e310a348f13d61d52029692bc88fb9b248",
+          "tx_index_before": 41,
+          "wire": "f99920390d46-drop"
+        },
+        "landed": {
+          "envelope_sha256": "7049389d144503339fbbde44d0df05b5e3c8f214c32690419bd86fb1dee564d3",
+          "request_sha256": "abd4dbadeccc378edf3401df85afbccf2a0b6970674478197cda0d3508bf510c",
+          "response_sha256": "4d4a0cbf6bbee62b0045b7e8f02fd354112a28a56134cf2548adfe610e494daf",
+          "tx_index_before": 41,
+          "wire": "f99920390d46-landed"
+        },
+        "only": {
+          "envelope_sha256": "2bca67d12405e03dd929d464603f188ad344997de5dabd5251f6db0ce67409e2",
+          "request_sha256": "6d11bbc58948e3c0c77b7b9cd2d5e8bf8ddccce9c8613788df1559afb514270f",
+          "response_sha256": "3348d2c21c34d5380a5779650f536af7d9050f7a1653daeb0a10390f3db7be8d",
+          "tx_index_before": 41,
+          "wire": "f99920390d46-only"
+        },
+        "opening": {
+          "envelope_sha256": "7049389d144503339fbbde44d0df05b5e3c8f214c32690419bd86fb1dee564d3",
+          "request_sha256": "3a25ad4f7295ce4aa136ada93db90036dc72688fc543bab29654abf487208ee4",
+          "response_sha256": "7e1b702dc4f804af4c90041560c04cd54435bc8b2958564f710e049cfb535fe5",
+          "tx_index_before": 0,
+          "wire": "f99920390d46-opening"
+        }
+      },
+      "stages": {
+        "after_landed": {
+          "conditional_net_wei": -1657020552434646,
+          "direct_payment_wei": 0,
+          "failed_calls": 2,
+          "gas": 1149117,
+          "gas_cost_wei": 1657020552434646,
+          "logs": 0,
+          "revert_string": "profit",
+          "role_deltas": [
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -1657020552434646
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 1,
+          "status": "revert",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "after_touch": {
+          "conditional_net_wei": 2204151034788512,
+          "direct_payment_wei": 1903017852540334,
+          "failed_calls": 1,
+          "gas": 6475490,
+          "gas_cost_wei": 9337621858422620,
+          "logs": 243,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 13444790745751466
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -1903017852540334
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -9337621858422620
+            }
+          ],
+          "self_call_cash_reconciled": 25,
+          "self_call_cash_weth_wei": 13444790745751466,
+          "self_calls": 26,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            28258033989117410,
+            29022271060510222
+          ]
+        },
+        "before_touch": {
+          "conditional_net_wei": 3841027895393253,
+          "direct_payment_wei": 3597287541732113,
+          "failed_calls": 2,
+          "gas": 7297241,
+          "gas_cost_wei": 10522582394193758,
+          "logs": 265,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 17960897831319124
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -3597287541732113
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -10522582394193758
+            }
+          ],
+          "self_call_cash_reconciled": 28,
+          "self_call_cash_weth_wei": 17960897831319124,
+          "self_calls": 30,
+          "status": "success",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "drop": {
+          "conditional_net_wei": 2082660051958864,
+          "direct_payment_wei": 1780642926997592,
+          "failed_calls": 1,
+          "gas": 6114621,
+          "gas_cost_wei": 8817250695402198,
+          "logs": 229,
+          "other_calls_with_changed_logs_status_or_output": 0,
+          "other_calls_with_changed_weth_delta": 0,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 12680553674358654
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -1780642926997592
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -8817250695402198
+            }
+          ],
+          "self_call_cash_reconciled": 24,
+          "self_call_cash_weth_wei": 12680553674358654,
+          "self_calls": 25,
+          "status": "success",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "landed": {
+          "conditional_net_wei": 2204151034788512,
+          "direct_payment_wei": 1903017852540334,
+          "failed_calls": 1,
+          "gas": 6475490,
+          "gas_cost_wei": 9337621858422620,
+          "logs": 243,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 13444790745751466
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -1903017852540334
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -9337621858422620
+            }
+          ],
+          "self_call_cash_reconciled": 25,
+          "self_call_cash_weth_wei": 13444790745751466,
+          "self_calls": 26,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            28258033989117410,
+            29022271060510222
+          ]
+        },
+        "only": {
+          "conditional_net_wei": -100003770139938,
+          "direct_payment_wei": 0,
+          "failed_calls": 1,
+          "gas": 69351,
+          "gas_cost_wei": 100003770139938,
+          "logs": 0,
+          "revert_string": "profit",
+          "role_deltas": [
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -100003770139938
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "revert",
+          "target_called": false,
+          "target_six_hop_io": null
+        },
+        "opening": {
+          "conditional_net_wei": 9934754571062982,
+          "direct_payment_wei": 9404923923217280,
+          "failed_calls": 0,
+          "gas": 10266625,
+          "gas_cost_wei": 14804418200356750,
+          "logs": 438,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+              "delta_after_receipt_gas": 34144096694637012
+            },
+            {
+              "account": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -9404923923217280
+            },
+            {
+              "account": "0xc1910eeac002b37758fa0a5299b4939501343a3b",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -14804418200356750
+            }
+          ],
+          "self_call_cash_reconciled": 47,
+          "self_call_cash_weth_wei": 34144096694637012,
+          "self_calls": 47,
+          "status": "success",
+          "target_called": true,
+          "target_six_hop_io": [
+            28163677894998165,
+            29022271060510222
+          ]
+        }
+      },
+      "transactions_commitment": {
+        "count_by_type": {
+          "0": 2,
+          "2": 147,
+          "3": 1,
+          "4": 1
+        },
+        "signed_transactions": 151,
+        "transactions_root": "0x83a700311bea57eb18d0babb374c312548ca40d81ae0aa9ea332b50ad6d77747"
+      },
+      "tx": "0xf99920390d463751870cc42cc8b67b89c05ccc406e55a3b6acc08d04f4df27a0"
+    },
+    {
+      "batch": {},
+      "block": 26478283,
+      "hash": "0x254360338434af7c2cf1bdd812b5f0c552580f710f2ad174ec7dbed5752e70c5",
+      "index": 112,
+      "prior_route_swap_indices": [
+        17,
+        111
+      ],
+      "receipts_root": "0xe5026ad7474211423d4801358151e16d2ecdb290dd3c585f107819115ffdb63b",
+      "requests": {
+        "after_landed": {
+          "envelope_sha256": "ec5ccb0eaa1bb477eaf949ebda33d2a20cf012226d878ee7afccc98993195985",
+          "request_sha256": "98d0dbc4be0fbb30bb62c34cb16e02fe876465ca8b21023626039e840ef03e05",
+          "response_sha256": "98ac69612c54c2da51fb79e542882528812189bd30200a61b5e54e8a5bf6010e",
+          "tx_index_before": 113,
+          "wire": "fdc95125e665-after_landed"
+        },
+        "after_touch": {
+          "envelope_sha256": "ec5ccb0eaa1bb477eaf949ebda33d2a20cf012226d878ee7afccc98993195985",
+          "request_sha256": "d0891f0fb81f3e8067574dce8bc0fb1f1a4ded7ce22b288caea7f837668e56ca",
+          "response_sha256": "8305014e8b0b928891bb8e0ba7945d10f31c83ec719a7a9aa1f9e3f273929456",
+          "tx_index_before": 112,
+          "wire": "fdc95125e665-landed"
+        },
+        "before_touch": {
+          "envelope_sha256": "ec5ccb0eaa1bb477eaf949ebda33d2a20cf012226d878ee7afccc98993195985",
+          "request_sha256": "007618ff9e8f5f4d7173f074df46ab8ffaba83cfd9344118c561c851dea2353a",
+          "response_sha256": "41ddfa6e898a853eabf2dfd8b93969ca0c30b2852b8df406d419ea97535b21bb",
+          "tx_index_before": 111,
+          "wire": "fdc95125e665-before_touch"
+        },
+        "landed": {
+          "envelope_sha256": "ec5ccb0eaa1bb477eaf949ebda33d2a20cf012226d878ee7afccc98993195985",
+          "request_sha256": "d0891f0fb81f3e8067574dce8bc0fb1f1a4ded7ce22b288caea7f837668e56ca",
+          "response_sha256": "8305014e8b0b928891bb8e0ba7945d10f31c83ec719a7a9aa1f9e3f273929456",
+          "tx_index_before": 112,
+          "wire": "fdc95125e665-landed"
+        },
+        "opening": {
+          "envelope_sha256": "ec5ccb0eaa1bb477eaf949ebda33d2a20cf012226d878ee7afccc98993195985",
+          "request_sha256": "45ff1c8af134108ab3c0ae734bcd7caea118eb30746d5b45d4291b957cbecb0f",
+          "response_sha256": "b351c77c2c81426575ab9bc1f5275d8a47ec3f6ffb6fa7587847e78e98a4c7bd",
+          "tx_index_before": 0,
+          "wire": "fdc95125e665-opening"
+        }
+      },
+      "stages": {
+        "after_landed": {
+          "conditional_net_wei": -1062975466731180,
+          "direct_payment_wei": 0,
+          "failed_calls": 9,
+          "gas": 884490,
+          "gas_cost_wei": 1062975466731180,
+          "logs": 0,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+              "asset": "ETH",
+              "delta_after_receipt_gas": -1062975466731180
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "revert",
+          "target_called": null,
+          "target_six_hop_io": null
+        },
+        "after_touch": {
+          "conditional_net_wei": null,
+          "direct_payment_wei": 112960043889826183,
+          "failed_calls": 2,
+          "gas": 13019199,
+          "gas_cost_wei": 15646405424019618,
+          "logs": 569,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+              "asset": "ETH",
+              "delta_after_receipt_gas": 2308256252250696
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5",
+              "delta_after_receipt_gas": -1
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+              "delta_after_receipt_gas": 8
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+              "delta_after_receipt_gas": -992772596382
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "success",
+          "target_called": null,
+          "target_six_hop_io": null
+        },
+        "before_touch": {
+          "conditional_net_wei": null,
+          "direct_payment_wei": 115597893041827463,
+          "failed_calls": 2,
+          "gas": 13020441,
+          "gas_cost_wei": 15647898053138862,
+          "logs": 569,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+              "asset": "ETH",
+              "delta_after_receipt_gas": 2308256252250696
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5",
+              "delta_after_receipt_gas": -1
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+              "delta_after_receipt_gas": 8
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+              "delta_after_receipt_gas": -992772596382
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "success",
+          "target_called": null,
+          "target_six_hop_io": null
+        },
+        "landed": {
+          "conditional_net_wei": null,
+          "direct_payment_wei": 112960043889826183,
+          "failed_calls": 2,
+          "gas": 13019199,
+          "gas_cost_wei": 15646405424019618,
+          "logs": 569,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+              "asset": "ETH",
+              "delta_after_receipt_gas": 2308256252250696
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5",
+              "delta_after_receipt_gas": -1
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+              "delta_after_receipt_gas": 8
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+              "delta_after_receipt_gas": -992772596382
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "success",
+          "target_called": null,
+          "target_six_hop_io": null
+        },
+        "opening": {
+          "conditional_net_wei": null,
+          "direct_payment_wei": 41894799315436025,
+          "failed_calls": 0,
+          "gas": 13310756,
+          "gas_cost_wei": 15996797105275192,
+          "logs": 584,
+          "revert_string": null,
+          "role_deltas": [
+            {
+              "account": "0x00000000fff16d2b960b3ef2686e40ba99403835",
+              "asset": "ETH",
+              "delta_after_receipt_gas": 2332171968412496
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0x64aa3364f17a4d01c6f1751fd97c2bd3d7e7f1d5",
+              "delta_after_receipt_gas": -1
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+              "delta_after_receipt_gas": 8
+            },
+            {
+              "account": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+              "asset": "0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+              "delta_after_receipt_gas": -992772596382
+            }
+          ],
+          "self_call_cash_reconciled": 0,
+          "self_call_cash_weth_wei": 0,
+          "self_calls": 0,
+          "status": "success",
+          "target_called": null,
+          "target_six_hop_io": null
+        }
+      },
+      "transactions_commitment": {
+        "count_by_type": {
+          "0": 6,
+          "2": 186
+        },
+        "signed_transactions": 192,
+        "transactions_root": "0xcb38a7e752f5f4ac33090c321eecbf51dca64ab51156398c450c5427a2d3adce"
+      },
+      "tx": "0xfdc95125e665fcb4166c6935819d34189302336f8276568e228bffdf6143a1f9"
+    }
+  ],
+  "chain_id": 1,
+  "schema": "oasis-ethereum-batch-entry-marginals-v2",
+  "scope_sha256": "15468cfa2c9bae813051671da1293e4afdc70939953b3a24d1d078ab5f0c7a5f",
+  "source": "https://eth.drpc.org"
+}
