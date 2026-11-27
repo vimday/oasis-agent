@@ -25,6 +25,8 @@ executable in configured shadow commands; the default child PATH is the operatin
 5. When measuring coverage, use `make check RUNNER='.venv/bin/python -m coverage run'`, then
    `.venv/bin/python -m coverage report`. Never report unavailable tooling as a passed gate.
 6. Review the diff for amount precision, provenance, stale data, secrets and accidental authority.
+7. After pushing a verified change, check the GitHub Actions `ci` run for the pushed SHA.
+   Report its final conclusion and link the run. The Anvil parity job uses the Linux release binary.
 
 Performance reports must record workload, environment, sample counts and the actual boundary timed.
 `python -m scripts.benchmark_server_reads` creates temporary synthetic journals without RPC or keys.

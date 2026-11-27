@@ -845,12 +845,12 @@ def test_run_anvil_profit_e2e_against_real_anvil(tmp_path: Path) -> None:
 
     def assert_gas_delta(entry: dict[str, Any]) -> None:
         expected = entry["gas_used"] * entry["effective_gas_price_wei"]
-        tolerance = max(expected // 50, 10**13)
-        assert abs(entry["native_gas_delta_wei"] - expected) <= tolerance
+        assert entry["native_gas_delta_wei"] == expected
 
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert report["schema_version"] == ANVIL_E2E_SCHEMA_VERSION
     assert report["environment"] == "loopback_anvil_ephemeral"
+    assert (report["anvil_network"], report["anvil_hardfork"]) == ("ethereum", "cancun")
     assert report["chain_id"] == BASE_CHAIN_ID
     assert report["execution_eligible"] is False
     assert report["all_drills_passed"] is True
@@ -860,6 +860,10 @@ def test_run_anvil_profit_e2e_against_real_anvil(tmp_path: Path) -> None:
 
     drills = report["drills"]
     d1 = drills["executor_two_hop_profit_and_sweep"]
+    preflight = d1["whole_cycle_preflight"]
+    assert preflight["settlement_parent_hash"] == preflight["block_hash"]
+    assert preflight["settlement_transaction_index"] == 0
+    assert preflight["settlement_block_hash"] != preflight["block_hash"]
     assert d1["passed"] is True
     assert d1["cycle_executed_event_verified"] is True
     assert d1["net_profit_raw"] >= d1["min_net_profit_raw"]

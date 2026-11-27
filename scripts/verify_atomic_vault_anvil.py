@@ -48,6 +48,8 @@ from oasis_agent.risk.revert_budget import (
 
 ANVIL_E2E_SCHEMA_VERSION: Final[str] = "oasis-anvil-profit-e2e-v1"
 BASE_CHAIN_ID: Final[int] = 8453
+ANVIL_NETWORK: Final[str] = "ethereum"
+ANVIL_HARDFORK: Final[str] = "cancun"
 INITIAL_SQRT_PRICE: Final[int] = 1 << 96
 MAX_EARLY_ABORT_GAS: Final[int] = 65_000
 ERC1271_MAGIC: Final[str] = "0x1626ba7e"
@@ -91,16 +93,10 @@ def _require_gas_delta(
     effective_price: int,
     label: str,
 ) -> None:
-    """Require the operator's native spend to be gas cost, allowing base-fee clock drift.
-
-    Anvil can report a receipt's effective gas price that lags the one-block base-fee
-    adjustment by a fraction of a percent. Any real value transfer is orders of magnitude
-    larger, so a 2% (or 0.00001 ETH) tolerance preserves the invariant.
-    """
+    """These zero-value fixture transactions charge the operator only receipt gas."""
     expected = gas_used * effective_price
-    tolerance = max(expected // 50, 10**13)
     _require(
-        abs(native_delta - expected) <= tolerance,
+        native_delta == expected,
         f"{label} native gas delta mismatch: {native_delta} != {expected}",
     )
 
@@ -563,7 +559,11 @@ def _run_executor_drills(
     rec1 = rpc.send_eip1559(operator, to=executor_addr, data=calldata1, gas_limit=gas_limit)
     mined_block = rpc.call("eth_getBlockByHash", [rec1["blockHash"], False])
     _require(
-        mined_block["parentHash"] == parent["hash"] and int(rec1["transactionIndex"], 16) == 0,
+        mined_block["parentHash"] == parent["hash"]
+        and mined_block["hash"] == rec1["blockHash"]
+        and int(mined_block["number"], 16) == int(parent["number"], 16) + 1
+        and int(rec1["transactionIndex"], 16) == 0
+        and mined_block["transactions"][:1] == [rec1["transactionHash"]],
         "preflight state is not the settled transaction prestate",
     )
     _require(int(str(rec1["status"]), 16) == 1, "Drill 1 executeCycle reverted")
@@ -651,6 +651,9 @@ def _run_executor_drills(
             "block_number": int(parent["number"], 16),
             "block_hash": parent["hash"],
             "state_root": parent["stateRoot"],
+            "settlement_block_hash": mined_block["hash"],
+            "settlement_parent_hash": mined_block["parentHash"],
+            "settlement_transaction_index": int(rec1["transactionIndex"], 16),
             "caller": operator.address,
             "target": executor_addr,
             "calldata_sha256": calldata1_sha256,
@@ -1162,6 +1165,12 @@ def run_anvil_profit_e2e(
             str(port),
             "--chain-id",
             str(BASE_CHAIN_ID),
+            # The signing domain is Base. The fixture requires the user transaction
+            # at index zero; automatic OP-family deposits change its prestate.
+            "--network",
+            ANVIL_NETWORK,
+            "--hardfork",
+            ANVIL_HARDFORK,
             "--silent",
         ],
         shell=False,
@@ -1214,6 +1223,8 @@ def run_anvil_profit_e2e(
                 "environment": "loopback_anvil_ephemeral",
                 "chain_id": BASE_CHAIN_ID,
                 "anvil_client_version": client_version,
+                "anvil_network": ANVIL_NETWORK,
+                "anvil_hardfork": ANVIL_HARDFORK,
                 "execution_eligible": False,
                 "all_drills_passed": True,
                 "drills": {

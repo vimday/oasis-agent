@@ -21,6 +21,10 @@ Optimism、Arbitrum 和 Era 的 1,216 个块查得 797 笔至少两个市场事�
 
 Base 对同一 0.001 ETH 本金的三态负控及每个新头完整扫描时钟单列在影子记录中。[固定本金与 4／58／66 池时效](../verification/BASE_STATIC_STATE_AND_FIXED_PRINCIPAL_20261127.md)
 
+## Base 执行器的全部尝试
+
+从三份已知赢过代币的执行器反查同一组 12 个完整块，13 笔来调用的交易中有四笔闭环、四笔回滚和五笔成功无日志。五笔中四笔已核调用树，只读池状态便返回，合计实付 4,300,360,563,924 wei。一个发送人向同一目标发过两次空跑和一次两池闭环；执行器毛增 0.002941 USDC。若两地址同属一方，加上两次空跑后，可覆盖已识别链费的最高折算价格由 1,996.89 降至 619.56 USDC/ETH。[全部 13 笔及费用分项](../verification/BASE_EXECUTOR_ATTEMPTS_20261128.md)
+
 ## 八链覆盖
 
 按成交年份选取时，旧目录有 **83,080 笔 2026 年交易、655 笔逐笔案例**。当年黄金样本已另补 Ethereum 7 月 WBTC 四池套利及四位置复演、BSC 双三跳、Optimism 25 事件抵押换债、Era 单腿与费用退款对照。此前的四笔 Optimism 百腿全额复投成交于 2022 年。[2026 年按链样本与测量](../verification/Y2026_MULTICHAIN_MEASUREMENTS_20261127.md) · [655 笔逐笔清单](../verification/Y2026_EXISTING_CASE_REGISTER_20261127.json)
