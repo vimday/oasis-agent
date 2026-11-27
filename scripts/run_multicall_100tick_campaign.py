@@ -2101,6 +2101,7 @@ def run_multicall_campaign(
     base_newheads_overlap_headers: bool = False,
     base_newheads_overlap_v4: bool = False,
     base_newheads_batch_v4: bool = False,
+    base_newheads_static_v4: bool = False,
     base_newheads_max_observed: int | None = None,
     base_newheads_socket_factory: SocketFactory | None = None,
 ) -> CampaignRunResult:
@@ -2140,6 +2141,13 @@ def run_multicall_campaign(
         base_newheads_batch_v4 and (not base_newheads or base_newheads_overlap_v4)
     ):
         raise ShadowRunnerError("batched V4 reads require newHeads and a single V4 read mode")
+    if type(base_newheads_static_v4) is not bool or (
+        base_newheads_static_v4
+        and (not base_newheads or base_newheads_overlap_v4 or base_newheads_batch_v4)
+    ):
+        raise ShadowRunnerError("static V4 read requires newHeads and a single V4 read mode")
+    official_reads_per_head = 2 if base_newheads_static_v4 else 3
+    mixed_reads_per_head = 2 + official_reads_per_head
     if base_newheads_max_observed is not None and (
         not base_newheads
         or type(ticks) is not int
@@ -2152,8 +2160,10 @@ def run_multicall_campaign(
             raise ShadowRunnerError("Base newHeads requires a mixed Base address manifest")
         if type(ticks) is not int or not 1 <= ticks <= MAX_HEADS:
             raise ShadowRunnerError(f"Base newHeads requires 1..{MAX_HEADS} ticks")
-        if type(max_rpc_calls) is not int or max_rpc_calls < 8:
-            raise ShadowRunnerError("Base newHeads requires at least eight total RPC reservations")
+        if type(max_rpc_calls) is not int or max_rpc_calls < 3 + mixed_reads_per_head:
+            raise ShadowRunnerError(
+                f"Base newHeads requires at least {3 + mixed_reads_per_head} total RPC reservations"
+            )
         if (rpc_transport is None) != (base_newheads_socket_factory is None):
             raise ShadowRunnerError("Base newHeads test injection requires both RPC transports")
     elif base_newheads_socket_factory is not None:
@@ -2169,9 +2179,11 @@ def run_multicall_campaign(
             )
         if (
             type(mixed_base_secondary_max_rpc_calls) is not int
-            or not 3 <= mixed_base_secondary_max_rpc_calls <= 1_000_000
+            or not official_reads_per_head <= mixed_base_secondary_max_rpc_calls <= 1_000_000
         ):
-            raise ShadowRunnerError("mixed Base official RPC cap must be in 3..1000000")
+            raise ShadowRunnerError(
+                f"mixed Base official RPC cap must be in {official_reads_per_head}..1000000"
+            )
     elif mixed_base_secondary_max_rpc_calls is not None:
         raise ShadowRunnerError("official RPC cap requires a mixed Base address manifest")
     normalized_allowed_products = _normalize_allowed_products(allowed_products)
@@ -2550,9 +2562,12 @@ def run_multicall_campaign(
             if mixed_capture is not None:
                 assert capture is not None and mixed_workers is not None
                 assert mixed_base_secondary_max_rpc_calls is not None
-                if mixed_capture.counts()[MIXED_OFFICIAL] + 3 > mixed_base_secondary_max_rpc_calls:
+                if (
+                    mixed_capture.counts()[MIXED_OFFICIAL] + official_reads_per_head
+                    > mixed_base_secondary_max_rpc_calls
+                ):
                     raise ShadowBudgetError("mixed Base official budget cannot cover another pin")
-                _reserve_rpc(5)
+                _reserve_rpc(mixed_reads_per_head)
                 latest_mixed = capture.record_attempt(
                     active_rpc_transport,
                     lambda send: mixed_capture.capture(
@@ -2565,6 +2580,7 @@ def run_multicall_campaign(
                         parallel_headers=base_newheads_overlap_headers,
                         parallel_v4=base_newheads_overlap_v4,
                         batched_v4=base_newheads_batch_v4,
+                        static_v4=base_newheads_static_v4,
                     ),
                 )
                 snapshot = _extract_snapshot_from_multicall_universe(
@@ -3040,7 +3056,9 @@ def run_multicall_campaign(
                     outcome["status"] = "not_checked_rank_limit"
                     continue
                 hop_cost = len(cand.hops)
-                state_reservation = 5 * (ticks - tick_idx - 1) if base_newheads else 0
+                state_reservation = (
+                    mixed_reads_per_head * (ticks - tick_idx - 1) if base_newheads else 0
+                )
                 if rpc_calls_used + hop_cost + state_reservation > max_rpc_calls:
                     outcome["status"] = "not_checked_rpc_budget"
                     quoter_rejected_count += 1  # legacy counter includes budget skips
@@ -3976,6 +3994,8 @@ def run_multicall_campaign(
         }
         if base_newheads_overlap_v4:
             summary_body["base_newheads"]["parallel_v4"] = True
+        if base_newheads_static_v4:
+            summary_body["base_newheads"]["static_v4"] = True
         if base_newheads_batch_v4:
             summary_body["base_newheads"]["batched_v4"] = True
         if base_newheads_max_observed is not None:
@@ -4189,7 +4209,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--mixed-base-secondary-max-rpc-calls",
         type=int,
         help=(
-            "Cumulative Base official RPC cap, with three requests per fixed-hash snapshot. "
+            "Base official RPC cap, two requests per static V4 snapshot or three otherwise. "
             "--max-rpc-calls caps all Base RPC attempts, including PublicNode and official."
         ),
     )
@@ -4215,6 +4235,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--base-newheads-batch-v4",
         action="store_true",
         help="Batch the fixed-hash V4 runtime and state queries with two paced reservations.",
+    )
+    parser.add_argument(
+        "--base-newheads-static-v4",
+        action="store_true",
+        help="Use one fixed-hash eth_call to verify the V4 manager codehash and read pool state.",
     )
     parser.add_argument(
         "--base-newheads-max-observed",
@@ -4293,6 +4318,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             base_newheads_overlap_headers=args.base_newheads_overlap_headers,
             base_newheads_overlap_v4=args.base_newheads_overlap_v4,
             base_newheads_batch_v4=args.base_newheads_batch_v4,
+            base_newheads_static_v4=args.base_newheads_static_v4,
             base_newheads_max_observed=args.base_newheads_max_observed,
         )
     except (

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from oasis_agent.arbitrage.cycle_plan import address, hash32
 from oasis_agent.arbitrage.cycle_protocols import data_bytes
+from oasis_agent.evidence.morpho_callback import morpho_callbacks
 from oasis_agent.evidence.public_receipts import decode_receipt, quantity, receipt_header
 from oasis_agent.evidence.rpc_validation import (
     strict_integer,
@@ -159,6 +160,9 @@ def analyze(
         else:
             funding = replay_trace_funding(receipt, envelope["result"])
         result["trace_funding"] = asdict(funding)
+        callbacks = morpho_callbacks(receipt, envelope["result"], funding)
+        if callbacks.loans or callbacks.unresolved_loan_logs:
+            result["morpho_callback_funding"] = asdict(callbacks)
         result["call_trace_request_sha256"] = sha256(call_trace_request).hexdigest()
         result["call_trace_response_sha256"] = sha256(call_trace_raw).hexdigest()
     if funding_raw is None:

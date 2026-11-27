@@ -507,6 +507,8 @@ class _HeadSocket:
         ("overlap", "runtime"),
         ("overlap", "limited"),
         ("batch", None),
+        ("static", None),
+        ("static", "runtime"),
         ("batch", "duplicate_id"),
         ("batch", "member_error"),
     ],
@@ -529,6 +531,7 @@ def test_newheads_campaign_binds_before_state_and_replays(
     v4_barrier = Barrier(2, timeout=3)
     overlap_v4 = v4_mode == "overlap"
     batch_v4 = v4_mode == "batch"
+    static_v4 = v4_mode == "static"
 
     def transport(url: str, request: bytes, timeout: float) -> bytes:
         req = json.loads(request)
@@ -555,6 +558,22 @@ def test_newheads_campaign_binds_before_state_and_replays(
                 )
             return canonical_json([json.loads(_v4_answer(state)), reply])
         calls.append((url, req["method"]))
+        if static_v4 and url == mixed.OFFICIAL_URL and req["method"] == "eth_call":
+            assert request == mixed._v4_static_request(HASH, mixed._v4_calls())
+            code = bytes.fromhex(req["params"][0]["data"][2:])
+            assert (
+                sha256_hex(code[:581])
+                == "18797df18c81a2ea1575384743e9f9864beb92f63990a2371246733bf95d1a79"
+            )
+            (payload,) = decode(["bytes"], code[581:])
+            assert (
+                keccak(payload).hex()
+                == "f5596037673bfeaa35f94a5dd0a7dbc8a926ebd8c841a8bdc7fecc99f1be190d"
+            )
+            state_call = json.loads(mixed._v4_requests(HASH, mixed._v4_calls())[1])
+            words = bytes.fromhex(json.loads(_v4_answer(state_call))["result"][2:])
+            codehash = bytes(32) if failure == "runtime" else keccak(RUNTIME)
+            return _result(req, "0x" + encode(["bytes32", "bytes"], [codehash, words]).hex())
         if req["method"] == "eth_getBlockByNumber":
             assert req["params"] == [hex(BLOCK), False]
             if parallel:
@@ -579,17 +598,18 @@ def test_newheads_campaign_binds_before_state_and_replays(
             mode="public-shadow",
             ticks=1,
             interval_ms=0,
-            max_rpc_calls=8,
+            max_rpc_calls=7 if static_v4 else 8,
             rpc_transport=transport,
             coinbase_transport=build_synthetic_coinbase_transport(),
             bridge=FastpathBridge(),
             compare_resident_graph=True,
             mixed_base_address_manifest=prior,
-            mixed_base_secondary_max_rpc_calls=3,
+            mixed_base_secondary_max_rpc_calls=2 if static_v4 else 3,
             base_newheads=True,
             base_newheads_overlap_headers=parallel,
             base_newheads_overlap_v4=overlap_v4,
             base_newheads_batch_v4=batch_v4,
+            base_newheads_static_v4=static_v4,
             base_newheads_socket_factory=lambda: nullcontext(_HeadSocket((hint,))),
         )
 
@@ -610,8 +630,9 @@ def test_newheads_campaign_binds_before_state_and_replays(
         retained = json.loads((scope / "manifest.json").read_bytes())
         assert retained["status"] == "failed"
         assert retained["execution_eligible"] is False
-        assert retained["budget_after"][mixed.OFFICIAL] == 3
-        assert (scope / "v4_state.response.json").is_file()
+        assert retained["budget_after"][mixed.OFFICIAL] == (2 if static_v4 else 3)
+        response_name = "v4_static.response.json" if static_v4 else "v4_state.response.json"
+        assert (scope / response_name).is_file()
         assert not (scope / "state.json").exists()
         return
     if failure == "limited":
@@ -640,7 +661,7 @@ def test_newheads_campaign_binds_before_state_and_replays(
         return
 
     result = run()
-    assert result.summary["rpc_calls_used"] == 8
+    assert result.summary["rpc_calls_used"] == (7 if static_v4 else 8)
     assert result.summary["base_newheads"]["rpc_attempts_by_source"] == {
         newheads.POLICIES[0].source: 3,
     }
@@ -658,6 +679,10 @@ def test_newheads_campaign_binds_before_state_and_replays(
         expected_schema = mixed.PARALLEL_V4_SCHEMA
     if batch_v4:
         expected_schema = mixed.V4_BATCH_SCHEMA
+    if static_v4:
+        expected_schema = mixed.V4_STATIC_SCHEMA
+        assert result.summary["base_newheads"]["static_v4"] is True
+        assert retained["budget_after"][mixed.OFFICIAL] == 2
     assert retained["schema"] == expected_schema
     assert len(mixed.replay_mixed_snapshot(manifest).nodes) == 66
     if parallel:

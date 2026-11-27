@@ -67,6 +67,7 @@ HEAD_SCHEMA = "oasis.base-mixed-shadow.v4"
 PARALLEL_HEAD_SCHEMA = "oasis.base-mixed-shadow.v5"
 PARALLEL_V4_SCHEMA = "oasis.base-mixed-shadow.v6"
 V4_BATCH_SCHEMA = "oasis.base-mixed-shadow.v7"
+V4_STATIC_SCHEMA = "oasis.base-mixed-shadow.v8"
 DIRECTORY = "mixed_base_state"
 CHAIN_ID = 8453
 ADDRESS_POOLS = 58
@@ -105,6 +106,27 @@ _BATCH_ROLES = {
     "address_state": PUBLICNODE,
     "v4_batch": OFFICIAL,
 }
+_STATIC_ROLES = {
+    role: src for role, src in _ROLES.items() if role not in {"manager_code", "v4_state"}
+}
+_STATIC_ROLES["v4_static"] = OFFICIAL
+# solc 0.8.26, Cancun, optimizer 200, no metadata; see fixtures/BaseV4StaticStateRead.sol.
+# The constructor permits only the fixed aggregate calldata digest and chain ID 8453.
+_STATIC_READER = bytes.fromhex(
+    "608060405234801561000f575f80fd5b5060405161024538038061024583398101604081905261002e91610142565b46"
+    "6121051461003b575f80fd5b805160208201207ff5596037673bfeaa35f94a5dd0a7dbc8a926ebd8c841a8bdc7fecc99"
+    "f1be190d1461006c575f80fd5b60405173498581ff718922c3f8e6a244956af099b2652b2b9073ca11bde05977b36311"
+    "67028862be2a173976ca11905f90819083906100ac9087906101f2565b5f60405180830381855afa9150503d805f8114"
+    "6100e4576040519150601f19603f3d011682016040523d82523d5f602084013e6100e9565b606091505b509150915081"
+    "6100f7575f80fd5b5f846001600160a01b03163f82604051602001610115929190610208565b60405160208183030381"
+    "52906040529050805160208201f35b634e487b7160e01b5f52604160045260245ffd5b5f60208284031215610152575f"
+    "80fd5b81516001600160401b03811115610167575f80fd5b8201601f81018413610177575f80fd5b8051600160016040"
+    "1b038111156101905761019061012e565b604051601f8201601f19908116603f011681016001600160401b0381118282"
+    "1017156101be576101be61012e565b6040528181528282016020018610156101d5575f80fd5b8160208401602083015e"
+    "5f91810160200191909152949350505050565b5f82518060208501845e5f920191825250919050565b82815260406020"
+    "8201525f82518060408401528060208501606085015e5f606082850101526060601f19601f8301168401019150509392"
+    "50505056fe"
+)
 type Send = Callable[[str, bytes, float], bytes]
 type Call = tuple[str, bool, bytes]
 
@@ -297,6 +319,33 @@ def _v4_requests(block_hash: str, calls: Sequence[Call]) -> tuple[bytes, bytes]:
     )
 
 
+def _v4_static_request(block_hash: str, calls: Sequence[Call]) -> bytes:
+    payload = bytes.fromhex(_encode_aggregate3_calldata(calls)[2:])
+    init = _STATIC_READER + encode(["bytes"], [payload])
+    return _request(
+        "eth_call",
+        [
+            {"data": "0x" + init.hex(), "gas": hex(9_000_000)},
+            {"blockHash": block_hash, "requireCanonical": True},
+        ],
+        req_id=2,
+    )
+
+
+def _v4_static_words(raw: bytes) -> bytes:
+    result = _decode_hex_bytes(_result(raw, 2), "static Base V4 state")
+    if len(result) > 24_576:
+        raise ValueError("Base V4 constructor output exceeds code size bound")
+    codehash, words = _words(["bytes32", "bytes"], result)
+    if (
+        not isinstance(codehash, bytes)
+        or "0x" + codehash.hex() != MANAGER_RUNTIME
+        or not isinstance(words, bytes)
+    ):
+        raise ValueError("Base V4 PoolManager runtime changed")
+    return canonical_json({"jsonrpc": "2.0", "id": 2, "result": "0x" + words.hex()})
+
+
 def _v4_batch_request(requests: tuple[bytes, bytes]) -> bytes:
     return b"[" + requests[0] + b"," + requests[1] + b"]"
 
@@ -454,6 +503,7 @@ def _acquire(
     parallel_headers: bool = False,
     parallel_v4: bool = False,
     batched_v4: bool = False,
+    static_v4: bool = False,
     workers: ThreadPoolExecutor | None = None,
     stop_on_failure: Event | None = None,
 ) -> MixedState:
@@ -463,6 +513,8 @@ def _acquire(
         raise ValueError("overlapping Base V4 reads require a pinned newHeads observation")
     if batched_v4 and (expected_head is None or parallel_v4):
         raise ValueError("batched Base V4 requires newHeads and a single V4 read mode")
+    if static_v4 and (expected_head is None or parallel_v4 or batched_v4):
+        raise ValueError("static Base V4 read requires newHeads and one V4 read mode")
     if expected_head is not None and tag != hex(expected_head.height):
         raise ValueError("Base state height differs from newHeads")
     primary_request = _request("eth_getBlockByNumber", [tag, False])
@@ -505,6 +557,11 @@ def _acquire(
                 raise NewHeadsError("mixed Base provider headers disagree", canonical_conflict=True)
             raise ValueError("mixed Base providers disagree on pinned header")
         calls = _v4_calls()
+        if static_v4:
+            static = exchange("v4_static", _v4_static_request(official.block_hash, calls))
+            return official, _decode_v4(
+                _v4_static_words(static), calls, official, bitmap_aware=bitmap_aware
+            )
         code_request, v4_request = requests = _v4_requests(official.block_hash, calls)
 
         def verify_code(raw: bytes) -> None:
@@ -799,6 +856,7 @@ class MixedBaseCapture:
         parallel_headers: bool = False,
         parallel_v4: bool = False,
         batched_v4: bool = False,
+        static_v4: bool = False,
     ) -> MixedCaptureResult:
         self.attempts += 1
         scope = self.directory / f"attempt-{self.attempts:08d}"
@@ -807,7 +865,9 @@ class MixedBaseCapture:
         started_ns = time.monotonic_ns()
         content: dict[str, object] = {
             "schema": (
-                V4_BATCH_SCHEMA
+                V4_STATIC_SCHEMA
+                if static_v4
+                else V4_BATCH_SCHEMA
                 if batched_v4
                 else PARALLEL_V4_SCHEMA
                 if parallel_v4
@@ -829,9 +889,9 @@ class MixedBaseCapture:
         }
         if head is not None:
             content["newheads_observation"] = head.to_wire()
-        if parallel_v4 or batched_v4:
+        if parallel_v4 or batched_v4 or static_v4:
             content["parallel_headers"] = parallel_headers
-        role_sources = _BATCH_ROLES if batched_v4 else _ROLES
+        role_sources = _STATIC_ROLES if static_v4 else _BATCH_ROLES if batched_v4 else _ROLES
 
         def exchange(role: str, request: bytes) -> bytes:
             source = role_sources[role]
@@ -876,6 +936,7 @@ class MixedBaseCapture:
                 parallel_headers=parallel_headers,
                 parallel_v4=parallel_v4,
                 batched_v4=batched_v4,
+                static_v4=static_v4,
                 workers=workers,
                 stop_on_failure=self.stopped,
             )
@@ -910,6 +971,7 @@ class MixedBaseCapture:
                 parallel_headers=parallel_headers,
                 parallel_v4=parallel_v4,
                 batched_v4=batched_v4,
+                static_v4=static_v4,
             )
         except (OSError, ValueError, OasisError, RuntimeError, TypeError) as exc:
             self.stopped.set()
@@ -992,7 +1054,8 @@ def _check_replay_budget(scope: Path, body: dict[str, object]) -> None:
         current = ledger.counts()
     before = strict_object(body.get("budget_before"), "budget before state")
     after = strict_object(body.get("budget_after"), "budget after state")
-    for source, step in ((PUBLICNODE, 2), (OFFICIAL, 3)):
+    official_count = 2 if body["schema"] == V4_STATIC_SCHEMA else 3
+    for source, step in ((PUBLICNODE, 2), (OFFICIAL, official_count)):
         start_use = strict_integer(before.get(source), "scope count before")
         end_use = strict_integer(after.get(source), "scope count after")
         if start_use < 0 or end_use - start_use != step or current[source] < end_use:
@@ -1008,6 +1071,7 @@ def _check_timing(
     parallel_headers: bool = False,
     parallel_v4: bool = False,
     batched_v4: bool = False,
+    static_v4: bool = False,
 ) -> dict[str, int]:
     timings = {}
     transport = {}
@@ -1029,9 +1093,18 @@ def _check_timing(
         not parallel_headers and timings["primary_header"][1] > timings["secondary_header"][0]
     ) or timings[address_gate][1] > timings["address_state"][0]:
         raise ValueError("mixed Base state request precedes its required pin")
-    official_roles = ("v4_batch",) if batched_v4 else ("manager_code", "v4_state")
+    official_roles = (
+        ("v4_static",)
+        if static_v4
+        else ("v4_batch",)
+        if batched_v4
+        else ("manager_code", "v4_state")
+    )
     if any(timings["secondary_header"][1] > timings[role][0] for role in official_roles) or (
-        not batched_v4 and not parallel_v4 and timings["manager_code"][1] > timings["v4_state"][0]
+        not static_v4
+        and not batched_v4
+        and not parallel_v4
+        and timings["manager_code"][1] > timings["v4_state"][0]
     ):
         raise ValueError("mixed Base state request precedes its required pin")
 
@@ -1074,6 +1147,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
             PARALLEL_HEAD_SCHEMA,
             PARALLEL_V4_SCHEMA,
             V4_BATCH_SCHEMA,
+            V4_STATIC_SCHEMA,
         )
         or body.get("status") != "complete"
         or body.get("execution_eligible") is not False
@@ -1084,8 +1158,9 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
     start = strict_integer(body.get("start_monotonic_ns"), "mixed capture start")
     ready = strict_integer(body.get("state_ready_monotonic_ns"), "mixed state ready")
     roles = strict_object(body.get("roles"), "mixed Base exchanges")
+    static_v4 = body["schema"] == V4_STATIC_SCHEMA
     batched_v4 = body["schema"] == V4_BATCH_SCHEMA
-    role_sources = _BATCH_ROLES if batched_v4 else _ROLES
+    role_sources = _STATIC_ROLES if static_v4 else _BATCH_ROLES if batched_v4 else _ROLES
     if roles.keys() != role_sources.keys():
         raise ValueError("mixed Base missing required exchange")
     specs_raw = body.get("address_roster")
@@ -1099,7 +1174,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
     rows = {role: strict_object(row, "mixed Base exchange") for role, row in roles.items()}
     parallel_v4 = body["schema"] == PARALLEL_V4_SCHEMA
     parallel_headers = body["schema"] == PARALLEL_HEAD_SCHEMA
-    if parallel_v4 or batched_v4:
+    if parallel_v4 or batched_v4 or static_v4:
         parallel_headers = strict_boolean(
             body.get("parallel_headers"), "Base V4 capture header mode"
         )
@@ -1108,6 +1183,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         PARALLEL_HEAD_SCHEMA,
         PARALLEL_V4_SCHEMA,
         V4_BATCH_SCHEMA,
+        V4_STATIC_SCHEMA,
     )
     speculative = body["schema"] == SCHEMA or head_schema
     head = None
@@ -1127,6 +1203,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         parallel_headers=parallel_headers,
         parallel_v4=parallel_v4,
         batched_v4=batched_v4,
+        static_v4=static_v4,
     )
     if parallel_headers and _transport_overlap(
         rows, "primary_header", "secondary_header"
@@ -1170,6 +1247,7 @@ def replay_mixed_snapshot(manifest: Path) -> MixedState:
         expected_head=head.head if head is not None else None,
         parallel_headers=parallel_headers,
         batched_v4=batched_v4,
+        static_v4=static_v4,
     )
     if _read(scope / "state.json", body.get("state_sha256")) != canonical_json(state.evidence()):
         raise ValueError("retained mixed Base decoded state differs")

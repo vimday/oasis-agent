@@ -7,6 +7,7 @@ from eth_abi.abi import encode
 from eth_hash.auto import keccak
 
 from oasis_agent.arbitrage.cycle_protocols import calldata, topic
+from oasis_agent.evidence.morpho_callback import FLASH_LOAN, MORPHO_ETHEREUM, morpho_callbacks
 from oasis_agent.evidence.public_receipts import ObservedReceipt
 from oasis_agent.evidence.swap_flow import BANCOR_CONVERSION_TOPIC, TRANSFER, profile_swap_receipt
 from oasis_agent.evidence.swap_flow_trace import replay_trace_funding
@@ -441,3 +442,75 @@ def test_three_transfer_v4_funding_stops_at_intervening_route_inventory(fault):
     assert [link.evidence_id for link in result.links] == (
         ["logs:1,3,4"] if fault == "none" else []
     )
+
+
+def callback_case(*, wrong_payload=False, wrong_repayment=False, intervening=False):
+    data = b"loop"
+    principal = X
+    repayment = principal + int(wrong_repayment)
+    credit = call(
+        MORPHO_ETHEREUM,
+        A,
+        calldata("transfer(address,uint256)", ("address", "uint256"), (ACTOR, principal)),
+        out=word(1),
+        logs=[event(A, TRANSFER, (MORPHO_ETHEREUM, ACTOR), ("uint256",), (principal,))],
+    )
+    first = network(A, B, Y, principal, POOL1, ANCHOR1, ACTOR)
+    second = network(B, A, principal + 213, Y, POOL2, ANCHOR2, ACTOR)
+    donation = [movement(A, ACTOR, ACTOR, FINAL_POOL, 1)] if intervening else []
+    cb = call(
+        MORPHO_ETHEREUM,
+        ACTOR,
+        calldata(
+            "onMorphoFlashLoan(uint256,bytes)",
+            ("uint256", "bytes"),
+            (principal, b"other" if wrong_payload else data),
+        ),
+        children=[first, *donation, second],
+    )
+    repay = movement(A, MORPHO_ETHEREUM, ACTOR, MORPHO_ETHEREUM, repayment)
+    loan = call(
+        ACTOR,
+        MORPHO_ETHEREUM,
+        calldata(
+            "flashLoan(address,uint256,bytes)",
+            ("address", "uint256", "bytes"),
+            (A, principal, data),
+        ),
+        children=(credit, cb, repay),
+        logs=[event(MORPHO_ETHEREUM, FLASH_LOAN, (ACTOR, A), ("uint256",), (principal,))],
+    )
+    root = call(SEND, FINAL_POOL, "0x", children=[call(FINAL_POOL, ACTOR, "0x", children=[loan])])
+
+    def emitted(frame):
+        for i in range(len(frame["calls"]) + 1):
+            yield from (log for log in frame["logs"] if int(log["position"], 16) == i)
+            if i < len(frame["calls"]):
+                yield from emitted(frame["calls"][i])
+
+    return replace(replay_receipt(root, list(emitted(root))), recipient=FINAL_POOL), root
+
+
+def test_morpho_callback_connects_a_nested_borrower_and_proves_only_its_principal():
+    receipt, tree = callback_case()
+    generic = replay_trace_funding(receipt, tree)
+    assert not generic.links
+    result = morpho_callbacks(receipt, tree, generic)
+    assert not result.unresolved_loan_logs
+    (loan,) = result.loans
+    assert loan.borrower == ACTOR and loan.credit_log == 1
+    assert loan.principal_raw == loan.repaid_raw == X
+    assert loan.principal_cycle is not None
+    assert loan.principal_cycle.swap_logs == (4, 7)
+    assert loan.principal_cycle.surplus_raw == 213
+    assert len(loan.callback_links) == 1
+
+
+@pytest.mark.parametrize("change", ["wrong_payload", "wrong_repayment", "intervening"])
+def test_callback_mismatch_and_visible_intermediate_principal_spend(change):
+    receipt, tree = callback_case(**{change: True})
+    out = morpho_callbacks(receipt, tree, replay_trace_funding(receipt, tree))
+    if change == "intervening":
+        assert not out.unresolved_loan_logs and out.loans[0].principal_cycle is None
+    else:
+        assert not out.loans and len(out.unresolved_loan_logs) == 1

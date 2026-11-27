@@ -167,7 +167,7 @@ def receipt_commitment(chain, head, receipts):
         ]
         fields = [result.status, cum, bloom, logs]
         kind = quantity(r["type"])
-        if chain == 10 and kind == 0x7E:
+        if chain in (10, 8453) and kind == 0x7E:
             assert quantity(r["depositReceiptVersion"]) == 1
             fields += [quantity(r["depositNonce"]), quantity(r["depositReceiptVersion"])]
         raw.append((bytes([kind]) if kind else b"") + encode(fields))

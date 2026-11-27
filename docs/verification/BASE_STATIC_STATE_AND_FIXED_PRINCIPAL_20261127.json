@@ -1,0 +1,1340 @@
+{
+  "control": {
+    "components": "negative control, ETH/WETH parity, L1 and operator fee upper bounds",
+    "envelope_sha256": "228e70535408e80899a3072d46e48a5373046966997d83987236a810acdabee1",
+    "evidence_directory": "reports/research/base-fixed-actual-control-20261128",
+    "from": "0x000000000000000000000000000000000000dead",
+    "head_to_first_child_ns": 205782709,
+    "head_to_h_sim_ns": 1930502084,
+    "k_reply_after_h_reply_ns": 395043250,
+    "k_request_after_h_reply_ns": 7259250,
+    "nonce": 0,
+    "observed_utc": "2026-11-27T15:53:02.980986+00:00",
+    "rpc_counts": {
+      "official": 11,
+      "publicnode_newheads": 3
+    },
+    "scope_sha256": "d883a4f5fa74351123c28e567bf696ecc009837574b976816b6ed1dbf4ae4b63",
+    "source_http": "https://mainnet.base.org",
+    "source_ws": "wss://base-rpc.publicnode.com",
+    "stages": {
+      "C": {
+        "actual_principal_eth_wei": 1000000000000000,
+        "deposit_log": 0,
+        "hash": "0xbb096ff251b58393f8ace21c026fe97ff9f3e69acff56b30ca461269b9559f2d",
+        "height": 63022043,
+        "l1_upper_wei": 45733213627,
+        "l2_fee_wei": 3011604000000,
+        "operator_upper_wei": 0,
+        "payment_transfer_logs": [
+          1,
+          2,
+          7,
+          12
+        ],
+        "pools": [
+          "0xcdac0d6c6c59727a65f871236188350531885c43",
+          "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+          "0x7f670f78b17dec44d5ef68a48740b6f8849cc2e6"
+        ],
+        "quote_amounts": [
+          1000000000000000,
+          1667899,
+          4262867846688606764,
+          992340433447347
+        ],
+        "quote_gross_wei": -7659566552653,
+        "sender_native_balance": 4612654423117055500,
+        "simulated_gas": 501934,
+        "whole_net_wei": -10716903766280,
+        "whole_reply_ns": 1393943262890583,
+        "whole_weth_to_sender": 992340433447347
+      },
+      "H": {
+        "actual_principal_eth_wei": 1000000000000000,
+        "deposit_log": 0,
+        "hash": "0x8eaeabdff8d9320dd1cdf4a815cfcbebd41d83e492bc84568bd2e30c27d8c5b4",
+        "height": 63022042,
+        "l1_upper_wei": 45733213627,
+        "l2_fee_wei": 3011604000000,
+        "operator_upper_wei": 0,
+        "payment_transfer_logs": [
+          1,
+          2,
+          7,
+          12
+        ],
+        "pools": [
+          "0xcdac0d6c6c59727a65f871236188350531885c43",
+          "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+          "0x7f670f78b17dec44d5ef68a48740b6f8849cc2e6"
+        ],
+        "quote_amounts": [
+          1000000000000000,
+          1667899,
+          4262867846688606764,
+          992340433447347
+        ],
+        "quote_gross_wei": -7659566552653,
+        "sender_native_balance": 4612654423117055500,
+        "simulated_gas": 501934,
+        "whole_net_wei": -10716903766280,
+        "whole_reply_ns": 1393943518175750,
+        "whole_weth_to_sender": 992340433447347
+      },
+      "K": {
+        "actual_principal_eth_wei": 1000000000000000,
+        "deposit_log": 0,
+        "hash": "0x6fa22cb7cc3ae194fda086aca92911f5c6d56894e272f680c53d3c3138ec8b68",
+        "height": 63022052,
+        "l1_upper_wei": 45733213627,
+        "l2_fee_wei": 3015655611248,
+        "operator_upper_wei": 0,
+        "payment_transfer_logs": [
+          1,
+          2,
+          7,
+          12
+        ],
+        "pools": [
+          "0xcdac0d6c6c59727a65f871236188350531885c43",
+          "0x6cdcb1c4a4d1c3c6d054b27ac5b77e89eafb971d",
+          "0x7f670f78b17dec44d5ef68a48740b6f8849cc2e6"
+        ],
+        "quote_amounts": [
+          1000000000000000,
+          1667899,
+          4262867846688606764,
+          992340433447347
+        ],
+        "quote_gross_wei": -7659566552653,
+        "sender_native_balance": 4612654423117055500,
+        "simulated_gas": 501934,
+        "whole_net_wei": -10720955377528,
+        "whole_reply_ns": 1393944803436291,
+        "whole_weth_to_sender": 992340433447347
+      }
+    },
+    "to": "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43",
+    "wire": {
+      "H-header": {
+        "received_ns": 1393942022717166,
+        "request_sha256": "e7fbea8048c5e6fbfdb506be81f1b6839c50e56b5e03940220848f0f6e9646d9",
+        "response_sha256": "62fc1ec19606a4a2a0bad88ba3dfff121fa755ba12d539aa634608303a234b86",
+        "retrieved_unix_ns": 1795794784527417000,
+        "sent_ns": 1393941595480000,
+        "status": 200
+      },
+      "H-quote": {
+        "received_ns": 1393943000932083,
+        "request_sha256": "ecf18a0909fbc0f294d57502c54e69205d8798d57f9c008f3664fbabc208c1ac",
+        "response_sha256": "1709b67554b63ebfee7d5462eda2c1a6ec7cdbfcae7db1bfb7db0e0622acef0f",
+        "retrieved_unix_ns": 1795794785494875000,
+        "sent_ns": 1393942608107750,
+        "status": 200
+      },
+      "H-runtime": {
+        "received_ns": 1393942552678541,
+        "request_sha256": "362328d61982b25684bbf5bf054405b13ce6af98155f6443f454654850b8d0dd",
+        "response_sha256": "a4ed4e10304a246b0deb3fbe33a4d0daf84155c85f186c28ca3dc8badeaf8ae6",
+        "retrieved_unix_ns": 1795794785046167000,
+        "sent_ns": 1393942106865333,
+        "status": 200
+      },
+      "H-simulate": {
+        "received_ns": 1393943518175750,
+        "request_sha256": "faf4c2dda13ebfd340814986c4c30719ae3ad7566dc9f224d95d38e24f0e56e3",
+        "response_sha256": "4ca84924d3548331e2fcb4cda0896d188d9a3fedf7be9dfebb97b1bfd78d1851",
+        "retrieved_unix_ns": 1795794786012075000,
+        "sent_ns": 1393943111153791,
+        "status": 200
+      },
+      "Hplus1-header": {
+        "received_ns": 1393942285454208,
+        "request_sha256": "28bbcbb22ffed33fd1b06a64da7510179599af4f0249ed16c91816f9225b20d6",
+        "response_sha256": "b6f9fad40cccf2b83bdaec72112562ff0bc604fa699770ea2057165b79c4ded5",
+        "retrieved_unix_ns": 1795794784779761000,
+        "sent_ns": 1393941850948333,
+        "status": 200
+      },
+      "Hplus1-quote": {
+        "received_ns": 1393942822066541,
+        "request_sha256": "aea1046cfe0d097e5316585be5168e38b1614b99aea358530ceeb775f9713687",
+        "response_sha256": "08be8c0b7f302698a73455343f6c34c5ca93108294dab2fab0df591e18e7e6ff",
+        "retrieved_unix_ns": 1795794785315495000,
+        "sent_ns": 1393942354943500,
+        "status": 200
+      },
+      "Hplus1-simulate": {
+        "received_ns": 1393943262890583,
+        "request_sha256": "1fcee10cb3bdb702b1f9048b1dc65b5c34dfad77b54f1324a2acbcee16806d34",
+        "response_sha256": "3c85ab7ef67fdf955a9c38b64d43e52e8e8c1275973ef7312a96fe2ab23caf10",
+        "retrieved_unix_ns": 1795794785756491000,
+        "sent_ns": 1393942859361666,
+        "status": 200
+      },
+      "latest-immediate-header": {
+        "received_ns": 1393943913219000,
+        "request_sha256": "2c1d8d41e2b7c61835484497639db1dbdfcb60bd27d5cd74774f04f123a5a37d",
+        "response_sha256": "6aed1770f9388f1de4d22fd55a1ff4b6efe10ff9f31702c5bdcdd194c5cbd9a4",
+        "retrieved_unix_ns": 1795794786406780000,
+        "sent_ns": 1393943525435000,
+        "status": 200
+      },
+      "nonce": {
+        "received_ns": 1393940938116750,
+        "request_sha256": "d93c8ef59f25a610c4c6cf971c2caa99a70e6dcd29e97384f126375ddac26daa",
+        "response_sha256": "b0b17a2167550f78381234d8284565462e60c99813ae88d7dc4f310662d3f65c",
+        "retrieved_unix_ns": 1795794783431533000,
+        "sent_ns": 1393940508059833,
+        "status": 200
+      },
+      "sim_reply_latest-quote": {
+        "received_ns": 1393944318252500,
+        "request_sha256": "913afdd04c4f33aeb700688e368427161759fec930d7a483ac869cd84f430964",
+        "response_sha256": "b2d37272c98e9196f8f6c3c675af8638d8bc7674b52bd10227b5abe80f1a8b75",
+        "retrieved_unix_ns": 1795794786812111000,
+        "sent_ns": 1393943919848833,
+        "status": 200
+      },
+      "sim_reply_latest-simulate": {
+        "received_ns": 1393944803436291,
+        "request_sha256": "395e32a92a54c2c26c06766eb8a7491ac5d68d69738987fa29b7eaef2727dd03",
+        "response_sha256": "3b79174df77df4c1201fd128d5f00e3482ba0bab3cba1327087fecbde816f7f5",
+        "retrieved_unix_ns": 1795794787297908000,
+        "sent_ns": 1393944325798916,
+        "status": 200
+      }
+    }
+  },
+  "normal": {
+    "evidence_directory": "reports/research/base-static-normal-20261127",
+    "frames": 20,
+    "frozen_utc": "2026-11-27T15:58:36.353470+00:00",
+    "heads": [
+      {
+        "block": 63023759,
+        "block_hash": "0x96d133a0c5072a798d85bcb106c6b8bd61f60e8469718dcdf2abdd94b1e9a6db",
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 28
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 4
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 28
+          }
+        },
+        "head_to_discovery_ns": 1532488125,
+        "head_to_state_ns": 1464390708,
+        "normal_ranked_candidates": [],
+        "parent_hash": "0xad9d57dbe9e326c5fe0dacc827f3882d0ab84235d260c23050e80a8378ea2e31",
+        "prior_fixed_route_model_reprice": null,
+        "queue_before_state_ns": 1128375,
+        "relation": "first",
+        "same_envelope_child_simulations": 0,
+        "whole_transaction_simulations": 0
+      },
+      {
+        "block": 63023766,
+        "block_hash": "0x3bdbb07cf5a0b98f9efcd252b84712b547c8c974af1274deb350236efca74b9c",
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 28
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 4
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 28
+          }
+        },
+        "head_to_discovery_ns": 988571542,
+        "head_to_state_ns": 927471542,
+        "normal_ranked_candidates": [],
+        "parent_hash": "0x17161f53a3f7e63cb0cfcb0ca256070415df2235d6b5aab79665b0095003eaf4",
+        "prior_fixed_route_model_reprice": {
+          "marks": [],
+          "prior_block_hash": "0x96d133a0c5072a798d85bcb106c6b8bd61f60e8469718dcdf2abdd94b1e9a6db",
+          "prior_block_number": 63023759,
+          "prior_candidates": 0,
+          "status": "block_gap"
+        },
+        "queue_before_state_ns": 96076375,
+        "relation": "gap",
+        "same_envelope_child_simulations": 0,
+        "whole_transaction_simulations": 0
+      },
+      {
+        "block": 63023771,
+        "block_hash": "0xea81a331d35dec3cd2039e4b88bf64b561b90eb6b973a232dbfa34ea12c71d8f",
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          }
+        },
+        "head_to_discovery_ns": 645778875,
+        "head_to_state_ns": 640311417,
+        "normal_ranked_candidates": [],
+        "parent_hash": "0xd1d815cb1b88acb84bd6da57debb8403f2bc977503c43229fd580379afad4a9b",
+        "prior_fixed_route_model_reprice": {
+          "marks": [],
+          "prior_block_hash": "0x3bdbb07cf5a0b98f9efcd252b84712b547c8c974af1274deb350236efca74b9c",
+          "prior_block_number": 63023766,
+          "prior_candidates": 0,
+          "status": "block_gap"
+        },
+        "queue_before_state_ns": 15972542,
+        "relation": "gap",
+        "same_envelope_child_simulations": 0,
+        "whole_transaction_simulations": 0
+      },
+      {
+        "block": 63023774,
+        "block_hash": "0x2e5645b1a21a26c6d23d27c8761c28d677d78d1c3e08f49b5f23439e4c49ac4f",
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 0
+          }
+        },
+        "head_to_discovery_ns": 676442708,
+        "head_to_state_ns": 670698000,
+        "normal_ranked_candidates": [],
+        "parent_hash": "0x39549e53c2ac9e028a6e403eda2e0800c483f985d066f152a10a8e5778e89921",
+        "prior_fixed_route_model_reprice": {
+          "marks": [],
+          "prior_block_hash": "0xea81a331d35dec3cd2039e4b88bf64b561b90eb6b973a232dbfa34ea12c71d8f",
+          "prior_block_number": 63023771,
+          "prior_candidates": 0,
+          "status": "block_gap"
+        },
+        "queue_before_state_ns": 22613250,
+        "relation": "gap",
+        "same_envelope_child_simulations": 0,
+        "whole_transaction_simulations": 0
+      }
+    ],
+    "normal_discovery_candidates": 0,
+    "observed_raw_child_deadlines": [
+      {
+        "block": 63023759,
+        "child_receive_minus_discovery_finished_ns": -1140273250,
+        "child_receive_minus_state_ready_ns": -1072175833,
+        "observed_child": 63023760
+      },
+      {
+        "block": 63023766,
+        "child_receive_minus_discovery_finished_ns": -798414250,
+        "child_receive_minus_state_ready_ns": -737314250,
+        "observed_child": 63023767
+      },
+      {
+        "block": 63023771,
+        "child_receive_minus_discovery_finished_ns": -423495916,
+        "child_receive_minus_state_ready_ns": -418028458,
+        "observed_child": 63023772
+      },
+      {
+        "block": 63023774,
+        "child_receive_minus_discovery_finished_ns": -514971375,
+        "child_receive_minus_state_ready_ns": -509226667,
+        "observed_child": 63023775
+      }
+    ],
+    "positive_survival_rate": null,
+    "rpc_counts": {
+      "base_official": 8,
+      "publicnode_base": 8,
+      "publicnode_newheads": 3
+    },
+    "schedule_sha256": "604f56d21478732ca1744cfd75bb7986771127605b5e02c7e24bb9c739777b43",
+    "scope_sha256": "385fd4a2a50d213b7ffc9baf18983e2fd05888c13604c21d5a72a0bd6761751d",
+    "source_identity": {
+      "scripts/run_multicall_100tick_campaign.py": "210ddf7cfb08cdc1c661404bce66f061550e5017b80289f1c412984a0760e994",
+      "src/oasis_agent/evidence/base_newheads.py": "bfce6fd808a97ce02b9b5844185ca822b25f56f53cd0aefc0372f95d1502ea20",
+      "src/oasis_agent/fastpath/base_mixed_snapshot.py": "96036d07345ca722f7c65e218f794d24d973f17f3142fb5212e05e389df88a72"
+    },
+    "whole_transaction_simulations": 0
+  },
+  "paired": {
+    "chain_id": 8453,
+    "evidence_directory": "reports/research/base-static-state-pair-20261127",
+    "heads": [
+      {
+        "arms": {
+          "batch": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 944068542,
+            "head_to_search_ns": 994190334,
+            "reader_release_to_received_ns": 530941958,
+            "reader_wire_ns": 276347791,
+            "reader_wire_response_bytes": 75490,
+            "words_sha256": "d3cadb6a31658bf70492f50c2d839de4a4be8523bf128d9e8507cd7ae9e1c871"
+          },
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 1281154667,
+            "head_to_search_ns": 1328705834,
+            "reader_release_to_received_ns": 278077917,
+            "reader_wire_ns": 276605292,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "d3cadb6a31658bf70492f50c2d839de4a4be8523bf128d9e8507cd7ae9e1c871"
+          }
+        },
+        "block": 63022891,
+        "child": "0xcab58b53828b0f2f4106cb2dd5481dd55626e838e32033414943284ef5a96fca",
+        "hash": "0xb729078d530ea404c44e0d1021b9e7e16a60d1ef2f6a9511437698f62b0a9b8e",
+        "observed_child_ns": 283869875,
+        "order": [
+          "batch",
+          "static"
+        ],
+        "parent": "0xb366dc45f7ef79ef34fd300ebe498c33ccef4fc7915a66b364de898db38e0f69",
+        "timestamp_ms": 1795794953800,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394111826917708,
+            "release_ns": 1394111625504958,
+            "request_sha256": "114ecb62ce4e4fab35b49f42999a55eff6dcc9b6a6326366ddbacd292136d566",
+            "response_sha256": "0db833c3001893bce35eb7ce7454938d70020f0b93dc5580ef1fadc79bd69a7e",
+            "sent_ns": 1394111626872125,
+            "status": 200,
+            "utc": "2026-11-27T15:55:54.118632+00:00"
+          },
+          "batch": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394112279308666,
+            "release_ns": 1394111748366708,
+            "request_sha256": "dc4165aa1baa638072a81d07168046939df355495048d7f32f81fa2053ad56ad",
+            "response_sha256": "2fa3c9d88227a85a34e49f57e810ff52c9b7af48751cd53e1851f5cf9ef32af6",
+            "sent_ns": 1394112002960875,
+            "status": 200,
+            "utc": "2026-11-27T15:55:54.241494+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394111745402916,
+            "release_ns": 1394111344754041,
+            "request_sha256": "a0d4367256aed22c463867809f51749f99c6bb1a835114ff6d5f46f0fa6a593a",
+            "response_sha256": "2a12a5497757c318a221354b9ecb4c169ee8480ce35dded22873437a1212affa",
+            "sent_ns": 1394111347114791,
+            "status": 200,
+            "utc": "2026-11-27T15:55:53.837880+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394111612207666,
+            "release_ns": 1394111344716041,
+            "request_sha256": "a0d4367256aed22c463867809f51749f99c6bb1a835114ff6d5f46f0fa6a593a",
+            "response_sha256": "620c1999ee4e65406f6d3d0cd058ac118690f5cef6fb9c9c3e09df8faaafcb49",
+            "sent_ns": 1394111345908916,
+            "status": 200,
+            "utc": "2026-11-27T15:55:53.837843+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394112619355208,
+            "release_ns": 1394112341277291,
+            "request_sha256": "04767ea051b7df51dc8ed3749dbfc3efa8a0976061abab5fd1083e48cb58813e",
+            "response_sha256": "780e99d3fb49d6783f5969e6b80241c48c0a53d8dd3ee2a63497bca3b652a076",
+            "sent_ns": 1394112342749916,
+            "status": 200,
+            "utc": "2026-11-27T15:55:54.834404+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "batch": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 1382867709,
+            "head_to_search_ns": 1430475459,
+            "reader_release_to_received_ns": 534221459,
+            "reader_wire_ns": 279689417,
+            "reader_wire_response_bytes": 75490,
+            "words_sha256": "ac0d475dcc80e636a616b58fd999562a945e26863026dce53e6e5e6bda10bc75"
+          },
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 787177167,
+            "head_to_search_ns": 839332917,
+            "reader_release_to_received_ns": 370705250,
+            "reader_wire_ns": 369013125,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "ac0d475dcc80e636a616b58fd999562a945e26863026dce53e6e5e6bda10bc75"
+          }
+        },
+        "block": 63022897,
+        "child": "0x8519ab6b8311deeea25ae04eb740808ffa6618cae297f894a251eb58514ff142",
+        "hash": "0xa23c0ab626183e50675718f24a1feb94d474fc164e7c84074e1778a93ed5270f",
+        "observed_child_ns": 180407292,
+        "order": [
+          "static",
+          "batch"
+        ],
+        "parent": "0x361047b7dfd456a07c4cc56d0e4b7863f9dd3d50afee2679cd0d515c8de4c7b0",
+        "timestamp_ms": 1795794955000,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394113130121000,
+            "release_ns": 1394112849233083,
+            "request_sha256": "9e459d40576eea4aa8f393635363bfb379127be98673a7d6eac2219396543f4f",
+            "response_sha256": "b2f93b30a080de3d1cdf5cd9fd0b4b36f352610f7e7e224eebd72ed774603094",
+            "sent_ns": 1394112927473375,
+            "status": 200,
+            "utc": "2026-11-27T15:55:55.342361+00:00"
+          },
+          "batch": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394113941799500,
+            "release_ns": 1394113407578041,
+            "request_sha256": "d5b29561d1182a390f617af82741b3a681a221af984b63645eaf2c8017b47411",
+            "response_sha256": "62a7bcd30f8d833641573a7eb043c973c1754d755865a066372bbff2fbf1b810",
+            "sent_ns": 1394113662110083,
+            "status": 200,
+            "utc": "2026-11-27T15:55:55.900706+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394112973249333,
+            "release_ns": 1394112672999291,
+            "request_sha256": "8001277d54757c203357c843563cab60817c823550a47e0ad1fdd872f6394458",
+            "response_sha256": "83cfdbd0f012e783361b0102d63173f067437cdb02ff46fc51d214538e18c5bf",
+            "sent_ns": 1394112674485791,
+            "status": 200,
+            "utc": "2026-11-27T15:55:55.166126+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394112842602916,
+            "release_ns": 1394112673044791,
+            "request_sha256": "8001277d54757c203357c843563cab60817c823550a47e0ad1fdd872f6394458",
+            "response_sha256": "35abeeca878eb39bc8f238aa3de36dffefcef35ef9bd25f91ad679f035703229",
+            "sent_ns": 1394112675719208,
+            "status": 200,
+            "utc": "2026-11-27T15:55:55.166171+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394113348060958,
+            "release_ns": 1394112977355708,
+            "request_sha256": "c4a18a177e8195a06a9baa81e50c62d27bcb4f289d875ffe3268a5f8e2c70490",
+            "response_sha256": "84d26b3db6c3f4db451f60d1a2943219cbeef7b5ea3f5d8c1cefdf0b009d3cbd",
+            "sent_ns": 1394112979047833,
+            "status": 200,
+            "utc": "2026-11-27T15:55:55.470483+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "batch": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "70282020f8b4d19d68b5fc1d32e8d6d08db568d652022a80635e6cf2ba0ffe9e"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f13b2164ad4520e1f86e9c6416be4917fcf28ab0796cabb58704207bedb70833"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "b506087deabad2ad158b5464d0ad2200b759d768e8c440092dde6300ab74b1ca"
+              }
+            },
+            "head_to_ready_ns": 902232500,
+            "head_to_search_ns": 951731167,
+            "reader_release_to_received_ns": 570317667,
+            "reader_wire_ns": 316284584,
+            "reader_wire_response_bytes": 75490,
+            "words_sha256": "bcf85e5c0c8ff266a7aaf51b4c797c88eae87632bade1944fab3560555d48f36"
+          },
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "70282020f8b4d19d68b5fc1d32e8d6d08db568d652022a80635e6cf2ba0ffe9e"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f13b2164ad4520e1f86e9c6416be4917fcf28ab0796cabb58704207bedb70833"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "b506087deabad2ad158b5464d0ad2200b759d768e8c440092dde6300ab74b1ca"
+              }
+            },
+            "head_to_ready_ns": 1235208167,
+            "head_to_search_ns": 1283006625,
+            "reader_release_to_received_ns": 275260083,
+            "reader_wire_ns": 273702500,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "bcf85e5c0c8ff266a7aaf51b4c797c88eae87632bade1944fab3560555d48f36"
+          }
+        },
+        "block": 63022904,
+        "child": "0x5a70a812c8a659cc1da1594a4a80537d2a732b90f4b4236c42d7b8e412987026",
+        "hash": "0xf842390d4a6af6a0bbe94a89e144938680bc45700f3a906c26ad0cf934865e52",
+        "observed_child_ns": 262118292,
+        "order": [
+          "batch",
+          "static"
+        ],
+        "parent": "0xa9e6ed7692937611189a16e74d540a40bb699ecd361587ec27b6a079bf2f2839",
+        "timestamp_ms": 1795794956400,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394114433738708,
+            "release_ns": 1394114144413041,
+            "request_sha256": "94b60822c44933d7ad8476473f8a87cfa4fd9e283211b717c1efce4907882490",
+            "response_sha256": "1709ecc3e4be2d02b2f01ea2d94a4d937ddacb7d1765db9addcf8945690edfc1",
+            "sent_ns": 1394114250670041,
+            "status": 200,
+            "utc": "2026-11-27T15:55:56.637540+00:00"
+          },
+          "batch": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394114848601250,
+            "release_ns": 1394114278283583,
+            "request_sha256": "9c54f8394497eac52bcbfde5115c1f3c3075c968b9fc265b1d6bd1b2b7886eee",
+            "response_sha256": "f694897b99d29e93e7fb92a7f221c2abf3b4da5784a7741209d2172b7141ca1e",
+            "sent_ns": 1394114532316666,
+            "status": 200,
+            "utc": "2026-11-27T15:55:56.771411+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394114275515750,
+            "release_ns": 1394113996860791,
+            "request_sha256": "6e992a13fa79ba87c19185bc4db999654b34f600e847a0604351694d519dd24c",
+            "response_sha256": "3195d41726721804dcd2e2b14482db2710ad50eae0d328723e5e5d1634dd73f4",
+            "sent_ns": 1394113998300791,
+            "status": 200,
+            "utc": "2026-11-27T15:55:56.489987+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394114138213583,
+            "release_ns": 1394113996893416,
+            "request_sha256": "6e992a13fa79ba87c19185bc4db999654b34f600e847a0604351694d519dd24c",
+            "response_sha256": "3e7cf12dfafc9358ad199c0358a78e64c9cf7a18d0822b97c0ca15a8325df4c4",
+            "sent_ns": 1394113999363625,
+            "status": 200,
+            "utc": "2026-11-27T15:55:56.490019+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394115183385083,
+            "release_ns": 1394114908125000,
+            "request_sha256": "d504c3a0ebb0f4879fc7ce0e820a4f771a2379f9175771998dcd9576de2d91ad",
+            "response_sha256": "fa04258572a92b36d6eda4e0e317f954295c397512d4e2b8124eedbfb3231669",
+            "sent_ns": 1394114909682583,
+            "status": 200,
+            "utc": "2026-11-27T15:55:57.401252+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "batch": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 1281910875,
+            "head_to_search_ns": 1329463375,
+            "reader_release_to_received_ns": 596060459,
+            "reader_wire_ns": 342885625,
+            "reader_wire_response_bytes": 75490,
+            "words_sha256": "3e1b6d5276770746201a4b157c3bbe5b3793d58b1d9c3d1998bee3837bfa5be2"
+          },
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "33f319876a37dd5799712b8f9c4dad0028a544d540bc1bcff08d6e833f54b01f"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "f0fcbc0e812113296883a5c2e4a2636669db9be76d5f909c993fabec907121ff"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  23,
+                  22
+                ],
+                "scan_signature_sha256": "05e9e43767adfe1885aa5ee419264f030604cd128939192d53370ff6107ffdcc"
+              }
+            },
+            "head_to_ready_ns": 629687875,
+            "head_to_search_ns": 676981875,
+            "reader_release_to_received_ns": 277231000,
+            "reader_wire_ns": 275766084,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "3e1b6d5276770746201a4b157c3bbe5b3793d58b1d9c3d1998bee3837bfa5be2"
+          }
+        },
+        "block": 63022910,
+        "child": "0x788e31f96342b5a608c0a4be835409e1c2471b3bb98697cebd2be57c5cd9a5dd",
+        "hash": "0x0c10c7e439d4679f275f96fa9342f1b6dc1a99c47779dbdd70e24699771d7b03",
+        "observed_child_ns": 163652167,
+        "order": [
+          "static",
+          "batch"
+        ],
+        "parent": "0x8b47894d1f3d9106c4907fdded23d6e21d3afa7b5260e4df20d7100068619797",
+        "timestamp_ms": 1795794957600,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394115666235625,
+            "release_ns": 1394115368018708,
+            "request_sha256": "07f9b15d6e16d7f33602fab2b226822beb22539605652f4b2c4e62f824b4c110",
+            "response_sha256": "73e57b511073691debab804e8b91e9cf4f778fd03ebf215b1d7ef1f7712f8614",
+            "sent_ns": 1394115493765291,
+            "status": 200,
+            "utc": "2026-11-27T15:55:57.861146+00:00"
+          },
+          "batch": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394116447456250,
+            "release_ns": 1394115851395791,
+            "request_sha256": "5fdf648174f6b42977825eaed98f08c941085896b6f54ddae0801c23aec90370",
+            "response_sha256": "c107f66dd4487ee6f10d16e26784ba33dd2892158fb0a1109b14922248a9f95d",
+            "sent_ns": 1394116104570625,
+            "status": 200,
+            "utc": "2026-11-27T15:55:58.344522+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394115515583583,
+            "release_ns": 1394115236710375,
+            "request_sha256": "bb4f00d92236e853e1e1218e1acc259486fd1065421b40bae8cb53ee94637e5e",
+            "response_sha256": "5b87fd10ed55d3508ec1595f3cf3eb6406b7f3e7d52dfdf66b81962596406378",
+            "sent_ns": 1394115238342916,
+            "status": 200,
+            "utc": "2026-11-27T15:55:57.729837+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394115362224500,
+            "release_ns": 1394115236763375,
+            "request_sha256": "bb4f00d92236e853e1e1218e1acc259486fd1065421b40bae8cb53ee94637e5e",
+            "response_sha256": "e18e356b90b51110ec3763330d1915fca515b7d6faf44d9ce68b31c24057a479",
+            "sent_ns": 1394115239717250,
+            "status": 200,
+            "utc": "2026-11-27T15:55:57.729890+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394115797065375,
+            "release_ns": 1394115519834375,
+            "request_sha256": "ea1b95589e84dfcb8604e50416d778b35127335abe81b46502d557f316065d80",
+            "response_sha256": "e5d4ccab689f2d80876012e044fec7669a5269f47c871b0947dcdc917c65fe85",
+            "sent_ns": 1394115521299291,
+            "status": 200,
+            "utc": "2026-11-27T15:55:58.012961+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "1024a77507929bc9fc7ab626c791e94033aae6b5d83282bcbc1155815ac22907"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  18,
+                  17
+                ],
+                "scan_signature_sha256": "729c28b7f2d63c9ccc07ec54cdc683e0541571651abec286dbbe5145c4c12c26"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  18,
+                  17
+                ],
+                "scan_signature_sha256": "7bf95d5932dc4e90d2219de2212422f1d8382bce5947e398fa5a0c93829dc366"
+              }
+            },
+            "head_to_ready_ns": 631150208,
+            "head_to_search_ns": 668217500,
+            "reader_release_to_received_ns": 296874667,
+            "reader_wire_ns": 295277292,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "2e817d50b77da928f1f5886a3d2c6688284977b30f2e05ca7b8cf13086f1bd69"
+          }
+        },
+        "block": 63022916,
+        "child": "0xfaae688c051852a1fb37bc89203fb63ddd4852153964fbfee422f76bf85461c8",
+        "hash": "0xaf72caad1c63b964c78494ee22f1aab6079c7d5d2b6a9436af130db7d63cd245",
+        "observed_child_ns": 157798541,
+        "order": [
+          "static"
+        ],
+        "parent": "0xf6ebf420e92926d97be09346ec806475ded9c3fc75c4a954b92d9da4129973aa",
+        "timestamp_ms": 1795794958800,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394117009990041,
+            "release_ns": 1394116641027041,
+            "request_sha256": "0aad1079ecc5611a065ee247e0d306f050069f18d9787f4a2b4cdcd5fa41521e",
+            "response_sha256": "22061693c598d6dab44e5b4ca4230699c5d2cbbdfad879d975e2337ae739f206",
+            "sent_ns": 1394116756747166,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.134154+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394116769972000,
+            "release_ns": 1394116502481750,
+            "request_sha256": "a8925fe0ebbaa575276ce2385db920b630342d91aef3cd2f8989d94bdd32599a",
+            "response_sha256": "c76c8f647af4cc7e5fe02949b936e966c62b015d0136cda39711a02f6e7ad7c1",
+            "sent_ns": 1394116504003541,
+            "status": 200,
+            "utc": "2026-11-27T15:55:58.995607+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394116634957291,
+            "release_ns": 1394116502532000,
+            "request_sha256": "a8925fe0ebbaa575276ce2385db920b630342d91aef3cd2f8989d94bdd32599a",
+            "response_sha256": "c6129c77a05189a6b5a6fc19e010cf19be2d2ec2e1a4cd447268990ac70ed164",
+            "sent_ns": 1394116504991875,
+            "status": 200,
+            "utc": "2026-11-27T15:55:58.995657+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394117070738333,
+            "release_ns": 1394116773863666,
+            "request_sha256": "f1d5500afe7d8d40b7957c79e55dfc29d31422c8d1ca371df8c8ece77ee1a0a2",
+            "response_sha256": "8e85faba1d4be3301b43e25ea271b17df0a92aad7b90e0444984dc1b2482a717",
+            "sent_ns": 1394116775461041,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.266990+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "946b4708de3b31e8fe246951f6cf9dd1cc0cd27e3ad030f7e4811a1c28ae854b"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "e7c4c1ef062075152e4dd6f36864018ab891533c6f9a59cebe09f438e11e6271"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "0bb74a1ecc35a85cadcf1e27f50dacdbee4317cc427989164ecfae8882b37688"
+              }
+            },
+            "head_to_ready_ns": 674157208,
+            "head_to_search_ns": 708763416,
+            "reader_release_to_received_ns": 294016458,
+            "reader_wire_ns": 292318541,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "dfc7f095c6808b0b7b24928b98c4f7ef78ca26ad298d02a654943d7486262717"
+          }
+        },
+        "block": 63022919,
+        "child": "0xdfb83641c6a6305affae17d4cb25e81047e440b107caa51ffd6bed09f5c5b823",
+        "hash": "0xb5ce6bb80cc207861458e9e274dc2784639f2f87aec1219880305950c08b4309",
+        "observed_child_ns": 142560375,
+        "order": [
+          "static"
+        ],
+        "parent": "0x3b906f2d7a44de5e891a2efdcc5372dfe28a4b91e458c321bfb4605f72e4028e",
+        "timestamp_ms": 1795794959400,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394117551415958,
+            "release_ns": 1394117248128375,
+            "request_sha256": "76459399af2818c0c732667c28934e1688b5de1d12f8b8c624dd532e1c8d1fc0",
+            "response_sha256": "0de947a3d7125833ecdae9e9e94c0e26842fe891cee819648f89a9bf2ca11bbd",
+            "sent_ns": 1394117373070416,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.741255+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394117379027583,
+            "release_ns": 1394117116286041,
+            "request_sha256": "a29a8b30425a916e2af9529a91f3a46166271893b285b17f849955e5cbed9f90",
+            "response_sha256": "1c3684c95181a917dda8b52d08511d772c4118fbf0edfe972417451c4cf05050",
+            "sent_ns": 1394117119177166,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.609412+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394117241623875,
+            "release_ns": 1394117116323208,
+            "request_sha256": "a29a8b30425a916e2af9529a91f3a46166271893b285b17f849955e5cbed9f90",
+            "response_sha256": "abaa14a551c5088d55f8b98a49f7519415b5979c83f6a293218ce9c63f530d85",
+            "sent_ns": 1394117117767000,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.609448+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394117677419291,
+            "release_ns": 1394117383402833,
+            "request_sha256": "a8982fc851391e50aaf07a3641d61a733e53b8b4a1cb0a7e326f823ae5d888d9",
+            "response_sha256": "0f08e8921e95df7ddf2f5e87725d00f8ef17f3420c5c6779ec8aaa4781d90d19",
+            "sent_ns": 1394117385100750,
+            "status": 200,
+            "utc": "2026-11-27T15:55:59.876529+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "a84078789c7c1dd1fc6f0a58831a29fd694acb53ec2d7b1373cee1ba9878e0d3"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "177c5dde0340e962e790e8cf0d6d31e952bb2c0e1a209cf8a91b67eba72fc729"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "d32a143531eac56b7aedee753985374ca0fdc01155613aeab4e50cf2296e6880"
+              }
+            },
+            "head_to_ready_ns": 729325209,
+            "head_to_search_ns": 765670584,
+            "reader_release_to_received_ns": 300619417,
+            "reader_wire_ns": 299212584,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "f5e514fb7d5440449d029b69b8b547ad0ff66c58a29dcae2a5871c5d099fba7c"
+          }
+        },
+        "block": 63022922,
+        "child": "0x2684a0ca523b77cd575af814c15d6a0f18f1ab98e7bf54ce317c5008b7db1312",
+        "hash": "0x990cac1d0fb038800df13c6c3a6785c24e597cbbebd961c41e668a91f9595743",
+        "observed_child_ns": 335769792,
+        "order": [
+          "static"
+        ],
+        "parent": "0xf2679cb284a64ce3c5fc1fd7ffa78ecbf675c417f6b87185d453c1df59cd63c6",
+        "timestamp_ms": 1795794960000,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394118160220333,
+            "release_ns": 1394117842494458,
+            "request_sha256": "8d4419c1b56a8a21e175c5125086c23767bc4c6b6e644dda2ca105b5321ec4b5",
+            "response_sha256": "563f1ce81c64d18e44a5c6afecf86fd3737758c1747fbcd7e57c315fbb0aed37",
+            "sent_ns": 1394117973040166,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.335622+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394117978823458,
+            "release_ns": 1394117717945833,
+            "request_sha256": "e6b7818425fe9cc8f52100f081cd29dae677fc679312840ac34d296635c88766",
+            "response_sha256": "5d76b742613fba210ecd15face2f1f7e0b2646a1a5f856d2d0958e22c5c9c457",
+            "sent_ns": 1394117719661875,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.211071+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394117836263708,
+            "release_ns": 1394117717993208,
+            "request_sha256": "e6b7818425fe9cc8f52100f081cd29dae677fc679312840ac34d296635c88766",
+            "response_sha256": "70fd21d274db759dba117c844edcb802c201687b3d577095e714e564f71c5655",
+            "sent_ns": 1394117721125416,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.211119+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394118283430125,
+            "release_ns": 1394117982810708,
+            "request_sha256": "d86bd0bb2276d35e88b44dc616bb763a0102b354e0705bf100cdaf8061cf5153",
+            "response_sha256": "98bea51750d1b928fc48ffc940b5f77e46037fc46f651f81b6b341cfbe59653b",
+            "sent_ns": 1394117984217541,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.475937+00:00"
+          }
+        }
+      },
+      {
+        "arms": {
+          "static": {
+            "cohorts": {
+              "4": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  2,
+                  2
+                ],
+                "scan_signature_sha256": "349220dea9b551de3f8c4fc3a42e207e769b5fcebf706153e7b194581f166a97"
+              },
+              "58": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "9a70e74413b62c1319282ff8497793b8920c23a45d913e63eda3ff86dc1e87a4"
+              },
+              "66": {
+                "candidates": 0,
+                "positive_candidates": [],
+                "residuals": [
+                  17,
+                  16
+                ],
+                "scan_signature_sha256": "b09aa38500371c81a4708a434688c244e89f67ed698f958a9e01e0a61a7dd3c6"
+              }
+            },
+            "head_to_ready_ns": 766366709,
+            "head_to_search_ns": 801072959,
+            "reader_release_to_received_ns": 340244708,
+            "reader_wire_ns": 338696250,
+            "reader_wire_response_bytes": 27622,
+            "words_sha256": "ffdde2c5cc6d682820d617b3c08d70e1943b5687d79ad8de2a934ff009c4d4eb"
+          }
+        },
+        "block": 63022925,
+        "child": "0x0669e31365f6d21c37c92fd051c28b3a866fcaf683ef0cbd6db53ec9ede1a0d2",
+        "hash": "0x8b7d0f7acf3e53b29d12f1921873d1f8df3f31b69ec9359ae0e5371b6decc623",
+        "observed_child_ns": 228872417,
+        "order": [
+          "static"
+        ],
+        "parent": "0x560226ba54e86e5081608dbe9aae316ab00617b3c8ed4e99216f5bea3d758401",
+        "timestamp_ms": 1795794960600,
+        "wire": {
+          "address": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394118735006875,
+            "release_ns": 1394118462637833,
+            "request_sha256": "126f54ff1430e15ab22a0cfe95a8bcf83fcefcd3ee1429fe73049fdf0b9652f2",
+            "response_sha256": "c2e6ba0fbed22292e3b51f7bf88d044fecb9b01f53e2c8a2f48366f1f2e7c9b0",
+            "sent_ns": 1394118580757166,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.955764+00:00"
+          },
+          "official": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394118590869625,
+            "release_ns": 1394118325221416,
+            "request_sha256": "764f4fa270148875d34723b367e8f130ae50d227cf97fefbdbc11e22e280f294",
+            "response_sha256": "57a406af5393b105db2f20e0e8627fb4ba97a1d5a778ef3a8eda1223e1a4210f",
+            "sent_ns": 1394118327015083,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.818347+00:00"
+          },
+          "primary": {
+            "endpoint": "https://base-rpc.publicnode.com",
+            "received_ns": 1394118456620708,
+            "release_ns": 1394118325263583,
+            "request_sha256": "764f4fa270148875d34723b367e8f130ae50d227cf97fefbdbc11e22e280f294",
+            "response_sha256": "f30533d0f274f7963d1b967e2c39b74f8e4a30b8d97eaae24b304109b26f61fe",
+            "sent_ns": 1394118328146875,
+            "status": 200,
+            "utc": "2026-11-27T15:56:00.818389+00:00"
+          },
+          "static": {
+            "endpoint": "https://mainnet.base.org",
+            "received_ns": 1394118935242333,
+            "release_ns": 1394118594997625,
+            "request_sha256": "91724b51973c80c48f27f2d2e66056d37bffb016d6d1711fbd034667e14c8474",
+            "response_sha256": "0c4aa5ad5948acdc5bffe8d8fc1fa9eeb58fcd5f956a15b0f4646de68b08957b",
+            "sent_ns": 1394118596546083,
+            "status": 200,
+            "utc": "2026-11-27T15:56:01.088124+00:00"
+          }
+        }
+      }
+    ],
+    "scope_sha256": "db65ad20519f87613a907f2beceb8e915a448dd785669b46a21f4f3b1dac8303",
+    "start": {
+      "scope_sha256": "db65ad20519f87613a907f2beceb8e915a448dd785669b46a21f4f3b1dac8303",
+      "utc": "2026-11-27T15:55:53.234586+00:00"
+    },
+    "stop": {
+      "completed": 8,
+      "counts": {
+        "base_official": 24,
+        "publicnode_base": 16
+      },
+      "reason": null,
+      "schedule_hash": "9c6330dfc394520235a403efd7b7ceb8bb17427ab1414f3aa91ff6976109f423",
+      "status": "complete",
+      "utc": "2026-11-27T15:56:02.490001+00:00",
+      "ws_counts": {
+        "publicnode_newheads": 3
+      }
+    },
+    "ws_frames": 39
+  },
+  "rpc_usd": 0,
+  "schema": "oasis.base-static-reader-actual-principal.v1"
+}
