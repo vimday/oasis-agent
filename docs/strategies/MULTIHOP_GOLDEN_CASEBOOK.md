@@ -4,6 +4,8 @@
 
 ## 八链覆盖
 
+按成交年份选取时，旧目录有 **83,080 笔 2026 年交易、655 笔逐笔案例**。当年黄金样本已另补 Ethereum 7 月 WBTC 四池套利及四位置复演、BSC 双三跳、Optimism 25 事件抵押换债、Era 单腿与费用退款对照。此前的四笔 Optimism 百腿全额复投成交于 2022 年。[2026 年按链样本与测量](../verification/Y2026_MULTICHAIN_MEASUREMENTS_20261127.md) · [655 笔逐笔清单](../verification/Y2026_EXISTING_CASE_REGISTER_20261127.json)
+
 | 链 | 可定位的已入块交易 | 逐笔入册 | 有网络费分项 |
 | --- | ---: | ---: | ---: |
 | Ethereum | 41,342 | 213 | 99 |

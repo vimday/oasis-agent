@@ -1,0 +1,719 @@
+{
+  "bsc": {
+    "added_only": {
+      "above_21k_at_observed_gas_price": 0,
+      "above_60k_at_observed_gas_price": 0,
+      "grid_residual_or_dust": 102,
+      "gross_positive": 10,
+      "gross_positive_known_tax_path": 4,
+      "marginal_positive_paths": 298,
+      "modelled_grid": 1686,
+      "paths_using_additions": 1166,
+      "topological_paths": 1166
+    },
+    "baseline": {
+      "above_21k_at_observed_gas_price": 0,
+      "above_60k_at_observed_gas_price": 0,
+      "grid_residual_or_dust": 912,
+      "gross_positive": 42,
+      "gross_positive_known_tax_path": 15,
+      "marginal_positive_paths": 2293,
+      "modelled_grid": 12846,
+      "paths_using_additions": 0,
+      "topological_paths": 8536
+    },
+    "control_envelope_sha256": "8772185014073c035b20b2cb07a6c1934a5a6e8362ff0d987be92ee08209ddc4",
+    "frozen_utc": "2026-11-27T15:27:44.234046+00:00",
+    "http_attempts": 16,
+    "market_receipts": {
+      "coverage": {
+        "all_receipts": 101,
+        "overlap_transactions": [
+          {
+            "actual_gas_price_wei": 50000000,
+            "added_events": 1,
+            "event_shapes": 2,
+            "i": 14,
+            "known_baseline_events": 0,
+            "tx": "0xc65547e7ddcaacd798668948a2444bd082ddd37396953979a66c7b53a0f5fe97"
+          },
+          {
+            "actual_gas_price_wei": 52000000,
+            "added_events": 1,
+            "event_shapes": 1,
+            "i": 22,
+            "known_baseline_events": 0,
+            "tx": "0x7c00b80d499d112598330e87e3e0ddea287bc44eab7d48952fa9eade63a33c63"
+          },
+          {
+            "actual_gas_price_wei": 0,
+            "added_events": 3,
+            "event_shapes": 11,
+            "i": 26,
+            "known_baseline_events": 0,
+            "tx": "0x84f523bcc226d11664a6bc86cebea6ae50fac9d98709b6f29cac71c80ae48f4f"
+          },
+          {
+            "actual_gas_price_wei": 60000000,
+            "added_events": 1,
+            "event_shapes": 3,
+            "i": 53,
+            "known_baseline_events": 0,
+            "tx": "0x4e733749c7f730fafb59cfcf946152377848efabc44276e45fd282ec208ba65d"
+          },
+          {
+            "actual_gas_price_wei": 50000000,
+            "added_events": 0,
+            "event_shapes": 4,
+            "i": 89,
+            "known_baseline_events": 1,
+            "tx": "0xba198c21bd6083e777612f3efafcdbc1979d9c7f42a3a1e9e04ba280c84ae5e5"
+          }
+        ],
+        "receipts_root": "0xa1d77a79fddc93fb001f32350ef597b47433e2862f663bebc658e43266647cde",
+        "transaction_counts_by_matching_events": {
+          "0": 73,
+          "1": 16,
+          "2": 9,
+          "3": 1,
+          "4": 1,
+          "11": 1
+        }
+      },
+      "prior_block_overlap": [],
+      "raw_response_path": "reports/research/bsc-y2026-window-20261127/wire/16.response",
+      "raw_response_sha256": "88096e9460b033aae49b762f1a4977fe9b82b8a288ba308377bf6ed3ccc18f66",
+      "rows_also_in_three_prior_bsc_catalogues": [],
+      "screened": [
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "57000000",
+          "gas_used": 305510,
+          "receipt_gas_bnb_wei": "17414070000000",
+          "swap_log_indices": [
+            2,
+            3
+          ],
+          "transaction_index": 1,
+          "tx_hash": "0x394a3a841cb7d2def4180b4db962f355095ba0428ba6ed7ce1485e945c17377b"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "52000002",
+          "gas_used": 322863,
+          "receipt_gas_bnb_wei": "16788876645726",
+          "swap_log_indices": [
+            25,
+            28
+          ],
+          "transaction_index": 4,
+          "tx_hash": "0x81c3a7e09622f914e6d6079abc8812541c570702d4ee170fb67a7686bf69952b"
+        },
+        {
+          "added_pool_events": 1,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "50000000",
+          "gas_used": 350168,
+          "receipt_gas_bnb_wei": "17508400000000",
+          "swap_log_indices": [
+            48,
+            53
+          ],
+          "transaction_index": 14,
+          "tx_hash": "0xc65547e7ddcaacd798668948a2444bd082ddd37396953979a66c7b53a0f5fe97"
+        },
+        {
+          "added_pool_events": 3,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "0",
+          "gas_used": 1107155,
+          "receipt_gas_bnb_wei": "0",
+          "swap_log_indices": [
+            72,
+            76,
+            80,
+            83,
+            85,
+            90,
+            94,
+            96,
+            98,
+            101,
+            105
+          ],
+          "transaction_index": 26,
+          "tx_hash": "0x84f523bcc226d11664a6bc86cebea6ae50fac9d98709b6f29cac71c80ae48f4f"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "600000000",
+          "gas_used": 520282,
+          "receipt_gas_bnb_wei": "312169200000000",
+          "swap_log_indices": [
+            143,
+            148
+          ],
+          "transaction_index": 31,
+          "tx_hash": "0xd048bc5b50da25a2e6b43b8ef8074bb1d73d0792fba5933ce0d28475ab631191"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "600000000",
+          "gas_used": 515327,
+          "receipt_gas_bnb_wei": "309196200000000",
+          "swap_log_indices": [
+            168,
+            173
+          ],
+          "transaction_index": 32,
+          "tx_hash": "0xca6bb8f434b79a22007a75919cab89d41a66666cf3423e9cb7ff7e996bad6936"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "120000000",
+          "gas_used": 329870,
+          "receipt_gas_bnb_wei": "39584400000000",
+          "swap_log_indices": [
+            200,
+            204
+          ],
+          "transaction_index": 35,
+          "tx_hash": "0x53fd507bb3b22b615538047cc012d7a5056fe7999c0c5080245d4fa5db5c0add"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "111480000",
+          "gas_used": 562856,
+          "receipt_gas_bnb_wei": "62747186880000",
+          "swap_log_indices": [
+            213,
+            219
+          ],
+          "transaction_index": 36,
+          "tx_hash": "0xb7cf2561e27078f3470dd5f932b1e4f3479271fd0f15e8364ed332c617915e05"
+        },
+        {
+          "added_pool_events": 1,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "60000000",
+          "gas_used": 650749,
+          "receipt_gas_bnb_wei": "39044940000000",
+          "swap_log_indices": [
+            294,
+            298,
+            301
+          ],
+          "transaction_index": 53,
+          "tx_hash": "0x4e733749c7f730fafb59cfcf946152377848efabc44276e45fd282ec208ba65d"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 1,
+          "effective_gas_price_wei": "50000000",
+          "gas_used": 482183,
+          "receipt_gas_bnb_wei": "24109150000000",
+          "swap_log_indices": [
+            687,
+            700,
+            704,
+            710
+          ],
+          "transaction_index": 89,
+          "tx_hash": "0xba198c21bd6083e777612f3efafcdbc1979d9c7f42a3a1e9e04ba280c84ae5e5"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "120000000",
+          "gas_used": 593513,
+          "receipt_gas_bnb_wei": "71221560000000",
+          "swap_log_indices": [
+            742,
+            747
+          ],
+          "transaction_index": 92,
+          "tx_hash": "0xee513ee231f121fff2a8a43b813603579ac7bb94583febd59c696986e91e9f37"
+        },
+        {
+          "added_pool_events": 0,
+          "baseline_pool_events": 0,
+          "effective_gas_price_wei": "200000000",
+          "gas_used": 506208,
+          "receipt_gas_bnb_wei": "101241600000000",
+          "swap_log_indices": [
+            786,
+            800
+          ],
+          "transaction_index": 95,
+          "tx_hash": "0xaed756883bbd90427a41072a96f187b146ccfa03b1546629d034dae6444b40a2"
+        }
+      ],
+      "selected": {
+        "all_cost_owner_pnl": null,
+        "holder_wbnb_transfers": [
+          {
+            "amount": "204087040000000000",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 75,
+            "to": "0x172fcd41e0913e95784454622d1c3724f546f849"
+          },
+          {
+            "amount": "13728991084441219",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0x22313ace9911b91a0bc6eab0189b99e78c28c699",
+            "log": 81,
+            "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+          },
+          {
+            "amount": "13728224211387637",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 84,
+            "to": "0x172fcd41e0913e95784454622d1c3724f546f849"
+          },
+          {
+            "amount": "147422714973234",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0x12c22dd9966907e115996d1e50ed51f0865679d6",
+            "log": 92,
+            "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+          },
+          {
+            "amount": "147044717500000",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 95,
+            "to": "0x6fe9e9de56356f7edbfcbb29fab7cd69471a4869"
+          },
+          {
+            "amount": "7776223544820801",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 104,
+            "to": "0x172fcd41e0913e95784454622d1c3724f546f849"
+          },
+          {
+            "amount": "3054345112452",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 107,
+            "to": "0x1c6e6db469419167b42cb08bf19745549bb1bb07"
+          }
+        ],
+        "matched_standard_swap_logs": [
+          76,
+          80,
+          83,
+          85,
+          90,
+          94,
+          96,
+          105
+        ],
+        "observed_holder": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+        "receipt_funded_wbnb_paths": [
+          {
+            "all_pools_in_frozen_registry": false,
+            "funding_transfer_pairs": [
+              [
+                77,
+                79
+              ],
+              [
+                78,
+                82
+              ]
+            ],
+            "gross_wbnb_wei": "766873053582",
+            "legs": [
+              {
+                "in": {
+                  "amount": "13728224211387637",
+                  "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 84,
+                  "to": "0x172fcd41e0913e95784454622d1c3724f546f849"
+                },
+                "out": {
+                  "amount": "7573361561448862345",
+                  "asset": "0x55d398326f99059ff775485246999027b3197955",
+                  "from": "0x172fcd41e0913e95784454622d1c3724f546f849",
+                  "log": 77,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0x172fcd41e0913e95784454622d1c3724f546f849",
+                "registry_identity": true,
+                "swap_log": 85
+              },
+              {
+                "in": {
+                  "amount": "7573361561448862345",
+                  "asset": "0x55d398326f99059ff775485246999027b3197955",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 79,
+                  "to": "0x8f8792b47fed3ab7bd4d96e26f63fb0fda41dee9"
+                },
+                "out": {
+                  "amount": "431645161247273899023",
+                  "asset": "0x0510101ec6c49d24ed911f0011e22a0d697ee776",
+                  "from": "0x8f8792b47fed3ab7bd4d96e26f63fb0fda41dee9",
+                  "log": 78,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0x8f8792b47fed3ab7bd4d96e26f63fb0fda41dee9",
+                "registry_identity": false,
+                "swap_log": 80
+              },
+              {
+                "in": {
+                  "amount": "431645161247273899023",
+                  "asset": "0x0510101ec6c49d24ed911f0011e22a0d697ee776",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 82,
+                  "to": "0x22313ace9911b91a0bc6eab0189b99e78c28c699"
+                },
+                "out": {
+                  "amount": "13728991084441219",
+                  "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                  "from": "0x22313ace9911b91a0bc6eab0189b99e78c28c699",
+                  "log": 81,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0x22313ace9911b91a0bc6eab0189b99e78c28c699",
+                "registry_identity": false,
+                "swap_log": 83
+              }
+            ],
+            "output_wbnb_wei": "13728991084441219",
+            "principal_wbnb_wei": "13728224211387637",
+            "swap_logs": [
+              85,
+              80,
+              83
+            ]
+          },
+          {
+            "all_pools_in_frozen_registry": false,
+            "funding_transfer_pairs": [
+              [
+                86,
+                87
+              ],
+              [
+                88,
+                91
+              ]
+            ],
+            "gross_wbnb_wei": "377997473234",
+            "legs": [
+              {
+                "in": {
+                  "amount": "147044717500000",
+                  "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 95,
+                  "to": "0x6fe9e9de56356f7edbfcbb29fab7cd69471a4869"
+                },
+                "out": {
+                  "amount": "81053455741794036",
+                  "asset": "0x55d398326f99059ff775485246999027b3197955",
+                  "from": "0x6fe9e9de56356f7edbfcbb29fab7cd69471a4869",
+                  "log": 86,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0x6fe9e9de56356f7edbfcbb29fab7cd69471a4869",
+                "registry_identity": false,
+                "swap_log": 96
+              },
+              {
+                "in": {
+                  "amount": "81053455741794036",
+                  "asset": "0x55d398326f99059ff775485246999027b3197955",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 87,
+                  "to": "0xc1c302aa24b522ba5723f659274bca4b4a3c93ae"
+                },
+                "out": {
+                  "amount": "764453296996",
+                  "asset": "0xed1a37e1662315747fba70254a42b76b894ee814",
+                  "from": "0xc1c302aa24b522ba5723f659274bca4b4a3c93ae",
+                  "log": 88,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0xc1c302aa24b522ba5723f659274bca4b4a3c93ae",
+                "registry_identity": false,
+                "swap_log": 90
+              },
+              {
+                "in": {
+                  "amount": "764453296996",
+                  "asset": "0xed1a37e1662315747fba70254a42b76b894ee814",
+                  "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+                  "log": 91,
+                  "to": "0x12c22dd9966907e115996d1e50ed51f0865679d6"
+                },
+                "out": {
+                  "amount": "147422714973234",
+                  "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+                  "from": "0x12c22dd9966907e115996d1e50ed51f0865679d6",
+                  "log": 92,
+                  "to": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c"
+                },
+                "pool": "0x12c22dd9966907e115996d1e50ed51f0865679d6",
+                "registry_identity": false,
+                "swap_log": 94
+              }
+            ],
+            "output_wbnb_wei": "147422714973234",
+            "principal_wbnb_wei": "147044717500000",
+            "swap_logs": [
+              96,
+              90,
+              94
+            ]
+          }
+        ],
+        "selection_rank": [
+          false,
+          -3,
+          -11,
+          26
+        ],
+        "sender": "0x2e5872a1752b6d6445d740d8f1a694b76ca0ce5d",
+        "tx_hash": "0x84f523bcc226d11664a6bc86cebea6ae50fac9d98709b6f29cac71c80ae48f4f",
+        "visible_wbnb_balance_delta_wei": "0",
+        "wbnb_ordinary_transfer_delta_wei": "-211865173019406437",
+        "wbnb_transfers_outside_matched_standard_swaps": [
+          {
+            "amount": "3054345112452",
+            "asset": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+            "from": "0xabcacd2dccd3c9d1dce54cb1477d5704f99dc63c",
+            "log": 107,
+            "to": "0x1c6e6db469419167b42cb08bf19745549bb1bb07"
+          }
+        ],
+        "wbnb_wrap_net_delta_wei": "211865173019406437",
+        "wrap_events": [
+          {
+            "kind": "deposit",
+            "log": 73,
+            "raw": "204090430847215784"
+          },
+          {
+            "kind": "deposit",
+            "log": 102,
+            "raw": "7776296155940653"
+          },
+          {
+            "kind": "withdrawal",
+            "log": 106,
+            "raw": "1553983750000"
+          }
+        ]
+      }
+    },
+    "max_added_gross_wei": "999729069223",
+    "max_baseline_gross_wei": "856640965699",
+    "max_http": 24,
+    "natural_proposals": 0,
+    "ordinary_gas_price_wei": 50000000,
+    "original_ledger_sha256": "6ebaa381c70ac03144aedb3df107df44ad8e78eff108945e875cb7980c9e4efc",
+    "phases": {
+      "C": {
+        "actual_charged_gas": null,
+        "block_hash": "0x69733a5c4d281e6f7c79c6026384f37d46980e8d20a37c99a41c008588b48c04",
+        "block_number": 136062552,
+        "gas_only_net_lower_wei": "-75093128024692",
+        "gas_only_net_upper_wei": "-9813378024692",
+        "gross_wei": "-93128024692",
+        "head_receive_monotonic_ns": 1392442921733416,
+        "head_receive_utc": "2026-11-27T15:28:05.413819000Z",
+        "head_rpc_sequence": 12,
+        "output_wei": "99906871975308",
+        "parent_hash": "0x41c3ed5e8e0b434678371d82cdd2d0565171549686ffe50ec588edfa1d08fe87",
+        "whole_return_monotonic_ns": 1392443214185250
+      },
+      "H": {
+        "actual_charged_gas": null,
+        "block_hash": "0x41c3ed5e8e0b434678371d82cdd2d0565171549686ffe50ec588edfa1d08fe87",
+        "block_number": 136062551,
+        "gas_only_net_lower_wei": "-75090712752249",
+        "gas_only_net_upper_wei": "-9811762752249",
+        "gross_wei": "-90712752249",
+        "head_receive_monotonic_ns": 1392441349712291,
+        "head_receive_utc": "2026-11-27T15:28:03.841799000Z",
+        "head_rpc_sequence": 3,
+        "output_wei": "99909287247751",
+        "parent_hash": "0x6159fc3fbd7e4c5650f7b27dd37ead2c24679979748efe379bd22fb9c27b9919",
+        "whole_return_monotonic_ns": 1392442339609916
+      },
+      "K": {
+        "actual_charged_gas": null,
+        "block_hash": "0xae7a8174c1da29dfc3a1c30b5389f23e69681f3cd7caecde71e290f68edfe386",
+        "block_number": 136062553,
+        "gas_only_net_lower_wei": "-75097424989766",
+        "gas_only_net_upper_wei": "-10236624989766",
+        "gross_wei": "-97424989766",
+        "head_receive_monotonic_ns": 1392442474209541,
+        "head_receive_utc": "2026-11-27T15:28:04.966295000Z",
+        "head_rpc_sequence": 9,
+        "output_wei": "99902575010234",
+        "parent_hash": "0x69733a5c4d281e6f7c79c6026384f37d46980e8d20a37c99a41c008588b48c04",
+        "whole_return_monotonic_ns": 1392442757480083
+      }
+    },
+    "result_sha256": "147b3bdc565427d49ba12e3b68aa8f2d442928d87836f7017ea7fd7a1cd51c65",
+    "scope_sha256": "9427cdb5d86cb99a862897545244c1a0fcba07a0d3767bf412dbdaa13eb42423",
+    "source": "https://bsc-dataseed.bnbchain.org",
+    "stop": null,
+    "stop_sha256": "98e0de040b50679aaa989ab46ca452a1d46f1f399aeece1ab899892c49b8457d",
+    "timing_ns": {
+      "H_return_to_K_receive": 134599625,
+      "H_return_to_K_send": 2969917,
+      "H_to_rank": 377519375,
+      "H_to_state": 245351084,
+      "H_to_whole_return": 989897625,
+      "independent_child_timing": null
+    },
+    "wire_folder": "reports/research/bsc-y2026-window-20261127/wire"
+  },
+  "ethereum": {
+    "candidate_kind": "fixed_control",
+    "control_envelope_sha256": "59a3b743d0281bbee1fc5f104663dd4beab3073792964423d7108d4ebedcc12c",
+    "frozen_utc": "2026-11-27T15:27:45.455000000Z",
+    "opportunity_summary": {
+      "evidence_kind_counts": {
+        "fixed_control": 1,
+        "fixture": 0,
+        "historical_replay": 0,
+        "natural_forward": 0
+      },
+      "execution_eligible": false,
+      "natural_attempts": 0,
+      "natural_discovery_unresolved": 0,
+      "natural_full_cost_positive_heads": 0,
+      "natural_positive_direct_child_rated": 0,
+      "natural_positive_direct_child_still_positive": null,
+      "natural_timely_h_k_c_rated": 0,
+      "natural_timely_h_k_c_survivors": null
+    },
+    "original_http_ledger_sha256": "09f0c97ef73b9344ff0758b2983a33ba0e8d9c4f12446d3d674a06251e675833",
+    "original_ws_ledger_sha256": "354157dd3b735620f6b7afa8abadd831c3dddd58a3ed1b03c5a8b8ec1e17b75c",
+    "phases": {
+      "C": {
+        "actual_charged_gas": null,
+        "block_hash": "0x9233bccf4f12e39e2bf173b96d1e6f6940375e59b46e58745811a70fdea4e872",
+        "block_number": 26507441,
+        "gross_wei": "-7278785257370",
+        "head_receive_monotonic_ns": 1392462944413000,
+        "head_receive_utc_ms_resolution": "2026-11-27T15:28:25.436000000Z",
+        "parent_hash": "0xd876dae5ac3839f4f36a3d9f969cfd04d211cace8edb87a73febeee7b1a1d140",
+        "policy_net_lower_wei": "-5833485258857370",
+        "simulated_net_after_gas_wei": "-574005841565822",
+        "traced_simulated_gas": 466986,
+        "whole_quorum_return_monotonic_ns": 1392463688514166
+      },
+      "H": {
+        "actual_charged_gas": null,
+        "block_hash": "0xd876dae5ac3839f4f36a3d9f969cfd04d211cace8edb87a73febeee7b1a1d140",
+        "block_number": 26507440,
+        "gross_wei": "-7278785257370",
+        "head_receive_monotonic_ns": 1392451353817375,
+        "head_receive_utc_ms_resolution": "2026-11-27T15:28:13.845000000Z",
+        "parent_hash": "0x60f51833e52aad75470d5c42f36f48a29cabe175e49bcecde7a6ed68ad33c95d",
+        "policy_net_lower_wei": "-5824121514857370",
+        "simulated_net_after_gas_wei": "-573094854616742",
+        "traced_simulated_gas": 466986,
+        "whole_quorum_return_monotonic_ns": 1392453446894333
+      },
+      "K": {
+        "actual_charged_gas": null,
+        "block_hash": "0xd876dae5ac3839f4f36a3d9f969cfd04d211cace8edb87a73febeee7b1a1d140",
+        "block_number": 26507440,
+        "gross_wei": "-7278785257370",
+        "head_receive_monotonic_ns": 1392453753198291,
+        "head_receive_utc_ms_resolution": "2026-11-27T15:28:16.245000000Z",
+        "parent_hash": "0x60f51833e52aad75470d5c42f36f48a29cabe175e49bcecde7a6ed68ad33c95d",
+        "policy_net_lower_wei": "-5824121514857370",
+        "simulated_net_after_gas_wei": "-573094854616742",
+        "traced_simulated_gas": 466986,
+        "whole_quorum_return_monotonic_ns": 1392453446894333
+      }
+    },
+    "prior_block_overlap": [],
+    "result_sha256": "c897975f6bb21802a25bc560e86d114a11383891f689f510fc31062500df2a0d",
+    "route_grid_count": 79760,
+    "rpc_counts": {
+      "drpc": 6,
+      "publicnode": 16
+    },
+    "scan": {
+      "2:continuous_gross_upper_above_floor": 1,
+      "2:grid_above_conservative_gate": 0,
+      "2:grid_above_intrinsic_floor": 1,
+      "2:grid_gross_positive": 3,
+      "2:routes": 24,
+      "3:continuous_gross_upper_above_floor": 2,
+      "3:grid_above_conservative_gate": 0,
+      "3:grid_above_intrinsic_floor": 2,
+      "3:grid_gross_positive": 37,
+      "3:routes": 156,
+      "4:continuous_gross_upper_above_floor": 0,
+      "4:grid_above_conservative_gate": 0,
+      "4:grid_above_intrinsic_floor": 0,
+      "4:grid_gross_positive": 187,
+      "4:routes": 820,
+      "5:continuous_gross_upper_above_floor": 0,
+      "5:grid_above_conservative_gate": 0,
+      "5:grid_above_intrinsic_floor": 0,
+      "5:grid_gross_positive": 466,
+      "5:routes": 2520,
+      "6:continuous_gross_upper_above_floor": 0,
+      "6:grid_above_conservative_gate": 0,
+      "6:grid_above_intrinsic_floor": 0,
+      "6:grid_gross_positive": 570,
+      "6:routes": 4456
+    },
+    "scope_sha256": "d75fa7e01a0e9d9855fe2425d4bc72c01327d58dbfb4ba77db0adb7060462302",
+    "stop": null,
+    "stop_sha256": "28acbc68afe68ee6a41a01e174be50bf04b5b2fe987c619eba454b4e26faa244",
+    "timing_ns": {
+      "C_http_minus_C_wss": 339185292,
+      "H_quorum_before_C_wss_margin": 9158333375,
+      "H_to_C_independent_wss": 11251410333,
+      "H_to_rank": 1210959875,
+      "H_to_state": 522459041,
+      "H_to_whole_quorum": 2093076958
+    },
+    "wire_folder": "reports/research/eth-y2026-window-20261127",
+    "witness": {
+      "transport": {
+        "closed_monotonic_ns": 1392465046992666,
+        "counts": {
+          "drpc_eth_newheads": 3
+        },
+        "failure": null,
+        "frames": 2,
+        "ready": true,
+        "started_monotonic_ns": 1392440470788125
+      },
+      "witness": {
+        "child_frame_sha256": "801b9eb63705db95c6ec5fd3324866ecd4daea5bd0847f09c9931df41be674f4",
+        "child_monotonic_ns": 1392462605227708,
+        "discovery_frame_sha256": "721c0aa58206c1431691fabfabf5e3af2ee3a9174e2815178a921e4930c34bdf",
+        "discovery_monotonic_ns": 1392451329216166,
+        "status": "verified"
+      }
+    }
+  },
+  "execution_eligible": false,
+  "fees_usd": 0,
+  "schema": "oasis.y2026-eth-bsc-windows.v1"
+}

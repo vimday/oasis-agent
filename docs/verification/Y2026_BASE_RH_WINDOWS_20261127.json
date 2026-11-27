@@ -1,0 +1,841 @@
+{
+  "base_graph": {
+    "all_frames_witnessed_direct_children": 4,
+    "candidate_net_wei": {
+      "C": null,
+      "H": null,
+      "K": null
+    },
+    "chain_id": 8453,
+    "discovery_finished_before_child_arrival": 0,
+    "end": {
+      "finished_monotonic_ns": "1392506504931833",
+      "finished_utc": "2026-11-27T15:29:08.996982+00:00"
+    },
+    "frame_count": 24,
+    "frozen_utc": "2026-11-27T15:28:46.084065+00:00",
+    "max_total_primitives": 29,
+    "normal_discovery_candidates": 0,
+    "positive_survival_rate": null,
+    "retained": {
+      "reports/research/y2026-base-20261127/preregistered.json": "6f509a6e0382e321254e7599d56a08392486eda821435b06261d43a9fb791704",
+      "reports/research/y2026-base-20261127/run/base_newheads/original-budget.sqlite3": "bf95ce81f0fcaaec9d7d1c3ddff7afe6788daf40407ec17edc9ab64bbd8fbf58",
+      "reports/research/y2026-base-20261127/run/mixed_base_state/original-budget.sqlite3": "8bd291f102a1eba399263c74c93c234826b4e85ca36935894672d934386534b3",
+      "reports/research/y2026-base-20261127/run/shadow_attribution.jsonl": "1a6578b65ec20a47f0a55208bf7942f067df1916ca72f47b2555c5df484da9eb",
+      "reports/research/y2026-base-20261127/run/shadow_summary.json": "9b308cfdd47985ae11814e3367ec1799d0a478f69c19b0c68a91283f9bf1426d",
+      "reports/research/y2026-base-20261127/run_capture.py": "b0992b61a77ccc45dda5a990575ad0d720c74d67002cf93401bb49981db81545"
+    },
+    "rpc_attempts": {
+      "base_official": 12,
+      "publicnode_base": 8,
+      "publicnode_newheads": 3
+    },
+    "same_envelope_child_simulations": 0,
+    "selected_head_adjacent_pairs": 0,
+    "selected_heads": [
+      {
+        "child_hash": "0x898fb507f764e904dbc10137b3ce5dddc953c1c3e2dc6918b81135557403eb05",
+        "child_height": 63014839,
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 6
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          }
+        },
+        "deadline": {
+          "block": 63014838,
+          "child_receive_minus_discovery_finished_ns": -829043417,
+          "child_receive_minus_state_ready_ns": -753468167,
+          "observed_child": 63014839
+        },
+        "hash": "0x3dd0a344ca088adaf64b6736f50d9343d18a15ed0b846ea27405568104b54719",
+        "head_to_child_ws_ns": 197939500,
+        "head_to_discovery_ns": 1026982917,
+        "head_to_state_ns": 951407667,
+        "height": 63014838,
+        "parent_hash": "0xa49019fc8a0ca9cafcab3e1aca4fe24b029b4e4d4f5e9a9f076daf5ddfa3ac1d"
+      },
+      {
+        "child_hash": "0xb179c42c045f03178649559bed2faf2f62f800a8ead238c006928c8e7ad90785",
+        "child_height": 63014843,
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 6
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          }
+        },
+        "deadline": {
+          "block": 63014842,
+          "child_receive_minus_discovery_finished_ns": -2009944958,
+          "child_receive_minus_state_ready_ns": -1937566583,
+          "observed_child": 63014843
+        },
+        "hash": "0x877be22bf1d1bc7fd25309aa47c8c0c7d4a667e5d14093ce09785abcda332de2",
+        "head_to_child_ws_ns": 231488250,
+        "head_to_discovery_ns": 2241433208,
+        "head_to_state_ns": 2169054833,
+        "height": 63014842,
+        "parent_hash": "0x07db6a738d594e10edbe8ccb81f830609350ef8ecf0d68bde3269d071ee4dc6b"
+      },
+      {
+        "child_hash": "0x8f440c8ba322e8673b036a61f45b8cd68ce7edc051da5bd2adadb859d88133d4",
+        "child_height": 63014854,
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 6
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          }
+        },
+        "deadline": {
+          "block": 63014853,
+          "child_receive_minus_discovery_finished_ns": -847150709,
+          "child_receive_minus_state_ready_ns": -773798792,
+          "observed_child": 63014854
+        },
+        "hash": "0xfb6c562bac1d7a3e9f7984576eeb9f6daa46e9fc39dc190385e662b415ea7f2a",
+        "head_to_child_ws_ns": 202959750,
+        "head_to_discovery_ns": 1050110459,
+        "head_to_state_ns": 976758542,
+        "height": 63014853,
+        "parent_hash": "0x3972239ae9c3e351d01a6fb21b80474c8ee5fd45b9970131704a46174a479c5b"
+      },
+      {
+        "child_hash": "0x22d82fa84ae9b79cf1abe715d950bcb38fbdb6c22b4a8ea8b8a5d626db794631",
+        "child_height": 63014859,
+        "cohorts": {
+          "address_58": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          },
+          "four_pool": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 6
+          },
+          "mixed_66": {
+            "model_candidates": 0,
+            "unresolved_sizing_intervals": 89
+          }
+        },
+        "deadline": {
+          "block": 63014858,
+          "child_receive_minus_discovery_finished_ns": -925182666,
+          "child_receive_minus_state_ready_ns": -851582583,
+          "observed_child": 63014859
+        },
+        "hash": "0x27f6c10ba73dc16664d438837a398a36c5b14a240aef7d6462afa88e7e928861",
+        "head_to_child_ws_ns": 201799542,
+        "head_to_discovery_ns": 1126982208,
+        "head_to_state_ns": 1053382125,
+        "height": 63014858,
+        "parent_hash": "0xf92342d6ad6e39742dec745b6df8536ecf1729bb5aed569245492c49e087ecee"
+      }
+    ],
+    "source_identity": {
+      "scripts/run_multicall_100tick_campaign.py": "3431fb3c96586794b76a92058286828eff4a60fb004f9d301d26925947acc47b",
+      "src/oasis_agent/evidence/base_newheads.py": "bfce6fd808a97ce02b9b5844185ca822b25f56f53cd0aefc0372f95d1502ea20",
+      "src/oasis_agent/fastpath/base_mixed_snapshot.py": "2aa957103e88c9372b83718f20b1b8ad4dbed5e4817c67ee5263a29473b91a17"
+    },
+    "start": {
+      "started_monotonic_ns": "1392500092436958",
+      "started_utc": "2026-11-27T15:29:02.584305+00:00"
+    },
+    "status": "complete",
+    "stop_reason": null,
+    "whole_transaction_simulations": 0
+  },
+  "base_independent_control": {
+    "H_feed_to_whole_ns": 1956032167,
+    "K_latest_query_after_H_reply_ns": 11887167,
+    "K_latest_response_after_H_reply_ns": 407373333,
+    "actual_settlement_net_wei": null,
+    "chain_id": 8453,
+    "cost_basis": "simulated incremental WETH/ETH parity, L2 plus L1/operator upper bounds",
+    "envelope_sha256": "fbdf7ebb82b8cdfb2d162fc6a0ddb9da9b32ec07ede69437710d49eddf0ce402",
+    "finished_utc": "2026-11-27T15:29:33.570733+00:00",
+    "first_refusal": "RPC refusal -38010",
+    "from": "0x8d47ba07ff9ccccf58c7e8810ee42c0dc8b8b123",
+    "frozen_utc": "2026-11-27T15:28:46.838528+00:00",
+    "kind": "preselected_negative_control",
+    "minout_wei": 950000000000000,
+    "nonce": 7439795,
+    "principal_wei": 1000000000000000,
+    "retained": {
+      "reports/research/y2026-base-control-20261127/STOP.json": "5fd8b8c2e6b63d2ef78171d98551005894e4ead990c9e40e248ffd5fb3ba2707",
+      "reports/research/y2026-base-control-20261127/control.py": "0f94e49cbebc6f7bd98494c58e4252aa71dcb851167bcd7a79938b87c29aae65",
+      "reports/research/y2026-base-control-20261127/report.json": "cfdc44504aba40699fe8690db967a438409554fab9b781c4205ebc565780c372",
+      "reports/research/y2026-base-control-20261127/run/heads/original-budget.sqlite3": "498382e5956f980f4718d6600c3bf9776f1e649db07de9004ccab555012f36ab",
+      "reports/research/y2026-base-control-20261127/run/original.sqlite3": "c489fd7eb08b7ae1cbea33a00589dd0ff69777380a7434fd56b1c833553c93ef",
+      "reports/research/y2026-base-control-20261127/scope.json": "ade0b09b1dac374dc98b883e2595c7c6fe967d61ca1784b5e7eb5456eac0024b",
+      "reports/research/y2026-base-control-20261127/verify.py": "d6810b6cbb249d0b01fb0e15fb1535e9d63e9d9cdd9136efb4f8e29153432d10"
+    },
+    "route": [
+      [
+        "0x4200000000000000000000000000000000000006",
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        false,
+        "0x420dd381b31aef6683db6b902084cb0ffece40da"
+      ],
+      [
+        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+        false,
+        "0x420dd381b31aef6683db6b902084cb0ffece40da"
+      ],
+      [
+        "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+        "0x4200000000000000000000000000000000000006",
+        false,
+        "0x420dd381b31aef6683db6b902084cb0ffece40da"
+      ]
+    ],
+    "rpc_attempts": {
+      "official": 11,
+      "publicnode_newheads": 3
+    },
+    "stages": {
+      "C": {
+        "l1_upper_wei": 146225224213,
+        "operator_upper_wei": 0,
+        "pin": {
+          "base_fee": 5011060,
+          "block_hash": "0x5504dd94bdae5f9b0aa2cd14efc1ba23b62c77206093299107ed771ec09ba5c2",
+          "number": 63014974,
+          "parent_hash": "0x8d4f878a7774a7e0644ff63c2346123b00f67b1eaeaa7e7ece5f6892bce60c56",
+          "state_root": "0xa33de4114488b206bfe7893b86355b8fb8d0e29ef900eb1bd95d58f8d43a62c0",
+          "timestamp_ms": 1795793370400
+        },
+        "quoted_amounts": [
+          1000000000000000,
+          1657946,
+          4261076379314018440,
+          991923405754657
+        ],
+        "quoted_gross_wei": -8076594245343,
+        "quoted_net_at_max_cost_wei": -145722819469556,
+        "whole_gas_used": 502150,
+        "whole_l2_wei": 3020537199350,
+        "whole_net_upper_cost_scenario_wei": -11243356668906,
+        "whole_weth_delta": 991923405754657
+      },
+      "H": {
+        "l1_upper_wei": 146225224213,
+        "operator_upper_wei": 0,
+        "pin": {
+          "base_fee": 5004316,
+          "block_hash": "0x8d4f878a7774a7e0644ff63c2346123b00f67b1eaeaa7e7ece5f6892bce60c56",
+          "number": 63014973,
+          "parent_hash": "0xc71d56e8428301f576d7500ee1a4f6c2e49ff9b484243accf5e529a2f3d96df1",
+          "state_root": "0x16345773a19d06dd2b0363158dd278e7ca6742ba39b7a07c6e5f6af761226d7d",
+          "timestamp_ms": 1795793370200
+        },
+        "quoted_amounts": [
+          1000000000000000,
+          1657946,
+          4261076379314018440,
+          991923405754657
+        ],
+        "quoted_gross_wei": -8076594245343,
+        "quoted_net_at_max_cost_wei": -145722819469556,
+        "whole_gas_used": 502150,
+        "whole_l2_wei": 3018453779000,
+        "whole_net_upper_cost_scenario_wei": -11241273248556,
+        "whole_weth_delta": 991923405754657
+      },
+      "K": {
+        "l1_upper_wei": 146225224213,
+        "node_refusal": {
+          "code": -38010,
+          "message": "nonce too low: next nonce 7439796, tx nonce 7439795"
+        },
+        "operator_upper_wei": 0,
+        "pin": {
+          "base_fee": 5010288,
+          "block_hash": "0xc89ab83c2a388309d93714de95c27d5b51f4bffacabadf61296b4492ac0c6ddf",
+          "number": 63014985,
+          "parent_hash": "0x579e9b13c0d9ad72b6c4df7d389676ab507e17ff08b1b21a0231d03a5ae3e0bc",
+          "state_root": "0xc56d5b9a4aef3c90ad08879ce934d930dd1483da6c82ae5e31ed528bf1384bc0",
+          "timestamp_ms": 1795793372600
+        },
+        "quoted_amounts": [
+          1000000000000000,
+          1657966,
+          4261127935775916668,
+          991935407353297
+        ],
+        "quoted_gross_wei": -8064592646703,
+        "quoted_net_at_max_cost_wei": -145710817870916,
+        "whole_gas_used": null,
+        "whole_l2_wei": null,
+        "whole_net_upper_cost_scenario_wei": null,
+        "whole_weth_delta": null
+      }
+    },
+    "started_utc": "2026-11-27T15:29:29.304112+00:00",
+    "status": "incomplete",
+    "to": "0xcf77a3ba9a5ca399b7c97c74d54e5b1beb874e43"
+  },
+  "robinhood": {
+    "H_whole_vs_child_margin_ns": -5622028042,
+    "K_feed_bracket": {
+      "next_seen": [
+        124351793,
+        "0xac3cd1ff68388cffbab82318189d0924ae4c685c8afdfff8c96a056f2f6eedf3",
+        1392508072322333
+      ],
+      "selected": [
+        124351792,
+        "0x36124b83ca8952bbd03597b944d6a1024cf4900d6ce40229bb493df6ffd48eca",
+        1392507937548916
+      ],
+      "simulation_completed_ns": 1392507947364375
+    },
+    "actual_settlement_net_wei": null,
+    "chain_id": 4663,
+    "delayed_median_delta_ns": 509168417,
+    "delayed_sequences": 137,
+    "feed_frames": {
+      "delayed": 144,
+      "primary": 144
+    },
+    "feed_stops": {
+      "delayed": "frame_cap",
+      "primary": "frame_cap"
+    },
+    "finished_utc": "2026-11-27T15:29:18.313219+00:00",
+    "frozen": {
+      "account": {
+        "code_bytes": 0,
+        "native_wei": 46377796101035758,
+        "nonce": 85123
+      },
+      "calldata_sha256": "f43217c07d545badbf7f02fd33f644be1a6b9f5ae5fe5c960ba586b6d5131cc7",
+      "deadline": 1795793464,
+      "discovery_state": "0x0c4897762c66159e68880c2a94f067c711fc7ff90f5aa62ba1cac4aec53d7d49",
+      "envelope_sha256": "89707bed632d7e2c9298e34966b9fb7bb689cb34cffdd4aab13f83d036116314",
+      "frozen": {
+        "monotonic_ns": 1392507304372166,
+        "utc": "2026-11-27T15:29:09.796425+00:00"
+      },
+      "kind": "negative_control",
+      "minout_wei": 1000000000000000,
+      "principal_wei": 1000000000000000,
+      "quote_received_ns": 1392507298164666,
+      "route": "v4-2-e15"
+    },
+    "frozen_utc": "2026-11-27T15:28:47.546692+00:00",
+    "matched_feed_heads": 132,
+    "new_calibration_comparison": {
+      "H_K_C_size_observations": 9,
+      "full_control_estimates": 0,
+      "new_H_sizes": 3,
+      "new_windows": 1,
+      "old_holdout_height_excluded": 124317826,
+      "positive_candidate_survival_rate": null,
+      "prediction_error_wei": null,
+      "rows": [
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": 192871627500,
+          "height": 124351733,
+          "net_at_21000_wei": -241996372500,
+          "net_at_old_median_wei": -2716747328500,
+          "net_at_old_min_wei": -2635654800500,
+          "principal_wei": 100000000000000,
+          "route": "v4-2-e14",
+          "stage": "discovery"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -115795601983,
+          "height": 124351733,
+          "net_at_21000_wei": -550663601983,
+          "net_at_old_median_wei": -3025414557983,
+          "net_at_old_min_wei": -2944322029983,
+          "principal_wei": 1000000000000000,
+          "route": "v4-2-e15",
+          "stage": "discovery"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -201244680631170,
+          "height": 124351733,
+          "net_at_21000_wei": -201679548631170,
+          "net_at_old_median_wei": -204154299587170,
+          "net_at_old_min_wei": -204073207059170,
+          "principal_wei": 10000000000000000,
+          "route": "v4-2-e16",
+          "stage": "discovery"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": 192871627500,
+          "height": 124351734,
+          "net_at_21000_wei": -241996372500,
+          "net_at_old_median_wei": -2716747328500,
+          "net_at_old_min_wei": -2635654800500,
+          "principal_wei": 100000000000000,
+          "route": "v4-2-e14",
+          "stage": "direct_child"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -115795601983,
+          "height": 124351734,
+          "net_at_21000_wei": -550663601983,
+          "net_at_old_median_wei": -3025414557983,
+          "net_at_old_min_wei": -2944322029983,
+          "principal_wei": 1000000000000000,
+          "route": "v4-2-e15",
+          "stage": "direct_child"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -201244680631170,
+          "height": 124351734,
+          "net_at_21000_wei": -201679548631170,
+          "net_at_old_median_wei": -204154299587170,
+          "net_at_old_min_wei": -204073207059170,
+          "principal_wei": 10000000000000000,
+          "route": "v4-2-e16",
+          "stage": "direct_child"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": 170569346686,
+          "height": 124351792,
+          "net_at_21000_wei": -264298653314,
+          "net_at_old_median_wei": -2739049609314,
+          "net_at_old_min_wei": -2657957081314,
+          "principal_wei": 100000000000000,
+          "route": "v4-2-e14",
+          "stage": "return_head"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -338362931668,
+          "height": 124351792,
+          "net_at_21000_wei": -773230931668,
+          "net_at_old_median_wei": -3247981887668,
+          "net_at_old_min_wei": -3166889359668,
+          "principal_wei": 1000000000000000,
+          "route": "v4-2-e15",
+          "stage": "return_head"
+        },
+        {
+          "base_fee_wei_per_gas": 20708000,
+          "gross_wei": -203425779254937,
+          "height": 124351792,
+          "net_at_21000_wei": -203860647254937,
+          "net_at_old_median_wei": -206335398210937,
+          "net_at_old_min_wei": -206254305682937,
+          "principal_wei": 10000000000000000,
+          "route": "v4-2-e16",
+          "stage": "return_head"
+        }
+      ],
+      "rules_frozen": {
+        "K_clock": "last dual-source estimate response if successful, otherwise last paired whole call response",
+        "amounts_wei": [
+          100000000000000,
+          1000000000000000,
+          10000000000000000
+        ],
+        "eligible_direction": [
+          "83ppm native to token",
+          "100ppm token to native"
+        ],
+        "historical_calibration_sha256": "ee4758fc8a35b8f7baa840b30f1745f211b07b0d9c32373c4cef5b788fb8f1de",
+        "optimistic_units": 136591,
+        "point_units": 140507,
+        "selector": "Run normal optimistic-first exact call even when historical model disagrees; if no optimistic candidate probe v4-2-e15 only. No historical gold result as a new observation."
+      },
+      "training_windows": 3
+    },
+    "new_positive_discovery_candidates": 0,
+    "phases": {
+      "direct_child": {
+        "all_cost_net": null,
+        "base_fee_wei": 20708000,
+        "block_hash": "0xebc836147a17cd17a2b950d6920034cfdda8d263c03ec5d568fea803d2491a3c",
+        "estimated_gas": null,
+        "estimated_net_after_gas_wei": null,
+        "estimated_network_cost_wei": null,
+        "feed_received_ns": 1392502325336333,
+        "feed_to_header_ns": 6287470583,
+        "feed_to_quote_ns": 7435103458,
+        "feed_to_whole_and_estimate_ns": 7958735042,
+        "feed_to_whole_rpc_ns": 7958735042,
+        "gross_wei": -115795601983,
+        "height": 124351734,
+        "output_wei": 999884204398017,
+        "parent_hash": "0x0c4897762c66159e68880c2a94f067c711fc7ff90f5aa62ba1cac4aec53d7d49",
+        "positive_lower_cost_quotes": 0,
+        "quote_attempts": 8,
+        "quoted": 7,
+        "revert_detail": {
+          "kind": "V4TooLittleReceived",
+          "minimum_wei": 1000000000000000,
+          "shortfall_wei": 115795601983,
+          "simulated_received_wei": 999884204398017
+        },
+        "whole_call": {
+          "error_data": "0x8b063d7300000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000038d63aed1d5c1",
+          "reverted": true
+        }
+      },
+      "discovery": {
+        "all_cost_net": null,
+        "base_fee_wei": 20708000,
+        "block_hash": "0x0c4897762c66159e68880c2a94f067c711fc7ff90f5aa62ba1cac4aec53d7d49",
+        "estimated_gas": null,
+        "estimated_net_after_gas_wei": null,
+        "estimated_network_cost_wei": null,
+        "feed_received_ns": 1392502324714916,
+        "feed_to_header_ns": 1982073292,
+        "feed_to_quote_ns": 4973449750,
+        "feed_to_whole_and_estimate_ns": 5622649459,
+        "feed_to_whole_rpc_ns": 5622649459,
+        "gross_wei": -115795601983,
+        "height": 124351733,
+        "output_wei": 999884204398017,
+        "parent_hash": "0xbe593d0e6e4a5f6a834fa90f26ed04dd77b3a2a6558f7f5fe16f656dc78629fe",
+        "positive_lower_cost_quotes": 0,
+        "quote_attempts": 8,
+        "quoted": 7,
+        "revert_detail": {
+          "kind": "V4TooLittleReceived",
+          "minimum_wei": 1000000000000000,
+          "shortfall_wei": 115795601983,
+          "simulated_received_wei": 999884204398017
+        },
+        "whole_call": {
+          "error_data": "0x8b063d7300000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000038d63aed1d5c1",
+          "reverted": true
+        }
+      },
+      "return_head": {
+        "all_cost_net": null,
+        "base_fee_wei": 20708000,
+        "block_hash": "0x36124b83ca8952bbd03597b944d6a1024cf4900d6ce40229bb493df6ffd48eca",
+        "estimated_gas": null,
+        "estimated_net_after_gas_wei": null,
+        "estimated_network_cost_wei": null,
+        "feed_received_ns": 1392507937548916,
+        "feed_to_header_ns": 2840191917,
+        "feed_to_quote_ns": 4010851167,
+        "feed_to_whole_and_estimate_ns": 4533950292,
+        "feed_to_whole_rpc_ns": 4533950292,
+        "gross_wei": -338362931668,
+        "height": 124351792,
+        "output_wei": 999661637068332,
+        "parent_hash": "0x7b572195460f648c767086fe37b3d392d84f25df9fe5cd39a553b30d02b42ef4",
+        "positive_lower_cost_quotes": 0,
+        "quote_attempts": 8,
+        "quoted": 7,
+        "revert_detail": {
+          "kind": "V4TooLittleReceived",
+          "minimum_wei": 1000000000000000,
+          "shortfall_wei": 338362931668,
+          "simulated_received_wei": 999661637068332
+        },
+        "whole_call": {
+          "error_data": "0x8b063d7300000000000000000000000000000000000000000000000000038d7ea4c6800000000000000000000000000000000000000000000000000000038d2fdcc5e62c",
+          "reverted": true
+        }
+      }
+    },
+    "primary_internal_missing": 0,
+    "primary_sequences": 136,
+    "quotes_by_phase": {
+      "direct_child": [
+        {
+          "gross_wei": 192871627500,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -241996372500,
+          "output_wei": 100192871627500,
+          "quoter_gas_estimate": 69288,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -115795601983,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -550663601983,
+          "output_wei": 999884204398017,
+          "quoter_gas_estimate": 69320,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -201244680631170,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -201679548631170,
+          "output_wei": 9798755319368830,
+          "quoter_gas_estimate": 80008,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -284576293600,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -719444293600,
+          "output_wei": 99715423706400,
+          "quoter_gas_estimate": 69448,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -4868616698139,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -5303484698139,
+          "output_wei": 995131383301861,
+          "quoter_gas_estimate": 69452,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3332116232568,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3766984232568,
+          "output_wei": 96667883767432,
+          "quoter_gas_estimate": 611829,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000",
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        },
+        {
+          "gross_wei": -516341131961,
+          "hops": 4,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -951209131961,
+          "output_wei": 99483658868039,
+          "quoter_gas_estimate": 125010,
+          "route": "v4-4",
+          "status": "quoted"
+        }
+      ],
+      "discovery": [
+        {
+          "gross_wei": 192871627500,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -241996372500,
+          "output_wei": 100192871627500,
+          "quoter_gas_estimate": 69288,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -115795601983,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -550663601983,
+          "output_wei": 999884204398017,
+          "quoter_gas_estimate": 69320,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -201244680631170,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -201679548631170,
+          "output_wei": 9798755319368830,
+          "quoter_gas_estimate": 80008,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -284576293600,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -719444293600,
+          "output_wei": 99715423706400,
+          "quoter_gas_estimate": 69448,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -4868616698139,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -5303484698139,
+          "output_wei": 995131383301861,
+          "quoter_gas_estimate": 69452,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3332116232568,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3766984232568,
+          "output_wei": 96667883767432,
+          "quoter_gas_estimate": 611829,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000",
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        },
+        {
+          "gross_wei": -516341131961,
+          "hops": 4,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -951209131961,
+          "output_wei": 99483658868039,
+          "quoter_gas_estimate": 125010,
+          "route": "v4-4",
+          "status": "quoted"
+        }
+      ],
+      "return_head": [
+        {
+          "gross_wei": 170569346686,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -264298653314,
+          "output_wei": 100170569346686,
+          "quoter_gas_estimate": 69316,
+          "route": "v4-2-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -338362931668,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -773230931668,
+          "output_wei": 999661637068332,
+          "quoter_gas_estimate": 69348,
+          "route": "v4-2-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -203425779254937,
+          "hops": 2,
+          "input_wei": 10000000000000000,
+          "optimistic_net_wei_before_other_costs": -203860647254937,
+          "output_wei": 9796574220745063,
+          "quoter_gas_estimate": 80040,
+          "route": "v4-2-e16",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -262362290539,
+          "hops": 2,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -697230290539,
+          "output_wei": 99737637709461,
+          "quoter_gas_estimate": 69476,
+          "route": "v4-2-reverse-e14",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -4647379263756,
+          "hops": 2,
+          "input_wei": 1000000000000000,
+          "optimistic_net_wei_before_other_costs": -5082247263756,
+          "output_wei": 995352620736244,
+          "quoter_gas_estimate": 69484,
+          "route": "v4-2-reverse-e15",
+          "status": "quoted"
+        },
+        {
+          "gross_wei": -3303326070959,
+          "hops": 20,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -3738194070959,
+          "output_wei": 96696673929041,
+          "quoter_gas_estimate": 611821,
+          "route": "v4-20",
+          "status": "quoted"
+        },
+        {
+          "hops": 24,
+          "input_wei": 100000000000000,
+          "revert_data": "0x6190b2b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000247a5ed734b7ef53d0545e8e4f00524a3bbdfd92e3f41a0c969551b37b752f03c71bfd05c100000000000000000000000000000000000000000000000000000000",
+          "route": "v4-24",
+          "status": "quoter_reverted"
+        },
+        {
+          "gross_wei": -516341131961,
+          "hops": 4,
+          "input_wei": 100000000000000,
+          "optimistic_net_wei_before_other_costs": -951209131961,
+          "output_wei": 99483658868039,
+          "quoter_gas_estimate": 125038,
+          "route": "v4-4",
+          "status": "quoted"
+        }
+      ]
+    },
+    "retained": {
+      "reports/research/y2026-robinhood-20261127/capture.py": "435edbfcbf5f42402d2e65ad225969a6e16f8840237f7a30613484dcabca2c61",
+      "reports/research/y2026-robinhood-20261127/replay.py": "c8335fcd416ac47e7ab7081cb281455dcd546aa84c2429be569164078e1420ff",
+      "reports/research/y2026-robinhood-20261127/scope-valid.json": "f8489005a99860dc0308acdf13886d63feb2da94e3a75dabe341f3208d433b2e",
+      "reports/research/y2026-robinhood-20261127/window/STOP": "0aabfca2fe0dd8766805e07fbd03bfc5338e56781cb94c58e35a55f1f5502da4",
+      "reports/research/y2026-robinhood-20261127/window/feeds-report.json": "83b4b0a96d45c276dc1b9e3ffca004272bd0acfa7c908d7d6c746b4091c872ab",
+      "reports/research/y2026-robinhood-20261127/window/original.sqlite3": "9c9c439afd252a36766a4a2aea8fe6f4f4346731eb1fba9eaea39019e7087f22",
+      "reports/research/y2026-robinhood-20261127/window/result.json": "6ce0e0937e0b1617ee8101131c8f124d3a575385ec7562311e1e5b9ae1c078cf",
+      "reports/research/y2026-robinhood-20261127/window/return-head-selection.json": "31cff77725a6dd567920ae5ce00656cee05420864174b5c26abdb67acee77853"
+    },
+    "rpc_attempts": {
+      "official": 20,
+      "publicnode": 20
+    },
+    "rpc_per_source_cap": 23,
+    "rpc_stop": "complete",
+    "source_identity": {
+      "capture": "435edbfcbf5f42402d2e65ad225969a6e16f8840237f7a30613484dcabca2c61",
+      "nitro": "35c424947cee1c0c3791cce13fc98d73964a13091f48e3b6d2527b1f12881202",
+      "quote": "c754633e59961b730de6f0407e33a73eef7d9cc0b0c01abea6fd8327d9e3c815"
+    },
+    "sources": {
+      "official": "https://rpc.mainnet.chain.robinhood.com",
+      "publicnode": "https://robinhood-rpc.publicnode.com"
+    }
+  },
+  "rpc_spend_usd": 0,
+  "schema": "oasis.y2026-base-rh-shadow.20261127.v1",
+  "signatures": 0
+}

@@ -2,6 +2,12 @@
 
 **优先验证整数金额、整笔交易及完整成本。** 最初查到正常 Rust 入口会漏报的两池反例，本轮已修复。现有变池缓存能在同一模型上加速；还缺少衡量“收到可用状态，到整笔交易复核完成”所需的输入和基准。以下顺序以解决这两个问题为起点，研究范围是同链、离线及只读影子。[本次复核和最小反例](../verification/MULTIHOP_RESEARCH_20261122.md) · [调研原文](MULTIHOP_ARBITRAGE_RESEARCH.md) · [项目路线图](LONG_TERM_PROFIT_ROADMAP.md)
 
+### 2026-11-27 · 2026 年成交与前瞻测量
+
+- [x] 对冻结八链目录作年份归档，保留全部 655 笔当年案例的完整交易哈希。补查 Ethereum 四季度、Optimism／Arbitrum 多日期与 Era 新块；四链运行新的 H／K／C 影子窗口。[逐链分母、费用和结果](../verification/Y2026_MULTICHAIN_MEASUREMENTS_20261127.md)
+- [x] 用 Ethereum 11 月 23 日全日 18 笔百事件交易复核 OP 的全额复投指纹；核出 167 对可比相邻闭环，0 对前轮末额等于下一轮本金。7 月的另一个正例已核到回调借款人、两次 Bancor、本金归还、变现、区块付款和发送人净额。[百事件复核](../verification/Y2026_REINVESTMENT_FINGERPRINT_20261127.md) · [四池套利与四状态](../verification/Y2026_ETH_QUARTER_RECEIPTS_20261127.md)
+- [ ] 在新窗口比较动态定量与固定实际本金，逐次记录借还、变现、nonce 和完整费用。优先测回调合约经手资金的召回、Base 状态赶上子块的比例、Arbitrum 完整块覆盖，以及 Era 新签名对真实兑换的召回。[采样和验收口径](../verification/Y2026_MULTICHAIN_MEASUREMENTS_20261127.md#下一批-2026-样本怎么测)
+
 ### 2026-11-27 · 跨链成交样本与机会筛选
 
 - [x] 重新连接两份公开分片中的实际整数本金，筛得 37 笔至少 20 个市场腿的复投线索。收据核出同一家族四笔交易合计 438 次市场兑换、215 个轮间等额接续。136 腿交易分三段更换池对。离线入口已能比较同首轮本金的全额复投和固定本金，原 32 个 BSC 情景最优净额差均为零。[三笔百腿](../verification/OPTIMISM_HUNDRED_CYCLE_FAMILY_20261127.md) · [136 腿](../verification/OPTIMISM_136_REINVESTMENT_20261127.md) · [筛查与实验](../verification/MULTIHOP_GOLD_RESEARCH_20261127.md)

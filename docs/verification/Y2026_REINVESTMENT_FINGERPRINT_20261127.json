@@ -1,0 +1,6012 @@
+{
+  "ethereum_cohort": {
+    "archive_denominators": {
+      "any": 219842,
+      "at_least_100": 18,
+      "at_least_20": 862,
+      "at_least_200": 0,
+      "at_least_50": 167
+    },
+    "cases": [
+      {
+        "block_hash": "0xa901b38bb7deb972e417a752cdeb5a2f6b70c8caa470e6ccbeba88f4b66ee974",
+        "block_number": 26474882,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0,
+          "wrapped_known_within_round": 72,
+          "wrapped_ledger_matches": 73,
+          "wrapped_market_matches": 72
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 153,
+        "full_signed_envelope_checked": true,
+        "indexes": 153,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 2,
+        "receipt_root": "0x81a9115d010bc043ff730dbc192d96facbef020b40b5de6ae42dec08d6bd84e5",
+        "recognized_within_round_wraps": [
+          {
+            "logs": [
+              485,
+              488,
+              489,
+              490
+            ],
+            "swaps": [
+              487,
+              493
+            ]
+          },
+          {
+            "logs": [
+              497,
+              500,
+              501,
+              502
+            ],
+            "swaps": [
+              499,
+              505
+            ]
+          },
+          {
+            "logs": [
+              509,
+              512,
+              513,
+              514
+            ],
+            "swaps": [
+              511,
+              517
+            ]
+          },
+          {
+            "logs": [
+              521,
+              524,
+              525,
+              526
+            ],
+            "swaps": [
+              523,
+              529
+            ]
+          },
+          {
+            "logs": [
+              533,
+              536,
+              537,
+              538
+            ],
+            "swaps": [
+              535,
+              541
+            ]
+          },
+          {
+            "logs": [
+              545,
+              548,
+              549,
+              550
+            ],
+            "swaps": [
+              547,
+              553
+            ]
+          },
+          {
+            "logs": [
+              557,
+              560,
+              561,
+              562
+            ],
+            "swaps": [
+              559,
+              565
+            ]
+          },
+          {
+            "logs": [
+              569,
+              572,
+              573,
+              574
+            ],
+            "swaps": [
+              571,
+              577
+            ]
+          },
+          {
+            "logs": [
+              581,
+              584,
+              585,
+              586
+            ],
+            "swaps": [
+              583,
+              589
+            ]
+          },
+          {
+            "logs": [
+              593,
+              596,
+              597,
+              598
+            ],
+            "swaps": [
+              595,
+              601
+            ]
+          },
+          {
+            "logs": [
+              605,
+              608,
+              609,
+              610
+            ],
+            "swaps": [
+              607,
+              613
+            ]
+          },
+          {
+            "logs": [
+              617,
+              620,
+              621,
+              622
+            ],
+            "swaps": [
+              619,
+              625
+            ]
+          },
+          {
+            "logs": [
+              629,
+              632,
+              633,
+              634
+            ],
+            "swaps": [
+              631,
+              637
+            ]
+          },
+          {
+            "logs": [
+              641,
+              644,
+              645,
+              646
+            ],
+            "swaps": [
+              643,
+              649
+            ]
+          },
+          {
+            "logs": [
+              653,
+              656,
+              657,
+              658
+            ],
+            "swaps": [
+              655,
+              661
+            ]
+          },
+          {
+            "logs": [
+              665,
+              668,
+              669,
+              670
+            ],
+            "swaps": [
+              667,
+              673
+            ]
+          },
+          {
+            "logs": [
+              677,
+              680,
+              681,
+              682
+            ],
+            "swaps": [
+              679,
+              685
+            ]
+          },
+          {
+            "logs": [
+              689,
+              692,
+              693,
+              694
+            ],
+            "swaps": [
+              691,
+              697
+            ]
+          },
+          {
+            "logs": [
+              701,
+              704,
+              705,
+              706
+            ],
+            "swaps": [
+              703,
+              709
+            ]
+          },
+          {
+            "logs": [
+              713,
+              716,
+              717,
+              718
+            ],
+            "swaps": [
+              715,
+              721
+            ]
+          },
+          {
+            "logs": [
+              725,
+              728,
+              729,
+              730
+            ],
+            "swaps": [
+              727,
+              733
+            ]
+          },
+          {
+            "logs": [
+              737,
+              740,
+              741,
+              742
+            ],
+            "swaps": [
+              739,
+              745
+            ]
+          },
+          {
+            "logs": [
+              749,
+              752,
+              753,
+              754
+            ],
+            "swaps": [
+              751,
+              757
+            ]
+          },
+          {
+            "logs": [
+              761,
+              764,
+              765,
+              766
+            ],
+            "swaps": [
+              763,
+              769
+            ]
+          },
+          {
+            "logs": [
+              773,
+              776,
+              777,
+              778
+            ],
+            "swaps": [
+              775,
+              781
+            ]
+          },
+          {
+            "logs": [
+              785,
+              788,
+              789,
+              790
+            ],
+            "swaps": [
+              787,
+              793
+            ]
+          },
+          {
+            "logs": [
+              797,
+              800,
+              801,
+              802
+            ],
+            "swaps": [
+              799,
+              805
+            ]
+          },
+          {
+            "logs": [
+              809,
+              812,
+              813,
+              814
+            ],
+            "swaps": [
+              811,
+              817
+            ]
+          },
+          {
+            "logs": [
+              821,
+              824,
+              825,
+              826
+            ],
+            "swaps": [
+              823,
+              829
+            ]
+          },
+          {
+            "logs": [
+              833,
+              836,
+              837,
+              838
+            ],
+            "swaps": [
+              835,
+              841
+            ]
+          },
+          {
+            "logs": [
+              845,
+              848,
+              849,
+              850
+            ],
+            "swaps": [
+              847,
+              853
+            ]
+          },
+          {
+            "logs": [
+              857,
+              860,
+              861,
+              862
+            ],
+            "swaps": [
+              859,
+              865
+            ]
+          },
+          {
+            "logs": [
+              869,
+              872,
+              873,
+              874
+            ],
+            "swaps": [
+              871,
+              877
+            ]
+          },
+          {
+            "logs": [
+              881,
+              884,
+              885,
+              886
+            ],
+            "swaps": [
+              883,
+              889
+            ]
+          },
+          {
+            "logs": [
+              893,
+              896,
+              897,
+              898
+            ],
+            "swaps": [
+              895,
+              901
+            ]
+          },
+          {
+            "logs": [
+              905,
+              908,
+              909,
+              910
+            ],
+            "swaps": [
+              907,
+              913
+            ]
+          },
+          {
+            "logs": [
+              917,
+              920,
+              921,
+              922
+            ],
+            "swaps": [
+              919,
+              925
+            ]
+          },
+          {
+            "logs": [
+              929,
+              932,
+              933,
+              934
+            ],
+            "swaps": [
+              931,
+              937
+            ]
+          },
+          {
+            "logs": [
+              941,
+              944,
+              945,
+              946
+            ],
+            "swaps": [
+              943,
+              949
+            ]
+          },
+          {
+            "logs": [
+              953,
+              956,
+              957,
+              958
+            ],
+            "swaps": [
+              955,
+              961
+            ]
+          },
+          {
+            "logs": [
+              965,
+              968,
+              969,
+              970
+            ],
+            "swaps": [
+              967,
+              973
+            ]
+          },
+          {
+            "logs": [
+              977,
+              980,
+              981,
+              982
+            ],
+            "swaps": [
+              979,
+              985
+            ]
+          },
+          {
+            "logs": [
+              989,
+              992,
+              993,
+              994
+            ],
+            "swaps": [
+              991,
+              997
+            ]
+          },
+          {
+            "logs": [
+              1001,
+              1004,
+              1005,
+              1006
+            ],
+            "swaps": [
+              1003,
+              1009
+            ]
+          },
+          {
+            "logs": [
+              1013,
+              1016,
+              1017,
+              1018
+            ],
+            "swaps": [
+              1015,
+              1021
+            ]
+          },
+          {
+            "logs": [
+              1025,
+              1028,
+              1029,
+              1030
+            ],
+            "swaps": [
+              1027,
+              1033
+            ]
+          },
+          {
+            "logs": [
+              1037,
+              1040,
+              1041,
+              1042
+            ],
+            "swaps": [
+              1039,
+              1045
+            ]
+          },
+          {
+            "logs": [
+              1049,
+              1052,
+              1053,
+              1054
+            ],
+            "swaps": [
+              1051,
+              1057
+            ]
+          },
+          {
+            "logs": [
+              1061,
+              1064,
+              1065,
+              1066
+            ],
+            "swaps": [
+              1063,
+              1069
+            ]
+          },
+          {
+            "logs": [
+              1073,
+              1076,
+              1077,
+              1078
+            ],
+            "swaps": [
+              1075,
+              1081
+            ]
+          },
+          {
+            "logs": [
+              1085,
+              1088,
+              1089,
+              1090
+            ],
+            "swaps": [
+              1087,
+              1093
+            ]
+          },
+          {
+            "logs": [
+              1097,
+              1100,
+              1101,
+              1102
+            ],
+            "swaps": [
+              1099,
+              1105
+            ]
+          },
+          {
+            "logs": [
+              1109,
+              1112,
+              1113,
+              1114
+            ],
+            "swaps": [
+              1111,
+              1117
+            ]
+          },
+          {
+            "logs": [
+              1121,
+              1124,
+              1125,
+              1126
+            ],
+            "swaps": [
+              1123,
+              1129
+            ]
+          },
+          {
+            "logs": [
+              1133,
+              1136,
+              1137,
+              1138
+            ],
+            "swaps": [
+              1135,
+              1141
+            ]
+          },
+          {
+            "logs": [
+              1145,
+              1148,
+              1149,
+              1150
+            ],
+            "swaps": [
+              1147,
+              1153
+            ]
+          },
+          {
+            "logs": [
+              1157,
+              1160,
+              1161,
+              1162
+            ],
+            "swaps": [
+              1159,
+              1165
+            ]
+          },
+          {
+            "logs": [
+              1169,
+              1172,
+              1173,
+              1174
+            ],
+            "swaps": [
+              1171,
+              1177
+            ]
+          },
+          {
+            "logs": [
+              1181,
+              1184,
+              1185,
+              1186
+            ],
+            "swaps": [
+              1183,
+              1189
+            ]
+          },
+          {
+            "logs": [
+              1193,
+              1196,
+              1197,
+              1198
+            ],
+            "swaps": [
+              1195,
+              1201
+            ]
+          },
+          {
+            "logs": [
+              1205,
+              1208,
+              1209,
+              1210
+            ],
+            "swaps": [
+              1207,
+              1213
+            ]
+          },
+          {
+            "logs": [
+              1217,
+              1220,
+              1221,
+              1222
+            ],
+            "swaps": [
+              1219,
+              1225
+            ]
+          },
+          {
+            "logs": [
+              1229,
+              1232,
+              1233,
+              1234
+            ],
+            "swaps": [
+              1231,
+              1237
+            ]
+          },
+          {
+            "logs": [
+              1241,
+              1244,
+              1245,
+              1246
+            ],
+            "swaps": [
+              1243,
+              1249
+            ]
+          },
+          {
+            "logs": [
+              1253,
+              1256,
+              1257,
+              1258
+            ],
+            "swaps": [
+              1255,
+              1261
+            ]
+          },
+          {
+            "logs": [
+              1265,
+              1268,
+              1269,
+              1270
+            ],
+            "swaps": [
+              1267,
+              1273
+            ]
+          },
+          {
+            "logs": [
+              1277,
+              1280,
+              1281,
+              1282
+            ],
+            "swaps": [
+              1279,
+              1285
+            ]
+          },
+          {
+            "logs": [
+              1289,
+              1292,
+              1293,
+              1294
+            ],
+            "swaps": [
+              1291,
+              1297
+            ]
+          },
+          {
+            "logs": [
+              1301,
+              1304,
+              1305,
+              1306
+            ],
+            "swaps": [
+              1303,
+              1309
+            ]
+          },
+          {
+            "logs": [
+              1313,
+              1316,
+              1317,
+              1318
+            ],
+            "swaps": [
+              1315,
+              1321
+            ]
+          },
+          {
+            "logs": [
+              1325,
+              1328,
+              1329,
+              1330
+            ],
+            "swaps": [
+              1327,
+              1333
+            ]
+          },
+          {
+            "logs": [
+              1340,
+              1343,
+              1344,
+              1345
+            ],
+            "swaps": [
+              1342,
+              1348
+            ]
+          }
+        ],
+        "resolved_market_credit_logs": 76,
+        "resolved_market_debit_logs": 76,
+        "resolved_swaps": 76,
+        "rooted_receipt_logs": 942,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/26474882-header.response.json",
+            "sha256": "83a62bcfc5c6938a1a8994890c43514e0986801c42fc7797c8ecf5ae9c5fe9ed"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/26474882-receipts.response.json",
+            "sha256": "27b1c16ec06f6d8d2a59ff1a4903352687e4308426886b44c4a7ae6096e8bbc1"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/c0f84bc1e826-trace.response.json",
+            "sha256": "19da406f92d2472edfafe61867b5480dd60f95dbe3c3a34b1cfc9ed00a69be23"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 942,
+        "transaction_hash": "0xc0f84bc1e826057a03860b8b11a1da2327862608fe7788be3138634e8b9f05fc",
+        "transaction_index": 142
+      },
+      {
+        "block_hash": "0x973e52352aed6e0a4450dee1225705d1fa2fe348474fcc2458f35235aa0faad8",
+        "block_number": 26474883,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0,
+          "wrapped_ledger_matches": 56,
+          "wrapped_market_matches": 1
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 122,
+        "full_signed_envelope_checked": true,
+        "indexes": 122,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 3,
+        "receipt_root": "0x21fa728df792275614e233d9fc7d7c3f998c7a90271314107c1d7055d7e4b55d",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 61,
+        "resolved_market_debit_logs": 61,
+        "resolved_swaps": 61,
+        "rooted_receipt_logs": 736,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26474883-header.response.json",
+            "sha256": "7b80e10feaa1eaf6ddc532f5a64c737c19f5449906f0d52d148c71f04785cbce"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26474883-receipts.response.json",
+            "sha256": "fe267ed66c92fb83d4e307cf7c4e0988b33f7225b66578d31473e79d88eaee60"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/fc4c2415e7ac-trace.response.json",
+            "sha256": "d744410396fe902f723e87157116c92ec0a2784525b5aa42e3564b106ee1a9dd"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 736,
+        "transaction_hash": "0xfc4c2415e7ac136b39b6d08ae375640314dcb30f47322ea6effdc7ef60151c51",
+        "transaction_index": 0
+      },
+      {
+        "block_hash": "0x52b2a3fcacce1cf142b40329e3beb573661b75db807206d82825e74f7e1c54fa",
+        "block_number": 26475104,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 90,
+          "direct_market_matches": 62,
+          "explicit_holder_closed_paths": 10,
+          "observable_adjacent_closed_path_pairs": 9,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 118,
+        "full_signed_envelope_checked": true,
+        "indexes": 118,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            638,
+            645,
+            699
+          ],
+          "next_principal_raw": 417677136770367488,
+          "next_round": [
+            700,
+            703,
+            706
+          ],
+          "prior_payout_raw": 119512540343411200,
+          "prior_principal_raw": 118713474774728704,
+          "prior_round": [
+            639,
+            643,
+            647
+          ]
+        },
+        "pool_keys": 88,
+        "receipt_root": "0xab5be6e9ebabd4a1df681b4c568216d5cc026c4b13cb8ba5902a613ee0c7abc8",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 102,
+        "resolved_market_debit_logs": 99,
+        "resolved_swaps": 109,
+        "rooted_receipt_logs": 465,
+        "same_asset_closed_paths_missing_boundary_log_index": 1,
+        "same_asset_closed_paths_with_boundary_log_indices": 10,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475104-header.response.json",
+            "sha256": "3d9f871fc9653c24be738ab6b01f122bd2c083e03ce6ce96955d8bca8a919577"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475104-receipts.response.json",
+            "sha256": "73d58323814f5f822bdb39f98defe371712312488a7e31a856be87893ef54692"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/88c863bc0623-trace.response.json",
+            "sha256": "921e07c1f553345b47239cceacdfc07a33a9869a11f2d9d64b800c8047c0d20c"
+          }
+        },
+        "strict_funding_links": 62,
+        "trace_matched_logs": 465,
+        "transaction_hash": "0x88c863bc062364b1289d70821a20f667ebb91bd5c4491568ea2f1fb0c9f7b4bb",
+        "transaction_index": 66
+      },
+      {
+        "block_hash": "0x52b2a3fcacce1cf142b40329e3beb573661b75db807206d82825e74f7e1c54fa",
+        "block_number": 26475104,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 26,
+          "direct_market_matches": 21,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 121,
+        "full_signed_envelope_checked": true,
+        "indexes": 121,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 94,
+        "receipt_root": "0xab5be6e9ebabd4a1df681b4c568216d5cc026c4b13cb8ba5902a613ee0c7abc8",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 104,
+        "resolved_market_debit_logs": 90,
+        "resolved_swaps": 121,
+        "rooted_receipt_logs": 335,
+        "same_asset_closed_paths_missing_boundary_log_index": 4,
+        "same_asset_closed_paths_with_boundary_log_indices": 16,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475104-header.response.json",
+            "sha256": "3d9f871fc9653c24be738ab6b01f122bd2c083e03ce6ce96955d8bca8a919577"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475104-receipts.response.json",
+            "sha256": "73d58323814f5f822bdb39f98defe371712312488a7e31a856be87893ef54692"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/05bfeceaac81-trace.response.json",
+            "sha256": "6758acf72772ecf17e5e05dee59e63f58ee23d419c35c337e8748ea41db5fe8f"
+          }
+        },
+        "strict_funding_links": 64,
+        "trace_matched_logs": 335,
+        "transaction_hash": "0x05bfeceaac81460dac63e6137fa5e4064d5c7e8134e0abab51b289bde6b8d508",
+        "transaction_index": 80
+      },
+      {
+        "block_hash": "0x84d3a2603e658b4e6a6af8aa20821031e0eeed28a17176eac6522ac9a3ab8090",
+        "block_number": 26475107,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 5,
+          "direct_market_matches": 3,
+          "explicit_holder_closed_paths": 10,
+          "observable_adjacent_closed_path_pairs": 9,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 113,
+        "full_signed_envelope_checked": true,
+        "indexes": 113,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+          "logs": [
+            1051,
+            1049,
+            1058
+          ],
+          "next_principal_raw": 17993013570618469,
+          "next_round": [
+            1059,
+            1060,
+            1062
+          ],
+          "prior_payout_raw": 15298473921698390,
+          "prior_principal_raw": 15211546916952175,
+          "prior_round": [
+            1052,
+            1053
+          ]
+        },
+        "pool_keys": 75,
+        "receipt_root": "0x30bb2d05a6d729fb34370f20954ac5e3f043d4028a79958a0f6e7ee4312c1bfc",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 92,
+        "resolved_market_debit_logs": 93,
+        "resolved_swaps": 111,
+        "rooted_receipt_logs": 275,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 10,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475107-header.response.json",
+            "sha256": "da67e02b6cf2fb49800aa59e73ac77e7578de73b6a4e3bd3ae3964dd9fb50101"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26475107-receipts.response.json",
+            "sha256": "561511e3e4d90aa28b5d374c5cef52ea283ac900103d07b2aa6bb909e1d35b7c"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/f37eb85bdb61-trace.response.json",
+            "sha256": "a9db54817905a3c3f89f711e0a47aa3fb9d9151ad8e680618537668bee8b9589"
+          }
+        },
+        "strict_funding_links": 68,
+        "trace_matched_logs": 275,
+        "transaction_hash": "0xf37eb85bdb614cd0981117bd885c494d22f7e0f473fce35328e13233210b555c",
+        "transaction_index": 145
+      },
+      {
+        "block_hash": "0xb846c09f9643b9d01ea18b03fc83abaee6e6e0f3b685d18e187c89eb8e85b0b2",
+        "block_number": 26475108,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 98,
+          "direct_market_matches": 82,
+          "explicit_holder_closed_paths": 29,
+          "observable_adjacent_closed_path_pairs": 25,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 138,
+        "full_signed_envelope_checked": true,
+        "indexes": 138,
+        "one_adjacent_different_size_example": {
+          "currency": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            1010,
+            1018,
+            1022
+          ],
+          "next_principal_raw": 40414338,
+          "next_round": [
+            1023,
+            1027,
+            1030,
+            1033
+          ],
+          "prior_payout_raw": 128854513,
+          "prior_principal_raw": 128509079,
+          "prior_round": [
+            1011,
+            1014,
+            1017,
+            1020
+          ]
+        },
+        "pool_keys": 99,
+        "receipt_root": "0x45c3980bb53dfe882353c4d53d9101d793d1cb9923603acf04456d4215192bce",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 131,
+        "resolved_market_debit_logs": 132,
+        "resolved_swaps": 135,
+        "rooted_receipt_logs": 516,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 29,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/26475108-header.response.json",
+            "sha256": "37bfae73ba524ce8e87401e6a2272eb8bcac34f11f2292d4bcfe4680aa2a9c58"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/26475108-receipts.response.json",
+            "sha256": "8002b89a92a61673bc5e9a25e5c66aa4b5f18799d01e9d1b4e071992df648318"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-holdout-20261127/0562bcc66848-trace.response.json",
+            "sha256": "f1c45e7fecf51181387c82734569c63cb019e9f08f49593ffdb9c9c4c964980b"
+          }
+        },
+        "strict_funding_links": 83,
+        "trace_matched_logs": 516,
+        "transaction_hash": "0x0562bcc6684814dd0dff5e1bf82d96d4eb7dbbecd4b9fe3857c8d0f93a99c1d2",
+        "transaction_index": 88
+      },
+      {
+        "block_hash": "0x074f0512840f8814e2e4aeefd071296a31fd59ed6e5c7fa63807184ade1baf2d",
+        "block_number": 26478274,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 66,
+          "direct_market_matches": 66,
+          "explicit_holder_closed_paths": 26,
+          "observable_adjacent_closed_path_pairs": 25,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 101,
+        "full_signed_envelope_checked": true,
+        "indexes": 101,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0xe154e8820b2634a805cafc122f275489abad879b",
+          "logs": [
+            918,
+            920,
+            924
+          ],
+          "next_principal_raw": 496090240461288423,
+          "next_round": [
+            925,
+            929,
+            933
+          ],
+          "prior_payout_raw": 1401847166110156819,
+          "prior_principal_raw": 1400018221374544678,
+          "prior_round": [
+            919,
+            922
+          ]
+        },
+        "pool_keys": 63,
+        "receipt_root": "0x7a87493f3c8cf502516f1d690b6cd046bc524f288d95c5d5476352cf2f87d434",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 92,
+        "resolved_market_debit_logs": 101,
+        "resolved_swaps": 101,
+        "rooted_receipt_logs": 336,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 26,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478274-header.response.json",
+            "sha256": "d670ab11d70fe0ffb517d0a144faadc12b81e5a896a1ff785e6975ed5e0a6ab5"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478274-receipts.response.json",
+            "sha256": "82b57d86e8faa51a2638bec3579c75805cff2530a83e0f69b8043cc76b6508e3"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/fe869435a60c-trace.response.json",
+            "sha256": "66cf8ab20746549cb8a3ff7c3eb3fe6cb4941ce0b778306d797355d098a74fc0"
+          }
+        },
+        "strict_funding_links": 66,
+        "trace_matched_logs": 336,
+        "transaction_hash": "0xfe869435a60caaf20e34e85330d0e2ed6c3a82174ad52af6e47810c109064eef",
+        "transaction_index": 38
+      },
+      {
+        "block_hash": "0x29030cb8e56323b250eb5a46e3e7ae2a968160667f679e66c3acd9babf84ee6a",
+        "block_number": 26478275,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 88,
+          "direct_market_matches": 43,
+          "explicit_holder_closed_paths": 8,
+          "observable_adjacent_closed_path_pairs": 6,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 101,
+        "full_signed_envelope_checked": true,
+        "indexes": 101,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            439,
+            444,
+            680
+          ],
+          "next_principal_raw": 161480589378060288,
+          "next_round": [
+            681,
+            682,
+            687
+          ],
+          "prior_payout_raw": 219813915219967934,
+          "prior_principal_raw": 218019203251175424,
+          "prior_round": [
+            440,
+            443,
+            446
+          ]
+        },
+        "pool_keys": 86,
+        "receipt_root": "0xddd88ab4fb9bc4ada5f627cbdf88d81f270b78d032ee69fd0e54013b3d1da239",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 81,
+        "resolved_market_debit_logs": 83,
+        "resolved_swaps": 88,
+        "rooted_receipt_logs": 494,
+        "same_asset_closed_paths_missing_boundary_log_index": 1,
+        "same_asset_closed_paths_with_boundary_log_indices": 8,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478275-header.response.json",
+            "sha256": "a19a7b0ef1fbd83faab14893e1cb268f2d2fc08ead7f8feeb260157321e380eb"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478275-receipts.response.json",
+            "sha256": "1e8ac02b9da46cf6f867ad6a1dd869689382d10e5f35d57fa3a4d8b7b8e5c36d"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/a2e93011da19-trace.response.json",
+            "sha256": "a27b63fb6d98e9395bc9e2b377323fee29e57e64d5d41d588cd0f49f0ce708be"
+          }
+        },
+        "strict_funding_links": 43,
+        "trace_matched_logs": 494,
+        "transaction_hash": "0xa2e93011da195ca9092e439d00e600f4815b791dae78d38b75ab9ac39810ecd6",
+        "transaction_index": 12
+      },
+      {
+        "block_hash": "0x254360338434af7c2cf1bdd812b5f0c552580f710f2ad174ec7dbed5752e70c5",
+        "block_number": 26478283,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 114,
+          "direct_market_matches": 65,
+          "explicit_holder_closed_paths": 20,
+          "observable_adjacent_closed_path_pairs": 18,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 137,
+        "full_signed_envelope_checked": true,
+        "indexes": 137,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            576,
+            585,
+            630
+          ],
+          "next_principal_raw": 260535080689074176,
+          "next_round": [
+            631,
+            632,
+            638
+          ],
+          "prior_payout_raw": 1104062340077247958,
+          "prior_principal_raw": 1095704659764445184,
+          "prior_round": [
+            577,
+            580,
+            583,
+            586
+          ]
+        },
+        "pool_keys": 99,
+        "receipt_root": "0xe5026ad7474211423d4801358151e16d2ecdb290dd3c585f107819115ffdb63b",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 118,
+        "resolved_market_debit_logs": 123,
+        "resolved_swaps": 125,
+        "rooted_receipt_logs": 569,
+        "same_asset_closed_paths_missing_boundary_log_index": 1,
+        "same_asset_closed_paths_with_boundary_log_indices": 20,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478283-header.response.json",
+            "sha256": "858ba31eded29d3616c90ca08ad1e385e76515c8ce93f15ff20178b6c3ee6e16"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478283-receipts.response.json",
+            "sha256": "84bb57736b7b65f861eb4b9e1b2e4d96b34545d6fc6f16648d4dc9750d19f0ba"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/fdc95125e665-trace.response.json",
+            "sha256": "37728a8ad98dc4c73373475690c51d388105dbbaed56a7e6a96569062c0a306b"
+          }
+        },
+        "strict_funding_links": 66,
+        "trace_matched_logs": 569,
+        "transaction_hash": "0xfdc95125e665fcb4166c6935819d34189302336f8276568e228bffdf6143a1f9",
+        "transaction_index": 112
+      },
+      {
+        "block_hash": "0xb345ec4bcae4ae5743f4ef0b37a6c642db1a006a5d2dcc95d6986862eeeb700b",
+        "block_number": 26478284,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 89,
+          "direct_market_matches": 69,
+          "explicit_holder_closed_paths": 13,
+          "observable_adjacent_closed_path_pairs": 11,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 124,
+        "full_signed_envelope_checked": true,
+        "indexes": 124,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            713,
+            719,
+            798
+          ],
+          "next_principal_raw": 361459762090475520,
+          "next_round": [
+            799,
+            802,
+            805
+          ],
+          "prior_payout_raw": 283843561407498458,
+          "prior_principal_raw": 281771047395524608,
+          "prior_round": [
+            714,
+            715,
+            721
+          ]
+        },
+        "pool_keys": 89,
+        "receipt_root": "0xa01ed2071e6457951eb92d6b7a0c6ad1a5aa441ce5605094c6e1703b3b5043fe",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 109,
+        "resolved_market_debit_logs": 111,
+        "resolved_swaps": 122,
+        "rooted_receipt_logs": 450,
+        "same_asset_closed_paths_missing_boundary_log_index": 5,
+        "same_asset_closed_paths_with_boundary_log_indices": 13,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478284-header.response.json",
+            "sha256": "2804c668d1921f5143eb7a6b204611b7045d736228295c54496f3b7aa038f34c"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478284-receipts.response.json",
+            "sha256": "6febcd64ea71a47ac47c574eaa9bf68b02e5318e29d227115800de342fd0f6d6"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/2f58a2d37336-trace.response.json",
+            "sha256": "97052d5524f8bd1f7f536bb272ae0b85bdc0b988745fa7818d889c1fec09ef4d"
+          }
+        },
+        "strict_funding_links": 69,
+        "trace_matched_logs": 450,
+        "transaction_hash": "0x2f58a2d373367f674995d82991983b1f2d4b2d63310d59119d53d1672e09de74",
+        "transaction_index": 13
+      },
+      {
+        "block_hash": "0x6a7bc941501bc48f6d0cde7d2ccc2a4cd3d50467851770222b498fd50c7550f3",
+        "block_number": 26478285,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 8,
+          "direct_market_matches": 7,
+          "explicit_holder_closed_paths": 13,
+          "observable_adjacent_closed_path_pairs": 12,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 100,
+        "full_signed_envelope_checked": true,
+        "indexes": 100,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+          "logs": [
+            479,
+            474,
+            486
+          ],
+          "next_principal_raw": 72066073188157715,
+          "next_round": [
+            487,
+            488,
+            489
+          ],
+          "prior_payout_raw": 125148597805614781,
+          "prior_principal_raw": 124522558405289862,
+          "prior_round": [
+            480,
+            476,
+            481,
+            482
+          ]
+        },
+        "pool_keys": 69,
+        "receipt_root": "0x9ab4abc48571a07e8fc11cb23f93697d0018624ec649ab2defc5ce8291519bd4",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 81,
+        "resolved_market_debit_logs": 84,
+        "resolved_swaps": 100,
+        "rooted_receipt_logs": 243,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 14,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478285-header.response.json",
+            "sha256": "e385a56d1b35f188935221c3f4b06a65a674482e1a054c95f27b83c57ad3c4d6"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478285-receipts.response.json",
+            "sha256": "067c5a063c5699dc69599271a042df78e505a6ed2527f45978f5d7da2b455d10"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/f99920390d46-trace.response.json",
+            "sha256": "4d4a0cbf6bbee62b0045b7e8f02fd354112a28a56134cf2548adfe610e494daf"
+          }
+        },
+        "strict_funding_links": 59,
+        "trace_matched_logs": 243,
+        "transaction_hash": "0xf99920390d463751870cc42cc8b67b89c05ccc406e55a3b6acc08d04f4df27a0",
+        "transaction_index": 41
+      },
+      {
+        "block_hash": "0xd0b6a1dd706da51f6f239b0b6d813ab43b1e62147cbff321146a620e8f757376",
+        "block_number": 26478288,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 1,
+          "direct_market_matches": 1,
+          "explicit_holder_closed_paths": 22,
+          "observable_adjacent_closed_path_pairs": 21,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 106,
+        "full_signed_envelope_checked": true,
+        "indexes": 106,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+          "logs": [
+            1063,
+            1057,
+            1095
+          ],
+          "next_principal_raw": 156746008403017328,
+          "next_round": [
+            1096,
+            1097,
+            1098
+          ],
+          "prior_payout_raw": 116638701057962621,
+          "prior_principal_raw": 114874482420509368,
+          "prior_round": [
+            1064,
+            1065,
+            1066,
+            1067,
+            1068,
+            1069
+          ]
+        },
+        "pool_keys": 77,
+        "receipt_root": "0x84d3da9de3b6123d0ade49ccaaa02311c32a8632e09da56992e6c6a4a9ca52cf",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 95,
+        "resolved_market_debit_logs": 98,
+        "resolved_swaps": 106,
+        "rooted_receipt_logs": 256,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 23,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478288-header.response.json",
+            "sha256": "551d95d4e8eeba4bcc6377e75337d0b5146e4e9a7a91838d5f5629a71b22168d"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26478288-receipts.response.json",
+            "sha256": "e53f55e3b30153b38c0c8aaa0d2177dc2274cd37e247e144dfa6a026ff7dad60"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/b3ef721461c5-trace.response.json",
+            "sha256": "4142d44be6108a5dc8f3d64f9d375adabbe29333f7ba776d20e6506958a8000c"
+          }
+        },
+        "strict_funding_links": 69,
+        "trace_matched_logs": 256,
+        "transaction_hash": "0xb3ef721461c5031a6c949dbd8ac28f58741156d286381038e03d2be7526c375f",
+        "transaction_index": 143
+      },
+      {
+        "block_hash": "0xad23bf0cc2cb32d029eba806ab6b3fe3c802aacf755179e1735d512cb6ada9ce",
+        "block_number": 26478290,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 16,
+          "observable_adjacent_closed_path_pairs": 15,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 102,
+        "full_signed_envelope_checked": false,
+        "indexes": 102,
+        "one_adjacent_different_size_example": {
+          "currency": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+          "holder": "0x0c7e456d79daf167bf6019929fe42f9f7f9850da",
+          "logs": [
+            1254,
+            1248,
+            1262
+          ],
+          "next_principal_raw": 290720831842382705,
+          "next_round": [
+            1263,
+            1264,
+            1265
+          ],
+          "prior_payout_raw": 140450235094182796,
+          "prior_principal_raw": 138912879614641035,
+          "prior_round": [
+            1255,
+            1256,
+            1250,
+            1257,
+            1258
+          ]
+        },
+        "pool_keys": 74,
+        "receipt_root": "0xb733a83397bbe87610016293a04eecdbaef985ad30d25a77b1ea908b5cac5849",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 81,
+        "resolved_market_debit_logs": 92,
+        "resolved_swaps": 102,
+        "rooted_receipt_logs": 240,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 16,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-forward-and-tail-20261127/historical/26478290-header.response.json",
+            "sha256": "6a18e3b96581f01f8a30697de6461f8a8fbf57fccfaf7c7b77773922a4cf4de6"
+          },
+          "receipts": {
+            "path": "reports/research/eth-forward-and-tail-20261127/historical/26478290-receipts.response.json",
+            "sha256": "640af10160144489f5e3ab82f707fe7e80d1d898d5cc31e15f7e6d90a605b0f8"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/35a3185b6fec-trace.response.json",
+            "sha256": "58c64aa3d281e4e4f9bac009fb1fbd4c3d25b25ff3fdf2a7fa673ce1beb4b343"
+          }
+        },
+        "strict_funding_links": 62,
+        "trace_matched_logs": 240,
+        "transaction_hash": "0x35a3185b6fec639ea52ec51bffb2ca66d237895a0aac7954bfd7955873ded10e",
+        "transaction_index": 6
+      },
+      {
+        "block_hash": "0xcb8cec7db9503e5a077d15820b6ffc1c5567355a24ac5e629773ef5f3870fe1b",
+        "block_number": 26479393,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "direct_ledger_matches": 70,
+          "direct_market_matches": 62,
+          "explicit_holder_closed_paths": 19,
+          "observable_adjacent_closed_path_pairs": 16,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 113,
+        "full_signed_envelope_checked": true,
+        "indexes": 113,
+        "one_adjacent_different_size_example": {
+          "currency": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+          "holder": "0x4d02b7b8218ebf98b4e87a4fa91d433f4f185b6a",
+          "logs": [
+            941,
+            948,
+            959
+          ],
+          "next_principal_raw": 52348732,
+          "next_round": [
+            960,
+            963,
+            967,
+            970
+          ],
+          "prior_payout_raw": 47914634,
+          "prior_principal_raw": 47674417,
+          "prior_round": [
+            942,
+            946,
+            950
+          ]
+        },
+        "pool_keys": 77,
+        "receipt_root": "0x7e861af58fd71bd0487cefb58c89f7a957a26109c40aa7b7aa78ae51015b0473",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 110,
+        "resolved_market_debit_logs": 101,
+        "resolved_swaps": 111,
+        "rooted_receipt_logs": 403,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 19,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26479393-header.response.json",
+            "sha256": "fe6adce5fe3119438164971395e622e13e5d9e6c5f4359ada2b9f9078b218d45"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26479393-receipts.response.json",
+            "sha256": "000db35dd55bf9d073dff66d865f28950ed4d26ba76bfed5b23a45d87167ece9"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/7b78224fc011-trace.response.json",
+            "sha256": "baad86c741721f57bda6b477f9c6ceafd63b07aa0352c082e88af9d903c2b2ab"
+          }
+        },
+        "strict_funding_links": 63,
+        "trace_matched_logs": 403,
+        "transaction_hash": "0x7b78224fc011ace4fdb41b3725266267eba681383ec1b147cfa730d2012740d3",
+        "transaction_index": 85
+      },
+      {
+        "block_hash": "0xa2d3bec3d30d8627f8267575d769ccc7db67c63a89f3010bee02fb9c6eeecef8",
+        "block_number": 26481219,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 136,
+        "full_signed_envelope_checked": true,
+        "indexes": 136,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 1,
+        "receipt_root": "0xddc9fd0f14dfa69b68b2647142e68ae6c66e6eac461f7b0554d0e151116be3a8",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 1,
+        "resolved_market_debit_logs": 1,
+        "resolved_swaps": 1,
+        "rooted_receipt_logs": 1088,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481219-header.response.json",
+            "sha256": "4bd2a85bb19e165b8c39bfd659983b2e02447b6da015506d13419be1f9a6336c"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481219-receipts.response.json",
+            "sha256": "42736a29b4ffc51284f7d42411f03d1740090c38014cd7e0e39633398d21358d"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/0b00a4e38c42-trace.response.json",
+            "sha256": "39248c6b7e261a63f3fbb28f6909a929bdfe6b72b98a313efd9f57ac6be36f96"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 1088,
+        "transaction_hash": "0x0b00a4e38c42d8084296706ccfa2cef5fdbad86c01da7926eb26a37d29853064",
+        "transaction_index": 128
+      },
+      {
+        "block_hash": "0x66cdb43ce2d5730fa672ca3ff44c2a6d534cb303d56ad7e49376126bcb511290",
+        "block_number": 26481277,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 130,
+        "full_signed_envelope_checked": true,
+        "indexes": 130,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 1,
+        "receipt_root": "0xbc4ff9a2c13483591122286fb3e824e6045c5e2bd92a9df61ea3a999766b5179",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 1,
+        "resolved_market_debit_logs": 1,
+        "resolved_swaps": 1,
+        "rooted_receipt_logs": 1040,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481277-header.response.json",
+            "sha256": "fb662bdb2eb551adec85479a9259ef382ebe2d38750e4f2d12f8d83918023165"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481277-receipts.response.json",
+            "sha256": "fbdbb322976696c1d3629753d2c572ffee61d8dfe3db82b3add470798ca8d9e7"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/827a84ff90d2-trace.response.json",
+            "sha256": "6416cf6b7847227d481f5ae5453cf738a33817da32512f560dcab4db93483c72"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 1040,
+        "transaction_hash": "0x827a84ff90d26a01b2e3ce8c5123b8ff91f20ff703805f7c62cf428ae6383bcb",
+        "transaction_index": 151
+      },
+      {
+        "block_hash": "0x66cdb43ce2d5730fa672ca3ff44c2a6d534cb303d56ad7e49376126bcb511290",
+        "block_number": 26481277,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 130,
+        "full_signed_envelope_checked": true,
+        "indexes": 130,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 1,
+        "receipt_root": "0xbc4ff9a2c13483591122286fb3e824e6045c5e2bd92a9df61ea3a999766b5179",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 44,
+        "resolved_market_debit_logs": 44,
+        "resolved_swaps": 44,
+        "rooted_receipt_logs": 1040,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481277-header.response.json",
+            "sha256": "fb662bdb2eb551adec85479a9259ef382ebe2d38750e4f2d12f8d83918023165"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481277-receipts.response.json",
+            "sha256": "fbdbb322976696c1d3629753d2c572ffee61d8dfe3db82b3add470798ca8d9e7"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/8189273a8ef7-trace.response.json",
+            "sha256": "7a1fd8c5b9e1ca78fa090475a73cff8034eb78378f2dca1163c0f45f1e619706"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 1040,
+        "transaction_hash": "0x8189273a8ef76997cb32a8d8dc6745ff6c96875dfcc603645feb51c1d8a799d8",
+        "transaction_index": 152
+      },
+      {
+        "block_hash": "0x1c925f0c55a97b706cceaded5a79ff767acddb102400922717d59c118fc9efef",
+        "block_number": 26481278,
+        "counts": {
+          "adjacent_closed_path_equal_sizes": 0,
+          "direct_cross_round": 0,
+          "explicit_holder_closed_paths": 0,
+          "observable_adjacent_closed_path_pairs": 0,
+          "same_principal_repeat": 0,
+          "wrapped_cross_round": 0
+        },
+        "details": {
+          "direct_cross_round": [],
+          "same_principal_repeat": [],
+          "wrapped_cross_round": []
+        },
+        "events": 130,
+        "full_signed_envelope_checked": true,
+        "indexes": 130,
+        "one_adjacent_different_size_example": null,
+        "pool_keys": 1,
+        "receipt_root": "0x7c369536c94fbc828cc11a4941492cec2af719dc31c893b67a550580d70ebc7a",
+        "recognized_within_round_wraps": [],
+        "resolved_market_credit_logs": 42,
+        "resolved_market_debit_logs": 29,
+        "resolved_swaps": 42,
+        "rooted_receipt_logs": 1040,
+        "same_asset_closed_paths_missing_boundary_log_index": 0,
+        "same_asset_closed_paths_with_boundary_log_indices": 0,
+        "sources": {
+          "header": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481278-header.response.json",
+            "sha256": "3387b49cba57f7efa931f61c72682a4dc3e1de5fa8c620c7a2f25e1d79bb1bc5"
+          },
+          "receipts": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/26481278-receipts.response.json",
+            "sha256": "0fe5f326aeaa5c78586e2c63384adb73f6ea9a9b17a52e3bd8e1ed3b188ddd65"
+          },
+          "trace": {
+            "path": "reports/research/eth-batch-hundred-census-20261127/b0e0ed2a682c-trace.response.json",
+            "sha256": "7c002ae6c7baecd5105e47697607b50f70ed4c1f6f3a83516a080d15f67d8928"
+          }
+        },
+        "strict_funding_links": 0,
+        "trace_matched_logs": 1040,
+        "transaction_hash": "0xb0e0ed2a682cc2e4833d23db29095ece3ced18e951ded2b7f2fda4477d2e6ef0",
+        "transaction_index": 164
+      }
+    ],
+    "closed_paths_missing_boundary_log_index": 12,
+    "closed_paths_with_boundary_log_indices": 204,
+    "counts": {
+      "adjacent_closed_path_equal_sizes": 0,
+      "direct_cross_round": 0,
+      "direct_ledger_matches": 655,
+      "direct_market_matches": 481,
+      "explicit_holder_closed_paths": 186,
+      "observable_adjacent_closed_path_pairs": 167,
+      "same_principal_repeat": 0,
+      "wrapped_cross_round": 0,
+      "wrapped_known_within_round": 72,
+      "wrapped_ledger_matches": 129,
+      "wrapped_market_matches": 73
+    },
+    "date_utc": "2026-11-23",
+    "event_shapes": 2175,
+    "receipt_logs": 10468,
+    "receipt_root_and_trace_transactions": 18,
+    "resolved_swaps": 1556,
+    "shape_events_unresolved": 619,
+    "signed_envelope_subset_event_shapes": 2073,
+    "signed_envelope_subset_transactions": 17,
+    "strict_inter_swap_funding_links": 774,
+    "transaction_hits_by_count": {
+      "adjacent_closed_path_equal_sizes": 0,
+      "direct_cross_round": 0,
+      "direct_ledger_matches": 11,
+      "direct_market_matches": 11,
+      "explicit_holder_closed_paths": 11,
+      "observable_adjacent_closed_path_pairs": 11,
+      "same_principal_repeat": 0,
+      "wrapped_cross_round": 0,
+      "wrapped_known_within_round": 1,
+      "wrapped_ledger_matches": 2,
+      "wrapped_market_matches": 2
+    }
+  },
+  "new_network_requests": 0,
+  "optimism_2022_positive_controls_excluded_from_ethereum": [
+    {
+      "block_hash": "0x9f07209efd09d456434a63b427052d8d6a67b1958e4da2a2817e5934772db14a",
+      "chain_id": 10,
+      "complete_rounds": 50,
+      "counts": {
+        "adjacent_closed_path_equal_sizes": 49,
+        "direct_cross_round": 0,
+        "direct_ledger_matches": 50,
+        "explicit_holder_closed_paths": 50,
+        "observable_adjacent_closed_path_pairs": 49,
+        "same_principal_repeat": 0,
+        "wrapped_cross_round": 49,
+        "wrapped_ledger_matches": 49,
+        "wrapped_market_matches": 49
+      },
+      "market_swap_events": 100,
+      "receipt_response_sha256": "cef823348471fdd3bc0f091a2b03f19c2a6e211d02972734ca471b3cb6d9f68f",
+      "receipt_root": "0xde01973b01cbab64f98adef3bbe1d5a45b4e6b8b0200fb4edf97c47a301f9ce4",
+      "rooted_receipt_logs": 558,
+      "tx_hash": "0x61c00451496dbf330f4a788bf2b40214662734732e40785e91c7827f00ffcbf9",
+      "wrapped_edges": [
+        {
+          "amount_raw": 20082385345875043,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            7,
+            11,
+            12,
+            13
+          ],
+          "next_round": [
+            18,
+            22
+          ],
+          "prior_round": [
+            6,
+            10
+          ]
+        },
+        {
+          "amount_raw": 20162461483085494,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            19,
+            23,
+            24,
+            25
+          ],
+          "next_round": [
+            30,
+            34
+          ],
+          "prior_round": [
+            18,
+            22
+          ]
+        },
+        {
+          "amount_raw": 20240186123581671,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            31,
+            35,
+            36,
+            37
+          ],
+          "next_round": [
+            42,
+            46
+          ],
+          "prior_round": [
+            30,
+            34
+          ]
+        },
+        {
+          "amount_raw": 20315520660531236,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            43,
+            47,
+            48,
+            49
+          ],
+          "next_round": [
+            54,
+            58
+          ],
+          "prior_round": [
+            42,
+            46
+          ]
+        },
+        {
+          "amount_raw": 20388425610629464,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            55,
+            59,
+            60,
+            61
+          ],
+          "next_round": [
+            66,
+            70
+          ],
+          "prior_round": [
+            54,
+            58
+          ]
+        },
+        {
+          "amount_raw": 20458863252402586,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            67,
+            71,
+            72,
+            73
+          ],
+          "next_round": [
+            78,
+            82
+          ],
+          "prior_round": [
+            66,
+            70
+          ]
+        },
+        {
+          "amount_raw": 20526795867269397,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            79,
+            83,
+            84,
+            85
+          ],
+          "next_round": [
+            90,
+            94
+          ],
+          "prior_round": [
+            78,
+            82
+          ]
+        },
+        {
+          "amount_raw": 20592189257129123,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            91,
+            95,
+            96,
+            97
+          ],
+          "next_round": [
+            102,
+            106
+          ],
+          "prior_round": [
+            90,
+            94
+          ]
+        },
+        {
+          "amount_raw": 20655007467781347,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            103,
+            107,
+            108,
+            109
+          ],
+          "next_round": [
+            114,
+            118
+          ],
+          "prior_round": [
+            102,
+            106
+          ]
+        },
+        {
+          "amount_raw": 20715217185927494,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            115,
+            119,
+            120,
+            121
+          ],
+          "next_round": [
+            126,
+            130
+          ],
+          "prior_round": [
+            114,
+            118
+          ]
+        },
+        {
+          "amount_raw": 20772787738984405,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            127,
+            131,
+            132,
+            133
+          ],
+          "next_round": [
+            138,
+            142
+          ],
+          "prior_round": [
+            126,
+            130
+          ]
+        },
+        {
+          "amount_raw": 20827687577445689,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            139,
+            143,
+            144,
+            145
+          ],
+          "next_round": [
+            150,
+            154
+          ],
+          "prior_round": [
+            138,
+            142
+          ]
+        },
+        {
+          "amount_raw": 20879886912974152,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            151,
+            155,
+            156,
+            157
+          ],
+          "next_round": [
+            162,
+            166
+          ],
+          "prior_round": [
+            150,
+            154
+          ]
+        },
+        {
+          "amount_raw": 20929357718264339,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            163,
+            167,
+            168,
+            169
+          ],
+          "next_round": [
+            174,
+            178
+          ],
+          "prior_round": [
+            162,
+            166
+          ]
+        },
+        {
+          "amount_raw": 20976072847568824,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            175,
+            179,
+            180,
+            181
+          ],
+          "next_round": [
+            186,
+            190
+          ],
+          "prior_round": [
+            174,
+            178
+          ]
+        },
+        {
+          "amount_raw": 21020007795261722,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            187,
+            191,
+            192,
+            193
+          ],
+          "next_round": [
+            198,
+            202
+          ],
+          "prior_round": [
+            186,
+            190
+          ]
+        },
+        {
+          "amount_raw": 21061138937007863,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            199,
+            203,
+            204,
+            205
+          ],
+          "next_round": [
+            210,
+            214
+          ],
+          "prior_round": [
+            198,
+            202
+          ]
+        },
+        {
+          "amount_raw": 21099442650368443,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            211,
+            215,
+            216,
+            217
+          ],
+          "next_round": [
+            222,
+            226
+          ],
+          "prior_round": [
+            210,
+            214
+          ]
+        },
+        {
+          "amount_raw": 21134897952654685,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            223,
+            227,
+            228,
+            229
+          ],
+          "next_round": [
+            234,
+            238
+          ],
+          "prior_round": [
+            222,
+            226
+          ]
+        },
+        {
+          "amount_raw": 21167485621434798,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            235,
+            239,
+            240,
+            241
+          ],
+          "next_round": [
+            246,
+            250
+          ],
+          "prior_round": [
+            234,
+            238
+          ]
+        },
+        {
+          "amount_raw": 21197188194382519,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            247,
+            251,
+            252,
+            253
+          ],
+          "next_round": [
+            258,
+            262
+          ],
+          "prior_round": [
+            246,
+            250
+          ]
+        },
+        {
+          "amount_raw": 21223988210590299,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            259,
+            263,
+            264,
+            265
+          ],
+          "next_round": [
+            270,
+            274
+          ],
+          "prior_round": [
+            258,
+            262
+          ]
+        },
+        {
+          "amount_raw": 21247872606816509,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            271,
+            275,
+            276,
+            277
+          ],
+          "next_round": [
+            282,
+            286
+          ],
+          "prior_round": [
+            270,
+            274
+          ]
+        },
+        {
+          "amount_raw": 21268826562423185,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            283,
+            287,
+            288,
+            289
+          ],
+          "next_round": [
+            294,
+            298
+          ],
+          "prior_round": [
+            282,
+            286
+          ]
+        },
+        {
+          "amount_raw": 21286838774878096,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            295,
+            299,
+            300,
+            301
+          ],
+          "next_round": [
+            306,
+            310
+          ],
+          "prior_round": [
+            294,
+            298
+          ]
+        },
+        {
+          "amount_raw": 21301899701024607,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            307,
+            311,
+            312,
+            313
+          ],
+          "next_round": [
+            318,
+            322
+          ],
+          "prior_round": [
+            306,
+            310
+          ]
+        },
+        {
+          "amount_raw": 21314000677704056,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            319,
+            323,
+            324,
+            325
+          ],
+          "next_round": [
+            330,
+            334
+          ],
+          "prior_round": [
+            318,
+            322
+          ]
+        },
+        {
+          "amount_raw": 21323133921653975,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            331,
+            335,
+            336,
+            337
+          ],
+          "next_round": [
+            342,
+            346
+          ],
+          "prior_round": [
+            330,
+            334
+          ]
+        },
+        {
+          "amount_raw": 21329296046203385,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            343,
+            347,
+            348,
+            349
+          ],
+          "next_round": [
+            352,
+            356
+          ],
+          "prior_round": [
+            342,
+            346
+          ]
+        },
+        {
+          "amount_raw": 21377499938237742,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            353,
+            357,
+            358,
+            359
+          ],
+          "next_round": [
+            362,
+            366
+          ],
+          "prior_round": [
+            352,
+            356
+          ]
+        },
+        {
+          "amount_raw": 21423754851240936,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            363,
+            367,
+            368,
+            369
+          ],
+          "next_round": [
+            372,
+            376
+          ],
+          "prior_round": [
+            362,
+            366
+          ]
+        },
+        {
+          "amount_raw": 21468042405161658,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            373,
+            377,
+            378,
+            379
+          ],
+          "next_round": [
+            382,
+            386
+          ],
+          "prior_round": [
+            372,
+            376
+          ]
+        },
+        {
+          "amount_raw": 21510345979744968,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            383,
+            387,
+            388,
+            389
+          ],
+          "next_round": [
+            392,
+            396
+          ],
+          "prior_round": [
+            382,
+            386
+          ]
+        },
+        {
+          "amount_raw": 21550649835250591,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            393,
+            397,
+            398,
+            399
+          ],
+          "next_round": [
+            402,
+            406
+          ],
+          "prior_round": [
+            392,
+            396
+          ]
+        },
+        {
+          "amount_raw": 21588938233238225,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            403,
+            407,
+            408,
+            409
+          ],
+          "next_round": [
+            412,
+            416
+          ],
+          "prior_round": [
+            402,
+            406
+          ]
+        },
+        {
+          "amount_raw": 21625196315682963,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            413,
+            417,
+            418,
+            419
+          ],
+          "next_round": [
+            422,
+            426
+          ],
+          "prior_round": [
+            412,
+            416
+          ]
+        },
+        {
+          "amount_raw": 21659410984021530,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            423,
+            427,
+            428,
+            429
+          ],
+          "next_round": [
+            432,
+            436
+          ],
+          "prior_round": [
+            422,
+            426
+          ]
+        },
+        {
+          "amount_raw": 21691567382570634,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            433,
+            437,
+            438,
+            439
+          ],
+          "next_round": [
+            442,
+            446
+          ],
+          "prior_round": [
+            432,
+            436
+          ]
+        },
+        {
+          "amount_raw": 21721655052339538,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            443,
+            447,
+            448,
+            449
+          ],
+          "next_round": [
+            452,
+            456
+          ],
+          "prior_round": [
+            442,
+            446
+          ]
+        },
+        {
+          "amount_raw": 21749660897980628,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            453,
+            457,
+            458,
+            459
+          ],
+          "next_round": [
+            462,
+            466
+          ],
+          "prior_round": [
+            452,
+            456
+          ]
+        },
+        {
+          "amount_raw": 21775574462439847,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            463,
+            467,
+            468,
+            469
+          ],
+          "next_round": [
+            472,
+            476
+          ],
+          "prior_round": [
+            462,
+            466
+          ]
+        },
+        {
+          "amount_raw": 21799385289542712,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            473,
+            477,
+            478,
+            479
+          ],
+          "next_round": [
+            482,
+            486
+          ],
+          "prior_round": [
+            472,
+            476
+          ]
+        },
+        {
+          "amount_raw": 21821084682098527,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            483,
+            487,
+            488,
+            489
+          ],
+          "next_round": [
+            492,
+            496
+          ],
+          "prior_round": [
+            482,
+            486
+          ]
+        },
+        {
+          "amount_raw": 21840663943655814,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            493,
+            497,
+            498,
+            499
+          ],
+          "next_round": [
+            502,
+            506
+          ],
+          "prior_round": [
+            492,
+            496
+          ]
+        },
+        {
+          "amount_raw": 21858114378480726,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            503,
+            507,
+            508,
+            509
+          ],
+          "next_round": [
+            512,
+            516
+          ],
+          "prior_round": [
+            502,
+            506
+          ]
+        },
+        {
+          "amount_raw": 21873430807665970,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            513,
+            517,
+            518,
+            519
+          ],
+          "next_round": [
+            522,
+            526
+          ],
+          "prior_round": [
+            512,
+            516
+          ]
+        },
+        {
+          "amount_raw": 21886606294733998,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            523,
+            527,
+            528,
+            529
+          ],
+          "next_round": [
+            532,
+            536
+          ],
+          "prior_round": [
+            522,
+            526
+          ]
+        },
+        {
+          "amount_raw": 21897636540797520,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            533,
+            537,
+            538,
+            539
+          ],
+          "next_round": [
+            542,
+            546
+          ],
+          "prior_round": [
+            532,
+            536
+          ]
+        },
+        {
+          "amount_raw": 21906515489343166,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            543,
+            547,
+            548,
+            549
+          ],
+          "next_round": [
+            552,
+            556
+          ],
+          "prior_round": [
+            542,
+            546
+          ]
+        }
+      ]
+    },
+    {
+      "block_hash": "0xf01531897626de9584fe00c0cce283721fb9391b23884c64d9ab08ba98d1c389",
+      "chain_id": 10,
+      "complete_rounds": 51,
+      "counts": {
+        "adjacent_closed_path_equal_sizes": 50,
+        "direct_cross_round": 0,
+        "direct_ledger_matches": 51,
+        "explicit_holder_closed_paths": 51,
+        "observable_adjacent_closed_path_pairs": 50,
+        "same_principal_repeat": 0,
+        "wrapped_cross_round": 50,
+        "wrapped_ledger_matches": 50,
+        "wrapped_market_matches": 50
+      },
+      "market_swap_events": 102,
+      "receipt_response_sha256": "d2b217934a5e04733b51926c0d775d72be5f05279ab5b7ee23f18e8f9e44d814",
+      "receipt_root": "0x18a0a9056f28807e29a5b122c486a617d0dc6465caa5f2678323a91317c9b33e",
+      "rooted_receipt_logs": 584,
+      "tx_hash": "0x84dbfda2d50e482ff465a19fa9959426e21da7260efa5a3acb753361f3fa2f3b",
+      "wrapped_edges": [
+        {
+          "amount_raw": 30055378280109053,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            7,
+            11,
+            12,
+            13
+          ],
+          "next_round": [
+            18,
+            22
+          ],
+          "prior_round": [
+            6,
+            10
+          ]
+        },
+        {
+          "amount_raw": 30109485836645569,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            19,
+            23,
+            24,
+            25
+          ],
+          "next_round": [
+            30,
+            34
+          ],
+          "prior_round": [
+            18,
+            22
+          ]
+        },
+        {
+          "amount_raw": 30162313201047212,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            31,
+            35,
+            36,
+            37
+          ],
+          "next_round": [
+            42,
+            46
+          ],
+          "prior_round": [
+            30,
+            34
+          ]
+        },
+        {
+          "amount_raw": 30213850723515175,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            43,
+            47,
+            48,
+            49
+          ],
+          "next_round": [
+            54,
+            58
+          ],
+          "prior_round": [
+            42,
+            46
+          ]
+        },
+        {
+          "amount_raw": 30264088754633497,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            55,
+            59,
+            60,
+            61
+          ],
+          "next_round": [
+            66,
+            70
+          ],
+          "prior_round": [
+            54,
+            58
+          ]
+        },
+        {
+          "amount_raw": 30313019027638533,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            67,
+            71,
+            72,
+            73
+          ],
+          "next_round": [
+            78,
+            82
+          ],
+          "prior_round": [
+            66,
+            70
+          ]
+        },
+        {
+          "amount_raw": 30360632584976570,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            79,
+            83,
+            84,
+            85
+          ],
+          "next_round": [
+            90,
+            94
+          ],
+          "prior_round": [
+            78,
+            82
+          ]
+        },
+        {
+          "amount_raw": 30406920469452498,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            91,
+            95,
+            96,
+            97
+          ],
+          "next_round": [
+            102,
+            106
+          ],
+          "prior_round": [
+            90,
+            94
+          ]
+        },
+        {
+          "amount_raw": 30451874415352073,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            103,
+            107,
+            108,
+            109
+          ],
+          "next_round": [
+            114,
+            118
+          ],
+          "prior_round": [
+            102,
+            106
+          ]
+        },
+        {
+          "amount_raw": 30495486157296673,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            115,
+            119,
+            120,
+            121
+          ],
+          "next_round": [
+            126,
+            130
+          ],
+          "prior_round": [
+            114,
+            118
+          ]
+        },
+        {
+          "amount_raw": 30537747430241085,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            127,
+            131,
+            132,
+            133
+          ],
+          "next_round": [
+            138,
+            142
+          ],
+          "prior_round": [
+            126,
+            130
+          ]
+        },
+        {
+          "amount_raw": 30578650660584091,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            139,
+            143,
+            144,
+            145
+          ],
+          "next_round": [
+            150,
+            154
+          ],
+          "prior_round": [
+            138,
+            142
+          ]
+        },
+        {
+          "amount_raw": 30618188275034234,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            151,
+            155,
+            156,
+            157
+          ],
+          "next_round": [
+            162,
+            166
+          ],
+          "prior_round": [
+            150,
+            154
+          ]
+        },
+        {
+          "amount_raw": 30656353391712577,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            163,
+            167,
+            168,
+            169
+          ],
+          "next_round": [
+            174,
+            178
+          ],
+          "prior_round": [
+            162,
+            166
+          ]
+        },
+        {
+          "amount_raw": 30693138437924385,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            175,
+            179,
+            180,
+            181
+          ],
+          "next_round": [
+            186,
+            190
+          ],
+          "prior_round": [
+            174,
+            178
+          ]
+        },
+        {
+          "amount_raw": 30728537223472221,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            187,
+            191,
+            192,
+            193
+          ],
+          "next_round": [
+            198,
+            202
+          ],
+          "prior_round": [
+            186,
+            190
+          ]
+        },
+        {
+          "amount_raw": 30762542867325976,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            199,
+            203,
+            204,
+            205
+          ],
+          "next_round": [
+            210,
+            214
+          ],
+          "prior_round": [
+            198,
+            202
+          ]
+        },
+        {
+          "amount_raw": 30795149179822919,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            211,
+            215,
+            216,
+            217
+          ],
+          "next_round": [
+            222,
+            226
+          ],
+          "prior_round": [
+            210,
+            214
+          ]
+        },
+        {
+          "amount_raw": 30826349971555694,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            223,
+            227,
+            228,
+            229
+          ],
+          "next_round": [
+            234,
+            238
+          ],
+          "prior_round": [
+            222,
+            226
+          ]
+        },
+        {
+          "amount_raw": 30856139744451662,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            235,
+            239,
+            240,
+            241
+          ],
+          "next_round": [
+            246,
+            250
+          ],
+          "prior_round": [
+            234,
+            238
+          ]
+        },
+        {
+          "amount_raw": 30884512309589855,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            247,
+            251,
+            252,
+            253
+          ],
+          "next_round": [
+            258,
+            262
+          ],
+          "prior_round": [
+            246,
+            250
+          ]
+        },
+        {
+          "amount_raw": 30911462860444833,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            259,
+            263,
+            264,
+            265
+          ],
+          "next_round": [
+            270,
+            274
+          ],
+          "prior_round": [
+            258,
+            262
+          ]
+        },
+        {
+          "amount_raw": 30936986590695801,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            271,
+            275,
+            276,
+            277
+          ],
+          "next_round": [
+            282,
+            286
+          ],
+          "prior_round": [
+            270,
+            274
+          ]
+        },
+        {
+          "amount_raw": 30961078003156340,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            283,
+            287,
+            288,
+            289
+          ],
+          "next_round": [
+            294,
+            298
+          ],
+          "prior_round": [
+            282,
+            286
+          ]
+        },
+        {
+          "amount_raw": 30983732982983532,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            295,
+            299,
+            300,
+            301
+          ],
+          "next_round": [
+            306,
+            310
+          ],
+          "prior_round": [
+            294,
+            298
+          ]
+        },
+        {
+          "amount_raw": 31004947415509867,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            307,
+            311,
+            312,
+            313
+          ],
+          "next_round": [
+            318,
+            322
+          ],
+          "prior_round": [
+            306,
+            310
+          ]
+        },
+        {
+          "amount_raw": 31024717186239775,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            319,
+            323,
+            324,
+            325
+          ],
+          "next_round": [
+            330,
+            334
+          ],
+          "prior_round": [
+            318,
+            322
+          ]
+        },
+        {
+          "amount_raw": 31043038871897697,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            331,
+            335,
+            336,
+            337
+          ],
+          "next_round": [
+            342,
+            346
+          ],
+          "prior_round": [
+            330,
+            334
+          ]
+        },
+        {
+          "amount_raw": 31059908358305970,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            343,
+            347,
+            348,
+            349
+          ],
+          "next_round": [
+            354,
+            358
+          ],
+          "prior_round": [
+            342,
+            346
+          ]
+        },
+        {
+          "amount_raw": 31075322913535948,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            355,
+            359,
+            360,
+            361
+          ],
+          "next_round": [
+            366,
+            370
+          ],
+          "prior_round": [
+            354,
+            358
+          ]
+        },
+        {
+          "amount_raw": 31089279805778072,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            367,
+            371,
+            372,
+            373
+          ],
+          "next_round": [
+            378,
+            382
+          ],
+          "prior_round": [
+            366,
+            370
+          ]
+        },
+        {
+          "amount_raw": 31101776303338171,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            379,
+            383,
+            384,
+            385
+          ],
+          "next_round": [
+            390,
+            394
+          ],
+          "prior_round": [
+            378,
+            382
+          ]
+        },
+        {
+          "amount_raw": 31112809674633745,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            391,
+            395,
+            396,
+            397
+          ],
+          "next_round": [
+            402,
+            406
+          ],
+          "prior_round": [
+            390,
+            394
+          ]
+        },
+        {
+          "amount_raw": 31122377879218623,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            403,
+            407,
+            408,
+            409
+          ],
+          "next_round": [
+            414,
+            418
+          ],
+          "prior_round": [
+            402,
+            406
+          ]
+        },
+        {
+          "amount_raw": 31130479567756006,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            415,
+            419,
+            420,
+            421
+          ],
+          "next_round": [
+            426,
+            430
+          ],
+          "prior_round": [
+            414,
+            418
+          ]
+        },
+        {
+          "amount_raw": 31137112699950101,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            427,
+            431,
+            432,
+            433
+          ],
+          "next_round": [
+            438,
+            442
+          ],
+          "prior_round": [
+            426,
+            430
+          ]
+        },
+        {
+          "amount_raw": 31142276617615919,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            439,
+            443,
+            444,
+            445
+          ],
+          "next_round": [
+            448,
+            452
+          ],
+          "prior_round": [
+            438,
+            442
+          ]
+        },
+        {
+          "amount_raw": 31204476655476010,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            449,
+            453,
+            454,
+            455
+          ],
+          "next_round": [
+            458,
+            462
+          ],
+          "prior_round": [
+            448,
+            452
+          ]
+        },
+        {
+          "amount_raw": 31262502642024522,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            459,
+            463,
+            464,
+            465
+          ],
+          "next_round": [
+            468,
+            472
+          ],
+          "prior_round": [
+            458,
+            462
+          ]
+        },
+        {
+          "amount_raw": 31316322882880238,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            469,
+            473,
+            474,
+            475
+          ],
+          "next_round": [
+            478,
+            482
+          ],
+          "prior_round": [
+            468,
+            472
+          ]
+        },
+        {
+          "amount_raw": 31365907757980225,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            479,
+            483,
+            484,
+            485
+          ],
+          "next_round": [
+            488,
+            492
+          ],
+          "prior_round": [
+            478,
+            482
+          ]
+        },
+        {
+          "amount_raw": 31411230412479594,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            489,
+            493,
+            494,
+            495
+          ],
+          "next_round": [
+            498,
+            502
+          ],
+          "prior_round": [
+            488,
+            492
+          ]
+        },
+        {
+          "amount_raw": 31452265374642338,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            499,
+            503,
+            504,
+            505
+          ],
+          "next_round": [
+            508,
+            512
+          ],
+          "prior_round": [
+            498,
+            502
+          ]
+        },
+        {
+          "amount_raw": 31488990628733547,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            509,
+            513,
+            514,
+            515
+          ],
+          "next_round": [
+            518,
+            522
+          ],
+          "prior_round": [
+            508,
+            512
+          ]
+        },
+        {
+          "amount_raw": 31521385541914642,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            519,
+            523,
+            524,
+            525
+          ],
+          "next_round": [
+            528,
+            532
+          ],
+          "prior_round": [
+            518,
+            522
+          ]
+        },
+        {
+          "amount_raw": 31549432246128479,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            529,
+            533,
+            534,
+            535
+          ],
+          "next_round": [
+            538,
+            542
+          ],
+          "prior_round": [
+            528,
+            532
+          ]
+        },
+        {
+          "amount_raw": 31573114946995407,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            539,
+            543,
+            544,
+            545
+          ],
+          "next_round": [
+            548,
+            552
+          ],
+          "prior_round": [
+            538,
+            542
+          ]
+        },
+        {
+          "amount_raw": 31592420614683804,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            549,
+            553,
+            554,
+            555
+          ],
+          "next_round": [
+            558,
+            562
+          ],
+          "prior_round": [
+            548,
+            552
+          ]
+        },
+        {
+          "amount_raw": 31607338292812598,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            559,
+            563,
+            564,
+            565
+          ],
+          "next_round": [
+            568,
+            572
+          ],
+          "prior_round": [
+            558,
+            562
+          ]
+        },
+        {
+          "amount_raw": 31617860480278847,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            569,
+            573,
+            574,
+            575
+          ],
+          "next_round": [
+            578,
+            582
+          ],
+          "prior_round": [
+            568,
+            572
+          ]
+        }
+      ]
+    },
+    {
+      "block_hash": "0xe48473b93ec2d64665880d198f0aea45841c06f5eadf06ae5e50e18bfb2105ad",
+      "chain_id": 10,
+      "complete_rounds": 50,
+      "counts": {
+        "adjacent_closed_path_equal_sizes": 49,
+        "direct_cross_round": 0,
+        "direct_ledger_matches": 50,
+        "explicit_holder_closed_paths": 50,
+        "observable_adjacent_closed_path_pairs": 49,
+        "same_principal_repeat": 0,
+        "wrapped_cross_round": 49,
+        "wrapped_ledger_matches": 49,
+        "wrapped_market_matches": 49
+      },
+      "market_swap_events": 100,
+      "receipt_response_sha256": "035981048e2bf877cf74cbed77e99161d94e8b6b169fc91eec1e8a1e297c0906",
+      "receipt_root": "0xc3b93a1f4aa012f92f7775e84c213d7e413096f02bc0e2145d65a4297a22e376",
+      "rooted_receipt_logs": 600,
+      "tx_hash": "0xb6f716079d44082e78c66f2d09ffd586ea891240ef691dafcad886c3456fe2ab",
+      "wrapped_edges": [
+        {
+          "amount_raw": 20020001324588477,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            7,
+            11,
+            12,
+            13
+          ],
+          "next_round": [
+            18,
+            22
+          ],
+          "prior_round": [
+            6,
+            10
+          ]
+        },
+        {
+          "amount_raw": 20039298281268919,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            19,
+            23,
+            24,
+            25
+          ],
+          "next_round": [
+            30,
+            34
+          ],
+          "prior_round": [
+            18,
+            22
+          ]
+        },
+        {
+          "amount_raw": 20057888206465442,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            31,
+            35,
+            36,
+            37
+          ],
+          "next_round": [
+            42,
+            46
+          ],
+          "prior_round": [
+            30,
+            34
+          ]
+        },
+        {
+          "amount_raw": 20075768197923975,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            43,
+            47,
+            48,
+            49
+          ],
+          "next_round": [
+            54,
+            58
+          ],
+          "prior_round": [
+            42,
+            46
+          ]
+        },
+        {
+          "amount_raw": 20092936813545943,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            55,
+            59,
+            60,
+            61
+          ],
+          "next_round": [
+            66,
+            70
+          ],
+          "prior_round": [
+            54,
+            58
+          ]
+        },
+        {
+          "amount_raw": 20109390421302751,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            67,
+            71,
+            72,
+            73
+          ],
+          "next_round": [
+            78,
+            82
+          ],
+          "prior_round": [
+            66,
+            70
+          ]
+        },
+        {
+          "amount_raw": 20125126849323168,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            79,
+            83,
+            84,
+            85
+          ],
+          "next_round": [
+            90,
+            94
+          ],
+          "prior_round": [
+            78,
+            82
+          ]
+        },
+        {
+          "amount_raw": 20140143925843216,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            91,
+            95,
+            96,
+            97
+          ],
+          "next_round": [
+            102,
+            106
+          ],
+          "prior_round": [
+            90,
+            94
+          ]
+        },
+        {
+          "amount_raw": 20154439479204684,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            103,
+            107,
+            108,
+            109
+          ],
+          "next_round": [
+            114,
+            118
+          ],
+          "prior_round": [
+            102,
+            106
+          ]
+        },
+        {
+          "amount_raw": 20168012067840347,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            115,
+            119,
+            120,
+            121
+          ],
+          "next_round": [
+            126,
+            130
+          ],
+          "prior_round": [
+            114,
+            118
+          ]
+        },
+        {
+          "amount_raw": 20180858790298123,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            127,
+            131,
+            132,
+            133
+          ],
+          "next_round": [
+            138,
+            142
+          ],
+          "prior_round": [
+            126,
+            130
+          ]
+        },
+        {
+          "amount_raw": 20192977475227983,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            139,
+            143,
+            144,
+            145
+          ],
+          "next_round": [
+            150,
+            154
+          ],
+          "prior_round": [
+            138,
+            142
+          ]
+        },
+        {
+          "amount_raw": 20204367411324690,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            151,
+            155,
+            156,
+            157
+          ],
+          "next_round": [
+            162,
+            166
+          ],
+          "prior_round": [
+            150,
+            154
+          ]
+        },
+        {
+          "amount_raw": 20215026427398149,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            163,
+            167,
+            168,
+            169
+          ],
+          "next_round": [
+            174,
+            178
+          ],
+          "prior_round": [
+            162,
+            166
+          ]
+        },
+        {
+          "amount_raw": 20224953082317821,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            175,
+            179,
+            180,
+            181
+          ],
+          "next_round": [
+            186,
+            190
+          ],
+          "prior_round": [
+            174,
+            178
+          ]
+        },
+        {
+          "amount_raw": 20234145935024357,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            187,
+            191,
+            192,
+            193
+          ],
+          "next_round": [
+            198,
+            202
+          ],
+          "prior_round": [
+            186,
+            190
+          ]
+        },
+        {
+          "amount_raw": 20242604274481622,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            199,
+            203,
+            204,
+            205
+          ],
+          "next_round": [
+            210,
+            214
+          ],
+          "prior_round": [
+            198,
+            202
+          ]
+        },
+        {
+          "amount_raw": 20250325929799822,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            211,
+            215,
+            216,
+            217
+          ],
+          "next_round": [
+            222,
+            226
+          ],
+          "prior_round": [
+            210,
+            214
+          ]
+        },
+        {
+          "amount_raw": 20257310190067428,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            223,
+            227,
+            228,
+            229
+          ],
+          "next_round": [
+            234,
+            238
+          ],
+          "prior_round": [
+            222,
+            226
+          ]
+        },
+        {
+          "amount_raw": 20263555614474284,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            235,
+            239,
+            240,
+            241
+          ],
+          "next_round": [
+            246,
+            250
+          ],
+          "prior_round": [
+            234,
+            238
+          ]
+        },
+        {
+          "amount_raw": 20269061492207781,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            247,
+            251,
+            252,
+            253
+          ],
+          "next_round": [
+            258,
+            262
+          ],
+          "prior_round": [
+            246,
+            250
+          ]
+        },
+        {
+          "amount_raw": 20317000108415104,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            259,
+            263,
+            264,
+            265
+          ],
+          "next_round": [
+            270,
+            274
+          ],
+          "prior_round": [
+            258,
+            262
+          ]
+        },
+        {
+          "amount_raw": 20363583575766328,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            271,
+            275,
+            276,
+            277
+          ],
+          "next_round": [
+            282,
+            286
+          ],
+          "prior_round": [
+            270,
+            274
+          ]
+        },
+        {
+          "amount_raw": 20408798014368143,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            283,
+            287,
+            288,
+            289
+          ],
+          "next_round": [
+            294,
+            298
+          ],
+          "prior_round": [
+            282,
+            286
+          ]
+        },
+        {
+          "amount_raw": 20452631176653501,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            295,
+            299,
+            300,
+            301
+          ],
+          "next_round": [
+            306,
+            310
+          ],
+          "prior_round": [
+            294,
+            298
+          ]
+        },
+        {
+          "amount_raw": 20495070085755328,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            307,
+            311,
+            312,
+            313
+          ],
+          "next_round": [
+            318,
+            322
+          ],
+          "prior_round": [
+            306,
+            310
+          ]
+        },
+        {
+          "amount_raw": 20536103235122334,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            319,
+            323,
+            324,
+            325
+          ],
+          "next_round": [
+            330,
+            334
+          ],
+          "prior_round": [
+            318,
+            322
+          ]
+        },
+        {
+          "amount_raw": 20575718388762791,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            331,
+            335,
+            336,
+            337
+          ],
+          "next_round": [
+            342,
+            346
+          ],
+          "prior_round": [
+            330,
+            334
+          ]
+        },
+        {
+          "amount_raw": 20613904047582149,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            343,
+            347,
+            348,
+            349
+          ],
+          "next_round": [
+            354,
+            358
+          ],
+          "prior_round": [
+            342,
+            346
+          ]
+        },
+        {
+          "amount_raw": 20650649449168603,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            355,
+            359,
+            360,
+            361
+          ],
+          "next_round": [
+            366,
+            370
+          ],
+          "prior_round": [
+            354,
+            358
+          ]
+        },
+        {
+          "amount_raw": 20685943834550385,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            367,
+            371,
+            372,
+            373
+          ],
+          "next_round": [
+            378,
+            382
+          ],
+          "prior_round": [
+            366,
+            370
+          ]
+        },
+        {
+          "amount_raw": 20719776448164842,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            379,
+            383,
+            384,
+            385
+          ],
+          "next_round": [
+            390,
+            394
+          ],
+          "prior_round": [
+            378,
+            382
+          ]
+        },
+        {
+          "amount_raw": 20752138736715790,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            391,
+            395,
+            396,
+            397
+          ],
+          "next_round": [
+            402,
+            406
+          ],
+          "prior_round": [
+            390,
+            394
+          ]
+        },
+        {
+          "amount_raw": 20783019950984051,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            403,
+            407,
+            408,
+            409
+          ],
+          "next_round": [
+            414,
+            418
+          ],
+          "prior_round": [
+            402,
+            406
+          ]
+        },
+        {
+          "amount_raw": 20812411543759192,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            415,
+            419,
+            420,
+            421
+          ],
+          "next_round": [
+            426,
+            430
+          ],
+          "prior_round": [
+            414,
+            418
+          ]
+        },
+        {
+          "amount_raw": 20840304970630510,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            427,
+            431,
+            432,
+            433
+          ],
+          "next_round": [
+            438,
+            442
+          ],
+          "prior_round": [
+            426,
+            430
+          ]
+        },
+        {
+          "amount_raw": 20866691689948717,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            439,
+            443,
+            444,
+            445
+          ],
+          "next_round": [
+            450,
+            454
+          ],
+          "prior_round": [
+            438,
+            442
+          ]
+        },
+        {
+          "amount_raw": 20891564628397605,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            451,
+            455,
+            456,
+            457
+          ],
+          "next_round": [
+            462,
+            466
+          ],
+          "prior_round": [
+            450,
+            454
+          ]
+        },
+        {
+          "amount_raw": 20914915249478848,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            463,
+            467,
+            468,
+            469
+          ],
+          "next_round": [
+            474,
+            478
+          ],
+          "prior_round": [
+            462,
+            466
+          ]
+        },
+        {
+          "amount_raw": 20936737950302828,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            475,
+            479,
+            480,
+            481
+          ],
+          "next_round": [
+            486,
+            490
+          ],
+          "prior_round": [
+            474,
+            478
+          ]
+        },
+        {
+          "amount_raw": 20957025664523094,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            487,
+            491,
+            492,
+            493
+          ],
+          "next_round": [
+            498,
+            502
+          ],
+          "prior_round": [
+            486,
+            490
+          ]
+        },
+        {
+          "amount_raw": 20975772060708661,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            499,
+            503,
+            504,
+            505
+          ],
+          "next_round": [
+            510,
+            514
+          ],
+          "prior_round": [
+            498,
+            502
+          ]
+        },
+        {
+          "amount_raw": 20992972274755868,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            511,
+            515,
+            516,
+            517
+          ],
+          "next_round": [
+            522,
+            526
+          ],
+          "prior_round": [
+            510,
+            514
+          ]
+        },
+        {
+          "amount_raw": 21008620711615952,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            523,
+            527,
+            528,
+            529
+          ],
+          "next_round": [
+            534,
+            538
+          ],
+          "prior_round": [
+            522,
+            526
+          ]
+        },
+        {
+          "amount_raw": 21022712510605589,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            535,
+            539,
+            540,
+            541
+          ],
+          "next_round": [
+            546,
+            550
+          ],
+          "prior_round": [
+            534,
+            538
+          ]
+        },
+        {
+          "amount_raw": 21035244277720199,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            547,
+            551,
+            552,
+            553
+          ],
+          "next_round": [
+            558,
+            562
+          ],
+          "prior_round": [
+            546,
+            550
+          ]
+        },
+        {
+          "amount_raw": 21046211155125170,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            559,
+            563,
+            564,
+            565
+          ],
+          "next_round": [
+            570,
+            574
+          ],
+          "prior_round": [
+            558,
+            562
+          ]
+        },
+        {
+          "amount_raw": 21055611216415792,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            571,
+            575,
+            576,
+            577
+          ],
+          "next_round": [
+            582,
+            586
+          ],
+          "prior_round": [
+            570,
+            574
+          ]
+        },
+        {
+          "amount_raw": 21063441071067817,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            583,
+            587,
+            588,
+            589
+          ],
+          "next_round": [
+            594,
+            598
+          ],
+          "prior_round": [
+            582,
+            586
+          ]
+        }
+      ]
+    },
+    {
+      "block_hash": "0x60d01cd6a213799dec9a2e343346c7e7b2af40f2cce3d018c081857c92e7c56a",
+      "chain_id": 10,
+      "complete_rounds": 68,
+      "counts": {
+        "adjacent_closed_path_equal_sizes": 67,
+        "direct_cross_round": 0,
+        "direct_ledger_matches": 68,
+        "explicit_holder_closed_paths": 68,
+        "observable_adjacent_closed_path_pairs": 67,
+        "same_principal_repeat": 0,
+        "wrapped_cross_round": 67,
+        "wrapped_ledger_matches": 67,
+        "wrapped_market_matches": 67
+      },
+      "market_swap_events": 136,
+      "receipt_response_sha256": "fd00b1c6caac99bbb6a00c0350593cf016b872b45b833f798dc2534ca4a64c83",
+      "receipt_root": "0x75d7d8303c21f084164e32fa619315d9374d06007d6f74d8b5690020dc1fb4ea",
+      "rooted_receipt_logs": 790,
+      "tx_hash": "0x2f51f92b44dd05476c03dfc16b35e9f88d2bdf6c36db313af035d48912af1d30",
+      "wrapped_edges": [
+        {
+          "amount_raw": 30051771553360590,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            7,
+            11,
+            12,
+            13
+          ],
+          "next_round": [
+            18,
+            22
+          ],
+          "prior_round": [
+            6,
+            10
+          ]
+        },
+        {
+          "amount_raw": 30102261658525714,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            19,
+            23,
+            24,
+            25
+          ],
+          "next_round": [
+            30,
+            34
+          ],
+          "prior_round": [
+            18,
+            22
+          ]
+        },
+        {
+          "amount_raw": 30151461629702140,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            31,
+            35,
+            36,
+            37
+          ],
+          "next_round": [
+            42,
+            46
+          ],
+          "prior_round": [
+            30,
+            34
+          ]
+        },
+        {
+          "amount_raw": 30199361312039958,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            43,
+            47,
+            48,
+            49
+          ],
+          "next_round": [
+            54,
+            58
+          ],
+          "prior_round": [
+            42,
+            46
+          ]
+        },
+        {
+          "amount_raw": 30245953266713408,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            55,
+            59,
+            60,
+            61
+          ],
+          "next_round": [
+            66,
+            70
+          ],
+          "prior_round": [
+            54,
+            58
+          ]
+        },
+        {
+          "amount_raw": 30291227923342858,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            67,
+            71,
+            72,
+            73
+          ],
+          "next_round": [
+            78,
+            82
+          ],
+          "prior_round": [
+            66,
+            70
+          ]
+        },
+        {
+          "amount_raw": 30335181503405277,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            79,
+            83,
+            84,
+            85
+          ],
+          "next_round": [
+            90,
+            94
+          ],
+          "prior_round": [
+            78,
+            82
+          ]
+        },
+        {
+          "amount_raw": 30377805534540491,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            91,
+            95,
+            96,
+            97
+          ],
+          "next_round": [
+            102,
+            106
+          ],
+          "prior_round": [
+            90,
+            94
+          ]
+        },
+        {
+          "amount_raw": 30419092778313083,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            103,
+            107,
+            108,
+            109
+          ],
+          "next_round": [
+            114,
+            118
+          ],
+          "prior_round": [
+            102,
+            106
+          ]
+        },
+        {
+          "amount_raw": 30459035118103919,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            115,
+            119,
+            120,
+            121
+          ],
+          "next_round": [
+            126,
+            130
+          ],
+          "prior_round": [
+            114,
+            118
+          ]
+        },
+        {
+          "amount_raw": 30497625795388404,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            127,
+            131,
+            132,
+            133
+          ],
+          "next_round": [
+            138,
+            142
+          ],
+          "prior_round": [
+            126,
+            130
+          ]
+        },
+        {
+          "amount_raw": 30534856694192547,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            139,
+            143,
+            144,
+            145
+          ],
+          "next_round": [
+            150,
+            154
+          ],
+          "prior_round": [
+            138,
+            142
+          ]
+        },
+        {
+          "amount_raw": 30570721735485419,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            151,
+            155,
+            156,
+            157
+          ],
+          "next_round": [
+            162,
+            166
+          ],
+          "prior_round": [
+            150,
+            154
+          ]
+        },
+        {
+          "amount_raw": 30605214161642857,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            163,
+            167,
+            168,
+            169
+          ],
+          "next_round": [
+            174,
+            178
+          ],
+          "prior_round": [
+            162,
+            166
+          ]
+        },
+        {
+          "amount_raw": 30638327894191572,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            175,
+            179,
+            180,
+            181
+          ],
+          "next_round": [
+            186,
+            190
+          ],
+          "prior_round": [
+            174,
+            178
+          ]
+        },
+        {
+          "amount_raw": 30670056854924741,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            187,
+            191,
+            192,
+            193
+          ],
+          "next_round": [
+            198,
+            202
+          ],
+          "prior_round": [
+            186,
+            190
+          ]
+        },
+        {
+          "amount_raw": 30700394965898946,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            199,
+            203,
+            204,
+            205
+          ],
+          "next_round": [
+            210,
+            214
+          ],
+          "prior_round": [
+            198,
+            202
+          ]
+        },
+        {
+          "amount_raw": 30729336828280806,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            211,
+            215,
+            216,
+            217
+          ],
+          "next_round": [
+            222,
+            226
+          ],
+          "prior_round": [
+            210,
+            214
+          ]
+        },
+        {
+          "amount_raw": 30756876364628414,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            223,
+            227,
+            228,
+            229
+          ],
+          "next_round": [
+            234,
+            238
+          ],
+          "prior_round": [
+            222,
+            226
+          ]
+        },
+        {
+          "amount_raw": 30783009534279089,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            235,
+            239,
+            240,
+            241
+          ],
+          "next_round": [
+            246,
+            250
+          ],
+          "prior_round": [
+            234,
+            238
+          ]
+        },
+        {
+          "amount_raw": 30807731617923190,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            247,
+            251,
+            252,
+            253
+          ],
+          "next_round": [
+            258,
+            262
+          ],
+          "prior_round": [
+            246,
+            250
+          ]
+        },
+        {
+          "amount_raw": 30831036538790728,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            259,
+            263,
+            264,
+            265
+          ],
+          "next_round": [
+            270,
+            274
+          ],
+          "prior_round": [
+            258,
+            262
+          ]
+        },
+        {
+          "amount_raw": 30852920935674760,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            271,
+            275,
+            276,
+            277
+          ],
+          "next_round": [
+            282,
+            286
+          ],
+          "prior_round": [
+            270,
+            274
+          ]
+        },
+        {
+          "amount_raw": 30873380768702962,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            283,
+            287,
+            288,
+            289
+          ],
+          "next_round": [
+            294,
+            298
+          ],
+          "prior_round": [
+            282,
+            286
+          ]
+        },
+        {
+          "amount_raw": 30892412677001651,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            295,
+            299,
+            300,
+            301
+          ],
+          "next_round": [
+            306,
+            310
+          ],
+          "prior_round": [
+            294,
+            298
+          ]
+        },
+        {
+          "amount_raw": 30910012621032459,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            307,
+            311,
+            312,
+            313
+          ],
+          "next_round": [
+            318,
+            322
+          ],
+          "prior_round": [
+            306,
+            310
+          ]
+        },
+        {
+          "amount_raw": 30926177240240333,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            319,
+            323,
+            324,
+            325
+          ],
+          "next_round": [
+            330,
+            334
+          ],
+          "prior_round": [
+            318,
+            322
+          ]
+        },
+        {
+          "amount_raw": 30940903174215962,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            331,
+            335,
+            336,
+            337
+          ],
+          "next_round": [
+            342,
+            346
+          ],
+          "prior_round": [
+            330,
+            334
+          ]
+        },
+        {
+          "amount_raw": 30954188420303733,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            343,
+            347,
+            348,
+            349
+          ],
+          "next_round": [
+            354,
+            358
+          ],
+          "prior_round": [
+            342,
+            346
+          ]
+        },
+        {
+          "amount_raw": 30966029618342449,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            355,
+            359,
+            360,
+            361
+          ],
+          "next_round": [
+            366,
+            370
+          ],
+          "prior_round": [
+            354,
+            358
+          ]
+        },
+        {
+          "amount_raw": 30976425444698780,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            367,
+            371,
+            372,
+            373
+          ],
+          "next_round": [
+            378,
+            382
+          ],
+          "prior_round": [
+            366,
+            370
+          ]
+        },
+        {
+          "amount_raw": 30985373218222052,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            379,
+            383,
+            384,
+            385
+          ],
+          "next_round": [
+            390,
+            394
+          ],
+          "prior_round": [
+            378,
+            382
+          ]
+        },
+        {
+          "amount_raw": 30992872294237605,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            391,
+            395,
+            396,
+            397
+          ],
+          "next_round": [
+            402,
+            406
+          ],
+          "prior_round": [
+            390,
+            394
+          ]
+        },
+        {
+          "amount_raw": 30998919991755703,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            403,
+            407,
+            408,
+            409
+          ],
+          "next_round": [
+            414,
+            418
+          ],
+          "prior_round": [
+            402,
+            406
+          ]
+        },
+        {
+          "amount_raw": 31074088073785135,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            415,
+            419,
+            420,
+            421
+          ],
+          "next_round": [
+            426,
+            430
+          ],
+          "prior_round": [
+            414,
+            418
+          ]
+        },
+        {
+          "amount_raw": 31145979277618492,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            427,
+            431,
+            432,
+            433
+          ],
+          "next_round": [
+            438,
+            442
+          ],
+          "prior_round": [
+            426,
+            430
+          ]
+        },
+        {
+          "amount_raw": 31214562163474359,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            439,
+            443,
+            444,
+            445
+          ],
+          "next_round": [
+            450,
+            454
+          ],
+          "prior_round": [
+            438,
+            442
+          ]
+        },
+        {
+          "amount_raw": 31279806941173286,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            451,
+            455,
+            456,
+            457
+          ],
+          "next_round": [
+            462,
+            466
+          ],
+          "prior_round": [
+            450,
+            454
+          ]
+        },
+        {
+          "amount_raw": 31341683836257186,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            463,
+            467,
+            468,
+            469
+          ],
+          "next_round": [
+            474,
+            478
+          ],
+          "prior_round": [
+            462,
+            466
+          ]
+        },
+        {
+          "amount_raw": 31400165816885507,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            475,
+            479,
+            480,
+            481
+          ],
+          "next_round": [
+            486,
+            490
+          ],
+          "prior_round": [
+            474,
+            478
+          ]
+        },
+        {
+          "amount_raw": 31455227910758196,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            487,
+            491,
+            492,
+            493
+          ],
+          "next_round": [
+            498,
+            502
+          ],
+          "prior_round": [
+            486,
+            490
+          ]
+        },
+        {
+          "amount_raw": 31506844477339683,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            499,
+            503,
+            504,
+            505
+          ],
+          "next_round": [
+            510,
+            514
+          ],
+          "prior_round": [
+            498,
+            502
+          ]
+        },
+        {
+          "amount_raw": 31554991934434059,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            511,
+            515,
+            516,
+            517
+          ],
+          "next_round": [
+            522,
+            526
+          ],
+          "prior_round": [
+            510,
+            514
+          ]
+        },
+        {
+          "amount_raw": 31599649438664722,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            523,
+            527,
+            528,
+            529
+          ],
+          "next_round": [
+            534,
+            538
+          ],
+          "prior_round": [
+            522,
+            526
+          ]
+        },
+        {
+          "amount_raw": 31640797521016686,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            535,
+            539,
+            540,
+            541
+          ],
+          "next_round": [
+            546,
+            550
+          ],
+          "prior_round": [
+            534,
+            538
+          ]
+        },
+        {
+          "amount_raw": 31678417404528428,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            547,
+            551,
+            552,
+            553
+          ],
+          "next_round": [
+            558,
+            562
+          ],
+          "prior_round": [
+            546,
+            550
+          ]
+        },
+        {
+          "amount_raw": 31712491003747984,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            559,
+            563,
+            564,
+            565
+          ],
+          "next_round": [
+            570,
+            574
+          ],
+          "prior_round": [
+            558,
+            562
+          ]
+        },
+        {
+          "amount_raw": 31743004331096777,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            571,
+            575,
+            576,
+            577
+          ],
+          "next_round": [
+            582,
+            586
+          ],
+          "prior_round": [
+            570,
+            574
+          ]
+        },
+        {
+          "amount_raw": 31769942725512024,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            583,
+            587,
+            588,
+            589
+          ],
+          "next_round": [
+            594,
+            598
+          ],
+          "prior_round": [
+            582,
+            586
+          ]
+        },
+        {
+          "amount_raw": 31793293577608430,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            595,
+            599,
+            600,
+            601
+          ],
+          "next_round": [
+            606,
+            610
+          ],
+          "prior_round": [
+            594,
+            598
+          ]
+        },
+        {
+          "amount_raw": 31813047009760237,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            607,
+            611,
+            612,
+            613
+          ],
+          "next_round": [
+            618,
+            622
+          ],
+          "prior_round": [
+            606,
+            610
+          ]
+        },
+        {
+          "amount_raw": 31829194512272807,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            619,
+            623,
+            624,
+            625
+          ],
+          "next_round": [
+            630,
+            634
+          ],
+          "prior_round": [
+            618,
+            622
+          ]
+        },
+        {
+          "amount_raw": 31841727580233029,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            631,
+            635,
+            636,
+            637
+          ],
+          "next_round": [
+            642,
+            646
+          ],
+          "prior_round": [
+            630,
+            634
+          ]
+        },
+        {
+          "amount_raw": 31850641799759916,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            643,
+            647,
+            648,
+            649
+          ],
+          "next_round": [
+            654,
+            658
+          ],
+          "prior_round": [
+            642,
+            646
+          ]
+        },
+        {
+          "amount_raw": 31855932078666308,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            655,
+            659,
+            660,
+            662
+          ],
+          "next_round": [
+            663,
+            668
+          ],
+          "prior_round": [
+            654,
+            658
+          ]
+        },
+        {
+          "amount_raw": 31918950921701062,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            666,
+            669,
+            670,
+            672
+          ],
+          "next_round": [
+            673,
+            678
+          ],
+          "prior_round": [
+            663,
+            668
+          ]
+        },
+        {
+          "amount_raw": 31977550426707743,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            676,
+            679,
+            680,
+            682
+          ],
+          "next_round": [
+            683,
+            688
+          ],
+          "prior_round": [
+            673,
+            678
+          ]
+        },
+        {
+          "amount_raw": 32031696753297525,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            686,
+            689,
+            690,
+            692
+          ],
+          "next_round": [
+            693,
+            698
+          ],
+          "prior_round": [
+            683,
+            688
+          ]
+        },
+        {
+          "amount_raw": 32081359634460152,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            696,
+            699,
+            700,
+            702
+          ],
+          "next_round": [
+            703,
+            708
+          ],
+          "prior_round": [
+            693,
+            698
+          ]
+        },
+        {
+          "amount_raw": 32126510875094570,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            706,
+            709,
+            710,
+            712
+          ],
+          "next_round": [
+            713,
+            718
+          ],
+          "prior_round": [
+            703,
+            708
+          ]
+        },
+        {
+          "amount_raw": 32167125029525587,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            716,
+            719,
+            720,
+            722
+          ],
+          "next_round": [
+            723,
+            728
+          ],
+          "prior_round": [
+            713,
+            718
+          ]
+        },
+        {
+          "amount_raw": 32203178718606831,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            726,
+            729,
+            730,
+            732
+          ],
+          "next_round": [
+            733,
+            738
+          ],
+          "prior_round": [
+            723,
+            728
+          ]
+        },
+        {
+          "amount_raw": 32234651306997712,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            736,
+            739,
+            740,
+            742
+          ],
+          "next_round": [
+            743,
+            748
+          ],
+          "prior_round": [
+            733,
+            738
+          ]
+        },
+        {
+          "amount_raw": 32261524220403835,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            746,
+            749,
+            750,
+            752
+          ],
+          "next_round": [
+            753,
+            758
+          ],
+          "prior_round": [
+            743,
+            748
+          ]
+        },
+        {
+          "amount_raw": 32283782981797317,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            756,
+            759,
+            760,
+            762
+          ],
+          "next_round": [
+            763,
+            768
+          ],
+          "prior_round": [
+            753,
+            758
+          ]
+        },
+        {
+          "amount_raw": 32301414489203435,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            766,
+            769,
+            770,
+            772
+          ],
+          "next_round": [
+            773,
+            778
+          ],
+          "prior_round": [
+            763,
+            768
+          ]
+        },
+        {
+          "amount_raw": 32314408372487404,
+          "holder": "0x89bedc6cc397562ca6e1f8355886162b269fdbfe",
+          "logs": [
+            776,
+            779,
+            780,
+            782
+          ],
+          "next_round": [
+            783,
+            788
+          ],
+          "prior_round": [
+            773,
+            778
+          ]
+        }
+      ]
+    }
+  ],
+  "schema": "y2026-reinvestment-fingerprint/v1",
+  "scope_sha256": "978f42b393520a7b7c489122bf71031ef8cfa221287dd4ed7aa98d3ebe7e3a33"
+}

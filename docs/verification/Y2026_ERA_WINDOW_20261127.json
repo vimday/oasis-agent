@@ -1,0 +1,425 @@
+{
+  "blocks": [
+    {
+      "block_utc": "2026-11-27T15:38:53+00:00",
+      "eth_header_trie_roots_zero": true,
+      "hash": "0x6a37f52d4858b3632fd7a63271b02111ee590138243b881b15015c0dc06e57b6",
+      "height": 73128025,
+      "log_count": 7,
+      "offset": 2,
+      "ordered_logs_agree": true,
+      "ordered_transactions": [
+        {
+          "all_cost_pnl_wei": null,
+          "core_8_signature_matches": 0,
+          "effective_gas_price_wei": 45250000,
+          "executor": "0x6786d8170ba5686fb45ce1650e7d6c77eb484f36",
+          "gas_used": 194620,
+          "index": 0,
+          "log_count": 7,
+          "maverick_v1_abi_amount_matched_legs": [
+            {
+              "active_tick": 374,
+              "credit": {
+                "asset": "0x3355df6d4c9c3035724fd0e3914de96a5a83aaf4",
+                "from": "0x41c8cf74c27554a8972d3bf3d2bd4a14d8b604ab",
+                "index": 2,
+                "raw": 120124824,
+                "to": "0x6786d8170ba5686fb45ce1650e7d6c77eb484f36"
+              },
+              "debit": {
+                "asset": "0x5aea5775959fbc2557cc8789bc1bf90a239d9a91",
+                "from": "0x6786d8170ba5686fb45ce1650e7d6c77eb484f36",
+                "index": 3,
+                "raw": 71727650112522000,
+                "to": "0x41c8cf74c27554a8972d3bf3d2bd4a14d8b604ab"
+              },
+              "exact_output": false,
+              "log_index": 4,
+              "pool": "0x41c8cf74c27554a8972d3bf3d2bd4a14d8b604ab",
+              "recipient": "0x6786d8170ba5686fb45ce1650e7d6c77eb484f36",
+              "token_a_in": false
+            }
+          ],
+          "native_fee_transfers": [
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0xffffffffdc36237ef9b4b44d1f72742a1f2fb530",
+              "index": 0,
+              "raw": 226250000000000,
+              "to": "0x0000000000000000000000000000000000008001"
+            },
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0x0000000000000000000000000000000000008001",
+              "index": 1,
+              "raw": 113125000000000,
+              "to": "0xffffffffdc36237ef9b4b44d1f72742a1f2fb530"
+            },
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0x0000000000000000000000000000000000008001",
+              "index": 6,
+              "raw": 104318445000000,
+              "to": "0xffffffffdc36237ef9b4b44d1f72742a1f2fb530"
+            }
+          ],
+          "network_fee_wei": 8806555000000,
+          "receipt_status": 1,
+          "sender": "0xffffffffdc36237ef9b4b44d1f72742a1f2fb530",
+          "tx_hash": "0xa990781dbb16ddab9917d7b903b84ff89da19fc0f890c4725d0aa5b30d4269fc",
+          "unclassified_topics": [
+            "0x60b7fd200258eed9706915eeb0cb043eb4bdd4b04b64b1b0b3a944488d5e8f7b"
+          ]
+        }
+      ],
+      "parent_hash": "0xb2e17132a322a52da0b7cd13170e550132a6c0fd4ad0e2d47a74798ca25c8278",
+      "rollup_block_hash_recomputed": true
+    },
+    {
+      "block_utc": "2026-11-27T15:38:50+00:00",
+      "eth_header_trie_roots_zero": true,
+      "hash": "0xb2e17132a322a52da0b7cd13170e550132a6c0fd4ad0e2d47a74798ca25c8278",
+      "height": 73128024,
+      "log_count": 4,
+      "offset": 3,
+      "ordered_logs_agree": true,
+      "ordered_transactions": [
+        {
+          "all_cost_pnl_wei": null,
+          "core_8_signature_matches": 0,
+          "effective_gas_price_wei": 45250000,
+          "executor": "0x117d1015fd2cbaa32a1fe0e0c913fc02b4d5f115",
+          "gas_used": 170407,
+          "index": 0,
+          "log_count": 4,
+          "maverick_v1_abi_amount_matched_legs": [],
+          "native_fee_transfers": [
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0xec84cff0ec97820535468ac9d94b01e87a066ba1",
+              "index": 0,
+              "raw": 113125000000000000,
+              "to": "0x0000000000000000000000000000000000008001"
+            },
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0x0000000000000000000000000000000000008001",
+              "index": 3,
+              "raw": 113117289083250000,
+              "to": "0xec84cff0ec97820535468ac9d94b01e87a066ba1"
+            }
+          ],
+          "network_fee_wei": 7710916750000,
+          "receipt_status": 1,
+          "sender": "0xec84cff0ec97820535468ac9d94b01e87a066ba1",
+          "tx_hash": "0xc697085fd5ecb6a836e6f3bd67be88be1cc65f8af03140201d0dfc57511d2459",
+          "unclassified_topics": [
+            "0xb04e63db38c49950639fa09d29872f21f5d49d614f3a969d8adf3d4b52e41a62",
+            "0xdd84a3fa9ef9409f550d54d6affec7e9c480c878c6ab27b78912a03e1b371c6e"
+          ]
+        }
+      ],
+      "parent_hash": "0x40b246d55d0ad62dd6d3ee505f1eee80f08609657cb68a96234832ded45bf4fa",
+      "rollup_block_hash_recomputed": true
+    },
+    {
+      "block_utc": "2026-11-27T15:37:44+00:00",
+      "eth_header_trie_roots_zero": true,
+      "hash": "0x9d022bda3814b044d7e9809dbb32119e0ef3de782f9ac9ef65bd1876371fdad8",
+      "height": 73128008,
+      "log_count": 2,
+      "offset": 19,
+      "ordered_logs_agree": true,
+      "ordered_transactions": [
+        {
+          "all_cost_pnl_wei": null,
+          "core_8_signature_matches": 0,
+          "effective_gas_price_wei": 45250000,
+          "executor": "0xb43ea5b13f41aac35703124f826ec0f3a3cabe0e",
+          "gas_used": 84528,
+          "index": 0,
+          "log_count": 2,
+          "maverick_v1_abi_amount_matched_legs": [],
+          "native_fee_transfers": [
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0xd5fe9c6937d8415e4c5d4a600f837c2207c87bdd",
+              "index": 0,
+              "raw": 4525000000000000,
+              "to": "0x0000000000000000000000000000000000008001"
+            },
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0x0000000000000000000000000000000000008001",
+              "index": 1,
+              "raw": 4521175108000000,
+              "to": "0xd5fe9c6937d8415e4c5d4a600f837c2207c87bdd"
+            }
+          ],
+          "network_fee_wei": 3824892000000,
+          "receipt_status": 0,
+          "sender": "0xd5fe9c6937d8415e4c5d4a600f837c2207c87bdd",
+          "tx_hash": "0x8a5dbc137cf14f2afff557eb1b86ae47417790aef0dd91d4aec911a687d0f892",
+          "unclassified_topics": []
+        }
+      ],
+      "parent_hash": "0x6b99f45b6db37121b914f509068028650b2dab3c72f6560b5056c3a9c7a4f474",
+      "rollup_block_hash_recomputed": true
+    },
+    {
+      "block_utc": "2026-11-27T15:32:38+00:00",
+      "eth_header_trie_roots_zero": true,
+      "hash": "0x9c070bf7b17b09f5da8dbf023e029d5e9a7bf6409ef7c5b68d1d277f5c521546",
+      "height": 73127896,
+      "log_count": 3,
+      "offset": 131,
+      "ordered_logs_agree": true,
+      "ordered_transactions": [
+        {
+          "all_cost_pnl_wei": null,
+          "core_8_signature_matches": 0,
+          "effective_gas_price_wei": 45250000,
+          "executor": "0xdd9f72afed3631a6c85b5369d84875e6c42f1827",
+          "gas_used": 91287,
+          "index": 0,
+          "log_count": 3,
+          "maverick_v1_abi_amount_matched_legs": [],
+          "native_fee_transfers": [
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0xc3214e389c16015b3ce5beec7577aac002fd3ba2",
+              "index": 0,
+              "raw": 11920252750000,
+              "to": "0x0000000000000000000000000000000000008001"
+            },
+            {
+              "asset": "0x000000000000000000000000000000000000800a",
+              "from": "0x0000000000000000000000000000000000008001",
+              "index": 2,
+              "raw": 7789516000000,
+              "to": "0xc3214e389c16015b3ce5beec7577aac002fd3ba2"
+            }
+          ],
+          "network_fee_wei": 4130736750000,
+          "receipt_status": 1,
+          "sender": "0xc3214e389c16015b3ce5beec7577aac002fd3ba2",
+          "tx_hash": "0x85631a1785a49c9efb666e657b9207119b49f5d78a515aabda49189e22d84b21",
+          "unclassified_topics": []
+        }
+      ],
+      "parent_hash": "0x21517c80b8d17602ace37b1d9a03090c6598aeaae7cf6a9293eb7e4df1ae6bc0",
+      "rollup_block_hash_recomputed": true
+    }
+  ],
+  "by_receipt_status": {
+    "0": 1,
+    "1": 3
+  },
+  "chain": "zkSync Era",
+  "chain_id": 324,
+  "complete_receipts": 4,
+  "confirmed_serial_or_batched_closed_arbitrages": 0,
+  "fee_logs_reconciled": 4,
+  "log_count": 16,
+  "original_ledger_sha256": {
+    "drpc": "fc7d19c7f4ce93cbc3617585617346f2e46ebd88b37a8d8799ab6cd4e4e452a0",
+    "official": "0454c5f1cb8ac6acdb3efbcb97df207917c54a36082ea6fe471bf2c540afef67"
+  },
+  "raw_directory": "reports/research/y2026-era-20261127",
+  "receipts_authenticated_by_header": false,
+  "requests": {
+    "drpc/73127896-header": {
+      "finished_utc": "2026-11-27T15:39:06.770568+00:00",
+      "request_sha256": "e5b99f2304b579e4ab5e5136ffd6b8e85b8754fa8e43b1544d880a5f4aee6fa7",
+      "response_sha256": "bb26cfcd81855216611d6be04af707c8068f454dfea7e768c2476979c92fb189",
+      "started_utc": "2026-11-27T15:39:06.417367+00:00"
+    },
+    "drpc/73127896-logs": {
+      "finished_utc": "2026-11-27T15:39:08.622023+00:00",
+      "request_sha256": "acdd1b7c5e3cc6bbf3269493095bd999f46ffdb0dfe5dd57441730a83fa1b061",
+      "response_sha256": "ef410b8fdbe02307d5565cdf90f96fc65d1c50a84fa3dd7db9ae825e21c92ca9",
+      "started_utc": "2026-11-27T15:39:08.223301+00:00"
+    },
+    "drpc/73128008-header": {
+      "finished_utc": "2026-11-27T15:39:06.348821+00:00",
+      "request_sha256": "bda48bd9167a767cefb5600fabfb4859bf834a1404d9e2105378cc8d2c064f71",
+      "response_sha256": "c29d59291ac80c1c7dd5d361461d3305935aac40c269062437e8cf8f6113a376",
+      "started_utc": "2026-11-27T15:39:05.965965+00:00"
+    },
+    "drpc/73128008-logs": {
+      "finished_utc": "2026-11-27T15:39:08.124841+00:00",
+      "request_sha256": "78e00aa92a0178744f0f939302eeec3f137a29a5a8a82e425c62fe5a45f8f846",
+      "response_sha256": "cbf6abe55421cf2b0955475b05e1dfd058163951ee39d1201b6e3c6a41be0a3d",
+      "started_utc": "2026-11-27T15:39:07.771768+00:00"
+    },
+    "drpc/73128024-header": {
+      "finished_utc": "2026-11-27T15:39:05.876319+00:00",
+      "request_sha256": "a34758d1345f46a8e6c8aea0d5ec5b84ee07f8c53f562f589014f5caa33affbc",
+      "response_sha256": "9e74838da60be4ccab87e445e58e7993275ec203c68bc4c24d62ab2d25cd0267",
+      "started_utc": "2026-11-27T15:39:05.514080+00:00"
+    },
+    "drpc/73128024-logs": {
+      "finished_utc": "2026-11-27T15:39:07.698806+00:00",
+      "request_sha256": "6df79646110205238199b1537c7e197d66d28497d9d8022d198bca3c3fba44a6",
+      "response_sha256": "34511b131f6ea6e1f7cea940adf9b925b3b529d3553c20d3b40885e2cb80dc44",
+      "started_utc": "2026-11-27T15:39:07.320524+00:00"
+    },
+    "drpc/73128025-header": {
+      "finished_utc": "2026-11-27T15:39:05.420982+00:00",
+      "request_sha256": "a7976b40445372e44a285d36f0f103501fa214ef6626df0f8189a161cda6a6ad",
+      "response_sha256": "627b1ae44aab1bef61a379608e80e68b765dbd8c2b5f6b881ed655749a118e89",
+      "started_utc": "2026-11-27T15:39:05.058921+00:00"
+    },
+    "drpc/73128025-logs": {
+      "finished_utc": "2026-11-27T15:39:07.217996+00:00",
+      "request_sha256": "a6c083d869b813251e7fdc52a8a9320c3661b26e5c7966a9a04634c320f929b9",
+      "response_sha256": "17b8cb67233f609e62ed30d8123f66dc3d72d94a88b292a7f11d91cb400f81d4",
+      "started_utc": "2026-11-27T15:39:06.869539+00:00"
+    },
+    "drpc/chain": {
+      "finished_utc": "2026-11-27T15:39:00.943030+00:00",
+      "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+      "response_sha256": "d7ee49b45599b370566ad555fd1f37e4ebaa83e5f5a372befe437824fde7ab71",
+      "started_utc": "2026-11-27T15:39:00.628593+00:00"
+    },
+    "drpc/latest": {
+      "finished_utc": "2026-11-27T15:39:01.618197+00:00",
+      "request_sha256": "6042deefd2f94f002ee608e9c38aba1c6e23564a490ab26d20c4d9aa72b3adbe",
+      "response_sha256": "04da5d21079fb37d50cd725770ca5389683c0e664b7df3b006e2752dac0f7ebf",
+      "started_utc": "2026-11-27T15:39:01.086150+00:00"
+    },
+    "official/73127896-header": {
+      "finished_utc": "2026-11-27T15:39:03.255295+00:00",
+      "request_sha256": "e5b99f2304b579e4ab5e5136ffd6b8e85b8754fa8e43b1544d880a5f4aee6fa7",
+      "response_sha256": "cd1fb0993c38933dd6be8028eebf8386ce11e6050c0d43feb8e4ab599049c46c",
+      "started_utc": "2026-11-27T15:39:02.975806+00:00"
+    },
+    "official/73127896-receipts": {
+      "finished_utc": "2026-11-27T15:39:05.057464+00:00",
+      "request_sha256": "fc568c6e7b8142530304be259e1c2393796e9b1547fb360931850d01e7e254b3",
+      "response_sha256": "bcb8d471fbc3832902a0b1ff870c94bb6636381c5b4166cbe4464e72f02f02c1",
+      "started_utc": "2026-11-27T15:39:04.782041+00:00"
+    },
+    "official/73128008-header": {
+      "finished_utc": "2026-11-27T15:39:02.781527+00:00",
+      "request_sha256": "bda48bd9167a767cefb5600fabfb4859bf834a1404d9e2105378cc8d2c064f71",
+      "response_sha256": "549729352e5a639334384180a0fcea599bab669ba1531ec2f295863a8ac719fd",
+      "started_utc": "2026-11-27T15:39:02.523086+00:00"
+    },
+    "official/73128008-receipts": {
+      "finished_utc": "2026-11-27T15:39:04.603057+00:00",
+      "request_sha256": "10ff056ba478cdc3f089d60a3676e641ef8639fbb24d23ac391064c68dc81c8f",
+      "response_sha256": "951812db812d27d279da8aea0dd2580a7925f0e98ef0a342dd4ef0accf7c8d5c",
+      "started_utc": "2026-11-27T15:39:04.330033+00:00"
+    },
+    "official/73128024-header": {
+      "finished_utc": "2026-11-27T15:39:02.359481+00:00",
+      "request_sha256": "a34758d1345f46a8e6c8aea0d5ec5b84ee07f8c53f562f589014f5caa33affbc",
+      "response_sha256": "66f460078426b5290ea4316434aa044343fd6c325c11b0230bb970a3691d9ac5",
+      "started_utc": "2026-11-27T15:39:02.071317+00:00"
+    },
+    "official/73128024-receipts": {
+      "finished_utc": "2026-11-27T15:39:04.201592+00:00",
+      "request_sha256": "8297e9788aac5975a2c2a2c7ddaa6170328b5bcfca7e797d5e3e0781e07fe810",
+      "response_sha256": "8cabdedfd29d1a5219d585be4fa6aa2f66e07c67dccc6f69b1dbaeab73f5f77e",
+      "started_utc": "2026-11-27T15:39:03.879278+00:00"
+    },
+    "official/73128025-header": {
+      "finished_utc": "2026-11-27T15:39:01.913353+00:00",
+      "request_sha256": "a7976b40445372e44a285d36f0f103501fa214ef6626df0f8189a161cda6a6ad",
+      "response_sha256": "25eef01688e993371075cfce315c3fe43a7400cf0d7fd11ea51657a0b37914d2",
+      "started_utc": "2026-11-27T15:39:01.620098+00:00"
+    },
+    "official/73128025-receipts": {
+      "finished_utc": "2026-11-27T15:39:03.695598+00:00",
+      "request_sha256": "e20a74fbea565d4fb5a481b1fc67d65eb8d30d216ec83ebcfc702ae28d553473",
+      "response_sha256": "1e9aba6320f9f05662663ae77a6d6af6a5a8e724553f9fa15d6dced73b95bf12",
+      "started_utc": "2026-11-27T15:39:03.428041+00:00"
+    },
+    "official/chain": {
+      "finished_utc": "2026-11-27T15:39:00.328581+00:00",
+      "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+      "response_sha256": "a2bc50955366879a9bdf6077a2e9897b8401ab970e1e27a1427a986779c905e6",
+      "started_utc": "2026-11-27T15:38:59.856641+00:00"
+    },
+    "official/latest": {
+      "finished_utc": "2026-11-27T15:39:00.627567+00:00",
+      "request_sha256": "6042deefd2f94f002ee608e9c38aba1c6e23564a490ab26d20c4d9aa72b3adbe",
+      "response_sha256": "c964b7f543ebd3c3ffe7429b55b361d9af346b964835270b269a02b1c9ba4546",
+      "started_utc": "2026-11-27T15:39:00.329636+00:00"
+    }
+  },
+  "scope_sha256": "cd4b348f11aaedf9d46c8d665784bdf4ef674a3d8a561c8ce5dd3aa4b17ad246",
+  "source_anchors": {
+    "drpc": {
+      "hash": "0x351065dc4c6e6828d20b63f5088aa895572541541c541923c46069fa2f305f6a",
+      "height": 73128027
+    },
+    "official": {
+      "hash": "0x351065dc4c6e6828d20b63f5088aa895572541541c541923c46069fa2f305f6a",
+      "height": 73128027
+    }
+  },
+  "source_scope": {
+    "anchor": "minimum of valid initial latest heights; single valid anchor allowed if other stopped",
+    "chain_id": 324,
+    "driver_sha256": "405e03210f0df37b0bef21b5452ac9c94faa9d65f755c106cef59002218e7508",
+    "first_error_stops_source": true,
+    "max_bytes_per_reply": 8388608,
+    "methods": {
+      "both": [
+        "eth_chainId",
+        "eth_getBlockByNumber latest False",
+        "eth_getBlockByNumber selected False"
+      ],
+      "drpc": "eth_getLogs all topics, 4 fixed single numbers",
+      "official": "eth_getBlockReceipts at 4 fixed numbers"
+    },
+    "offsets_below_anchor": [
+      2,
+      3,
+      19,
+      131
+    ],
+    "pacing_ms": 450,
+    "per_source_cap": 10,
+    "retry": false,
+    "sources": {
+      "drpc": "https://zksync.drpc.org",
+      "official": "https://mainnet.era.zksync.io"
+    },
+    "usd": 0,
+    "utc": "2026-11-27T15:38:48.417087+00:00",
+    "wire_driver_sha256": "df78bdfc77a373739081525e6944191eebf6a287c118b23826f57c114b810be0"
+  },
+  "source_stops": {
+    "stops": {
+      "drpc": {
+        "counts": {
+          "drpc": 10
+        },
+        "first_refusal": null,
+        "headers": [
+          73128025,
+          73128024,
+          73128008,
+          73127896
+        ]
+      },
+      "official": {
+        "counts": {
+          "official": 10
+        },
+        "first_refusal": null,
+        "headers": [
+          73128025,
+          73128024,
+          73128008,
+          73127896
+        ]
+      }
+    },
+    "utc": "2026-11-27T15:39:08.622856+00:00"
+  }
+}

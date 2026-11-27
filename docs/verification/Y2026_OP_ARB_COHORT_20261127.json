@@ -1,0 +1,2922 @@
+{
+  "all_capture_read_requests": 63,
+  "cases": [
+    {
+      "block_hash": "0x90f938b3ff63d09c6685a745fb82ef38b3043566294ed4d7371f9e102ef564e0",
+      "block_number": 153836718,
+      "chain": "optimism",
+      "chain_id": 10,
+      "classification": "open_collateral_withdrawal_and_debt_repayment",
+      "collateral": {
+        "a_token_burn_log": 66,
+        "asset": "0x4200000000000000000000000000000000000006",
+        "collateral_route_transfer_logs": [
+          68,
+          70,
+          72,
+          74
+        ],
+        "raw": 981650000000000000,
+        "user": "0xb32cb14f2a5b17d1f1343749e302316be5133321",
+        "withdraw_log": 69,
+        "withdraw_transfer_log": 68
+      },
+      "debt_repayment": {
+        "asset": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+        "debt_token_burn_log": 162,
+        "debt_token_burn_raw": 1747473480,
+        "proceeds_route_transfer_logs": [
+          156,
+          160,
+          165
+        ],
+        "raw": 1747482593,
+        "repay_log": 166,
+        "transfer_log": 165
+      },
+      "distinct_emitters": 23,
+      "distinct_logical_pools": 25,
+      "event_locations": [
+        {
+          "emitter": "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+          "kind": "v2",
+          "log_index": 81,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+          "kind": "v3",
+          "log_index": 84,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x319c0dd36284ac24a6b2bee73929f699b9f48c38",
+          "kind": "v3",
+          "log_index": 87,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x2b959ccb3c8fc1ed7769004742c197e28251027e",
+          "kind": "v3",
+          "log_index": 88,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+          "kind": "balancer_v2",
+          "log_index": 93,
+          "pool_id": "0x7ca75bdea9dede97f8b13c6641b768650cb837820002000000000000000000d5"
+        },
+        {
+          "emitter": "0x95d9d28606ee55de7667f0f176ebfc3215cfd9c0",
+          "kind": "v3",
+          "log_index": 98,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x1d72b49f81832ef8155d8dedfce9cd122367e3b3",
+          "kind": "v3",
+          "log_index": 101,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x146eda2f1d35efb5eef5703acec701c68e1503d8",
+          "kind": "v3",
+          "log_index": 104,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x478946bcd4a5a22b316470f5486fafb928c0ba25",
+          "kind": "v3",
+          "log_index": 107,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
+          "kind": "v3",
+          "log_index": 110,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xa9f987869bfe56d3a2ece2e79df55684d0bbcd8b",
+          "kind": "v3",
+          "log_index": 113,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+          "kind": "v3",
+          "log_index": 116,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+          "kind": "v4",
+          "log_index": 117,
+          "pool_id": "0xc68a16ae9f4ef1f071d2e14e76d50990728c14f2ea46e28c995a173735068310"
+        },
+        {
+          "emitter": "0x95d7d146ae40d4822c2750276b54b6eed530d374",
+          "kind": "v3",
+          "log_index": 121,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x1337bedc9d22ecbe766df105c9623922a27963ec",
+          "kind": "curve",
+          "log_index": 126,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xf7f575f2c0f6c99fa9efe1bde9e11fa10be4fef9",
+          "kind": "v3",
+          "log_index": 129,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x6a78e8cb7e084aaac8ce00f078413f54a4081cad",
+          "kind": "v3",
+          "log_index": 132,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x394a9fcbab8599437d9ec4e5a4a0eb7cb1fd2f69",
+          "kind": "v3",
+          "log_index": 135,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xcf50dea65ee80ebddaa61005a960ef5a5c995a99",
+          "kind": "v3",
+          "log_index": 138,
+          "pool_id": null
+        },
+        {
+          "emitter": "0xd28f71e383e93c570d3edfe82ebbceb35ec6c412",
+          "kind": "v3",
+          "log_index": 141,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+          "kind": "v3",
+          "log_index": 144,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x4dbb2d7785654074c53c5a915126d3378446bd61",
+          "kind": "v3",
+          "log_index": 145,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+          "kind": "v4",
+          "log_index": 148,
+          "pool_id": "0xebe9db89947dd14b34817843231b74044084b04d5b4fea5b4cd1b433b3e5b99f"
+        },
+        {
+          "emitter": "0xee1bac98527a9fdd57fccf967817215b083ce1f0",
+          "kind": "v3",
+          "log_index": 153,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+          "kind": "v4",
+          "log_index": 154,
+          "pool_id": "0x51bf4cc5b8d9f7f759e41f572fe2a25bc2aeb42432bf12544a350595e5c8bb43"
+        }
+      ],
+      "events": 25,
+      "evidenced_multi_input_and_output_amounts": {
+        "join": {
+          "amounts": [
+            7215076,
+            64606299
+          ],
+          "holder": "0xb8fc6bf89e16e66b5fa9aa44b8393a588cf1e77c",
+          "incoming_transfer_logs": [
+            77,
+            82
+          ],
+          "outgoing_transfer_log": 123,
+          "source_swaps": [
+            81,
+            84
+          ],
+          "target_swap": 126,
+          "token": "0x7f5c764cbc14f9669b88837ca1490cca17c31607"
+        },
+        "split": {
+          "amounts": [
+            24583,
+            6436,
+            11374
+          ],
+          "holder": "0xb8fc6bf89e16e66b5fa9aa44b8393a588cf1e77c",
+          "incoming_transfer_log": 85,
+          "outgoing_transfer_logs": [
+            131,
+            134,
+            137
+          ],
+          "source_swap": 87,
+          "target_swaps": [
+            132,
+            135,
+            138
+          ],
+          "token": "0x68f180fcce6836688e9084f035309e29bf0a2095"
+        }
+      },
+      "fee": {
+        "complete_network_fee_wei": null,
+        "effective_price_wei": 364,
+        "execution_l2_wei": 1271532444,
+        "gas_units": 3493221,
+        "known_network_fee_wei": 16499062631,
+        "l1_data_wei": 15227530187,
+        "operator_fee_wei": null
+      },
+      "full_net": null,
+      "generic_trace_funding_profile": {
+        "branch_swaps": 0,
+        "cyclic_allocations": false,
+        "join_swaps": 0,
+        "linked_swaps": 0,
+        "links": 0,
+        "longest_witnessed_path": [
+          81
+        ],
+        "swaps_with_amounts": 21,
+        "witnessed_depth": 1
+      },
+      "generic_trace_resolved_legs": [
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            3
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 76,
+          "leg": {
+            "amount_in": 4052713645661601,
+            "amount_out": 7215076,
+            "event": {
+              "log_index": 81,
+              "pool": [
+                "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+                null
+              ],
+              "shape": "v2"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x7f5c764cbc14f9669b88837ca1490cca17c31607"
+          },
+          "output_transfer_log": 77
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            4
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 83,
+          "leg": {
+            "amount_in": 36286316358801368,
+            "amount_out": 64606299,
+            "event": {
+              "log_index": 84,
+              "pool": [
+                "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x7f5c764cbc14f9669b88837ca1490cca17c31607"
+          },
+          "output_transfer_log": 82
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            5
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 86,
+          "leg": {
+            "amount_in": 14935955681589818,
+            "amount_out": 42393,
+            "event": {
+              "log_index": 87,
+              "pool": [
+                "0x319c0dd36284ac24a6b2bee73929f699b9f48c38",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x68f180fcce6836688e9084f035309e29bf0a2095"
+          },
+          "output_transfer_log": 85
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            6
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 90,
+          "leg": {
+            "amount_in": 43978038944753336,
+            "amount_out": 35509453914919265,
+            "event": {
+              "log_index": 88,
+              "pool": [
+                "0x2b959ccb3c8fc1ed7769004742c197e28251027e",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb"
+          },
+          "output_transfer_log": 89
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            9
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 97,
+          "leg": {
+            "amount_in": 901786063462517,
+            "amount_out": 1606562617386264226,
+            "event": {
+              "log_index": 98,
+              "pool": [
+                "0x95d9d28606ee55de7667f0f176ebfc3215cfd9c0",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
+          },
+          "output_transfer_log": 96
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            10
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 100,
+          "leg": {
+            "amount_in": 863178956810952,
+            "amount_out": 1537844205948782218,
+            "event": {
+              "log_index": 101,
+              "pool": [
+                "0x1d72b49f81832ef8155d8dedfce9cd122367e3b3",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
+          },
+          "output_transfer_log": 99
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            11
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 103,
+          "leg": {
+            "amount_in": 3474992421929057,
+            "amount_out": 6186861,
+            "event": {
+              "log_index": 104,
+              "pool": [
+                "0x146eda2f1d35efb5eef5703acec701c68e1503d8",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 102
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            12
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 106,
+          "leg": {
+            "amount_in": 623010565283255870,
+            "amount_out": 1109009461,
+            "event": {
+              "log_index": 107,
+              "pool": [
+                "0x478946bcd4a5a22b316470f5486fafb928c0ba25",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 105
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            13
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 109,
+          "leg": {
+            "amount_in": 46228905040001535,
+            "amount_out": 82281397,
+            "event": {
+              "log_index": 110,
+              "pool": [
+                "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 108
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            14
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 112,
+          "leg": {
+            "amount_in": 7360781414628821,
+            "amount_out": 13116510,
+            "event": {
+              "log_index": 113,
+              "pool": [
+                "0xa9f987869bfe56d3a2ece2e79df55684d0bbcd8b",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x01bff41798a0bcf287b996046ca68b395dbc1071"
+          },
+          "output_transfer_log": 111
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            15
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 115,
+          "leg": {
+            "amount_in": 175353916291476784,
+            "amount_out": 312418651,
+            "event": {
+              "log_index": 116,
+              "pool": [
+                "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x4200000000000000000000000000000000000006",
+            "token_out": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58"
+          },
+          "output_transfer_log": 114
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            17
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 120,
+          "leg": {
+            "amount_in": 1110241215173213,
+            "amount_out": 2449830,
+            "event": {
+              "log_index": 121,
+              "pool": [
+                "0x95d7d146ae40d4822c2750276b54b6eed530d374",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb",
+            "token_out": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58"
+          },
+          "output_transfer_log": 119
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            18,
+            2
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 123,
+          "leg": {
+            "amount_in": 71821375,
+            "amount_out": 71869876,
+            "event": {
+              "log_index": 126,
+              "pool": [
+                "0x1337bedc9d22ecbe766df105c9623922a27963ec",
+                null
+              ],
+              "shape": "curve_int128"
+            },
+            "token_in": "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
+            "token_out": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58"
+          },
+          "output_transfer_log": 125
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            19
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 128,
+          "leg": {
+            "amount_in": 13116510,
+            "amount_out": 13106456,
+            "event": {
+              "log_index": 129,
+              "pool": [
+                "0xf7f575f2c0f6c99fa9efe1bde9e11fa10be4fef9",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x01bff41798a0bcf287b996046ca68b395dbc1071",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 127
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            20
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 131,
+          "leg": {
+            "amount_in": 24583,
+            "amount_out": 15411362,
+            "event": {
+              "log_index": 132,
+              "pool": [
+                "0x6a78e8cb7e084aaac8ce00f078413f54a4081cad",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x68f180fcce6836688e9084f035309e29bf0a2095",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 130
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            21
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 134,
+          "leg": {
+            "amount_in": 6436,
+            "amount_out": 4035003,
+            "event": {
+              "log_index": 135,
+              "pool": [
+                "0x394a9fcbab8599437d9ec4e5a4a0eb7cb1fd2f69",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x68f180fcce6836688e9084f035309e29bf0a2095",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 133
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            22
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 137,
+          "leg": {
+            "amount_in": 11374,
+            "amount_out": 7131405,
+            "event": {
+              "log_index": 138,
+              "pool": [
+                "0xcf50dea65ee80ebddaa61005a960ef5a5c995a99",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x68f180fcce6836688e9084f035309e29bf0a2095",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 136
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            23
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 140,
+          "leg": {
+            "amount_in": 3144406823335046444,
+            "amount_out": 3141857,
+            "event": {
+              "log_index": 141,
+              "pool": [
+                "0xd28f71e383e93c570d3edfe82ebbceb35ec6c412",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 139
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            24
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 143,
+          "leg": {
+            "amount_in": 258095762,
+            "amount_out": 257915766,
+            "event": {
+              "log_index": 144,
+              "pool": [
+                "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 142
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            25
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 147,
+          "leg": {
+            "amount_in": 41054269,
+            "amount_out": 41025664,
+            "event": {
+              "log_index": 145,
+              "pool": [
+                "0x4dbb2d7785654074c53c5a915126d3378446bd61",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 146
+        },
+        {
+          "call_path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            27
+          ],
+          "hookless_v4_caller": null,
+          "input_transfer_log": 152,
+          "leg": {
+            "amount_in": 36495194682404548,
+            "amount_out": 80461578,
+            "event": {
+              "log_index": 153,
+              "pool": [
+                "0xee1bac98527a9fdd57fccf967817215b083ce1f0",
+                null
+              ],
+              "shape": "v3"
+            },
+            "token_in": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb",
+            "token_out": "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
+          },
+          "output_transfer_log": 151
+        }
+      ],
+      "generic_trace_unresolved_events": [
+        [
+          117,
+          "unsupported V4 manager or call"
+        ],
+        [
+          148,
+          "unsupported V4 manager or call"
+        ],
+        [
+          154,
+          "unsupported V4 manager or call"
+        ]
+      ],
+      "header_sources": 2,
+      "network_fee_payer": "0x9b612a871372db2b148ed9d0f77343ef5cc366a1",
+      "ordered_block_receipts": 72,
+      "receipt_root": "0x7ad8e9d21949578be8d72fd0cb8ea567fac20b45167b01be5faceb83554e0609",
+      "time_utc": "2026-07-05T17:23:33+00:00",
+      "trace_frames": 516,
+      "trace_native_movements": [
+        {
+          "amount_wei": 12290196654992248,
+          "from": "0xb8fc6bf89e16e66b5fa9aa44b8393a588cf1e77c",
+          "path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            28,
+            0,
+            0,
+            2
+          ],
+          "to": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3"
+        },
+        {
+          "amount_wei": 10316759253106941,
+          "from": "0xb8fc6bf89e16e66b5fa9aa44b8393a588cf1e77c",
+          "path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            16,
+            0,
+            0,
+            2
+          ],
+          "to": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3"
+        },
+        {
+          "amount_wei": 22606955908099189,
+          "from": "0x4200000000000000000000000000000000000006",
+          "path": [
+            0,
+            0,
+            0,
+            10,
+            0,
+            3,
+            2,
+            0,
+            0
+          ],
+          "to": "0xb8fc6bf89e16e66b5fa9aa44b8393a588cf1e77c"
+        }
+      ],
+      "transaction_index": 71,
+      "transaction_receipt_logs": 102,
+      "transactions_root_field": "0x82e3e985ee5e54153fc3144ba95a9eca10b4ba3e895e1d1a6301d86aafae5660",
+      "transactions_root_reconstructed": false,
+      "tx_hash": "0x86127198c8513464ec3a49c5c40c36c85b98e36dbe4cdc853ffccb1e9b3e7949",
+      "types": {
+        "balancer_v2": 1,
+        "curve": 1,
+        "v2": 1,
+        "v3": 19,
+        "v4": 3
+      },
+      "wires": {
+        "optimism_drpc": {
+          "full_receipts": {
+            "bytes": 207254,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:23.325637+00:00",
+            "http": 200,
+            "id": 3,
+            "label": "full_receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "2f6069c7f0c122a261188082038cf1cf38346f6eb2dac50c16687c3b090c5e18",
+            "response_sha256": "22862fdf89bfcc8afcc093484ce21d0f2aeedc93e0730723d1e4b8bc7ce8b159",
+            "started_utc": "2026-11-27T15:35:22.925519+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "header": {
+            "bytes": 6743,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:22.922396+00:00",
+            "http": 200,
+            "id": 2,
+            "label": "header",
+            "method": "eth_getBlockByHash",
+            "request_sha256": "1c1d4b39c7694e702cb4ab6b6c73cc686c807dcde56d0737f1e6eaf926d0a223",
+            "response_sha256": "810e3e4bdc4c4548ea602a0ff5d107b7db6aee7ae8417a74d23bd33aac0145d2",
+            "started_utc": "2026-11-27T15:35:22.558295+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt": {
+            "bytes": 73955,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:22.556681+00:00",
+            "http": 200,
+            "id": 1,
+            "label": "receipt",
+            "method": "eth_getTransactionReceipt",
+            "request_sha256": "2757122b43b89463941f6c9630376db471838f4f14960498e7676d9b44029bf3",
+            "response_sha256": "37602b211af6edcf174bd843dabffee77e5bfeaaf3a35d645d2a186734f96a7a",
+            "started_utc": "2026-11-27T15:35:21.359272+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "trace": {
+            "bytes": 310278,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:24.260493+00:00",
+            "http": 200,
+            "id": 4,
+            "label": "trace",
+            "method": "debug_traceTransaction",
+            "request_sha256": "fab11d89bf76981870fea926ecafc13258c12832c24753f28fca9b8f1fa7dcdd",
+            "response_sha256": "52f80b3f7c7d70e855d11a3b86f2a9d3c952447b501b26bddd3047057a38ca14",
+            "started_utc": "2026-11-27T15:35:23.329930+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          }
+        },
+        "optimism_publicnode": {
+          "chain": {
+            "bytes": 40,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:22.422396+00:00",
+            "http": 200,
+            "id": 1,
+            "label": "chain",
+            "method": "eth_chainId",
+            "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+            "response_sha256": "30f888a61faf6834b77b24f6c2a6fed186db37b394aabc2fa88cf350a705913b",
+            "started_utc": "2026-11-27T15:35:21.358895+00:00",
+            "transport_error": null,
+            "url": "https://optimism-rpc.publicnode.com"
+          },
+          "header": {
+            "bytes": 6744,
+            "error": null,
+            "finished_utc": "2026-11-27T15:35:22.646994+00:00",
+            "http": 200,
+            "id": 2,
+            "label": "header",
+            "method": "eth_getBlockByHash",
+            "request_sha256": "1c1d4b39c7694e702cb4ab6b6c73cc686c807dcde56d0737f1e6eaf926d0a223",
+            "response_sha256": "caab1c4dbc90155b066b5923a18d2d768307579154c26f00f7a4e8e14497802c",
+            "started_utc": "2026-11-27T15:35:22.423692+00:00",
+            "transport_error": null,
+            "url": "https://optimism-rpc.publicnode.com"
+          }
+        }
+      }
+    },
+    {
+      "block_hash": "0x7ae5a77913912b8d438355a4f1fdad9da98a028c01e1808ad2dcda6616c84855",
+      "block_number": 500392227,
+      "chain": "arbitrum",
+      "chain_id": 42161,
+      "classification": "open_single_swap",
+      "distinct_emitters": 1,
+      "distinct_logical_pools": 1,
+      "event_locations": [
+        {
+          "emitter": "0x18be16c0ac16438675b6a0f62f2175d4e18b5a37",
+          "kind": "v2",
+          "log_index": 4,
+          "pool_id": null
+        }
+      ],
+      "events": 1,
+      "exact_path_legs": [
+        {
+          "exchange": "0x18be16c0ac16438675b6a0f62f2175d4e18b5a37",
+          "funding_log": 1,
+          "in_amount": 5000000000000000,
+          "in_token": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+          "log_index": 4,
+          "out_amount": 12959439228748941677,
+          "out_token": "0x719a06acbe535b85ccb8c9a2b59cab9f8b9bce57",
+          "output_log": 2
+        }
+      ],
+      "fee": {
+        "complete_network_fee_wei": 2567575896000,
+        "effective_price_wei": 21444000,
+        "execution_l2_wei": 2554109064000,
+        "gas_units": 119734,
+        "known_network_fee_wei": 2567575896000,
+        "l1_data_wei": 13466832000,
+        "operator_fee_wei": 0
+      },
+      "first_input_transfer_log": 0,
+      "full_net": null,
+      "input_asset": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+      "intermediate_transfer_logs": [],
+      "last_output_transfer_log": 2,
+      "observed_swap_funding_depth": 1,
+      "output_asset": "0x719a06acbe535b85ccb8c9a2b59cab9f8b9bce57",
+      "signer": "0xa471273dfa732510486df9339e3ef2a96f019bda",
+      "time_utc": "2026-08-31T19:36:48+00:00",
+      "top_target": "0x4752ba5dbc23f44d87826276bf6fd6b1c372ad24",
+      "transaction_index": 2,
+      "tx_hash": "0xf489dd7e67ce5a55895cd052a04364df9385a07a80d16a43f552ce807cec6da8",
+      "types": {
+        "v2": 1
+      },
+      "visible_asset_recipient": "0xa471273dfa732510486df9339e3ef2a96f019bda",
+      "visible_asset_source": "0x0000000000000000000000000000000000000000"
+    },
+    {
+      "block_hash": "0xc8fa9253b58ba87768aff70de2cd48efcf0cc4e13423324d414e133ac7894126",
+      "block_number": 153832678,
+      "chain": "optimism",
+      "chain_id": 10,
+      "classification": "open_two_swap",
+      "distinct_emitters": 2,
+      "distinct_logical_pools": 2,
+      "event_locations": [
+        {
+          "emitter": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+          "kind": "v3",
+          "log_index": 77,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+          "kind": "v3",
+          "log_index": 81,
+          "pool_id": null
+        }
+      ],
+      "events": 2,
+      "exact_path_legs": [
+        {
+          "exchange": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+          "funding_log": 76,
+          "in_amount": 1688960000000000,
+          "in_token": "0x4200000000000000000000000000000000000006",
+          "log_index": 77,
+          "out_amount": 3002075,
+          "out_token": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+          "output_log": 75
+        },
+        {
+          "exchange": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+          "funding_log": 80,
+          "in_amount": 3002075,
+          "in_token": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+          "log_index": 81,
+          "out_amount": 3000075,
+          "out_token": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          "output_log": 79
+        }
+      ],
+      "fee": {
+        "complete_network_fee_wei": null,
+        "effective_price_wei": 1416,
+        "execution_l2_wei": 778369536,
+        "gas_units": 549696,
+        "known_network_fee_wei": 33839154748,
+        "l1_data_wei": 33060785212,
+        "operator_fee_wei": null
+      },
+      "first_input_transfer_log": 70,
+      "full_net": null,
+      "input_asset": "0x4200000000000000000000000000000000000006",
+      "intermediate_transfer_logs": [
+        75,
+        78,
+        80
+      ],
+      "last_output_transfer_log": 85,
+      "observed_swap_funding_depth": 2,
+      "output_asset": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      "signer": "0xfa5287b6efd536d1e6101ef65942e1c012230186",
+      "time_utc": "2026-07-05T15:08:53+00:00",
+      "top_target": "0x7957e5a88f0389997b352315e70ab20d77ec410a",
+      "transaction_index": 8,
+      "tx_hash": "0x95cb922a419df5304e8856c33e4ad9ad664cf0c98d34750f30fff59dbaa0df64",
+      "types": {
+        "v3": 2
+      },
+      "visible_asset_recipient": "0x42b8616a3a30d07674a5cb3546c81dde34d88cce",
+      "visible_asset_source": "0x42b8616a3a30d07674a5cb3546c81dde34d88cce"
+    },
+    {
+      "block_hash": "0xd0cc66769c92b94811e52c9980f46c8e8e50452248fd87faaff8c4f4d37d783d",
+      "block_number": 151456677,
+      "chain": "optimism",
+      "chain_id": 10,
+      "classification": "open_two_swap",
+      "distinct_emitters": 2,
+      "distinct_logical_pools": 2,
+      "event_locations": [
+        {
+          "emitter": "0x177f904d69ead90349ef4f358e897ccbfe2cf4d7",
+          "kind": "v3",
+          "log_index": 95,
+          "pool_id": null
+        },
+        {
+          "emitter": "0x04f6c85a1b00f6d9b75f91fd23835974cc07e65c",
+          "kind": "v3",
+          "log_index": 98,
+          "pool_id": null
+        }
+      ],
+      "events": 2,
+      "exact_path_legs": [
+        {
+          "exchange": "0x177f904d69ead90349ef4f358e897ccbfe2cf4d7",
+          "funding_log": 94,
+          "in_amount": 12315626,
+          "in_token": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+          "log_index": 95,
+          "out_amount": 4309437740290568,
+          "out_token": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb",
+          "output_log": 93
+        },
+        {
+          "exchange": "0x04f6c85a1b00f6d9b75f91fd23835974cc07e65c",
+          "funding_log": 97,
+          "in_amount": 4309437740290568,
+          "in_token": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb",
+          "log_index": 98,
+          "out_amount": 5317097244530302,
+          "out_token": "0x4200000000000000000000000000000000000006",
+          "output_log": 96
+        }
+      ],
+      "fee": {
+        "complete_network_fee_wei": null,
+        "effective_price_wei": 387,
+        "execution_l2_wei": 111921561,
+        "gas_units": 289203,
+        "known_network_fee_wei": 31660908431,
+        "l1_data_wei": 31548986870,
+        "operator_fee_wei": null
+      },
+      "first_input_transfer_log": 94,
+      "full_net": null,
+      "input_asset": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      "intermediate_transfer_logs": [
+        93,
+        97
+      ],
+      "last_output_transfer_log": 96,
+      "observed_swap_funding_depth": 2,
+      "output_asset": "0x4200000000000000000000000000000000000006",
+      "signer": "0xca067ac394e884a73e36014648fd00fa0e18c056",
+      "time_utc": "2026-05-11T15:08:51+00:00",
+      "top_target": "0xf9a8eadfe12a90cb375eee524f03d66ecace5daa",
+      "transaction_index": 14,
+      "tx_hash": "0x64d9ceb90a51326eb1ec94b1c63b2d3b4168023bdaad449bd12c2abd5e65dec2",
+      "types": {
+        "v3": 2
+      },
+      "visible_asset_recipient": "0xf9a8eadfe12a90cb375eee524f03d66ecace5daa",
+      "visible_asset_source": "0xf9a8eadfe12a90cb375eee524f03d66ecace5daa"
+    }
+  ],
+  "cost_usd": 0,
+  "event_topics": {
+    "balancer_v2": "0x2170c741c41531aec20e7c107c24eecfdd15e69c9bb0a8dd37b1840b9e0b207b",
+    "curve": "0x8b3e96f2b889fa771c53c981b40daf005f63f637f1869f707052d15a3dd97140",
+    "curve_unsigned": "0xb2e76ae99761dc136e598d4a629bb347eccb9532a5f8bbd72e18467c3c34cc98",
+    "pancake_v3": "0x19b47279256b2a23a1665c810c8d55a1758940ee09377d4f8d26497a3577dc83",
+    "solidly": "0xb3e2773606abfd36b5bd91394b3a54d1398336c65005baf7bf7a05efeffaf75b",
+    "v2": "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
+    "v3": "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67",
+    "v4": "0x40e9cecb9f5f1f1c5b9c97dec2917b7ee92e57ba5563708daca94dd84ad7112f"
+  },
+  "finalized_anchors": {
+    "arbitrum": {
+      "chain_id": 42161,
+      "chain_wire": {
+        "bytes": 43,
+        "error": null,
+        "finished_utc": "2026-11-27T15:28:37.617673+00:00",
+        "http": 200,
+        "id": 1,
+        "label": "chain",
+        "method": "eth_chainId",
+        "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+        "response_sha256": "937de275b7fc223f33af3b5fdcef1c024e5cf8b2665ad8161096c7e6f9e1733d",
+        "started_utc": "2026-11-27T15:28:37.017734+00:00",
+        "transport_error": null,
+        "url": "https://arb1.arbitrum.io/rpc"
+      },
+      "hash": "0xab4ab2139218318bc905bf6175827d172cc4361b4a2ce7c2c0b9c0665fff5a64",
+      "head_wire": {
+        "bytes": 2792,
+        "error": null,
+        "finished_utc": "2026-11-27T15:28:37.935448+00:00",
+        "http": 200,
+        "id": 2,
+        "label": "finalized",
+        "method": "eth_getBlockByNumber",
+        "request_sha256": "2daff10399667df91baec389c2101f0e6446e4a010915d4ba807a57460f2f853",
+        "response_sha256": "498070ec54d9f75862d754899330bc2080999d9b723229b39d66cd16fb5fcbd3",
+        "started_utc": "2026-11-27T15:28:37.619770+00:00",
+        "transport_error": null,
+        "url": "https://arb1.arbitrum.io/rpc"
+      },
+      "number": 528040216,
+      "time": 1795792195,
+      "utc": "2026-11-27T15:09:55+00:00"
+    },
+    "optimism": {
+      "chain_id": 10,
+      "chain_wire": {
+        "bytes": 40,
+        "error": null,
+        "finished_utc": "2026-11-27T15:28:37.735609+00:00",
+        "http": 200,
+        "id": 1,
+        "label": "chain",
+        "method": "eth_chainId",
+        "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+        "response_sha256": "30f888a61faf6834b77b24f6c2a6fed186db37b394aabc2fa88cf350a705913b",
+        "started_utc": "2026-11-27T15:28:37.017184+00:00",
+        "transport_error": null,
+        "url": "https://mainnet.optimism.io"
+      },
+      "hash": "0xd22eb033229eb1b90a421711cd9be994c897155e5c6132439f96b7eb4b0c9c60",
+      "head_wire": {
+        "bytes": 3986,
+        "error": null,
+        "finished_utc": "2026-11-27T15:28:38.156966+00:00",
+        "http": 200,
+        "id": 2,
+        "label": "finalized",
+        "method": "eth_getBlockByNumber",
+        "request_sha256": "2daff10399667df91baec389c2101f0e6446e4a010915d4ba807a57460f2f853",
+        "response_sha256": "9c5ea11b4e1cca173de4311ce4cfcefb32404e17017f9882eb998a87b6292d88",
+        "started_utc": "2026-11-27T15:28:37.738000+00:00",
+        "transport_error": null,
+        "url": "https://mainnet.optimism.io"
+      },
+      "number": 160096666,
+      "time": 1795792109,
+      "utc": "2026-11-27T15:08:29+00:00"
+    }
+  },
+  "fully_covered_blocks": {
+    "arbitrum": {
+      "at_least_event_counts": {
+        "100": 0,
+        "20": 0,
+        "200": 0,
+        "50": 0
+      },
+      "blocks": [
+        {
+          "block_hash": "0x410727afd1e5513134c12edf2d88a1880af683750548816a103bdae40c08f333",
+          "block_number": 520782627,
+          "complete_receipts": 3,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1824,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:15.532840+00:00",
+            "http": 200,
+            "id": 2,
+            "label": "520782627-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "c17b307ca72ef163bd62c7dc1a09b60b269a37ae7754ecce75f18f961767b865",
+            "response_sha256": "73dc4a254af65e9494f149b05a96a7b95a19f52eeca9c334d70ae6300eb04310",
+            "started_utc": "2026-11-27T15:32:15.221793+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 4480,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:15.809639+00:00",
+            "http": 200,
+            "id": 3,
+            "label": "520782627-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "020317ab6c5c344e516a5ddbf75d3c85709b8e1eb547f641e12458b79741606d",
+            "response_sha256": "f2a8ab06886e727b621b88df17c113b95410ce36c9f60f95a04dbc7fefeb252c",
+            "started_utc": "2026-11-27T15:32:15.583083+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0x5f5f0e11f6c772bc1bf94455a47e0bfcc81375645fc767e6fa5a472667fe23e7",
+          "utc": "2026-11-03T05:22:57+00:00"
+        },
+        {
+          "block_hash": "0x00618b6c2cae6331b679db528b35437c2335630906c22618174bd30cddf7c160",
+          "block_number": 520782628,
+          "complete_receipts": 2,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1755,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.126892+00:00",
+            "http": 200,
+            "id": 4,
+            "label": "520782628-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "e2b83bbb9e9c03baf76455702b2e8832f1dfab3e9fed8d1f010df3fdfc0870f9",
+            "response_sha256": "8335273886b8f8624d9f1ac7f5b9fd1bf9cc5f390d23b1dc5f0da7aa44535de7",
+            "started_utc": "2026-11-27T15:32:15.946705+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 7170,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.492819+00:00",
+            "http": 200,
+            "id": 5,
+            "label": "520782628-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "f5289872f3ace69062e68e7a9194d527595330e886427f0ba3562eeade669492",
+            "response_sha256": "88647702706389984197deb94644481279ebf1afcb6739e6b00b0433ec409abb",
+            "started_utc": "2026-11-27T15:32:16.308480+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0x4b94c4b191d7007681b7c1a73afc5d7146736cb5aaa4cf70c3720518d86e6c94",
+          "utc": "2026-11-03T05:22:57+00:00"
+        },
+        {
+          "block_hash": "0x7ae5a77913912b8d438355a4f1fdad9da98a028c01e1808ad2dcda6616c84855",
+          "block_number": 500392227,
+          "complete_receipts": 4,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1894,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.870163+00:00",
+            "http": 200,
+            "id": 6,
+            "label": "500392227-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "6db76a771f66afa90f816bf94868a684481ccd5474a53a55aac883d7140e80b3",
+            "response_sha256": "994b22ba65748ff014cdcfc9f2e554728bd25638964ceeabbfbfbd83d3ca3a26",
+            "started_utc": "2026-11-27T15:32:16.667424+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 11065,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.168698+00:00",
+            "http": 200,
+            "id": 7,
+            "label": "500392227-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "f63882528751e89225dc1ae7a1889d3106cca1e437125d8b7921067760d38420",
+            "response_sha256": "b407fe335fd5ac5a5a7d9bb410ee1e613104c24f4c431469bcd4847091f34882",
+            "started_utc": "2026-11-27T15:32:17.026646+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0xbdcab80c8d99d53eda78d1035a5e7a3eac1ce8dd98d476b4ed7063ea26615b86",
+          "utc": "2026-08-31T19:36:48+00:00"
+        },
+        {
+          "block_hash": "0xfe992c250dbd191ffaf74433cd5a2c5f5ce35aca7d619d180460a858f475790e",
+          "block_number": 500392228,
+          "complete_receipts": 2,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1756,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.557776+00:00",
+            "http": 200,
+            "id": 8,
+            "label": "500392228-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "0c010c306595ca19c182c3311e78e8f285ad102c289e253b143d4825bc0c714c",
+            "response_sha256": "9a375655f0393ac32865e150644d55137133f08dda28c9fddc5a1390b5b19ada",
+            "started_utc": "2026-11-27T15:32:17.391357+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 2162,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.926768+00:00",
+            "http": 200,
+            "id": 9,
+            "label": "500392228-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "ba298aa9fc8b9eb528300e3287d35b7e5263c5b6cade243438297a33fe5af800",
+            "response_sha256": "7d9f7bdc073681e9c8cb2504b0517ec72eacc253c59b09f02bfdcd9c6757cda1",
+            "started_utc": "2026-11-27T15:32:17.741521+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0x4f1d24e972f92da40f508abacaa1bfc21aba9dbf99cf70e8b3f4472b01afb4dd",
+          "utc": "2026-08-31T19:36:48+00:00"
+        },
+        {
+          "block_hash": "0x118268f445973059bfb912bb51c8b92cc6b822be4f91aead356bc091e4280592",
+          "block_number": 477928227,
+          "complete_receipts": 3,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1827,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:18.252968+00:00",
+            "http": 200,
+            "id": 10,
+            "label": "477928227-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "15f8cde31aa42024664f1c5a51c6a71cba84773f012b30244cb18ae9a63f607c",
+            "response_sha256": "87c834c68cf934b8eea245777a729dd57a0afa9cb2478933ebc0642fb4f2ee31",
+            "started_utc": "2026-11-27T15:32:18.093992+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 21058,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:18.614856+00:00",
+            "http": 200,
+            "id": 11,
+            "label": "477928227-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "b7f99c6844d32841279d0f1ac1ea64a30899283079391002efe36129c73131cc",
+            "response_sha256": "bf67f78584f2a850557b1b4ec2507b076e56eca7d3504f5bf89eb334249d5440",
+            "started_utc": "2026-11-27T15:32:18.452875+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0xb18fceb31b089442674bf52f381b586aa2e8337d128d6c591964217d47922f09",
+          "utc": "2026-06-27T15:26:13+00:00"
+        },
+        {
+          "block_hash": "0xe5b55304ebf1491bbf00a6e89c97802eaa28abdf0d2de34d807c9ed9d4fa893d",
+          "block_number": 477928228,
+          "complete_receipts": 9,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 2240,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:18.965024+00:00",
+            "http": 200,
+            "id": 12,
+            "label": "477928228-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "cbe7ca5f991ac7a7d562861ad3c1754e1f8edcd031406fb50e80011734f3521e",
+            "response_sha256": "1edf835a1c345fe7f6ccdf7b35827413c9284bafd55ea8545974f35118877ab7",
+            "started_utc": "2026-11-27T15:32:18.809076+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 19755,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:19.379675+00:00",
+            "http": 200,
+            "id": 13,
+            "label": "477928228-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "fd600c64514d6426b198ef783017add4ed09cdf20066b9ae31b8956cb92f81fe",
+            "response_sha256": "6180609162b6cca17e6936b858f1a8f888ce02caf3bccd4cec7eb08cd55084b5",
+            "started_utc": "2026-11-27T15:32:19.168468+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0xf67a7f9cd743c88cf6e49c7103e656904c52036aef9239e346232afe9d960bb6",
+          "utc": "2026-06-27T15:26:13+00:00"
+        },
+        {
+          "block_hash": "0xcd4af2654adb92b95a974ced3e728b0d06c72e615c16ac97e02442553040dd43",
+          "block_number": 458920227,
+          "complete_receipts": 2,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1755,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:19.663339+00:00",
+            "http": 200,
+            "id": 14,
+            "label": "458920227-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "959670142e15936cf9c328bd2fdc134a49c288490758014a4db9cd0395cc90b8",
+            "response_sha256": "fa869dbcf774a6981582a8901a90270ea081b14c2fd554b93c03da7e710c22f0",
+            "started_utc": "2026-11-27T15:32:19.529036+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 2159,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:20.075970+00:00",
+            "http": 200,
+            "id": 15,
+            "label": "458920227-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "122f95b7e9975f6ef9a3487b27a4aa8b570fd8386bf5009e2dd979ff943377de",
+            "response_sha256": "ef56ba9848114b431108ba3a4979e6a85d52d4f633c65e015f4ec78dbf0bb631",
+            "started_utc": "2026-11-27T15:32:19.893677+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0x4814e818ea6ce9dfd8f14d83934389b9e45f38862aea4e3004c0c9fb22714942",
+          "utc": "2026-05-03T10:29:43+00:00"
+        },
+        {
+          "block_hash": "0x1767be991d163fe59faa2431926d207404782060520e37e2a6b96291a4be9387",
+          "block_number": 458920228,
+          "complete_receipts": 2,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 1755,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:20.403465+00:00",
+            "http": 200,
+            "id": 16,
+            "label": "458920228-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "39149f9fbca8b0d3ee17a3404b42226aaa5ad477a127794df728eb3ccfeff626",
+            "response_sha256": "8e7ea9d71a97699df8ac6d875ad4a20006808fa500e287eb833770a05054b6b2",
+            "started_utc": "2026-11-27T15:32:20.248174+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipt_wire": {
+            "bytes": 2159,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:20.743686+00:00",
+            "http": 200,
+            "id": 17,
+            "label": "458920228-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "642d6f4fb6d501f4cc260cace8065e36472c0139813caefbe70fa12b3fc126cf",
+            "response_sha256": "a400856febf8b03c1922f227dc8b3876cd066c730de8b250e715d5ed1e28da09",
+            "started_utc": "2026-11-27T15:32:20.598539+00:00",
+            "transport_error": null,
+            "url": "https://arbitrum-one-rpc.publicnode.com"
+          },
+          "receipts_root": "0x1310884e7ae546e7406a3c29a3991cd195208bde11ccf2bc1fec1fd517443cbb",
+          "utc": "2026-05-03T10:29:43+00:00"
+        }
+      ],
+      "chain_id": 42161,
+      "complete_receipts": 27,
+      "matched_events": 1,
+      "matched_transactions": 1,
+      "request_count": 17,
+      "selected_cases": [
+        {
+          "block_hash": "0x7ae5a77913912b8d438355a4f1fdad9da98a028c01e1808ad2dcda6616c84855",
+          "block_number": 500392227,
+          "distinct_emitters": 1,
+          "distinct_logical_pools": 1,
+          "event_locations": [
+            {
+              "emitter": "0x18be16c0ac16438675b6a0f62f2175d4e18b5a37",
+              "kind": "v2",
+              "log_index": 4,
+              "pool_id": null
+            }
+          ],
+          "events": 1,
+          "transaction_index": 2,
+          "tx_hash": "0xf489dd7e67ce5a55895cd052a04364df9385a07a80d16a43f552ce807cec6da8",
+          "types": {
+            "v2": 1
+          }
+        }
+      ]
+    },
+    "optimism": {
+      "at_least_event_counts": {
+        "100": 0,
+        "20": 0,
+        "200": 0,
+        "50": 0
+      },
+      "blocks": [
+        {
+          "block_hash": "0x7754988b3f37f7265823a9d01e8feb96a73a74756df5b496065678f9a31b1ef3",
+          "block_number": 159189477,
+          "complete_receipts": 27,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 3638,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:15.642957+00:00",
+            "http": 200,
+            "id": 2,
+            "label": "159189477-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "e2016b2748df3e665f5f237e88cb1839405eb64372edbb7acbdf8243d77ee438",
+            "response_sha256": "49010771386a5093a01346e0f3980123dc38d32e84eea9cafd1c138881f5cdaa",
+            "started_utc": "2026-11-27T15:32:15.221941+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 66302,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.047197+00:00",
+            "http": 200,
+            "id": 3,
+            "label": "159189477-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "18f527d8eb603a9085f159323e94e04d7aaf0407cda7a9d4154a4988730cc488",
+            "response_sha256": "c4e7d3448ed279e90018b8dbd2a6d0d119b840e922b4ab57d388c71a7b13361f",
+            "started_utc": "2026-11-27T15:32:15.645363+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0xef2df5926b9abbf8fe2022ab5e13b6c42996e06aa86286f7e835a41ba46babb4",
+          "utc": "2026-11-06T15:08:51+00:00"
+        },
+        {
+          "block_hash": "0x134b5120d48eecb63ffc8fac6d4d8a5e135c3a9bc643d015ed31670508e27cd4",
+          "block_number": 159189478,
+          "complete_receipts": 30,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 3845,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.384693+00:00",
+            "http": 200,
+            "id": 4,
+            "label": "159189478-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "1a8caa1f20c4f35d523038ab4753a2b550a62980add6ec5e0f85c465510687e3",
+            "response_sha256": "d0160271aef58fa148efd6ad5c93864ebd660e4bc27ec39d86a105a752d3bf11",
+            "started_utc": "2026-11-27T15:32:16.049705+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 63481,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:16.749246+00:00",
+            "http": 200,
+            "id": 5,
+            "label": "159189478-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "8ae255b7010cbc2e211c9961ebeabc1b9c2e32b6483c279cae226d26767af41e",
+            "response_sha256": "6e2bc96cc288b590e77b48359dab1f7d85a61c2f5f5424a0d0e3c8e3787cae1e",
+            "started_utc": "2026-11-27T15:32:16.407505+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x73098545a5d278915acb1549868d9b2974fb1aad123cb716a51b8c5633002fae",
+          "utc": "2026-11-06T15:08:53+00:00"
+        },
+        {
+          "block_hash": "0x947a7f30b208cec0ed84b2942f23b71ba551785a58732d9e1ef61aac041cd256",
+          "block_number": 156640677,
+          "complete_receipts": 25,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 3501,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.045314+00:00",
+            "http": 200,
+            "id": 6,
+            "label": "156640677-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "6feb5fa6a68523e41d101367fb8d9dd9e268b02ea7f4f317638f8b66840b2d46",
+            "response_sha256": "b6d2fa4c4f7037d9e0239e6627c089828a7306a2a5283c08253661005f5bccb3",
+            "started_utc": "2026-11-27T15:32:16.760335+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 142683,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.642435+00:00",
+            "http": 200,
+            "id": 7,
+            "label": "156640677-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "553d82edfbb900783140540ef7bb848b51086e5d178d0d90ea1a6cf4eec91ed1",
+            "response_sha256": "80e713e1d9b0ddb29c31b4629296754ca2f1841c1a24baaac45d3db51c2ead88",
+            "started_utc": "2026-11-27T15:32:17.121313+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x2548a6bfb100003f281e04b066f0485a6cb8ce4569a641eca5f1aab71eabe40e",
+          "utc": "2026-09-08T15:08:51+00:00"
+        },
+        {
+          "block_hash": "0xaa838ba926c1498d35523b7f781465efca308e84acf6cd3630ff2a06d028f3a8",
+          "block_number": 156640678,
+          "complete_receipts": 35,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 4192,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:17.932253+00:00",
+            "http": 200,
+            "id": 8,
+            "label": "156640678-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "8dc325adedc4e909a20fe5cec43879a586e1296ef081dd744753e73e62843987",
+            "response_sha256": "65817cab4725a1ae6e99ddf743df4de7a039892b9f607c890d356624cf8a02e5",
+            "started_utc": "2026-11-27T15:32:17.646338+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 288530,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:18.626187+00:00",
+            "http": 200,
+            "id": 9,
+            "label": "156640678-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "97fce80d862687d94c3dd204f3d443308e0e8c869e9726854b346723d08770a8",
+            "response_sha256": "c6192ad1e86a15c15b4e68a140dfb41fdcdc6576d214267fe05b543b7f72e36c",
+            "started_utc": "2026-11-27T15:32:18.009972+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x2b68b24d23890a62b2f3488a55486e6a26247c7ae8bdd181a06cd8c5d0fd1c9c",
+          "utc": "2026-09-08T15:08:53+00:00"
+        },
+        {
+          "block_hash": "0xd296034d47fd4c211d41a64afb23797e94635c55ca191262021e2381189c72ad",
+          "block_number": 153832677,
+          "complete_receipts": 31,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 3915,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:18.951117+00:00",
+            "http": 200,
+            "id": 10,
+            "label": "153832677-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "523003ce6e7786b649eaed15feade47ea802a95526923c74de1ad2e87eab79da",
+            "response_sha256": "b205287c99762e638500255ff449ef1f01015d7afa9c2749d2ab27cbc73bf4b7",
+            "started_utc": "2026-11-27T15:32:18.629855+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 169852,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:19.417882+00:00",
+            "http": 200,
+            "id": 11,
+            "label": "153832677-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "bc338ded916f930844389f53c9e0e371e96efb3a9855b188ab0e874351bf9863",
+            "response_sha256": "135d2eb59b0d5a6c970eae1b15709ccbae8cfcd75490035c33edb310729404fa",
+            "started_utc": "2026-11-27T15:32:18.990353+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x952cfaefe92466456a8f02cf7fd5945e18e2543878c5b9186772ccc4b3016af1",
+          "utc": "2026-07-05T15:08:51+00:00"
+        },
+        {
+          "block_hash": "0xc8fa9253b58ba87768aff70de2cd48efcf0cc4e13423324d414e133ac7894126",
+          "block_number": 153832678,
+          "complete_receipts": 26,
+          "failed_receipts": 0,
+          "header_wire": {
+            "bytes": 3570,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:19.706994+00:00",
+            "http": 200,
+            "id": 12,
+            "label": "153832678-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "1a93d0b8cb590e6d511b1b33d4c7a280af2147b78d60e2bdf291887f70919695",
+            "response_sha256": "818b15d7f89afe01fb026a9f6e259308cc073f8ec0baeeb75e495219381e4c91",
+            "started_utc": "2026-11-27T15:32:19.420035+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 152536,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:20.331397+00:00",
+            "http": 200,
+            "id": 13,
+            "label": "153832678-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "714651510e7b3d7553adb16c14f16fc2bc516486a066e3db4e1d24aae2341fab",
+            "response_sha256": "8e7be17e6179ee438911b061c78936455f29b260d731c3aa4882ac952a98cfc2",
+            "started_utc": "2026-11-27T15:32:19.785459+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x328df8631a4f38c598e38d4ee8e823f1857695440ad418fcbb82d8cad2d8a86d",
+          "utc": "2026-07-05T15:08:53+00:00"
+        },
+        {
+          "block_hash": "0xd0cc66769c92b94811e52c9980f46c8e8e50452248fd87faaff8c4f4d37d783d",
+          "block_number": 151456677,
+          "complete_receipts": 32,
+          "failed_receipts": 2,
+          "header_wire": {
+            "bytes": 3984,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:20.602869+00:00",
+            "http": 200,
+            "id": 14,
+            "label": "151456677-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "79859bf010ab56755af7a23097cecf8a387fbf1ab9245f69413d5a46835bef9d",
+            "response_sha256": "b22395cbd2e203e842fbdf7876ed461aacbcba1e5fd67265be309dac7b8466ca",
+            "started_utc": "2026-11-27T15:32:20.334606+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 183256,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:21.110826+00:00",
+            "http": 200,
+            "id": 15,
+            "label": "151456677-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "eb7c8b601c346dcc0d919076ba45e75293fa70351c9030abbe42bb8ad400e323",
+            "response_sha256": "1307c2f048096513ed7a457265b7fe8d38a442fc68e55682423cdea1ca5b83df",
+            "started_utc": "2026-11-27T15:32:20.689017+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0x349ced90b46be39112a5d1df7faabd104401018f4802fff4164c06715e121e4f",
+          "utc": "2026-05-11T15:08:51+00:00"
+        },
+        {
+          "block_hash": "0xd0a0c62657eebbacdb09fe096857ee5a4e00b26310c7f4eb65796c8f8f121e2d",
+          "block_number": 151456678,
+          "complete_receipts": 23,
+          "failed_receipts": 2,
+          "header_wire": {
+            "bytes": 3363,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:21.431355+00:00",
+            "http": 200,
+            "id": 16,
+            "label": "151456678-header",
+            "method": "eth_getBlockByNumber",
+            "request_sha256": "e06344507e671869e7dc4f9c6cc18017a5df8477b7fc4d2d6dd4d23deedbc1ea",
+            "response_sha256": "97a8b99519e4766fa7c666dd0f5b8754fb4cd4f4ad86a4677b347db4aa86a7fb",
+            "started_utc": "2026-11-27T15:32:21.115638+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipt_wire": {
+            "bytes": 139134,
+            "error": null,
+            "finished_utc": "2026-11-27T15:32:22.003603+00:00",
+            "http": 200,
+            "id": 17,
+            "label": "151456678-receipts",
+            "method": "eth_getBlockReceipts",
+            "request_sha256": "cf22fa06b2aec4421d782b9aa71e681baa29c105d5f93a0c0b9c902b1554f8b7",
+            "response_sha256": "7f63f5002028d616f912a09223ab54a474d18c4cd17dd39a5385012015f92605",
+            "started_utc": "2026-11-27T15:32:21.481381+00:00",
+            "transport_error": null,
+            "url": "https://optimism.drpc.org"
+          },
+          "receipts_root": "0xb2451d460a6de74e91f85f31a88220c5f848b5285fc2c994e708f269c119f7e6",
+          "utc": "2026-05-11T15:08:53+00:00"
+        }
+      ],
+      "chain_id": 10,
+      "complete_receipts": 229,
+      "matched_events": 16,
+      "matched_transactions": 14,
+      "request_count": 17,
+      "selected_cases": [
+        {
+          "block_hash": "0xd0cc66769c92b94811e52c9980f46c8e8e50452248fd87faaff8c4f4d37d783d",
+          "block_number": 151456677,
+          "distinct_emitters": 2,
+          "distinct_logical_pools": 2,
+          "event_locations": [
+            {
+              "emitter": "0x177f904d69ead90349ef4f358e897ccbfe2cf4d7",
+              "kind": "v3",
+              "log_index": 95,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x04f6c85a1b00f6d9b75f91fd23835974cc07e65c",
+              "kind": "v3",
+              "log_index": 98,
+              "pool_id": null
+            }
+          ],
+          "events": 2,
+          "transaction_index": 14,
+          "tx_hash": "0x64d9ceb90a51326eb1ec94b1c63b2d3b4168023bdaad449bd12c2abd5e65dec2",
+          "types": {
+            "v3": 2
+          }
+        },
+        {
+          "block_hash": "0xc8fa9253b58ba87768aff70de2cd48efcf0cc4e13423324d414e133ac7894126",
+          "block_number": 153832678,
+          "distinct_emitters": 2,
+          "distinct_logical_pools": 2,
+          "event_locations": [
+            {
+              "emitter": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+              "kind": "v3",
+              "log_index": 77,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+              "kind": "v3",
+              "log_index": 81,
+              "pool_id": null
+            }
+          ],
+          "events": 2,
+          "transaction_index": 8,
+          "tx_hash": "0x95cb922a419df5304e8856c33e4ad9ad664cf0c98d34750f30fff59dbaa0df64",
+          "types": {
+            "v3": 2
+          }
+        }
+      ]
+    }
+  },
+  "initial_sqd": {
+    "completed_blocks": 0,
+    "failure_wire": {
+      "bytes": 163,
+      "error": null,
+      "finished_utc": "2026-11-27T15:29:12.803489+00:00",
+      "http": 529,
+      "id": 1,
+      "label": "optimism-near",
+      "method": "SQD stream",
+      "request_sha256": "762b05efdc99e18f54ca9f3fccb8f5530e79ec0c9b26a71011a57cb01d09c686",
+      "response_sha256": "a3cdf888fd5c6fd5625332351cfb8d6eb8dc1cbde976bde67d1814b274cc6df6",
+      "started_utc": "2026-11-27T15:29:12.046033+00:00",
+      "transport_error": "HTTPStatusError: Server error '529 <none>' for url 'https://portal.sqd.dev/datasets/optimism-mainnet/finalized-stream'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/",
+      "url": "https://portal.sqd.dev/datasets/optimism-mainnet/finalized-stream"
+    },
+    "planned_blocks": [
+      2048,
+      4096,
+      2048,
+      4096
+    ],
+    "stop": {
+      "counts": {
+        "sqd_public": 1
+      },
+      "first_refusal": {
+        "id": "optimism-near",
+        "reason": "HTTPStatusError: Server error '529 <none>' for url 'https://portal.sqd.dev/datasets/optimism-mainnet/finalized-stream'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/"
+      },
+      "scope_sha256": "5ad3859dbbbefcca7b6ce2fbb28ec64f5d189fb66a58e3efb23df12ea8d9cdb2",
+      "successes": []
+    }
+  },
+  "original_official_log_scope": {
+    "arbitrum": {
+      "at_least_event_counts": null,
+      "completed_blocks": 0,
+      "first_refusal": "RPC -32000: log query timed out",
+      "frozen_windows": [
+        {
+          "first": 523201049,
+          "last": 523201816,
+          "window": 1
+        },
+        {
+          "first": 507303449,
+          "last": 507304216,
+          "window": 2
+        },
+        {
+          "first": 486567449,
+          "last": 486568216,
+          "window": 3
+        },
+        {
+          "first": 455463449,
+          "last": 455464216,
+          "window": 4
+        }
+      ],
+      "matching_logs": 0,
+      "matching_transactions": 0,
+      "request_count": 2,
+      "top_three": [],
+      "windows": [
+        {
+          "completed": false,
+          "first_boundary_utc": "2026-11-11T06:10:54+00:00",
+          "from_block": 523201049,
+          "to_block": 523201816
+        }
+      ],
+      "wires": [
+        {
+          "bytes": 1824,
+          "error": null,
+          "finished_utc": "2026-11-27T15:30:54.659256+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "1-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "d946e2f89f589207582e791ef56b245b26bae2101cb6178f5816a66ed3c83c0c",
+          "response_sha256": "a2fe74bff1fab00d66f83d079f4783f5afac3f3691c12339e97736a51f32fcaa",
+          "started_utc": "2026-11-27T15:30:54.244996+00:00",
+          "transport_error": null,
+          "url": "https://arb1.arbitrum.io/rpc"
+        },
+        {
+          "bytes": 81,
+          "error": {
+            "code": -32000,
+            "message": "log query timed out"
+          },
+          "finished_utc": "2026-11-27T15:30:57.286235+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "1-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "c2ef599a0b5cc62b428ee24eecd1d83f2fd6df4aabf2e365d5156c9f9898c9a1",
+          "response_sha256": "bfeb9e20e397c1b7cc6e8690e27321b0b0db8fcc36d339d1acc520466df41ac2",
+          "started_utc": "2026-11-27T15:30:54.661448+00:00",
+          "transport_error": null,
+          "url": "https://arb1.arbitrum.io/rpc"
+        }
+      ]
+    },
+    "optimism": {
+      "at_least_event_counts": null,
+      "completed_blocks": 0,
+      "first_refusal": "HTTPStatusError: Client error '400 Bad Request' for url 'https://mainnet.optimism.io'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+      "frozen_windows": [
+        {
+          "first": 159491355,
+          "last": 159491866,
+          "window": 1
+        },
+        {
+          "first": 157504155,
+          "last": 157504666,
+          "window": 2
+        },
+        {
+          "first": 154912155,
+          "last": 154912666,
+          "window": 3
+        },
+        {
+          "first": 151024155,
+          "last": 151024666,
+          "window": 4
+        }
+      ],
+      "matching_logs": 0,
+      "matching_transactions": 0,
+      "request_count": 2,
+      "top_three": [],
+      "windows": [
+        {
+          "completed": false,
+          "first_boundary_utc": "2026-11-13T14:51:27+00:00",
+          "from_block": 159491355,
+          "to_block": 159491866
+        }
+      ],
+      "wires": [
+        {
+          "bytes": 3778,
+          "error": null,
+          "finished_utc": "2026-11-27T15:30:54.763779+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "1-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "147989f7e367c3703758e72ee4bc79a56e6d93cbd2dc9a1c6e857e17a8fdfe34",
+          "response_sha256": "64e1d91c67c54be43553d417ff88483cbb4658036aff41305b5107a4d550a5b2",
+          "started_utc": "2026-11-27T15:30:54.244639+00:00",
+          "transport_error": null,
+          "url": "https://mainnet.optimism.io"
+        },
+        {
+          "bytes": 88,
+          "error": {
+            "code": -32020,
+            "message": "backend response too large"
+          },
+          "finished_utc": "2026-11-27T15:30:55.258285+00:00",
+          "http": 400,
+          "id": 2,
+          "label": "1-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "28296987326a40546ca41438be70900036c7f8327498eeaa1e87defad1916904",
+          "response_sha256": "edac4828a89b2af584a4330b33ac35cd9b27f95941131ded7cf2fa597394ab70",
+          "started_utc": "2026-11-27T15:30:54.764717+00:00",
+          "transport_error": "HTTPStatusError: Client error '400 Bad Request' for url 'https://mainnet.optimism.io'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+          "url": "https://mainnet.optimism.io"
+        }
+      ]
+    }
+  },
+  "receipt_read_requests": 34,
+  "schema": "oasis.y2026-optimism-arbitrum-cohort.v1",
+  "separate_small_log_scope": {
+    "arbitrum": {
+      "at_least_event_counts": null,
+      "completed_blocks": 0,
+      "first_refusal": "HTTPStatusError: Client error '403 Forbidden' for url 'https://arbitrum-one-rpc.publicnode.com'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+      "frozen_windows": [
+        {
+          "first": 520786585,
+          "last": 520786712,
+          "window": 1
+        },
+        {
+          "first": 500396185,
+          "last": 500396312,
+          "window": 2
+        },
+        {
+          "first": 477932185,
+          "last": 477932312,
+          "window": 3
+        },
+        {
+          "first": 458924185,
+          "last": 458924312,
+          "window": 4
+        }
+      ],
+      "matching_logs": 0,
+      "matching_transactions": 0,
+      "request_count": 2,
+      "top_three": [],
+      "windows": [
+        {
+          "completed": false,
+          "first_boundary_utc": "2026-11-03T05:43:44+00:00",
+          "from_block": 520786585,
+          "to_block": 520786712
+        }
+      ],
+      "wires": [
+        {
+          "bytes": 1754,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:19.809871+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "1-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "84eb6230b30404cd28a413a56619a8dd9dd3815b0dee4ad322193fdf7929d0ca",
+          "response_sha256": "54ed095fcdaf7e9126c10c3905814f981a738ed01d5a607ed70b566e7703ca93",
+          "started_utc": "2026-11-27T15:33:19.439277+00:00",
+          "transport_error": null,
+          "url": "https://arbitrum-one-rpc.publicnode.com"
+        },
+        {
+          "bytes": 152,
+          "error": {
+            "code": -32602,
+            "message": "Archive requests require a personal token. Get one at: https://www.allnodes.com/publicnode"
+          },
+          "finished_utc": "2026-11-27T15:33:19.939437+00:00",
+          "http": 403,
+          "id": 2,
+          "label": "1-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "441d0073c19b732b91e603ccb8b2b767bef94d66270d6f7ea8ce54d1ba783e3f",
+          "response_sha256": "041bd2ad882e48c58d7618375a9e39c20bc86a4b18656cc31d1c71a305a7db11",
+          "started_utc": "2026-11-27T15:33:19.812009+00:00",
+          "transport_error": "HTTPStatusError: Client error '403 Forbidden' for url 'https://arbitrum-one-rpc.publicnode.com'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+          "url": "https://arbitrum-one-rpc.publicnode.com"
+        }
+      ]
+    },
+    "optimism": {
+      "at_least_event_counts": {
+        "100": 0,
+        "20": 1,
+        "200": 0,
+        "50": 0
+      },
+      "completed_blocks": 256,
+      "first_refusal": null,
+      "frozen_windows": [
+        {
+          "first": 159193499,
+          "last": 159193562,
+          "window": 1
+        },
+        {
+          "first": 156644699,
+          "last": 156644762,
+          "window": 2
+        },
+        {
+          "first": 153836699,
+          "last": 153836762,
+          "window": 3
+        },
+        {
+          "first": 151460699,
+          "last": 151460762,
+          "window": 4
+        }
+      ],
+      "matching_logs": 2200,
+      "matching_transactions": 1053,
+      "request_count": 12,
+      "top_three": [
+        {
+          "block_hash": "0x90f938b3ff63d09c6685a745fb82ef38b3043566294ed4d7371f9e102ef564e0",
+          "block_number": 153836718,
+          "distinct_emitters": 23,
+          "distinct_logical_pools": 25,
+          "event_locations": [
+            {
+              "emitter": "0x79c912fef520be002c2b6e57ec4324e260f38e50",
+              "kind": "v2",
+              "log_index": 81,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x85149247691df622eaf1a8bd0cafd40bc45154a9",
+              "kind": "v3",
+              "log_index": 84,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x319c0dd36284ac24a6b2bee73929f699b9f48c38",
+              "kind": "v3",
+              "log_index": 87,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x2b959ccb3c8fc1ed7769004742c197e28251027e",
+              "kind": "v3",
+              "log_index": 88,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xba12222222228d8ba445958a75a0704d566bf2c8",
+              "kind": "balancer_v2",
+              "log_index": 93,
+              "pool_id": "0x7ca75bdea9dede97f8b13c6641b768650cb837820002000000000000000000d5"
+            },
+            {
+              "emitter": "0x95d9d28606ee55de7667f0f176ebfc3215cfd9c0",
+              "kind": "v3",
+              "log_index": 98,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x1d72b49f81832ef8155d8dedfce9cd122367e3b3",
+              "kind": "v3",
+              "log_index": 101,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x146eda2f1d35efb5eef5703acec701c68e1503d8",
+              "kind": "v3",
+              "log_index": 104,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x478946bcd4a5a22b316470f5486fafb928c0ba25",
+              "kind": "v3",
+              "log_index": 107,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
+              "kind": "v3",
+              "log_index": 110,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xa9f987869bfe56d3a2ece2e79df55684d0bbcd8b",
+              "kind": "v3",
+              "log_index": 113,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+              "kind": "v3",
+              "log_index": 116,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 117,
+              "pool_id": "0xc68a16ae9f4ef1f071d2e14e76d50990728c14f2ea46e28c995a173735068310"
+            },
+            {
+              "emitter": "0x95d7d146ae40d4822c2750276b54b6eed530d374",
+              "kind": "v3",
+              "log_index": 121,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x1337bedc9d22ecbe766df105c9623922a27963ec",
+              "kind": "curve",
+              "log_index": 126,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xf7f575f2c0f6c99fa9efe1bde9e11fa10be4fef9",
+              "kind": "v3",
+              "log_index": 129,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x6a78e8cb7e084aaac8ce00f078413f54a4081cad",
+              "kind": "v3",
+              "log_index": 132,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x394a9fcbab8599437d9ec4e5a4a0eb7cb1fd2f69",
+              "kind": "v3",
+              "log_index": 135,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xcf50dea65ee80ebddaa61005a960ef5a5c995a99",
+              "kind": "v3",
+              "log_index": 138,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xd28f71e383e93c570d3edfe82ebbceb35ec6c412",
+              "kind": "v3",
+              "log_index": 141,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+              "kind": "v3",
+              "log_index": 144,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x4dbb2d7785654074c53c5a915126d3378446bd61",
+              "kind": "v3",
+              "log_index": 145,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 148,
+              "pool_id": "0xebe9db89947dd14b34817843231b74044084b04d5b4fea5b4cd1b433b3e5b99f"
+            },
+            {
+              "emitter": "0xee1bac98527a9fdd57fccf967817215b083ce1f0",
+              "kind": "v3",
+              "log_index": 153,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 154,
+              "pool_id": "0x51bf4cc5b8d9f7f759e41f572fe2a25bc2aeb42432bf12544a350595e5c8bb43"
+            }
+          ],
+          "events": 25,
+          "transaction_index": 71,
+          "tx_hash": "0x86127198c8513464ec3a49c5c40c36c85b98e36dbe4cdc853ffccb1e9b3e7949",
+          "types": {
+            "balancer_v2": 1,
+            "curve": 1,
+            "v2": 1,
+            "v3": 19,
+            "v4": 3
+          }
+        },
+        {
+          "block_hash": "0x916a90c0087dc90fc515c567545d5b61e0a64c8ddb70bed0d77b4cf8683ae487",
+          "block_number": 156644758,
+          "distinct_emitters": 7,
+          "distinct_logical_pools": 7,
+          "event_locations": [
+            {
+              "emitter": "0x58e6433a6903886e440ddf519ecc573c4046a6b2",
+              "kind": "solidly",
+              "log_index": 165,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x04f6c85a1b00f6d9b75f91fd23835974cc07e65c",
+              "kind": "v3",
+              "log_index": 178,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x58e6433a6903886e440ddf519ecc573c4046a6b2",
+              "kind": "solidly",
+              "log_index": 262,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xa0a215de234276cac1b844fd58901351a50fec8a",
+              "kind": "solidly",
+              "log_index": 272,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x8134a2fdc127549480865fb8e5a9e8a8a95a54c5",
+              "kind": "solidly",
+              "log_index": 289,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x0493bf8b6dbb159ce2db2e0e8403e753abd1235b",
+              "kind": "solidly",
+              "log_index": 294,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x8134a2fdc127549480865fb8e5a9e8a8a95a54c5",
+              "kind": "solidly",
+              "log_index": 304,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x0493bf8b6dbb159ce2db2e0e8403e753abd1235b",
+              "kind": "solidly",
+              "log_index": 309,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x8134a2fdc127549480865fb8e5a9e8a8a95a54c5",
+              "kind": "solidly",
+              "log_index": 315,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x0493bf8b6dbb159ce2db2e0e8403e753abd1235b",
+              "kind": "solidly",
+              "log_index": 320,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x6ed6df1c23c51cb7cc67a348cc8d9e6108ea3bfe",
+              "kind": "solidly",
+              "log_index": 325,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x58e6433a6903886e440ddf519ecc573c4046a6b2",
+              "kind": "solidly",
+              "log_index": 342,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x8134a2fdc127549480865fb8e5a9e8a8a95a54c5",
+              "kind": "solidly",
+              "log_index": 352,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x8134a2fdc127549480865fb8e5a9e8a8a95a54c5",
+              "kind": "solidly",
+              "log_index": 358,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xe148d6ae042de77c1f9fe0d6c495ebfd7b705b4c",
+              "kind": "solidly",
+              "log_index": 363,
+              "pool_id": null
+            }
+          ],
+          "events": 15,
+          "transaction_index": 28,
+          "tx_hash": "0x477a23d50148d15cc8e1c45662f0ef5aef669079006ed46272d5987091493641",
+          "types": {
+            "solidly": 14,
+            "v3": 1
+          }
+        },
+        {
+          "block_hash": "0xa21896340c38e6b09c607fb11864f81b21e740cf4e7ea2b3d3af21c5544682ad",
+          "block_number": 153836751,
+          "distinct_emitters": 12,
+          "distinct_logical_pools": 14,
+          "event_locations": [
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 194,
+              "pool_id": "0x51bf4cc5b8d9f7f759e41f572fe2a25bc2aeb42432bf12544a350595e5c8bb43"
+            },
+            {
+              "emitter": "0xf4f2657ae744354baca871e56775e5083f7276ab",
+              "kind": "solidly",
+              "log_index": 202,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x2b6b093a6c2aba51e078540ad89ed76a0c6716fa",
+              "kind": "v3",
+              "log_index": 203,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x4dbb2d7785654074c53c5a915126d3378446bd61",
+              "kind": "v3",
+              "log_index": 206,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x84ce89b4f6f67e523a81a82f9f2f14d84b726f6b",
+              "kind": "v3",
+              "log_index": 211,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 212,
+              "pool_id": "0xbc295c92f061ae7b7ddc10fecfa6a85e5bd79c0fa12f1791525528572d8364fa"
+            },
+            {
+              "emitter": "0x8b3c4271440bc98a085eb6b348243ed3679751a4",
+              "kind": "v3",
+              "log_index": 217,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x9a13f98cb987694c9f086b1f5eb990eea8264ec3",
+              "kind": "v4",
+              "log_index": 218,
+              "pool_id": "0xd7c8298e87d17dc31e6ac54ac72003f0a0f06fd05914a7e88c11489ff3c6cc2b"
+            },
+            {
+              "emitter": "0x1337bedc9d22ecbe766df105c9623922a27963ec",
+              "kind": "curve",
+              "log_index": 224,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x95d9d28606ee55de7667f0f176ebfc3215cfd9c0",
+              "kind": "v3",
+              "log_index": 227,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x1d72b49f81832ef8155d8dedfce9cd122367e3b3",
+              "kind": "v3",
+              "log_index": 230,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xc858a329bf053be78d6239c4a4343b8fbd21472b",
+              "kind": "v3",
+              "log_index": 233,
+              "pool_id": null
+            },
+            {
+              "emitter": "0xdd0c6bae8ad5998c358b823df15a2a4181da1b80",
+              "kind": "v3",
+              "log_index": 236,
+              "pool_id": null
+            },
+            {
+              "emitter": "0x6cfdebcc8bf2548967d4e02c058290634e4931d1",
+              "kind": "v3",
+              "log_index": 239,
+              "pool_id": null
+            }
+          ],
+          "events": 14,
+          "transaction_index": 47,
+          "tx_hash": "0xd416fb76cac059a137edb8e41eaf88bd23aa243ce0bb2416e2f3b56864562b0d",
+          "types": {
+            "curve": 1,
+            "solidly": 1,
+            "v3": 9,
+            "v4": 3
+          }
+        }
+      ],
+      "windows": [
+        {
+          "at_least_event_counts": {
+            "100": 0,
+            "20": 0,
+            "200": 0,
+            "50": 0
+          },
+          "blocks": 64,
+          "completed": true,
+          "first_boundary_utc": "2026-11-06T17:22:55+00:00",
+          "from_block": 159193499,
+          "last_boundary_utc": "2026-11-06T17:25:01+00:00",
+          "matched_logs": 175,
+          "matched_transactions": 92,
+          "to_block": 159193562
+        },
+        {
+          "at_least_event_counts": {
+            "100": 0,
+            "20": 0,
+            "200": 0,
+            "50": 0
+          },
+          "blocks": 64,
+          "completed": true,
+          "first_boundary_utc": "2026-09-08T17:22:55+00:00",
+          "from_block": 156644699,
+          "last_boundary_utc": "2026-09-08T17:25:01+00:00",
+          "matched_logs": 604,
+          "matched_transactions": 255,
+          "to_block": 156644762
+        },
+        {
+          "at_least_event_counts": {
+            "100": 0,
+            "20": 1,
+            "200": 0,
+            "50": 0
+          },
+          "blocks": 64,
+          "completed": true,
+          "first_boundary_utc": "2026-07-05T17:22:55+00:00",
+          "from_block": 153836699,
+          "last_boundary_utc": "2026-07-05T17:25:01+00:00",
+          "matched_logs": 1352,
+          "matched_transactions": 657,
+          "to_block": 153836762
+        },
+        {
+          "at_least_event_counts": {
+            "100": 0,
+            "20": 0,
+            "200": 0,
+            "50": 0
+          },
+          "blocks": 64,
+          "completed": true,
+          "first_boundary_utc": "2026-05-11T17:22:55+00:00",
+          "from_block": 151460699,
+          "last_boundary_utc": "2026-05-11T17:25:01+00:00",
+          "matched_logs": 69,
+          "matched_transactions": 49,
+          "to_block": 151460762
+        }
+      ],
+      "wires": [
+        {
+          "bytes": 3569,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:19.939332+00:00",
+          "http": 200,
+          "id": 1,
+          "label": "1-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "4d1e9c21f52f192796874485495ae7a0f6688630a0c770f5bbd6ca5861e7b482",
+          "response_sha256": "93cb2d68669c1376fb4442066b9ee00a37ff2c00a78240e1490e252a161e9a93",
+          "started_utc": "2026-11-27T15:33:19.438864+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 156509,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:20.430899+00:00",
+          "http": 200,
+          "id": 2,
+          "label": "1-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "999c9a1b14544d1d16eb815677f295c19405f00898ec5a6d76f1daa9ba928eaa",
+          "response_sha256": "bae4f2dcd2abacfc7907ed88c5d298863fd94d472d49e696fc8e7d154693e319",
+          "started_utc": "2026-11-27T15:33:19.941079+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 3431,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:21.173958+00:00",
+          "http": 200,
+          "id": 3,
+          "label": "1-last",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "6cf2ee61068295989adb0e21a859e0502c39e27a7dee42605362dcda5e5dbbb5",
+          "response_sha256": "c5409bb8375f422bd3b3550f56fc970642b8cad1893bf90edc5dd4599d43bf6a",
+          "started_utc": "2026-11-27T15:33:20.433308+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 3570,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:21.802987+00:00",
+          "http": 200,
+          "id": 4,
+          "label": "2-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "5faadad12da0d8243dce3081818def01a4183ff7568dfe93a7c15938af9523f3",
+          "response_sha256": "a9fa9680d3fac1533bc43c52c6edea48e05036f4b48dc755f5744cde3b90758d",
+          "started_utc": "2026-11-27T15:33:21.177830+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 526799,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:23.233067+00:00",
+          "http": 200,
+          "id": 5,
+          "label": "2-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "4c315f412d686670b9744acafaf72fa06305934ddd2c0d431b88590b54cb3a5a",
+          "response_sha256": "2031e101b31dcb04b860ca5f1e9d6ee7cd1350ea1b669c900b45d04afecc8262",
+          "started_utc": "2026-11-27T15:33:21.805439+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 5641,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:23.504815+00:00",
+          "http": 200,
+          "id": 6,
+          "label": "2-last",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "bde99ded58e87be2b8a70ee2cb0adff92048db2c93bd7f68e5450afe25aff291",
+          "response_sha256": "0d224ccb8cda64be825f87e0c6955b8691459431864555ed302be6dea450728f",
+          "started_utc": "2026-11-27T15:33:23.236801+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 15301,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:24.131719+00:00",
+          "http": 200,
+          "id": 7,
+          "label": "3-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "815889bbf58b95dd09d5870c8f0cac4b70c3f310ef3f13a23431498aa667b7f5",
+          "response_sha256": "4556579189ec1d8d734df3843d6bd9c462f895137feb049868a99fdd4bca5e8f",
+          "started_utc": "2026-11-27T15:33:23.570163+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 1194025,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:25.719575+00:00",
+          "http": 200,
+          "id": 8,
+          "label": "3-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "a2bd9650f932a5c4349853b73238d26d3c45ae4b331f295cfc9a00f67868467b",
+          "response_sha256": "a0331bf6aae60b82360041bd2704b4f3641a228caac62e8b8a46fdd6ac9f5069",
+          "started_utc": "2026-11-27T15:33:24.134012+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 4742,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:26.028537+00:00",
+          "http": 200,
+          "id": 9,
+          "label": "3-last",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "6db3f438e4ff5c2552adfc99f511c675af261483d7a7df254ca4d8c46c4c2c3b",
+          "response_sha256": "9fe214b65a6ec9418efebaf3bc7da3c6ef698f4d34c9fddc981dfb79ee668841",
+          "started_utc": "2026-11-27T15:33:25.727010+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 3225,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:26.553955+00:00",
+          "http": 200,
+          "id": 10,
+          "label": "4-first",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "95980b2763e52454fb77eac0a3695e4bb145cce3f6478142091a728d11b055c7",
+          "response_sha256": "b3ccb50065bee44fdd52209309cd3332565c8ed11ed68a68a22c25641586c29c",
+          "started_utc": "2026-11-27T15:33:26.068673+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 59985,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:27.039091+00:00",
+          "http": 200,
+          "id": 11,
+          "label": "4-logs",
+          "method": "eth_getLogs",
+          "request_sha256": "5b6ad96ce062195fd4f28bbee380a5e7729620ab7cc50936eee204c639633cc9",
+          "response_sha256": "e6e4bd0f7e5e771181cac65e8c28dff1a164f42d1b51fecc6996bd7ae4cb2f53",
+          "started_utc": "2026-11-27T15:33:26.556066+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        },
+        {
+          "bytes": 3570,
+          "error": null,
+          "finished_utc": "2026-11-27T15:33:27.356458+00:00",
+          "http": 200,
+          "id": 12,
+          "label": "4-last",
+          "method": "eth_getBlockByNumber",
+          "request_sha256": "cb00f9682916d15586ed447eae87a2b0af052286a2b3a85d098c36dce3a4aebb",
+          "response_sha256": "e3e0bcfe582ea561ae00d6dfbf370485c1821af0c55634c0257e8a88cb69b3ae",
+          "started_utc": "2026-11-27T15:33:27.054375+00:00",
+          "transport_error": null,
+          "url": "https://optimism.drpc.org"
+        }
+      ]
+    }
+  }
+}

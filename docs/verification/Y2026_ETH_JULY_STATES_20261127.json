@@ -1,0 +1,128 @@
+{
+  "child_time_delta_seconds": 12,
+  "envelope_sha256": "64791e7f148e2deee979ac25328447df4407943424230de1ceea37a0f0613927",
+  "original_nonce": 1557,
+  "schema": "oasis.y2026.july-historical-states.v1",
+  "scope_sha256": "5bf774694f243e7beb66ad1abae95d530301c528635b8fb70f9c24a54e574601",
+  "source": "https://eth.drpc.org",
+  "states": {
+    "block-end": {
+      "borrowed_wbtc_raw": null,
+      "direct_payment_wei": 0,
+      "frames": 19,
+      "gas": 938438,
+      "gas_charge_scenario_wei": 126489293381652,
+      "hash": "0x262e8514a900094f26ff6996507757ce6f1df2eff7c1f708414c2a3c04ffda17",
+      "height": 25584104,
+      "identical_landed_tree": false,
+      "index": null,
+      "original_nonce_already_consumed": true,
+      "repaid_wbtc_raw": null,
+      "root_error": "execution reverted",
+      "sender_eth_change_after_gas_scenario_wei": -126489293381652,
+      "wbtc_excess_sold_raw": null,
+      "wei_per_gas": 134787054,
+      "wire": {
+        "finished": "2026-11-27T15:42:22.309312+00:00",
+        "http": 200,
+        "request_sha256": "5c181d682bd25b6a0822ce7e901c73e36ece21b2e1b0c8e3ee56126280e9d2d0",
+        "response_sha256": "3aaacaf1f57f1e27d5cae87a5b0d1171641cb91882278287ee2fc565d68acb31",
+        "seq": 4,
+        "source": "https://eth.drpc.org",
+        "started": "2026-11-27T15:42:21.840735+00:00"
+      },
+      "wrapped_proceeds_wei": null
+    },
+    "child-end": {
+      "borrowed_wbtc_raw": 106420,
+      "direct_payment_wei": 10915532074525,
+      "frames": 83,
+      "gas": 1105977,
+      "gas_charge_scenario_wei": 149071381621758,
+      "hash": "0x6ca4eb6f75860826749ff03a97b345c28b8c058970236b27763618426062eeaf",
+      "height": 25584105,
+      "identical_landed_tree": false,
+      "index": null,
+      "original_nonce_already_consumed": true,
+      "repaid_wbtc_raw": 106420,
+      "root_error": null,
+      "sender_eth_change_after_gas_scenario_wei": 45035049559106,
+      "wbtc_excess_sold_raw": 596,
+      "wei_per_gas": 134787054,
+      "wire": {
+        "finished": "2026-11-27T15:42:22.749974+00:00",
+        "http": 200,
+        "request_sha256": "6983b3b275dce5d0f50e6fbfe63a0584b6633f2073c4e0f3bf30b84804bfc67d",
+        "response_sha256": "169dcb94896e2e8f31d58ddbe49a83508c3f85cf913e7d85cab34f9f3c458e95",
+        "seq": 5,
+        "source": "https://eth.drpc.org",
+        "started": "2026-11-27T15:42:22.310624+00:00"
+      },
+      "wrapped_proceeds_wei": 205021963255389
+    },
+    "landed-pre": {
+      "borrowed_wbtc_raw": 165208,
+      "direct_payment_wei": 106910328592926,
+      "frames": 83,
+      "gas": 1122840,
+      "gas_charge_scenario_wei": 151344295713360,
+      "hash": "0x262e8514a900094f26ff6996507757ce6f1df2eff7c1f708414c2a3c04ffda17",
+      "height": 25584104,
+      "identical_landed_tree": true,
+      "index": 122,
+      "original_nonce_already_consumed": false,
+      "repaid_wbtc_raw": 165208,
+      "root_error": null,
+      "sender_eth_change_after_gas_scenario_wei": 223460848653133,
+      "wbtc_excess_sold_raw": 1399,
+      "wei_per_gas": 134787054,
+      "wire": {
+        "finished": "2026-11-27T15:42:20.595353+00:00",
+        "http": 200,
+        "request_sha256": "8a7168b419d6719008569ac6dfb5ae0cfa040146a5487f811ef570412aa42b52",
+        "response_sha256": "58794c38c1bd144c1f50f0f414375baf4ed6e770b7032cf350b752f44317aebc",
+        "seq": 2,
+        "source": "https://eth.drpc.org",
+        "started": "2026-11-27T15:42:19.525806+00:00"
+      },
+      "wrapped_proceeds_wei": 481715472959419
+    },
+    "one-earlier": {
+      "borrowed_wbtc_raw": 165208,
+      "direct_payment_wei": 106910328592926,
+      "frames": 83,
+      "gas": 1122840,
+      "gas_charge_scenario_wei": 151344295713360,
+      "hash": "0x262e8514a900094f26ff6996507757ce6f1df2eff7c1f708414c2a3c04ffda17",
+      "height": 25584104,
+      "identical_landed_tree": true,
+      "index": 121,
+      "original_nonce_already_consumed": false,
+      "repaid_wbtc_raw": 165208,
+      "root_error": null,
+      "sender_eth_change_after_gas_scenario_wei": 223460848653133,
+      "wbtc_excess_sold_raw": 1399,
+      "wei_per_gas": 134787054,
+      "wire": {
+        "finished": "2026-11-27T15:42:21.838658+00:00",
+        "http": 200,
+        "request_sha256": "489d737dc6835b41f7733e334b07515da08a98716f7cda4e5ab62a2d26951315",
+        "response_sha256": "733d68d20ec3327aa98d8b27cf4826380d350f050ca3e7604ba349a18cbc04d5",
+        "seq": 3,
+        "source": "https://eth.drpc.org",
+        "started": "2026-11-27T15:42:20.597117+00:00"
+      },
+      "wrapped_proceeds_wei": 481715472959419
+    }
+  },
+  "stop": {
+    "error": null,
+    "finished": "2026-11-27T15:42:22.750553+00:00",
+    "scope": "5bf774694f243e7beb66ad1abae95d530301c528635b8fb70f9c24a54e574601",
+    "usage": {
+      "trace": 5
+    }
+  },
+  "tx": "0x407603f5cc76266a81b2a120a43ac3969e86a421ddbe8918778d3c0b7b91b788",
+  "usd": 0
+}
