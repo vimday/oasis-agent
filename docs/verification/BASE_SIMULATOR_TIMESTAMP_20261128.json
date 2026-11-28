@@ -1,0 +1,59 @@
+{
+  "chain_id": 8453,
+  "fixed_envelope": [
+    {
+      "proof": {
+        "received_ns": 1433448826069875,
+        "request_sha256": "79b0116b0c0f0a1fbba771e916128b54ef490a388da4c7f28ee4d90de729eb12",
+        "response_sha256": "d91dfb45f4142dc781090d15f8c014cd4726e1b26c74a6ab44fd26d12ab5e4d2",
+        "retrieved_unix_ns": 1795834291304629000,
+        "sent_ns": 1433448793010958,
+        "status": 200
+      },
+      "result": {
+        "chain_fee_scenario_wei": 2113032767108,
+        "charged_fee_in_settlement_smallest_units": 2113032767108,
+        "conditional_net_raw": 1628286212161,
+        "conversion_basis": "ETH and WETH par",
+        "final_received_raw": 67284190259874398,
+        "gas_used": 300733,
+        "l2_wei": 2106508958606,
+        "middle_raw": 112289127,
+        "payment_log_indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "principal_raw": 67280448940895129,
+        "settlement_delta_raw": 3741318979269,
+        "simulated_base_fee": 5004582,
+        "status": "settled"
+      },
+      "timestamp": "0x6b09b85f"
+    },
+    {
+      "proof": {
+        "received_ns": 1433448827681125,
+        "request_sha256": "a90c842955a33748a5edf311f2bb0d92070c23699fa57634277893ca541bae8d",
+        "response_sha256": "70ace0c242a267d41964e2c49b95857f0f94efb2456aea3f50662a2ce407b4e6",
+        "retrieved_unix_ns": 1795834291306142000,
+        "sent_ns": 1433448826642250,
+        "status": 200
+      },
+      "rpc_error": {
+        "code": -38021,
+        "message": "block timestamps must be in order: 1795799123 <= 1795799123"
+      }
+    }
+  ],
+  "fork_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+  "fork_height": 63043739,
+  "original_scope_sha256": "f141da3209c4639a0e26c83e9dcf92cc4604c44aff39e7b6d9f64dc8dc4b228c",
+  "public_gas_used": 293025,
+  "public_timestamp": "0x6b09b853",
+  "reference_public_response_sha256": "5a35beb8aa0abf990d6aed4a61c5fa2a48b7def80241348f19818658636e7e8e",
+  "upstream_requests": 0
+}

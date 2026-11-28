@@ -1,0 +1,132 @@
+{
+  "scope_sha256": "083b0e4ff4caf6b9c2bcf2cc1dfa27f9d900936190a04690bc06682441c780cf",
+  "sources": {
+    "alchemy_public": {
+      "exchanges": [
+        {
+          "elapsed_ns": 334461708,
+          "method": "eth_chainId",
+          "received_ns": 1432929526435708,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "395c4282d446999297cdcba9e50c3df13687008bc4eecc206a5d616be7f6d227",
+          "retrieved_unix_ns": 1795833772005629000,
+          "sent_ns": 1432929191974000,
+          "status": 200
+        },
+        {
+          "elapsed_ns": 104834959,
+          "method": "eth_simulateV1",
+          "received_ns": 1432929635688625,
+          "request_sha256": "e31c8dc3026a93a64ea688f9f608cebe7e7a41f665c5dc48553971ea30103223",
+          "response_sha256": "0721e536fd0dc1b40616b6dd82ca9a873ee43dbdce8e9856765843a4a6b90ef9",
+          "retrieved_unix_ns": 1795833772115308000,
+          "sent_ns": 1432929530853666,
+          "status": 401
+        }
+      ],
+      "reason": "HTTP refusal 401",
+      "rpc_reservations": 2,
+      "same_gas_as_prior_official": null,
+      "whole": null
+    },
+    "drpc": {
+      "exchanges": [
+        {
+          "elapsed_ns": 341068542,
+          "method": "eth_chainId",
+          "received_ns": 1432929532899958,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "603e6c54211eac5fb5f3133ce0c8d52b375c58dcdfd80b3a3cea9d9b58b64a85",
+          "retrieved_unix_ns": 1795833772011289000,
+          "sent_ns": 1432929191831416,
+          "status": 200
+        },
+        {
+          "elapsed_ns": 372293250,
+          "method": "eth_simulateV1",
+          "received_ns": 1432929907158625,
+          "request_sha256": "e31c8dc3026a93a64ea688f9f608cebe7e7a41f665c5dc48553971ea30103223",
+          "response_sha256": "778350ad17a234d2bde406de5022727a3ab2dd4093ddb9682b06e49c9d96ef57",
+          "retrieved_unix_ns": 1795833772386460000,
+          "sent_ns": 1432929534865375,
+          "status": 200
+        }
+      ],
+      "reason": null,
+      "rpc_reservations": 2,
+      "same_gas_as_prior_official": true,
+      "whole": {
+        "chain_fee_scenario_wei": 2059041449052,
+        "charged_fee_in_settlement_smallest_units": 2059041449052,
+        "conditional_net_raw": 1682277530217,
+        "conversion_basis": "ETH and WETH par",
+        "final_received_raw": 67284190259874398,
+        "gas_used": 293025,
+        "l2_wei": 2052517640550,
+        "middle_raw": 112289127,
+        "payment_log_indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "principal_raw": 67280448940895129,
+        "settlement_delta_raw": 3741318979269,
+        "simulated_base_fee": 5004582,
+        "status": "settled"
+      }
+    },
+    "official": {
+      "exchanges": [
+        {
+          "elapsed_ns": 472982083,
+          "method": "eth_chainId",
+          "received_ns": 1432929664446208,
+          "request_sha256": "7cd718c15e7d48ea187956a752c86b96515cded0520142627ba5da9729233bee",
+          "response_sha256": "395c4282d446999297cdcba9e50c3df13687008bc4eecc206a5d616be7f6d227",
+          "retrieved_unix_ns": 1795833772143351000,
+          "sent_ns": 1432929191464125,
+          "status": 200
+        },
+        {
+          "elapsed_ns": 328584250,
+          "method": "eth_simulateV1",
+          "received_ns": 1432929996510750,
+          "request_sha256": "e31c8dc3026a93a64ea688f9f608cebe7e7a41f665c5dc48553971ea30103223",
+          "response_sha256": "5a35beb8aa0abf990d6aed4a61c5fa2a48b7def80241348f19818658636e7e8e",
+          "retrieved_unix_ns": 1795833772476263000,
+          "sent_ns": 1432929667926500,
+          "status": 200
+        }
+      ],
+      "reason": null,
+      "rpc_reservations": 2,
+      "same_gas_as_prior_official": true,
+      "whole": {
+        "chain_fee_scenario_wei": 2059041449052,
+        "charged_fee_in_settlement_smallest_units": 2059041449052,
+        "conditional_net_raw": 1682277530217,
+        "conversion_basis": "ETH and WETH par",
+        "final_received_raw": 67284190259874398,
+        "gas_used": 293025,
+        "l2_wei": 2052517640550,
+        "middle_raw": 112289127,
+        "payment_log_indices": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          7
+        ],
+        "principal_raw": 67280448940895129,
+        "settlement_delta_raw": 3741318979269,
+        "simulated_base_fee": 5004582,
+        "status": "settled"
+      }
+    }
+  },
+  "usd": 0
+}

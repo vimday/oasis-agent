@@ -1,0 +1,371 @@
+{
+  "actual_paid_wei": null,
+  "fault": null,
+  "http_counts": {
+    "drpc": 5,
+    "official": 5,
+    "state": 5
+  },
+  "rows": [
+    {
+      "child_height": 63217825,
+      "fee_proof": {
+        "received_ns": 1433098104712250,
+        "request_sha256": "9110401c69534aa620a3aa21e816fd32083fe6742d65405939a9f92311cf6411",
+        "response_sha256": "7c7986f22d64964ff435d793e41a0991619f7bec74230574e6501f3b6cb5572c",
+        "retrieved_unix_ns": 1795833940583860000,
+        "sent_ns": 1433097973979375,
+        "status": 200
+      },
+      "hash": "0x21e4bd1779289af3328341edee608490bffb803469deaebc8cac7548baaa097b",
+      "height": 63217824,
+      "lanes": {
+        "drpc": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433098258903500,
+            "request_sha256": "5bec99398c268dda5b303b9d332ac641658a981d4706019800d4d89ab01a9a3c",
+            "response_sha256": "3f7b63324afcc82985f801139be416743869a4b3e005a7be2f2b521880bfe567",
+            "retrieved_unix_ns": 1795833940737813000,
+            "sent_ns": 1433097970901666,
+            "status": 200
+          },
+          "ready_from_head_ns": 295854250,
+          "request_from_head_ns": 7852416,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 288001834
+        },
+        "official": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433098222855083,
+            "request_sha256": "5bec99398c268dda5b303b9d332ac641658a981d4706019800d4d89ab01a9a3c",
+            "response_sha256": "f6199966d75aa5f5c02e075f334fec3caf7c1bccc6a7b8e12283b131c8a5ed84",
+            "retrieved_unix_ns": 1795833940702003000,
+            "sent_ns": 1433097971810125,
+            "status": 200
+          },
+          "ready_from_head_ns": 259805833,
+          "request_from_head_ns": 8760875,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 251044958
+        }
+      },
+      "observed_child_gap_ns": 216746916,
+      "whole_cash_parity": true
+    },
+    {
+      "child_height": 63217829,
+      "fee_proof": {
+        "received_ns": 1433098908405083,
+        "request_sha256": "c82ae62cb10a0cbaba1393b06fffe5d0a10a0e4e43a012adde9f76cdc5a77aba",
+        "response_sha256": "0ed157b7eb06f8d315f6dd35ce745742a4bc6c605ce48bc4274483efa91af3e5",
+        "retrieved_unix_ns": 1795833941387673000,
+        "sent_ns": 1433098783138500,
+        "status": 200
+      },
+      "hash": "0xf130ba0400d283defe7ca5eaa4e7f520e2ffbfe991474cf6ebba46af7e94ff05",
+      "height": 63217828,
+      "lanes": {
+        "drpc": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433099134711666,
+            "request_sha256": "173d19561ec10f4dc4a58d546651aa1ecff960ce311b76aad65778f7d2568a88",
+            "response_sha256": "07fdca602bbbf3e5812b85e45fe603252268dda7861f0ce2ab79604b97c84059",
+            "retrieved_unix_ns": 1795833941613414000,
+            "sent_ns": 1433098783873125,
+            "status": 200
+          },
+          "ready_from_head_ns": 358677875,
+          "request_from_head_ns": 7839334,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 350838541
+        },
+        "official": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433099044505333,
+            "request_sha256": "173d19561ec10f4dc4a58d546651aa1ecff960ce311b76aad65778f7d2568a88",
+            "response_sha256": "bcaa0e8a65fe930f904bd69eceebd983d9a6dd17bc7ecf5cefac91d8793352d8",
+            "retrieved_unix_ns": 1795833941523642000,
+            "sent_ns": 1433098785801875,
+            "status": 200
+          },
+          "ready_from_head_ns": 268471542,
+          "request_from_head_ns": 9768084,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 258703458
+        }
+      },
+      "observed_child_gap_ns": 197387417,
+      "whole_cash_parity": true
+    },
+    {
+      "child_height": 63217833,
+      "fee_proof": {
+        "received_ns": 1433099693845875,
+        "request_sha256": "fd9c06c71b868ca9c672cc80b7a9e53dee35f48e9f1da992b59e5fe0db4128ee",
+        "response_sha256": "6938fb3d07ef070cc050ab8047149fbe17eecae9e7ce5411b4a954d085787e8c",
+        "retrieved_unix_ns": 1795833942173321000,
+        "sent_ns": 1433099561158125,
+        "status": 200
+      },
+      "hash": "0xe10fa37088c43e8d9f6f93e3494ec279f738e1362f2e6e15a7f828666ebf1ccd",
+      "height": 63217832,
+      "lanes": {
+        "drpc": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433099914483291,
+            "request_sha256": "89646bdc19def1555a454742eb0d2b69fc92a003972a71df34abd4cd3351d5c4",
+            "response_sha256": "17fbc3b0609da9908804a31fda704e0b5a58a5cebda3f42be7d21b551b400b9c",
+            "retrieved_unix_ns": 1795833942393634000,
+            "sent_ns": 1433099564561625,
+            "status": 200
+          },
+          "ready_from_head_ns": 359518708,
+          "request_from_head_ns": 9597042,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 349921666
+        },
+        "official": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433099813905333,
+            "request_sha256": "89646bdc19def1555a454742eb0d2b69fc92a003972a71df34abd4cd3351d5c4",
+            "response_sha256": "c259b471ded0b5d067bf3f5e6074872fcb021c8c4595fa4b842a7a603151fd47",
+            "retrieved_unix_ns": 1795833942293338000,
+            "sent_ns": 1433099562447000,
+            "status": 200
+          },
+          "ready_from_head_ns": 258940750,
+          "request_from_head_ns": 7482417,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 251458333
+        }
+      },
+      "observed_child_gap_ns": 197379875,
+      "whole_cash_parity": true
+    },
+    {
+      "child_height": 63217837,
+      "fee_proof": {
+        "received_ns": 1433100461223041,
+        "request_sha256": "b58ed13551c222e727e2bebabcd3e284cb8076f435b7c385a7c5853ee681328b",
+        "response_sha256": "b365072567d8b11a26cf368cc4e872b8d394bd91fa2d5198012c6d488ef57897",
+        "retrieved_unix_ns": 1795833942939996000,
+        "sent_ns": 1433100341788333,
+        "status": 200
+      },
+      "hash": "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+      "height": 63217836,
+      "lanes": {
+        "drpc": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433100685454000,
+            "request_sha256": "e171560aa21464c18e51d3b50e46be645127ca2fd816e3f73c786803141cbbc6",
+            "response_sha256": "a88b4ddd27d57d2874b7cf38bb700e9cbd6058462590ad66733af8ce9ff0d19b",
+            "retrieved_unix_ns": 1795833943164637000,
+            "sent_ns": 1433100344203750,
+            "status": 200
+          },
+          "ready_from_head_ns": 351186375,
+          "request_from_head_ns": 9936125,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 341250250
+        },
+        "official": {
+          "available_before_child": false,
+          "proof": {
+            "received_ns": 1433100596850166,
+            "request_sha256": "e171560aa21464c18e51d3b50e46be645127ca2fd816e3f73c786803141cbbc6",
+            "response_sha256": "4783f0149e9aed3fe8807bcdfc0a9ec1aa59627b6160003ff96e45e153d064db",
+            "retrieved_unix_ns": 1795833943076004000,
+            "sent_ns": 1433100340389000,
+            "status": 200
+          },
+          "ready_from_head_ns": 262582541,
+          "request_from_head_ns": 6121375,
+          "whole": {
+            "chain_fee_scenario_wei": 2109118157795,
+            "charged_fee_in_settlement_smallest_units": 2109118157795,
+            "conditional_net_raw": -22401040569431,
+            "conversion_basis": "ETH and WETH par",
+            "final_received_raw": 67260157018483493,
+            "gas_used": 301204,
+            "l2_wei": 2108428000000,
+            "middle_raw": 111849570,
+            "payment_log_indices": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              7
+            ],
+            "principal_raw": 67280448940895129,
+            "settlement_delta_raw": -20291922411636,
+            "simulated_base_fee": 5000000,
+            "status": "settled"
+          },
+          "whole_wire_ns": 256461166
+        }
+      },
+      "observed_child_gap_ns": 217260916,
+      "whole_cash_parity": true
+    }
+  ],
+  "scope_sha256": "d0c22d5623f6fae770f238cb1a84f94762feb05bde118a6dd9e481cb65a2baa8",
+  "ws_counts": {
+    "publicnode_newheads": 3
+  }
+}
