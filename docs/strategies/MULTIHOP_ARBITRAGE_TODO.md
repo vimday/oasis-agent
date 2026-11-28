@@ -16,7 +16,11 @@
 - [x] Aleph 上 Base Reth 创世对照的原始响应返回精确父哈希和下一高度。近期同秒及跨秒对照所需的规范状态仍缺。[Reth 诊断和原生响应](../verification/BASE_RETH_PARENT_20261128.md)
 - [x] 合并两段报价与费用，四组同状态对照节省 479–534 ms。四段免费新窗的 68 个采样头中，58 个在直接子头前取得报价与费用。1,104 个完整报价中零个毛差为正，另 936 个计划点缺完整报价，H/K/C 自然正例仍空。[合并与自然窗](../verification/BASE_BATCHED_NATURAL_20261128.md)
 - [x] BSC 十二环的最终原生付款和收款方余额已核，补计后条件净额为 52,205,937,381,133 wei。Era 此前缺失的 27 份收据全部双源复核。另在 Ethereum、Optimism、Arbitrum 筛 1,296 块并修复 Arbitrum 类型 4 收据根验证。[BSC 与 Era](../verification/Y2026_BSC_ERA_FOLLOWUP_20261128.md) · [跨链扩样](../verification/Y2026_MULTIHOP_NEXT_20261128.md)
-- [ ] 验证 Aleph 上 Reth 可以访问的近期规范状态，检查整笔响应实际父哈希、到账及费用上下文。补测六池样本的缺报价，保留 4／58／66 池覆盖对照并扩展不同币对。对自然候选按固定包络登记发现、整笔回包和直接子块净额，纳入回滚、空跑和未完成报价的分母。
+- [x] 原 68 头上的 936 个缺报价点已全部按原本金和协议全价域补齐，均无毛差正例。两池在默认范围的 200 万 gas 会耗尽，全范围逐腿上限提高后核出远端流动性及实际输出。[失败原因](../verification/BASE_CL_COVERAGE_20261128.md) · [936 点完整复算](../verification/BASE_CL_TAIL_DEPTH_20261128.md)
+- [x] 新窗扩到 WETH/USDC、WETH/cbBTC 和 WETH/AERO 共 13 池，原缺报价补齐后再冻独立重复窗。136 个采样头完成 1,464/2,196 点，零自然正点，新增币对的两个历史整笔负控双源一致。[新币对与整笔负控](../verification/BASE_CL_EXPANDED_20261128.md)
+- [x] 公共 Base Reth 及 dRPC 对真实近期同秒成交与跨秒回滚逐项验收父哈希、到账、gas。Aleph 的近期规范状态仍缺。[真实交易 Reth 对照](../verification/BASE_RETH_DENIM_RECENT_20261128.md)
+- [x] BSC 收款归属核至 48 Club Puissant Builder。Era 七个 WETH 环核对原生扣费与整块边界状态，另一个 USDC.e 三跳量出变现费用门槛。Robinhood 和 Gnosis 新筛 1,000 块并重建 12 个样本的收据根。[构块及变现](../verification/Y2026_BSC_ERA_COSTS_20261128.md) · [Robinhood／Gnosis](../verification/Y2026_MULTIHOP_LATE_20261128.md)
+- [ ] 取得 Aleph 上可用的近期规范状态，独立复核同秒及跨秒整笔响应。保留 4／58／66 池覆盖对照，把有界实时缺报价交给全价域补价并分别记录交付时钟，按固定本金记录自然正例发现、回包和直接子块的净额。
 
 
 ### 2026-11-28 · 上一块和同头决策

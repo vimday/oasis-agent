@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 28 日，Base 复现两池在有限 gas 的回滚，并在协议全价域补齐原 936 个缺报价，均无正毛差。三个币对的两轮新窗完成 1,464/2,196 点，零自然正例。公共 Base Reth 和 dRPC 的两个近期父子块对照匹配真实 gas 和到账，Aleph 上的近期规范状态仍缺。[缺报价恢复](verification/BASE_CL_TAIL_DEPTH_20261128.md) · [三个币对](verification/BASE_CL_EXPANDED_20261128.md) · [Reth 响应](verification/BASE_RETH_DENIM_RECENT_20261128.md)
+- 11 月 28 日，BSC 十二环的付款核至 48 Club Puissant 收款账户。Era 补八笔成本与两个池的变现报价，七个区块 28 项账户资产差精确匹配。Robinhood 和 Gnosis 新筛 1,000 块、510 笔候选，重建 12 个样本收据根。[BSC／Era 成本](verification/Y2026_BSC_ERA_COSTS_20261128.md) · [新成交](verification/Y2026_MULTIHOP_LATE_20261128.md)
 - 11 月 28 日，Base 两段报价和费用合并成一次只读请求，四组同状态对照到账及费用一致，省 479–534 ms。六池新窗有 58/68 个采样头及时取得报价及费用，1,104 个完整报价零毛差正例。Aleph 上 Base Reth 创世响应已核父哈希，近期规范状态仍缺。[合并与新窗](verification/BASE_BATCHED_NATURAL_20261128.md) · [Reth 响应](verification/BASE_RETH_PARENT_20261128.md)
 - 11 月 28 日，BSC 十二环补扣最终原生付款，条件净额为 52,205,937,381,133 wei。Era 27 份缺失收据已全部双源补齐。另筛 Ethereum、Optimism、Arbitrum 1,296 块并核对 Arbitrum 类型 4 收据根。[BSC／Era](verification/Y2026_BSC_ERA_FOLLOWUP_20261128.md) · [新样本与类型支持](verification/Y2026_MULTIHOP_NEXT_20261128.md)
 - 11 月 28 日，在 Aleph 复核 Base Denim 同秒及跨秒父子块。EVM 探针读到规范父哈希，两组实际到账和 gas 与公开源一致，Base Anvil 的外层响应父哈希仍为零。[原生执行两组对照](verification/BASE_DENIM_NATIVE_ALEPH_20261128.md)
