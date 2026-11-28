@@ -24,7 +24,6 @@ from websockets.sync.client import connect
 
 from oasis_agent.fastpath.base_log_state import (
     CONFIRM_LAG,
-    V3_FEE_SPACING,
     BaseLogState,
     ClDepth,
     LogStateError,
@@ -77,12 +76,14 @@ SLOT0 = _selector("slot0()")
 LIQ = _selector("liquidity()")
 FEE = _selector("fee()")
 SPACING = _selector("tickSpacing()")
+FEE_TIER = _selector("feeAmountTickSpacing(uint24)")
 RESERVES = _selector("getReserves()")
 BITMAP = _selector("tickBitmap(int16)")
 TICKS = _selector("ticks(int24)")
 HALF_WORDS = 1  # bitmap words read on each side of the active word
 TICKS_PER_SIDE = 16  # nearest initialized ticks kept on each side of the active tick
-MAX_DEPTH_TICKS = 1_600
+MAX_DEPTH_TICKS = 8_000
+DEPTH_CHUNK = 1_400  # PublicNode returned 1.15 MB for 1,385 ticks; stay near that size
 # Uniswap V3 Tick.Info: gross, net, feeGrowth0/1, tickCumulative, secondsPerLiquidity,
 # secondsOutside, initialized. Slipstream adds stakedLiquidityNet and rewardGrowthOutside.
 V3_TICK_TYPES = (
@@ -115,8 +116,8 @@ def policies(heads: int) -> tuple[BudgetPolicy, ...]:
     audits = heads // AUDIT_EVERY + 2
     return (
         BudgetPolicy("ws", 4, 0),
-        BudgetPolicy("seed", 3, 250),
-        BudgetPolicy("audit", 3 * audits, 250),
+        BudgetPolicy("seed", 10, 250),
+        BudgetPolicy("audit", 9 * audits, 250),
         BudgetPolicy("fee", heads // FEE_EVERY + 4, 250),
     )
 
@@ -174,6 +175,10 @@ def pinned_read(
             calls.extend(
                 (spec.pool_id, False, bytes.fromhex(sel[2:])) for sel in (SLOT0, LIQ, FEE, SPACING)
             )
+            if spec.kind == PoolKind.V3:
+                # The factory, not a hard-coded table, defines enabled fee tiers on Base.
+                tier = bytes.fromhex(FEE_TIER[2:]) + encode(["uint24"], [spec.fixed_fee_pips])
+                calls.append((spec.factory, False, tier))
         else:
             calls.append((spec.pool_id, False, bytes.fromhex(RESERVES[2:])))
             fee_cd = bytes.fromhex(GET_FEE[2:]) + encode(["address", "bool"], [spec.pool_id, False])
@@ -209,8 +214,10 @@ def pinned_read(
             liq = decode_liquidity_word(results[start + 1][1])
             fee = decode_slipstream_fee_pips(results[start + 2][1])
             (spacing,) = decode(["int24"], results[start + 3][1])
-            if spec.kind == PoolKind.V3 and V3_FEE_SPACING.get(fee) != spacing:
-                raise RuntimeError(f"{spec.label} fee/spacing mismatch")
+            if spec.kind == PoolKind.V3:
+                (tier_spacing,) = decode(["int24"], results[start + 4][1])
+                if fee != spec.fixed_fee_pips or tier_spacing != spacing:
+                    raise RuntimeError(f"{spec.label} fee tier disagrees with its factory")
             if spec.tick_spacing is not None and spec.tick_spacing != spacing:
                 raise RuntimeError(f"{spec.label} spacing changed")
             node = cl_interval_node(
@@ -285,7 +292,9 @@ def depth_read(
                 tick_calls.append((key, False, bytes.fromhex(TICKS[2:]) + encode(["int24"], [t])))
     if len(tick_calls) > MAX_DEPTH_TICKS:
         raise RuntimeError(f"depth read would need {len(tick_calls)} tick calls")
-    values = _multicall(lane, tick_calls, block_hash) if tick_calls else []
+    values: list[bytes] = []
+    for start in range(0, len(tick_calls), DEPTH_CHUNK):
+        values.extend(_multicall(lane, tick_calls[start : start + DEPTH_CHUNK], block_hash))
     nets: dict[str, dict[int, int]] = {key: {} for key in windows}
     for (key, tick), raw in zip(owners, values, strict=True):
         types = V3_TICK_TYPES if nodes[key].kind == PoolKind.V3 else SLIPSTREAM_TICK_TYPES
@@ -454,13 +463,42 @@ def main() -> None:
     parser.add_argument("root", type=Path)
     parser.add_argument("--heads", type=int, default=300)
     parser.add_argument("--depth", action="store_true", help="model CL tick windows from logs")
+    parser.add_argument("--roster", type=Path, default=ROSTER, help="frozen or verified roster")
     args = parser.parse_args()
     root: Path = args.root
     (root / "rpc").mkdir(parents=True)
     pol = policies(args.heads)
     with RpcBudget(root / "original.sqlite3", pol):
         pass
-    specs = address_roster(json.loads(ROSTER.read_bytes())["pool_specs"])
+    roster_path: Path = args.roster
+    roster_raw = json.loads(roster_path.read_bytes())
+    if roster_path == ROSTER:
+        specs = address_roster(roster_raw["pool_specs"])
+    else:
+        if roster_raw.get("base_roster_sha256") != sha256_hex(ROSTER.read_bytes()):
+            raise RuntimeError("expanded roster is not built on the frozen 58-pool roster")
+        base = address_roster(roster_raw["pool_specs"][:58])
+        extra = tuple(
+            DiscoveredPool(
+                pool_id=row["pool_id"],
+                label=row["label"],
+                venue=row["venue"],
+                kind=PoolKind(row["kind"]),
+                token0=row["token0"],
+                token1=row["token1"],
+                decimals0=row["decimals0"],
+                decimals1=row["decimals1"],
+                fixed_fee_pips=row["fixed_fee_pips"],
+                tick_spacing=row["tick_spacing"],
+                factory=row["factory"],
+                reserve0=row["reserve0"],
+                reserve1=row["reserve1"],
+            )
+            for row in roster_raw["pool_specs"][58:]
+        )
+        specs = base + extra
+        if len({spec.pool_id for spec in specs}) != len(specs):
+            raise RuntimeError("expanded roster repeats a pool")
     plan = {
         "schema": "oasis.base-log-state-shadow.v1",
         "chain_id": 8453,
@@ -471,7 +509,9 @@ def main() -> None:
         "heads": args.heads,
         "audit_every": AUDIT_EVERY,
         "settle_ms": SETTLE_NS // 10**6,
-        "roster_sha256": sha256_hex(ROSTER.read_bytes()),
+        "roster": str(roster_path),
+        "roster_sha256": sha256_hex(roster_path.read_bytes()),
+        "pools": len(specs),
         "driver_sha256": sha256_hex(Path(__file__).read_bytes()),
         "budgets": {p.source: p.max_requests for p in pol},
         "model": (
@@ -539,6 +579,7 @@ def main() -> None:
             graph_nodes = dict(nodes)
             state_depths_at: dict[int, dict[str, ClDepth]] = {}
             seed_ready_ns = time.monotonic_ns()
+            backlog_cleared_ns = [1 << 63]  # first time the queue was empty after the seed
             fees = {k: n.fee_pips for k, n in nodes.items()}
             fee_height = [seed_head.height]
             fee_events: list[dict[str, object]] = []
@@ -739,6 +780,8 @@ def main() -> None:
                     raise RuntimeError("event stream stalled") from None
                 if kind == "error":
                     raise RuntimeError(result)
+                if backlog_cleared_ns[0] == 1 << 63 and events.empty():
+                    backlog_cleared_ns[0] = time.monotonic_ns()
                 if kind == "log":
                     log = decode_stream_log(result, received)
                     if state.on_log(log):
@@ -784,6 +827,8 @@ def main() -> None:
                             == final_logs,
                             "logs_out_of_order": report.logs_out_of_order,
                             "head_before_seed_ready": report.head_received_ns < seed_ready_ns,
+                            "startup_backlog": block_scans[0]["start_after_head_ns"] > 150_000_000
+                            and report.head_received_ns < backlog_cleared_ns[0],
                             "scans": block_scans,
                         }
                     )

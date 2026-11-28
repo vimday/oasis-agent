@@ -79,6 +79,7 @@
 
 ## 证据导航
 
+- 11 月 29 日，经工厂 `getPool` 反查核验了 286 个有成交的 Base 池，把日志状态扩到 201 池。300 头窗口 18 次对账零差异，首扫 260/281 先于子头。本地首次出现 53 个正候选，在新的固定块上用真实池 `swap` 复核，逐跳输出一致，两个方向毛差均为负，没有可执行机会。[扩池与复核](verification/BASE_LOG_STATE_EXPANDED_20261129.md)
 - 11 月 29 日，Base 改用一次按块哈希固定的种子读取，之后靠 WebSocket 日志推进 58 池状态，47 个 CL 池的 1,385 个已初始化 tick 也由日志维护。稳态 294 块中 292 块的首次本地扫描先于直接子头完成，p50 34.8 ms。18 次官方节点独立对账，价格和深度零差异。自然正候选为零。[日志推进与直接子头前发现](verification/BASE_LOG_STATE_SHADOW_20261129.md)
 - 11 月 28 日，Base 复现两池在有限 gas 的回滚，并在协议全价域补齐原 936 个缺报价，均无正毛差。三个币对的两轮新窗完成 1,464/2,196 点，零自然正例。公共 Base Reth 和 dRPC 的两个近期父子块对照匹配真实 gas 和到账，Aleph 上的近期规范状态仍缺。[缺报价恢复](verification/BASE_CL_TAIL_DEPTH_20261128.md) · [三个币对](verification/BASE_CL_EXPANDED_20261128.md) · [Reth 响应](verification/BASE_RETH_DENIM_RECENT_20261128.md)
 - 11 月 28 日，BSC 十二环的付款核至 48 Club Puissant 收款账户。Era 补八笔成本与两个池的变现报价，七个区块 28 项账户资产差精确匹配。Robinhood 和 Gnosis 新筛 1,000 块、510 笔候选，重建 12 个样本收据根。[BSC／Era 成本](verification/Y2026_BSC_ERA_COSTS_20261128.md) · [新成交](verification/Y2026_MULTIHOP_LATE_20261128.md)
