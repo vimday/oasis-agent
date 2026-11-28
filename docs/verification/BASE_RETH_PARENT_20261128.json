@@ -1,0 +1,91 @@
+{
+  "schema": "oasis.base-reth-parent-diagnostic.v1",
+  "chain_id": 8453,
+  "run_date_shanghai": "2026-11-28",
+  "host": "Aleph",
+  "release": {
+    "name": "base-reth-node-v1.5.6-x86_64-unknown-linux-gnu.tar.gz",
+    "tag": "v1.5.6",
+    "asset_id": 765302916,
+    "size_bytes": 43354023,
+    "release_sha256": "1342108c0660e91ecd460dc88b144816e8e188045f5dd25c83e00a27b5927469",
+    "extracted_binary_sha256": "ea1d85e687336851141c0da42c34309740dc9fa118537d5e4a538e1f1649ff94",
+    "version_stdout": "base-reth-node 1.5.6",
+    "version_exit_code": 0,
+    "cli_help_exit_code": 0
+  },
+  "attempt": {
+    "first_download_exit_code": 28,
+    "first_download_bytes": 21315653,
+    "resumed_archive_sha256_verified": true,
+    "loopback_diagnostic_exit_code": 1,
+    "stop_reason": "RuntimeError: isolated Base Reth did not respond",
+    "loopback_diagnostic_same_second_ready": false,
+    "loopback_diagnostic_cross_second_started": false,
+    "simulations_with_responses": 0,
+    "historical_simulations_on_canonical_state": 0,
+    "public_chain_rpc_requests": 0,
+    "public_chain_rpc_spend_usd": 0
+  },
+  "historical_targets": {
+    "same_second": {
+      "parent_number": 63043739,
+      "parent_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "observed_base_reth_parent_hash": null,
+      "observed_base_reth_gas": null,
+      "observed_base_reth_return_wei": null
+    },
+    "cross_second": {
+      "parent_number": 63217836,
+      "parent_hash": "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+      "observed_base_reth_parent_hash": null,
+      "observed_base_reth_gas": null,
+      "observed_base_reth_return_wei": null
+    }
+  },
+  "retained": {
+    "aleph_directory": "/tmp/oasis-base-reth-v156.VVusrc/",
+    "aleph_diagnostics": [
+      "node.help",
+      "init-state.help",
+      "same-node.log"
+    ],
+    "local_directory": "reports/research/base-reth-parent-20261128/",
+    "local_sha256": {
+      "aleph-capture.py": "7c14d6b7ba92c0a31e743da4602544fa2742ebb5f611c28fb6fcd24c34bed55b",
+      "same-genesis.json": "b14aa04a4c8837280353dbf40dbda67ba12b68b4eb221cb96ecce68a33920c8e",
+      "same-call.request": "926fe91e799fc0e1f34e305a44c7f9999980ff874da59bf9133c45b25f33f38e",
+      "same-context.request": "e559ac3477f866a61527121ce378eb99f942a0bb5ff8425df5d32f234b2cb1ac",
+      "cross-genesis.json": "434e84f501034c0334576c39fdb8d16106d7cd96669be52b76379aa6fad13ae7",
+      "cross-call.request": "478c9d36d7eebe1b987e0ae6af5b4ca6327a37775150b3e8689659eee6b77729",
+      "cross-context.request": "d777f9733d70236044b7fc9650f4361972d3578f92afebeac169b616fc5b9747"
+    }
+  },
+  "genesis_wire_control": {
+    "chain_id": 8453,
+    "gas_used": 21082,
+    "historical_startup_cause": "mutually exclusive discovery flags",
+    "historical_startup_log_sha256": "174273e639e373ab9fc6a61a8715f3d7f9e0022cb2e654458d64e7f6459d86b8",
+    "local_parent_hash": "0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd",
+    "local_parent_number": 0,
+    "parent_state_root": "0xb2afcb88cd1d0ab228f0415d99b0fb90a18e8515daf5eb31f55b5c4697e18328",
+    "return_data": "0x42617365",
+    "rpc_public_calls": 0,
+    "simulated_child_number": 1,
+    "simulated_parent_hash": "0xf712aa9241cc24369b143cf6dce85f0902a9731e70d66818a3a5845b296c73dd",
+    "wire": {
+      "chain": {
+        "request_sha256": "6f995035e3112c38cdc0554a2a830a63a9d32ee180c34c33cddd4a474359d221",
+        "response_sha256": "395c4282d446999297cdcba9e50c3df13687008bc4eecc206a5d616be7f6d227"
+      },
+      "head": {
+        "request_sha256": "31a01534fa2cf24be61aeb8c5d2ecf443631ddf3ede02673aae190501a4fa1c7",
+        "response_sha256": "62b80ecf2cdc0bfb431383ec4346cd9ebda619a9a39286b636c21b7c79e880d1"
+      },
+      "whole": {
+        "request_sha256": "f515495d241d4765cd1c2958bacd4e08132750ad19e7d88ba8c6a6aa30d7684a",
+        "response_sha256": "57feb4e11bd65b60855909fb0b2811328aa5d0f18edc8e33eb56e3196fb10deb"
+      }
+    }
+  }
+}

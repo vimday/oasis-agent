@@ -16,8 +16,10 @@ from .rpc_validation import strict_list, strict_object
 from .state_trie import EMPTY_TRIE, PRAGUE_FIELDS, hex_bytes, quantity
 
 ELYSIUM_CHAIN_ID = 99901
+ARBITRUM_ONE_CHAIN_ID = 42161
 MAX_RECEIPTS = 512
 SYSTEM_TYPE = 0x6A
+SET_CODE_TYPE = 0x04
 ARBOS = "0x00000000000000000000000000000000000a4b05"
 START_BLOCK_ABI = ("uint256", "uint64", "uint64", "uint64")
 START_BLOCK_SELECTOR = keccak(b"startBlock(uint256,uint64,uint64,uint64)")[:4]
@@ -153,6 +155,10 @@ def verify_receipt_root(block: NitroHeader, response: object) -> tuple[Committed
     rows = strict_list(response, "Nitro block receipts")
     if len(rows) != len(block.transactions):
         raise ValueError("nitro_receipt_coverage_mismatch")
+    allowed_types = SUPPORTED_TYPES
+    if block.ref.chain_id == ARBITRUM_ONE_CHAIN_ID:
+        # ArbOS Callisto uses the ordinary EIP-2718 receipt payload for EIP-7702.
+        allowed_types = allowed_types | {SET_CODE_TYPE}
     values = []
     summaries = []
     cumulative, next_log_index, aggregate_bloom = 0, 0, 0
@@ -160,7 +166,7 @@ def verify_receipt_root(block: NitroHeader, response: object) -> tuple[Committed
         raw = strict_object(item, "receipt")
         observed = decode_receipt(raw, block.ref, tx_hash, index)
         kind = quantity(raw.get("type"), 1)
-        if kind not in SUPPORTED_TYPES or (kind == SYSTEM_TYPE) != (index == 0):
+        if kind not in allowed_types or (kind == SYSTEM_TYPE) != (index == 0):
             raise ValueError("unsupported_nitro_receipt_type_or_position")
         cumulative += observed.gas_used
         if cumulative != quantity(raw.get("cumulativeGasUsed"), 8):

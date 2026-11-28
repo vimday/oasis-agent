@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 28 日，Base 两段报价和费用合并成一次只读请求，四组同状态对照到账及费用一致，省 479–534 ms。六池新窗有 58/68 个采样头及时取得报价及费用，1,104 个完整报价零毛差正例。Aleph 上 Base Reth 创世响应已核父哈希，近期规范状态仍缺。[合并与新窗](verification/BASE_BATCHED_NATURAL_20261128.md) · [Reth 响应](verification/BASE_RETH_PARENT_20261128.md)
+- 11 月 28 日，BSC 十二环补扣最终原生付款，条件净额为 52,205,937,381,133 wei。Era 27 份缺失收据已全部双源补齐。另筛 Ethereum、Optimism、Arbitrum 1,296 块并核对 Arbitrum 类型 4 收据根。[BSC／Era](verification/Y2026_BSC_ERA_FOLLOWUP_20261128.md) · [新样本与类型支持](verification/Y2026_MULTIHOP_NEXT_20261128.md)
 - 11 月 28 日，在 Aleph 复核 Base Denim 同秒及跨秒父子块。EVM 探针读到规范父哈希，两组实际到账和 gas 与公开源一致，Base Anvil 的外层响应父哈希仍为零。[原生执行两组对照](verification/BASE_DENIM_NATIVE_ALEPH_20261128.md)
 - 11 月 28 日，Base 固定 WETH 本金的新窗覆盖 62 个连续头，五组 H／K／C 的 15 次双源整笔逐项一致，每笔 310,551 gas，均为费后负值。五次发现和整笔均迟于直接子头。六条其他链再筛 895 笔多事件候选，并核出 BSC 36 事件的 12 个独立环。[Base 三阶段](verification/BASE_FIXED_HKC_DENIM_20261128.md) · [Ethereum／BSC](verification/Y2026_ETH_BSC_FRESH_20261128.md) · [四条 L2](verification/Y2026_L2_FRESH_20261128.md)
 - 11 月 28 日，Base 官方与 dRPC 的固定本金整笔配对 4/4 一致，及时率均为 0/4。临时历史 fork 热态 24 次中位 1.429 ms，冷态 25.853 秒。通用 Anvil 拒绝 Denim 同秒时间戳。Base 发行版复现 293,025 gas 和整笔资金流，返回的子块上下文仍有差异。近端实时覆盖及自然正例存续率待测。[同头、冷／热与时间戳对照](verification/BASE_SIMULATOR_LATENCY_20261128.md)

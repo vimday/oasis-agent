@@ -1,0 +1,305 @@
+{
+  "fault": null,
+  "override_code_witness": {
+    "received_ns": 1458538446318041,
+    "request_sha256": "11db89dd551010596b4c6b7cdf3b8e94b4b1fe9d353d2f54b8c3763803b3257a",
+    "response_sha256": "6bebbb40331a5a2116035f89276802edd59995f9f011f622bd64df407e7f067f",
+    "retrieved_unix_ns": 1795859380912235000,
+    "sent_ns": 1458538326881583,
+    "status": 200
+  },
+  "requests": {
+    "state": 18
+  },
+  "rows": [
+    {
+      "batched": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "pool_code": [
+          "0xc4cf5547246c44150ee6b531697f4b80171a18ce116dcffd894d91ad81d7ad1d",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xcd06f61c6db6a1d8317548aaaa0aa83254624aec741534c51815810e977587ae",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xad8972486d67a48db1f32f254a4c2f4be28df0b5f399559d1e7cd8fbcfbedc96",
+          "0x71ff5f428af7891e7cbce51d4dadacef1e8eb0c1e454342413066bbd8a0d344c"
+        ],
+        "proof": {
+          "received_ns": 1458539466502208,
+          "request_sha256": "da8e58ea9313fcf545ebe8afea1915191e274f277147ce0147ab0dcdf6663b8a",
+          "response_sha256": "69b95b50346f8ed013156ac2c44c001086c30b628ca0dd38a8d2870f4aa19464",
+          "retrieved_unix_ns": 1795859381932750000,
+          "sent_ns": 1458539338387916,
+          "status": 200
+        },
+        "quotes": [
+          [
+            112220029,
+            67242787397563565
+          ]
+        ]
+      },
+      "batched_wire_ns": 128114292,
+      "hash": "0x23e7d4113cedab6d5c1c6a4867aa919063f6697441e0e1ecd09e49f19978638f",
+      "head": 63043738,
+      "serial": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "proof": [
+          {
+            "received_ns": 1458538706186625,
+            "request_sha256": "d590dc39d95424a53272363e960923113cc25f529aab9c4f52b023745af4085c",
+            "response_sha256": "e23ffc88fa18806324e6c8f3988b54e37caf2ebe3f37273c98f5bd06393c66a2",
+            "retrieved_unix_ns": 1795859381172615000,
+            "sent_ns": 1458538579576041,
+            "status": 200
+          },
+          {
+            "received_ns": 1458538973838875,
+            "request_sha256": "16457ae0608b3f6243f5458549196ae598a736171938f455cd780ba45f40ebc0",
+            "response_sha256": "dc4f622cb00a1eceee217458c45132a64f4f24c8a638f3fb3442e7640b93ba25",
+            "retrieved_unix_ns": 1795859381440053000,
+            "sent_ns": 1458538831067583,
+            "status": 200
+          },
+          {
+            "received_ns": 1458539210077125,
+            "request_sha256": "55d4a2e4360af4f6f7ec1e682195fc5fae440c96a386236b3fa4834e4d105d6f",
+            "response_sha256": "2c8888ec9026fde012e0a3bbcbe70eafdaeea0d248f0110fc4b871406aa96336",
+            "retrieved_unix_ns": 1795859381676248000,
+            "sent_ns": 1458539086588625,
+            "status": 200
+          }
+        ],
+        "quotes": [
+          [
+            112220029,
+            67242787397563565
+          ]
+        ]
+      },
+      "serial_wire_and_pacing_ns": 630501084
+    },
+    {
+      "batched": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "pool_code": [
+          "0xc4cf5547246c44150ee6b531697f4b80171a18ce116dcffd894d91ad81d7ad1d",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xcd06f61c6db6a1d8317548aaaa0aa83254624aec741534c51815810e977587ae",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xad8972486d67a48db1f32f254a4c2f4be28df0b5f399559d1e7cd8fbcfbedc96",
+          "0x71ff5f428af7891e7cbce51d4dadacef1e8eb0c1e454342413066bbd8a0d344c"
+        ],
+        "proof": {
+          "received_ns": 1458539744885083,
+          "request_sha256": "a94c87e32ac7657a5f51a278f854e9cb69385694923e91490784f984be52c7fc",
+          "response_sha256": "d74f78efd863dd7877e40d33f5292e90f93af065cff1eb624d69fa6b2b65532a",
+          "retrieved_unix_ns": 1795859382210793000,
+          "sent_ns": 1458539591591125,
+          "status": 200
+        },
+        "quotes": [
+          [
+            112289127,
+            67284190259874398
+          ]
+        ]
+      },
+      "batched_wire_ns": 153293958,
+      "hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "head": 63043739,
+      "serial": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "proof": [
+          {
+            "received_ns": 1458539969687083,
+            "request_sha256": "585440ddd531b11cee4683ae6bb12545eac69a999b35e59ae3c91d95de983833",
+            "response_sha256": "bd83d06c3b3095b3c4f09816f0fd251e1d8278214e3685d40e9cca9cc3a3f4da",
+            "retrieved_unix_ns": 1795859382435956000,
+            "sent_ns": 1458539846685500,
+            "status": 200
+          },
+          {
+            "received_ns": 1458540247921958,
+            "request_sha256": "17cd4895678654bbb3bc78659be9104efb4511c1e84eaf6c11604b9dc950d71d",
+            "response_sha256": "81a6e3d342f4b60e313b9b1be6ec3d44f0a02ae6824706387aef251f7e08e615",
+            "retrieved_unix_ns": 1795859382713957000,
+            "sent_ns": 1458540101504416,
+            "status": 200
+          },
+          {
+            "received_ns": 1458540533918958,
+            "request_sha256": "d3f347570c7590f5f94bdd99155db2f834f53b13ef6597f525197edc93c14f2a",
+            "response_sha256": "af8ced0e16a3974ce942a680cd594f6435dd9e275f83d9854143ac3f4371a9c3",
+            "retrieved_unix_ns": 1795859382999739000,
+            "sent_ns": 1458540354980291,
+            "status": 200
+          }
+        ],
+        "quotes": [
+          [
+            112289127,
+            67284190259874398
+          ]
+        ]
+      },
+      "serial_wire_and_pacing_ns": 687233458
+    },
+    {
+      "batched": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "pool_code": [
+          "0xc4cf5547246c44150ee6b531697f4b80171a18ce116dcffd894d91ad81d7ad1d",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xcd06f61c6db6a1d8317548aaaa0aa83254624aec741534c51815810e977587ae",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xad8972486d67a48db1f32f254a4c2f4be28df0b5f399559d1e7cd8fbcfbedc96",
+          "0x71ff5f428af7891e7cbce51d4dadacef1e8eb0c1e454342413066bbd8a0d344c"
+        ],
+        "proof": {
+          "received_ns": 1458541514638166,
+          "request_sha256": "9c4c08c11f3cb74783fd9f0b6cd6830abcd76b6e5ea9a7fd895cec8df252c802",
+          "response_sha256": "10526345dc86f71fbc6a16acfe1aa9458ce75cd60f9cf852437c4258e1fb1ff8",
+          "retrieved_unix_ns": 1795859383980571000,
+          "sent_ns": 1458541362071958,
+          "status": 200
+        },
+        "quotes": [
+          [
+            112265753,
+            67270184764545522
+          ]
+        ]
+      },
+      "batched_wire_ns": 152566208,
+      "hash": "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7",
+      "head": 63043740,
+      "serial": {
+        "l1_wei": [
+          6523808502
+        ],
+        "operator_wei": 0,
+        "proof": [
+          {
+            "received_ns": 1458540729970291,
+            "request_sha256": "ef73b234328f36746b671b099a0705b8293f03ead6be4e1d45f44a6c5ae4f187",
+            "response_sha256": "9aac4a4ae3b7e81b6a799ad1aaeaed7ac5a740535cb25331664518c08c764c6a",
+            "retrieved_unix_ns": 1795859383198130000,
+            "sent_ns": 1458540605006250,
+            "status": 200
+          },
+          {
+            "received_ns": 1458541011427375,
+            "request_sha256": "dfb948e06cae13c541ee77a300ff4a7c15548151a664209f84abeed095243920",
+            "response_sha256": "bef55ae9b9b1f4e584db6043e4972b777ce917262f614baefc62f7436e68b63b",
+            "retrieved_unix_ns": 1795859383477315000,
+            "sent_ns": 1458540858059708,
+            "status": 200
+          },
+          {
+            "received_ns": 1458541236710250,
+            "request_sha256": "44eb8832a1fee301dc2dec07e6e31f6618b673ff76d69c00d0ee1daef3e06195",
+            "response_sha256": "13a1361469df114b7bc20768114da873710a1f5e84e0f03053c8f26cad186982",
+            "retrieved_unix_ns": 1795859383702253000,
+            "sent_ns": 1458541111970916,
+            "status": 200
+          }
+        ],
+        "quotes": [
+          [
+            112265753,
+            67270184764545522
+          ]
+        ]
+      },
+      "serial_wire_and_pacing_ns": 631704000
+    },
+    {
+      "batched": {
+        "l1_wei": [
+          679685141
+        ],
+        "operator_wei": 0,
+        "pool_code": [
+          "0xc4cf5547246c44150ee6b531697f4b80171a18ce116dcffd894d91ad81d7ad1d",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xcd06f61c6db6a1d8317548aaaa0aa83254624aec741534c51815810e977587ae",
+          "0xacd6710f7037ad095b1e4d5f8ee5b2681069cb4dd316e77e4e0cb8f85716a2a1",
+          "0xad8972486d67a48db1f32f254a4c2f4be28df0b5f399559d1e7cd8fbcfbedc96",
+          "0x71ff5f428af7891e7cbce51d4dadacef1e8eb0c1e454342413066bbd8a0d344c"
+        ],
+        "proof": {
+          "received_ns": 1458541768261666,
+          "request_sha256": "0355c679243588013986cbf7296f04ba08588cb3d9f82b2f625800b0c66af4cd",
+          "response_sha256": "b6df7840c899fdcfbd5332e57527c7d58143fae208915fc54ae78cf2061d6d8b",
+          "retrieved_unix_ns": 1795859384234579000,
+          "sent_ns": 1458541617582375,
+          "status": 200
+        },
+        "quotes": [
+          [
+            111114088,
+            67262214743722623
+          ]
+        ]
+      },
+      "batched_wire_ns": 150679291,
+      "hash": "0xeec2d520f72ef9f8e3dd6000545488bba99759e4bbc665d8afb0cb61c7a28897",
+      "head": 63325056,
+      "serial": {
+        "l1_wei": [
+          679685141
+        ],
+        "operator_wei": 0,
+        "proof": [
+          {
+            "received_ns": 1458542028878250,
+            "request_sha256": "ac0fdee6454bdd4862345cc6a8d32d069c88f2b49a351eae7c3e26591dcfd2d7",
+            "response_sha256": "e11331d5cbbb05ac9661421c3802bbffc52fcd9900caae7ec484cab17150f030",
+            "retrieved_unix_ns": 1795859384494764000,
+            "sent_ns": 1458541868747791,
+            "status": 200
+          },
+          {
+            "received_ns": 1458542286781875,
+            "request_sha256": "50e0cc97c2e52ff86fab0a197d76a57313dc9400f97cb4a50fcd327bfb95e5d6",
+            "response_sha256": "9e7a753ddbf3df477227a1f57784a31afa6f5e9b64eba8023c9fec5a18d76058",
+            "retrieved_unix_ns": 1795859384752730000,
+            "sent_ns": 1458542124899875,
+            "status": 200
+          },
+          {
+            "received_ns": 1458542503331375,
+            "request_sha256": "b89c226ea7efaa0e1820431ade546b6ae7a4fb5b598e36c4d079e3733d7859cf",
+            "response_sha256": "0d28263ecb4eecc6da44e759d08d22261ac86b389f480d661b2d8610ef56237a",
+            "retrieved_unix_ns": 1795859384969980000,
+            "sent_ns": 1458542380634416,
+            "status": 200
+          }
+        ],
+        "quotes": [
+          [
+            111114088,
+            67262214743722623
+          ]
+        ]
+      },
+      "serial_wire_and_pacing_ns": 634583584
+    }
+  ],
+  "scope_sha256": "e73e0368d02b924e39d7b2c95ee075c4d240225b5dc87a339b43bba59ef8087c"
+}

@@ -161,6 +161,41 @@ def test_block_commitments_validate_both_tries_and_ordinals(fault):
 
 
 @pytest.mark.parametrize(
+    ("chain", "prefix", "fault"),
+    [
+        (42161, 4, None),
+        (nitro.ELYSIUM_CHAIN_ID, 4, "unsupported_nitro_receipt_type_or_position"),
+        (42161, 2, "nitro_receipt_commitment_mismatch"),
+    ],
+)
+def test_set_code_receipt_preserves_type_prefix_and_arbitrum_scope(chain, prefix, fault):
+    header, _, receipts = nitro_fixture()
+    bloom = bytes(256)
+    root = nitro.indexed_trie_root(
+        [
+            b"\x6a" + rlp.encode([1, 0, bloom, []]),
+            bytes([prefix]) + rlp.encode([0, 21000, bloom, []]),
+        ]
+    )
+    header["receiptsRoot"] = hex_data(root)
+    fields = [
+        int(header[key], 16) if width < 0 else bytes.fromhex(header[key][2:])
+        for key, width in PRAGUE_FIELDS[:16]
+    ]
+    header["hash"] = hex_data(keccak(rlp.encode(fields)))
+    for receipt in receipts:
+        receipt["blockHash"] = header["hash"]
+    receipts[1]["type"] = "0x4"
+
+    block = nitro.nitro_header(header, 102, header["hash"], chain_id=chain)
+    if fault:
+        with pytest.raises(ValueError, match=fault):
+            nitro.verify_receipt_root(block, receipts)
+    else:
+        assert nitro.verify_receipt_root(block, receipts)[1].type == 4
+
+
+@pytest.mark.parametrize(
     "proof, invalid", [(False, False), (False, True), (True, False), (True, True)]
 )
 def test_public_capture_verifies_receipts_or_state_and_stops(tmp_path, monkeypatch, proof, invalid):
