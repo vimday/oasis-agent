@@ -1,0 +1,128 @@
+{
+  "archive_wires": [
+    {
+      "label": "archive-001",
+      "meta": {
+        "received_ns": 1433948528135833,
+        "request_sha256": "c264b72e01bfb89aa4a0caba767bb7cc3e3fba93a903e1838d752db1340b9f17",
+        "response_sha256": "b2f1f2440efe85b924be1f873fb1ccd6f3ef9c6bfeef3cfef6bb70ae6ddcb3fc",
+        "retrieved_unix_ns": 1795834791007063000,
+        "sent_ns": 1433948246129708,
+        "status": 200
+      },
+      "method": "eth_getTransactionCount"
+    },
+    {
+      "label": "archive-002",
+      "meta": {
+        "received_ns": 1433948690599458,
+        "request_sha256": "a2009249084aa067fbbf4bd57d8aaad4d7a17ce76baf5a31ae4077897c750857",
+        "response_sha256": "444228434ea9b9c0e191df96d8f177175c89074098c497985fa8f80284438deb",
+        "retrieved_unix_ns": 1795834791169787000,
+        "sent_ns": 1433948531016541,
+        "status": 200
+      },
+      "method": "eth_getBalance"
+    },
+    {
+      "label": "archive-003",
+      "meta": {
+        "received_ns": 1433948931134750,
+        "request_sha256": "21a5708a04eb0b5468a3e6117e47714bacbcc2ec6c8a4d3c876fde00d6b58264",
+        "response_sha256": "4ad6fbcce89e45e1ce60e084ba1b1d373d3f284b4ba81e1ae1ae6878a11c7c8f",
+        "retrieved_unix_ns": 1795834791410375000,
+        "sent_ns": 1433948787331458,
+        "status": 200
+      },
+      "method": "eth_getCode"
+    }
+  ],
+  "call_output_logs_and_gas_match": true,
+  "complete_child_parity": false,
+  "first_attempt": {
+    "fault": "retained fork lacks eth_getBalance for account 0x4200000000000000000000000000000000000015"
+  },
+  "gas_used": 293025,
+  "native_rows": [
+    {
+      "differs_from_official": [
+        "number",
+        "parentHash",
+        "baseFeePerGas",
+        "miner"
+      ],
+      "header": {
+        "baseFeePerGas": "0x4c50e8",
+        "miner": "0x0000000000000000000000000000000000000000",
+        "number": "0x3c1f89b",
+        "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "timestamp": "0x6b09b853"
+      },
+      "proof": {
+        "received_ns": 1433948979847375,
+        "request_sha256": "79b0116b0c0f0a1fbba771e916128b54ef490a388da4c7f28ee4d90de729eb12",
+        "response_sha256": "58868b62069d258c2944070339622aa2f994cb87a2a646009d9b27b7fe7442a6",
+        "retrieved_unix_ns": 1795834791458229000,
+        "sent_ns": 1433948242325625,
+        "status": 200
+      }
+    },
+    {
+      "differs_from_official": [
+        "number",
+        "parentHash",
+        "baseFeePerGas",
+        "miner"
+      ],
+      "header": {
+        "baseFeePerGas": "0x4c50e8",
+        "miner": "0x0000000000000000000000000000000000000000",
+        "number": "0x3c1f89b",
+        "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "timestamp": "0x6b09b853"
+      },
+      "proof": {
+        "received_ns": 1433948982418833,
+        "request_sha256": "a90c842955a33748a5edf311f2bb0d92070c23699fa57634277893ca541bae8d",
+        "response_sha256": "40f98ecb8d94b8cdd1e7e07f31a09bddea44492a7b358717f0530528a1ca7b87",
+        "retrieved_unix_ns": 1795834791460649000,
+        "sent_ns": 1433948980609250,
+        "status": 200
+      }
+    }
+  ],
+  "official_header": {
+    "baseFeePerGas": "0x4c5d26",
+    "miner": "0x4200000000000000000000000000000000000011",
+    "number": "0x3c1f89c",
+    "parentHash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+    "timestamp": "0x6b09b853"
+  },
+  "release_sha256": "9078ca5bb8fb877a47cb3164714c87ffd50fe7f852d33319c3c0968215d71853",
+  "release_version": [
+    "anvil Version: 1.6.0-v1.5.1",
+    "Commit SHA: 571865d16650580623d69a1eba4840badbaa1843",
+    "Build Timestamp: 2026-10-23T21:25:31.844344000Z (1792790731)",
+    "Build Profile: dist"
+  ],
+  "scope": {
+    "allowed_state_address": "0x4200000000000000000000000000000000000015",
+    "base_release": "base/base-anvil v1.5.1 darwin/arm64",
+    "binary_sha256": "25456925c3d9d2f960e6f4bbccf46606ae0e3f5b1fc822f5c55c29b2ddd1d352",
+    "chain_id": 8453,
+    "driver_sha256": "1d68eea737960907e940e367445fe758ab8d78f519167b87a14351a65d7e58a6",
+    "frozen_utc": "2026-11-28T02:59:50.586030+00:00",
+    "max_requests": 12,
+    "methods": [
+      "eth_getBalance",
+      "eth_getCode",
+      "eth_getTransactionCount",
+      "eth_getStorageAt"
+    ],
+    "parent_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+    "root_scope_sha256": "f141da3209c4639a0e26c83e9dcf92cc4604c44aff39e7b6d9f64dc8dc4b228c",
+    "usd": 0
+  },
+  "scope_sha256": "edaddc94a15831cdd4eb20977a1332f9988d53ab4a00a639af972cb6b6438a6b",
+  "usd": 0
+}

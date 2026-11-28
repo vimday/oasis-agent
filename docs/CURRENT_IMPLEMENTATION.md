@@ -79,7 +79,7 @@
 
 ## 证据导航
 
-- 11 月 28 日，Base 官方与 dRPC 的固定本金整笔配对 4/4 一致，及时率均为 0/4。临时历史 fork 热态 24 次中位 1.429 ms，冷态 25.853 秒。Anvil 与公开源相差 7,708 gas，且拒绝 Denim 同秒时间戳。近端实时覆盖和自然正例存续率待测。[同头、冷／热与时间戳对照](verification/BASE_SIMULATOR_LATENCY_20261128.md)
+- 11 月 28 日，Base 官方与 dRPC 的固定本金整笔配对 4/4 一致，及时率均为 0/4。临时历史 fork 热态 24 次中位 1.429 ms，冷态 25.853 秒。通用 Anvil 拒绝 Denim 同秒时间戳。Base 发行版复现 293,025 gas 和整笔资金流，返回的子块上下文仍有差异。近端实时覆盖及自然正例存续率待测。[同头、冷／热与时间戳对照](verification/BASE_SIMULATOR_LATENCY_20261128.md)
 - 11 月 28 日，Base 上一块缓存与最新头单槽调度已进入新窗口的只读测量。原混合池微利的 WETH 整笔在 H 费后余 1,682,277,530,217 wei，P、C 均负；同一固定本金的新 15 头有 10 次在子头前发出，零次模拟和费用都按时齐备。诊断在实时线程退出后运行。另核六链新成交。[历史 P/H/C](verification/BASE_MIXED_WHOLE_20261128.md) · [同头优先实测](verification/BASE_MIXED_HEAD_PRIORITY_20261128.md) · [六链扩样](verification/Y2026_MULTICHAIN_EXPANDED_20261128.md)
 - 11 月 28 日，Base 新增只读策略对照复算，使用同一交易摘要、父子哈希和子头到达时限衡量上一块和同头决策。六组固定本金对照均无正例。自然八头两笔逐腿报价费后为正，属于同一池环且均过了直接子头，整笔状态未知。Morpho 只读回放补上了新 Ethereum 成交所示的单个冗余零字 ABI 布局。[Base 策略对照](verification/BASE_PRIOR_HEAD_POLICY_20261128.md) · [自然机会](verification/BASE_PRIOR_HEAD_POLICY_NATURAL_20261128.md) · [Ethereum 与 BSC 新样本](verification/Y2026_ETH_BSC_UNTOUCHED_20261128.md)
 - 11 月 28 日，Robinhood／Arbitrum／Era／Optimism 的 5,696 块新窗口筛查 1,522 笔多事件并深核 23 笔，核实两轮 WETH 全额复投、分流和四市场费用负例。[四链留出结果](verification/Y2026_L2_FUNDING_HOLDOUT_20261128.md)

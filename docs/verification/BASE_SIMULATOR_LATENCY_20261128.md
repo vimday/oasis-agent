@@ -34,9 +34,15 @@ Anvil 相对公开源多报 **7,708 gas**，落在相同费率下对应 **53,991
 
 Aleph 预检时 WSL 根卷余 521 GiB，Windows 挂载卷显示余 851 GiB。官方文档列出的最小主网快照约 782.5 GB，解包后更大。近端顺序先走固定状态下的小型原生执行对照，完整同步另需满足磁盘容量并实测跟头延迟。[Base 节点快照](https://docs.base.org/specifications/node-operators/snapshots) · [Base 本地执行环境](https://github.com/base/base/blob/main/docs/guides/DEVNET.md)
 
+## 追加对照 · Base 发行版的执行结果与块上下文
+
+用公开 SHA-256 校验 Base 发布的 macOS arm64 构建 `v1.5.1`，按其 CLI 启用 `--optimism --base denim`。仅使用原来保留的账户状态时，首次在 L1Block 账户停止。追加范围只允许读同一规范 H 上的 L1Block，实际新增 3 次匿名读取，分别取得 nonce、原生余额和运行码。无时间覆盖、显式指定公开时间两个调用均成功，整笔返回值、全部 8 条日志的内容和顺序、**293,025 gas** 与公开结果一致。
+
+两个本地响应都返回 H 高度、全零父哈希、全零收款地址和 5,001,448 wei/gas base fee。公开响应返回 H+1 高度、H 父哈希、Base 费用收款地址和 5,004,582 wei/gas base fee。整秒时间一致。该发行版支持本案的资金和 gas 对照，返回值仍无法通过项目的直接子块绑定检查。近期下一步是用 Base 执行层在小型固定状态中实现同秒与跨秒块上下文对照，测量状态可用时点。观察计入追加 3 次后共 131 次免费额度预留、支出 USD 0。[追加证据](BASE_SIMULATOR_NATIVE_ANVIL_20261128.json) · [Base Anvil v1.5.1](https://github.com/base/base-anvil/releases/tag/v1.5.1)
+
 ## 预算与复算
 
-共留存 **128** 次免费 RPC 额度预留，支出 USD 0。历史探测 6 次，新窗 18 次，含 3 次 WebSocket 控制预算。fork 共 104 次，其中 2 次来自提前停止的启动试验，102 次属于完整实验。第一次公共探测在本地处理历史请求 ID 时停止，未占用额度。其他提前停止的 fork 尝试保留停止原因、配置、原账本、客户端日志和当时的脚本。接口差异包括可选 RPC 探测与本地响应格式。时间戳对照只读既有原件。未签名、未广播。
+追加 Base 发行版对照前留存 **128** 次免费 RPC 额度预留，支出 USD 0。历史探测 6 次，新窗 18 次，含 3 次 WebSocket 控制预算。fork 共 104 次，其中 2 次来自提前停止的启动试验，102 次属于完整实验。第一次公共探测在本地处理历史请求 ID 时停止，未占用额度。其他提前停止的 fork 尝试保留停止原因、配置、原账本、客户端日志和当时的脚本。接口差异包括可选 RPC 探测与本地响应格式。时间戳对照只读既有原件。未签名、未广播。
 
 ```sh
 set -o pipefail
@@ -52,6 +58,9 @@ export PYTHONPATH=.
 .venv/bin/python docs/verification/fixtures/replay_base_fork_latency.py \
   --timestamp-control reports/research/base-fork-timestamp-20261128 |
   cmp - docs/verification/BASE_SIMULATOR_TIMESTAMP_20261128.json
+.venv/bin/python docs/verification/fixtures/replay_base_fork_latency.py \
+  --native-control reports/research/base-native-denim-supplement-20261128 |
+  cmp - docs/verification/BASE_SIMULATOR_NATIVE_ANVIL_20261128.json
 ```
 
-四份 JSON 均逐字节复算一致，新增 Python 夹具通过 Ruff，新增文档链接已核验。`make check`、`make rust-check`、`make security-check` 与 `make contract-security-check` 均退出 0。Python 6,860 项及 138 个子测试、Foundry 132 项、Rust 30 项通过。本机日志见 `reports/research/base-simulator-integration-20261128/`。
+五份 JSON 均逐字节复算一致，新增 Python 夹具通过 Ruff，新增文档链接已核验。`make check`、`make rust-check`、`make security-check` 与 `make contract-security-check` 均退出 0。Python 6,860 项及 138 个子测试、Foundry 132 项、Rust 30 项通过。本机日志见 `reports/research/base-simulator-integration-20261128/`。

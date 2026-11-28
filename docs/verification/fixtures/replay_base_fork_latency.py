@@ -30,7 +30,7 @@ from measure_base_fork_latency import (
 )
 
 from oasis_agent.models.common import canonical_json, sha256_hex
-from oasis_agent.rpc.budget import RpcBudget
+from oasis_agent.rpc.budget import BudgetPolicy, RpcBudget
 from oasis_agent.rpc.protocol import response_envelope
 from scripts.measure_robinhood_quote_delivery import _body, _read
 
@@ -238,15 +238,98 @@ def timestamp_control(root, capture):
     }
 
 
+def native_control(root):
+    variants, _, official = timestamp_inputs()
+    control = root.parent / "base-native-client-precheck-20261128"
+    precheck = control / "retained-timestamp"
+    scope = read(root / "scope.json")
+    recorded = read(root / "report.json")
+    assert read(root / "STOP.json") == {"fault": None} and recorded["fault"] is None
+    assert digest(root / "scope.json") == recorded["scope_sha256"]
+    assert digest(STANDARD / "scope.json") == scope["root_scope_sha256"]
+    assert digest(control / "capture_supplement.py") == scope["driver_sha256"]
+    assert digest(control / "anvil") == scope["binary_sha256"]
+    release_sha = digest(control / "release.tar.gz")
+    assert release_sha == "9078ca5bb8fb877a47cb3164714c87ffd50fe7f852d33319c3c0968215d71853"
+    pin = historical_header()
+    account = "0x4200000000000000000000000000000000000015"
+    assert (scope["chain_id"], scope["parent_hash"], scope["allowed_state_address"]) == (
+        8453,
+        pin.block_hash,
+        account,
+    )
+    policies = (BudgetPolicy("archive", scope["max_requests"], 250),)
+    with RpcBudget(root / "original.sqlite3", policies, read_only=True) as budget:
+        counts = budget.counts()
+    assert counts == recorded["archive_requests"] == {"archive": 3}
+    for i, wire in enumerate(recorded["archive_wires"], 1):
+        method = wire["method"]
+        assert method in ("eth_getBalance", "eth_getCode", "eth_getTransactionCount")
+        args = [account, {"blockHash": pin.block_hash, "requireCanonical": True}]
+        stem = root / f"archive-{i:03d}"
+        assert wire["label"] == stem.name and wire["meta"] == read(stem.with_suffix(".meta"))
+        _read(stem, _body(i, method, args), i, 1)
+    assert len({wire["method"] for wire in recorded["archive_wires"]}) == 3
+
+    def execution(block):
+        [call] = block["calls"]
+        payload = {key: call[key] for key in ("status", "returnData", "gasUsed")}
+        payload["logs"] = [
+            {key: log[key] for key in ("address", "topics", "data", "logIndex")}
+            for log in call["logs"]
+        ]
+        return payload
+
+    header_fields = ("number", "parentHash", "baseFeePerGas", "timestamp", "miner")
+    official_header = {key: official[key] for key in header_fields}
+    summary = []
+    for i, params in enumerate(variants, 1):
+        stem = root / f"time-{i}"
+        result, _ = _read(stem, _body(i, "eth_simulateV1", params), i, 1)
+        [block] = result
+        assert execution(block) == execution(official)
+        header = {key: block[key] for key in header_fields}
+        summary.append(
+            {
+                "header": header,
+                "differs_from_official": [
+                    key for key in header_fields if header[key] != official[key]
+                ],
+                "proof": read(stem.with_suffix(".meta")),
+            }
+        )
+    assert all(row["differs_from_official"] for row in summary)
+    return {
+        "archive_wires": recorded["archive_wires"],
+        "scope": scope,
+        "scope_sha256": recorded["scope_sha256"],
+        "usd": 0,
+        "call_output_logs_and_gas_match": True,
+        "gas_used": int(official["gasUsed"], 16),
+        "official_header": official_header,
+        "native_rows": summary,
+        "first_attempt": read(precheck / "STOP.json"),
+        "release_version": (control / "version.txt").read_text().splitlines(),
+        "release_sha256": release_sha,
+        "complete_child_parity": False,
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--timestamp-control", type=Path)
+    variant = parser.add_mutually_exclusive_group()
+    variant.add_argument("--timestamp-control", type=Path)
+    variant.add_argument("--native-control", type=Path)
     parser.add_argument("--capture", action="store_true")
     args = parser.parse_args()
+    if args.capture and args.timestamp_control is None:
+        parser.error("--capture requires --timestamp-control")
     print(
         json.dumps(
             timestamp_control(args.timestamp_control, args.capture)
             if args.timestamp_control
+            else native_control(args.native_control)
+            if args.native_control
             else {
                 "runs": [verify(PANEL / folder) for folder in RUNS],
                 "usd": 0,
