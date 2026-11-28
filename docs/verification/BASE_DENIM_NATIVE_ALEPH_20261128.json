@@ -1,0 +1,406 @@
+{
+  "counts": {
+    "archive": 112,
+    "official": 2
+  },
+  "fault": null,
+  "rows": [
+    {
+      "aleph": [
+        {
+          "call_output_logs_and_gas_match": true,
+          "complete_child_parity": false,
+          "gas": 293025,
+          "header": {
+            "baseFeePerGas": "0x4c50e8",
+            "gasLimit": "0x2625a00",
+            "miner": "0x0000000000000000000000000000000000000000",
+            "number": "0x3c1f89b",
+            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp": "0x6b09b853"
+          },
+          "header_differences": [
+            "number",
+            "parentHash",
+            "baseFeePerGas",
+            "miner"
+          ],
+          "proof": {
+            "received_ns": 1454483321772750,
+            "request_sha256": "e31c8dc3026a93a64ea688f9f608cebe7e7a41f665c5dc48553971ea30103223",
+            "response_sha256": "40f98ecb8d94b8cdd1e7e07f31a09bddea44492a7b358717f0530528a1ca7b87",
+            "retrieved_unix_ns": 1795855325791138000,
+            "sent_ns": 1454483032679916,
+            "status": 200
+          },
+          "variant": "default"
+        },
+        {
+          "call_output_logs_and_gas_match": true,
+          "complete_child_parity": false,
+          "gas": 293025,
+          "header": {
+            "baseFeePerGas": "0x4c5d26",
+            "gasLimit": "0x2625a00",
+            "miner": "0x4200000000000000000000000000000000000011",
+            "number": "0x3c1f89c",
+            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp": "0x6b09b853"
+          },
+          "header_differences": [
+            "parentHash"
+          ],
+          "proof": {
+            "received_ns": 1454484061529500,
+            "request_sha256": "1081946557f34e339c77278cb0c8741ebd9ac1d72c250a90d369a0b7c9c7ea7a",
+            "response_sha256": "01c83309486ee0d451ea558600cd9580d36570f20a3e87d93de7c529e5fbd4fd",
+            "retrieved_unix_ns": 1795855326530823000,
+            "sent_ns": 1454483322479916,
+            "status": 200
+          },
+          "variant": "child_clock_and_fees"
+        }
+      ],
+      "child_hash": "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7",
+      "child_height": 63043740,
+      "child_ms": 1795799123600,
+      "context_witness": {
+        "differences": [],
+        "observed": {
+          "base_fee": 5004582,
+          "blockhash_parent": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+          "chain_id": 8453,
+          "coinbase": "0x4200000000000000000000000000000000000011",
+          "number": 63043740,
+          "timestamp": 1795799123
+        },
+        "proof": {
+          "received_ns": 1454484064530291,
+          "request_sha256": "6757b04e3de7622a216f2a0d89aee8afb2c3d9b9a9bd98357d2db44a0b038be7",
+          "response_sha256": "c26d0a315db7b731f2a73c7f10ce5e1426b853cad8697500af9bae6943c11ba1",
+          "retrieved_unix_ns": 1795855326533744000,
+          "sent_ns": 1454484062025458,
+          "status": 200
+        }
+      },
+      "name": "same",
+      "parent_hash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+      "parent_height": 63043739,
+      "parent_ms": 1795799123400,
+      "proof": {
+        "parent_echo_sha256": "557d659f4e669c4a2b13982814f2618a1a304d60ff90423c6599c1caf1046456",
+        "primary_child_sha256": "f37184cec148b0ce71531b9e4e4b1a3ca6e643e867d57e8596f8b7e9567244be",
+        "primary_parent_sha256": "be6f1324dc40a3e4c937b01fd7d204e3300820962aee6cc59472587af931edaf",
+        "state_child_sha256": "ee8bc9db0fe5390f38182b7a4decf9439c2297c6481b3561ab9d7cf154466d65",
+        "state_parent_sha256": "739534b8a27b8d5769654e4e46210df143b5582c008ad08fc21f4f74af6770dc"
+      },
+      "public": {
+        "header": {
+          "baseFeePerGas": "0x4c5d26",
+          "gasLimit": "0x2625a00",
+          "miner": "0x4200000000000000000000000000000000000011",
+          "number": "0x3c1f89c",
+          "parentHash": "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+          "timestamp": "0x6b09b853"
+        },
+        "settlement": {
+          "chain_fee_scenario_wei": 2059041449052,
+          "charged_fee_in_settlement_smallest_units": 2059041449052,
+          "conditional_net_raw": 1682277530217,
+          "conversion_basis": "ETH and WETH par",
+          "final_received_raw": 67284190259874398,
+          "gas_used": 293025,
+          "l2_wei": 2052517640550,
+          "middle_raw": 112289127,
+          "payment_log_indices": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            7
+          ],
+          "principal_raw": 67280448940895129,
+          "settlement_delta_raw": 3741318979269,
+          "simulated_base_fee": 5004582,
+          "status": "settled"
+        }
+      },
+      "state_calls": [
+        "same-state-001",
+        "same-state-002",
+        "same-state-003"
+      ]
+    },
+    {
+      "aleph": [
+        {
+          "call_output_logs_and_gas_match": true,
+          "complete_child_parity": false,
+          "gas": 301204,
+          "header": {
+            "baseFeePerGas": "0x4c4b40",
+            "gasLimit": "0x2625a00",
+            "miner": "0x0000000000000000000000000000000000000000",
+            "number": "0x3c4a0ac",
+            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp": "0x6b0a4056"
+          },
+          "header_differences": [
+            "number",
+            "parentHash",
+            "timestamp",
+            "miner"
+          ],
+          "proof": {
+            "received_ns": 1454512781749000,
+            "request_sha256": "a5ab3a181a5e05293dde45183da3a6818fcc38c209475619daa080b18e00ec58",
+            "response_sha256": "d2e7c847c9e1f166800a14db7c8b6a9e9997514b53c2c67a5168659ed66297f1",
+            "retrieved_unix_ns": 1795855355251053000,
+            "sent_ns": 1454486559135500,
+            "status": 200
+          },
+          "variant": "default"
+        },
+        {
+          "call_output_logs_and_gas_match": true,
+          "complete_child_parity": false,
+          "gas": 301204,
+          "header": {
+            "baseFeePerGas": "0x4c4b40",
+            "gasLimit": "0x2625a00",
+            "miner": "0x4200000000000000000000000000000000000011",
+            "number": "0x3c4a0ad",
+            "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp": "0x6b0a4057"
+          },
+          "header_differences": [
+            "parentHash"
+          ],
+          "proof": {
+            "received_ns": 1454513533036666,
+            "request_sha256": "b245066fe759a36e56f1e7be903823ef3b363f3163774e0f3d890c976f9ad9a8",
+            "response_sha256": "fd57bd239ffe0ce77f025a023d39e5c288274f70ef9196df08b77c132a326b9a",
+            "retrieved_unix_ns": 1795855356002498000,
+            "sent_ns": 1454512782341958,
+            "status": 200
+          },
+          "variant": "child_clock_and_fees"
+        }
+      ],
+      "child_hash": "0x19e317a1f5118d83a44e9b32758fb4414fa6ef52d29a70fa94d4232267f23dd5",
+      "child_height": 63217837,
+      "child_ms": 1795833943000,
+      "context_witness": {
+        "differences": [],
+        "observed": {
+          "base_fee": 5000000,
+          "blockhash_parent": "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+          "chain_id": 8453,
+          "coinbase": "0x4200000000000000000000000000000000000011",
+          "number": 63217837,
+          "timestamp": 1795833943
+        },
+        "proof": {
+          "received_ns": 1454513536914791,
+          "request_sha256": "35d381cf39ac27ef2038a8f8bcc7ad7267d656a5ce22ce2b91a548fc2eed0c3b",
+          "response_sha256": "24298158dd816a5f99981242030a89d1d54851a8b83313c613b41d5dbe123c5c",
+          "retrieved_unix_ns": 1795855356006275000,
+          "sent_ns": 1454513534195708,
+          "status": 200
+        }
+      },
+      "name": "cross",
+      "parent_hash": "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+      "parent_height": 63217836,
+      "parent_ms": 1795833942800,
+      "proof": {
+        "parent_echo_sha256": "c0c032e15e47cd181502e8a957552a16d3b09d732274eb4fbb330ea70135e0b4",
+        "primary_child_sha256": "338e5b34b4c13e168dede3fdbd6f5f78a595d5defe5ead348840739593780996",
+        "primary_parent_sha256": "c00115ead6dc9d3a8b483a2f99792494473be4687cad5b2797b3c9f6bb73142f",
+        "state_child_sha256": "7b67204237563b38988e5773aac847e206850116c79239fb65f8ca08e27a1260",
+        "state_parent_sha256": "b65f70c231db4b7218e0a66a23c8f51d1a0caa62bd09edaad8ab4104212c5b96"
+      },
+      "public": {
+        "header": {
+          "baseFeePerGas": "0x4c4b40",
+          "gasLimit": "0x2625a00",
+          "miner": "0x4200000000000000000000000000000000000011",
+          "number": "0x3c4a0ad",
+          "parentHash": "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+          "timestamp": "0x6b0a4057"
+        },
+        "settlement": {
+          "chain_fee_scenario_wei": 2109118157795,
+          "charged_fee_in_settlement_smallest_units": 2109118157795,
+          "conditional_net_raw": -22401040569431,
+          "conversion_basis": "ETH and WETH par",
+          "final_received_raw": 67260157018483493,
+          "gas_used": 301204,
+          "l2_wei": 2108428000000,
+          "middle_raw": 111849570,
+          "payment_log_indices": [
+            0,
+            1,
+            2,
+            4,
+            5,
+            7
+          ],
+          "principal_raw": 67280448940895129,
+          "settlement_delta_raw": -20291922411636,
+          "simulated_base_fee": 5000000,
+          "status": "settled"
+        }
+      },
+      "state_calls": [
+        "cross-state-001",
+        "cross-state-002",
+        "cross-state-003",
+        "cross-state-004",
+        "cross-state-005",
+        "cross-state-006",
+        "cross-state-007",
+        "cross-state-008",
+        "cross-state-009",
+        "cross-state-010",
+        "cross-state-011",
+        "cross-state-012",
+        "cross-state-013",
+        "cross-state-014",
+        "cross-state-015",
+        "cross-state-016",
+        "cross-state-017",
+        "cross-state-018",
+        "cross-state-019",
+        "cross-state-020",
+        "cross-state-021",
+        "cross-state-022",
+        "cross-state-023",
+        "cross-state-024",
+        "cross-state-025",
+        "cross-state-026",
+        "cross-state-027",
+        "cross-state-028",
+        "cross-state-029",
+        "cross-state-030",
+        "cross-state-031",
+        "cross-state-032",
+        "cross-state-033",
+        "cross-state-034",
+        "cross-state-035",
+        "cross-state-036",
+        "cross-state-037",
+        "cross-state-038",
+        "cross-state-039",
+        "cross-state-040",
+        "cross-state-041",
+        "cross-state-042",
+        "cross-state-043",
+        "cross-state-044",
+        "cross-state-045",
+        "cross-state-046",
+        "cross-state-047",
+        "cross-state-048",
+        "cross-state-049",
+        "cross-state-050",
+        "cross-state-051",
+        "cross-state-052",
+        "cross-state-053",
+        "cross-state-054",
+        "cross-state-055",
+        "cross-state-056",
+        "cross-state-057",
+        "cross-state-058",
+        "cross-state-059",
+        "cross-state-060",
+        "cross-state-061",
+        "cross-state-062",
+        "cross-state-063",
+        "cross-state-064",
+        "cross-state-065",
+        "cross-state-066",
+        "cross-state-067",
+        "cross-state-068",
+        "cross-state-069",
+        "cross-state-070",
+        "cross-state-071",
+        "cross-state-072",
+        "cross-state-073",
+        "cross-state-074",
+        "cross-state-075",
+        "cross-state-076",
+        "cross-state-077",
+        "cross-state-078",
+        "cross-state-079",
+        "cross-state-080",
+        "cross-state-081",
+        "cross-state-082",
+        "cross-state-083",
+        "cross-state-084",
+        "cross-state-085",
+        "cross-state-086",
+        "cross-state-087",
+        "cross-state-088",
+        "cross-state-089",
+        "cross-state-090",
+        "cross-state-091",
+        "cross-state-092",
+        "cross-state-093",
+        "cross-state-094",
+        "cross-state-095",
+        "cross-state-096",
+        "cross-state-097",
+        "cross-state-098",
+        "cross-state-099",
+        "cross-state-100",
+        "cross-state-101",
+        "cross-state-102",
+        "cross-state-103",
+        "cross-state-104",
+        "cross-state-105",
+        "cross-state-106",
+        "cross-state-107"
+      ]
+    }
+  ],
+  "scope": {
+    "chain_id": 8453,
+    "created_utc": "2026-11-28T08:42:04.821578+00:00",
+    "driver_sha256": "1e4e0f61a74166ddd72e521ec034de71e2f67bcd88e4ab6fb84efc6fa7dda4a3",
+    "limits": {
+      "archive": 150,
+      "interval_ms": 250,
+      "official": 6,
+      "usd": 0
+    },
+    "machine": {
+      "architecture": "x86_64",
+      "binary_sha256": "d62576b709edf9a605b8d0d68707f1454c20f1e1c451db312951138ae46f05b8",
+      "controller": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+      "release_sha256": "9fc087a687e48ec626bcac9d86e67737f7cf095d11bd2033227fe4ccbdcb14ff",
+      "user_id": "1000",
+      "version": [
+        "anvil Version: 1.6.0-v1.5.1",
+        "Commit SHA: 571865d16650580623d69a1eba4840badbaa1843",
+        "Build Timestamp: 2026-10-23T21:05:48.264826845Z (1792789548)",
+        "Build Profile: dist"
+      ]
+    },
+    "pairs": {
+      "cross": [
+        63217836,
+        "0xb8bbb72d3d3c4647231ae79746a3f8e07e03c19cc8ec36c14263d31cdbfb6e43",
+        "0x19e317a1f5118d83a44e9b32758fb4414fa6ef52d29a70fa94d4232267f23dd5"
+      ],
+      "same": [
+        63043739,
+        "0xb8a7b643eb38ff32a8298d0a9dfb1a5fcb9fbf04c58b28b1a211d68e7ccc47dc",
+        "0x9e630279da490b13e3081796122893f1077e92ebcbe1909de9af1f1ba65494f7"
+      ]
+    },
+    "principal_wei": 67280448940895129,
+    "schema": "oasis.base.denim-aleph-pair.v1"
+  },
+  "scope_sha256": "d4128905cf33e3e6acfe68a85b59cb4f88c5843f90a59ca22d936e381df883b7"
+}

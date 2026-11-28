@@ -79,6 +79,8 @@
 
 ## 证据导航
 
+- 11 月 28 日，在 Aleph 复核 Base Denim 同秒及跨秒父子块。EVM 探针读到规范父哈希，两组实际到账和 gas 与公开源一致，Base Anvil 的外层响应父哈希仍为零。[原生执行两组对照](verification/BASE_DENIM_NATIVE_ALEPH_20261128.md)
+- 11 月 28 日，Base 固定 WETH 本金的新窗覆盖 62 个连续头，五组 H／K／C 的 15 次双源整笔逐项一致，每笔 310,551 gas，均为费后负值。五次发现和整笔均迟于直接子头。六条其他链再筛 895 笔多事件候选，并核出 BSC 36 事件的 12 个独立环。[Base 三阶段](verification/BASE_FIXED_HKC_DENIM_20261128.md) · [Ethereum／BSC](verification/Y2026_ETH_BSC_FRESH_20261128.md) · [四条 L2](verification/Y2026_L2_FRESH_20261128.md)
 - 11 月 28 日，Base 官方与 dRPC 的固定本金整笔配对 4/4 一致，及时率均为 0/4。临时历史 fork 热态 24 次中位 1.429 ms，冷态 25.853 秒。通用 Anvil 拒绝 Denim 同秒时间戳。Base 发行版复现 293,025 gas 和整笔资金流，返回的子块上下文仍有差异。近端实时覆盖及自然正例存续率待测。[同头、冷／热与时间戳对照](verification/BASE_SIMULATOR_LATENCY_20261128.md)
 - 11 月 28 日，Base 上一块缓存与最新头单槽调度已进入新窗口的只读测量。原混合池微利的 WETH 整笔在 H 费后余 1,682,277,530,217 wei，P、C 均负；同一固定本金的新 15 头有 10 次在子头前发出，零次模拟和费用都按时齐备。诊断在实时线程退出后运行。另核六链新成交。[历史 P/H/C](verification/BASE_MIXED_WHOLE_20261128.md) · [同头优先实测](verification/BASE_MIXED_HEAD_PRIORITY_20261128.md) · [六链扩样](verification/Y2026_MULTICHAIN_EXPANDED_20261128.md)
 - 11 月 28 日，Base 新增只读策略对照复算，使用同一交易摘要、父子哈希和子头到达时限衡量上一块和同头决策。六组固定本金对照均无正例。自然八头两笔逐腿报价费后为正，属于同一池环且均过了直接子头，整笔状态未知。Morpho 只读回放补上了新 Ethereum 成交所示的单个冗余零字 ABI 布局。[Base 策略对照](verification/BASE_PRIOR_HEAD_POLICY_20261128.md) · [自然机会](verification/BASE_PRIOR_HEAD_POLICY_NATURAL_20261128.md) · [Ethereum 与 BSC 新样本](verification/Y2026_ETH_BSC_UNTOUCHED_20261128.md)

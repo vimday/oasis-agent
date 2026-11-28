@@ -1,0 +1,1235 @@
+{
+  "chains": {
+    "arbitrum": {
+      "blocks_screened": 1152,
+      "by_market_event_minimum": {
+        "1": 597,
+        "2": 25,
+        "3": 7,
+        "5": 2,
+        "10": 1,
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "chain_id": 42161,
+      "max_market_events": 15,
+      "verified_samples": [
+        {
+          "block": {
+            "hash": "0x2ae18231a2b30ee0e4415c44fef1abd4cea757589f5a18ec8adc0c3c5ce442d2",
+            "height": 528209650,
+            "receipts_root": "0xb6a2eeaab49d84562577a98f411b2781e4c9850ac214a799a12fb900164798e3",
+            "reverts": 0,
+            "timestamp": 1795845908,
+            "transactions": 2
+          },
+          "closed_cycles": [],
+          "events": 15,
+          "fee": {
+            "complete_network_fee_wei": 97300690432200,
+            "effective_price_wei": 20610300,
+            "execution_l2_wei": 97285706744100,
+            "gas_units": 4720974,
+            "known_network_fee_wei": 97300690432200,
+            "l1_data_wei": 14983688100,
+            "operator_fee_wei": 0
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 1,
+          "longest_verified_linked": [
+            12
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x99999bc829ac80fe1753e683a33d012867f1c03d",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0xfc9cac67e02db61b6d5a36f2e00941a2f40970d4",
+              "token": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+              "transfer_delta_raw": 172835684160000
+            }
+          ],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0xfc9cac67e02db61b6d5a36f2e00941a2f40970d4",
+          "tx": "0x3ecffa99a6caf433766ef061d1573391aee7e6c199d5a0eea009d0557d747d5f",
+          "utc": "2026-11-28T06:05:08+00:00"
+        },
+        {
+          "block": {
+            "hash": "0x41761fb980802d6336fa79f58b4530d7f2aa8dcda4b4cd7d4df4249e99d97381",
+            "height": 528218481,
+            "receipts_root": "0xf6d3c8628733e52c3cfd98a5ce66ff728afe71a5b653cd5507d821b60c88af3c",
+            "reverts": 0,
+            "timestamp": 1795848794,
+            "transactions": 3
+          },
+          "closed_cycles": [],
+          "events": 8,
+          "fee": {
+            "complete_network_fee_wei": 35681015255070,
+            "effective_price_wei": 20164610,
+            "execution_l2_wei": 35664056818060,
+            "gas_units": 1769487,
+            "known_network_fee_wei": 35681015255070,
+            "l1_data_wei": 16958437010,
+            "operator_fee_wei": 0
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 2,
+          "longest_verified_linked": [
+            7
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x381d4973d3a9bd787c0091d3dcf9419014221e79",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0x381d4973d3a9bd787c0091d3dcf9419014221e79",
+              "token": "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+              "transfer_delta_raw": -1689648
+            },
+            {
+              "address": "0x381d4973d3a9bd787c0091d3dcf9419014221e79",
+              "token": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+              "transfer_delta_raw": 1009205207
+            }
+          ],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0x09f94b5fc68e227c323a6fbae3bd98c97fd8c849",
+          "tx": "0x4a8bc4c85fd2b8da97789a17f816104fcf709000edfb54521099a00de28a2e1b",
+          "utc": "2026-11-28T06:53:14+00:00"
+        },
+        {
+          "block": {
+            "hash": "0xac58dec4da99a40eca74c868f9b0d95f37bad4a40bca7b4db6ff8944d9b09c94",
+            "height": 528189388,
+            "receipts_root": "0xae9093ef10de0b343d40da68f7b1c547fbc77fe18e74d24fd480417a4b4a3c90",
+            "reverts": 0,
+            "timestamp": 1795839324,
+            "transactions": 5
+          },
+          "closed_cycles": [],
+          "events": 3,
+          "fee": {
+            "complete_network_fee_wei": 7481377603098,
+            "effective_price_wei": 28956846,
+            "execution_l2_wei": 7470374001618,
+            "gas_units": 258363,
+            "known_network_fee_wei": 7481377603098,
+            "l1_data_wei": 11003601480,
+            "operator_fee_wei": 0
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 3,
+          "longest_verified_linked": [
+            11,
+            14
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x92e2d8057c4472e4579e18d40d1ca512afb906d2",
+          "payer_recipient_erc20_deltas": [],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0xef0df9a49025512f0d5e3b45dcc27903af984834",
+          "tx": "0xdc5d4c2239f15c3156178796f3a277005eb1f82ad498a458771536b881d2c802",
+          "utc": "2026-11-28T04:15:24+00:00"
+        },
+        {
+          "block": {
+            "hash": "0x3069a9a24b2fbb120dfebde5105614674c7c44e8c8996cfcb39d9d395a8962ae",
+            "height": 528218609,
+            "receipts_root": "0xc76dd2f3f392ec0075e01b047e4e20e58afabbd20e2d9569bb67480826cd3742",
+            "reverts": 0,
+            "timestamp": 1795848838,
+            "transactions": 4
+          },
+          "closed_cycles": [],
+          "events": 3,
+          "fee": {
+            "complete_network_fee_wei": 13413839563772,
+            "effective_price_wei": 20363554,
+            "execution_l2_wei": 13402843244612,
+            "gas_units": 658718,
+            "known_network_fee_wei": 13413839563772,
+            "l1_data_wei": 10996319160,
+            "operator_fee_wei": 0
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 1,
+          "longest_verified_linked": [
+            13
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0xb093bfe907d94e8624ce919ac3875c67c464286d",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0xe200007fb83b7916a300dfa97c00000073e2edd2",
+              "token": "0x498bf2b1e120fed3ad3d42ea2165e9b73f99c1e5",
+              "transfer_delta_raw": 27237681630272505
+            },
+            {
+              "address": "0xe200007fb83b7916a300dfa97c00000073e2edd2",
+              "token": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+              "transfer_delta_raw": 10988
+            }
+          ],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0xe200007fb83b7916a300dfa97c00000073e2edd2",
+          "tx": "0xd837bb56065f89f6ae17f9c02e618280406be9508ab719a61c786c4bbcf49430",
+          "utc": "2026-11-28T06:53:58+00:00"
+        },
+        {
+          "block": {
+            "hash": "0x4741de2bf6af79a35fd8595e478c03e11acb8150e156c99090434fc743a3fb3f",
+            "height": 528218635,
+            "receipts_root": "0x1e6670477da51c457887e0af3e05d98d00137f015aa872ef1790ad5294274875",
+            "reverts": 0,
+            "timestamp": 1795848845,
+            "transactions": 4
+          },
+          "closed_cycles": [],
+          "events": 3,
+          "fee": {
+            "complete_network_fee_wei": 24705806810000,
+            "effective_price_wei": 22010000,
+            "execution_l2_wei": 24664450020000,
+            "gas_units": 1122481,
+            "known_network_fee_wei": 24705806810000,
+            "l1_data_wei": 41356790000,
+            "operator_fee_wei": 0
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 2,
+          "longest_verified_linked": [
+            8
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0xde38c16cff298f55a552519e21793baa02613033",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0xde38c16cff298f55a552519e21793baa02613033",
+              "token": "0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+              "transfer_delta_raw": -1705868
+            },
+            {
+              "address": "0xde38c16cff298f55a552519e21793baa02613033",
+              "token": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1",
+              "transfer_delta_raw": 615369915165949181
+            }
+          ],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5",
+          "tx": "0x29b338ff1f9626e97c6389c6f6b6aeca144cebc6baab28423fba8710e3127f68",
+          "utc": "2026-11-28T06:54:05+00:00"
+        }
+      ],
+      "windows": [
+        {
+          "edge_hashes": [
+            "0xd84a2b9403c4e082b5d15d298cc601bf8f15e348931e85cc67a88941b01a570b",
+            "0xebf2a93e75a074a60df2d76e0e4f322f826f5f8fe493acd0969037f507860feb"
+          ],
+          "first": 528218455,
+          "last": 528218838,
+          "logs_with_financing_shapes": 378,
+          "utc": [
+            "2026-11-28T06:53:07+00:00",
+            "2026-11-28T06:55:08+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x93693c34590ce7bbd423d8aa10688caf6ee247f39ba9005cbda4b70c1af3716f",
+            "0x2a075e3f009a089a80fac38b0e547175369b905b3e9fad56f616491854c5ec88"
+          ],
+          "first": 528209467,
+          "last": 528209850,
+          "logs_with_financing_shapes": 127,
+          "utc": [
+            "2026-11-28T06:04:10+00:00",
+            "2026-11-28T06:06:16+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x7f27d80ae8551d274118da3b12101708ebbe5f46936461f2523f680d2968e491",
+            "0xccb8b7c291de499298f7975be62ff70d3c5fe9326f50265fbf86d718577f4528"
+          ],
+          "first": 528189297,
+          "last": 528189680,
+          "logs_with_financing_shapes": 141,
+          "utc": [
+            "2026-11-28T04:14:54+00:00",
+            "2026-11-28T04:16:56+00:00"
+          ]
+        }
+      ]
+    },
+    "era": {
+      "blocks_screened": 216,
+      "by_market_event_minimum": {
+        "1": 84,
+        "2": 27,
+        "3": 4,
+        "5": 0,
+        "10": 0,
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "chain_id": 324,
+      "max_market_events": 3,
+      "verified_samples": [],
+      "windows": [
+        {
+          "edge_hashes": [
+            "0x347678ba9af04003704a177e2f63157125fa7777828dd71b7696c1161c1d7cd6",
+            "0x8b45f6b889ada78bbed6dd9253851d47df70d0014d6018ff31499242abe6f60d"
+          ],
+          "first": 73134497,
+          "last": 73134568,
+          "logs_with_financing_shapes": 26,
+          "utc": [
+            "2026-11-28T07:46:25+00:00",
+            "2026-11-28T07:59:01+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x65225a6d7a119e8e745f2501589bb9c358c6463d2454699761edeb21126d779e",
+            "0xd62fa11ac58431cbb1c7dc15c17d37f4625065b305ceb4ed2fdb124080bab997"
+          ],
+          "first": 73133937,
+          "last": 73134008,
+          "logs_with_financing_shapes": 5,
+          "utc": [
+            "2026-11-28T06:51:09+00:00",
+            "2026-11-28T07:02:44+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x7b6a1865bf3f8af7b599d5b02b71371d71999d92cdcd08706e06c9f29a120d92",
+            "0x06f8c33440507c3ce19460d1f9fc6345b5d1d7f6f0313584c6dca670099abb54"
+          ],
+          "first": 73133387,
+          "last": 73133458,
+          "logs_with_financing_shapes": 84,
+          "utc": [
+            "2026-11-28T05:45:49+00:00",
+            "2026-11-28T05:49:04+00:00"
+          ]
+        }
+      ]
+    },
+    "optimism": {
+      "blocks_screened": 288,
+      "by_market_event_minimum": {
+        "1": 922,
+        "2": 499,
+        "3": 318,
+        "5": 14,
+        "10": 3,
+        "20": 2,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "chain_id": 10,
+      "max_market_events": 25,
+      "verified_samples": [
+        {
+          "block": {
+            "hash": "0x50ea4b5062dc5e2a112c4ef6e777a3e7d5b9e6f60d925bd433a12fdaa480d75d",
+            "height": 160127489,
+            "transactions": 99
+          },
+          "closed_cycles": [
+            {
+              "asset": "0x4200000000000000000000000000000000000006",
+              "gross_raw": 108103583409,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                163,
+                164,
+                165
+              ],
+              "paid_raw": 822377107211327,
+              "received_raw": 822485210794736
+            },
+            {
+              "asset": "0x4200000000000000000000000000000000000006",
+              "gross_raw": 30563553373,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                217,
+                218,
+                219
+              ],
+              "paid_raw": 142073309408398,
+              "received_raw": 142103872961771
+            },
+            {
+              "asset": "0x4200000000000000000000000000000000000006",
+              "gross_raw": 32418594294,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                226,
+                227,
+                228,
+                229
+              ],
+              "paid_raw": 453133087051837,
+              "received_raw": 453165505646131
+            },
+            {
+              "asset": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+              "gross_raw": 32,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                236,
+                232,
+                237
+              ],
+              "paid_raw": 134260,
+              "received_raw": 134292
+            }
+          ],
+          "events": 25,
+          "fee": {
+            "complete_network_fee_wei": null,
+            "effective_price_wei": 22646,
+            "execution_l2_wei": 101163033608,
+            "gas_units": 4467148,
+            "known_network_fee_wei": 113943928494,
+            "l1_data_wei": 12780894886,
+            "operator_fee_wei": null
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [
+            167,
+            188
+          ],
+          "index": 88,
+          "longest_verified_linked": [
+            226,
+            227,
+            228,
+            229
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x43599b314f1074610952be0b69280aa8727b0859",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0x217293d005b00280396bb822468d1ce778e7f0a2",
+              "token": "0x4200000000000000000000000000000000000006",
+              "transfer_delta_raw": 383378147592
+            }
+          ],
+          "receipt_basis": "receipt provider and independent scan-log match",
+          "to": "0x217293d005b00280396bb822468d1ce778e7f0a2",
+          "tx": "0x6c397653254afca640f7fc5aaba43a73961e37fad6792345ab733dcdd57a5d4f",
+          "utc": "2026-11-28T08:15:55+00:00"
+        },
+        {
+          "block": {
+            "hash": "0xa1694ee4364e00b851d7ff5b39317d4b1ad995ad750459ef1333e91ad9ec0ab5",
+            "height": 160127461,
+            "transactions": 141
+          },
+          "closed_cycles": [],
+          "events": 23,
+          "fee": {
+            "complete_network_fee_wei": null,
+            "effective_price_wei": 13228,
+            "execution_l2_wei": 58271919460,
+            "gas_units": 4405195,
+            "known_network_fee_wei": 73268875043,
+            "l1_data_wei": 14996955583,
+            "operator_fee_wei": null
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 28,
+          "longest_verified_linked": [
+            121,
+            129
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x9fcbcadf41a926370a848a45f2df6aa581807e94",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0x9fcbcadf41a926370a848a45f2df6aa581807e94",
+              "token": "0x21018fc785a6a7b3e3f3df3e887a4e8ceb155d4a",
+              "transfer_delta_raw": -1389872551282101032716
+            },
+            {
+              "address": "0x9fcbcadf41a926370a848a45f2df6aa581807e94",
+              "token": "0x8ae125e8653821e851f12a49f7765db9a9ce7384",
+              "transfer_delta_raw": 329
+            },
+            {
+              "address": "0x9fcbcadf41a926370a848a45f2df6aa581807e94",
+              "token": "0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a",
+              "transfer_delta_raw": 536
+            }
+          ],
+          "receipt_basis": "receipt provider and independent scan-log match",
+          "to": "0xe82343a116d2179f197111d92f9b53611b43c01c",
+          "tx": "0x5a745d48b1ca34394f0dd35326c92b57f79ee5dc60cbf2e8dca73c58e4969714",
+          "utc": "2026-11-28T08:14:59+00:00"
+        },
+        {
+          "block": {
+            "hash": "0x6ea9a72340fcb0ba67d3d24a777cfe78b2ee5c3938b04dcc204dd7a670b0f00f",
+            "height": 160128027,
+            "transactions": 60
+          },
+          "closed_cycles": [
+            {
+              "asset": "0x4200000000000000000000000000000000000006",
+              "gross_raw": 42177371584,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                137,
+                138,
+                139
+              ],
+              "paid_raw": 548558216168045,
+              "received_raw": 548600393539629
+            },
+            {
+              "asset": "0x4200000000000000000000000000000000000006",
+              "gross_raw": 22438546574,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                145,
+                146,
+                147
+              ],
+              "paid_raw": 302088624979651,
+              "received_raw": 302111063526225
+            },
+            {
+              "asset": "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58",
+              "gross_raw": 33,
+              "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+              "legs": [
+                153,
+                154,
+                155
+              ],
+              "paid_raw": 468700,
+              "received_raw": 468733
+            }
+          ],
+          "events": 10,
+          "fee": {
+            "complete_network_fee_wei": null,
+            "effective_price_wei": 20676,
+            "execution_l2_wei": 28039922808,
+            "gas_units": 1356158,
+            "known_network_fee_wei": 31963669616,
+            "l1_data_wei": 3923746808,
+            "operator_fee_wei": null
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 44,
+          "longest_verified_linked": [
+            137,
+            138,
+            139
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x43599b314f1074610952be0b69280aa8727b0859",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0x217293d005b00280396bb822468d1ce778e7f0a2",
+              "token": "0x4200000000000000000000000000000000000006",
+              "transfer_delta_raw": 83969052774
+            }
+          ],
+          "receipt_basis": "receipt provider and independent scan-log match",
+          "to": "0x217293d005b00280396bb822468d1ce778e7f0a2",
+          "tx": "0xb29e9d71af21c619f9963dac89023da51b39bb94a1fb03c4542537cbf44c989b",
+          "utc": "2026-11-28T08:33:51+00:00"
+        }
+      ],
+      "windows": [
+        {
+          "edge_hashes": [
+            "0x7076fa66298279110613d2ba3b386af3cbb121e1e549de1b554fa3d38112937a",
+            "0xea2b945df046571122099d537ae92080e4a1b9e6d5b40d849c8eb8fa29757320"
+          ],
+          "first": 160128012,
+          "last": 160128107,
+          "logs_with_financing_shapes": 436,
+          "utc": [
+            "2026-11-28T08:33:21+00:00",
+            "2026-11-28T08:36:31+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x2b07b083e002e78b114deb066a65cbaf96254de9994273eeceb3568131e1bf04",
+            "0xa2cd7f5a7889ab937f2904c505da1b57ef859fbad8c56f1b6620f445e8a5f868"
+          ],
+          "first": 160127872,
+          "last": 160127967,
+          "logs_with_financing_shapes": 108,
+          "utc": [
+            "2026-11-28T08:28:41+00:00",
+            "2026-11-28T08:31:51+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0xb75d7c977a341111a02fa9b1f6b7d7f625584d65366d02c1fbccd3f8ece88e14",
+            "0x2b8405f539c6297a2d3e0b87ad204393c5fa9a6cebbb5feb80a328925e8461dd"
+          ],
+          "first": 160127444,
+          "last": 160127539,
+          "logs_with_financing_shapes": 1376,
+          "utc": [
+            "2026-11-28T08:14:25+00:00",
+            "2026-11-28T08:17:35+00:00"
+          ]
+        }
+      ]
+    },
+    "robinhood": {
+      "blocks_screened": 576,
+      "by_market_event_minimum": {
+        "1": 571,
+        "2": 98,
+        "3": 37,
+        "5": 3,
+        "10": 0,
+        "20": 0,
+        "50": 0,
+        "100": 0,
+        "200": 0
+      },
+      "chain_id": 4663,
+      "max_market_events": 9,
+      "verified_samples": [
+        {
+          "block": {
+            "hash": "0xc623f8c8340201f17772d3b41ad663855b084843d625b051a2060dc82298b75c",
+            "height": 124897227,
+            "receipts_root": "0xf0d857226114d3b57242816e33228a3e1339cc2a8dac0241f26d134430101410",
+            "reverts": 37,
+            "timestamp": 1795854888,
+            "transactions": 50
+          },
+          "closed_cycles": [],
+          "events": 9,
+          "fee": {
+            "complete_network_fee_wei": 52853786080000,
+            "included_l1_gas": 1667
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 5,
+          "longest_verified_linked": [
+            44
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x7efc80897ccb1da7ca53a0dd0f25abbfaff3484a",
+          "payer_recipient_erc20_deltas": [
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x015b88f4a443d37b41bc65aeeee5c1c8bad84746",
+              "transfer_delta_raw": -110
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "transfer_delta_raw": 263974601755928
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x1f056f8882cd64fd7b9d53b112fd1dac36e4d9e6",
+              "transfer_delta_raw": -110
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x3d78de6fbc28489a4ca61e411e1baa82124ee7c0",
+              "transfer_delta_raw": -110
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x5f582da15ae8cbea94327d45ce5a8f8f0e24c5a9",
+              "transfer_delta_raw": -110
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x778e4702e285d94ef0f32fbf5ed0ac455aec1b30",
+              "transfer_delta_raw": -85
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0x7dccacec4496a0c6359b283a0a99c65d2057a1ae",
+              "transfer_delta_raw": -110
+            },
+            {
+              "address": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+              "token": "0xa9ea01733ed9a2339ed8954ded99f3b18f6250e7",
+              "transfer_delta_raw": -110
+            }
+          ],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0xdd363424a680c5acf1d5b7aa346a59214c81f5e6",
+          "tx": "0xa869ea92ecc99288ed4616b4ea14492cbd9cabd630b39900b678bf70b4133cb7",
+          "utc": "2026-11-28T08:34:48+00:00"
+        },
+        {
+          "block": {
+            "hash": "0xc00e0eebc8a3b10ad8d9fe52ab6831191cb7e0e718bc4c27a6cd25599303d435",
+            "height": 124897161,
+            "receipts_root": "0x671a70fd3f219d0fa9ad1740f4004ac2358801e8d255a2cf777c90f52075b487",
+            "reverts": 49,
+            "timestamp": 1795854881,
+            "transactions": 71
+          },
+          "closed_cycles": [
+            {
+              "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "gross_raw": 30754038718730,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                29,
+                30,
+                31
+              ],
+              "paid_raw": 14043918673012492,
+              "received_raw": 14074672711731222
+            },
+            {
+              "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "gross_raw": 12899028874526,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                38,
+                39,
+                40
+              ],
+              "paid_raw": 9366335994973329,
+              "received_raw": 9379235023847855
+            },
+            {
+              "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "gross_raw": 5239977348331,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                47,
+                48,
+                49
+              ],
+              "paid_raw": 6244991518546408,
+              "received_raw": 6250231495894739
+            }
+          ],
+          "events": 9,
+          "fee": {
+            "complete_network_fee_wei": 17279309232000,
+            "included_l1_gas": 584
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 33,
+          "longest_verified_linked": [
+            29,
+            30,
+            31
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [
+            {
+              "conditional_weth_path_after_entire_receipt_fee_wei": 13474729486730,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                29,
+                30,
+                31
+              ]
+            },
+            {
+              "conditional_weth_path_after_entire_receipt_fee_wei": -4380280357474,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                38,
+                39,
+                40
+              ]
+            },
+            {
+              "conditional_weth_path_after_entire_receipt_fee_wei": -12039331883669,
+              "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+              "legs": [
+                47,
+                48,
+                49
+              ]
+            }
+          ],
+          "payer": "0x464764ff2b56f67af0e7255964dc264f9d0fb013",
+          "payer_recipient_erc20_deltas": [],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0x90a0c9f78e789f1bf513246d86af639677e613f5",
+          "tx": "0xe56adce483bad285a81109462847ecc94c874baad0ed6a5ed57dd5d7272a48d9",
+          "utc": "2026-11-28T08:34:41+00:00"
+        },
+        {
+          "block": {
+            "hash": "0x9c1d33682c40f64eb615b19046803aadf4d68a113da7e5f967cadb9812b2eeb1",
+            "height": 124897245,
+            "receipts_root": "0xdaa82b6d266b4b65420361279b5885e73e2b82ebf22785a6c0300a46a806de6e",
+            "reverts": 66,
+            "timestamp": 1795854890,
+            "transactions": 104
+          },
+          "closed_cycles": [
+            {
+              "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+              "gross_raw": 413754939495,
+              "holder": "0x56051dbb425a4a04efd924d7e00de65030b4fb7d",
+              "legs": [
+                100,
+                95,
+                98
+              ],
+              "paid_raw": 1383254528586934,
+              "received_raw": 1383668283526429
+            }
+          ],
+          "events": 6,
+          "fee": {
+            "complete_network_fee_wei": 20780217360000,
+            "included_l1_gas": 421
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 74,
+          "longest_verified_linked": [
+            100,
+            95,
+            98
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [
+            {
+              "conditional_weth_path_after_entire_receipt_fee_wei": -20366462420505,
+              "holder": "0x56051dbb425a4a04efd924d7e00de65030b4fb7d",
+              "legs": [
+                100,
+                95,
+                98
+              ]
+            }
+          ],
+          "payer": "0x0db0a6390751831accb7e0a97e26c77a26a4a190",
+          "payer_recipient_erc20_deltas": [],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0xd6d241d45e37cd6c1066bb3040b67b92cbdce9c8",
+          "tx": "0xf9e89819c160915a6e63097a2f346f6722d977f47cb31bea5febbf5f82ad8493",
+          "utc": "2026-11-28T08:34:50+00:00"
+        },
+        {
+          "block": {
+            "hash": "0xc8e8a135e589007a4437d3366f376afc969a04504ec089962f3d4b019f980f1a",
+            "height": 124897243,
+            "receipts_root": "0x6bb184d8997e65bd372995c401be095a801816ae19ac9821505e692dceb9fd70",
+            "reverts": 107,
+            "timestamp": 1795854890,
+            "transactions": 137
+          },
+          "closed_cycles": [],
+          "events": 4,
+          "fee": {
+            "complete_network_fee_wei": 14227132788000,
+            "included_l1_gas": 1881
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 93,
+          "longest_verified_linked": [
+            74,
+            77,
+            80
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x18eaa33e871fc0ff8919ad41f0522b88b0a62ca3",
+          "payer_recipient_erc20_deltas": [],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0x0000000071727de22e5e9d8baf0edac6f37da032",
+          "tx": "0x9f48e74a9aed1a23b95d8e5ae601539a5ebd3c720f1700151b5f9b3716d34c18",
+          "utc": "2026-11-28T08:34:50+00:00"
+        },
+        {
+          "block": {
+            "hash": "0xeff95a45ecfbd3aff988c7e5f01911c16f720f3051c634b25b802bd47fb4734f",
+            "height": 124897262,
+            "receipts_root": "0x52bb0b61d6af6f9b9dd1817233f6b488c68f90cc11bdee80e56fb70b6e0fbbdb",
+            "reverts": 26,
+            "timestamp": 1795854892,
+            "transactions": 32
+          },
+          "closed_cycles": [],
+          "events": 4,
+          "fee": {
+            "complete_network_fee_wei": 17940060404000,
+            "included_l1_gas": 1594
+          },
+          "fee_native_currency": "ETH",
+          "financing_event_indexes": [],
+          "index": 21,
+          "longest_verified_linked": [
+            9,
+            12
+          ],
+          "owner_all_cost_net": null,
+          "path_fee_comparison": [],
+          "payer": "0x4337edb05773d3927c63f9a2734c15d03c5062bc",
+          "payer_recipient_erc20_deltas": [],
+          "receipt_basis": "reconstructed header hash and full ordered receipt trie",
+          "to": "0x4337084d9e255ff0702461cf8895ce9e3b5ff108",
+          "tx": "0xbbf50ab7c41390b594b280dd9eaf9663bc8d2375ac3ee3fea47b09736ad505b6",
+          "utc": "2026-11-28T08:34:52+00:00"
+        }
+      ],
+      "windows": [
+        {
+          "edge_hashes": [
+            "0x370f83dd4d7fe72f86d0be97238bcdffbee89e9a8f7492cb7b83737d4f2c497f",
+            "0x2473f2ef7b84cc8604af3148a6b8597d7f44ea9394933a5aa0dca8276590ddea"
+          ],
+          "first": 124898360,
+          "last": 124898551,
+          "logs_with_financing_shapes": 189,
+          "utc": [
+            "2026-11-28T08:36:57+00:00",
+            "2026-11-28T08:37:21+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x1f0d66ad8503a5f2541bea367e97446e5c1cb9aec49809c5520ef1fd46816b7a",
+            "0x9474ce5a371ed9953bfaf0423b5100bfe6534510d125ceead2611666e1207f6f"
+          ],
+          "first": 124897850,
+          "last": 124898041,
+          "logs_with_financing_shapes": 148,
+          "utc": [
+            "2026-11-28T08:35:53+00:00",
+            "2026-11-28T08:36:18+00:00"
+          ]
+        },
+        {
+          "edge_hashes": [
+            "0x2dede782427c86580851d8394a05b295fce5a80a7a4d81aa1092a761eb0419c4",
+            "0x36e50c71d3b51e6ea04642823a90432b5ef3383c5ba4f91e4d3269dd7f14423f"
+          ],
+          "first": 124897106,
+          "last": 124897297,
+          "logs_with_financing_shapes": 392,
+          "utc": [
+            "2026-11-28T08:34:36+00:00",
+            "2026-11-28T08:34:55+00:00"
+          ]
+        }
+      ]
+    }
+  },
+  "rpc_reserved_count": 91,
+  "rpc_spending_usd": 0,
+  "scopes": {
+    "y2026-l2-fresh-exact-20261128": {
+      "lanes": {
+        "era": {
+          "audit": {
+            "first_failure": "HTTP refusal 404",
+            "replay_only": false,
+            "requests": 1
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": true,
+            "requests": 11
+          }
+        },
+        "optimism": {
+          "audit": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 7
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": true,
+            "requests": 11
+          }
+        }
+      },
+      "result_sha256": "bab5e1bb3b222fcf31ea692c56e580004ccaa036fcd201a8ebd2ac00b37f160c",
+      "scope_sha256": "bb44f69eb3c8ebf4647232de7ee0695be409f5160b7f3245190f740251fc85f6"
+    },
+    "y2026-l2-fresh-follow-20261128": {
+      "lanes": {
+        "era": {
+          "audit": {
+            "first_failure": "The read operation timed out",
+            "replay_only": false,
+            "requests": 3
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          }
+        },
+        "optimism": {
+          "audit": {
+            "first_failure": "RPC response limit reached",
+            "replay_only": false,
+            "requests": 3
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          }
+        },
+        "robinhood": {
+          "audit": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          }
+        }
+      },
+      "result_sha256": "ff94789f194db408666f8a1885a25e60ca0ab07ccd464a2de96d96ed4e89df5b",
+      "scope_sha256": "64dec1595c68b0d7ad62e5830b7e53a89f11fdfe39f3a54f8c5526a0ac3ec42f"
+    },
+    "y2026-l2-fresh-v1-20261128": {
+      "lanes": {
+        "arbitrum": {
+          "audit": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          },
+          "scan": {
+            "first_failure": null,
+            "replay_only": false,
+            "requests": 11
+          }
+        },
+        "era": {
+          "scan": {
+            "first_failure": "The read operation timed out",
+            "replay_only": false,
+            "requests": 1
+          }
+        },
+        "optimism": {
+          "scan": {
+            "first_failure": "HTTP refusal 400",
+            "replay_only": false,
+            "requests": 5
+          }
+        },
+        "robinhood": {
+          "scan": {
+            "first_failure": "HTTP refusal 403",
+            "replay_only": false,
+            "requests": 5
+          }
+        }
+      },
+      "result_sha256": "c090ba8b8107c6a961ac08363fb8ce8737dfc7e0d46b53fb8236f421c4316089",
+      "scope_sha256": "d2c0affa23d31dfae1498a5c16bb8787f5796b1b97444b378c08a970d4560529"
+    }
+  },
+  "special_cases": {
+    "arbitrum": {
+      "after_known_network_if_same_owner_wei": 75534993727800,
+      "forwarded_subflows": [
+        {
+          "events": [
+            12,
+            30
+          ],
+          "transfers": [
+            17,
+            21,
+            24,
+            28
+          ],
+          "wei": 107166574315812
+        },
+        {
+          "events": [
+            45,
+            62
+          ],
+          "transfers": [
+            49,
+            53,
+            56,
+            60
+          ],
+          "wei": 298883585548260
+        },
+        {
+          "events": [
+            113,
+            130
+          ],
+          "transfers": [
+            117,
+            121,
+            124,
+            128
+          ],
+          "wei": 381337549673412
+        },
+        {
+          "events": [
+            151,
+            168
+          ],
+          "transfers": [
+            155,
+            159,
+            162,
+            166
+          ],
+          "wei": 226348292366341
+        },
+        {
+          "events": [
+            184,
+            209
+          ],
+          "transfers": [
+            196,
+            200,
+            203,
+            207
+          ],
+          "wei": 130784535257189
+        }
+      ],
+      "tx": "0x3ecffa99a6caf433766ef061d1573391aee7e6c199d5a0eea009d0557d747d5f",
+      "weth_to_executor_indexes": [
+        15,
+        47,
+        115,
+        153,
+        194
+      ],
+      "weth_to_executor_wei": 172835684160000
+    },
+    "optimism": {
+      "four_leg_weth_cycle": {
+        "asset": "0x4200000000000000000000000000000000000006",
+        "gross_raw": 32418594294,
+        "holder": "0xcccc5836939688aebd90976c9fc57fc9d1a7e8e6",
+        "legs": [
+          226,
+          227,
+          228,
+          229
+        ],
+        "paid_raw": 453133087051837,
+        "received_raw": 453165505646131
+      },
+      "operator_fee_unknown": true,
+      "tx": "0x6c397653254afca640f7fc5aaba43a73961e37fad6792345ab733dcdd57a5d4f",
+      "visible_cycle_minus_known_cost_wei": -81525334200,
+      "visible_executor_weth_minus_known_cost_wei": 269434219098
+    },
+    "robinhood": {
+      "after_known_network_if_same_owner_wei": 31613735709587,
+      "beneficiary_payout_transfers": [
+        {
+          "i": 32,
+          "raw": 30754038718730,
+          "to": "0xc10bb32f04ff05509593bf574aa900e088d0f297"
+        },
+        {
+          "i": 41,
+          "raw": 12899028874526,
+          "to": "0xc10bb32f04ff05509593bf574aa900e088d0f297"
+        },
+        {
+          "i": 50,
+          "raw": 5239977348331,
+          "to": "0xc10bb32f04ff05509593bf574aa900e088d0f297"
+        }
+      ],
+      "beneficiary_weth_wei": 48893044941587,
+      "three_separate_weth_cycles": [
+        {
+          "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "gross_raw": 30754038718730,
+          "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+          "legs": [
+            29,
+            30,
+            31
+          ],
+          "paid_raw": 14043918673012492,
+          "received_raw": 14074672711731222
+        },
+        {
+          "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "gross_raw": 12899028874526,
+          "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+          "legs": [
+            38,
+            39,
+            40
+          ],
+          "paid_raw": 9366335994973329,
+          "received_raw": 9379235023847855
+        },
+        {
+          "asset": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+          "gross_raw": 5239977348331,
+          "holder": "0x050070224c5629d21dbff25acae72bb69f6f3d13",
+          "legs": [
+            47,
+            48,
+            49
+          ],
+          "paid_raw": 6244991518546408,
+          "received_raw": 6250231495894739
+        }
+      ],
+      "tx": "0xe56adce483bad285a81109462847ecc94c874baad0ed6a5ed57dd5d7272a48d9"
+    }
+  }
+}

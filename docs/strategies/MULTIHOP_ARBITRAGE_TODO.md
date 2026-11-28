@@ -10,7 +10,10 @@
 - [x] Ethereum、BSC、Robinhood、Optimism、Arbitrum、Era 再筛六链新窗口，开放跳数尾档，按实付、实收和结算费用归因。[2026 年六链扩样](../verification/Y2026_MULTICHAIN_EXPANDED_20261128.md)
 - [x] 同池对同本金完成两家免费整笔仿真配对。四个新头的两路收付和费用逐项一致，均为 0/4 及时。历史正控在封闭的近端 fork 热态约 1.4 ms，冷态首次约 25.9 秒。Anvil 多报 7,708 gas，且拒绝 Denim 同秒时间戳。[来源、时钟、成本与拒绝对照](../verification/BASE_SIMULATOR_LATENCY_20261128.md)
 - [x] Base 发行版在相同历史状态补读 L1Block 三项，整笔收付和 293,025 gas 均与公开源一致。返回块号、父哈希、coinbase、base fee 仍有差异。[发行版逐字段对照](../verification/BASE_SIMULATOR_NATIVE_ANVIL_20261128.json)
-- [ ] 用 Base 执行层复核同秒及跨秒父子块。先要求相同父哈希、下一块号、费用上下文、本金、到账及 gas，再量从新头到可执行状态、费用到齐和整笔返回的时间。保留两路公开仿真及 4／58／66 池覆盖对照。独立新窗口登记自然正例及直接子块净额，并保留回滚、空跑和缺测的分母。
+- [x] 在 Aleph 的 Base 原生硬分叉模式复核一组同秒及一组跨秒历史父子块。规范父哈希由原始头重建且经 `BLOCKHASH(H)` 读出。显式子块环境复现 293,025／301,204 gas 和实际收付。RPC 外层仍返回零父哈希。[Aleph 两组回放](../verification/BASE_DENIM_NATIVE_ALEPH_20261128.md)
+- [x] 另冻 62 个真实连续头的新窗，在五组固定本金样点登记逐腿发现报价、双源整笔 H、回包时已见 K 和直接子块 C。15 个完整状态逐项一致，均为费后负值。五次发现和整笔结果均迟于 C，发现阶段的 gas 估计比仿真少 9,347。[新窗三阶段净额](../verification/BASE_FIXED_HKC_DENIM_20261128.md)
+- [x] 六条其他链另筛 2,264 块的 895 笔多事件候选，无跳数上限。复核 BSC 十二个独立三跳环、Ethereum 直接区块付款、Robinhood 分组受益人，以及 OP 四池子环。保留 Era 整笔收据缺口。[Ethereum／BSC](../verification/Y2026_ETH_BSC_FRESH_20261128.md) · [四条 L2](../verification/Y2026_L2_FRESH_20261128.md)
+- [ ] 把 Aleph 原生结果接入规范块上下文。模拟响应本身须能验证父哈希及费用上下文，再测同头可执行状态、首次报价、费用到齐与整笔返回。保留两路公开仿真及 4／58／66 池覆盖对照；独立自然候选窗登记直接子块净额、回滚、空跑和缺测。
 
 
 ### 2026-11-28 · 上一块和同头决策
